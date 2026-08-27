@@ -18,11 +18,7 @@ function safeDate(value?: string) {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : windhoekDate();
 }
 
-export default async function AttendancePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ class?: string | string[]; date?: string | string[] }>;
-}) {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/attendance");
 
@@ -36,13 +32,7 @@ export default async function AttendancePage({
   const date = safeDate(requestedDate);
   const academicYear = Number(date.slice(0, 4));
 
-  const workspace = await getDailyRegisterWorkspace(
-    membership.schoolId,
-    academicYear,
-    requestedClass ?? null,
-    date,
-  );
-
+  const workspace = await getDailyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, date);
   const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
   const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
   const registerKey = `${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`;
@@ -60,27 +50,19 @@ export default async function AttendancePage({
         <div className="mb-5 grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
           <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
             <div><p className="text-xs font-medium text-muted-foreground">Register class</p><p className="mt-1.5 text-sm font-semibold">{selectedClass?.name ?? "Not configured"}</p></div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><UsersRound className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
             <div><p className="text-xs font-medium text-muted-foreground">Learners</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{workspace.learners.length}</p></div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><ClipboardCheck className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><ClipboardCheck className="size-4" aria-hidden="true" /></span>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
             <div><p className="text-xs font-medium text-muted-foreground">Exceptions</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{exceptionCount}</p></div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><CalendarCheck2 className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarCheck2 className="size-4" aria-hidden="true" /></span>
           </div>
         </div>
 
-        <DailyRegister
-          key={registerKey}
-          classes={workspace.classes}
-          selectedClassId={workspace.selectedClassId}
-          attendanceDate={date}
-          learners={workspace.learners}
-          reasons={workspace.reasons}
-          currentSubmissionId={workspace.currentSubmissionId}
-        />
+        <DailyRegister key={registerKey} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} />
       </section>
     </AppShell>
   );
