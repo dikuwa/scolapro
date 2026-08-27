@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpenText,
+  Building2,
   CalendarDays,
   ClipboardCheck,
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
 
 const navigation = [
   { key: "today", label: "Today", href: "/", icon: LayoutDashboard },
+  { key: "tenants", label: "Tenants", href: "/platform/tenants", icon: Building2 },
   { key: "learners", label: "Learners", href: "/learners", icon: Users },
   { key: "teaching", label: "Teaching", href: "/teaching", icon: BookOpenText },
   { key: "assessment", label: "Assessment", href: "/assessment", icon: ClipboardCheck },
@@ -21,6 +23,8 @@ const navigation = [
 ] as const;
 
 const enabledKeysByRole: Record<string, readonly string[]> = {
+  platform_admin: ["today", "tenants"],
+  platform_support: ["today", "tenants"],
   school_admin: ["today", "learners", "calendar"],
   principal: ["today", "learners", "assessment", "calendar"],
   deputy_principal: ["today", "learners", "assessment", "calendar"],
