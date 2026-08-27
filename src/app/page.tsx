@@ -84,7 +84,7 @@ export default async function Home() {
 
   return (
     <AppShell>
-      <section className="mx-auto max-w-[94rem]">
+      <section>
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)] font-semibold tracking-[-0.035em] text-foreground">
@@ -97,7 +97,7 @@ export default async function Home() {
 
           <Link
             href="/learners"
-            className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition duration-200 ease-out hover:bg-brand-strong sm:self-auto"
+            className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-brand-strong sm:self-auto"
           >
             Open learners
             <ArrowUpRight aria-hidden="true" className="size-4" />
@@ -105,12 +105,12 @@ export default async function Home() {
         </div>
 
         {isPreview ? (
-          <div className="mb-4 rounded-xl bg-info-soft px-4 py-3 text-xs leading-5 text-[color:var(--info)]">
+          <div className="mb-4 rounded-[var(--radius-sm)] bg-info-soft px-4 py-3 text-xs leading-5 text-[color:var(--info)]">
             Design preview uses synthetic school data. Connect the dedicated ScolaPro Supabase environment to switch this dashboard to authenticated RLS-backed data.
           </div>
         ) : null}
 
-        <div className="grid overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-[var(--shadow-sm)] sm:grid-cols-3">
+        <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
             return (
@@ -128,7 +128,7 @@ export default async function Home() {
                   </p>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{metric.detail}</p>
                 </div>
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-muted text-brand-strong">
+                <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong">
                   <Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} />
                 </span>
               </article>
@@ -137,7 +137,7 @@ export default async function Home() {
         </div>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
-          <section className="rounded-2xl bg-surface-muted p-4 sm:p-5">
+          <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-sm font-semibold tracking-[-0.015em]">School context</h2>
@@ -145,31 +145,31 @@ export default async function Home() {
                   The dashboard now reflects the authenticated school scope rather than hard-coded tenant information.
                 </p>
               </div>
-              <span className="w-fit rounded-lg bg-surface px-2.5 py-1.5 text-xs font-medium capitalize text-muted-foreground shadow-[var(--shadow-sm)]">
+              <span className="w-fit rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 text-xs font-medium capitalize text-muted-foreground shadow-[var(--shadow-xs)]">
                 {roleLabel}
               </span>
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl bg-surface px-4 py-3.5 shadow-[var(--shadow-sm)]">
+              <div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]">
                 <p className="text-xs font-medium text-muted-foreground">School</p>
                 <p className="mt-1.5 text-sm font-medium text-foreground">{schoolName}</p>
               </div>
-              <div className="rounded-xl bg-surface px-4 py-3.5 shadow-[var(--shadow-sm)]">
+              <div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]">
                 <p className="text-xs font-medium text-muted-foreground">Academic year</p>
                 <p className="mt-1.5 text-sm font-medium tabular-nums text-foreground">{academicYear}</p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-border/80 bg-surface p-4 shadow-[var(--shadow-sm)] sm:p-5">
+          <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
             <h2 className="text-sm font-semibold tracking-[-0.015em]">First vertical slice</h2>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               Learner identity and enrolment are the first operational workflow being proven through authentication, RLS and audit-safe writes.
             </p>
             <Link
               href="/learners"
-              className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg bg-surface-muted px-3 text-xs font-medium text-brand-strong transition duration-200 ease-out hover:bg-brand-soft"
+              className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-brand-strong transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-brand-soft"
             >
               Review learners
               <ArrowUpRight aria-hidden="true" className="size-3.5" />
