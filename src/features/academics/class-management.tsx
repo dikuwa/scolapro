@@ -21,8 +21,8 @@ export function ClassManagement({ grades, classes }: { grades: Grade[]; classes:
 
   useEffect(() => {
     if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
-    if (state.success) setEditingId(null);
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [state]);
 
   return (
@@ -59,9 +59,11 @@ export function ClassManagement({ grades, classes }: { grades: Grade[]; classes:
                     <div className="flex shrink-0 items-center gap-1">
                       <button type="button" onClick={() => { setEditingId(item.id); setEditGradeId(item.gradeId); }} aria-label={`Edit ${item.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface hover:text-brand-strong"><Pencil className="size-3.5" /></button>
                       <button type="button" disabled={deletePending} onClick={() => startDelete(async () => {
-                        const formData = new FormData(); formData.set("classId", item.id);
+                        const formData = new FormData();
+                        formData.set("classId", item.id);
                         const result = await deleteRegisterClass(formData);
-                        result.success ? toast.success(result.message) : toast.error(result.message);
+                        if (result.success) toast.success(result.message);
+                        else toast.error(result.message);
                       })} aria-label={`Delete ${item.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:opacity-50"><Trash2 className="size-3.5" /></button>
                     </div>
                   </div>
