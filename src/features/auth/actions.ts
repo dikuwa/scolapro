@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address."),
   password: z.string().min(1, "Enter your password."),
+  next: z.string().optional(),
 });
 
 export type LoginState = {
@@ -17,10 +18,16 @@ export type LoginState = {
   };
 };
 
+function safeNextPath(value?: string) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  return value;
+}
+
 export async function signIn(_previousState: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
+    next: formData.get("next") || undefined,
   });
 
   if (!parsed.success) {
@@ -30,7 +37,10 @@ export async function signIn(_previousState: LoginState, formData: FormData): Pr
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
 
   if (error) {
     return {
@@ -38,7 +48,7 @@ export async function signIn(_previousState: LoginState, formData: FormData): Pr
     };
   }
 
-  redirect("/");
+  redirect(safeNextPath(parsed.data.next));
 }
 
 export async function signOut() {
