@@ -17,6 +17,11 @@ export type InvitationSummary = {
   tenantName: string;
 };
 
+function relationName(value: { name?: string | null }[] | { name?: string | null } | null | undefined, fallback: string) {
+  const relation = Array.isArray(value) ? value[0] : value;
+  return relation?.name ?? fallback;
+}
+
 export async function getInvitationAdminData() {
   const supabase = await createSupabaseServerClient();
 
@@ -40,7 +45,7 @@ export async function getInvitationAdminData() {
   const schoolOptions: SchoolOption[] = (schools ?? []).map((school) => ({
     id: school.id,
     name: school.name,
-    tenantName: school.tenants?.name ?? "Tenant",
+    tenantName: relationName(school.tenants, "Tenant"),
   }));
 
   const invitationRows: InvitationSummary[] = (invitations ?? []).map((invitation) => ({
@@ -50,8 +55,8 @@ export async function getInvitationAdminData() {
     status: invitation.status,
     invitedAt: invitation.invited_at,
     expiresAt: invitation.expires_at,
-    schoolName: invitation.schools?.name ?? "School",
-    tenantName: invitation.tenants?.name ?? "Tenant",
+    schoolName: relationName(invitation.schools, "School"),
+    tenantName: relationName(invitation.tenants, "Tenant"),
   }));
 
   return { schoolOptions, invitations: invitationRows };
