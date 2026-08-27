@@ -6,11 +6,13 @@ import { signIn, type LoginState } from "@/features/auth/actions";
 
 const initialState: LoginState = {};
 
-export function LoginForm() {
+export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
   const [state, action, pending] = useActionState(signIn, initialState);
 
   return (
     <form action={action} className="mt-6 space-y-4" noValidate>
+      <input type="hidden" name="next" value={nextPath} />
+
       <div>
         <label htmlFor="email" className="text-sm font-medium text-foreground">
           Email
@@ -69,7 +71,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition duration-200 hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-65"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition duration-200 ease-out hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-65"
       >
         {pending ? "Signing in…" : "Sign in"}
         {!pending ? <ArrowRight aria-hidden="true" className="size-4" /> : null}
