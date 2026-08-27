@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { ArrowRight, LockKeyhole, Mail } from "lucide-react";
+import { ArrowUpRight, LockKeyhole, Mail } from "lucide-react";
 import { signIn, type LoginState } from "@/features/auth/actions";
 
 const initialState: LoginState = {};
@@ -71,11 +71,10 @@ export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
       <button
         type="submit"
         disabled={pending}
-        data-arrow="right"
         className="scolapro-cta inline-flex min-h-11 w-full items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-65"
       >
         {pending ? "Signing in…" : "Sign in"}
-        {!pending ? <ArrowRight aria-hidden="true" className="scolapro-cta-icon size-4" /> : null}
+        {!pending ? <ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-4" /> : null}
       </button>
     </form>
   );
