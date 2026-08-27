@@ -28,11 +28,15 @@ export function AcademicStructureForms({
   const selectedGrade = grades.find((grade) => grade.id === gradeId);
 
   useEffect(() => {
-    if (gradeState.message) gradeState.success ? toast.success(gradeState.message) : toast.error(gradeState.message);
+    if (!gradeState.message) return;
+    if (gradeState.success) toast.success(gradeState.message);
+    else toast.error(gradeState.message);
   }, [gradeState]);
 
   useEffect(() => {
-    if (classState.message) classState.success ? toast.success(classState.message) : toast.error(classState.message);
+    if (!classState.message) return;
+    if (classState.success) toast.success(classState.message);
+    else toast.error(classState.message);
   }, [classState]);
 
   return (
