@@ -1,22 +1,6 @@
--- Normalize academic identifiers and add governed class correction/removal.
-
-update public.grades
-set grade_code = case
-  when upper(btrim(grade_code)) ~ '^[0-9]+$' then 'G' || upper(btrim(grade_code))
-  else upper(btrim(grade_code))
-end
-where grade_code <> case
-  when upper(btrim(grade_code)) ~ '^[0-9]+$' then 'G' || upper(btrim(grade_code))
-  else upper(btrim(grade_code))
-end;
-
-update public.register_classes
-set class_code = upper(btrim(class_code))
-where class_code <> upper(btrim(class_code));
-
-update public.subjects
-set subject_code = upper(btrim(subject_code))
-where subject_code <> upper(btrim(subject_code));
+-- Governed class correction/removal. New academic codes are normalized in
+-- application/server actions; historical identifiers are not rewritten here
+-- because schools may already contain equivalent legacy codes.
 
 create or replace function public.update_register_class(
   p_class_id uuid,
