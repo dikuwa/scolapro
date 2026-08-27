@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DesktopNavigation, SettingsNavigationLink } from "@/components/shell/navigation";
-
-const STORAGE_KEY = "scolapro.sidebar.collapsed";
 
 export function ShellFrame({
   children,
@@ -20,18 +18,6 @@ export function ShellFrame({
   roleKey?: string;
 }) {
   const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "true");
-  }, []);
-
-  function toggleSidebar() {
-    setCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(STORAGE_KEY, String(next));
-      return next;
-    });
-  }
 
   return (
     <div
@@ -58,7 +44,7 @@ export function ShellFrame({
 
         <button
           type="button"
-          onClick={toggleSidebar}
+          onClick={() => setCollapsed((current) => !current)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="absolute -right-3 top-20 z-20 grid size-6 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface-muted hover:text-foreground focus-visible:text-foreground"
