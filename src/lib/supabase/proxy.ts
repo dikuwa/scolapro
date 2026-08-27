@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = new Set(["/login"]);
+const PUBLIC_PATHS = new Set(["/login", "/join"]);
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.has(pathname) || pathname.startsWith("/auth/");
@@ -32,9 +32,6 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // Validate the access token and refresh session cookies when required.
-  // Authorization still belongs in server/domain access checks and PostgreSQL
-  // RLS; Proxy only enforces the authenticated application boundary.
   const { data } = await supabase.auth.getClaims();
   const isAuthenticated = Boolean(data?.claims?.sub);
   const pathname = request.nextUrl.pathname;
