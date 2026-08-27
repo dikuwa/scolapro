@@ -1,24 +1,6 @@
 import Link from "next/link";
-import {
-  Bell,
-  BookOpenText,
-  CalendarDays,
-  ChevronDown,
-  ClipboardCheck,
-  GraduationCap,
-  LayoutDashboard,
-  Search,
-  Settings,
-  Users,
-} from "lucide-react";
-
-const navigation = [
-  { label: "Today", href: "/", icon: LayoutDashboard },
-  { label: "Learners", href: "/learners", icon: Users },
-  { label: "Teaching", href: "/teaching", icon: BookOpenText },
-  { label: "Assessment", href: "/assessment", icon: ClipboardCheck },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays },
-];
+import { Bell, ChevronDown, GraduationCap, Search } from "lucide-react";
+import { DesktopNavigation, MobileNavigation, SettingsNavigationLink } from "@/components/shell/navigation";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -32,39 +14,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span>ScolaPro</span>
           </Link>
 
-          <nav aria-label="Primary" className="space-y-1">
-            {navigation.map((item, index) => {
-              const Icon = item.icon;
-              const active = index === 0;
-
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  className={[
-                    "flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-200",
-                    active
-                      ? "bg-brand-soft text-brand-strong"
-                      : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
-                  ].join(" ")}
-                >
-                  <Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} />
-                  {item.label}
-                </Link>
-              );
-            })}
-          </nav>
+          <DesktopNavigation />
         </div>
 
         <div className="space-y-1 border-t border-border/70 pt-3">
-          <Link
-            href="/settings"
-            className="flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:bg-surface-muted hover:text-foreground"
-          >
-            <Settings aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} />
-            Settings
-          </Link>
+          <SettingsNavigationLink />
         </div>
       </aside>
 
@@ -108,8 +62,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">{children}</main>
+        <main className="px-4 py-5 pb-24 sm:px-6 sm:py-6 sm:pb-24 lg:px-8 lg:py-7 lg:pb-7">{children}</main>
       </div>
+
+      <MobileNavigation />
     </div>
   );
 }
