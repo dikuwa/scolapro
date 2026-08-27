@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import {
@@ -185,9 +186,9 @@ export function LearnerRegistrationForm({
       ) : null}
 
       <div className="flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-end">
-        <a href="/learners" className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 text-sm font-medium text-muted-foreground transition duration-200 hover:bg-surface-muted hover:text-foreground">
+        <Link href="/learners" className="inline-flex min-h-10 items-center justify-center rounded-xl px-4 text-sm font-medium text-muted-foreground transition duration-200 hover:bg-surface-muted hover:text-foreground">
           Cancel
-        </a>
+        </Link>
         <button
           type="submit"
           disabled={pending || !gradeId || !classId}
