@@ -13,23 +13,44 @@ import {
 } from "lucide-react";
 
 const navigation = [
-  { label: "Today", href: "/", icon: LayoutDashboard },
-  { label: "Learners", href: "/learners", icon: Users },
-  { label: "Teaching", href: "/teaching", icon: BookOpenText },
-  { label: "Assessment", href: "/assessment", icon: ClipboardCheck },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays },
+  { key: "today", label: "Today", href: "/", icon: LayoutDashboard },
+  { key: "learners", label: "Learners", href: "/learners", icon: Users },
+  { key: "teaching", label: "Teaching", href: "/teaching", icon: BookOpenText },
+  { key: "assessment", label: "Assessment", href: "/assessment", icon: ClipboardCheck },
+  { key: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays },
 ] as const;
+
+const enabledKeysByRole: Record<string, readonly string[]> = {
+  school_admin: ["today", "learners", "calendar"],
+  principal: ["today", "learners", "assessment", "calendar"],
+  deputy_principal: ["today", "learners", "assessment", "calendar"],
+  hod: ["today", "learners", "teaching", "assessment", "calendar"],
+  teacher: ["today", "learners", "teaching", "assessment", "calendar"],
+  class_teacher: ["today", "learners", "teaching", "assessment", "calendar"],
+  counsellor: ["today", "learners", "calendar"],
+  librarian: ["today", "learners"],
+  learner: ["today", "teaching", "assessment", "calendar"],
+  parent: ["today", "learners", "assessment"],
+  board_member: ["today"],
+};
+
+function itemsForRole(roleKey?: string) {
+  if (!roleKey) return navigation;
+  const allowed = enabledKeysByRole[roleKey] ?? ["today"];
+  return navigation.filter((item) => allowed.includes(item.key));
+}
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DesktopNavigation() {
+export function DesktopNavigation({ roleKey }: { roleKey?: string }) {
   const pathname = usePathname();
+  const items = itemsForRole(roleKey);
 
   return (
     <nav aria-label="Primary" className="space-y-1">
-      {navigation.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon;
         const active = isActive(pathname, item.href);
 
@@ -54,16 +75,20 @@ export function DesktopNavigation() {
   );
 }
 
-export function MobileNavigation() {
+export function MobileNavigation({ roleKey }: { roleKey?: string }) {
   const pathname = usePathname();
-  const mobileItems = [...navigation.slice(0, 4), { label: "More", href: "/settings", icon: MoreHorizontal }] as const;
+  const roleItems = itemsForRole(roleKey).slice(0, 4);
+  const mobileItems = [...roleItems, { key: "more", label: "More", href: "/settings", icon: MoreHorizontal }] as const;
 
   return (
     <nav
       aria-label="Mobile primary"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-[color:var(--surface)]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden"
     >
-      <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
+      <div
+        className="mx-auto grid max-w-xl gap-1"
+        style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}
+      >
         {mobileItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);
