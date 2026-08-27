@@ -97,10 +97,10 @@ export default async function Home() {
 
           <Link
             href="/learners"
-            className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-brand-strong sm:self-auto"
+            className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto"
           >
             Open learners
-            <ArrowUpRight aria-hidden="true" className="size-4" />
+            <ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-4" />
           </Link>
         </div>
 
@@ -169,10 +169,10 @@ export default async function Home() {
             </p>
             <Link
               href="/learners"
-              className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-brand-strong transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-brand-soft"
+              className="scolapro-cta mt-4 inline-flex min-h-9 items-center gap-2 bg-surface-muted px-3 text-xs font-medium text-brand-strong hover:bg-brand-soft"
             >
               Review learners
-              <ArrowUpRight aria-hidden="true" className="size-3.5" />
+              <ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-3.5" />
             </Link>
           </section>
         </div>
