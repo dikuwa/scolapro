@@ -14,7 +14,7 @@ Approved baseline:
 - TypeScript
 - Tailwind CSS
 - shadcn/ui
-- one consistent shadcn component base
+- **React Aria component base**
 - Lucide icons
 - React Hook Form
 - Zod
@@ -25,9 +25,11 @@ Approved baseline:
 
 ### shadcn base
 
-As of 2026, shadcn supports Base UI, Radix and React Aria bases. ScolaPro must choose one base during project initialization and remain consistent. Do not casually mix foundations between components.
+ScolaPro uses the **shadcn React Aria base**. This decision is recorded in `decisions/ADR-0006-shadcn-react-aria-base.md`.
 
-Preferred starting direction: **React Aria base** for accessibility-heavy school workflows, provided implementation validation confirms all required shadcn components and styling patterns are satisfactory. If that validation reveals friction, use Base UI consistently instead. The choice must be recorded in an ADR before broad component installation.
+Do not casually mix Base UI or Radix variants into the shared component layer. A change of base requires an explicit ADR and migration plan.
+
+All shadcn-derived components are owned source code and must be normalized to ScolaPro design tokens, density, accessibility and motion rules rather than left as generic defaults.
 
 ## 3. Folder Direction
 
