@@ -10,6 +10,11 @@ export type SchoolMembershipContext = {
   staffMemberId: string | null;
 };
 
+export type PlatformMembershipContext = {
+  membershipId: string;
+  roleKey: string;
+};
+
 export const getUserContext = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
@@ -18,21 +23,44 @@ export const getUserContext = cache(async () => {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return { user: null, memberships: [] as SchoolMembershipContext[] };
+    return {
+      user: null,
+      displayName: null,
+      memberships: [] as SchoolMembershipContext[],
+      platformMemberships: [] as PlatformMembershipContext[],
+    };
   }
 
-  const { data, error } = await supabase
-    .from("school_memberships")
-    .select("id, tenant_id, school_id, role_key, staff_member_id, schools!inner(name)")
-    .eq("user_id", user.id)
-    .lte("active_from", new Date().toISOString().slice(0, 10))
-    .or(`active_to.is.null,active_to.gte.${new Date().toISOString().slice(0, 10)}`);
+  const today = new Date().toISOString().slice(0, 10);
+  const [profileResult, membershipResult, platformResult] = await Promise.all([
+    supabase
+      .from("user_profiles")
+      .select("display_name, preferred_name")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("school_memberships")
+      .select("id, tenant_id, school_id, role_key, staff_member_id, schools!inner(name)")
+      .eq("user_id", user.id)
+      .lte("active_from", today)
+      .or(`active_to.is.null,active_to.gte.${today}`),
+    supabase
+      .from("platform_memberships")
+      .select("id, role_key")
+      .eq("user_id", user.id)
+      .lte("active_from", today)
+      .or(`active_to.is.null,active_to.gte.${today}`),
+  ]);
 
-  if (error) {
+  if (membershipResult.error) {
     throw new Error("Unable to resolve the current school context.");
   }
 
-  const memberships: SchoolMembershipContext[] = (data ?? []).map((membership) => {
+  if (platformResult.error) {
+    throw new Error("Unable to resolve the current platform context.");
+  }
+
+  const memberships: SchoolMembershipContext[] = (membershipResult.data ?? []).map((membership) => {
     const school = Array.isArray(membership.schools) ? membership.schools[0] : membership.schools;
 
     return {
@@ -45,5 +73,19 @@ export const getUserContext = cache(async () => {
     };
   });
 
-  return { user, memberships };
+  const platformMemberships: PlatformMembershipContext[] = (platformResult.data ?? []).map((membership) => ({
+    membershipId: membership.id,
+    roleKey: membership.role_key,
+  }));
+
+  const profile = profileResult.data;
+  const displayName =
+    profile?.preferred_name ||
+    profile?.display_name ||
+    user.user_metadata?.preferred_name ||
+    user.user_metadata?.full_name ||
+    user.email?.split("@")[0] ||
+    "User";
+
+  return { user, displayName, memberships, platformMemberships };
 });
