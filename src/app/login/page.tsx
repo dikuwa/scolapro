@@ -1,7 +1,17 @@
 import { GraduationCap, ShieldCheck } from "lucide-react";
 import { LoginForm } from "@/features/auth/login-form";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const requestedNext = Array.isArray(params.next) ? params.next[0] : params.next;
+  const nextPath = requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//")
+    ? requestedNext
+    : "/";
+
   return (
     <main className="min-h-screen bg-background px-4 py-8 sm:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(24rem,34rem)] lg:gap-8 lg:px-8">
       <section className="mx-auto flex w-full max-w-5xl flex-col justify-between rounded-[1.5rem] bg-surface-muted p-6 sm:p-8 lg:mx-0 lg:min-h-[calc(100vh-4rem)] lg:p-10">
@@ -38,7 +48,7 @@ export default function LoginPage() {
         <div className="w-full lg:px-8">
           <h2 className="text-[clamp(1.35rem,1.15rem+0.45vw,1.7rem)] font-semibold tracking-[-0.035em]">Welcome back</h2>
           <p className="mt-1.5 text-sm leading-6 text-muted-foreground">Sign in with the account provided by your school or ScolaPro administrator.</p>
-          <LoginForm />
+          <LoginForm nextPath={nextPath} />
           <p className="mt-5 text-xs leading-5 text-muted-foreground">
             Having trouble signing in? Contact your school administrator. ScolaPro does not display account-recovery details that could expose school users.
           </p>
