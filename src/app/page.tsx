@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ArrowUpRight, BookOpenCheck, School, Users } from "lucide-react";
+import { ArrowUpRight, BookOpenCheck, Building2, School, ShieldCheck, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { getDashboardOverview } from "@/features/dashboard/server/overview";
+import { getPlatformTenants } from "@/features/platform/server/tenants";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
@@ -32,11 +33,18 @@ export default async function Home() {
   let displayName = "ScolaPro User";
   let schoolName = "ScolaPro Demonstration School";
   let roleLabel = "Design preview";
+  let dashboardMode: "school" | "platform" = "school";
+  let primaryHref = "/learners";
+  let primaryLabel = "Open learners";
   const academicYear = new Date().getFullYear();
   let overview = {
     currentLearners: 2,
     gradeCount: 5,
     registerClassCount: 2,
+  };
+  let platformOverview = {
+    activeTenants: 0,
+    schoolCount: 0,
   };
   let isPreview = true;
 
@@ -55,32 +63,72 @@ export default async function Home() {
     } else if (context.platformMemberships.length) {
       schoolName = "ScolaPro Platform";
       roleLabel = context.platformMemberships[0].roleKey.replaceAll("_", " ");
-      overview = { currentLearners: 0, gradeCount: 0, registerClassCount: 0 };
+      dashboardMode = "platform";
+      primaryHref = "/platform/tenants";
+      primaryLabel = "Manage tenants";
+      const tenants = await getPlatformTenants();
+      platformOverview = {
+        activeTenants: tenants.filter((tenant) => tenant.status === "active").length,
+        schoolCount: tenants.reduce((total, tenant) => total + tenant.schools.length, 0),
+      };
       isPreview = false;
     }
   }
 
   const firstName = displayName.split(/\s+/).filter(Boolean)[0] || displayName;
-  const metrics = [
-    {
-      label: "Current learners",
-      value: overview.currentLearners.toLocaleString("en-NA"),
-      detail: `Academic year ${academicYear}`,
-      icon: Users,
-    },
-    {
-      label: "Configured grades",
-      value: overview.gradeCount.toLocaleString("en-NA"),
-      detail: "Available in this school context",
-      icon: BookOpenCheck,
-    },
-    {
-      label: "Register classes",
-      value: overview.registerClassCount.toLocaleString("en-NA"),
-      detail: "Current academic-year structure",
-      icon: School,
-    },
-  ];
+  const metrics = dashboardMode === "platform"
+    ? [
+        {
+          label: "Active tenants",
+          value: platformOverview.activeTenants.toLocaleString("en-NA"),
+          detail: "Organizations using ScolaPro",
+          icon: Building2,
+        },
+        {
+          label: "Registered schools",
+          value: platformOverview.schoolCount.toLocaleString("en-NA"),
+          detail: "Schools across current tenants",
+          icon: School,
+        },
+        {
+          label: "Platform access",
+          value: "Admin",
+          detail: "Tenant onboarding and governance",
+          icon: ShieldCheck,
+        },
+      ]
+    : [
+        {
+          label: "Current learners",
+          value: overview.currentLearners.toLocaleString("en-NA"),
+          detail: `Academic year ${academicYear}`,
+          icon: Users,
+        },
+        {
+          label: "Configured grades",
+          value: overview.gradeCount.toLocaleString("en-NA"),
+          detail: "Available in this school context",
+          icon: BookOpenCheck,
+        },
+        {
+          label: "Register classes",
+          value: overview.registerClassCount.toLocaleString("en-NA"),
+          detail: "Current academic-year structure",
+          icon: School,
+        },
+      ];
+
+  const contextTitle = dashboardMode === "platform" ? "Platform context" : "School context";
+  const contextDescription = dashboardMode === "platform"
+    ? "This dashboard reflects platform-wide tenant scope while tenant and school data remain isolated for ordinary members."
+    : "The dashboard reflects the authenticated school scope rather than hard-coded tenant information.";
+  const contextLabel = dashboardMode === "platform" ? "Scope" : "School";
+  const verticalTitle = dashboardMode === "platform" ? "Tenant administration" : "First vertical slice";
+  const verticalDescription = dashboardMode === "platform"
+    ? "Tenant and first-school onboarding is now an authenticated, audit-safe platform workflow backed by PostgreSQL authorization."
+    : "Learner identity and enrolment are the first operational workflow being proven through authentication, RLS and audit-safe writes.";
+  const verticalHref = dashboardMode === "platform" ? "/platform/tenants" : "/learners";
+  const verticalLabel = dashboardMode === "platform" ? "Review tenants" : "Review learners";
 
   return (
     <AppShell>
@@ -96,10 +144,10 @@ export default async function Home() {
           </div>
 
           <Link
-            href="/learners"
+            href={primaryHref}
             className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto"
           >
-            Open learners
+            {primaryLabel}
             <ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-4" />
           </Link>
         </div>
@@ -140,10 +188,8 @@ export default async function Home() {
           <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-sm font-semibold tracking-[-0.015em]">School context</h2>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  The dashboard now reflects the authenticated school scope rather than hard-coded tenant information.
-                </p>
+                <h2 className="text-sm font-semibold tracking-[-0.015em]">{contextTitle}</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">{contextDescription}</p>
               </div>
               <span className="w-fit rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 text-xs font-medium capitalize text-muted-foreground shadow-[var(--shadow-xs)]">
                 {roleLabel}
@@ -152,7 +198,7 @@ export default async function Home() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]">
-                <p className="text-xs font-medium text-muted-foreground">School</p>
+                <p className="text-xs font-medium text-muted-foreground">{contextLabel}</p>
                 <p className="mt-1.5 text-sm font-medium text-foreground">{schoolName}</p>
               </div>
               <div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]">
@@ -163,15 +209,13 @@ export default async function Home() {
           </section>
 
           <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <h2 className="text-sm font-semibold tracking-[-0.015em]">First vertical slice</h2>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              Learner identity and enrolment are the first operational workflow being proven through authentication, RLS and audit-safe writes.
-            </p>
+            <h2 className="text-sm font-semibold tracking-[-0.015em]">{verticalTitle}</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{verticalDescription}</p>
             <Link
-              href="/learners"
+              href={verticalHref}
               className="scolapro-cta mt-4 inline-flex min-h-9 items-center gap-2 bg-surface-muted px-3 text-xs font-medium text-brand-strong hover:bg-brand-soft"
             >
-              Review learners
+              {verticalLabel}
               <ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-3.5" />
             </Link>
           </section>
