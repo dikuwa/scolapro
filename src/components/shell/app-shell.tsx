@@ -1,24 +1,61 @@
 import Link from "next/link";
-import { Bell, ChevronDown, GraduationCap, Search } from "lucide-react";
+import { GraduationCap } from "lucide-react";
 import { DesktopNavigation, MobileNavigation, SettingsNavigationLink } from "@/components/shell/navigation";
+import { getUserContext } from "@/lib/auth/get-user-context";
+import { isSupabaseConfigured } from "@/lib/config/runtime";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "SP";
+}
+
+export async function AppShell({ children }: { children: React.ReactNode }) {
+  let displayName = "ScolaPro User";
+  let schoolName = "ScolaPro Demonstration School";
+  let roleKey: string | undefined;
+
+  if (isSupabaseConfigured()) {
+    const context = await getUserContext();
+    if (context.user) {
+      displayName = context.displayName ?? displayName;
+      const membership = context.memberships[0];
+      schoolName = membership?.schoolName ?? (context.platformMemberships.length ? "ScolaPro Platform" : "No school selected");
+      roleKey = membership?.roleKey ?? context.platformMemberships[0]?.roleKey;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground lg:grid lg:grid-cols-[var(--sidebar-width)_minmax(0,1fr)]">
       <aside className="hidden border-r border-border/80 bg-surface lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-4">
         <div>
-          <Link href="/" className="mb-6 flex items-center gap-3 rounded-xl px-2 py-2 text-[0.95rem] font-semibold tracking-[-0.02em]">
+          <Link href="/" className="mb-5 flex items-center gap-3 rounded-xl px-2 py-2 text-[0.95rem] font-semibold tracking-[-0.02em]">
             <span className="grid size-9 place-items-center rounded-xl bg-brand text-white shadow-sm">
               <GraduationCap aria-hidden="true" className="size-5" />
             </span>
-            <span>ScolaPro</span>
+            <span className="min-w-0">
+              <span className="block">ScolaPro</span>
+              <span className="mt-0.5 block truncate text-[0.68rem] font-normal tracking-normal text-muted-foreground">{schoolName}</span>
+            </span>
           </Link>
 
-          <DesktopNavigation />
+          <DesktopNavigation roleKey={roleKey} />
         </div>
 
-        <div className="space-y-1 border-t border-border/70 pt-3">
+        <div className="space-y-2 border-t border-border/70 pt-3">
           <SettingsNavigationLink />
+          <div className="flex items-center gap-2 rounded-xl px-2 py-2">
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-subtle text-[0.68rem] font-semibold text-foreground">
+              {initials(displayName)}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-xs font-medium text-foreground">{displayName}</p>
+              <p className="truncate text-[0.68rem] text-muted-foreground">{roleKey ? roleKey.replaceAll("_", " ") : "Design preview"}</p>
+            </div>
+          </div>
         </div>
       </aside>
 
@@ -29,35 +66,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand text-white">
                 <GraduationCap aria-hidden="true" className="size-5" />
               </span>
-              <span className="truncate text-sm font-semibold">ScolaPro</span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold">ScolaPro</span>
+                <span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span>
+              </span>
             </div>
 
-            <button
-              type="button"
-              className="hidden min-h-10 min-w-52 items-center gap-2 rounded-xl border border-border bg-surface-elevated px-3 text-left text-sm text-muted-foreground shadow-[var(--shadow-sm)] transition duration-200 hover:border-[color:var(--brand)]/35 hover:text-foreground md:flex lg:min-w-64"
-            >
-              <Search aria-hidden="true" className="size-4" />
-              <span className="truncate">Search learners, classes, reports…</span>
-              <kbd className="ml-auto rounded-md bg-surface-muted px-1.5 py-0.5 text-[0.68rem] text-muted-foreground">⌘K</kbd>
-            </button>
-
-            <div className="ml-auto flex items-center gap-1.5">
-              <button
-                type="button"
-                aria-label="Notifications"
-                className="grid size-10 place-items-center rounded-xl text-muted-foreground transition duration-200 hover:bg-surface-muted hover:text-foreground"
-              >
-                <Bell aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.8} />
-              </button>
-
-              <button
-                type="button"
-                className="flex min-h-10 items-center gap-2 rounded-xl px-2 text-sm font-medium transition duration-200 hover:bg-surface-muted"
-              >
-                <span className="grid size-8 place-items-center rounded-full bg-surface-subtle text-xs font-semibold text-foreground">MM</span>
-                <span className="hidden sm:inline">Martin</span>
-                <ChevronDown aria-hidden="true" className="hidden size-4 text-muted-foreground sm:block" />
-              </button>
+            <div className="ml-auto flex min-w-0 items-center gap-2 rounded-xl px-1.5 py-1">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-subtle text-[0.68rem] font-semibold text-foreground">
+                {initials(displayName)}
+              </span>
+              <span className="hidden max-w-40 truncate text-xs font-medium sm:block">{displayName}</span>
             </div>
           </div>
         </header>
@@ -65,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="px-4 py-5 pb-24 sm:px-6 sm:py-6 sm:pb-24 lg:px-8 lg:py-7 lg:pb-7">{children}</main>
       </div>
 
-      <MobileNavigation />
+      <MobileNavigation roleKey={roleKey} />
     </div>
   );
 }
