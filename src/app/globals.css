@@ -24,8 +24,6 @@
   --info: #4973a9;
   --info-soft: #edf4fb;
 
-  /* Restrained contextual palette derived from the approved dashboard inspiration.
-     These are presentation accents, not replacements for semantic status colors. */
   --accent-indigo: #6071e9;
   --accent-indigo-soft: #eef0ff;
   --accent-mint: #58a987;
@@ -84,7 +82,9 @@ body {
   font-size: clamp(0.875rem, 0.84rem + 0.14vw, 1rem);
   line-height: 1.5;
   text-rendering: optimizeLegibility;
+  caret-color: transparent;
 }
+input, textarea, [contenteditable="true"] { caret-color: var(--brand); }
 button, a, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 ::selection { background: color-mix(in srgb, var(--brand) 20%, transparent); }
@@ -92,6 +92,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .scolapro-content-width { width: 100%; max-width: var(--content-max); margin-inline: auto; }
 .scolapro-public-width { width: 100%; max-width: var(--public-content-max); margin-inline: auto; }
+
+.scolapro-page-title { font-weight: 600; letter-spacing: -0.035em; color: var(--foreground); }
+.scolapro-section-title { font-size: 0.875rem; font-weight: 650; letter-spacing: -0.015em; color: var(--foreground); }
+.scolapro-section-description { margin-top: 0.25rem; font-size: 0.75rem; line-height: 1.5rem; color: var(--muted-foreground); }
+.scolapro-record-title { font-size: 0.8125rem; font-weight: 550; color: var(--foreground); }
+.scolapro-stat-value { color: currentColor; font-weight: 650; letter-spacing: -0.04em; }
 
 .scolapro-cta {
   border-radius: var(--radius-sm);
