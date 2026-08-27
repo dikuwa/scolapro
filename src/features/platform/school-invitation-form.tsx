@@ -26,13 +26,7 @@ function FieldError({ messages }: { messages?: string[] }) {
   return messages?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{messages[0]}</p> : null;
 }
 
-function Picker({
-  label,
-  valueLabel,
-  open,
-  onToggle,
-  children,
-}: {
+function Picker({ label, valueLabel, open, onToggle, children }: {
   label: string;
   valueLabel: string;
   open: boolean;
@@ -40,19 +34,19 @@ function Picker({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative">
-      <p className="text-xs font-medium">{label}</p>
+    <div className="relative flex min-w-0 flex-col gap-1.5">
+      <p className="text-xs font-medium leading-4">{label}</p>
       <button
         type="button"
         aria-expanded={open}
         onClick={onToggle}
-        className="mt-1.5 flex min-h-10 w-full items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/50"
+        className="flex min-h-10 w-full items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/50"
       >
         <span className="min-w-0 truncate">{valueLabel}</span>
         <ChevronDown aria-hidden="true" className={`size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] ${open ? "rotate-180" : ""}`} />
       </button>
       {open ? (
-        <div className="absolute z-30 mt-1.5 max-h-64 w-full overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)]">
+        <div className="absolute inset-x-0 top-full z-30 mt-1.5 max-h-64 overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)]">
           {children}
         </div>
       ) : null}
@@ -63,7 +57,8 @@ function Picker({
 export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
   const [state, action, pending] = useActionState(createSchoolInvitation, initialState);
   const [copied, setCopied] = useState(false);
-  const [schoolId, setSchoolId] = useState("");
+  const singleSchool = schools.length === 1 ? schools[0] : null;
+  const [schoolId, setSchoolId] = useState(singleSchool?.id ?? "");
   const [roleKey, setRoleKey] = useState<RoleKey>("school_admin");
   const [schoolOpen, setSchoolOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
@@ -97,46 +92,58 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
         <input type="hidden" name="schoolId" value={schoolId} />
         <input type="hidden" name="roleKey" value={roleKey} />
 
-        <Picker
-          label="School"
-          valueLabel={selectedSchool ? `${selectedSchool.name} · ${selectedSchool.tenantName}` : "Choose a school"}
-          open={schoolOpen}
-          onToggle={() => { setSchoolOpen((value) => !value); setRoleOpen(false); }}
-        >
-          {schools.map((school) => (
-            <button
-              key={school.id}
-              type="button"
-              onClick={() => { setSchoolId(school.id); setSchoolOpen(false); }}
-              className={`flex w-full items-center rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm transition hover:bg-surface-muted ${school.id === schoolId ? "bg-brand-soft text-brand-strong" : ""}`}
-            >
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{school.name}</span>
-                <span className="block truncate text-[0.68rem] text-muted-foreground">{school.tenantName}</span>
-              </span>
-            </button>
-          ))}
-        </Picker>
-        <FieldError messages={state.fieldErrors?.schoolId} />
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="firstName" className="text-xs font-medium">First name</label>
-            <input id="firstName" name="firstName" className={`${fieldClass} mt-1.5`} autoComplete="given-name" />
+        {singleSchool ? (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs font-medium leading-4">School</p>
+            <div className="flex min-h-10 items-center rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-sm shadow-[var(--shadow-xs)]">
+              <span className="min-w-0 truncate">{singleSchool.name} · {singleSchool.tenantName}</span>
+            </div>
+            <p className="text-[0.68rem] leading-4 text-muted-foreground">Invitations are restricted to your authorized school scope.</p>
           </div>
-          <div>
-            <label htmlFor="lastName" className="text-xs font-medium">Last name</label>
-            <input id="lastName" name="lastName" className={`${fieldClass} mt-1.5`} autoComplete="family-name" />
+        ) : (
+          <>
+            <Picker
+              label="School"
+              valueLabel={selectedSchool ? `${selectedSchool.name} · ${selectedSchool.tenantName}` : "Choose a school"}
+              open={schoolOpen}
+              onToggle={() => { setSchoolOpen((value) => !value); setRoleOpen(false); }}
+            >
+              {schools.map((school) => (
+                <button
+                  key={school.id}
+                  type="button"
+                  onClick={() => { setSchoolId(school.id); setSchoolOpen(false); }}
+                  className={`flex w-full items-center rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm transition hover:bg-surface-muted ${school.id === schoolId ? "bg-brand-soft text-brand-strong" : ""}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{school.name}</span>
+                    <span className="block truncate text-[0.68rem] text-muted-foreground">{school.tenantName}</span>
+                  </span>
+                </button>
+              ))}
+            </Picker>
+            <FieldError messages={state.fieldErrors?.schoolId} />
+          </>
+        )}
+
+        <div className="grid items-start gap-4 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="firstName" className="text-xs font-medium leading-4">First name</label>
+            <input id="firstName" name="firstName" className={fieldClass} autoComplete="given-name" />
+          </div>
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="lastName" className="text-xs font-medium leading-4">Last name</label>
+            <input id="lastName" name="lastName" className={fieldClass} autoComplete="family-name" />
           </div>
         </div>
 
-        <div>
-          <label htmlFor="email" className="text-xs font-medium">Email address</label>
-          <input id="email" name="email" type="email" className={`${fieldClass} mt-1.5`} autoComplete="email" placeholder="user@school.edu.na" />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="email" className="text-xs font-medium leading-4">Email address</label>
+          <input id="email" name="email" type="email" className={fieldClass} autoComplete="email" placeholder="user@school.edu.na" />
           <FieldError messages={state.fieldErrors?.email} />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid items-start gap-4 sm:grid-cols-2">
           <Picker
             label="Role"
             valueLabel={selectedRole}
@@ -154,9 +161,9 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
               </button>
             ))}
           </Picker>
-          <div>
-            <label htmlFor="employeeNumber" className="text-xs font-medium">Employee number</label>
-            <input id="employeeNumber" name="employeeNumber" className={`${fieldClass} mt-1.5`} placeholder="Optional" />
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <label htmlFor="employeeNumber" className="text-xs font-medium leading-4">Employee number</label>
+            <input id="employeeNumber" name="employeeNumber" className={fieldClass} placeholder="Optional" />
           </div>
         </div>
 
