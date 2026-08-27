@@ -1,123 +1,179 @@
-import { AlertCircle, ArrowUpRight, BookCheck, Clock3, Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, BookOpenCheck, School, Users } from "lucide-react";
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { getDashboardOverview } from "@/features/dashboard/server/overview";
+import { getUserContext } from "@/lib/auth/get-user-context";
+import { isSupabaseConfigured } from "@/lib/config/runtime";
 
-const metrics = [
-  { label: "Current learners", value: "849", detail: "Across Grades 8–12", icon: Users },
-  { label: "Attendance", value: "95.2%", detail: "This term", icon: Clock3 },
-  { label: "Marks readiness", value: "88%", detail: "41 entries need attention", icon: BookCheck },
-];
+function getWindhoekNow() {
+  const parts = new Intl.DateTimeFormat("en-NA", {
+    timeZone: "Africa/Windhoek",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
 
-const tasks = [
-  { title: "Grade 10/A attendance", meta: "Register confirmation due today", tone: "warning" },
-  { title: "Physical Science · Grade 10", meta: "Exam marks window closes Friday", tone: "info" },
-  { title: "Learner support follow-up", meta: "2 items assigned to you", tone: "neutral" },
-];
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
 
-export default function Home() {
+  const hour = Number(value("hour"));
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const dateLabel = `${value("weekday")}, ${value("day")} ${value("month")}`;
+
+  return { greeting, dateLabel };
+}
+
+export default async function Home() {
+  const { greeting, dateLabel } = getWindhoekNow();
+
+  let displayName = "ScolaPro User";
+  let schoolName = "ScolaPro Demonstration School";
+  let roleLabel = "Design preview";
+  let academicYear = new Date().getFullYear();
+  let overview = {
+    currentLearners: 2,
+    gradeCount: 5,
+    registerClassCount: 2,
+  };
+  let isPreview = true;
+
+  if (isSupabaseConfigured()) {
+    const context = await getUserContext();
+    if (!context.user) redirect("/login");
+
+    displayName = context.displayName ?? displayName;
+    const membership = context.memberships[0];
+
+    if (membership) {
+      schoolName = membership.schoolName;
+      roleLabel = membership.roleKey.replaceAll("_", " ");
+      overview = await getDashboardOverview(membership.schoolId, academicYear);
+      isPreview = false;
+    } else if (context.platformMemberships.length) {
+      schoolName = "ScolaPro Platform";
+      roleLabel = context.platformMemberships[0].roleKey.replaceAll("_", " ");
+      overview = { currentLearners: 0, gradeCount: 0, registerClassCount: 0 };
+      isPreview = false;
+    }
+  }
+
+  const firstName = displayName.split(/\s+/).filter(Boolean)[0] || displayName;
+  const metrics = [
+    {
+      label: "Current learners",
+      value: overview.currentLearners.toLocaleString("en-NA"),
+      detail: `Academic year ${academicYear}`,
+      icon: Users,
+    },
+    {
+      label: "Configured grades",
+      value: overview.gradeCount.toLocaleString("en-NA"),
+      detail: "Available in this school context",
+      icon: BookOpenCheck,
+    },
+    {
+      label: "Register classes",
+      value: overview.registerClassCount.toLocaleString("en-NA"),
+      detail: "Current academic-year structure",
+      icon: School,
+    },
+  ];
+
   return (
     <AppShell>
       <section className="mx-auto max-w-[94rem]">
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)] font-semibold tracking-[-0.035em] text-foreground">
-              Good afternoon, Martin
+              {greeting}, {firstName}
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">Thursday, 27 August · Namib High School</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {dateLabel} · {schoolName}
+            </p>
           </div>
 
-          <button
-            type="button"
-            className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition duration-200 hover:bg-brand-strong sm:self-auto"
+          <Link
+            href="/learners"
+            className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition duration-200 ease-out hover:bg-brand-strong sm:self-auto"
           >
-            Open today&apos;s classes
+            Open learners
             <ArrowUpRight aria-hidden="true" className="size-4" />
-          </button>
+          </Link>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          {metrics.map((metric) => {
+        {isPreview ? (
+          <div className="mb-4 rounded-xl bg-info-soft px-4 py-3 text-xs leading-5 text-[color:var(--info)]">
+            Design preview uses synthetic school data. Connect the dedicated ScolaPro Supabase environment to switch this dashboard to authenticated RLS-backed data.
+          </div>
+        ) : null}
+
+        <div className="grid overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-[var(--shadow-sm)] sm:grid-cols-3">
+          {metrics.map((metric, index) => {
             const Icon = metric.icon;
             return (
-              <article key={metric.label} className="rounded-2xl border border-border/80 bg-surface px-4 py-4 shadow-[var(--shadow-sm)] sm:px-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
-                    <p className="mt-2 text-[clamp(1.45rem,1.2rem+0.55vw,1.9rem)] font-semibold tracking-[-0.04em] text-foreground">
-                      {metric.value}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">{metric.detail}</p>
-                  </div>
-                  <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-muted text-brand-strong">
-                    <Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} />
-                  </span>
+              <article
+                key={metric.label}
+                className={[
+                  "flex items-start justify-between gap-4 px-4 py-4 sm:px-5",
+                  index > 0 ? "border-t border-border-subtle sm:border-l sm:border-t-0" : "",
+                ].join(" ")}
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-muted-foreground">{metric.label}</p>
+                  <p className="mt-2 text-[clamp(1.45rem,1.2rem+0.55vw,1.9rem)] font-semibold tracking-[-0.04em] text-foreground">
+                    {metric.value}
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{metric.detail}</p>
                 </div>
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-surface-muted text-brand-strong">
+                  <Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} />
+                </span>
               </article>
             );
           })}
         </div>
 
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.6fr)_minmax(20rem,0.8fr)]">
-          <section className="overflow-hidden rounded-2xl border border-border/80 bg-surface shadow-[var(--shadow-sm)]">
-            <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3.5 sm:px-5">
+        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
+          <section className="rounded-2xl bg-surface-muted p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-sm font-semibold tracking-[-0.015em]">Today</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">Your timetable and immediate work</p>
+                <h2 className="text-sm font-semibold tracking-[-0.015em]">School context</h2>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  The dashboard now reflects the authenticated school scope rather than hard-coded tenant information.
+                </p>
               </div>
-              <button type="button" className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-strong transition duration-200 hover:bg-brand-soft">
-                Full timetable
-              </button>
+              <span className="w-fit rounded-lg bg-surface px-2.5 py-1.5 text-xs font-medium capitalize text-muted-foreground shadow-[var(--shadow-sm)]">
+                {roleLabel}
+              </span>
             </div>
 
-            <div className="divide-y divide-border-subtle">
-              {[
-                ["08:00", "Grade 10/A", "Physical Science", "Lab 2"],
-                ["09:20", "Grade 8/B", "Physical Science", "Room 14"],
-                ["11:00", "Grade 10/C", "Physical Science", "Lab 2"],
-                ["12:40", "Grade 8/D", "Physical Science", "Room 11"],
-              ].map(([time, group, subject, room], index) => (
-                <div key={`${time}-${group}`} className="grid grid-cols-[4rem_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3.5 transition duration-200 hover:bg-surface-muted/70 sm:px-5">
-                  <time className="text-xs font-medium tabular-nums text-muted-foreground">{time}</time>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">{group} · {subject}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{room}</p>
-                  </div>
-                  <span className={index === 0 ? "rounded-lg bg-success-soft px-2 py-1 text-[0.7rem] font-medium text-[color:var(--success)]" : "text-xs text-muted-foreground"}>
-                    {index === 0 ? "Next" : ""}
-                  </span>
-                </div>
-              ))}
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-surface px-4 py-3.5 shadow-[var(--shadow-sm)]">
+                <p className="text-xs font-medium text-muted-foreground">School</p>
+                <p className="mt-1.5 text-sm font-medium text-foreground">{schoolName}</p>
+              </div>
+              <div className="rounded-xl bg-surface px-4 py-3.5 shadow-[var(--shadow-sm)]">
+                <p className="text-xs font-medium text-muted-foreground">Academic year</p>
+                <p className="mt-1.5 text-sm font-medium tabular-nums text-foreground">{academicYear}</p>
+              </div>
             </div>
           </section>
 
-          <section className="rounded-2xl bg-surface-muted p-4 sm:p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold tracking-[-0.015em]">Needs attention</h2>
-                <p className="mt-0.5 text-xs text-muted-foreground">Only actionable exceptions</p>
-              </div>
-              <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-surface px-2 py-1 text-[0.68rem] font-semibold text-muted-foreground">3</span>
-            </div>
-
-            <div className="space-y-2">
-              {tasks.map((task) => (
-                <button
-                  key={task.title}
-                  type="button"
-                  className="flex w-full items-start gap-3 rounded-xl bg-surface px-3.5 py-3 text-left shadow-[var(--shadow-sm)] transition duration-200 hover:-translate-y-px hover:bg-surface-elevated"
-                >
-                  <span className={[
-                    "mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg",
-                    task.tone === "warning" ? "bg-warning-soft text-[color:var(--warning)]" : task.tone === "info" ? "bg-info-soft text-[color:var(--info)]" : "bg-surface-subtle text-muted-foreground",
-                  ].join(" ")}>
-                    <AlertCircle aria-hidden="true" className="size-4" strokeWidth={1.9} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-foreground">{task.title}</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{task.meta}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
+          <section className="rounded-2xl border border-border/80 bg-surface p-4 shadow-[var(--shadow-sm)] sm:p-5">
+            <h2 className="text-sm font-semibold tracking-[-0.015em]">First vertical slice</h2>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              Learner identity and enrolment are the first operational workflow being proven through authentication, RLS and audit-safe writes.
+            </p>
+            <Link
+              href="/learners"
+              className="mt-4 inline-flex min-h-9 items-center gap-2 rounded-lg bg-surface-muted px-3 text-xs font-medium text-brand-strong transition duration-200 ease-out hover:bg-brand-soft"
+            >
+              Review learners
+              <ArrowUpRight aria-hidden="true" className="size-3.5" />
+            </Link>
           </section>
         </div>
       </section>
