@@ -77,7 +77,8 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
 
   useEffect(() => {
     if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [state]);
 
   async function copyLink() {
