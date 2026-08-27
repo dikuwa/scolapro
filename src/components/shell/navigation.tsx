@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   LayoutDashboard,
+  MailPlus,
   MoreHorizontal,
   Settings,
   Users,
@@ -16,6 +17,7 @@ import {
 const navigation = [
   { key: "today", label: "Today", href: "/", icon: LayoutDashboard },
   { key: "tenants", label: "Tenants", href: "/platform/tenants", icon: Building2 },
+  { key: "invitations", label: "Invitations", href: "/platform/invitations", icon: MailPlus },
   { key: "learners", label: "Learners", href: "/learners", icon: Users },
   { key: "teaching", label: "Teaching", href: "/teaching", icon: BookOpenText },
   { key: "assessment", label: "Assessment", href: "/assessment", icon: ClipboardCheck },
@@ -23,9 +25,9 @@ const navigation = [
 ] as const;
 
 const enabledKeysByRole: Record<string, readonly string[]> = {
-  platform_admin: ["today", "tenants"],
+  platform_admin: ["today", "tenants", "invitations"],
   platform_support: ["today", "tenants"],
-  school_admin: ["today", "learners", "calendar"],
+  school_admin: ["today", "invitations", "learners", "calendar"],
   principal: ["today", "learners", "assessment", "calendar"],
   deputy_principal: ["today", "learners", "assessment", "calendar"],
   hod: ["today", "learners", "teaching", "assessment", "calendar"],
