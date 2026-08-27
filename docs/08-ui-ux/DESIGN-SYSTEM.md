@@ -213,7 +213,10 @@ Rules:
 - primary action is visually clear but not neon;
 - every async action has pending/disabled feedback;
 - destructive actions never look like routine actions;
-- icon-only buttons require accessible labels/tooltips where needed.
+- icon-only buttons require accessible labels/tooltips where needed;
+- directional CTA arrows use the shared ScolaPro CTA treatment rather than one-off icon styling;
+- the default external/forward CTA icon is `ArrowUpRight`, with the shared subtle outward hover/focus motion;
+- use a straight right arrow only when the semantic meaning is explicitly horizontal navigation, and opt into the shared right-arrow motion token rather than custom transforms.
 
 ## 9. Forms
 
@@ -290,6 +293,15 @@ Never leave a click with no visible response.
 ## 14. Toasts
 
 Use **Sonner** as the toast system. Toast styling is tokenized and theme-aware.
+
+Toast personality is semantic but restrained:
+- success → success token, success-soft surface, success icon;
+- warning → warning token, warning-soft surface, warning icon;
+- error → danger token, danger-soft surface, danger icon;
+- info → info token, info-soft surface, info icon;
+- loading → brand-soft surface and brand loading indicator.
+
+Use the global ScolaPro toaster/component. Do not manually create black/default Sonner toasts or page-specific toast colors. Toasts retain subtle borders, small-radius treatment, light elevation and high contrast. Descriptions remain readable muted text, while icon/title styling carries the semantic cue. Color must complement the icon and wording, never be the only signal.
 
 Use toasts for:
 - save confirmation;
