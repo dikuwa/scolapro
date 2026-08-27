@@ -28,9 +28,9 @@ select ok(
     from pg_policies
     where schemaname = 'public'
       and tablename = 'learners'
-      and policyname = 'members can read enrolled learners'
+      and policyname = 'authorized staff can read enrolled learners'
   ),
-  'learner read policy exists'
+  'hardened learner read policy exists'
 );
 
 select ok(
@@ -39,9 +39,9 @@ select ok(
     from pg_policies
     where schemaname = 'public'
       and tablename = 'enrolments'
-      and policyname = 'members can read school enrolments'
+      and policyname = 'authorized staff can read school enrolments'
   ),
-  'enrolment read policy exists'
+  'hardened enrolment read policy exists'
 );
 
 select ok(
