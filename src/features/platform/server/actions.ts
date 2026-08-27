@@ -64,16 +64,11 @@ export async function createTenantSchool(
     town: formData.get("town"),
   });
 
-  if (!parsed.success) {
-    return { fieldErrors: parsed.error.flatten().fieldErrors };
-  }
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   const context = await getUserContext();
   const isPlatformAdmin = context.platformMemberships.some((membership) => membership.roleKey === "platform_admin");
-
-  if (!context.user || !isPlatformAdmin) {
-    return { message: "You do not have permission to create tenants." };
-  }
+  if (!context.user || !isPlatformAdmin) return { message: "You do not have permission to create tenants." };
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("create_tenant_school", {
@@ -112,9 +107,7 @@ export async function createSchoolInvitation(
     roleKey: formData.get("roleKey"),
   });
 
-  if (!parsed.success) {
-    return { fieldErrors: parsed.error.flatten().fieldErrors };
-  }
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
   const context = await getUserContext();
   const isPlatformAdmin = context.platformMemberships.some((membership) => membership.roleKey === "platform_admin");
@@ -161,4 +154,22 @@ export async function createSchoolInvitation(
     invitationToken,
     expiresAt,
   };
+}
+
+export async function revokeSchoolInvitation(formData: FormData) {
+  const invitationId = z.string().uuid().safeParse(formData.get("invitationId"));
+  if (!invitationId.success) return;
+
+  const context = await getUserContext();
+  const canManage = Boolean(
+    context.user && (
+      context.platformMemberships.some((membership) => membership.roleKey === "platform_admin")
+      || context.memberships.some((membership) => membership.roleKey === "school_admin")
+    )
+  );
+  if (!canManage) return;
+
+  const supabase = await createSupabaseServerClient();
+  await supabase.rpc("revoke_school_invitation", { p_invitation_id: invitationId.data });
+  revalidatePath("/platform/invitations");
 }
