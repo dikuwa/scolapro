@@ -35,7 +35,7 @@ security definer
 set search_path = public
 as $$
   select
-    app_private.is_platform_admin()
+    app_private.has_platform_role(array['platform_admin'])
     or exists (
       select 1
       from public.school_memberships sm
