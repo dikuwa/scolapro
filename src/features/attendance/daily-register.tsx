@@ -44,19 +44,13 @@ export function DailyRegister({
   const [rows, setRows] = useState<EditableRow[]>(learners);
   const [classOpen, setClassOpen] = useState(false);
   const [reasonOpenFor, setReasonOpenFor] = useState<string | null>(null);
-  const [clientMutationId, setClientMutationId] = useState(() => crypto.randomUUID());
+  const [clientMutationId] = useState(() => crypto.randomUUID());
   const selectedClass = classes.find((item) => item.id === selectedClassId);
-
-  useEffect(() => {
-    setRows(learners);
-    setClientMutationId(crypto.randomUUID());
-  }, [learners, selectedClassId, attendanceDate]);
 
   useEffect(() => {
     if (!state.message) return;
     if (state.success) {
       toast.success(state.message);
-      setClientMutationId(crypto.randomUUID());
       router.refresh();
     } else {
       toast.error(state.message);
