@@ -2,6 +2,7 @@ alter table public.user_profiles
   add column if not exists avatar_path text,
   add column if not exists must_change_password boolean not null default false;
 
+drop policy if exists "users can create own profile" on public.user_profiles;
 create policy "users can create own profile"
 on public.user_profiles for insert
 to authenticated
@@ -42,10 +43,7 @@ drop policy if exists "users can upload own avatar" on storage.objects;
 create policy "users can upload own avatar"
 on storage.objects for insert
 to authenticated
-with check (
-  bucket_id = 'avatars'
-  and (storage.foldername(name))[1] = auth.uid()::text
-);
+with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
 drop policy if exists "users can update own avatar" on storage.objects;
 create policy "users can update own avatar"
@@ -80,17 +78,20 @@ where dismissed_at is null;
 
 alter table public.notifications enable row level security;
 
+drop policy if exists "users can read own notifications" on public.notifications;
 create policy "users can read own notifications"
 on public.notifications for select
 to authenticated
 using (recipient_user_id = auth.uid());
 
+drop policy if exists "users can update own notifications" on public.notifications;
 create policy "users can update own notifications"
 on public.notifications for update
 to authenticated
 using (recipient_user_id = auth.uid())
 with check (recipient_user_id = auth.uid());
 
+drop policy if exists "users can delete own notifications" on public.notifications;
 create policy "users can delete own notifications"
 on public.notifications for delete
 to authenticated
