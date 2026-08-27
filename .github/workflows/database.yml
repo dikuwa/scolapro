@@ -33,3 +33,9 @@ jobs:
 
       - name: Reset database and verify seed
         run: supabase db reset
+
+      - name: Lint database
+        run: supabase db lint --local --level error
+
+      - name: Run database tests
+        run: supabase test db
