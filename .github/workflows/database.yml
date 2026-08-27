@@ -1,0 +1,35 @@
+name: Database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - ".github/workflows/database.yml"
+  pull_request:
+    paths:
+      - "supabase/**"
+      - ".github/workflows/database.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local database and apply migrations
+        run: supabase db start
+
+      - name: Reset database and verify seed
+        run: supabase db reset
