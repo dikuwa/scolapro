@@ -45,6 +45,7 @@ export default async function AttendancePage({
 
   const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
   const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
+  const registerKey = `${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`;
 
   return (
     <AppShell>
@@ -72,6 +73,7 @@ export default async function AttendancePage({
         </div>
 
         <DailyRegister
+          key={registerKey}
           classes={workspace.classes}
           selectedClassId={workspace.selectedClassId}
           attendanceDate={date}
