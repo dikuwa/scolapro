@@ -25,7 +25,7 @@ export async function saveSubject(_state: TimetableActionState, formData: FormDa
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to manage this timetable." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("upsert_school_subject", { p_school_id: parsed.data.schoolId, p_subject_code: parsed.data.code, p_display_name: parsed.data.name });
+  const { error } = await supabase.rpc("upsert_school_subject", { p_school_id: parsed.data.schoolId, p_subject_code: parsed.data.code.toUpperCase(), p_display_name: parsed.data.name });
   return error ? { message: "Subject could not be saved." } : finish("Subject saved.");
 }
 
@@ -60,11 +60,11 @@ export async function savePeriod(_state: TimetableActionState, formData: FormDat
 }
 
 export async function saveSlot(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
-  const schema = z.object({ schoolId: z.string().uuid(), academicYear: z.coerce.number().int(), cycle: z.string().trim().min(1).max(8), weekday: z.coerce.number().int().min(1).max(7), periodId: z.string().uuid(), classId: z.string().uuid(), allocationId: z.string().uuid(), room: z.string().trim().max(80).optional() });
+  const schema = z.object({ schoolId: z.string().uuid(), academicYear: z.coerce.number().int(), cycle: z.string().trim().min(1).max(8), weekday: z.coerce.number().int().min(1).max(5), periodId: z.string().uuid(), classId: z.string().uuid(), allocationId: z.string().uuid(), room: z.string().trim().max(80).optional() });
   const parsed = schema.safeParse({ schoolId: formData.get("schoolId"), academicYear: formData.get("academicYear"), cycle: formData.get("cycle"), weekday: formData.get("weekday"), periodId: formData.get("periodId"), classId: formData.get("classId"), allocationId: formData.get("allocationId"), room: String(formData.get("room") ?? "") });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to manage this timetable." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("create_timetable_slot", { p_school_id: parsed.data.schoolId, p_academic_year: parsed.data.academicYear, p_cycle_code: parsed.data.cycle, p_weekday: parsed.data.weekday, p_period_id: parsed.data.periodId, p_register_class_id: parsed.data.classId, p_teacher_allocation_id: parsed.data.allocationId, p_room_label: parsed.data.room || null });
+  const { error } = await supabase.rpc("create_timetable_slot", { p_school_id: parsed.data.schoolId, p_academic_year: parsed.data.academicYear, p_cycle_code: parsed.data.cycle.toUpperCase(), p_weekday: parsed.data.weekday, p_period_id: parsed.data.periodId, p_register_class_id: parsed.data.classId, p_teacher_allocation_id: parsed.data.allocationId, p_room_label: parsed.data.room || null });
   return error ? { message: error.message.includes("already booked") ? error.message : "Timetable slot could not be saved." } : finish("Timetable slot added.");
 }
