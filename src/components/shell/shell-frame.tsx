@@ -21,7 +21,7 @@ export function ShellFrame({
 
   return (
     <div
-      className="min-h-screen bg-background text-foreground lg:grid lg:transition-[grid-template-columns] lg:duration-[var(--motion-base)] lg:ease-[var(--ease-standard)]"
+      className="min-h-screen bg-background text-foreground lg:grid lg:items-start lg:transition-[grid-template-columns] lg:duration-[var(--motion-base)] lg:ease-[var(--ease-standard)]"
       style={{
         gridTemplateColumns: collapsed
           ? "var(--sidebar-collapsed-width) minmax(0,1fr)"
@@ -30,14 +30,14 @@ export function ShellFrame({
     >
       <aside
         data-collapsed={collapsed}
-        className="group/sidebar relative hidden border-r border-border-subtle bg-surface lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-3"
+        className="group/sidebar relative hidden border-r border-border-subtle bg-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-between lg:overflow-y-auto lg:p-3"
       >
         <div className="min-w-0">
           {brand}
           <DesktopNavigation roleKey={roleKey} collapsed={collapsed} />
         </div>
 
-        <div className="space-y-2 border-t border-border-subtle pt-3">
+        <div className="space-y-2 border-t border-border-subtle bg-surface pt-3">
           <SettingsNavigationLink collapsed={collapsed} />
           {footer}
         </div>
@@ -47,7 +47,8 @@ export function ShellFrame({
           onClick={() => setCollapsed((current) => !current)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute -right-3 top-16 z-40 grid size-6 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface-muted hover:text-foreground focus-visible:text-foreground"
+          className="fixed top-16 z-40 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface-muted hover:text-foreground focus-visible:text-foreground"
+          style={{ left: collapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)" }}
         >
           {collapsed ? (
             <ChevronRight aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
