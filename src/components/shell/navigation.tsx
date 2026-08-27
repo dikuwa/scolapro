@@ -44,7 +44,7 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function DesktopNavigation({ roleKey }: { roleKey?: string }) {
+export function DesktopNavigation({ roleKey, collapsed = false }: { roleKey?: string; collapsed?: boolean }) {
   const pathname = usePathname();
   const items = itemsForRole(roleKey);
 
@@ -59,15 +59,18 @@ export function DesktopNavigation({ roleKey }: { roleKey?: string }) {
             key={item.label}
             href={item.href}
             aria-current={active ? "page" : undefined}
+            aria-label={collapsed ? item.label : undefined}
+            title={collapsed ? item.label : undefined}
             className={[
-              "flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-colors duration-200",
+              "flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition-colors duration-[var(--motion-fast)]",
+              collapsed ? "justify-center px-2" : "gap-3 px-3",
               active
                 ? "bg-brand-soft text-brand-strong"
                 : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
             ].join(" ")}
           >
-            <Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} />
-            {item.label}
+            <Icon aria-hidden="true" className="size-[1.05rem] shrink-0" strokeWidth={1.8} />
+            {!collapsed ? <span>{item.label}</span> : null}
           </Link>
         );
       })}
@@ -83,7 +86,7 @@ export function MobileNavigation({ roleKey }: { roleKey?: string }) {
   return (
     <nav
       aria-label="Mobile primary"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/80 bg-[color:var(--surface)]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-[color:var(--surface)]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden"
     >
       <div
         className="mx-auto grid max-w-xl gap-1"
@@ -99,7 +102,7 @@ export function MobileNavigation({ roleKey }: { roleKey?: string }) {
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={[
-                "flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[0.68rem] font-medium transition duration-200",
+                "flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium transition duration-[var(--motion-fast)]",
                 active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
               ].join(" ")}
             >
@@ -113,7 +116,7 @@ export function MobileNavigation({ roleKey }: { roleKey?: string }) {
   );
 }
 
-export function SettingsNavigationLink() {
+export function SettingsNavigationLink({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const active = isActive(pathname, "/settings");
 
@@ -121,13 +124,16 @@ export function SettingsNavigationLink() {
     <Link
       href="/settings"
       aria-current={active ? "page" : undefined}
+      aria-label={collapsed ? "Settings" : undefined}
+      title={collapsed ? "Settings" : undefined}
       className={[
-        "flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition duration-200",
+        "flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition duration-[var(--motion-fast)]",
+        collapsed ? "justify-center px-2" : "gap-3 px-3",
         active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
       ].join(" ")}
     >
-      <Settings aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} />
-      Settings
+      <Settings aria-hidden="true" className="size-[1.05rem] shrink-0" strokeWidth={1.8} />
+      {!collapsed ? <span>Settings</span> : null}
     </Link>
   );
 }
