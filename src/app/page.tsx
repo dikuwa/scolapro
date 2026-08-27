@@ -32,7 +32,7 @@ export default async function Home() {
   let displayName = "ScolaPro User";
   let schoolName = "ScolaPro Demonstration School";
   let roleLabel = "Design preview";
-  let academicYear = new Date().getFullYear();
+  const academicYear = new Date().getFullYear();
   let overview = {
     currentLearners: 2,
     gradeCount: 5,
