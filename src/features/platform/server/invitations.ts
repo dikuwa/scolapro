@@ -24,13 +24,47 @@ function relationName(value: { name?: string | null }[] | { name?: string | null
 
 export async function getInvitationAdminData() {
   const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Authentication required.");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const [{ data: platformMemberships, error: platformError }, { data: schoolAdminMemberships, error: membershipError }] = await Promise.all([
+    supabase
+      .from("platform_memberships")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("role_key", "platform_admin")
+      .lte("active_from", today)
+      .or(`active_to.is.null,active_to.gte.${today}`),
+    supabase
+      .from("school_memberships")
+      .select("school_id")
+      .eq("user_id", user.id)
+      .eq("role_key", "school_admin")
+      .lte("active_from", today)
+      .or(`active_to.is.null,active_to.gte.${today}`),
+  ]);
+
+  if (platformError || membershipError) throw new Error("Unable to resolve invitation scope.");
+
+  const isPlatformAdmin = Boolean(platformMemberships?.length);
+  const manageableSchoolIds = (schoolAdminMemberships ?? []).map((membership) => membership.school_id);
+
+  let schoolQuery = supabase
+    .from("schools")
+    .select("id,name,tenants(name)")
+    .eq("status", "active")
+    .order("name");
+
+  if (!isPlatformAdmin) {
+    if (!manageableSchoolIds.length) {
+      return { schoolOptions: [] as SchoolOption[], invitations: [] as InvitationSummary[] };
+    }
+    schoolQuery = schoolQuery.in("id", manageableSchoolIds);
+  }
 
   const [{ data: schools, error: schoolError }, { data: invitations, error: invitationError }] = await Promise.all([
-    supabase
-      .from("schools")
-      .select("id,name,tenants(name)")
-      .eq("status", "active")
-      .order("name"),
+    schoolQuery,
     supabase
       .from("school_invitations")
       .select("id,email,role_key,status,invited_at,expires_at,schools(name),tenants(name)")
@@ -38,9 +72,7 @@ export async function getInvitationAdminData() {
       .limit(50),
   ]);
 
-  if (schoolError || invitationError) {
-    throw new Error("Unable to load invitation administration data.");
-  }
+  if (schoolError || invitationError) throw new Error("Unable to load invitation administration data.");
 
   const schoolOptions: SchoolOption[] = (schools ?? []).map((school) => ({
     id: school.id,
