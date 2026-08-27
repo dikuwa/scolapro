@@ -19,15 +19,9 @@ export function ProfileSettings({ avatarUrl, mustChangePassword }: { avatarUrl: 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setPreviewUrl(avatarUrl);
-  }, [avatarUrl]);
-
-  useEffect(() => {
     if (!avatarState.message) return;
     if (avatarState.success) {
       toast.success(avatarState.message);
-      setFileName("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
     } else {
       toast.error(avatarState.message);
@@ -65,18 +59,8 @@ export function ProfileSettings({ avatarUrl, mustChangePassword }: { avatarUrl: 
           </div>
           <div className="min-w-0 flex-1">
             <form action={avatarAction} className="flex flex-wrap items-center gap-2">
-              <input
-                ref={fileInputRef}
-                id="avatar"
-                name="avatar"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="sr-only"
-                onChange={(event) => choosePreview(event.target.files?.[0])}
-              />
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-foreground transition hover:bg-surface-subtle">
-                <ImagePlus className="size-3.5" aria-hidden="true" /> Choose photo
-              </button>
+              <input ref={fileInputRef} id="avatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => choosePreview(event.target.files?.[0])} />
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-foreground transition hover:bg-surface-subtle"><ImagePlus className="size-3.5" aria-hidden="true" /> Choose photo</button>
               <span className="max-w-48 truncate text-xs text-muted-foreground">{fileName || (avatarUrl ? "Current photo" : "No photo selected")}</span>
               <button type="submit" disabled={avatarPending || !fileName} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50">{avatarPending ? <Spinner className="size-3.5 text-white" /> : <Camera className="size-3.5" />} {avatarPending ? "Uploading…" : "Update"}</button>
             </form>
