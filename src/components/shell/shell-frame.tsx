@@ -42,7 +42,10 @@ export function ShellFrame({
           : "var(--sidebar-width) minmax(0,1fr)",
       }}
     >
-      <aside className="relative hidden border-r border-border-subtle bg-surface lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-3">
+      <aside
+        data-collapsed={collapsed}
+        className="group/sidebar relative hidden border-r border-border-subtle bg-surface lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:p-3"
+      >
         <div className="min-w-0">
           {brand}
           <DesktopNavigation roleKey={roleKey} collapsed={collapsed} />
