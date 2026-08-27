@@ -26,6 +26,8 @@ export const getUserContext = cache(async () => {
     return {
       user: null,
       displayName: null,
+      avatarPath: null,
+      mustChangePassword: false,
       memberships: [] as SchoolMembershipContext[],
       platformMemberships: [] as PlatformMembershipContext[],
     };
@@ -35,7 +37,7 @@ export const getUserContext = cache(async () => {
   const [profileResult, membershipResult, platformResult] = await Promise.all([
     supabase
       .from("user_profiles")
-      .select("display_name, preferred_name")
+      .select("display_name, preferred_name, avatar_path, must_change_password")
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase
@@ -52,17 +54,11 @@ export const getUserContext = cache(async () => {
       .or(`active_to.is.null,active_to.gte.${today}`),
   ]);
 
-  if (membershipResult.error) {
-    throw new Error("Unable to resolve the current school context.");
-  }
-
-  if (platformResult.error) {
-    throw new Error("Unable to resolve the current platform context.");
-  }
+  if (membershipResult.error) throw new Error("Unable to resolve the current school context.");
+  if (platformResult.error) throw new Error("Unable to resolve the current platform context.");
 
   const memberships: SchoolMembershipContext[] = (membershipResult.data ?? []).map((membership) => {
     const school = Array.isArray(membership.schools) ? membership.schools[0] : membership.schools;
-
     return {
       membershipId: membership.id,
       tenantId: membership.tenant_id,
@@ -87,5 +83,12 @@ export const getUserContext = cache(async () => {
     user.email?.split("@")[0] ||
     "User";
 
-  return { user, displayName, memberships, platformMemberships };
+  return {
+    user,
+    displayName,
+    avatarPath: profile?.avatar_path ?? null,
+    mustChangePassword: profile?.must_change_password ?? false,
+    memberships,
+    platformMemberships,
+  };
 });
