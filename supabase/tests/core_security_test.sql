@@ -1,10 +1,11 @@
 begin;
 
-select plan(12);
+select plan(20);
 
 select has_table('public', 'learners', 'learners table exists');
 select has_table('public', 'enrolments', 'enrolments table exists');
 select has_table('public', 'school_memberships', 'school memberships table exists');
+select has_table('public', 'school_invitations', 'school invitations table exists');
 
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.learners'::regclass),
@@ -14,6 +15,11 @@ select ok(
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.enrolments'::regclass),
   'RLS is enabled on enrolments'
+);
+
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.school_invitations'::regclass),
+  'RLS is enabled on school invitations'
 );
 
 select ok(
@@ -36,6 +42,17 @@ select ok(
       and policyname = 'members can read school enrolments'
   ),
   'enrolment read policy exists'
+);
+
+select ok(
+  exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename = 'school_invitations'
+      and policyname = 'authorized admins can read school invitations'
+  ),
+  'invitation read policy exists'
 );
 
 select has_index(
@@ -71,6 +88,32 @@ select has_function(
   'create_learner_enrolment',
   array['uuid', 'integer', 'uuid', 'uuid', 'text', 'text', 'text', 'date', 'text', 'text', 'date'],
   'atomic learner registration function exists'
+);
+
+select ok(
+  to_regprocedure('public.create_school_invitation(uuid,text,text,text,text,text)') is not null,
+  'school invitation creation function exists'
+);
+
+select ok(
+  to_regprocedure('public.accept_school_invitation(text)') is not null,
+  'school invitation acceptance function exists'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.create_school_invitation(uuid,text,text,text,text,text)', 'EXECUTE'),
+  'anonymous users cannot create school invitations'
+);
+
+select ok(
+  has_function_privilege('anon', 'public.get_school_invitation_preview(text)', 'EXECUTE'),
+  'anonymous users can preview a token they possess'
+);
+
+select ok(
+  to_regprocedure('public.upsert_school_grade(uuid,integer,text,text)') is not null
+  and to_regprocedure('public.upsert_register_class(uuid,integer,uuid,text,text)') is not null,
+  'academic structure functions exist'
 );
 
 select * from finish();
