@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Settings,
   SlidersHorizontal,
+  UserRound,
   Users,
 } from "lucide-react";
 
@@ -20,6 +21,7 @@ const navigation = [
   { key: "tenants", label: "Tenants", href: "/platform/tenants", icon: Building2 },
   { key: "invitations", label: "Invitations", href: "/platform/invitations", icon: MailPlus },
   { key: "setup", label: "Academic setup", href: "/school/setup", icon: SlidersHorizontal },
+  { key: "staff", label: "Staff", href: "/staff", icon: UserRound },
   { key: "learners", label: "Learners", href: "/learners", icon: Users },
   { key: "teaching", label: "Teaching", href: "/teaching", icon: BookOpenText },
   { key: "assessment", label: "Assessment", href: "/assessment", icon: ClipboardCheck },
@@ -29,10 +31,10 @@ const navigation = [
 const enabledKeysByRole: Record<string, readonly string[]> = {
   platform_admin: ["today", "tenants", "invitations"],
   platform_support: ["today", "tenants"],
-  school_admin: ["today", "setup", "invitations", "learners", "calendar"],
-  principal: ["today", "learners", "assessment", "calendar"],
-  deputy_principal: ["today", "learners", "assessment", "calendar"],
-  hod: ["today", "learners", "teaching", "assessment", "calendar"],
+  school_admin: ["today", "setup", "invitations", "staff", "learners", "calendar"],
+  principal: ["today", "staff", "learners", "assessment", "calendar"],
+  deputy_principal: ["today", "staff", "learners", "assessment", "calendar"],
+  hod: ["today", "staff", "learners", "teaching", "assessment", "calendar"],
   teacher: ["today", "learners", "teaching", "assessment", "calendar"],
   class_teacher: ["today", "learners", "teaching", "assessment", "calendar"],
   counsellor: ["today", "learners", "calendar"],
