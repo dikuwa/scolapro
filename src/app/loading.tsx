@@ -2,12 +2,8 @@ import { Spinner } from "@/components/ui/spinner";
 
 export default function Loading() {
   return (
-    <main className="min-h-screen bg-background px-4 py-6 sm:px-6 lg:px-8">
-      <div className="scolapro-content-width relative animate-pulse">
-        <div className="pointer-events-none absolute right-0 top-0 flex items-center gap-2 text-xs text-muted-foreground">
-          <Spinner className="size-4 sm:size-5" />
-          <span className="hidden sm:inline">Loading workspace…</span>
-        </div>
+    <main className="relative min-h-[70vh] bg-background px-4 py-6 sm:px-6 lg:px-8">
+      <div className="scolapro-content-width animate-pulse">
         <div className="h-7 w-56 rounded-[var(--radius-sm)] bg-surface-subtle" />
         <div className="mt-2 h-4 w-72 max-w-full rounded-[var(--radius-xs)] bg-surface-subtle" />
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -16,6 +12,11 @@ export default function Loading() {
           ))}
         </div>
         <div className="mt-5 h-96 rounded-[var(--radius-md)] border border-border-subtle bg-surface" />
+      </div>
+      <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center" aria-live="polite" aria-label="Loading">
+        <span className="grid size-12 place-items-center rounded-[var(--radius-md)] bg-[color:var(--surface-elevated)]/92 shadow-[var(--shadow-sm)] backdrop-blur-md">
+          <Spinner className="size-5 text-brand sm:size-6" />
+        </span>
       </div>
     </main>
   );
