@@ -14,6 +14,10 @@ Statuses:
 - **PLANNED** — architecture/design defined but implementation has not reached the operational slice yet.
 - **VERIFY** — implemented but still needs broader role/device/real-data QA.
 
+## Current implementation mode
+
+The project is intentionally in a **backend/domain bulk implementation pass**. Avoid spending cycles on visual polish while the remaining core modules are being established. UI refinement will be handled as a later consolidated pass once the operational foundations are complete.
+
 ## Foundation
 
 | Area | Status | Notes |
@@ -27,7 +31,7 @@ Statuses:
 | Loading system | DONE | Structural skeletons plus centered global shadcn-style Spinner; no loading text is required for normal route transitions. |
 | Persistent notifications | DONE FOUNDATION | User-scoped inbox, unread count, mark-all-read and clear actions are wired into the app shell. Invitation acceptance is the first database-driven notification producer. |
 | Account profile | DONE FOUNDATION / VERIFY | Avatar storage/upload/remove and password workspace implemented. File input is custom-styled and avatar selection previews instantly. `must_change_password` exists for first-login governance. |
-| Calendar route | DONE FOUNDATION | Role-aware `/calendar` page now uses academic-year/term data instead of returning a 404. Calendar editing and richer event layers remain later work. |
+| Calendar route | DONE FOUNDATION | Role-aware `/calendar` page now uses academic-year/term data instead of returning a 404. |
 
 ## First operational vertical slice
 
@@ -35,73 +39,95 @@ Statuses:
 |---|---|---|
 | Learner identity | DONE FOUNDATION | Core learner identity model and secure registration workflow implemented. |
 | Enrolment | DONE FOUNDATION | School/year enrolment model, integrity constraints and audit-safe registration RPC. |
-| Academic structure | DONE / VERIFY | Grades and register classes configurable by school admin; new identifiers normalize to uppercase. Register classes can be corrected and can only be deleted while unused. |
-| School calendar | DONE FOUNDATION | Academic-year/term schema and read view exist as attendance/timetable/planning dependencies. |
+| Academic structure | DONE / VERIFY | Grades and register classes configurable by school admin; identifiers normalize uppercase. Register classes can be corrected and safely deleted only while unused. |
+| School calendar | DONE FOUNDATION | Academic-year/term schema plus explicit school-day overrides now support normal weekdays, closures and approved special school days. |
 | Staff | DONE FOUNDATION | Staff model, directory and role-aware data-scope hardening exist. |
-| Invitations | DONE / VERIFY | Platform admin can choose authorized schools; school admin is explicitly limited to active school-admin scope, with a single-school fixed-context UI when appropriate. |
+| Invitations | DONE / VERIFY | Platform admin can choose authorized schools; school admin is limited to active school-admin scope. |
 
 ## Timetable and attendance slice
 
 | Area | Status | Notes |
 |---|---|---|
-| Subjects / subject offerings | DONE / VERIFY | Schema plus governed school-admin UI/RPCs. New subject codes normalize uppercase. |
-| Teacher allocations | DONE FOUNDATION / VERIFY | Canonical teacher-to-subject-to-class allocation is configurable through the timetable workspace and reused as scheduling source of truth. |
-| Timetable periods | DONE FOUNDATION / VERIFY | School admin can configure numbered teaching periods through ScolaPro-owned time pickers rather than browser-native time UI. |
+| Subjects / subject offerings | DONE / VERIFY | Schema plus governed school-admin UI/RPCs. Subject codes normalize uppercase. |
+| Teacher allocations | DONE FOUNDATION / VERIFY | Canonical teacher-to-subject-to-class allocation is the scheduling source of truth and is reused across timetable/marks/planning/workload. |
+| Timetable periods | DONE FOUNDATION / VERIFY | Numbered teaching periods and optional times exist. |
 | Timetable slots | IN PROGRESS / VERIFY | Conflict-safe slot creation is implemented; database constraints prevent class/teacher double booking. |
-| Timetable role views | IN PROGRESS / VERIFY | School admin receives setup + full timetable; leadership sees school timetable; linked teachers/class teachers see their allocated slots. |
-| Timetable navigation | DONE | Route is exposed only to relevant school roles. |
+| Timetable role views | IN PROGRESS / VERIFY | Leadership sees school timetable; linked teachers/class teachers see allocated slots. |
 | Attendance events | DONE FOUNDATION | Date-aware append-only attendance events and reason registry exist. |
-| Daily register | DONE FOUNDATION / VERIFY | Exception-first daily capture, auditable revisions, faster weekday navigation and optional private JPG/PNG/WebP/PDF evidence are implemented. |
-| Weekly register | DONE FOUNDATION / VERIFY | Monday-Friday spreadsheet-style capture is implemented. Each learner/day has its own status/reason/note, and one atomic confirmation creates separate daily submissions. Weekends are rejected by the weekly database RPC. |
-| Attendance evidence | DONE FOUNDATION / VERIFY | Private `attendance-evidence` storage bucket and RLS-backed evidence metadata exist. Evidence is optional and limited to 5 MB. |
-| Attendance navigation | DONE | Visible to authorized operational roles. |
+| Daily register | DONE FOUNDATION / VERIFY | Exception-first daily capture, auditable revisions and optional private evidence are implemented. |
+| Weekly register | DONE FOUNDATION / VERIFY | Monday-Friday grid capture is implemented with atomic daily submissions. |
+| Attendance evidence | DONE FOUNDATION / VERIFY | Private evidence storage and RLS-backed metadata exist. |
+| Attendance class scope | DONE FOUNDATION / VERIFY | Leaders/HODs retain operational support scope while ordinary teacher/class-teacher attendance capture is limited to register classes they own or are allocated to. |
+| Expected school days | DONE FOUNDATION / VERIFY | Monday-Friday is the default; explicit school-day overrides support holidays/closures and exceptional weekend school days without corrupting attendance calculations. |
 
-## UI/UX corrections completed in current pass
+## Learner conduct, achievement and support
 
-- Global route spinner is centered across authenticated and public pages; route loading text was removed.
-- Sonner toasts are positioned top-right.
-- Body caret is suppressed outside editable controls to remove the stray blinking page cursor.
-- Desktop sidebar is sticky, full-height and independently scrollable.
-- Shared accessible Picker closes on outside pointer interaction and Escape.
-- Browser-native timetable time picker was replaced with a ScolaPro-owned hour/minute control.
-- Browser-native avatar file presentation was replaced with a custom file control and instant local preview.
-- Learner search/filter controls now use design-system radii instead of pill/full rounding.
-- Shared section/record hierarchy classes distinguish page titles, section titles/descriptions and row/item titles.
-- Dashboard/timetable/attendance/academic/staff/invitation metric values now visually match their contextual icon accent colors where applicable.
-- Grade/class/subject/cycle identifiers normalize uppercase for new writes; grade helpers use `G8`, `G9`, `G10`, etc.
-- Academic grade picker no longer renders duplicated inline grade numbers and shared pickers close outside correctly.
-- Register classes now have governed edit and safe-delete controls; used classes are preserved instead of destructively removed.
-- `/calendar` now renders academic calendar context instead of a not-found page.
+| Area | Status | Notes |
+|---|---|---|
+| Conduct events | DONE FOUNDATION / VERIFY | Positive and negative conduct events are longitudinal records with severity/status rather than a single points balance. |
+| Achievement events | DONE FOUNDATION / VERIFY | Achievement history is separate from discipline and supports school-to-international levels plus evidence references. |
+| Learner support cases | DONE FOUNDATION / VERIFY | Restricted/highly-restricted support cases exist with narrower RLS than normal learner records. |
+| Support interventions | DONE FOUNDATION / VERIFY | Append-oriented intervention/review notes are attached to cases with restricted access. |
 
-## Current timetable workflow
+## LTSM / textbooks / library
 
-The implemented school-admin path is:
+| Area | Status | Notes |
+|---|---|---|
+| Resource titles | DONE FOUNDATION / VERIFY | Shared catalog supports textbooks, library books, teacher resources, devices and other resource types. |
+| Resource copies | DONE FOUNDATION / VERIFY | Barcode/asset identity, condition, location and availability are modeled. |
+| Loans | DONE FOUNDATION / VERIFY | Learner/staff borrowing history exists with one-open-loan-per-copy protection. |
+| Issue / return transactions | DONE FOUNDATION / VERIFY | Governed RPCs atomically update loan history and copy availability/condition with audit events. |
+
+## Communications
+
+| Area | Status | Notes |
+|---|---|---|
+| Provider-independent message model | DONE FOUNDATION / VERIFY | App/email/SMS/WhatsApp/letter intent is stored separately from delivery provider implementation. |
+| Recipient/delivery model | DONE FOUNDATION / VERIFY | Individual/custom recipients and delivery status are modeled without coupling domain records to providers. |
+| Queue transition | DONE FOUNDATION / VERIFY | Draft messages require recipients before they can be queued; queuing is audited. |
+| Provider adapters | NEXT | Actual SMS/WhatsApp/email transport integrations remain separate adapters/jobs. |
+
+## Admissions, transfers and year-end progression
+
+| Area | Status | Notes |
+|---|---|---|
+| Admission applications | DONE FOUNDATION / VERIFY | Pre-enrolment workflow exists and remains separate from authoritative learner identity/enrolment until accepted and enrolled. |
+| Transfers | DONE FOUNDATION / VERIFY | Source-school provenance and historical enrolment are preserved; completion closes the source enrolment rather than rewriting it. |
+| Year-end progression | DONE FOUNDATION / VERIFY | Outcome records preserve academic rule-set key/version provenance and can be locked after approval. |
+| Promotion engine integration | NEXT | Deterministic versioned academic rules still need to generate/review these progression records operationally. |
+
+## Existing UI/UX corrections
+
+UI corrections already completed remain in place, but new modules should not receive heavy visual polish until the consolidated UI pass. Existing shared rules still apply: ScolaPro-owned controls, top-right toasts, centered loading, sticky shell, hierarchy utilities, contextual metrics, uppercase academic identifiers and safe class correction/deletion.
+
+## Current workflows
+
+Timetable:
 
 `Academic structure → Subjects → Grade/year offerings → Teacher allocation → Teaching periods → Timetable slot → Role-aware timetable view`
 
-Teacher allocation remains the canonical relationship shared by timetable, marks, teaching planning, workload and future statutory reporting. Timetable slot creation never accepts an arbitrary teacher/class/subject combination that bypasses this allocation.
+Attendance:
 
-## Current attendance workflow
+`Day or week → class-scoped authorization → expected school-day validation → default present → explicit exceptions → reason/note/evidence → auditable confirmation/revision`
 
-Two complementary capture paths now exist:
+Learning resources:
 
-`Day → class → default present → mark exceptions → reason/note/evidence → confirm/revise`
+`Catalog title → tracked copy → available → issue to learner/staff → open loan → return/lost/damaged → copy state + audit`
 
-`Week → class → Monday-Friday grid → choose learner/day → status/reason/note → confirm week atomically`
+Transfer:
 
-Saturday and Sunday are not normal register days. Future calendar-readiness work should also exclude school holidays/closures from expected attendance while still permitting explicitly configured special school events.
+`Current enrolment → transfer request → governed approval/completion → source enrolment closed as transferred → receiving school appends its own enrolment`
 
 ## Approved next implementation sequence
 
-1. **Finish current CI/database validation and timetable/attendance QA across school-admin/teacher roles.**
-2. Tighten role-appropriate class access (teachers/register teachers) and attendance reporting/readiness summaries.
-3. Conduct, achievement and learner-support operational slice.
-4. LTSM / textbooks / library operational slice.
-5. Communications engine and additional domain notification producers.
-6. Admissions, transfers and year-end progression.
-7. DNEA readiness.
-8. Finance basics.
-9. Continue statutory/EMIS and curriculum/planning vertical slices according to the architecture roadmap.
+1. **DNEA readiness foundation and candidate/subject-registration validation.**
+2. **Finance basics** for invoices, bank-transfer references, payments and allocation without building a full ERP.
+3. **Platform & tenant administration** expansion: feature flags/module entitlements, school configuration and governed tenant lifecycle metadata.
+4. **Physical data model hardening**: cross-table tenant/school integrity checks, indexes, narrower role scopes and database test expansion.
+5. **Assessment/marks operational persistence** connecting the already-approved academic rules engine to actual assessment instances, marks, moderation and official results.
+6. **Statutory/EMIS readiness implementation** deriving census data from the operational source tables.
+7. **Curriculum/planning implementation** from the versioned NIED registry into pacing/scheme/lesson-prep workflows.
+8. Consolidated application-information-architecture and UI refinement pass after the core operational modules are in place.
 
 ## Takeover rule
 
