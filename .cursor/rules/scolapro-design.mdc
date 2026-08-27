@@ -1,0 +1,19 @@
+---
+description: Mandatory ScolaPro design and architecture rules
+globs:
+  - "src/**/*"
+  - "app/**/*"
+  - "components/**/*"
+alwaysApply: true
+---
+
+Read and follow `/AGENTS.md`.
+
+For any UI/frontend task, also read:
+- `/docs/08-ui-ux/DESIGN-PRINCIPLES.md`
+- `/docs/08-ui-ux/DESIGN-SYSTEM.md`
+- `/docs/08-ui-ux/MOTION-INTERACTION.md`
+- `/docs/08-ui-ux/COMPONENT-INVENTORY.md`
+- `/docs/09-architecture/FRONTEND-ARCHITECTURE.md`
+
+Do not use generic AI dashboard styling. Use ScolaPro tokens, 8-point spacing, approved typography, shadcn/ScolaPro components, Sonner feedback, restrained motion, responsive layouts and explicit loading/error/empty states. Do not expose browser-native select/radio/date-picker/alert/confirm UI in core workflows.
