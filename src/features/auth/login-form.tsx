@@ -27,7 +27,7 @@ export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
             inputMode="email"
             aria-invalid={Boolean(state.fieldErrors?.email?.length)}
             aria-describedby={state.fieldErrors?.email?.length ? "email-error" : undefined}
-            className="min-h-11 w-full rounded-xl border border-border bg-surface-elevated pl-10 pr-3 text-sm text-foreground shadow-[var(--shadow-sm)] outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-[color:var(--brand)]/30 focus:border-[color:var(--brand)] focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+            className="min-h-11 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated pl-10 pr-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] placeholder:text-muted-foreground/70 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
             placeholder="you@school.edu.na"
           />
         </div>
@@ -51,7 +51,7 @@ export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
             autoComplete="current-password"
             aria-invalid={Boolean(state.fieldErrors?.password?.length)}
             aria-describedby={state.fieldErrors?.password?.length ? "password-error" : undefined}
-            className="min-h-11 w-full rounded-xl border border-border bg-surface-elevated pl-10 pr-3 text-sm text-foreground shadow-[var(--shadow-sm)] outline-none transition duration-200 placeholder:text-muted-foreground/70 hover:border-[color:var(--brand)]/30 focus:border-[color:var(--brand)] focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+            className="min-h-11 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated pl-10 pr-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] placeholder:text-muted-foreground/70 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
             placeholder="Enter your password"
           />
         </div>
@@ -63,7 +63,7 @@ export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
       </div>
 
       {state.message ? (
-        <div role="alert" className="rounded-xl bg-danger-soft px-3.5 py-3 text-sm leading-5 text-[color:var(--danger)]">
+        <div role="alert" className="rounded-[var(--radius-sm)] bg-danger-soft px-3.5 py-3 text-sm leading-5 text-[color:var(--danger)]">
           {state.message}
         </div>
       ) : null}
@@ -71,10 +71,11 @@ export function LoginForm({ nextPath = "/" }: { nextPath?: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-sm)] transition duration-200 ease-out hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-65"
+        data-arrow="right"
+        className="scolapro-cta inline-flex min-h-11 w-full items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-65"
       >
         {pending ? "Signing in…" : "Sign in"}
-        {!pending ? <ArrowRight aria-hidden="true" className="size-4" /> : null}
+        {!pending ? <ArrowRight aria-hidden="true" className="scolapro-cta-icon size-4" /> : null}
       </button>
     </form>
   );
