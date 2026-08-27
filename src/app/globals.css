@@ -134,6 +134,40 @@ a {
   transform: translateX(0.18rem) scale(1.08);
 }
 
+[data-sonner-toast].scolapro-toast[data-type="success"] {
+  background: var(--success-soft) !important;
+  border-color: color-mix(in srgb, var(--success) 20%, var(--border-subtle)) !important;
+  color: var(--success) !important;
+}
+
+[data-sonner-toast].scolapro-toast[data-type="error"] {
+  background: var(--danger-soft) !important;
+  border-color: color-mix(in srgb, var(--danger) 20%, var(--border-subtle)) !important;
+  color: var(--danger) !important;
+}
+
+[data-sonner-toast].scolapro-toast[data-type="warning"] {
+  background: var(--warning-soft) !important;
+  border-color: color-mix(in srgb, var(--warning) 20%, var(--border-subtle)) !important;
+  color: var(--warning) !important;
+}
+
+[data-sonner-toast].scolapro-toast[data-type="info"] {
+  background: var(--info-soft) !important;
+  border-color: color-mix(in srgb, var(--info) 20%, var(--border-subtle)) !important;
+  color: var(--info) !important;
+}
+
+[data-sonner-toast].scolapro-toast[data-type="loading"] {
+  background: var(--brand-soft) !important;
+  border-color: color-mix(in srgb, var(--brand) 20%, var(--border-subtle)) !important;
+  color: var(--brand-strong) !important;
+}
+
+[data-sonner-toast].scolapro-toast [data-description] {
+  color: var(--muted-foreground) !important;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
