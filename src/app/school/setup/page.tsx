@@ -28,15 +28,15 @@ export default async function SchoolSetupPage() {
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
           <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
             <div><p className="text-xs font-medium text-muted-foreground">School</p><p className="mt-1.5 text-sm font-semibold">{membership.schoolName}</p></div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><School className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
             <div><p className="text-xs font-medium text-muted-foreground">Configured grades</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{structure.grades.length}</p></div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><BookOpenCheck className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><BookOpenCheck className="size-4" aria-hidden="true" /></span>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
             <div><p className="text-xs font-medium text-muted-foreground">Register classes</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{structure.classes.length}</p></div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><UsersRound className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span>
           </div>
         </div>
 
@@ -48,7 +48,7 @@ export default async function SchoolSetupPage() {
               <h2 className="text-sm font-semibold">Current register structure</h2>
               <p className="mt-1 text-xs text-muted-foreground">Classes are grouped by their configured grade for this academic year.</p>
             </div>
-            <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-muted-foreground">{academicYear}</span>
+            <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span>
           </div>
 
           <div className="mt-4 divide-y divide-border-subtle">
