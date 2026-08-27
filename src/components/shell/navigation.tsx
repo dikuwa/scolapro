@@ -11,6 +11,7 @@ import {
   MailPlus,
   MoreHorizontal,
   Settings,
+  SlidersHorizontal,
   Users,
 } from "lucide-react";
 
@@ -18,6 +19,7 @@ const navigation = [
   { key: "today", label: "Today", href: "/", icon: LayoutDashboard },
   { key: "tenants", label: "Tenants", href: "/platform/tenants", icon: Building2 },
   { key: "invitations", label: "Invitations", href: "/platform/invitations", icon: MailPlus },
+  { key: "setup", label: "Academic setup", href: "/school/setup", icon: SlidersHorizontal },
   { key: "learners", label: "Learners", href: "/learners", icon: Users },
   { key: "teaching", label: "Teaching", href: "/teaching", icon: BookOpenText },
   { key: "assessment", label: "Assessment", href: "/assessment", icon: ClipboardCheck },
@@ -27,7 +29,7 @@ const navigation = [
 const enabledKeysByRole: Record<string, readonly string[]> = {
   platform_admin: ["today", "tenants", "invitations"],
   platform_support: ["today", "tenants"],
-  school_admin: ["today", "invitations", "learners", "calendar"],
+  school_admin: ["today", "setup", "invitations", "learners", "calendar"],
   principal: ["today", "learners", "assessment", "calendar"],
   deputy_principal: ["today", "learners", "assessment", "calendar"],
   hod: ["today", "learners", "teaching", "assessment", "calendar"],
