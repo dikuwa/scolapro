@@ -27,7 +27,7 @@ Each attendance event records at minimum:
 - status
 - reason code where applicable
 - note
-- evidence/attachment where policy permits
+- optional evidence/attachment where policy permits
 - recorded by
 - recorded timestamp
 - source/device/sync metadata
@@ -47,21 +47,68 @@ The exact registry is school/policy configurable, but the model should support s
 
 Reasons are maintained in a separate structured registry and can contain sensitive classifications with stricter access controls.
 
-## Daily Teacher Workflow
+## Daily Register Workflow
 
 Default workflow:
 
 1. Open current class/register.
 2. Everyone defaults to Present.
 3. Teacher taps only exceptions.
-4. Select status and reason.
-5. Save draft or confirm attendance.
+4. Select status and optional reason.
+5. Add optional note.
+6. Add optional evidence such as a medical note, parent letter, photograph or PDF.
+7. Confirm attendance.
 
-This minimizes clicks for the common case.
+The UI must keep evidence optional and secondary so the common attendance path remains fast.
 
-## Weekly Review
+Normal day navigation skips Saturday and Sunday. Direct weekend dates should normalize back into a school-day context unless a special school event explicitly makes the weekend a valid attendance day.
 
-A weekly matrix can show learners vertically and days horizontally for review/confirmation. Multiple days for the same learner can carry different statuses/reasons naturally; no artificial "add line" concept is required in the data model.
+## Evidence and Attachments
+
+Attendance evidence is supporting documentation, not the attendance event itself.
+
+Current implementation rules:
+
+- private storage bucket;
+- JPG, PNG, WebP and PDF supported;
+- maximum file size 5 MB;
+- mobile image capture may use the device camera;
+- evidence is linked to the register submission and learner enrolment;
+- metadata preserves uploader, date, filename, MIME type and school scope;
+- access follows attendance authorization and must remain subject to future sensitive-data refinement;
+- replacing an attendance record must not silently destroy historical evidence.
+
+Evidence should never be placed in a public bucket or exposed through broad analytics.
+
+## Weekly Review and Capture
+
+The weekly matrix is a first-class operational capture mode, not only a report.
+
+- learners are rows;
+- Monday-Friday are columns;
+- Saturday and Sunday are excluded from the normal register week;
+- everyone defaults to Present;
+- each learner/day can have its own status, reason and note;
+- users can filter to all learners or exception rows and search for a specific learner;
+- selecting a learner/day opens a compact editor rather than expanding every cell into a large form;
+- one weekly confirmation creates separate auditable daily submissions for each school day;
+- weekly submission is atomic at the database layer so the week does not become partially confirmed if one day fails.
+
+This supports schools that keep a physical register during the week and reconcile it electronically later, for example on Friday.
+
+## School-Day Calendar Rules
+
+A calendar date existing does not mean it is an expected attendance day.
+
+Baseline:
+
+- Monday-Friday are normal candidate school days;
+- Saturday/Sunday are excluded by default;
+- academic-term dates determine whether the day belongs to an active term;
+- future school-calendar overlays must exclude public holidays, school closures and other non-teaching days;
+- an explicitly configured special school event may make an otherwise excluded date valid.
+
+Attendance percentages and absence counts must use expected school days, not raw calendar-day counts.
 
 ## Register vs Subject Attendance
 
@@ -73,22 +120,17 @@ The system must not overwrite one with the other.
 
 Schools may permit attendance to be captured after the original school day. The system should:
 
-- preserve original attendance date
-- preserve actual recording timestamp
-- identify backdated entries in audit history
-- optionally require reason/approval after a configurable threshold
-- never falsely imply that a late entry was recorded contemporaneously
+- preserve original attendance date;
+- preserve actual recording timestamp;
+- identify backdated entries in audit history;
+- optionally require reason/approval after a configurable threshold;
+- never falsely imply that a late entry was recorded contemporaneously.
 
-## Confirmation Lifecycle
+## Confirmation and Revision
 
-Suggested states:
+Current implementation uses append-oriented register submissions rather than destructive rewriting.
 
-- Draft
-- Confirmed
-- Corrected
-- Locked
-
-Corrections after confirmation must preserve history rather than replace the original silently.
+A later correction references/replaces the prior effective register while preserving history. Future product language may expose lifecycle labels such as Draft, Confirmed, Corrected and Locked where policy requires them.
 
 ## Parent Communication
 
@@ -104,23 +146,25 @@ Schools can require approval before sending sensitive notifications.
 
 Attendance is a priority offline workflow.
 
-- class lists cached locally
-- teacher can record without connectivity
-- pending operations enter sync queue
-- server resolves authorization and version checks on sync
-- duplicate retries are idempotent
-- conflicts are surfaced rather than silently discarded
+- class lists cached locally;
+- teacher can record without connectivity;
+- pending operations enter sync queue;
+- server resolves authorization and version checks on sync;
+- duplicate retries are idempotent;
+- conflicts are surfaced rather than silently discarded.
+
+The current online register already uses client mutation identifiers so the same server model can support later offline synchronization.
 
 ## Analytics
 
 Derived outputs include:
 
-- daily attendance percentage
-- learner attendance history
-- class/grade trends
-- persistent absence alerts
-- reason distributions
-- attendance used in report cards/promotion where applicable
-- EMIS/AEC aggregates
+- daily attendance percentage;
+- learner attendance history;
+- class/grade trends;
+- persistent absence alerts;
+- reason distributions;
+- attendance used in report cards/promotion where applicable;
+- EMIS/AEC aggregates.
 
-Sensitive absence reasons must not automatically be exposed in broad dashboards.
+Sensitive absence reasons and supporting evidence must not automatically be exposed in broad dashboards.
