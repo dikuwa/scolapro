@@ -1,7 +1,8 @@
-import { Clock3, MailPlus, UsersRound } from "lucide-react";
+import { Clock3, MailPlus, UsersRound, X } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { SchoolInvitationForm } from "@/features/platform/school-invitation-form";
+import { revokeSchoolInvitation } from "@/features/platform/server/actions";
 import { getInvitationAdminData } from "@/features/platform/server/invitations";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -67,9 +68,17 @@ export default async function PlatformInvitationsPage() {
                         {invitation.schoolName} · {invitation.tenantName} · <span className="capitalize">{humanRole(invitation.roleKey)}</span>
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 capitalize">{invitation.status}</span>
                       <span>{new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(invitation.expiresAt))}</span>
+                      {invitation.status === "pending" ? (
+                        <form action={revokeSchoolInvitation}>
+                          <input type="hidden" name="invitationId" value={invitation.id} />
+                          <button type="submit" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-[color:var(--danger)] transition hover:bg-danger-soft" title="Revoke invitation">
+                            <X className="size-3.5" aria-hidden="true" /> Revoke
+                          </button>
+                        </form>
+                      ) : null}
                     </div>
                   </article>
                 ))}
