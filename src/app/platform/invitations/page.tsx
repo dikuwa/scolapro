@@ -10,6 +10,12 @@ function humanRole(roleKey: string) {
   return roleKey.replaceAll("_", " ");
 }
 
+function statusClass(status: string) {
+  if (status === "accepted") return "bg-success-soft text-[color:var(--success)]";
+  if (status === "revoked" || status === "expired") return "bg-surface-muted text-muted-foreground";
+  return "bg-[color:var(--accent-amber-soft)] text-[color:var(--accent-amber)]";
+}
+
 export default async function PlatformInvitationsPage() {
   const context = await getUserContext();
   const isPlatformAdmin = context.platformMemberships.some((membership) => membership.roleKey === "platform_admin");
@@ -37,21 +43,21 @@ export default async function PlatformInvitationsPage() {
               <p className="text-xs font-medium text-muted-foreground">Pending invitations</p>
               <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{pendingCount}</p>
             </div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><Clock3 className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" aria-hidden="true" /></span>
           </div>
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
             <div>
               <p className="text-xs font-medium text-muted-foreground">Available schools</p>
               <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{schoolOptions.length}</p>
             </div>
-            <span className="grid size-9 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-brand-strong"><UsersRound className="size-4" aria-hidden="true" /></span>
+            <span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span>
           </div>
         </div>
 
         <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(22rem,0.95fr)]">
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
             <div className="mb-4 flex items-center gap-2">
-              <MailPlus className="size-4 text-brand-strong" aria-hidden="true" />
+              <span className="scolapro-tone-brand grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><MailPlus className="size-4" aria-hidden="true" /></span>
               <div>
                 <h2 className="text-sm font-semibold">Invitation history</h2>
                 <p className="mt-0.5 text-xs text-muted-foreground">Recent governed invitations visible within your authorized scope.</p>
@@ -69,7 +75,7 @@ export default async function PlatformInvitationsPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 capitalize">{invitation.status}</span>
+                      <span className={`rounded-[var(--radius-xs)] px-2 py-1 capitalize ${statusClass(invitation.status)}`}>{invitation.status}</span>
                       <span>{new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(invitation.expiresAt))}</span>
                       {invitation.status === "pending" ? (
                         <form action={revokeSchoolInvitation}>
