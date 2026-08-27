@@ -37,6 +37,20 @@ Do not infer a generic dashboard style from your defaults. ScolaPro has an expli
 - Every page/component must consider loading, empty, error, disabled and responsive states.
 - Dark mode/theme-aware behavior must not be an afterthought.
 
+### Universal shell and surface rules
+
+These apply to authenticated and public-facing pages unless a deliberate marketing composition requires an explicit exception:
+
+- Main page content must use the shared width tokens/utilities (`--content-max`, `--public-content-max`, `.scolapro-content-width`, `.scolapro-public-width`) rather than arbitrary large `max-w-*` values.
+- Public authentication/marketing layouts may use full-bleed background surfaces, but their readable content must still align to the shared maximum content width.
+- Borders are separators, not decoration. Use `--border-subtle` by default for cards, shell dividers and section separators. `--border` is reserved for controls or moments that need slightly stronger definition.
+- Do not use dark/black card outlines or strong separator lines in ordinary ScolaPro UI.
+- Normal content elevation uses `--shadow-xs`; stronger shadows require a semantic reason.
+- Routine buttons, pills, inputs, navigation items and small cards should normally use `--radius-sm` or `--radius-xs`. Do not drift back to fully rounded/pill styling unless the component is semantically a chip/avatar/status pill.
+- Shared CTA links/buttons with directional icons must use `.scolapro-cta` and `.scolapro-cta-icon` so the icon translates/scales subtly on hover/focus. Do not implement one-off arrow animations per page.
+- The desktop sidebar collapse control sits on the intersection of the sidebar divider and top-header divider, visually overlapping both surfaces. Do not move it into the navigation content area.
+- The collapsed sidebar is icon-only; the expanded sidebar is icon + label. Both states must use the shared sidebar width tokens and smooth tokenized motion.
+
 ## 3. Architecture rules
 
 Before changing domain/data/security architecture, read relevant documents under:
