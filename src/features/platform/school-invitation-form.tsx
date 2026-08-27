@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { Check, Copy, LoaderCircle, Send } from "lucide-react";
+import { Check, ChevronDown, Copy, LoaderCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { createSchoolInvitation, type SchoolInvitationState } from "@/features/platform/server/actions";
 import type { SchoolOption } from "@/features/platform/server/invitations";
@@ -20,13 +20,56 @@ const roles = [
   ["board_member", "School board member"],
 ] as const;
 
+type RoleKey = (typeof roles)[number][0];
+
 function FieldError({ messages }: { messages?: string[] }) {
   return messages?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{messages[0]}</p> : null;
+}
+
+function Picker({
+  label,
+  valueLabel,
+  open,
+  onToggle,
+  children,
+}: {
+  label: string;
+  valueLabel: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <p className="text-xs font-medium">{label}</p>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="mt-1.5 flex min-h-10 w-full items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/50"
+      >
+        <span className="min-w-0 truncate">{valueLabel}</span>
+        <ChevronDown aria-hidden="true" className={`size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? (
+        <div className="absolute z-30 mt-1.5 max-h-64 w-full overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)]">
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
   const [state, action, pending] = useActionState(createSchoolInvitation, initialState);
   const [copied, setCopied] = useState(false);
+  const [schoolId, setSchoolId] = useState("");
+  const [roleKey, setRoleKey] = useState<RoleKey>("school_admin");
+  const [schoolOpen, setSchoolOpen] = useState(false);
+  const [roleOpen, setRoleOpen] = useState(false);
+
+  const selectedSchool = schools.find((school) => school.id === schoolId);
+  const selectedRole = roles.find(([value]) => value === roleKey)?.[1] ?? "School administrator";
   const joinLink = useMemo(() => {
     if (!state.invitationToken || typeof window === "undefined") return "";
     return `${window.location.origin}/join?token=${encodeURIComponent(state.invitationToken)}`;
@@ -50,16 +93,30 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
   return (
     <div className="space-y-5">
       <form action={action} className="space-y-4" noValidate>
-        <div>
-          <label htmlFor="schoolId" className="text-xs font-medium">School</label>
-          <select id="schoolId" name="schoolId" defaultValue="" className={`${fieldClass} mt-1.5`}>
-            <option value="" disabled>Choose a school</option>
-            {schools.map((school) => (
-              <option key={school.id} value={school.id}>{school.name} · {school.tenantName}</option>
-            ))}
-          </select>
-          <FieldError messages={state.fieldErrors?.schoolId} />
-        </div>
+        <input type="hidden" name="schoolId" value={schoolId} />
+        <input type="hidden" name="roleKey" value={roleKey} />
+
+        <Picker
+          label="School"
+          valueLabel={selectedSchool ? `${selectedSchool.name} · ${selectedSchool.tenantName}` : "Choose a school"}
+          open={schoolOpen}
+          onToggle={() => { setSchoolOpen((value) => !value); setRoleOpen(false); }}
+        >
+          {schools.map((school) => (
+            <button
+              key={school.id}
+              type="button"
+              onClick={() => { setSchoolId(school.id); setSchoolOpen(false); }}
+              className={`flex w-full items-center rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm transition hover:bg-surface-muted ${school.id === schoolId ? "bg-brand-soft text-brand-strong" : ""}`}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{school.name}</span>
+                <span className="block truncate text-[0.68rem] text-muted-foreground">{school.tenantName}</span>
+              </span>
+            </button>
+          ))}
+        </Picker>
+        <FieldError messages={state.fieldErrors?.schoolId} />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
@@ -79,12 +136,23 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="roleKey" className="text-xs font-medium">Role</label>
-            <select id="roleKey" name="roleKey" defaultValue="school_admin" className={`${fieldClass} mt-1.5`}>
-              {roles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </div>
+          <Picker
+            label="Role"
+            valueLabel={selectedRole}
+            open={roleOpen}
+            onToggle={() => { setRoleOpen((value) => !value); setSchoolOpen(false); }}
+          >
+            {roles.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => { setRoleKey(value); setRoleOpen(false); }}
+                className={`w-full rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm transition hover:bg-surface-muted ${value === roleKey ? "bg-brand-soft text-brand-strong" : ""}`}
+              >
+                {label}
+              </button>
+            ))}
+          </Picker>
           <div>
             <label htmlFor="employeeNumber" className="text-xs font-medium">Employee number</label>
             <input id="employeeNumber" name="employeeNumber" className={`${fieldClass} mt-1.5`} placeholder="Optional" />
