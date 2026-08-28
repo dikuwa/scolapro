@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { BookOpenCheck, CalendarDays, Clock3, Plus, UserRoundCheck } from "lucide-react";
+import { BookOpenCheck, CalendarDays, ClipboardCheck, Clock3, Plus, UserRoundCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Picker, TimePicker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -112,7 +113,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="scolapro-section-title">{viewerStaffId && !canManage ? "My timetable" : "Current timetable"}</h2><p className="scolapro-section-description">Cycle A · {academicYear}. Slots are ordered by school period.</p></div>
+          <div><h2 className="scolapro-section-title">{viewerStaffId && !canManage ? "My timetable" : "Current timetable"}</h2><p className="scolapro-section-description">Cycle A · {academicYear}. Open a teaching slot to record lesson attendance without changing the official morning register.</p></div>
           <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--accent-sky)]">{visibleSlots.length} scheduled</span>
         </div>
 
@@ -127,6 +128,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
                       <div className="flex items-center justify-between gap-2"><span className="text-[0.68rem] font-medium text-brand-strong">{slot.periodName}</span>{slot.roomLabel ? <span className="text-[0.64rem] text-muted-foreground">{slot.roomLabel}</span> : null}</div>
                       <p className="mt-1 scolapro-record-title">{slot.subjectName}</p>
                       <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{slot.className} · {slot.staffName}</p>
+                      <Link href={`/attendance/lesson/${slot.id}`} className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1.5 text-[0.68rem] font-semibold text-brand-strong transition hover:bg-brand-soft/70"><ClipboardCheck className="size-3.5" aria-hidden="true" />Take attendance</Link>
                     </article>
                   )) : <p className="py-4 text-center text-[0.68rem] text-muted-foreground">No lessons</p>}
                 </div>
