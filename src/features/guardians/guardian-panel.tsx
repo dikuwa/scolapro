@@ -19,7 +19,7 @@ export function GuardianPanel({ learnerId, guardians, reusableGuardians = [] }: 
   useEffect(() => {
     const state = newState.message ? newState : existingState;
     if (!state.message) return;
-    if (state.success) { toast.success(state.message); setOpen(false); }
+    if (state.success) toast.success(state.message);
     else toast.error(state.message);
   }, [newState, existingState]);
 
