@@ -1,6 +1,6 @@
 begin;
 
-select plan(42);
+select plan(45);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
@@ -43,6 +43,8 @@ select ok(to_regprocedure('public.upsert_guardian_relationship(uuid,uuid,text,te
 select ok(not has_function_privilege('anon','public.upsert_guardian_relationship(uuid,uuid,text,text,text,text,text,boolean,boolean,boolean,smallint,jsonb)','EXECUTE'),'anonymous users cannot manage guardian relationships');
 select ok(to_regprocedure('public.create_import_batch(uuid,text,text,text)') is not null,'import batch creation function exists');
 select ok(not has_function_privilege('anon','public.create_import_batch(uuid,text,text,text)','EXECUTE'),'anonymous users cannot create import batches');
+select ok(to_regprocedure('public.commit_learner_import_batch(uuid)') is not null,'atomic learner import commit function exists');
+select ok(not has_function_privilege('anon','public.commit_learner_import_batch(uuid)','EXECUTE'),'anonymous users cannot commit learner imports');
 select ok(to_regprocedure('public.submit_subject_period_attendance(uuid,date,jsonb,text,uuid,uuid,text)') is not null,'subject-period attendance submission function exists');
 select ok(not has_function_privilege('anon','public.submit_subject_period_attendance(uuid,date,jsonb,text,uuid,uuid,text)','EXECUTE'),'anonymous users cannot submit subject-period attendance');
 select ok(to_regprocedure('public.assign_school_duty(uuid,uuid,text,date,date)') is not null,'school duty assignment function exists');
