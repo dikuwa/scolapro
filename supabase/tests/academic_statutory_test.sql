@@ -1,6 +1,6 @@
 begin;
 
-select plan(22);
+select plan(23);
 
 select has_table('public','assessment_schemes','assessment schemes exist');
 select has_table('public','assessment_instances','assessment instances exist');
