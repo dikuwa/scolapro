@@ -21,13 +21,32 @@ export type ReportCardSnapshotRow = {
   certifiedAt: string | null;
 };
 
+export type ReportCardRenderJobRow = {
+  id: string;
+  snapshotId: string;
+  documentFormat: string;
+  status: string;
+  attemptCount: number;
+  lastError: string | null;
+  outputDocumentId: string | null;
+  updatedAt: string;
+};
+
+export type ReportCardDocumentRow = {
+  id: string;
+  snapshotId: string;
+  documentFormat: string;
+  status: string;
+  generatedAt: string;
+};
+
 function one<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
 }
 
 export async function getReportCardWorkspace(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
-  const [enrolmentsResult, snapshotsResult, termsResult] = await Promise.all([
+  const [enrolmentsResult, snapshotsResult, termsResult, renderJobsResult, documentsResult] = await Promise.all([
     supabase
       .from("enrolments")
       .select("id,learner_id,admission_number,learners(first_names,surname),grades(display_name),register_classes(display_name)")
@@ -47,9 +66,20 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
       .eq("school_id", schoolId)
       .eq("academic_years.year", academicYear)
       .order("term_number"),
+    supabase
+      .from("report_card_render_jobs")
+      .select("id,snapshot_id,document_format,status,attempt_count,last_error,output_document_id,updated_at")
+      .eq("school_id", schoolId)
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("report_card_documents")
+      .select("id,snapshot_id,document_format,status,generated_at")
+      .eq("school_id", schoolId)
+      .eq("status", "ready")
+      .order("generated_at", { ascending: false }),
   ]);
 
-  const error = enrolmentsResult.error || snapshotsResult.error || termsResult.error;
+  const error = enrolmentsResult.error || snapshotsResult.error || termsResult.error || renderJobsResult.error || documentsResult.error;
   if (error) throw new Error("Unable to load report-card workspace.");
 
   const learners: ReportCardLearner[] = (enrolmentsResult.data ?? []).map((item) => {
@@ -76,8 +106,27 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
     certifiedAt: item.certified_at,
   }));
 
+  const renderJobs: ReportCardRenderJobRow[] = (renderJobsResult.data ?? []).map((item) => ({
+    id: item.id,
+    snapshotId: item.snapshot_id,
+    documentFormat: item.document_format,
+    status: item.status,
+    attemptCount: item.attempt_count,
+    lastError: item.last_error,
+    outputDocumentId: item.output_document_id,
+    updatedAt: item.updated_at,
+  }));
+
+  const documents: ReportCardDocumentRow[] = (documentsResult.data ?? []).map((item) => ({
+    id: item.id,
+    snapshotId: item.snapshot_id,
+    documentFormat: item.document_format,
+    status: item.status,
+    generatedAt: item.generated_at,
+  }));
+
   const terms = (termsResult.data ?? []).map((item) => ({ termNumber: item.term_number, name: item.display_name }));
   if (!terms.length) terms.push({ termNumber: 1, name: "Term 1" }, { termNumber: 2, name: "Term 2" }, { termNumber: 3, name: "Term 3" });
 
-  return { learners, snapshots, terms };
+  return { learners, snapshots, terms, renderJobs, documents };
 }
