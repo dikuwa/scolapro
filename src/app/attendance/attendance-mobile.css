@@ -1,0 +1,45 @@
+@media (max-width: 767px) {
+  .attendance-page {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  }
+
+  /* Learner rows must remain in normal document flow and visually above action areas. */
+  .attendance-page form > .divide-y,
+  .attendance-page form > section > .divide-y {
+    position: relative;
+    z-index: 1;
+    display: block;
+    background: var(--surface);
+  }
+
+  .attendance-page form > .divide-y > *,
+  .attendance-page form > section > .divide-y > * {
+    position: relative;
+    min-height: 3.75rem;
+    background: var(--surface);
+  }
+
+  .attendance-page .scolapro-record-title {
+    color: var(--foreground);
+    opacity: 1;
+  }
+
+  /* Confirmation belongs after the learner list; it must never float over names. */
+  .attendance-page form > .border-t,
+  .attendance-page form > section > .sticky {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    margin: 0;
+    background: var(--surface);
+    backdrop-filter: none;
+  }
+
+  .attendance-page form > .border-t {
+    padding-bottom: 1rem;
+  }
+
+  .attendance-page form > section > .sticky {
+    padding-bottom: 1rem;
+  }
+}
