@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Camera, Check, LoaderCircle, UserRound, X } from "lucide-react";
+import { DateField } from "@/components/ui/date-field";
 import { registerLearner, type LearnerRegistrationState } from "@/features/learners/server/actions";
 import type { GradeOption } from "@/features/learners/server/registration-options";
 
@@ -17,6 +18,8 @@ export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaul
   const [sex, setSex] = useState("unspecified");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [admissionDate, setAdmissionDate] = useState(defaultAdmissionDate);
 
   useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
 
@@ -44,7 +47,7 @@ export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaul
             <Field label="First names" name="firstNames" error={state.fieldErrors?.firstNames?.[0]} required />
             <Field label="Surname" name="surname" error={state.fieldErrors?.surname?.[0]} required />
             <Field label="Preferred name" name="preferredName" error={state.fieldErrors?.preferredName?.[0]} />
-            <Field label="Date of birth" name="dateOfBirth" type="date" error={state.fieldErrors?.dateOfBirth?.[0]} />
+            <DateField label="Date of birth" name="dateOfBirth" value={dateOfBirth} onChange={setDateOfBirth} max={defaultAdmissionDate} error={state.fieldErrors?.dateOfBirth?.[0]} />
           </div>
 
           <div className="rounded-[var(--radius-md)] bg-surface-muted p-3">
@@ -66,11 +69,11 @@ export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaul
         <div className="mb-4"><h2 className="scolapro-section-title">Current school placement</h2><p className="scolapro-section-description">Academic year {academicYear}. Moving grade or class later will not rewrite learner identity.</p></div>
         <div><span className="text-xs font-medium">Grade</span><div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Grade">{grades.map((grade) => { const selected = grade.id === gradeId; return <button key={grade.id} type="button" role="radio" aria-checked={selected} onClick={() => selectGrade(grade.id)} className={`min-h-8 rounded-[var(--radius-xs)] px-2.5 text-xs font-medium transition ${selected ? "bg-brand text-white" : "bg-surface text-muted-foreground shadow-[var(--shadow-xs)] hover:text-foreground"}`}>{grade.label}</button>; })}</div></div>
         <div className="mt-4"><span className="text-xs font-medium">Register class</span>{selectedGrade?.classes.length ? <div className="mt-2 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Register class">{selectedGrade.classes.map((registerClass) => { const selected = registerClass.id === classId; return <button key={registerClass.id} type="button" role="radio" aria-checked={selected} onClick={() => setClassId(registerClass.id)} className={`min-h-8 rounded-[var(--radius-xs)] border px-2.5 text-xs font-medium transition ${selected ? "border-[color:var(--brand)]/30 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface text-muted-foreground hover:text-foreground"}`}>{registerClass.label}</button>; })}</div> : <p className="mt-2 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2.5 text-xs text-[color:var(--warning)]">No register classes are configured for this grade.</p>}</div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2"><div><Field label="Admission number" name="admissionNumber" error={state.fieldErrors?.admissionNumber?.[0]} placeholder="Auto-generated if left blank" /><p className="mt-1 text-[0.68rem] text-muted-foreground">Leave blank for ScolaPro to assign a unique school admission number that stays with this learner across grades.</p></div><Field label="Admission date" name="enrolledFrom" defaultValue={defaultAdmissionDate} type="date" error={state.fieldErrors?.enrolledFrom?.[0]} required /></div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2"><div><Field label="Admission number" name="admissionNumber" error={state.fieldErrors?.admissionNumber?.[0]} placeholder="Auto-generated if left blank" /><p className="mt-1 text-[0.68rem] text-muted-foreground">Leave blank for ScolaPro to assign a unique school admission number that stays with this learner across grades.</p></div><DateField label="Admission date" name="enrolledFrom" value={admissionDate} onChange={setAdmissionDate} required error={state.fieldErrors?.enrolledFrom?.[0]} /></div>
       </section>
 
       {state.message ? <div role="alert" className="rounded-[var(--radius-sm)] bg-danger-soft px-3.5 py-3 text-sm text-[color:var(--danger)]">{state.message}</div> : null}
-      <div className="flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-end"><Link href="/learners" className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-sm)] px-4 text-sm font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground">Cancel</Link><button type="submit" disabled={pending || !gradeId || !classId} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">{pending ? <LoaderCircle className="size-4 animate-spin" /> : null}{pending ? "Registering…" : "Register learner"}{!pending ? <ArrowRight className="scolapro-cta-icon size-4" /> : null}</button></div>
+      <div className="flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-end"><Link href="/learners" className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-sm)] px-4 text-sm font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground">Cancel</Link><button type="submit" disabled={pending || !gradeId || !classId || !admissionDate} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">{pending ? <LoaderCircle className="size-4 animate-spin" /> : null}{pending ? "Registering…" : "Register learner"}{!pending ? <ArrowRight className="scolapro-cta-icon size-4" /> : null}</button></div>
     </form>
   );
 }
