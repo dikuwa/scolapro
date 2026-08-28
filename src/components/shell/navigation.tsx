@@ -13,6 +13,7 @@ import {
   Clock3,
   FileCheck2,
   FileSpreadsheet,
+  HeartHandshake,
   LayoutDashboard,
   MailPlus,
   MoreHorizontal,
@@ -25,6 +26,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 
 const navigation = [
   { key: "today", label: "Today", href: "/", icon: LayoutDashboard },
+  { key: "family", label: "My children", href: "/parent", icon: HeartHandshake },
   { key: "tenants", label: "Tenants", href: "/platform/tenants", icon: Building2 },
   { key: "invitations", label: "Invitations", href: "/platform/invitations", icon: MailPlus },
   { key: "setup", label: "Academic setup", href: "/school/setup", icon: SlidersHorizontal },
@@ -52,7 +54,7 @@ const enabledKeysByRole: Record<string, readonly string[]> = {
   counsellor: ["today", "learners", "calendar"],
   librarian: ["today", "learners"],
   learner: ["today", "teaching", "assessment", "calendar"],
-  parent: ["today", "learners", "assessment"],
+  parent: ["family"],
   board_member: ["today"],
 };
 
