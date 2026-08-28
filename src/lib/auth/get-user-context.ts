@@ -15,6 +15,12 @@ export type PlatformMembershipContext = {
   roleKey: string;
 };
 
+export type GuardianLinkContext = {
+  linkId: string;
+  tenantId: string;
+  guardianId: string;
+};
+
 export const getUserContext = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
@@ -30,11 +36,12 @@ export const getUserContext = cache(async () => {
       mustChangePassword: false,
       memberships: [] as SchoolMembershipContext[],
       platformMemberships: [] as PlatformMembershipContext[],
+      guardianLinks: [] as GuardianLinkContext[],
     };
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const [profileResult, membershipResult, platformResult] = await Promise.all([
+  const [profileResult, membershipResult, platformResult, guardianResult] = await Promise.all([
     supabase
       .from("user_profiles")
       .select("display_name, preferred_name, avatar_path, must_change_password")
@@ -52,10 +59,15 @@ export const getUserContext = cache(async () => {
       .eq("user_id", user.id)
       .lte("active_from", today)
       .or(`active_to.is.null,active_to.gte.${today}`),
+    supabase
+      .from("guardian_user_links")
+      .select("id,tenant_id,guardian_id")
+      .eq("user_id", user.id),
   ]);
 
   if (membershipResult.error) throw new Error("Unable to resolve the current school context.");
   if (platformResult.error) throw new Error("Unable to resolve the current platform context.");
+  if (guardianResult.error) throw new Error("Unable to resolve the current guardian context.");
 
   const memberships: SchoolMembershipContext[] = (membershipResult.data ?? []).map((membership) => {
     const school = Array.isArray(membership.schools) ? membership.schools[0] : membership.schools;
@@ -74,6 +86,12 @@ export const getUserContext = cache(async () => {
     roleKey: membership.role_key,
   }));
 
+  const guardianLinks: GuardianLinkContext[] = (guardianResult.data ?? []).map((link) => ({
+    linkId: link.id,
+    tenantId: link.tenant_id,
+    guardianId: link.guardian_id,
+  }));
+
   const profile = profileResult.data;
   const displayName =
     profile?.preferred_name ||
@@ -90,5 +108,6 @@ export const getUserContext = cache(async () => {
     mustChangePassword: profile?.must_change_password ?? false,
     memberships,
     platformMemberships,
+    guardianLinks,
   };
 });
