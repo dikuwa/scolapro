@@ -6,7 +6,13 @@ Attendance must be fast enough for real classroom use while preserving an audita
 
 ## Core Principle
 
-Attendance status and attendance reason are separate concepts.
+Attendance status and attendance reason are separate concepts. Just as importantly, **different attendance observations must not be collapsed into one statistic**.
+
+ScolaPro distinguishes three operational streams:
+
+1. **Daily/register attendance** — the official school-day observation used by school attendance reporting and eligible statutory aggregates.
+2. **Subject-period attendance** — a teacher's observation for the class/lesson they are teaching. It supports classroom record keeping and discipline but does not replace the daily register.
+3. **School late-arrival duty** — morning late-coming captured by an assigned staff member. It drives school discipline/detention rules and is excluded from Ministry attendance statistics.
 
 Examples:
 
@@ -17,13 +23,13 @@ Examples:
 
 ## Attendance Events
 
-Each attendance event records at minimum:
+Each daily or subject-period attendance event records at minimum:
 
 - tenant/school
 - learner
 - attendance date
 - optional timetable period/lesson
-- attendance scope: register/morning or subject-period
+- attendance scope/observation type
 - status
 - reason code where applicable
 - note
@@ -36,30 +42,21 @@ Each attendance event records at minimum:
 
 ## Supported Statuses
 
-The exact registry is school/policy configurable, but the model should support statuses such as:
-
-- present
-- absent
-- late
-- left early
-- excused
-- unknown/unconfirmed
-
-Reasons are maintained in a separate structured registry and can contain sensitive classifications with stricter access controls.
+The exact registry is school/policy configurable, but the model supports statuses such as present, absent, late, left early, excused and unknown/unconfirmed. Reasons live in a separate structured registry and sensitive reasons receive stricter access controls.
 
 ## Daily Register Workflow
 
-Default workflow:
+The default workflow is exception-first:
 
-1. Open current class/register.
-2. Everyone defaults to Present.
-3. Teacher taps only exceptions.
-4. Select status and optional reason.
-5. Add optional note.
-6. Add optional evidence such as a medical note, parent letter, photograph or PDF.
+1. Open a register class and school date.
+2. Load the complete active class list; everyone defaults to Present.
+3. Search by partial learner name/admission number or narrow the list by sex when useful.
+4. Tap only exceptions.
+5. Select status and optional reason/note/evidence.
+6. Collapse the focused editor and continue immediately to the next learner.
 7. Confirm attendance.
 
-The UI must keep evidence optional and secondary so the common attendance path remains fast.
+Daily attendance controls should be compact and semantically coloured. The learner identity must remain visually stronger than the Present/Absent/Late/Excused controls. When exception details are open, the row being edited must be unmistakable.
 
 Normal day navigation skips Saturday and Sunday. Direct weekend dates should normalize back into a school-day context unless a special school event explicitly makes the weekend a valid attendance day.
 
@@ -86,85 +83,74 @@ The weekly matrix is a first-class operational capture mode, not only a report.
 
 - learners are rows;
 - Monday-Friday are columns;
-- Saturday and Sunday are excluded from the normal register week;
-- everyone defaults to Present;
-- each learner/day can have its own status, reason and note;
-- users can filter to all learners or exception rows and search for a specific learner;
-- selecting a learner/day opens a compact editor rather than expanding every cell into a large form;
+- Saturday/Sunday are excluded;
+- every cell defaults to a green Present tick;
+- clicking a Present tick once converts that learner/day into an Absent exception and opens one compact editor;
+- the editor offers Absent, Late and Excused plus optional reason/note, with a clear action to restore Present;
+- only one learner/day editor is open at a time;
+- the learner list remains visible behind the editor rather than being displaced by a permanent large editing panel;
+- partial search and the same All/Boys/Girls filter used by the daily register are available;
 - one weekly confirmation creates separate auditable daily submissions for each school day;
-- weekly submission is atomic at the database layer so the week does not become partially confirmed if one day fails.
+- weekly submission is atomic at the database layer so a week does not become partially confirmed if one day fails.
 
 This supports schools that keep a physical register during the week and reconcile it electronically later, for example on Friday.
 
+## Subject-Period Attendance
+
+Subject-period attendance is already a first-class data concept through `observation_type` plus an optional `timetable_slot_id`.
+
+The operational path is:
+
+**Teacher timetable → current lesson → class list → exception-first subject attendance**
+
+A teacher does not have to be the register/class teacher. Access comes from the active teacher allocation/timetable slot. This observation may support:
+
+- identifying learners who skip a lesson after being present at school;
+- teacher classroom records;
+- discipline/support follow-up;
+- subject/class attendance summaries.
+
+It must not be counted as an additional absence in statutory school-day attendance. A learner can therefore be Present in the morning register and Absent in a later subject period without the two records overwriting one another.
+
+## School Late-Arrival and Detention
+
+School late-coming is deliberately stored outside the statutory attendance tables.
+
+An administrator/principal may delegate the `late_arrival_recorder` duty to one or more staff members for an effective date range. This is a task delegation rather than a permanent global system role.
+
+Baseline workflow:
+
+1. During morning assembly/briefing, the assigned staff member searches the learner and records that the learner arrived late.
+2. ScolaPro counts late arrivals in the Monday-Friday school week.
+3. The default policy creates a Friday detention obligation when the learner reaches **three late arrivals in the same week**, whether consecutive or not.
+4. Completing the detention closes that obligation. The historical late-arrival events remain intact.
+5. If detention is not completed, the open obligation is carried forward to the next Friday until completed or explicitly waived by an authorized person.
+6. The policy threshold and detention weekday are school-configurable rather than permanently hard-coded into the application.
+
+This workflow must never alter Ministry daily-attendance statistics. Its outputs belong to school discipline, learner support and duty management.
+
 ## School-Day Calendar Rules
 
-A calendar date existing does not mean it is an expected attendance day.
-
-Baseline:
-
-- Monday-Friday are normal candidate school days;
-- Saturday/Sunday are excluded by default;
-- academic-term dates determine whether the day belongs to an active term;
-- future school-calendar overlays must exclude public holidays, school closures and other non-teaching days;
-- an explicitly configured special school event may make an otherwise excluded date valid.
+A calendar date existing does not mean it is an expected attendance day. Monday-Friday are normal candidates; academic-term dates and school-day overrides determine whether a date is actually expected. Public holidays, closures and other non-teaching days are excluded, while explicitly configured special school days can override the baseline.
 
 Attendance percentages and absence counts must use expected school days, not raw calendar-day counts.
 
-## Register vs Subject Attendance
-
-Morning/register attendance and subject-period attendance are distinct observations. A learner may be present at morning registration and absent from a later lesson.
-
-The system must not overwrite one with the other.
-
 ## Late and Retrospective Capture
 
-Schools may permit attendance to be captured after the original school day. The system should:
-
-- preserve original attendance date;
-- preserve actual recording timestamp;
-- identify backdated entries in audit history;
-- optionally require reason/approval after a configurable threshold;
-- never falsely imply that a late entry was recorded contemporaneously.
+Schools may permit attendance to be captured after the original school day. The system preserves original attendance date, actual recording timestamp and audit provenance. Backdated records must never falsely appear to have been recorded contemporaneously.
 
 ## Confirmation and Revision
 
-Current implementation uses append-oriented register submissions rather than destructive rewriting.
-
-A later correction references/replaces the prior effective register while preserving history. Future product language may expose lifecycle labels such as Draft, Confirmed, Corrected and Locked where policy requires them.
+Daily/weekly register submissions are append-oriented rather than destructively rewritten. Corrections reference the prior effective register while preserving history. Subject-period and late-arrival records follow the same audit principle even though their operational lifecycles differ.
 
 ## Parent Communication
 
-Attendance can trigger communication rules without coupling communication delivery to the attendance record itself.
-
-Example:
-
-Confirmed absence -> notification rule -> SMS/WhatsApp/email/app -> delivery status.
-
-Schools can require approval before sending sensitive notifications.
+Attendance can trigger communication rules without coupling delivery to the attendance record itself. For example: confirmed daily absence → notification rule → SMS/WhatsApp/email/app → delivery status. Sensitive notifications may require approval.
 
 ## Offline Operation
 
-Attendance is a priority offline workflow.
-
-- class lists cached locally;
-- teacher can record without connectivity;
-- pending operations enter sync queue;
-- server resolves authorization and version checks on sync;
-- duplicate retries are idempotent;
-- conflicts are surfaced rather than silently discarded.
-
-The current online register already uses client mutation identifiers so the same server model can support later offline synchronization.
+Attendance is a priority offline workflow. Authorized class lists can be cached locally; changes enter a sync queue; duplicate retries are idempotent; and server authorization/version checks are authoritative. Conflicts must be surfaced rather than silently discarded.
 
 ## Analytics
 
-Derived outputs include:
-
-- daily attendance percentage;
-- learner attendance history;
-- class/grade trends;
-- persistent absence alerts;
-- reason distributions;
-- attendance used in report cards/promotion where applicable;
-- EMIS/AEC aggregates.
-
-Sensitive absence reasons and supporting evidence must not automatically be exposed in broad dashboards.
+Derived outputs may include daily attendance percentage, learner history, class/grade trends, persistent absence alerts, reason distributions, subject-period patterns and EMIS/AEC aggregates. School late-arrival/detention analytics are a separate school-discipline stream and must not flow into EMIS/AEC attendance totals.
