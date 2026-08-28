@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { CalendarCheck2, ClipboardCheck, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { AttendanceViewTabs } from "@/features/attendance/attendance-view-tabs";
 import { DailyRegister } from "@/features/attendance/daily-register";
 import { WeeklyRegister } from "@/features/attendance/weekly-register";
 import { getDailyRegisterWorkspace } from "@/features/attendance/server/register";
@@ -66,14 +66,10 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
 }
 
 function AttendanceHeader({ date, requestedClass, view }: { date: string; requestedClass?: string; view: "day" | "week" }) {
-  const classParam = requestedClass ? `&class=${encodeURIComponent(requestedClass)}` : "";
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first registers. Capture daily, or reconcile a physical register later with a Monday–Friday weekly view.</p></div>
-      <div className="inline-flex w-fit items-center gap-1 rounded-[var(--radius-sm)] bg-surface-muted p-1">
-        <Link href={`/attendance?view=day&date=${date}${classParam}`} className={`rounded-[var(--radius-xs)] px-3 py-2 text-xs font-medium transition ${view === "day" ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}>Day</Link>
-        <Link href={`/attendance?view=week&date=${mondayFor(date)}${classParam}`} className={`rounded-[var(--radius-xs)] px-3 py-2 text-xs font-medium transition ${view === "week" ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}>Week</Link>
-      </div>
+      <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} />
     </div>
   );
 }
