@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock3, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock3, MoreHorizontal, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -79,6 +79,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
 
   const presentCount = rows.filter((row) => row.status === "present").length;
   const exceptionCount = rows.length - presentCount;
+  const focusedRow = focusedId ? rows.find((row) => row.enrolmentId === focusedId) ?? null : null;
 
   function updateRow(enrolmentId: string, changes: Partial<AttendanceLearnerRow>) {
     setRows((current) => current.map((row) => row.enrolmentId === enrolmentId ? { ...row, ...changes } : row));
@@ -86,7 +87,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
 
   function setStatus(row: AttendanceLearnerRow, status: AttendanceStatus) {
     updateRow(row.enrolmentId, { status, reasonId: status === "present" ? null : row.reasonId, note: status === "present" ? null : row.note });
-    setFocusedId(status === "present" ? null : row.enrolmentId);
+    if (status === "present") setFocusedId(null);
   }
 
   function moveDate(direction: -1 | 1) {
@@ -126,27 +127,41 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
               {visibleRows.map((row) => {
                 const focused = focusedId === row.enrolmentId;
                 const isException = row.status !== "present";
+                const currentStatus = statuses.find((status) => status.value === row.status) ?? statuses[0];
+                const CurrentIcon = currentStatus.icon;
                 return <div key={row.enrolmentId} className={`-mx-1 px-2 py-3 transition sm:-mx-2 ${focused ? "bg-brand-soft/45 ring-1 ring-inset ring-[color:var(--brand)]/15" : ""}`}>
-                  <div className="grid gap-2 sm:grid-cols-[minmax(11rem,0.8fr)_minmax(18rem,1.2fr)] sm:items-center">
-                    <div className="min-w-0"><p className="scolapro-record-title truncate">{row.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p></div>
-                    <div className="grid grid-cols-4 gap-1 sm:flex sm:flex-wrap">{statuses.map((status) => { const Icon = status.icon; const active = row.status === status.value; return <button key={status.value} type="button" onClick={() => setStatus(row, status.value)} className={`inline-flex min-h-8 items-center justify-center gap-1 rounded-[var(--radius-xs)] px-1.5 text-[0.68rem] font-semibold transition sm:px-2 ${statusClass(status.value, active)}`}>{active ? <Icon className="size-3" aria-hidden="true" strokeWidth={2.4} /> : null}<span>{status.label}</span></button>; })}</div>
+                  <div className="flex items-center gap-3 sm:grid sm:grid-cols-[minmax(11rem,0.8fr)_minmax(18rem,1.2fr)] sm:gap-2 sm:items-center">
+                    <button type="button" onClick={() => setFocusedId(row.enrolmentId)} className="min-w-0 flex-1 text-left sm:pointer-events-none"><p className="scolapro-record-title truncate">{row.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p></button>
+                    <button type="button" onClick={() => setFocusedId(row.enrolmentId)} aria-label={`Edit attendance for ${row.name}`} className={`ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-semibold sm:hidden ${statusClass(row.status, true)}`}><CurrentIcon className="size-3.5" aria-hidden="true" strokeWidth={2.4} /><MoreHorizontal className="size-3.5" aria-hidden="true" /></button>
+                    <div className="hidden flex-wrap gap-1 sm:flex">{statuses.map((status) => { const Icon = status.icon; const active = row.status === status.value; return <button key={status.value} type="button" onClick={() => { setStatus(row, status.value); if (status.value !== "present") setFocusedId(row.enrolmentId); }} className={`inline-flex min-h-8 items-center justify-center gap-1 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-semibold transition ${statusClass(status.value, active)}`}>{active ? <Icon className="size-3" aria-hidden="true" strokeWidth={2.4} /> : null}<span>{status.label}</span></button>; })}</div>
                   </div>
 
-                  {isException && focused ? <div className="mt-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 shadow-[var(--shadow-xs)]">
+                  {isException && focused ? <div className="mt-3 hidden rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 shadow-[var(--shadow-xs)] sm:block">
                     <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold">Editing {row.name}</p><p className="text-[0.68rem] text-muted-foreground">Add a reason, note or evidence if available.</p></div><button type="button" onClick={() => setFocusedId(null)} aria-label="Close attendance details" className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted hover:text-foreground"><X className="size-3.5" /></button></div>
-                    <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
-                      <Picker label="Reason" name={`reason-ui-${row.enrolmentId}`} value={row.reasonId ?? ""} onChange={(reasonId) => updateRow(row.enrolmentId, { reasonId: reasonId || null })} placeholder="No reason" options={[{ value: "", label: "No reason" }, ...reasons.map((reason) => ({ value: reason.id, label: reason.name, helper: reason.sensitive ? "Restricted detail" : undefined }))]} />
-                      <div><label htmlFor={`note-${row.enrolmentId}`} className="block text-xs font-medium">Note</label><input id={`note-${row.enrolmentId}`} value={row.note ?? ""} onChange={(event) => updateRow(row.enrolmentId, { note: event.target.value })} placeholder="Optional context" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs outline-none shadow-[var(--shadow-xs)] placeholder:text-muted-foreground/65 focus:border-[color:var(--brand)]/50" /></div>
-                    </div>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><input id={`evidence-${row.enrolmentId}`} name={`evidence-${row.enrolmentId}`} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" onChange={(event) => setEvidenceNames((current) => ({ ...current, [row.enrolmentId]: event.target.files?.[0]?.name ?? "" }))} /><label htmlFor={`evidence-${row.enrolmentId}`} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><Paperclip className="size-3" />{evidenceNames[row.enrolmentId] ? "Change evidence" : "Photo / evidence"}</label>{evidenceNames[row.enrolmentId] ? <span className="ml-2 break-all text-[0.68rem] text-muted-foreground">{evidenceNames[row.enrolmentId]}</span> : null}</div><button type="button" onClick={() => setFocusedId(null)} className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)]"><CircleCheck className="size-3.5" />Done</button></div>
+                    <div className="grid gap-3 sm:grid-cols-2 sm:items-end"><Picker label="Reason" name={`reason-ui-${row.enrolmentId}`} value={row.reasonId ?? ""} onChange={(reasonId) => updateRow(row.enrolmentId, { reasonId: reasonId || null })} placeholder="No reason" options={[{ value: "", label: "No reason" }, ...reasons.map((reason) => ({ value: reason.id, label: reason.name, helper: reason.sensitive ? "Restricted detail" : undefined }))]} /><div><label htmlFor={`note-${row.enrolmentId}`} className="block text-xs font-medium">Note</label><input id={`note-${row.enrolmentId}`} value={row.note ?? ""} onChange={(event) => updateRow(row.enrolmentId, { note: event.target.value })} placeholder="Optional context" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs outline-none shadow-[var(--shadow-xs)] placeholder:text-muted-foreground/65 focus:border-[color:var(--brand)]/50" /></div></div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><EvidenceControl row={row} evidenceNames={evidenceNames} setEvidenceNames={setEvidenceNames} /><button type="button" onClick={() => setFocusedId(null)} className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)]"><CircleCheck className="size-3.5" />Done</button></div>
                   </div> : null}
                 </div>;
               })}
             </div>
+
+            {focusedRow ? <div className="fixed inset-0 z-[140] flex items-end bg-[color:var(--foreground)]/12 backdrop-blur-[1px] sm:hidden" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFocusedId(null); }}>
+              <div role="dialog" aria-modal="true" aria-label={`Attendance for ${focusedRow.name}`} className="max-h-[88vh] w-full overflow-y-auto rounded-t-[var(--radius-lg)] border border-border-subtle bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[var(--shadow-md)]">
+                <div className="flex items-start justify-between gap-3"><div><p className="scolapro-section-title">{focusedRow.name}</p><p className="scolapro-section-description">{new Intl.DateTimeFormat("en-NA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${attendanceDate}T12:00:00`))}</p></div><button type="button" onClick={() => setFocusedId(null)} aria-label="Close attendance editor" className="grid size-9 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-4" /></button></div>
+                <div className="mt-4 grid grid-cols-4 gap-1">{statuses.map((status) => { const Icon = status.icon; const active = focusedRow.status === status.value; return <button key={status.value} type="button" onClick={() => setStatus(focusedRow, status.value)} className={`inline-flex min-h-9 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] px-1 text-[0.65rem] font-semibold ${statusClass(status.value, active)}`}><Icon className="size-3.5" aria-hidden="true" strokeWidth={2.4} />{status.label}</button>; })}</div>
+                {focusedRow.status !== "present" ? <div className="mt-4 space-y-3"><Picker label="Reason" name={`mobile-reason-ui-${focusedRow.enrolmentId}`} value={focusedRow.reasonId ?? ""} onChange={(reasonId) => updateRow(focusedRow.enrolmentId, { reasonId: reasonId || null })} placeholder="No reason" options={[{ value: "", label: "No reason" }, ...reasons.map((reason) => ({ value: reason.id, label: reason.name, helper: reason.sensitive ? "Restricted detail" : undefined }))]} /><div><label htmlFor={`mobile-note-${focusedRow.enrolmentId}`} className="block text-xs font-medium">Note</label><input id={`mobile-note-${focusedRow.enrolmentId}`} value={focusedRow.note ?? ""} onChange={(event) => updateRow(focusedRow.enrolmentId, { note: event.target.value })} placeholder="Optional context" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs shadow-[var(--shadow-xs)] outline-none" /></div><EvidenceControl row={focusedRow} evidenceNames={evidenceNames} setEvidenceNames={setEvidenceNames} /></div> : null}
+                <button type="button" onClick={() => setFocusedId(null)} className="mt-5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white"><CircleCheck className="size-4" />Done</button>
+              </div>
+            </div> : null}
+
             <div className="sticky bottom-[4.4rem] z-10 flex flex-col gap-2 border-t border-border-subtle bg-[color:var(--surface)]/96 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:bottom-0"><p className="text-[0.7rem] text-muted-foreground">{currentSubmissionId ? "Saving creates a new auditable revision." : "Confirm attendance for this class and date."}</p><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Save className="size-4" />}{pending ? "Saving…" : currentSubmissionId ? "Save revision" : "Confirm register"}</button></div>
           </form>
         )}
       </section>
     </div>
   );
+}
+
+function EvidenceControl({ row, evidenceNames, setEvidenceNames }: { row: AttendanceLearnerRow; evidenceNames: Record<string, string>; setEvidenceNames: React.Dispatch<React.SetStateAction<Record<string, string>>> }) {
+  return <div className="min-w-0"><input id={`evidence-${row.enrolmentId}`} name={`evidence-${row.enrolmentId}`} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" onChange={(event) => setEvidenceNames((current) => ({ ...current, [row.enrolmentId]: event.target.files?.[0]?.name ?? "" }))} /><label htmlFor={`evidence-${row.enrolmentId}`} className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-3 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><Paperclip className="size-3.5" />{evidenceNames[row.enrolmentId] ? "Change evidence" : "Photo / evidence"}</label>{evidenceNames[row.enrolmentId] ? <span className="ml-2 break-all text-[0.68rem] text-muted-foreground">{evidenceNames[row.enrolmentId]}</span> : null}</div>;
 }
