@@ -14,7 +14,7 @@ export function GuardianPanel({ learnerId, guardians }: { learnerId: string; gua
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) { toast.success(state.message); setOpen(false); }
+    if (state.success) toast.success(state.message);
     else toast.error(state.message);
   }, [state]);
 
