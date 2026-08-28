@@ -1,6 +1,6 @@
 begin;
 
-select plan(45);
+select plan(49);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
@@ -18,6 +18,7 @@ select has_table('public','school_settings','school settings exist');
 select has_table('public','guardian_profiles','guardian profiles exist');
 select has_table('public','learner_guardians','learner guardian relationships exist');
 select has_table('public','guardian_contacts','guardian contacts exist');
+select has_table('public','guardian_user_links','guardian user links exist');
 select has_table('public','import_batches','import batches exist');
 select has_table('public','import_rows','import staging rows exist');
 select has_table('public','subject_attendance_submissions','subject attendance submissions exist');
@@ -41,6 +42,10 @@ select ok(not has_function_privilege('anon','public.set_tenant_feature(uuid,text
 select ok(to_regprocedure('public.set_school_setting(uuid,text,jsonb)') is not null,'school setting function exists');
 select ok(to_regprocedure('public.upsert_guardian_relationship(uuid,uuid,text,text,text,text,text,boolean,boolean,boolean,smallint,jsonb)') is not null,'guardian relationship upsert function exists');
 select ok(not has_function_privilege('anon','public.upsert_guardian_relationship(uuid,uuid,text,text,text,text,text,boolean,boolean,boolean,smallint,jsonb)','EXECUTE'),'anonymous users cannot manage guardian relationships');
+select ok(to_regprocedure('public.link_existing_guardian_to_learner(uuid,uuid,text,boolean,boolean,boolean,smallint)') is not null,'existing guardian sibling-link function exists');
+select ok(not has_function_privilege('anon','public.link_existing_guardian_to_learner(uuid,uuid,text,boolean,boolean,boolean,smallint)','EXECUTE'),'anonymous users cannot link existing guardians');
+select ok(to_regprocedure('public.claim_guardian_profile(uuid)') is not null,'guardian account claim function exists');
+select ok(not has_function_privilege('anon','public.claim_guardian_profile(uuid)','EXECUTE'),'anonymous users cannot claim guardian profiles');
 select ok(to_regprocedure('public.create_import_batch(uuid,text,text,text)') is not null,'import batch creation function exists');
 select ok(not has_function_privilege('anon','public.create_import_batch(uuid,text,text,text)','EXECUTE'),'anonymous users cannot create import batches');
 select ok(to_regprocedure('public.commit_learner_import_batch(uuid)') is not null,'atomic learner import commit function exists');
