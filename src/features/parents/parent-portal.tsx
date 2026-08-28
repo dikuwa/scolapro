@@ -52,7 +52,7 @@ export function ParentPortal({ familyChildren, reports, claimable }: { familyChi
   return <div className="space-y-5">
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="mb-4"><h2 className="scolapro-section-title">My children</h2><p className="scolapro-section-description">Switch between linked learners. Access comes from effective guardian relationships, not school-wide learner permissions.</p></div>
-      <Picker label="Learner" name="learner" value={child?.learnerId ?? ""} onChange={setSelectedLearnerId} options={familyChildren.map((item) => ({ value: item.learnerId, label: item.name, helper: `${item.schoolName ?? "School"} · ${item.grade ?? "Grade"} · ${item.registerClass ?? "Class"}` }))} />
+      <Picker label="Learner" name="learner" value={child?.learnerId ?? ""} onChange={setSelectedLearnerId} placeholder="Choose a learner" options={familyChildren.map((item) => ({ value: item.learnerId, label: item.name, helper: `${item.schoolName ?? "School"} · ${item.grade ?? "Grade"} · ${item.registerClass ?? "Class"}` }))} />
     </section>
 
     {child ? <>
