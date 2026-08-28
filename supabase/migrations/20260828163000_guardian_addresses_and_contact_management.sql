@@ -49,7 +49,6 @@ using (
     select 1 from public.guardian_user_links gul
     where gul.guardian_id = guardian_addresses.guardian_id
       and gul.user_id = (select auth.uid())
-      and gul.status = 'active'
   )
 );
 
