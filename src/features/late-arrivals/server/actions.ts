@@ -6,13 +6,29 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type LateArrivalActionState = { success?: boolean; message?: string };
 
-const recordSchema = z.object({ enrolmentId: z.string().uuid(), arrivalDate: z.string().min(1), arrivedAt: z.string().optional(), note: z.string().trim().optional() });
+const recordSchema = z.object({
+  enrolmentId: z.string().uuid(),
+  arrivalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  arrivedAt: z.string().optional(),
+  note: z.string().trim().optional(),
+});
 
 export async function recordLateArrival(_state: LateArrivalActionState, formData: FormData): Promise<LateArrivalActionState> {
-  const parsed = recordSchema.safeParse({ enrolmentId: formData.get("enrolmentId"), arrivalDate: formData.get("arrivalDate"), arrivedAt: formData.get("arrivedAt"), note: formData.get("note") });
+  const parsed = recordSchema.safeParse({
+    enrolmentId: String(formData.get("enrolmentId") ?? ""),
+    arrivalDate: String(formData.get("arrivalDate") ?? ""),
+    arrivedAt: String(formData.get("arrivedAt") ?? ""),
+    note: String(formData.get("note") ?? ""),
+  });
   if (!parsed.success) return { message: "Choose a learner and valid arrival date." };
+
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("record_school_late_arrival", { p_enrolment_id: parsed.data.enrolmentId, p_arrival_date: parsed.data.arrivalDate, p_arrived_at: parsed.data.arrivedAt || null, p_note: parsed.data.note || null });
+  const { error } = await supabase.rpc("record_school_late_arrival", {
+    p_enrolment_id: parsed.data.enrolmentId,
+    p_arrival_date: parsed.data.arrivalDate,
+    p_arrived_at: parsed.data.arrivedAt || null,
+    p_note: parsed.data.note || null,
+  });
   if (error) return { message: error.message };
   revalidatePath("/late-arrivals");
   return { success: true, message: "Late arrival recorded." };
