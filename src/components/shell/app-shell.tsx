@@ -34,8 +34,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     if (context.user) {
       displayName = context.displayName ?? displayName;
       const membership = context.memberships[0];
-      schoolName = membership?.schoolName ?? (context.platformMemberships.length ? "ScolaPro Platform" : "No school selected");
-      roleKey = membership?.roleKey ?? context.platformMemberships[0]?.roleKey;
+      const platformMembership = context.platformMemberships[0];
+      const guardianOnly = !membership && !platformMembership && context.guardianLinks.length > 0;
+
+      schoolName = membership?.schoolName
+        ?? (platformMembership ? "ScolaPro Platform" : guardianOnly ? "Family portal" : "No school selected");
+      roleKey = membership?.roleKey ?? platformMembership?.roleKey ?? (guardianOnly ? "parent" : undefined);
 
       if (context.avatarPath) {
         const supabase = await createSupabaseServerClient();
