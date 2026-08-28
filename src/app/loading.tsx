@@ -14,9 +14,7 @@ export default function Loading() {
         <div className="mt-5 h-96 rounded-[var(--radius-md)] border border-border-subtle bg-surface" />
       </div>
       <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center" aria-live="polite" aria-label="Loading">
-        <span className="grid size-12 place-items-center rounded-[var(--radius-md)] bg-[color:var(--surface-elevated)]/92 shadow-[var(--shadow-sm)] backdrop-blur-md">
-          <Spinner className="size-5 text-brand sm:size-6" />
-        </span>
+        <Spinner className="size-6 text-brand sm:size-7" />
       </div>
     </main>
   );
