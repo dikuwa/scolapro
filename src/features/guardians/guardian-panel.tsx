@@ -23,8 +23,8 @@ export function GuardianPanel({ learnerId, guardians, reusableGuardians = [] }: 
   useEffect(() => {
     const state = newState.message ? newState : existingState;
     if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
-    if (state.success) setOpen(false);
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [newState, existingState]);
 
   const filteredReusable = useMemo(() => {
@@ -74,7 +74,11 @@ export function GuardianPanel({ learnerId, guardians, reusableGuardians = [] }: 
 
 function GuardianRow({ learnerId, guardian, editing, onToggleEdit }: { learnerId: string; guardian: LearnerGuardian; editing: boolean; onToggleEdit: () => void }) {
   const [state, action, pending] = useActionState(saveGuardianContactDetails, initialState);
-  useEffect(() => { if (!state.message) return; state.success ? toast.success(state.message) : toast.error(state.message); }, [state]);
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [state]);
   return <div className="px-4 py-4 sm:px-5">
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
       <div className="min-w-0">
