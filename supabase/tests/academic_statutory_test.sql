@@ -1,6 +1,6 @@
 begin;
 
-select plan(23);
+select plan(26);
 
 select has_table('public','assessment_schemes','assessment schemes exist');
 select has_table('public','assessment_instances','assessment instances exist');
@@ -23,6 +23,9 @@ select ok(to_regclass('public.learner_marks_current') is not null,'current learn
 select ok(to_regprocedure('public.build_report_card_snapshot(uuid,smallint,text)') is not null,'report card snapshot builder exists');
 select ok(to_regprocedure('public.certify_report_card_snapshot(uuid)') is not null,'report card certification function exists');
 select ok(not has_function_privilege('anon','public.certify_report_card_snapshot(uuid)','EXECUTE'),'anonymous users cannot certify report cards');
+select ok(to_regprocedure('public.publish_report_card_snapshot(uuid)') is not null,'report card publication function exists');
+select ok(not has_function_privilege('anon','public.publish_report_card_snapshot(uuid)','EXECUTE'),'anonymous users cannot publish report cards');
+select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='report_card_snapshots' and policyname='linked guardians read published report cards'),'linked guardians have a published-report policy');
 select ok(to_regprocedure('public.certify_statutory_snapshot(uuid,text,text)') is not null,'statutory certification function exists');
 select ok(not has_function_privilege('anon','public.certify_statutory_snapshot(uuid,text,text)','EXECUTE'),'anonymous users cannot certify statutory snapshots');
 select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='learner_marks' and policyname='scoped academic staff can append learner marks'),'teacher mark write policy exists');
