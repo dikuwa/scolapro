@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { BadgeCheck, CalendarCheck2, FileText, GraduationCap, Link2, School, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -21,16 +20,17 @@ function numeric(value: unknown): string {
   return typeof value === "number" ? String(value) : "0";
 }
 
-export function ParentPortal({ children, reports, claimable }: { children: ParentChildSummary[]; reports: ParentPublishedReport[]; claimable: ClaimableGuardianProfile[] }) {
+export function ParentPortal({ familyChildren, reports, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; claimable: ClaimableGuardianProfile[] }) {
   const [state, claimAction, pending] = useActionState(claimGuardianProfile, initialState);
-  const [selectedLearnerId, setSelectedLearnerId] = useState(children[0]?.learnerId ?? "");
+  const [selectedLearnerId, setSelectedLearnerId] = useState(familyChildren[0]?.learnerId ?? "");
 
   useEffect(() => {
     if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [state]);
 
-  const child = children.find((item) => item.learnerId === selectedLearnerId) ?? children[0] ?? null;
+  const child = familyChildren.find((item) => item.learnerId === selectedLearnerId) ?? familyChildren[0] ?? null;
   const childReports = useMemo(
     () => reports.filter((report) => report.learnerId === child?.learnerId),
     [reports, child?.learnerId],
@@ -40,7 +40,7 @@ export function ParentPortal({ children, reports, claimable }: { children: Paren
   const attendance = record(latestSnapshot.attendance);
   const resultRows = Array.isArray(latestSnapshot.results) ? latestSnapshot.results : [];
 
-  if (!children.length) {
+  if (!familyChildren.length) {
     return <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] bg-surface p-5 shadow-[var(--shadow-xs)]">
         <div className="flex items-start gap-3"><span className="scolapro-tone-brand grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Link2 className="size-4" /></span><div><h2 className="scolapro-section-title">Connect your guardian profile</h2><p className="scolapro-section-description">ScolaPro only offers profiles whose active guardian email exactly matches the email on your signed-in account.</p></div></div>
@@ -52,7 +52,7 @@ export function ParentPortal({ children, reports, claimable }: { children: Paren
   return <div className="space-y-5">
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="mb-4"><h2 className="scolapro-section-title">My children</h2><p className="scolapro-section-description">Switch between linked learners. Access comes from effective guardian relationships, not school-wide learner permissions.</p></div>
-      <Picker label="Learner" name="learner" value={child?.learnerId ?? ""} onChange={setSelectedLearnerId} options={children.map((item) => ({ value: item.learnerId, label: item.name, helper: `${item.schoolName ?? "School"} · ${item.grade ?? "Grade"} · ${item.registerClass ?? "Class"}` }))} />
+      <Picker label="Learner" name="learner" value={child?.learnerId ?? ""} onChange={setSelectedLearnerId} options={familyChildren.map((item) => ({ value: item.learnerId, label: item.name, helper: `${item.schoolName ?? "School"} · ${item.grade ?? "Grade"} · ${item.registerClass ?? "Class"}` }))} />
     </section>
 
     {child ? <>
