@@ -40,6 +40,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
   const [slotPeriodId, setSlotPeriodId] = useState("");
   const [slotClassId, setSlotClassId] = useState("");
   const [slotAllocationId, setSlotAllocationId] = useState("");
+  const [slotRoomId, setSlotRoomId] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
 
@@ -96,7 +97,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
           </section>
 
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-sky grid size-8 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span><div><h2 className="scolapro-section-title">Place timetable slot</h2><p className="scolapro-section-description !mt-0">Conflicts are blocked at database level for both classes and teachers.</p></div></div>
+            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-sky grid size-8 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span><div><h2 className="scolapro-section-title">Place timetable slot</h2><p className="scolapro-section-description !mt-0">Conflicts are blocked for classes, teachers and governed rooms.</p></div></div>
             <form action={slotAction} className="grid gap-3 sm:grid-cols-2 sm:items-end">
               <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
               <div><label htmlFor="cycle" className="text-xs font-medium">Cycle</label><input id="cycle" name="cycle" defaultValue="A" className={`${fieldClass} mt-1.5 uppercase`} /></div>
@@ -104,9 +105,10 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
               <Picker label="Period" name="periodId" value={slotPeriodId} onChange={setSlotPeriodId} placeholder="Choose period" options={workspace.periods.filter((item) => item.isTeaching).map((item) => ({ value: item.id, label: item.name, helper: item.startsAt && item.endsAt ? `${item.startsAt.slice(0,5)}–${item.endsAt.slice(0,5)}` : undefined }))} />
               <Picker label="Class" name="classId" value={slotClassId} onChange={(value) => { setSlotClassId(value); setSlotAllocationId(""); }} placeholder="Choose class" options={workspace.classes.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }))} />
               <Picker label="Teacher allocation" name="allocationId" value={slotAllocationId} onChange={setSlotAllocationId} placeholder="Choose subject and teacher" options={slotAllocationOptions.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.staffName}`, helper: item.className }))} />
-              <div><label htmlFor="room" className="text-xs font-medium">Room</label><input id="room" name="room" placeholder="Optional" className={`${fieldClass} mt-1.5`} /></div>
+              <Picker label="Room" name="roomId" value={slotRoomId} onChange={setSlotRoomId} placeholder="No room" options={[{ value: "", label: "No room" }, ...workspace.rooms.map((item) => ({ value: item.id, label: item.name, helper: [item.code, item.block, item.capacity ? `${item.capacity} seats` : null].filter(Boolean).join(" · ") }))]} />
               <SubmitButton pending={slotPending} label="Add slot" />
             </form>
+            {!workspace.rooms.length ? <p className="mt-3 text-[0.68rem] text-muted-foreground">Rooms are optional. School admins can add rooms and blocks in Academic setup.</p> : null}
           </section>
         </div>
       ) : null}
