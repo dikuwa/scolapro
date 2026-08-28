@@ -1,11 +1,12 @@
 begin;
 
-select plan(50);
+select plan(57);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
 select has_table('public','learning_resource_copies','learning resource copies exist');
 select has_table('public','communication_messages','communication messages exist');
+select has_table('public','communication_delivery_jobs','communication delivery outbox exists');
 select has_table('public','admission_applications','admission applications exist');
 select has_table('public','transfer_events','transfer events exist');
 select has_table('public','year_end_progressions','year-end progressions exist');
@@ -32,6 +33,7 @@ select ok((select relrowsecurity from pg_class where oid='public.tenant_features
 select ok((select relrowsecurity from pg_class where oid='public.guardian_profiles'::regclass),'guardian profiles use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.import_batches'::regclass),'import batches use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.subject_attendance_submissions'::regclass),'subject attendance submissions use RLS');
+select ok((select relrowsecurity from pg_class where oid='public.communication_delivery_jobs'::regclass),'communication delivery jobs use RLS');
 
 select ok(to_regprocedure('public.refresh_examination_readiness(uuid)') is not null,'DNEA readiness refresh function exists');
 select ok(not has_function_privilege('anon','public.refresh_examination_readiness(uuid)','EXECUTE'),'anonymous users cannot refresh DNEA readiness');
@@ -48,8 +50,13 @@ select ok(to_regprocedure('public.claim_guardian_profile(uuid)') is not null,'gu
 select ok(not has_function_privilege('anon','public.claim_guardian_profile(uuid)','EXECUTE'),'anonymous users cannot claim guardian profiles');
 select ok(to_regprocedure('public.create_import_batch(uuid,text,text,text)') is not null,'import batch creation function exists');
 select ok(not has_function_privilege('anon','public.create_import_batch(uuid,text,text,text)','EXECUTE'),'anonymous users cannot create import batches');
+select ok(to_regprocedure('public.reconcile_learner_import_batch(uuid)') is not null,'deterministic learner import reconciliation exists');
+select ok(not has_function_privilege('anon','public.reconcile_learner_import_batch(uuid)','EXECUTE'),'anonymous users cannot reconcile learner imports');
 select ok(to_regprocedure('public.commit_learner_import_batch(uuid)') is not null,'atomic learner import commit function exists');
 select ok(not has_function_privilege('anon','public.commit_learner_import_batch(uuid)','EXECUTE'),'anonymous users cannot commit learner imports');
+select ok(to_regprocedure('public.claim_communication_delivery_jobs(integer)') is not null,'communication delivery claim function exists');
+select ok(not has_function_privilege('authenticated','public.claim_communication_delivery_jobs(integer)','EXECUTE'),'authenticated clients cannot claim provider delivery jobs');
+select ok(has_function_privilege('service_role','public.claim_communication_delivery_jobs(integer)','EXECUTE'),'service role can claim provider delivery jobs');
 select ok(to_regprocedure('public.submit_subject_period_attendance(uuid,date,jsonb,text,uuid,uuid,text)') is not null,'subject-period attendance submission function exists');
 select ok(not has_function_privilege('anon','public.submit_subject_period_attendance(uuid,date,jsonb,text,uuid,uuid,text)','EXECUTE'),'anonymous users cannot submit subject-period attendance');
 select ok(to_regprocedure('public.assign_school_duty(uuid,uuid,text,date,date)') is not null,'school duty assignment function exists');
