@@ -40,7 +40,7 @@ export function WeeklyRegister({ classes, selectedClassId, dates, learners, reas
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) { toast.success(state.message); setActiveKey(""); router.refresh(); }
+    if (state.success) { toast.success(state.message); router.refresh(); }
     else toast.error(state.message);
   }, [router, state]);
 
@@ -61,14 +61,13 @@ export function WeeklyRegister({ classes, selectedClassId, dates, learners, reas
     });
   }, [query, rows, sexFilter]);
 
-  const active = useMemo(() => {
-    if (!activeKey) return null;
+  let active: { row: WeeklyLearnerRow; cell: WeeklyCell } | null = null;
+  if (activeKey) {
     for (const row of rows) {
       const cell = row.days.find((day) => keyFor(row.enrolmentId, day.date) === activeKey);
-      if (cell) return { row, cell };
+      if (cell) { active = { row, cell }; break; }
     }
-    return null;
-  }, [activeKey, rows]);
+  }
 
   const payload = dates.map((date) => ({
     date,
