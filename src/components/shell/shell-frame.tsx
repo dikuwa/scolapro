@@ -47,7 +47,7 @@ export function ShellFrame({
           onClick={() => setCollapsed((current) => !current)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="fixed top-16 z-40 grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface-muted hover:text-foreground focus-visible:text-foreground"
+          className="fixed top-16 z-[70] grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface-muted hover:text-foreground focus-visible:text-foreground"
           style={{ left: collapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)" }}
         >
           {collapsed ? (
