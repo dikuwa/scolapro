@@ -178,7 +178,27 @@ Use styled accessible components instead.
 
 Exceptions require a documented technical/accessibility reason.
 
-## 6. Component States
+## 6. Tooltip Rules
+
+Use the shared `src/components/ui/tooltip.tsx` primitive for tooltips. Do not recreate tooltip behavior with page-specific CSS or the browser `title` attribute.
+
+Tooltips are for meaningful interactive items whose purpose is not already obvious from visible text. In particular:
+- collapsed sidebar navigation icons may show a tooltip;
+- icon-only actions with unclear meaning may show a tooltip;
+- the sidebar collapse/expand chevron must **never** show a tooltip;
+- controls that already have a visible label should normally not show a duplicate tooltip.
+
+Interaction and presentation requirements:
+- default reveal delay is 500ms and must remain within the 400–600ms range unless accessibility testing justifies otherwise;
+- hide immediately when hover/focus leaves;
+- keyboard focus receives the same delayed tooltip behavior;
+- use `role="tooltip"` and connect the trigger with `aria-describedby` while visible;
+- use theme-aware light/elevated ScolaPro surfaces, subtle borders and `--shadow-sm`;
+- use `--radius-sm` rather than pill styling;
+- tooltip title is compact and stronger than its optional description;
+- never use the former dark/inverted pseudo-element tooltip treatment.
+
+## 7. Component States
 
 Every interactive component must account for applicable states:
 - default;
@@ -193,7 +213,7 @@ Every interactive component must account for applicable states:
 - read-only;
 - offline/sync-pending where relevant.
 
-## 7. Styling Rules
+## 8. Styling Rules
 
 Components use:
 - semantic design tokens;
@@ -204,7 +224,7 @@ Components use:
 
 No feature-specific hardcoded colors or arbitrary pixel values unless justified.
 
-## 8. Accessibility Rules
+## 9. Accessibility Rules
 
 Components must preserve:
 - keyboard navigation;
@@ -215,7 +235,7 @@ Components must preserve:
 - contrast;
 - reduced-motion behavior.
 
-## 9. Component Review Rule
+## 10. Component Review Rule
 
 Before creating a new component:
 1. check shadcn primitives;
