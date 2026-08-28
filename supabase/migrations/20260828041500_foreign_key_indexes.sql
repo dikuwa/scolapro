@@ -24,7 +24,7 @@ create index if not exists attendance_events_class_idx on public.attendance_even
 create index if not exists attendance_events_reason_idx on public.attendance_events(reason_id) where reason_id is not null;
 create index if not exists attendance_events_submission_idx on public.attendance_events(register_submission_id) where register_submission_id is not null;
 create index if not exists attendance_register_submissions_class_idx on public.attendance_register_submissions(register_class_id, attendance_date desc);
-create index if not exists attendance_evidence_event_idx on public.attendance_evidence(attendance_event_id) where attendance_event_id is not null;
+create index if not exists attendance_evidence_enrolment_idx on public.attendance_evidence(enrolment_id, attendance_date desc);
 
 -- Conduct / achievement / support.
 create index if not exists conduct_events_enrolment_idx on public.conduct_events(enrolment_id) where enrolment_id is not null;
