@@ -3,23 +3,31 @@
 import Link from "next/link";
 import { ChevronRight, Search, Users, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Picker } from "@/components/ui/picker";
 import type { LearnerListItem } from "@/features/learners/server/queries";
+import type { GradeOption } from "@/features/learners/server/registration-options";
 
 function normalized(value: string) {
   return value.trim().toLocaleLowerCase();
 }
 
-export function LearnerDirectory({ learners }: { learners: LearnerListItem[] }) {
+export function LearnerDirectory({ learners, academicOptions = [] }: { learners: LearnerListItem[]; academicOptions?: GradeOption[] }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("current");
   const [grade, setGrade] = useState("all");
   const [registerClass, setRegisterClass] = useState("all");
 
-  const grades = useMemo(() => Array.from(new Set(learners.map((item) => item.grade))).sort(), [learners]);
-  const classes = useMemo(
-    () => Array.from(new Set(learners.filter((item) => grade === "all" || item.grade === grade).map((item) => item.registerClass))).sort(),
-    [grade, learners],
-  );
+  const gradeOptions = useMemo(() => academicOptions.map((item) => item.label), [academicOptions]);
+  const fallbackGrades = useMemo(() => Array.from(new Set(learners.map((item) => item.grade))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), [learners]);
+  const grades = gradeOptions.length ? gradeOptions : fallbackGrades;
+
+  const classes = useMemo(() => {
+    if (academicOptions.length) {
+      const source = grade === "all" ? academicOptions : academicOptions.filter((item) => item.label === grade);
+      return Array.from(new Set(source.flatMap((item) => item.classes.map((entry) => entry.label)))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    }
+    return Array.from(new Set(learners.filter((item) => grade === "all" || item.grade === grade).map((item) => item.registerClass))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [academicOptions, grade, learners]);
 
   const filtered = useMemo(() => {
     const needle = normalized(query);
@@ -43,41 +51,23 @@ export function LearnerDirectory({ learners }: { learners: LearnerListItem[] }) 
 
   return (
     <>
-      <div className="mb-4 grid gap-2 rounded-[var(--radius-md)] bg-surface-muted p-3 shadow-[var(--shadow-xs)] lg:grid-cols-[minmax(15rem,1fr)_auto] lg:items-center">
+      <div className="mb-4 grid gap-2 rounded-[var(--radius-md)] bg-surface-muted/55 p-3 lg:grid-cols-[minmax(15rem,1fr)_auto] lg:items-center">
         <label className="scolapro-control-surface flex min-h-10 min-w-0 items-center gap-2 rounded-[var(--radius-sm)] px-3 sm:max-w-lg">
           <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search learner name or admission number…"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
-            autoComplete="off"
-          />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search learner name or admission number…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70" autoComplete="off" />
           {query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-7 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted hover:text-foreground"><X className="size-3.5" /></button> : null}
         </label>
 
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Learner status" className="scolapro-control-surface min-h-9 rounded-[var(--radius-sm)] px-2.5 text-xs text-foreground outline-none">
-            <option value="current">Current</option>
-            <option value="all">All statuses</option>
-          </select>
-          <select value={grade} onChange={(event) => { setGrade(event.target.value); setRegisterClass("all"); }} aria-label="Filter by grade" className="scolapro-control-surface min-h-9 rounded-[var(--radius-sm)] px-2.5 text-xs text-foreground outline-none">
-            <option value="all">All grades</option>
-            {grades.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <select value={registerClass} onChange={(event) => setRegisterClass(event.target.value)} aria-label="Filter by register class" className="scolapro-control-surface min-h-9 rounded-[var(--radius-sm)] px-2.5 text-xs text-foreground outline-none">
-            <option value="all">All classes</option>
-            {classes.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          {hasFilters ? <button type="button" onClick={clearFilters} className="min-h-9 rounded-[var(--radius-sm)] px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-surface hover:text-foreground">Clear filters</button> : null}
+        <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[25rem]">
+          <Picker ariaLabel="Learner status" name="learner-status-filter" value={status} onChange={setStatus} placeholder="Status" options={[{ value: "current", label: "Current" }, { value: "all", label: "All statuses" }]} />
+          <Picker ariaLabel="Filter by grade" name="learner-grade-filter" value={grade} onChange={(value) => { setGrade(value); setRegisterClass("all"); }} placeholder="All grades" options={[{ value: "all", label: "All grades" }, ...grades.map((item) => ({ value: item, label: item }))]} />
+          <Picker ariaLabel="Filter by register class" name="learner-class-filter" value={registerClass} onChange={setRegisterClass} placeholder="All classes" options={[{ value: "all", label: "All classes" }, ...classes.map((item) => ({ value: item, label: item }))]} />
         </div>
+        {hasFilters ? <button type="button" onClick={clearFilters} className="justify-self-start min-h-8 rounded-[var(--radius-xs)] px-2 text-[0.7rem] font-medium text-muted-foreground hover:bg-surface hover:text-foreground lg:col-start-2 lg:justify-self-end">Clear filters</button> : null}
       </div>
 
       <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
-        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3 sm:px-5">
-          <div className="flex items-center gap-2"><Users aria-hidden="true" className="size-4 text-brand-strong" /><h2 className="scolapro-section-title">Learners</h2></div>
-          <span className="text-xs text-muted-foreground">{filtered.length} shown</span>
-        </div>
+        <div className="flex items-center justify-between border-b border-border-subtle px-4 py-3 sm:px-5"><div className="flex items-center gap-2"><Users aria-hidden="true" className="size-4 text-brand-strong" /><h2 className="scolapro-section-title">Learners</h2></div><span className="text-xs text-muted-foreground">{filtered.length} shown</span></div>
         {filtered.length ? <>
           <div className="hidden grid-cols-[minmax(14rem,1.4fr)_8rem_8rem_9rem_7rem_2rem] gap-3 border-b border-border-subtle bg-surface-muted/60 px-5 py-2.5 text-[0.7rem] font-medium uppercase tracking-[0.06em] text-muted-foreground md:grid"><span>Learner</span><span>Number</span><span>Grade</span><span>Class</span><span>Status</span><span className="sr-only">Open</span></div>
           <div className="divide-y divide-border-subtle">{filtered.map((learner) => <Link key={learner.id} href={`/learners/${learner.id}`} className="grid gap-2 px-4 py-3.5 transition hover:bg-surface-muted/70 sm:px-5 md:grid-cols-[minmax(14rem,1.4fr)_8rem_8rem_9rem_7rem_2rem] md:items-center md:gap-3">
