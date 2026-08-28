@@ -8,6 +8,7 @@ export type PickerOption = { value: string; label: string; helper?: string };
 
 export function Picker({
   label,
+  ariaLabel,
   name,
   value,
   onChange,
@@ -16,7 +17,8 @@ export function Picker({
   disabled = false,
   className,
 }: {
-  label: string;
+  label?: string;
+  ariaLabel?: string;
   name: string;
   value: string;
   onChange: (value: string) => void;
@@ -46,21 +48,22 @@ export function Picker({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={cn("relative flex min-w-0 flex-col gap-1.5", className)}>
-      <label className="text-xs font-medium leading-4">{label}</label>
+    <div ref={rootRef} className={cn("relative flex min-w-0 flex-col", label ? "gap-1.5" : "", className)}>
+      {label ? <label className="text-xs font-medium leading-4">{label}</label> : null}
       <input type="hidden" name={name} value={value} />
       <button
         type="button"
         disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
-        className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 disabled:cursor-not-allowed disabled:opacity-55"
+        aria-label={ariaLabel || label || placeholder}
+        className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55"
       >
         <span className={cn("min-w-0 truncate", selected ? "text-foreground" : "text-muted-foreground")}>{selected?.label ?? placeholder}</span>
         <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} aria-hidden="true" />
       </button>
       {open ? (
-        <div className="absolute inset-x-0 top-full z-50 mt-1.5 max-h-64 overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)]">
+        <div className="absolute inset-x-0 top-full z-50 mt-1.5 max-h-64 overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-sm)]">
           {options.length ? options.map((option) => (
             <button
               key={option.value}
