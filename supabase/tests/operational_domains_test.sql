@@ -1,6 +1,6 @@
 begin;
 
-select plan(86);
+select plan(94);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
@@ -73,6 +73,9 @@ select ok(to_regprocedure('public.set_communication_provider_route(uuid,uuid,tex
 select ok(not has_function_privilege('anon','public.set_communication_provider_route(uuid,uuid,text,text,smallint,boolean,date,date,jsonb)','EXECUTE'),'anonymous users cannot configure communication provider routes');
 select ok(to_regprocedure('public.resolve_communication_provider_route(uuid,uuid,text,date)') is not null,'service worker provider route resolver exists');
 select ok(not has_function_privilege('authenticated','public.resolve_communication_provider_route(uuid,uuid,text,date)','EXECUTE'),'authenticated clients cannot resolve worker provider routes directly');
+select ok(to_regprocedure('public.recover_stale_communication_delivery_jobs(integer,integer,integer)') is not null,'communication stale-job recovery function exists');
+select ok(not has_function_privilege('authenticated','public.recover_stale_communication_delivery_jobs(integer,integer,integer)','EXECUTE'),'authenticated clients cannot recover communication jobs');
+select ok(has_function_privilege('service_role','public.recover_stale_communication_delivery_jobs(integer,integer,integer)','EXECUTE'),'service role can recover communication jobs');
 select ok(to_regprocedure('public.submit_subject_period_attendance(uuid,date,jsonb,text,uuid,uuid,text)') is not null,'subject-period attendance submission function exists');
 select ok(not has_function_privilege('anon','public.submit_subject_period_attendance(uuid,date,jsonb,text,uuid,uuid,text)','EXECUTE'),'anonymous users cannot submit subject-period attendance');
 select ok(to_regprocedure('public.assign_school_duty(uuid,uuid,text,date,date)') is not null,'school duty assignment function exists');
@@ -87,9 +90,13 @@ select ok(to_regprocedure('public.register_report_card_document(uuid,text,text,t
 select ok(not has_function_privilege('anon','public.register_report_card_document(uuid,text,text,text,text,text,text,integer)','EXECUTE'),'anonymous users cannot register report-card documents');
 select ok(to_regprocedure('public.queue_report_card_render(uuid,text,text,text)') is not null,'report card render queue function exists');
 select ok(not has_function_privilege('anon','public.queue_report_card_render(uuid,text,text,text)','EXECUTE'),'anonymous users cannot queue report-card renders');
-select ok(to_regprocedure('public.claim_report_card_render_jobs(integer)') is not null,'report card render claim function exists');
-select ok(not has_function_privilege('authenticated','public.claim_report_card_render_jobs(integer)','EXECUTE'),'authenticated clients cannot claim render jobs');
-select ok(has_function_privilege('service_role','public.claim_report_card_render_jobs(integer)','EXECUTE'),'service role can claim render jobs');
+select ok(to_regprocedure('public.claim_report_card_render_jobs(integer)') is not null,'legacy report card render claim function exists');
+select ok(to_regprocedure('public.claim_report_card_render_jobs(integer,text)') is not null,'format-scoped report card render claim function exists');
+select ok(not has_function_privilege('authenticated','public.claim_report_card_render_jobs(integer,text)','EXECUTE'),'authenticated clients cannot claim format-scoped render jobs');
+select ok(has_function_privilege('service_role','public.claim_report_card_render_jobs(integer,text)','EXECUTE'),'service role can claim format-scoped render jobs');
+select ok(to_regprocedure('public.recover_stale_report_card_render_jobs(integer,integer,integer)') is not null,'report render stale-job recovery function exists');
+select ok(not has_function_privilege('authenticated','public.recover_stale_report_card_render_jobs(integer,integer,integer)','EXECUTE'),'authenticated clients cannot recover render jobs');
+select ok(has_function_privilege('service_role','public.recover_stale_report_card_render_jobs(integer,integer,integer)','EXECUTE'),'service role can recover render jobs');
 
 select * from finish();
 rollback;
