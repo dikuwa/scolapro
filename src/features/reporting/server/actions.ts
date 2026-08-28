@@ -32,3 +32,11 @@ export async function certifyReportCard(formData: FormData) {
   await supabase.rpc("certify_report_card_snapshot", { p_snapshot_id: snapshotId });
   revalidatePath("/reports/report-cards");
 }
+
+export async function publishReportCard(formData: FormData) {
+  const snapshotId = String(formData.get("snapshotId") ?? "");
+  if (!z.string().uuid().safeParse(snapshotId).success) return;
+  const supabase = await createSupabaseServerClient();
+  await supabase.rpc("publish_report_card_snapshot", { p_snapshot_id: snapshotId });
+  revalidatePath("/reports/report-cards");
+}
