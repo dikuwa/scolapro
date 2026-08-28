@@ -1,6 +1,6 @@
 begin;
 
-select plan(82);
+select plan(86);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
