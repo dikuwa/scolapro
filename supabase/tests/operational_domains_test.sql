@@ -1,6 +1,6 @@
 begin;
 
-select plan(68);
+select plan(75);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
@@ -28,6 +28,7 @@ select has_table('public','late_detention_obligations','late detention obligatio
 select has_table('public','detention_sessions','detention sessions exist');
 select has_table('public','detention_session_items','detention session items exist');
 select has_table('public','report_card_documents','report card documents exist');
+select has_table('public','report_card_render_jobs','report card render outbox exists');
 
 select ok((select relrowsecurity from pg_class where oid='public.learner_support_cases'::regclass),'learner support cases use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.examination_candidates'::regclass),'examination candidates use RLS');
@@ -40,6 +41,7 @@ select ok((select relrowsecurity from pg_class where oid='public.communication_d
 select ok((select relrowsecurity from pg_class where oid='public.detention_sessions'::regclass),'detention sessions use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.detention_session_items'::regclass),'detention session items use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.report_card_documents'::regclass),'report card documents use RLS');
+select ok((select relrowsecurity from pg_class where oid='public.report_card_render_jobs'::regclass),'report card render jobs use RLS');
 
 select ok(to_regprocedure('public.refresh_examination_readiness(uuid)') is not null,'DNEA readiness refresh function exists');
 select ok(not has_function_privilege('anon','public.refresh_examination_readiness(uuid)','EXECUTE'),'anonymous users cannot refresh DNEA readiness');
@@ -75,6 +77,11 @@ select ok(not has_function_privilege('anon','public.record_detention_attendance(
 select ok(to_regprocedure('public.complete_detention_session(uuid,text)') is not null,'detention session completion function exists');
 select ok(to_regprocedure('public.register_report_card_document(uuid,text,text,text,text,text,text,integer)') is not null,'report card document registration function exists');
 select ok(not has_function_privilege('anon','public.register_report_card_document(uuid,text,text,text,text,text,text,integer)','EXECUTE'),'anonymous users cannot register report-card documents');
+select ok(to_regprocedure('public.queue_report_card_render(uuid,text,text,text)') is not null,'report card render queue function exists');
+select ok(not has_function_privilege('anon','public.queue_report_card_render(uuid,text,text,text)','EXECUTE'),'anonymous users cannot queue report-card renders');
+select ok(to_regprocedure('public.claim_report_card_render_jobs(integer)') is not null,'report card render claim function exists');
+select ok(not has_function_privilege('authenticated','public.claim_report_card_render_jobs(integer)','EXECUTE'),'authenticated clients cannot claim render jobs');
+select ok(has_function_privilege('service_role','public.claim_report_card_render_jobs(integer)','EXECUTE'),'service role can claim render jobs');
 
 select * from finish();
 rollback;
