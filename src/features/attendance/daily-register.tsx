@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, CircleCheck, Paperclip, Save, Search, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, CircleCheck, Clock3, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,22 +11,21 @@ import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOptio
 
 const initialState: DailyRegisterState = {};
 type AttendanceStatus = AttendanceLearnerRow["status"];
-type EditableRow = AttendanceLearnerRow;
 type SexFilter = "all" | "male" | "female";
 
-const statuses: { value: AttendanceStatus; label: string }[] = [
-  { value: "present", label: "Present" },
-  { value: "absent", label: "Absent" },
-  { value: "late", label: "Late" },
-  { value: "excused", label: "Excused" },
+const statuses = [
+  { value: "present" as const, label: "Present", icon: Check },
+  { value: "absent" as const, label: "Absent", icon: X },
+  { value: "late" as const, label: "Late", icon: Clock3 },
+  { value: "excused" as const, label: "Excused", icon: ShieldCheck },
 ];
 
 function statusClass(status: AttendanceStatus, active: boolean) {
   if (!active) return "bg-surface-muted text-muted-foreground hover:bg-surface-subtle hover:text-foreground";
-  if (status === "present") return "bg-success-soft text-[color:var(--success)]";
-  if (status === "absent") return "bg-danger-soft text-[color:var(--danger)]";
-  if (status === "late") return "bg-warning-soft text-[color:var(--warning)]";
-  return "bg-info-soft text-[color:var(--info)]";
+  if (status === "present") return "bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/20";
+  if (status === "absent") return "bg-danger-soft text-[color:var(--danger)] ring-1 ring-inset ring-[color:var(--danger)]/20";
+  if (status === "late") return "bg-warning-soft text-[color:var(--warning)] ring-1 ring-inset ring-[color:var(--warning)]/20";
+  return "bg-info-soft text-[color:var(--info)] ring-1 ring-inset ring-[color:var(--info)]/20";
 }
 
 function schoolDayShift(date: string, direction: -1 | 1) {
@@ -46,7 +45,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const router = useRouter();
   const [state, action, pending] = useActionState(submitDailyRegister, initialState);
   const [navigationPending, startNavigation] = useTransition();
-  const [rows, setRows] = useState<EditableRow[]>(learners);
+  const [rows, setRows] = useState(learners);
   const [query, setQuery] = useState("");
   const [sexFilter, setSexFilter] = useState<SexFilter>("all");
   const [focusedId, setFocusedId] = useState<string | null>(null);
@@ -73,8 +72,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
     const needle = query.trim().toLowerCase();
     return rows.filter((row) => {
       const searchMatch = !needle || `${row.name} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle);
-      const sex = (row.sex ?? "").toLowerCase();
-      const sexMatch = sexFilter === "all" || sex === sexFilter;
+      const sexMatch = sexFilter === "all" || (row.sex ?? "").toLowerCase() === sexFilter;
       return searchMatch && sexMatch;
     });
   }, [query, rows, sexFilter]);
@@ -82,11 +80,11 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const presentCount = rows.filter((row) => row.status === "present").length;
   const exceptionCount = rows.length - presentCount;
 
-  function updateRow(enrolmentId: string, changes: Partial<EditableRow>) {
+  function updateRow(enrolmentId: string, changes: Partial<AttendanceLearnerRow>) {
     setRows((current) => current.map((row) => row.enrolmentId === enrolmentId ? { ...row, ...changes } : row));
   }
 
-  function setStatus(row: EditableRow, status: AttendanceStatus) {
+  function setStatus(row: AttendanceLearnerRow, status: AttendanceStatus) {
     updateRow(row.enrolmentId, { status, reasonId: status === "present" ? null : row.reasonId, note: status === "present" ? null : row.note });
     setFocusedId(status === "present" ? null : row.enrolmentId);
   }
@@ -107,7 +105,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-sm)] sm:p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <Picker label="Register class" name="register-class-ui" value={selectedClassId ?? ""} onChange={chooseClass} placeholder="Choose a class" options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))} className="max-w-xl" />
-          <div><p className="text-xs font-medium text-muted-foreground lg:text-right">Attendance date</p><div className="mt-1.5 flex items-center gap-1.5"><button type="button" disabled={navigationPending} onClick={() => moveDate(-1)} aria-label="Previous school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button><div className="relative min-w-40 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium">{navigationPending ? <span className="absolute inset-0 grid place-items-center bg-[color:var(--surface-muted)]"><Spinner className="size-4 text-brand" /></span> : null}{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))}</div><button type="button" disabled={navigationPending} onClick={() => moveDate(1)} aria-label="Next school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button></div></div>
+          <div><p className="text-xs font-medium text-muted-foreground lg:text-right">Attendance date</p><div className="mt-1.5 flex items-center gap-1.5"><button type="button" disabled={navigationPending} onClick={() => moveDate(-1)} aria-label="Previous school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button><div className="relative min-w-0 flex-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium sm:min-w-40 sm:flex-none">{navigationPending ? <span className="absolute inset-0 grid place-items-center"><Spinner className="size-4 text-brand" /></span> : null}<span className={navigationPending ? "opacity-0" : ""}>{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))}</span></div><button type="button" disabled={navigationPending} onClick={() => moveDate(1)} aria-label="Next school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button></div></div>
         </div>
       </section>
 
@@ -116,36 +114,36 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="scolapro-section-title">Daily register</h2><p className="scolapro-section-description">Everyone starts present. Search a learner or mark only the exceptions.</p></div><div className="flex gap-2 text-xs"><span className="rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 font-medium text-[color:var(--success)]">{presentCount} present</span><span className="rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 font-medium text-muted-foreground">{exceptionCount} exceptions</span></div></div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="scolapro-control-surface flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3"><Search className="size-4 text-muted-foreground" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find learner by name or number…" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />{query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}</label>
-            <div className="flex items-center gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">{(["all", "male", "female"] as SexFilter[]).map((value) => <button key={value} type="button" onClick={() => setSexFilter(value)} className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium ${sexFilter === value ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "male" ? "Boys" : "Girls"}</button>)}</div>
+            <div className="grid grid-cols-3 gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">{(["all", "male", "female"] as SexFilter[]).map((value) => <button key={value} type="button" onClick={() => setSexFilter(value)} className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium ${sexFilter === value ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "male" ? "Boys" : "Girls"}</button>)}</div>
           </div>
           <p className="mt-2 text-[0.68rem] text-muted-foreground">{visibleRows.length} of {rows.length} learners shown</p>
         </div>
 
-        {!selectedClassId || !classes.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No register classes configured</p><p className="mt-1 text-xs text-muted-foreground">A school administrator must configure grades and register classes first.</p></div> : !rows.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No learners in this class</p><p className="mt-1 text-xs text-muted-foreground">Learners enrolled for this date will appear here automatically.</p></div> : (
+        {!selectedClassId || !classes.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No register classes configured</p></div> : !rows.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No learners in this class</p></div> : (
           <form action={action}>
             <input type="hidden" name="registerClassId" value={selectedClassId} /><input type="hidden" name="attendanceDate" value={attendanceDate} /><input type="hidden" name="clientMutationId" value={clientMutationId} /><input type="hidden" name="replacesSubmissionId" value={currentSubmissionId ?? ""} /><input type="hidden" name="exceptions" value={JSON.stringify(exceptions)} />
-            <div className="divide-y divide-border-subtle px-4 sm:px-5">
+            <div className="divide-y divide-border-subtle px-3 sm:px-5">
               {visibleRows.map((row) => {
                 const focused = focusedId === row.enrolmentId;
                 const isException = row.status !== "present";
-                return <div key={row.enrolmentId} className={`-mx-2 px-2 py-3 transition ${focused ? "bg-brand-soft/55 ring-1 ring-inset ring-[color:var(--brand)]/15" : ""}`}>
-                  <div className="grid gap-3 sm:grid-cols-[minmax(11rem,0.8fr)_minmax(18rem,1.2fr)] sm:items-center">
+                return <div key={row.enrolmentId} className={`-mx-1 px-2 py-3 transition sm:-mx-2 ${focused ? "bg-brand-soft/45 ring-1 ring-inset ring-[color:var(--brand)]/15" : ""}`}>
+                  <div className="grid gap-2 sm:grid-cols-[minmax(11rem,0.8fr)_minmax(18rem,1.2fr)] sm:items-center">
                     <div className="min-w-0"><p className="scolapro-record-title truncate">{row.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p></div>
-                    <div className="flex flex-wrap gap-1">{statuses.map((status) => <button key={status.value} type="button" onClick={() => setStatus(row, status.value)} className={`min-h-7 rounded-[var(--radius-xs)] px-2 text-[0.7rem] font-semibold transition ${statusClass(status.value, row.status === status.value)}`}>{status.value === "present" && row.status === "present" ? <Check className="mr-1 inline size-3" aria-hidden="true" /> : null}{status.label}</button>)}</div>
+                    <div className="grid grid-cols-4 gap-1 sm:flex sm:flex-wrap">{statuses.map((status) => { const Icon = status.icon; const active = row.status === status.value; return <button key={status.value} type="button" onClick={() => setStatus(row, status.value)} className={`inline-flex min-h-8 items-center justify-center gap-1 rounded-[var(--radius-xs)] px-1.5 text-[0.68rem] font-semibold transition sm:px-2 ${statusClass(status.value, active)}`}>{active ? <Icon className="size-3" aria-hidden="true" strokeWidth={2.4} /> : null}<span>{status.label}</span></button>; })}</div>
                   </div>
 
                   {isException && focused ? <div className="mt-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 shadow-[var(--shadow-xs)]">
-                    <div className="mb-2 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold">Editing {row.name}</p><p className="text-[0.68rem] text-muted-foreground">{row.status.charAt(0).toUpperCase() + row.status.slice(1)} · add context if needed</p></div><button type="button" onClick={() => setFocusedId(null)} aria-label="Close attendance details" className="grid size-7 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted hover:text-foreground"><X className="size-3.5" /></button></div>
-                    <div className="grid gap-2 sm:grid-cols-2 sm:items-end">
-                      <div><label htmlFor={`reason-${row.enrolmentId}`} className="block text-xs font-medium">Reason</label><select id={`reason-${row.enrolmentId}`} value={row.reasonId ?? ""} onChange={(event) => updateRow(row.enrolmentId, { reasonId: event.target.value || null })} className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs outline-none shadow-[var(--shadow-xs)] focus:border-[color:var(--brand)]/50"><option value="">No reason</option>{reasons.map((reason) => <option key={reason.id} value={reason.id}>{reason.name}</option>)}</select></div>
+                    <div className="mb-3 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold">Editing {row.name}</p><p className="text-[0.68rem] text-muted-foreground">Add a reason, note or evidence if available.</p></div><button type="button" onClick={() => setFocusedId(null)} aria-label="Close attendance details" className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted hover:text-foreground"><X className="size-3.5" /></button></div>
+                    <div className="grid gap-3 sm:grid-cols-2 sm:items-end">
+                      <Picker label="Reason" name={`reason-ui-${row.enrolmentId}`} value={row.reasonId ?? ""} onChange={(reasonId) => updateRow(row.enrolmentId, { reasonId: reasonId || null })} placeholder="No reason" options={[{ value: "", label: "No reason" }, ...reasons.map((reason) => ({ value: reason.id, label: reason.name, helper: reason.sensitive ? "Restricted detail" : undefined }))]} />
                       <div><label htmlFor={`note-${row.enrolmentId}`} className="block text-xs font-medium">Note</label><input id={`note-${row.enrolmentId}`} value={row.note ?? ""} onChange={(event) => updateRow(row.enrolmentId, { note: event.target.value })} placeholder="Optional context" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs outline-none shadow-[var(--shadow-xs)] placeholder:text-muted-foreground/65 focus:border-[color:var(--brand)]/50" /></div>
                     </div>
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><div><input id={`evidence-${row.enrolmentId}`} name={`evidence-${row.enrolmentId}`} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" onChange={(event) => setEvidenceNames((current) => ({ ...current, [row.enrolmentId]: event.target.files?.[0]?.name ?? "" }))} /><label htmlFor={`evidence-${row.enrolmentId}`} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><Paperclip className="size-3" />{evidenceNames[row.enrolmentId] ? "Change evidence" : "Add evidence"}</label>{evidenceNames[row.enrolmentId] ? <span className="ml-2 text-[0.68rem] text-muted-foreground">{evidenceNames[row.enrolmentId]}</span> : null}</div><button type="button" onClick={() => setFocusedId(null)} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)]"><CircleCheck className="size-3.5" />Done</button></div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><input id={`evidence-${row.enrolmentId}`} name={`evidence-${row.enrolmentId}`} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" className="sr-only" onChange={(event) => setEvidenceNames((current) => ({ ...current, [row.enrolmentId]: event.target.files?.[0]?.name ?? "" }))} /><label htmlFor={`evidence-${row.enrolmentId}`} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><Paperclip className="size-3" />{evidenceNames[row.enrolmentId] ? "Change evidence" : "Photo / evidence"}</label>{evidenceNames[row.enrolmentId] ? <span className="ml-2 break-all text-[0.68rem] text-muted-foreground">{evidenceNames[row.enrolmentId]}</span> : null}</div><button type="button" onClick={() => setFocusedId(null)} className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)]"><CircleCheck className="size-3.5" />Done</button></div>
                   </div> : null}
                 </div>;
               })}
             </div>
-            <div className="sticky bottom-[4.5rem] flex items-center justify-between gap-3 border-t border-border-subtle bg-[color:var(--surface)]/96 px-4 py-3 backdrop-blur-xl sm:px-5 lg:bottom-0"><p className="text-xs text-muted-foreground">{currentSubmissionId ? "Saving creates a new auditable register revision." : "Confirming records this class and date."}</p><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 shrink-0 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Save className="size-4" />}{pending ? "Saving…" : currentSubmissionId ? "Save revision" : "Confirm register"}</button></div>
+            <div className="sticky bottom-[4.4rem] z-10 flex flex-col gap-2 border-t border-border-subtle bg-[color:var(--surface)]/96 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:bottom-0"><p className="text-[0.7rem] text-muted-foreground">{currentSubmissionId ? "Saving creates a new auditable revision." : "Confirm attendance for this class and date."}</p><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Save className="size-4" />}{pending ? "Saving…" : currentSubmissionId ? "Save revision" : "Confirm register"}</button></div>
           </form>
         )}
       </section>
