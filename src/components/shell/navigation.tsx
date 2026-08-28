@@ -67,20 +67,17 @@ export function DesktopNavigation({ roleKey, collapsed = false }: { roleKey?: st
       {items.map((item) => {
         const Icon = item.icon;
         const active = isActive(pathname, item.href);
-
         return (
           <Link
             key={item.label}
             href={item.href}
             aria-current={active ? "page" : undefined}
             aria-label={collapsed ? item.label : undefined}
-            title={collapsed ? item.label : undefined}
+            data-tooltip={collapsed ? item.label : undefined}
             className={[
               "flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition-colors duration-[var(--motion-fast)]",
               collapsed ? "justify-center px-2" : "gap-3 px-3",
-              active
-                ? "bg-brand-soft text-brand-strong"
-                : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+              active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
             ].join(" ")}
           >
             <Icon aria-hidden="true" className="size-[1.05rem] shrink-0" strokeWidth={1.8} />
@@ -98,30 +95,24 @@ export function MobileNavigation({ roleKey }: { roleKey?: string }) {
   const mobileItems = [...roleItems, { key: "more", label: "More", href: "/settings", icon: MoreHorizontal }] as const;
 
   return (
-    <nav
-      aria-label="Mobile primary"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-[color:var(--surface)]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden"
-    >
-      <div
-        className="mx-auto grid max-w-xl gap-1"
-        style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}
-      >
+    <nav aria-label="Mobile primary" className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-[color:var(--surface)]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden">
+      <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}>
         {mobileItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(pathname, item.href);
-
           return (
             <Link
               key={item.label}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              aria-label={item.label}
               className={[
                 "flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium transition duration-[var(--motion-fast)]",
                 active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
               ].join(" ")}
             >
-              <Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.9} />
-              <span className="truncate">{item.label}</span>
+              <Icon aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.9} />
+              <span className="mobile-nav-label max-w-full truncate">{item.label}</span>
             </Link>
           );
         })}
@@ -133,13 +124,12 @@ export function MobileNavigation({ roleKey }: { roleKey?: string }) {
 export function SettingsNavigationLink({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const active = isActive(pathname, "/settings");
-
   return (
     <Link
       href="/settings"
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? "Settings" : undefined}
-      title={collapsed ? "Settings" : undefined}
+      data-tooltip={collapsed ? "Settings" : undefined}
       className={[
         "flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition duration-[var(--motion-fast)]",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
