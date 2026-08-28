@@ -17,6 +17,8 @@ export type LearnerOverview = LearnerListItem & {
   academicYear: number;
   enrolledFrom: string;
   schoolName: string;
+  photoPath: string | null;
+  photoUrl: string | null;
 };
 
 export async function listLearnersForSchool(schoolId: string, academicYear: number): Promise<LearnerListItem[]> {
@@ -30,15 +32,12 @@ export async function listLearnersForSchool(schoolId: string, academicYear: numb
     .eq("academic_year", academicYear)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    throw new Error("Unable to load learners for this school.");
-  }
+  if (error) throw new Error("Unable to load learners for this school.");
 
   return (data ?? []).map((row) => {
     const learner = Array.isArray(row.learners) ? row.learners[0] : row.learners;
     const grade = Array.isArray(row.grades) ? row.grades[0] : row.grades;
     const registerClass = Array.isArray(row.register_classes) ? row.register_classes[0] : row.register_classes;
-
     return {
       id: learner.id,
       name: `${learner.first_names} ${learner.surname}`.trim(),
@@ -56,7 +55,7 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
   const { data, error } = await supabase
     .from("enrolments")
     .select(
-      "admission_number, status, academic_year, enrolled_from, learners!inner(id, first_names, surname, preferred_name, date_of_birth), grades(display_name), register_classes(display_name), schools!inner(name)",
+      "admission_number, status, academic_year, enrolled_from, learners!inner(id, first_names, surname, preferred_name, date_of_birth, photo_path), grades(display_name), register_classes(display_name), schools!inner(name)",
     )
     .eq("learner_id", learnerId)
     .eq("school_id", schoolId)
@@ -64,16 +63,18 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
     .limit(1)
     .maybeSingle();
 
-  if (error) {
-    throw new Error("Unable to load this learner.");
-  }
-
+  if (error) throw new Error("Unable to load this learner.");
   if (!data) return null;
 
   const learner = Array.isArray(data.learners) ? data.learners[0] : data.learners;
   const grade = Array.isArray(data.grades) ? data.grades[0] : data.grades;
   const registerClass = Array.isArray(data.register_classes) ? data.register_classes[0] : data.register_classes;
   const school = Array.isArray(data.schools) ? data.schools[0] : data.schools;
+  let photoUrl: string | null = null;
+  if (learner.photo_path) {
+    const { data: signed } = await supabase.storage.from("learner-photos").createSignedUrl(learner.photo_path, 60 * 60);
+    photoUrl = signed?.signedUrl ?? null;
+  }
 
   return {
     id: learner.id,
@@ -89,5 +90,7 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
     academicYear: data.academic_year,
     enrolledFrom: data.enrolled_from,
     schoolName: school.name,
+    photoPath: learner.photo_path,
+    photoUrl,
   };
 }
