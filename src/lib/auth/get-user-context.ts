@@ -59,15 +59,22 @@ export const getUserContext = cache(async () => {
       .eq("user_id", user.id)
       .lte("active_from", today)
       .or(`active_to.is.null,active_to.gte.${today}`),
-    supabase
-      .from("guardian_user_links")
-      .select("id,tenant_id,guardian_id")
-      .eq("user_id", user.id),
+    supabase.rpc("get_my_guardian_links"),
   ]);
 
   if (membershipResult.error) throw new Error("Unable to resolve the current school context.");
   if (platformResult.error) throw new Error("Unable to resolve the current platform context.");
-  if (guardianResult.error) throw new Error("Unable to resolve the current guardian context.");
+
+  // Guardian context is additive and must never take down staff/platform workspaces.
+  // The RPC self-scopes to auth.uid(); if unavailable during a partial migration,
+  // keep the primary authenticated context usable and expose no guardian links.
+  const guardianLinks: GuardianLinkContext[] = guardianResult.error
+    ? []
+    : (guardianResult.data ?? []).map((link) => ({
+        linkId: link.link_id,
+        tenantId: link.tenant_id,
+        guardianId: link.guardian_id,
+      }));
 
   const memberships: SchoolMembershipContext[] = (membershipResult.data ?? []).map((membership) => {
     const school = Array.isArray(membership.schools) ? membership.schools[0] : membership.schools;
@@ -84,12 +91,6 @@ export const getUserContext = cache(async () => {
   const platformMemberships: PlatformMembershipContext[] = (platformResult.data ?? []).map((membership) => ({
     membershipId: membership.id,
     roleKey: membership.role_key,
-  }));
-
-  const guardianLinks: GuardianLinkContext[] = (guardianResult.data ?? []).map((link) => ({
-    linkId: link.id,
-    tenantId: link.tenant_id,
-    guardianId: link.guardian_id,
   }));
 
   const profile = profileResult.data;
