@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { LearnerDirectory } from "@/features/learners/learner-directory";
 import { listLearnersForSchool, type LearnerListItem } from "@/features/learners/server/queries";
+import { getRegistrationOptions, type GradeOption } from "@/features/learners/server/registration-options";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
@@ -14,7 +15,9 @@ const demoLearners: LearnerListItem[] = [
 
 export default async function LearnersPage() {
   let learners = demoLearners;
+  let academicOptions: GradeOption[] = [];
   let schoolName = "ScolaPro Demonstration School";
+  const academicYear = new Date().getFullYear();
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
@@ -22,7 +25,10 @@ export default async function LearnersPage() {
     const membership = context.memberships[0];
     if (membership) {
       schoolName = membership.schoolName;
-      learners = await listLearnersForSchool(membership.schoolId, new Date().getFullYear());
+      [learners, academicOptions] = await Promise.all([
+        listLearnersForSchool(membership.schoolId, academicYear),
+        getRegistrationOptions(membership.schoolId, academicYear),
+      ]);
     } else learners = [];
   }
 
@@ -39,7 +45,7 @@ export default async function LearnersPage() {
           </Link>
         </div>
 
-        <LearnerDirectory learners={learners} />
+        <LearnerDirectory learners={learners} academicOptions={academicOptions} />
       </section>
     </AppShell>
   );
