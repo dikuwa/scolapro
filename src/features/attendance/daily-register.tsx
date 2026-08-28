@@ -154,7 +154,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
               </div>
             </div> : null}
 
-            <div className="sticky bottom-[4.4rem] z-10 flex flex-col gap-2 border-t border-border-subtle bg-[color:var(--surface)]/96 px-4 py-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between sm:px-5 lg:bottom-0"><p className="text-[0.7rem] text-muted-foreground">{currentSubmissionId ? "Saving creates a new auditable revision." : "Confirm attendance for this class and date."}</p><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Save className="size-4" />}{pending ? "Saving…" : currentSubmissionId ? "Save revision" : "Confirm register"}</button></div>
+            <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"><p className="text-[0.7rem] text-muted-foreground">{currentSubmissionId ? "Saving creates a new auditable revision." : "Confirm attendance for this class and date."}</p><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Save className="size-4" />}{pending ? "Saving…" : currentSubmissionId ? "Save revision" : "Confirm register"}</button></div>
           </form>
         )}
       </section>
