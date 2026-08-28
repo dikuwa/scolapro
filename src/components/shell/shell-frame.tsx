@@ -43,22 +43,22 @@ export function ShellFrame({
         </div>
       </aside>
 
-      <button
-        type="button"
-        onClick={() => setCollapsed((current) => !current)}
-        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        data-tooltip={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        className="fixed top-16 z-[120] hidden size-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface hover:text-foreground focus-visible:text-foreground lg:grid"
-        style={{ left: collapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)" }}
-      >
-        {collapsed ? (
-          <ChevronRight aria-hidden="true" className="size-3.5" strokeWidth={2} />
-        ) : (
-          <ChevronLeft aria-hidden="true" className="size-3.5" strokeWidth={2} />
-        )}
-      </button>
+      <div className="relative min-w-0">
+        <button
+          type="button"
+          onClick={() => setCollapsed((current) => !current)}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          data-tooltip={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className="fixed top-16 z-[120] hidden size-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface hover:text-foreground focus-visible:text-foreground lg:grid"
+          style={{ left: collapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)" }}
+        >
+          {collapsed ? (
+            <ChevronRight aria-hidden="true" className="size-3.5" strokeWidth={2} />
+          ) : (
+            <ChevronLeft aria-hidden="true" className="size-3.5" strokeWidth={2} />
+          )}
+        </button>
 
-      <div className="min-w-0">
         {header}
         <main className="px-4 py-5 pb-24 sm:px-6 sm:py-6 sm:pb-24 lg:px-8 lg:py-7 lg:pb-7">
           <div className="scolapro-content-width">{children}</div>
