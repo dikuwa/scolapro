@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DesktopNavigation, SettingsNavigationLink } from "@/components/shell/navigation";
+import { DesktopNavigation } from "@/components/shell/navigation";
 
 export function ShellFrame({
   children,
@@ -37,10 +37,7 @@ export function ShellFrame({
           <DesktopNavigation roleKey={roleKey} collapsed={collapsed} />
         </div>
 
-        <div className="space-y-2 border-t border-border-subtle bg-surface pt-3">
-          <SettingsNavigationLink collapsed={collapsed} />
-          {footer}
-        </div>
+        <div className="border-t border-border-subtle bg-surface pt-3">{footer}</div>
       </aside>
 
       <div className="relative min-w-0">
@@ -50,11 +47,7 @@ export function ShellFrame({
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="absolute left-0 top-16 z-[120] hidden size-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface hover:text-foreground focus-visible:text-foreground lg:grid"
         >
-          {collapsed ? (
-            <ChevronRight aria-hidden="true" className="size-3.5" strokeWidth={2} />
-          ) : (
-            <ChevronLeft aria-hidden="true" className="size-3.5" strokeWidth={2} />
-          )}
+          {collapsed ? <ChevronRight aria-hidden="true" className="size-3.5" strokeWidth={2} /> : <ChevronLeft aria-hidden="true" className="size-3.5" strokeWidth={2} />}
         </button>
 
         {header}
