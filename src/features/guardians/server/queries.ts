@@ -12,6 +12,12 @@ export type LearnerGuardian = {
   contacts: { id: string; type: string; value: string; primary: boolean; label: string | null }[];
 };
 
+export type ReusableGuardian = {
+  id: string;
+  name: string;
+  contacts: { id: string; type: string; value: string; primary: boolean; label: string | null }[];
+};
+
 export async function getLearnerGuardians(learnerId: string): Promise<LearnerGuardian[]> {
   const supabase = await createSupabaseServerClient();
   const { data: links, error } = await supabase
@@ -45,4 +51,45 @@ export async function getLearnerGuardians(learnerId: string): Promise<LearnerGua
       })),
     };
   });
+}
+
+export async function getReusableGuardians(learnerId: string, schoolId: string): Promise<ReusableGuardian[]> {
+  const supabase = await createSupabaseServerClient();
+  const [{ data: school }, { data: currentLinks }] = await Promise.all([
+    supabase.from("schools").select("tenant_id").eq("id", schoolId).maybeSingle(),
+    supabase.from("learner_guardians").select("guardian_id").eq("learner_id", learnerId).is("effective_to", null),
+  ]);
+  if (!school?.tenant_id) return [];
+
+  const existing = new Set((currentLinks ?? []).map((item) => item.guardian_id));
+  const { data: profiles, error } = await supabase
+    .from("guardian_profiles")
+    .select("id,first_names,surname,preferred_name")
+    .eq("tenant_id", school.tenant_id)
+    .eq("status", "active")
+    .order("surname")
+    .order("first_names")
+    .limit(100);
+  if (error || !profiles?.length) return [];
+
+  const candidates = profiles.filter((profile) => !existing.has(profile.id));
+  if (!candidates.length) return [];
+  const ids = candidates.map((item) => item.id);
+  const { data: contacts } = await supabase
+    .from("guardian_contacts")
+    .select("id,guardian_id,contact_type,contact_value,is_primary,label")
+    .in("guardian_id", ids)
+    .is("effective_to", null);
+
+  return candidates.map((profile) => ({
+    id: profile.id,
+    name: `${profile.first_names} ${profile.surname}`,
+    contacts: (contacts ?? []).filter((item) => item.guardian_id === profile.id).map((item) => ({
+      id: item.id,
+      type: item.contact_type,
+      value: item.contact_value,
+      primary: item.is_primary,
+      label: item.label,
+    })),
+  }));
 }
