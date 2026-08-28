@@ -1,6 +1,6 @@
 begin;
 
-select plan(44);
+select plan(54);
 
 select has_table('public', 'learners', 'learners table exists');
 select has_table('public', 'enrolments', 'enrolments table exists');
