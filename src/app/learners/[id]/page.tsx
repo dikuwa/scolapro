@@ -3,7 +3,7 @@ import { ArrowLeft, CalendarDays, FileText, GraduationCap, MapPin, UserRound } f
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { GuardianPanel } from "@/features/guardians/guardian-panel";
-import { getLearnerGuardians, type LearnerGuardian } from "@/features/guardians/server/queries";
+import { getLearnerGuardians, getReusableGuardians, type LearnerGuardian, type ReusableGuardian } from "@/features/guardians/server/queries";
 import { getLearnerOverview, type LearnerOverview } from "@/features/learners/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
@@ -24,13 +24,19 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   const { id } = await params;
   let learner: LearnerOverview | null = demoLearners[id] ?? null;
   let guardians: LearnerGuardian[] = [];
+  let reusableGuardians: ReusableGuardian[] = [];
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
     const membership = context.memberships[0];
     learner = membership ? await getLearnerOverview(id, membership.schoolId) : null;
-    if (learner) guardians = await getLearnerGuardians(id);
+    if (learner && membership) {
+      [guardians, reusableGuardians] = await Promise.all([
+        getLearnerGuardians(id),
+        getReusableGuardians(id, membership.schoolId),
+      ]);
+    }
   }
 
   if (!learner) notFound();
@@ -69,7 +75,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
           </aside>
         </div>
 
-        <div className="mt-5"><GuardianPanel learnerId={learner.id} guardians={guardians} /></div>
+        <div className="mt-5"><GuardianPanel learnerId={learner.id} guardians={guardians} reusableGuardians={reusableGuardians} /></div>
       </section>
     </AppShell>
   );
