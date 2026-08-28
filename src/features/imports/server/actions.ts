@@ -40,6 +40,8 @@ export async function stageLearnerCsv(formData: FormData) {
       preferred_name: row.preferred_name || "",
       date_of_birth: row.date_of_birth || row.dob || "",
       sex: normalizeSex(row.sex || row.gender || ""),
+      national_id: row.national_id || row.id_number || "",
+      birth_certificate_number: row.birth_certificate_number || row.birth_certificate || "",
       academic_year: Number(row.academic_year || year),
       grade_id: grade?.id ?? "",
       register_class_id: registerClass?.id ?? "",
@@ -54,8 +56,25 @@ export async function stageLearnerCsv(formData: FormData) {
   if (batchError || !batchId) redirect("/school/imports?error=Import+batch+could+not+be+created");
   const { error: rowsError } = await supabase.rpc("stage_import_rows", { p_batch_id: batchId, p_rows: staged });
   if (rowsError) redirect("/school/imports?error=CSV+rows+could+not+be+staged");
+  const { error: reconcileError } = await supabase.rpc("reconcile_learner_import_batch", { p_batch_id: batchId });
+  if (reconcileError) redirect(`/school/imports?batch=${batchId}&error=Rows+were+staged+but+reconciliation+could+not+finish`);
   revalidatePath("/school/imports");
   redirect(`/school/imports?batch=${batchId}`);
+}
+
+export async function skipMatchedImportRow(formData: FormData) {
+  const rowId = String(formData.get("rowId") ?? "");
+  const batchId = String(formData.get("batchId") ?? "");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("resolve_import_row", {
+    p_import_row_id: rowId,
+    p_resolution: "skip",
+    p_matched_entity_type: null,
+    p_matched_entity_id: null,
+    p_normalized_data: null,
+  });
+  revalidatePath("/school/imports");
+  redirect(`/school/imports?batch=${batchId}${error ? "&error=Row+could+not+be+resolved" : ""}`);
 }
 
 export async function markLearnerImportReady(formData: FormData) {
