@@ -48,7 +48,6 @@ export function ShellFrame({
           type="button"
           onClick={() => setCollapsed((current) => !current)}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          data-tooltip={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="absolute left-0 top-16 z-[120] hidden size-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface hover:text-foreground focus-visible:text-foreground lg:grid"
         >
           {collapsed ? (
