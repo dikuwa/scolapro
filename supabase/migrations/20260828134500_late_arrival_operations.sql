@@ -16,7 +16,15 @@ begin
   select * into v_school from public.schools where id=p_school_id;
   if not found then raise exception 'School not found'; end if;
   if not app_private.has_school_role(p_school_id,array['school_admin','principal','deputy_principal']) and not app_private.has_platform_role(array['platform_admin']) then raise exception 'Permission denied'; end if;
-  select * into v_staff from public.staff_members where id=p_staff_member_id and school_id=p_school_id and status='active';
+  select sm.* into v_staff
+  from public.staff_members sm
+  where sm.id=p_staff_member_id and sm.tenant_id=v_school.tenant_id and sm.status='active'
+    and exists(
+      select 1 from public.school_memberships membership
+      where membership.school_id=p_school_id and membership.staff_member_id=sm.id
+        and membership.active_from<=p_active_from
+        and (membership.active_to is null or membership.active_to>=p_active_from)
+    );
   if not found then raise exception 'Active staff member not found in school'; end if;
   if btrim(coalesce(p_duty_key,''))='' then raise exception 'Duty key is required'; end if;
   if p_active_to is not null and p_active_to<p_active_from then raise exception 'Duty end date cannot precede start date'; end if;
