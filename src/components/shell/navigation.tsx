@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import {
   BookOpenText,
   Building2,
@@ -12,10 +13,10 @@ import {
   LayoutDashboard,
   MailPlus,
   MoreHorizontal,
-  Settings,
   SlidersHorizontal,
   UserRound,
   Users,
+  X,
 } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
 
@@ -84,13 +85,7 @@ export function DesktopNavigation({ roleKey, collapsed = false }: { roleKey?: st
           </Link>
         );
 
-        return collapsed ? (
-          <Tooltip key={item.label} title={item.label} side="right">
-            {link}
-          </Tooltip>
-        ) : (
-          <span key={item.label} className="block">{link}</span>
-        );
+        return collapsed ? <Tooltip key={item.label} title={item.label} side="right">{link}</Tooltip> : <span key={item.label} className="block">{link}</span>;
       })}
     </nav>
   );
@@ -98,58 +93,45 @@ export function DesktopNavigation({ roleKey, collapsed = false }: { roleKey?: st
 
 export function MobileNavigation({ roleKey }: { roleKey?: string }) {
   const pathname = usePathname();
-  const roleItems = itemsForRole(roleKey).slice(0, 4);
-  const mobileItems = [...roleItems, { key: "more", label: "More", href: "/settings", icon: MoreHorizontal }] as const;
+  const [moreOpen, setMoreOpen] = useState(false);
+  const allItems = itemsForRole(roleKey);
+  const primaryItems = allItems.slice(0, 4);
+  const overflowItems = allItems.slice(4);
+  const showMore = overflowItems.length > 0;
 
   return (
-    <nav aria-label="Mobile primary" className="fixed inset-x-0 bottom-0 z-40 border-t border-border-subtle bg-[color:var(--surface)]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden">
-      <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${mobileItems.length}, minmax(0, 1fr))` }}>
-        {mobileItems.map((item) => {
-          const Icon = item.icon;
-          const active = isActive(pathname, item.href);
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              aria-label={item.label}
-              className={[
-                "flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium transition duration-[var(--motion-fast)]",
-                active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
-              ].join(" ")}
-            >
-              <Icon aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.9} />
-              <span className="mobile-nav-label max-w-full truncate">{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-    </nav>
-  );
-}
+    <>
+      <nav aria-label="Mobile primary" className="fixed inset-x-0 bottom-0 z-[80] border-t border-border-subtle bg-[color:var(--surface)]/96 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl lg:hidden">
+        <div className="mx-auto grid max-w-xl gap-1" style={{ gridTemplateColumns: `repeat(${primaryItems.length + (showMore ? 1 : 0)}, minmax(0, 1fr))` }}>
+          {primaryItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(pathname, item.href);
+            return (
+              <Link key={item.label} href={item.href} aria-current={active ? "page" : undefined} aria-label={item.label} className={["flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium transition duration-[var(--motion-fast)]", active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"].join(" ")}>
+                <Icon aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.9} />
+                <span className="mobile-nav-label max-w-full truncate">{item.label}</span>
+              </Link>
+            );
+          })}
+          {showMore ? (
+            <button type="button" onClick={() => setMoreOpen(true)} aria-expanded={moreOpen} aria-haspopup="dialog" className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium text-muted-foreground transition hover:bg-surface-muted hover:text-foreground">
+              <MoreHorizontal aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.9} />
+              <span className="mobile-nav-label">More</span>
+            </button>
+          ) : null}
+        </div>
+      </nav>
 
-export function SettingsNavigationLink({ collapsed = false }: { collapsed?: boolean }) {
-  const pathname = usePathname();
-  const active = isActive(pathname, "/settings");
-  const link = (
-    <Link
-      href="/settings"
-      aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? "Settings" : undefined}
-      className={[
-        "flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition duration-[var(--motion-fast)]",
-        collapsed ? "justify-center px-2" : "gap-3 px-3",
-        active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
-      ].join(" ")}
-    >
-      <Settings aria-hidden="true" className="size-[1.05rem] shrink-0" strokeWidth={1.8} />
-      {!collapsed ? <span>Settings</span> : null}
-    </Link>
+      {moreOpen ? (
+        <div className="fixed inset-0 z-[140] flex items-end bg-[color:var(--foreground)]/12 backdrop-blur-[1px] lg:hidden" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setMoreOpen(false); }}>
+          <div role="dialog" aria-modal="true" aria-label="More navigation" className="w-full rounded-t-[var(--radius-lg)] border border-border-subtle bg-surface-elevated p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[var(--shadow-md)]">
+            <div className="mb-3 flex items-center justify-between"><div><p className="scolapro-section-title">More</p><p className="scolapro-section-description">Additional tools for your role.</p></div><button type="button" onClick={() => setMoreOpen(false)} aria-label="Close more navigation" className="grid size-9 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-4" /></button></div>
+            <div className="grid grid-cols-2 gap-2">
+              {overflowItems.map((item) => { const Icon = item.icon; return <Link key={item.label} href={item.href} onClick={() => setMoreOpen(false)} className="flex min-h-14 items-center gap-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-sm font-medium text-foreground shadow-[var(--shadow-xs)]"><Icon className="size-4 text-brand" aria-hidden="true" /><span>{item.label}</span></Link>; })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
-
-  return collapsed ? (
-    <Tooltip title="Settings" description="Manage your account and preferences" side="right">
-      {link}
-    </Tooltip>
-  ) : link;
 }
