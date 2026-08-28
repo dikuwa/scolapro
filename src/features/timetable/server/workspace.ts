@@ -8,7 +8,8 @@ export type TimetableWorkspace = {
   offerings: { id: string; subjectId: string; subjectName: string; gradeId: string; gradeName: string; periodsPerCycle: number }[];
   allocations: { id: string; offeringId: string; classId: string; className: string; staffId: string; staffName: string; subjectName: string; gradeName: string }[];
   periods: { id: string; number: number; name: string; startsAt: string | null; endsAt: string | null; isTeaching: boolean }[];
-  slots: { id: string; cycle: string; weekday: number; periodId: string; periodName: string; periodNumber: number; classId: string; className: string; allocationId: string; staffId: string; staffName: string; subjectName: string; roomLabel: string | null }[];
+  rooms: { id: string; code: string; name: string; block: string | null; capacity: number | null }[];
+  slots: { id: string; cycle: string; weekday: number; periodId: string; periodName: string; periodNumber: number; classId: string; className: string; allocationId: string; staffId: string; staffName: string; subjectName: string; roomId: string | null; roomLabel: string | null }[];
 };
 
 function one<T>(value: T[] | T | null | undefined): T | null {
@@ -17,7 +18,7 @@ function one<T>(value: T[] | T | null | undefined): T | null {
 
 export async function getTimetableWorkspace(schoolId: string, academicYear: number): Promise<TimetableWorkspace> {
   const supabase = await createSupabaseServerClient();
-  const [gradesResult, classesResult, membershipsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, slotsResult] = await Promise.all([
+  const [gradesResult, classesResult, membershipsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult] = await Promise.all([
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("grade_code"),
     supabase.from("register_classes").select("id,display_name,grade_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("school_memberships").select("staff_member_id,active_from,active_to,staff_members(id,first_name,last_name,employee_number)").eq("school_id", schoolId),
@@ -25,10 +26,11 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.from("subject_offerings").select("id,subject_id,grade_id,periods_per_cycle,subjects(display_name),grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,subject_offerings(subjects(display_name),grades(display_name)),register_classes(display_name),staff_members(first_name,last_name)").eq("school_id", schoolId).eq("academic_year", academicYear).is("active_to", null),
     supabase.from("timetable_periods").select("id,period_number,display_name,starts_at,ends_at,is_teaching_period").eq("school_id", schoolId).eq("academic_year", academicYear).order("period_number"),
-    supabase.from("timetable_slots").select("id,cycle_code,weekday,period_id,register_class_id,teacher_allocation_id,room_label,timetable_periods(display_name,period_number),register_classes(display_name),teacher_allocations(staff_member_id,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("weekday").order("period_id"),
+    supabase.from("school_rooms").select("id,room_code,display_name,block_name,capacity").eq("school_id", schoolId).eq("status", "active").order("display_name"),
+    supabase.from("timetable_slots").select("id,cycle_code,weekday,period_id,register_class_id,teacher_allocation_id,room_id,room_label,timetable_periods(display_name,period_number),register_classes(display_name),teacher_allocations(staff_member_id,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("weekday").order("period_id"),
   ]);
 
-  const error = gradesResult.error || classesResult.error || membershipsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || slotsResult.error;
+  const error = gradesResult.error || classesResult.error || membershipsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error;
   if (error) throw new Error("Unable to load timetable workspace.");
 
   const today = new Date().toISOString().slice(0, 10);
@@ -55,6 +57,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
       return { id: item.id, offeringId: item.subject_offering_id, classId: item.register_class_id, className: classRow?.display_name ?? "Class", staffId: item.staff_member_id, staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", subjectName: subject?.display_name ?? "Subject", gradeName: grade?.display_name ?? "Grade" };
     }),
     periods: (periodsResult.data ?? []).map((item) => ({ id: item.id, number: item.period_number, name: item.display_name, startsAt: item.starts_at, endsAt: item.ends_at, isTeaching: item.is_teaching_period })),
+    rooms: (roomsResult.data ?? []).map((item) => ({ id: item.id, code: item.room_code, name: item.display_name, block: item.block_name, capacity: item.capacity })),
     slots: (slotsResult.data ?? []).map((item) => {
       const period = one(item.timetable_periods);
       const classRow = one(item.register_classes);
@@ -62,7 +65,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
       const staff = allocation ? one(allocation.staff_members) : null;
       const offering = allocation ? one(allocation.subject_offerings) : null;
       const subject = offering ? one(offering.subjects) : null;
-      return { id: item.id, cycle: item.cycle_code, weekday: item.weekday, periodId: item.period_id, periodName: period?.display_name ?? "Period", periodNumber: period?.period_number ?? 0, classId: item.register_class_id, className: classRow?.display_name ?? "Class", allocationId: item.teacher_allocation_id, staffId: allocation?.staff_member_id ?? "", staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", subjectName: subject?.display_name ?? "Subject", roomLabel: item.room_label };
+      return { id: item.id, cycle: item.cycle_code, weekday: item.weekday, periodId: item.period_id, periodName: period?.display_name ?? "Period", periodNumber: period?.period_number ?? 0, classId: item.register_class_id, className: classRow?.display_name ?? "Class", allocationId: item.teacher_allocation_id, staffId: allocation?.staff_member_id ?? "", staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", subjectName: subject?.display_name ?? "Subject", roomId: item.room_id, roomLabel: item.room_label };
     }),
   };
 }
