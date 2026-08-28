@@ -1,6 +1,6 @@
 begin;
 
-select plan(57);
+select plan(68);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
@@ -25,6 +25,9 @@ select has_table('public','import_rows','import staging rows exist');
 select has_table('public','subject_attendance_submissions','subject attendance submissions exist');
 select has_table('public','school_late_arrival_events','school late arrival events exist');
 select has_table('public','late_detention_obligations','late detention obligations exist');
+select has_table('public','detention_sessions','detention sessions exist');
+select has_table('public','detention_session_items','detention session items exist');
+select has_table('public','report_card_documents','report card documents exist');
 
 select ok((select relrowsecurity from pg_class where oid='public.learner_support_cases'::regclass),'learner support cases use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.examination_candidates'::regclass),'examination candidates use RLS');
@@ -34,6 +37,9 @@ select ok((select relrowsecurity from pg_class where oid='public.guardian_profil
 select ok((select relrowsecurity from pg_class where oid='public.import_batches'::regclass),'import batches use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.subject_attendance_submissions'::regclass),'subject attendance submissions use RLS');
 select ok((select relrowsecurity from pg_class where oid='public.communication_delivery_jobs'::regclass),'communication delivery jobs use RLS');
+select ok((select relrowsecurity from pg_class where oid='public.detention_sessions'::regclass),'detention sessions use RLS');
+select ok((select relrowsecurity from pg_class where oid='public.detention_session_items'::regclass),'detention session items use RLS');
+select ok((select relrowsecurity from pg_class where oid='public.report_card_documents'::regclass),'report card documents use RLS');
 
 select ok(to_regprocedure('public.refresh_examination_readiness(uuid)') is not null,'DNEA readiness refresh function exists');
 select ok(not has_function_privilege('anon','public.refresh_examination_readiness(uuid)','EXECUTE'),'anonymous users cannot refresh DNEA readiness');
@@ -61,6 +67,14 @@ select ok(to_regprocedure('public.submit_subject_period_attendance(uuid,date,jso
 select ok(not has_function_privilege('anon','public.submit_subject_period_attendance(uuid,date,jsonb,text,uuid,uuid,text)','EXECUTE'),'anonymous users cannot submit subject-period attendance');
 select ok(to_regprocedure('public.assign_school_duty(uuid,uuid,text,date,date)') is not null,'school duty assignment function exists');
 select ok(not has_function_privilege('anon','public.assign_school_duty(uuid,uuid,text,date,date)','EXECUTE'),'anonymous users cannot assign school duties');
+select ok(to_regprocedure('public.create_detention_session(uuid,date,time,time,uuid,text,text)') is not null,'detention session creation function exists');
+select ok(not has_function_privilege('anon','public.create_detention_session(uuid,date,time,time,uuid,text,text)','EXECUTE'),'anonymous users cannot create detention sessions');
+select ok(to_regprocedure('public.populate_detention_session(uuid)') is not null,'detention session population function exists');
+select ok(to_regprocedure('public.record_detention_attendance(uuid,uuid,text,text)') is not null,'detention attendance function exists');
+select ok(not has_function_privilege('anon','public.record_detention_attendance(uuid,uuid,text,text)','EXECUTE'),'anonymous users cannot record detention attendance');
+select ok(to_regprocedure('public.complete_detention_session(uuid,text)') is not null,'detention session completion function exists');
+select ok(to_regprocedure('public.register_report_card_document(uuid,text,text,text,text,text,text,integer)') is not null,'report card document registration function exists');
+select ok(not has_function_privilege('anon','public.register_report_card_document(uuid,text,text,text,text,text,text,integer)','EXECUTE'),'anonymous users cannot register report-card documents');
 
 select * from finish();
 rollback;
