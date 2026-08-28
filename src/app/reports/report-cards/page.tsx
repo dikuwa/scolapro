@@ -23,6 +23,6 @@ export default async function ReportCardsPage() {
       <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Snapshots</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-sky)]">{workspace.snapshots.length}</p></div><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><GraduationCap className="size-4" /></span></div>
       <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Certified</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-mint)]">{certifiedCount}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><FileCheck2 className="size-4" /></span></div>
     </div>
-    <ReportCardWorkspace learners={workspace.learners} snapshots={workspace.snapshots} terms={workspace.terms} />
+    <ReportCardWorkspace learners={workspace.learners} snapshots={workspace.snapshots} terms={workspace.terms} renderJobs={workspace.renderJobs} documents={workspace.documents} />
   </section></AppShell>;
 }
