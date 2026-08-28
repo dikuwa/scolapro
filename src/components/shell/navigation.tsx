@@ -17,6 +17,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
+import { Tooltip } from "@/components/ui/tooltip";
 
 const navigation = [
   { key: "today", label: "Today", href: "/", icon: LayoutDashboard },
@@ -67,13 +68,11 @@ export function DesktopNavigation({ roleKey, collapsed = false }: { roleKey?: st
       {items.map((item) => {
         const Icon = item.icon;
         const active = isActive(pathname, item.href);
-        return (
+        const link = (
           <Link
-            key={item.label}
             href={item.href}
             aria-current={active ? "page" : undefined}
             aria-label={collapsed ? item.label : undefined}
-            data-tooltip={collapsed ? item.label : undefined}
             className={[
               "flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition-colors duration-[var(--motion-fast)]",
               collapsed ? "justify-center px-2" : "gap-3 px-3",
@@ -83,6 +82,14 @@ export function DesktopNavigation({ roleKey, collapsed = false }: { roleKey?: st
             <Icon aria-hidden="true" className="size-[1.05rem] shrink-0" strokeWidth={1.8} />
             {!collapsed ? <span>{item.label}</span> : null}
           </Link>
+        );
+
+        return collapsed ? (
+          <Tooltip key={item.label} title={item.label} side="right">
+            {link}
+          </Tooltip>
+        ) : (
+          <span key={item.label} className="block">{link}</span>
         );
       })}
     </nav>
@@ -124,12 +131,11 @@ export function MobileNavigation({ roleKey }: { roleKey?: string }) {
 export function SettingsNavigationLink({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
   const active = isActive(pathname, "/settings");
-  return (
+  const link = (
     <Link
       href="/settings"
       aria-current={active ? "page" : undefined}
       aria-label={collapsed ? "Settings" : undefined}
-      data-tooltip={collapsed ? "Settings" : undefined}
       className={[
         "flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition duration-[var(--motion-fast)]",
         collapsed ? "justify-center px-2" : "gap-3 px-3",
@@ -140,4 +146,10 @@ export function SettingsNavigationLink({ collapsed = false }: { collapsed?: bool
       {!collapsed ? <span>Settings</span> : null}
     </Link>
   );
+
+  return collapsed ? (
+    <Tooltip title="Settings" description="Manage your account and preferences" side="right">
+      {link}
+    </Tooltip>
+  ) : link;
 }
