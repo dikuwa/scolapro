@@ -21,7 +21,7 @@ export function ShellFrame({
 
   return (
     <div
-      className="min-h-screen bg-background text-foreground lg:grid lg:items-start lg:transition-[grid-template-columns] lg:duration-[var(--motion-base)] lg:ease-[var(--ease-standard)]"
+      className="relative min-h-screen bg-background text-foreground lg:grid lg:items-start lg:transition-[grid-template-columns] lg:duration-[var(--motion-base)] lg:ease-[var(--ease-standard)]"
       style={{
         gridTemplateColumns: collapsed
           ? "var(--sidebar-collapsed-width) minmax(0,1fr)"
@@ -41,22 +41,22 @@ export function ShellFrame({
           <SettingsNavigationLink collapsed={collapsed} />
           {footer}
         </div>
-
-        <button
-          type="button"
-          onClick={() => setCollapsed((current) => !current)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="fixed top-16 z-[70] grid size-6 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface-muted hover:text-foreground focus-visible:text-foreground"
-          style={{ left: collapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)" }}
-        >
-          {collapsed ? (
-            <ChevronRight aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-          ) : (
-            <ChevronLeft aria-hidden="true" className="size-3.5" strokeWidth={1.8} />
-          )}
-        </button>
       </aside>
+
+      <button
+        type="button"
+        onClick={() => setCollapsed((current) => !current)}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        data-tooltip={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="fixed top-16 z-[120] hidden size-7 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated text-muted-foreground shadow-[var(--shadow-sm)] transition duration-[var(--motion-fast)] ease-[var(--ease-standard)] hover:bg-surface hover:text-foreground focus-visible:text-foreground lg:grid"
+        style={{ left: collapsed ? "var(--sidebar-collapsed-width)" : "var(--sidebar-width)" }}
+      >
+        {collapsed ? (
+          <ChevronRight aria-hidden="true" className="size-3.5" strokeWidth={2} />
+        ) : (
+          <ChevronLeft aria-hidden="true" className="size-3.5" strokeWidth={2} />
+        )}
+      </button>
 
       <div className="min-w-0">
         {header}
