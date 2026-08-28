@@ -21,6 +21,12 @@ export type GuardianLinkContext = {
   guardianId: string;
 };
 
+type GuardianLinkRpcRow = {
+  link_id: string;
+  tenant_id: string;
+  guardian_id: string;
+};
+
 export const getUserContext = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
@@ -68,9 +74,10 @@ export const getUserContext = cache(async () => {
   // Guardian context is additive and must never take down staff/platform workspaces.
   // The RPC self-scopes to auth.uid(); if unavailable during a partial migration,
   // keep the primary authenticated context usable and expose no guardian links.
+  const guardianRows = (guardianResult.data ?? []) as GuardianLinkRpcRow[];
   const guardianLinks: GuardianLinkContext[] = guardianResult.error
     ? []
-    : (guardianResult.data ?? []).map((link) => ({
+    : guardianRows.map((link) => ({
         linkId: link.link_id,
         tenantId: link.tenant_id,
         guardianId: link.guardian_id,
