@@ -13,6 +13,7 @@ export type WeeklyLearnerRow = {
   learnerId: string;
   name: string;
   admissionNumber: string | null;
+  sex: string | null;
   days: WeeklyCell[];
 };
 
@@ -56,7 +57,7 @@ export async function getWeeklyRegisterWorkspace(schoolId: string, academicYear:
   if (!classId) return { classes: classOptions, reasons: reasonsList, selectedClassId: null, dates, learners: [] as WeeklyLearnerRow[], submissionIds: {} as Record<string, string> };
 
   const [{ data: enrolments, error: enrolmentError }, { data: currentRows, error: currentError }, { data: submissions, error: submissionError }] = await Promise.all([
-    supabase.from("enrolments").select("id,admission_number,learner_id,enrolled_from,enrolled_to,learners!inner(id,first_names,surname)").eq("school_id", schoolId).eq("register_class_id", classId).eq("academic_year", academicYear).lte("enrolled_from", friday).or(`enrolled_to.is.null,enrolled_to.gte.${monday}`).order("admission_number"),
+    supabase.from("enrolments").select("id,admission_number,learner_id,enrolled_from,enrolled_to,learners!inner(id,first_names,surname,sex)").eq("school_id", schoolId).eq("register_class_id", classId).eq("academic_year", academicYear).lte("enrolled_from", friday).or(`enrolled_to.is.null,enrolled_to.gte.${monday}`).order("admission_number"),
     supabase.from("daily_register_current").select("submission_id,enrolment_id,attendance_date,status,reason_id,note").eq("school_id", schoolId).eq("register_class_id", classId).in("attendance_date", dates),
     supabase.from("attendance_register_submissions").select("id,attendance_date,recorded_at").eq("school_id", schoolId).eq("register_class_id", classId).in("attendance_date", dates).order("recorded_at", { ascending: false }),
   ]);
@@ -73,6 +74,7 @@ export async function getWeeklyRegisterWorkspace(schoolId: string, academicYear:
       learnerId: item.learner_id,
       name: learner ? `${learner.first_names} ${learner.surname}`.trim() : "Learner",
       admissionNumber: item.admission_number,
+      sex: learner?.sex ?? null,
       days: dates.map((attendanceDate) => {
         const current = currentMap.get(`${item.id}:${attendanceDate}`);
         return {
