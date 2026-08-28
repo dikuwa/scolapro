@@ -22,10 +22,10 @@ const statuses = [
 
 function statusClass(status: AttendanceStatus, active: boolean) {
   if (!active) return "bg-surface-muted text-muted-foreground hover:bg-surface-subtle hover:text-foreground";
-  if (status === "present") return "bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/20";
-  if (status === "absent") return "bg-danger-soft text-[color:var(--danger)] ring-1 ring-inset ring-[color:var(--danger)]/20";
-  if (status === "late") return "bg-warning-soft text-[color:var(--warning)] ring-1 ring-inset ring-[color:var(--warning)]/20";
-  return "bg-info-soft text-[color:var(--info)] ring-1 ring-inset ring-[color:var(--info)]/20";
+  if (status === "present") return "bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/25";
+  if (status === "absent") return "bg-danger-soft text-[color:var(--danger)] ring-1 ring-inset ring-[color:var(--danger)]/25";
+  if (status === "late") return "bg-warning-soft text-[color:var(--warning)] ring-1 ring-inset ring-[color:var(--warning)]/25";
+  return "bg-info-soft text-[color:var(--info)] ring-1 ring-inset ring-[color:var(--info)]/25";
 }
 
 function schoolDayShift(date: string, direction: -1 | 1) {
@@ -51,6 +51,11 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [evidenceNames, setEvidenceNames] = useState<Record<string, string>>({});
   const [clientMutationId] = useState(() => crypto.randomUUID());
+
+  useEffect(() => {
+    setRows(learners);
+    setFocusedId(null);
+  }, [learners, selectedClassId, attendanceDate]);
 
   useEffect(() => {
     if (!state.message) return;
@@ -105,13 +110,23 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <Picker label="Register class" name="register-class-ui" value={selectedClassId ?? ""} onChange={chooseClass} placeholder="Choose a class" options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))} className="max-w-xl" />
-          <div><p className="text-xs font-medium text-muted-foreground lg:text-right">Attendance date</p><div className="mt-1.5 flex items-center gap-1.5"><button type="button" disabled={navigationPending} onClick={() => moveDate(-1)} aria-label="Previous school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button><div className="relative min-w-0 flex-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium sm:min-w-40 sm:flex-none">{navigationPending ? <span className="absolute inset-0 grid place-items-center"><Spinner className="size-4 text-brand" /></span> : null}<span className={navigationPending ? "opacity-0" : ""}>{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))}</span></div><button type="button" disabled={navigationPending} onClick={() => moveDate(1)} aria-label="Next school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button></div></div>
+          <div>
+            <p className="text-xs font-medium text-muted-foreground lg:text-right">Attendance date</p>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <button type="button" disabled={navigationPending} onClick={() => moveDate(-1)} aria-label="Previous school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button>
+              <div className="relative min-w-0 flex-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium sm:min-w-40 sm:flex-none">{navigationPending ? <span className="absolute inset-0 grid place-items-center"><Spinner className="size-4 text-brand" /></span> : null}<span className={navigationPending ? "opacity-0" : ""}>{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))}</span></div>
+              <button type="button" disabled={navigationPending} onClick={() => moveDate(1)} aria-label="Next school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button>
+            </div>
+          </div>
         </div>
       </section>
 
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle bg-surface-muted/55 px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="scolapro-section-title">Daily register</h2><p className="scolapro-section-description">Everyone starts present. Search a learner or mark only the exceptions.</p></div><div className="flex gap-2 text-xs"><span className="rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 font-medium text-[color:var(--success)]">{presentCount} present</span><span className="rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 font-medium text-muted-foreground">{exceptionCount} exceptions</span></div></div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div><h2 className="scolapro-section-title">Daily register</h2><p className="scolapro-section-description">Everyone starts present. Search a learner or mark only the exceptions.</p></div>
+            <div className="flex gap-2 text-xs"><span className="rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 font-medium text-[color:var(--success)]">{presentCount} present</span><span className="rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 font-medium text-muted-foreground">{exceptionCount} exceptions</span></div>
+          </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="scolapro-control-surface flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3"><Search className="size-4 text-muted-foreground" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find learner by name or number…" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />{query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}</label>
             <div className="grid grid-cols-3 gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">{(["all", "male", "female"] as SexFilter[]).map((value) => <button key={value} type="button" onClick={() => setSexFilter(value)} className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium ${sexFilter === value ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "male" ? "Boys" : "Girls"}</button>)}</div>
@@ -121,7 +136,12 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
 
         {!selectedClassId || !classes.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No register classes configured</p></div> : !rows.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No learners in this class</p></div> : (
           <form action={action}>
-            <input type="hidden" name="registerClassId" value={selectedClassId} /><input type="hidden" name="attendanceDate" value={attendanceDate} /><input type="hidden" name="clientMutationId" value={clientMutationId} /><input type="hidden" name="replacesSubmissionId" value={currentSubmissionId ?? ""} /><input type="hidden" name="exceptions" value={JSON.stringify(exceptions)} />
+            <input type="hidden" name="registerClassId" value={selectedClassId} />
+            <input type="hidden" name="attendanceDate" value={attendanceDate} />
+            <input type="hidden" name="clientMutationId" value={clientMutationId} />
+            <input type="hidden" name="replacesSubmissionId" value={currentSubmissionId ?? ""} />
+            <input type="hidden" name="exceptions" value={JSON.stringify(exceptions)} />
+
             <div className="divide-y divide-border-subtle px-3 sm:px-5">
               {visibleRows.map((row) => {
                 const focused = focusedId === row.enrolmentId;
@@ -132,7 +152,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
                   <div className="flex items-center gap-3 sm:grid sm:grid-cols-[minmax(11rem,0.8fr)_minmax(18rem,1.2fr)] sm:gap-2 sm:items-center">
                     <button type="button" onClick={() => setFocusedId(row.enrolmentId)} className="min-w-0 flex-1 text-left sm:pointer-events-none"><p className="scolapro-record-title truncate">{row.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p></button>
                     <button type="button" onClick={() => setFocusedId(row.enrolmentId)} aria-label={`Edit attendance for ${row.name}`} className={`ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-semibold sm:hidden ${statusClass(row.status, true)}`}><CurrentIcon className="size-3.5" aria-hidden="true" strokeWidth={2.4} /><MoreHorizontal className="size-3.5" aria-hidden="true" /></button>
-                    <div className="hidden flex-wrap gap-1 sm:flex">{statuses.map((status) => { const Icon = status.icon; const active = row.status === status.value; return <button key={status.value} type="button" onClick={() => { setStatus(row, status.value); if (status.value !== "present") setFocusedId(row.enrolmentId); }} className={`inline-flex min-h-8 items-center justify-center gap-1 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-semibold transition ${statusClass(status.value, active)}`}>{active ? <Icon className="size-3" aria-hidden="true" strokeWidth={2.4} /> : null}<span>{status.label}</span></button>; })}</div>
+                    <div className="hidden flex-wrap gap-1 sm:flex">{statuses.map((status) => { const Icon = status.icon; const active = row.status === status.value; return <button key={status.value} type="button" onClick={() => { setStatus(row, status.value); if (status.value !== "present") setFocusedId(row.enrolmentId); }} aria-pressed={active} className={`inline-flex min-h-8 items-center justify-center gap-1 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-semibold transition ${statusClass(status.value, active)}`}>{active ? <Icon className="size-3" aria-hidden="true" strokeWidth={2.4} /> : null}<span>{status.label}</span></button>; })}</div>
                   </div>
 
                   {isException && focused ? <div className="mt-3 hidden rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 shadow-[var(--shadow-xs)] sm:block">
@@ -144,13 +164,20 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
               })}
             </div>
 
-            {focusedRow ? <div className="fixed inset-0 z-[140] flex items-end bg-[color:var(--foreground)]/12 px-0 pb-[calc(5.25rem+env(safe-area-inset-bottom))] backdrop-blur-[1px] sm:place-items-center sm:p-4" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFocusedId(null); }}>
-              <div role="dialog" aria-modal="true" aria-label={`Attendance for ${focusedRow.name}`} className="max-h-[calc(100dvh-6.25rem)] w-full overflow-y-auto rounded-t-[var(--radius-lg)] border border-border-subtle bg-surface shadow-[var(--shadow-sm)] sm:max-h-[88vh] sm:max-w-lg sm:rounded-[var(--radius-md)]">
-                <div className="sticky top-0 z-10 border-b border-border-subtle bg-[color:var(--surface)]/98 px-4 pb-3 pt-4 backdrop-blur-xl sm:px-5">
-                  <div className="flex items-start justify-between gap-3"><div><p className="scolapro-section-title">{focusedRow.name}</p><p className="scolapro-section-description">{new Intl.DateTimeFormat("en-NA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${attendanceDate}T12:00:00`))}</p></div><div className="flex items-center gap-1"><button type="button" onClick={() => setFocusedId(null)} aria-label="Done editing attendance" className="grid size-9 place-items-center rounded-[var(--radius-xs)] bg-success-soft text-[color:var(--success)] hover:brightness-95"><Check className="size-4" strokeWidth={2.6} /></button><button type="button" onClick={() => setFocusedId(null)} aria-label="Close attendance editor" className="grid size-9 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-4" /></button></div></div>
+            {focusedRow ? <div className="fixed inset-0 z-[140] flex items-end bg-[color:var(--foreground)]/12 pb-[calc(5.25rem+env(safe-area-inset-bottom))] backdrop-blur-[1px] sm:place-items-center sm:p-4" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setFocusedId(null); }}>
+              <div role="dialog" aria-modal="true" aria-label={`Attendance for ${focusedRow.name}`} className="flex max-h-[calc(100dvh-6.25rem)] w-full flex-col overflow-hidden rounded-t-[var(--radius-lg)] border border-border-subtle bg-surface shadow-[var(--shadow-sm)] sm:max-h-[88vh] sm:max-w-lg sm:rounded-[var(--radius-md)]">
+                <div className="flex-none border-b border-border-subtle bg-surface px-4 pb-3 pt-4 sm:px-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0"><p className="scolapro-section-title truncate">{focusedRow.name}</p><p className="scolapro-section-description">{new Intl.DateTimeFormat("en-NA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${attendanceDate}T12:00:00`))}</p></div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button type="button" onClick={() => setFocusedId(null)} aria-label="Done editing attendance" className="grid size-10 place-items-center rounded-[var(--radius-xs)] bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/20 hover:brightness-95"><Check className="size-4" strokeWidth={2.7} /></button>
+                      <button type="button" onClick={() => setFocusedId(null)} aria-label="Close attendance editor" className="grid size-10 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-4" /></button>
+                    </div>
+                  </div>
                   <div className="mt-3 grid grid-cols-4 gap-1.5">{statuses.map((status) => { const Icon = status.icon; const active = focusedRow.status === status.value; return <button key={status.value} type="button" onClick={() => setStatus(focusedRow, status.value)} aria-pressed={active} className={`inline-flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] px-1 py-2 text-[0.65rem] font-semibold ${statusClass(status.value, active)}`}><Icon className="size-4" aria-hidden="true" strokeWidth={2.4} /><span>{status.label}</span></button>; })}</div>
                 </div>
-                <div className="px-4 pb-4 pt-3 sm:px-5 sm:pb-5">
+
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
                   {focusedRow.status !== "present" ? <div className="space-y-3"><Picker label="Reason" name={`mobile-reason-ui-${focusedRow.enrolmentId}`} value={focusedRow.reasonId ?? ""} onChange={(reasonId) => updateRow(focusedRow.enrolmentId, { reasonId: reasonId || null })} placeholder="No reason" options={[{ value: "", label: "No reason" }, ...reasons.map((reason) => ({ value: reason.id, label: reason.name, helper: reason.sensitive ? "Restricted detail" : undefined }))]} /><div><label htmlFor={`mobile-note-${focusedRow.enrolmentId}`} className="block text-xs font-medium">Note</label><input id={`mobile-note-${focusedRow.enrolmentId}`} value={focusedRow.note ?? ""} onChange={(event) => updateRow(focusedRow.enrolmentId, { note: event.target.value })} placeholder="Optional context" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs shadow-[var(--shadow-xs)] outline-none" /></div><EvidenceControl row={focusedRow} evidenceNames={evidenceNames} setEvidenceNames={setEvidenceNames} /></div> : <p className="rounded-[var(--radius-sm)] bg-success-soft px-3 py-2.5 text-xs font-medium text-[color:var(--success)]">Present selected. Use the status buttons above to record an exception.</p>}
                 </div>
               </div>
