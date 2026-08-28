@@ -9,8 +9,8 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
 const demoLearners: Record<string, LearnerOverview> = {
-  "demo-001": { id: "demo-001", name: "Amara Demo", preferredName: "Amara", firstNames: "Amara N.", surname: "Demo", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current", dateOfBirth: "2010-05-14", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School" },
-  "demo-002": { id: "demo-002", name: "Tomas Sample", preferredName: "Tomas", firstNames: "Tomas K.", surname: "Sample", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current", dateOfBirth: "2010-02-03", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School" },
+  "demo-001": { id: "demo-001", name: "Amara Demo", preferredName: "Amara", firstNames: "Amara N.", surname: "Demo", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current", dateOfBirth: "2010-05-14", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
+  "demo-002": { id: "demo-002", name: "Tomas Sample", preferredName: "Tomas", firstNames: "Tomas K.", surname: "Sample", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current", dateOfBirth: "2010-02-03", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
 };
 
 function formatDate(value: string | null) {
@@ -32,25 +32,21 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
     const membership = context.memberships[0];
     learner = membership ? await getLearnerOverview(id, membership.schoolId) : null;
     if (learner && membership) {
-      [guardians, reusableGuardians] = await Promise.all([
-        getLearnerGuardians(id),
-        getReusableGuardians(id, membership.schoolId),
-      ]);
+      [guardians, reusableGuardians] = await Promise.all([getLearnerGuardians(id), getReusableGuardians(id, membership.schoolId)]);
     }
   }
 
   if (!learner) notFound();
+  const initials = learner.name.split(" ").map((part) => part[0]).join("").slice(0, 2);
 
   return (
     <AppShell>
       <section>
-        <Link href="/learners" className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition duration-[var(--motion-fast)] hover:text-foreground">
-          <ArrowLeft aria-hidden="true" className="size-4" /> Learners
-        </Link>
+        <Link href="/learners" className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition duration-[var(--motion-fast)] hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" /> Learners</Link>
 
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-12 shrink-0 place-items-center rounded-[var(--radius-md)] bg-brand-soft text-sm font-semibold text-brand-strong">{learner.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}</span>
+            <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-md)] bg-brand-soft bg-cover bg-center text-sm font-semibold text-brand-strong shadow-[var(--shadow-xs)]" style={learner.photoUrl ? { backgroundImage: `url(${learner.photoUrl})` } : undefined}>{learner.photoUrl ? <span className="sr-only">Photo of {learner.name}</span> : initials}</span>
             <div className="min-w-0"><h1 className="scolapro-page-title truncate text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">{learner.name}</h1><p className="mt-1 text-sm text-muted-foreground">{learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}</p></div>
           </div>
           <span className="inline-flex w-fit rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 text-xs font-medium capitalize text-[color:var(--success)]">{learner.status} learner</span>
@@ -62,10 +58,12 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
           <section className="bg-surface shadow-[var(--shadow-xs)]">
             <div className="border-b border-border-subtle px-4 py-3.5 sm:px-5"><h2 className="scolapro-section-title">Learner overview</h2><p className="scolapro-section-description">Core identity and current enrolment information.</p></div>
             <dl className="grid gap-x-6 gap-y-5 p-4 sm:grid-cols-2 sm:p-5">
+              <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><UserRound aria-hidden="true" className="size-4" /> Full name</dt><dd className="mt-1.5 text-sm font-medium">{learner.firstNames} {learner.surname}</dd></div>
               <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><UserRound aria-hidden="true" className="size-4" /> Preferred name</dt><dd className="mt-1.5 text-sm font-medium">{learner.preferredName ?? "Not recorded"}</dd></div>
               <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><CalendarDays aria-hidden="true" className="size-4" /> Date of birth</dt><dd className="mt-1.5 text-sm font-medium">{formatDate(learner.dateOfBirth)}</dd></div>
               <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><GraduationCap aria-hidden="true" className="size-4" /> Current placement</dt><dd className="mt-1.5 text-sm font-medium">{learner.grade} · {learner.registerClass}</dd></div>
               <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><MapPin aria-hidden="true" className="size-4" /> School</dt><dd className="mt-1.5 text-sm font-medium">{learner.schoolName}</dd></div>
+              <div><dt className="text-xs font-medium text-muted-foreground">Admission number</dt><dd className="mt-1.5 text-sm font-medium">{learner.admissionNumber ?? "Not recorded"}</dd></div>
             </dl>
           </section>
 
