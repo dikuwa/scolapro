@@ -7,6 +7,7 @@ import { WeeklyRegister } from "@/features/attendance/weekly-register";
 import { getDailyRegisterWorkspace } from "@/features/attendance/server/register";
 import { getWeeklyRegisterWorkspace, mondayFor } from "@/features/attendance/server/week";
 import { getUserContext } from "@/lib/auth/get-user-context";
+import "./attendance-mobile.css";
 
 function windhoekDate() {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
@@ -42,7 +43,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => day.status !== "present").length, 0);
     return (
       <AppShell>
-        <section>
+        <section className="attendance-page">
           <AttendanceHeader date={date} requestedClass={requestedClass} view="week" />
           <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
           <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} />
@@ -56,7 +57,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
   return (
     <AppShell>
-      <section>
+      <section className="attendance-page">
         <AttendanceHeader date={date} requestedClass={requestedClass} view="day" />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
         <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} />
