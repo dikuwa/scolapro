@@ -26,108 +26,142 @@ The project is intentionally in a **backend/domain bulk implementation pass**. A
 | PostgreSQL/Supabase baseline | DONE | Supabase-backed PostgreSQL, source-controlled migrations and RLS baseline established. |
 | Authentication | DONE | Authenticated user context with school/platform memberships. |
 | Tenant isolation | DONE | RLS and role-aware authorization helpers; dedicated database isolation tests exist. |
-| Platform administration | IN PROGRESS | Tenant/school onboarding and governed school-user invitations implemented. |
-| Design system | DONE / EVOLVING | Plus Jakarta Sans, spacing/radius/surface tokens, soft borders, contextual accents, hierarchy utilities, shared picker/time controls and CTA motion. |
-| Loading system | DONE | Structural skeletons plus centered global shadcn-style Spinner; no loading text is required for normal route transitions. |
-| Persistent notifications | DONE FOUNDATION | User-scoped inbox, unread count, mark-all-read and clear actions are wired into the app shell. Invitation acceptance is the first database-driven notification producer. |
-| Account profile | DONE FOUNDATION / VERIFY | Avatar storage/upload/remove and password workspace implemented. File input is custom-styled and avatar selection previews instantly. `must_change_password` exists for first-login governance. |
-| Calendar route | DONE FOUNDATION | Role-aware `/calendar` page now uses academic-year/term data instead of returning a 404. |
+| Platform administration | DONE FOUNDATION / VERIFY | Tenant/school onboarding, governed invitations, tenant feature entitlements, school settings and tenant lifecycle history now have persistent foundations. |
+| Design system | DONE / EVOLVING | Existing UI foundation remains frozen for now except where operational work requires functional controls. |
+| Persistent notifications | DONE FOUNDATION | User-scoped inbox and first domain producer exist. |
+| Account profile | DONE FOUNDATION / VERIFY | Avatar and password workspace implemented. |
+| Calendar | DONE FOUNDATION / VERIFY | Academic year/term plus explicit expected-school-day overrides exist. |
 
-## First operational vertical slice
-
-| Area | Status | Notes |
-|---|---|---|
-| Learner identity | DONE FOUNDATION | Core learner identity model and secure registration workflow implemented. |
-| Enrolment | DONE FOUNDATION | School/year enrolment model, integrity constraints and audit-safe registration RPC. |
-| Academic structure | DONE / VERIFY | Grades and register classes configurable by school admin; identifiers normalize uppercase. Register classes can be corrected and safely deleted only while unused. |
-| School calendar | DONE FOUNDATION | Academic-year/term schema plus explicit school-day overrides now support normal weekdays, closures and approved special school days. |
-| Staff | DONE FOUNDATION | Staff model, directory and role-aware data-scope hardening exist. |
-| Invitations | DONE / VERIFY | Platform admin can choose authorized schools; school admin is limited to active school-admin scope. |
-
-## Timetable and attendance slice
+## Learner, structure, timetable and attendance
 
 | Area | Status | Notes |
 |---|---|---|
-| Subjects / subject offerings | DONE / VERIFY | Schema plus governed school-admin UI/RPCs. Subject codes normalize uppercase. |
-| Teacher allocations | DONE FOUNDATION / VERIFY | Canonical teacher-to-subject-to-class allocation is the scheduling source of truth and is reused across timetable/marks/planning/workload. |
-| Timetable periods | DONE FOUNDATION / VERIFY | Numbered teaching periods and optional times exist. |
-| Timetable slots | IN PROGRESS / VERIFY | Conflict-safe slot creation is implemented; database constraints prevent class/teacher double booking. |
-| Timetable role views | IN PROGRESS / VERIFY | Leadership sees school timetable; linked teachers/class teachers see allocated slots. |
-| Attendance events | DONE FOUNDATION | Date-aware append-only attendance events and reason registry exist. |
-| Daily register | DONE FOUNDATION / VERIFY | Exception-first daily capture, auditable revisions and optional private evidence are implemented. |
-| Weekly register | DONE FOUNDATION / VERIFY | Monday-Friday grid capture is implemented with atomic daily submissions. |
-| Attendance evidence | DONE FOUNDATION / VERIFY | Private evidence storage and RLS-backed metadata exist. |
-| Attendance class scope | DONE FOUNDATION / VERIFY | Leaders/HODs retain operational support scope while ordinary teacher/class-teacher attendance capture is limited to register classes they own or are allocated to. |
-| Expected school days | DONE FOUNDATION / VERIFY | Monday-Friday is the default; explicit school-day overrides support holidays/closures and exceptional weekend school days without corrupting attendance calculations. |
+| Learner identity / enrolment | DONE FOUNDATION | Long-lived learner identity and effective-dated school enrolment exist. |
+| Academic structure | DONE / VERIFY | Grades/classes configurable; uppercase codes; safe class correction/deletion. |
+| Staff | DONE FOUNDATION | Staff identities, memberships and scoped data access exist. |
+| Timetable | DONE FOUNDATION / VERIFY | Subjects, offerings, teacher allocations, periods and conflict-safe slots exist. |
+| Attendance events | DONE FOUNDATION | Append-only attendance observations exist. |
+| Daily / weekly register | DONE FOUNDATION / VERIFY | Exception-first daily and Monday-Friday weekly capture exist. |
+| Attendance evidence | DONE FOUNDATION / VERIFY | Private evidence metadata/storage foundation exists. |
+| Attendance class scope | DONE FOUNDATION / VERIFY | Teachers/class teachers are limited to register classes they own or are allocated to; leaders/HOD retain support scope. |
+| Expected school days | DONE FOUNDATION / VERIFY | Monday-Friday default plus explicit closure/special-day overrides. |
 
 ## Learner conduct, achievement and support
 
 | Area | Status | Notes |
 |---|---|---|
-| Conduct events | DONE FOUNDATION / VERIFY | Positive and negative conduct events are longitudinal records with severity/status rather than a single points balance. |
-| Achievement events | DONE FOUNDATION / VERIFY | Achievement history is separate from discipline and supports school-to-international levels plus evidence references. |
-| Learner support cases | DONE FOUNDATION / VERIFY | Restricted/highly-restricted support cases exist with narrower RLS than normal learner records. |
-| Support interventions | DONE FOUNDATION / VERIFY | Append-oriented intervention/review notes are attached to cases with restricted access. |
+| Conduct events | DONE FOUNDATION / VERIFY | Positive and negative longitudinal events with severity/status. |
+| Achievement events | DONE FOUNDATION / VERIFY | Separate positive achievement history with evidence reference. |
+| Learner support cases | DONE FOUNDATION / VERIFY | Restricted/highly-restricted case records use narrower permissions. |
+| Support interventions | DONE FOUNDATION / VERIFY | Append-oriented intervention/review history. |
 
 ## LTSM / textbooks / library
 
 | Area | Status | Notes |
 |---|---|---|
-| Resource titles | DONE FOUNDATION / VERIFY | Shared catalog supports textbooks, library books, teacher resources, devices and other resource types. |
-| Resource copies | DONE FOUNDATION / VERIFY | Barcode/asset identity, condition, location and availability are modeled. |
-| Loans | DONE FOUNDATION / VERIFY | Learner/staff borrowing history exists with one-open-loan-per-copy protection. |
-| Issue / return transactions | DONE FOUNDATION / VERIFY | Governed RPCs atomically update loan history and copy availability/condition with audit events. |
+| Resource catalog | DONE FOUNDATION / VERIFY | Shared titles support textbooks, library books, resources and devices. |
+| Tracked copies | DONE FOUNDATION / VERIFY | Barcode/asset, condition, location and availability. |
+| Loans | DONE FOUNDATION / VERIFY | Learner/staff borrowing with one-open-loan-per-copy protection. |
+| Issue / return | DONE FOUNDATION / VERIFY | Governed audited transactions update copy state atomically. |
 
 ## Communications
 
 | Area | Status | Notes |
 |---|---|---|
-| Provider-independent message model | DONE FOUNDATION / VERIFY | App/email/SMS/WhatsApp/letter intent is stored separately from delivery provider implementation. |
-| Recipient/delivery model | DONE FOUNDATION / VERIFY | Individual/custom recipients and delivery status are modeled without coupling domain records to providers. |
-| Queue transition | DONE FOUNDATION / VERIFY | Draft messages require recipients before they can be queued; queuing is audited. |
-| Provider adapters | NEXT | Actual SMS/WhatsApp/email transport integrations remain separate adapters/jobs. |
+| Message model | DONE FOUNDATION / VERIFY | Provider-independent app/email/SMS/WhatsApp/letter intent. |
+| Recipient / delivery model | DONE FOUNDATION / VERIFY | Delivery state is separate from domain records. |
+| Queue transition | DONE FOUNDATION / VERIFY | Draft must have recipients before queueing; transition audited. |
+| Provider adapters | NEXT | SMS/WhatsApp/email jobs/integrations remain adapters rather than sources of truth. |
 
-## Admissions, transfers and year-end progression
+## Admissions, transfers and progression
 
 | Area | Status | Notes |
 |---|---|---|
-| Admission applications | DONE FOUNDATION / VERIFY | Pre-enrolment workflow exists and remains separate from authoritative learner identity/enrolment until accepted and enrolled. |
-| Transfers | DONE FOUNDATION / VERIFY | Source-school provenance and historical enrolment are preserved; completion closes the source enrolment rather than rewriting it. |
-| Year-end progression | DONE FOUNDATION / VERIFY | Outcome records preserve academic rule-set key/version provenance and can be locked after approval. |
-| Promotion engine integration | NEXT | Deterministic versioned academic rules still need to generate/review these progression records operationally. |
+| Admission applications | DONE FOUNDATION / VERIFY | Pre-enrolment application workflow stays separate from authoritative learner identity. |
+| Transfers | DONE FOUNDATION / VERIFY | Source provenance preserved; source enrolment closes as transferred rather than being rewritten. |
+| Year-end progression | DONE FOUNDATION / VERIFY | Version-aware outcome record supports reviewed/approved/locked lifecycle. |
+| Promotion engine integration | NEXT | Versioned academic rules must generate deterministic progression outcomes. |
+
+## DNEA / examinations
+
+| Area | Status | Notes |
+|---|---|---|
+| Examination cycles | DONE FOUNDATION / VERIFY | Version-neutral school examination cycle model exists. |
+| Candidate registration | DONE FOUNDATION / VERIFY | Candidate identity is linked to authoritative learner/enrolment rather than duplicated. |
+| Subject registration | DONE FOUNDATION / VERIFY | Official subject codes are preserved and may map to school subject offerings. |
+| Readiness issues | DONE FOUNDATION / VERIFY | Regenerable identity/no-subject/mapping validation issues make readiness exception-driven. |
+
+## Finance basics
+
+| Area | Status | Notes |
+|---|---|---|
+| Charge types | DONE FOUNDATION / VERIFY | School-defined charge catalog exists. |
+| Invoices / lines | DONE FOUNDATION / VERIFY | Basic NAD school billing model; explicitly not a general ledger/ERP. |
+| Payments | DONE FOUNDATION / VERIFY | Bank transfer/cash/card/mobile/other with references and optional proof path. |
+| Payment allocation | DONE FOUNDATION / VERIFY | Only verified payments allocate to compatible invoices; balances recalculate atomically and remain auditable. |
+
+## Academic assessment and official results
+
+| Area | Status | Notes |
+|---|---|---|
+| Assessment schemes | DONE FOUNDATION / VERIFY | Versioned subject-offering schemes support detailed and final-result capture modes. |
+| Assessment components | DONE FOUNDATION / VERIFY | Tasks/tests/practicals/projects/orals/exam papers/final result components supported. |
+| Assessment instances | DONE FOUNDATION / VERIFY | Class/teacher-allocation scoped operational assessment records exist. |
+| Working marks | DONE FOUNDATION / VERIFY | Append-only revisions; numeric value and absent/exempt/incomplete/withheld status are separate. |
+| Mark submissions | DONE FOUNDATION / VERIFY | Submitted/returned/verified/locked review persistence exists. |
+| Official results | DONE FOUNDATION / VERIFY | Approved locked result snapshots preserve assessment-scheme and academic-rule version provenance. |
+| Calculation / moderation services | NEXT | Deterministic calculation and lifecycle RPC/service layer still needs to connect scheme configuration to official result creation. |
+
+## Statutory / EMIS
+
+| Area | Status | Notes |
+|---|---|---|
+| Form registry | DONE FOUNDATION / VERIFY | Form definitions and effective-dated versions preserve source/mapping/validation schemas. |
+| Reporting cycles | DONE FOUNDATION / VERIFY | School, academic year, version and fixed reference date are explicit. |
+| Snapshots | DONE FOUNDATION / VERIFY | Generated statutory values are separated from changing live data. |
+| Readiness issues | DONE FOUNDATION / VERIFY | Blocking/warning/info exceptions have a governed lifecycle. |
+| Certification | DONE FOUNDATION / VERIFY | Principal/school-admin certification binds a role, user and timestamp to one snapshot; blocking issues prevent certification. |
+| Actual EMIS/AEC generators | NEXT | Source-to-form aggregation logic must now be implemented from enrolment, attendance, staff, timetable, LTSM and support data. |
+
+## Tenant configuration
+
+| Area | Status | Notes |
+|---|---|---|
+| Tenant feature entitlements | DONE FOUNDATION / VERIFY | Effective-dated feature keys/config replace hard-coded tenant modes. |
+| School settings | DONE FOUNDATION / VERIFY | School operational settings are separate from tenant entitlements and domain records. |
+| Tenant lifecycle history | DONE FOUNDATION / VERIFY | Platform lifecycle events are append-oriented. |
 
 ## Existing UI/UX corrections
 
-UI corrections already completed remain in place, but new modules should not receive heavy visual polish until the consolidated UI pass. Existing shared rules still apply: ScolaPro-owned controls, top-right toasts, centered loading, sticky shell, hierarchy utilities, contextual metrics, uppercase academic identifiers and safe class correction/deletion.
+Existing shared UI corrections remain in place, but new modules should not receive heavy visual polish until the consolidated UI pass. ScolaPro-owned controls, hierarchy, sticky shell, contextual metrics, uppercase codes and safe destructive-action rules remain mandatory.
 
-## Current workflows
-
-Timetable:
-
-`Academic structure → Subjects → Grade/year offerings → Teacher allocation → Teaching periods → Timetable slot → Role-aware timetable view`
+## Current core workflows
 
 Attendance:
+`Day or week → class-scoped authorization → expected school-day validation → default present → explicit exceptions → evidence where needed → auditable confirmation/revision`
 
-`Day or week → class-scoped authorization → expected school-day validation → default present → explicit exceptions → reason/note/evidence → auditable confirmation/revision`
-
-Learning resources:
-
-`Catalog title → tracked copy → available → issue to learner/staff → open loan → return/lost/damaged → copy state + audit`
+LTSM:
+`Catalog title → tracked copy → issue → open loan → return/lost/damaged → copy state + audit`
 
 Transfer:
+`Current enrolment → transfer request → governed completion → source enrolment closed → receiving school appends its own enrolment`
 
-`Current enrolment → transfer request → governed approval/completion → source enrolment closed as transferred → receiving school appends its own enrolment`
+Assessment:
+`Versioned scheme → assessment instance → append-only working marks → submission → HOD/leader review → locked official result snapshot`
+
+Statutory:
+`Versioned form → reporting cycle/reference date → generated snapshot → readiness exceptions → principal certification → later submission/export`
 
 ## Approved next implementation sequence
 
-1. **DNEA readiness foundation and candidate/subject-registration validation.**
-2. **Finance basics** for invoices, bank-transfer references, payments and allocation without building a full ERP.
-3. **Platform & tenant administration** expansion: feature flags/module entitlements, school configuration and governed tenant lifecycle metadata.
-4. **Physical data model hardening**: cross-table tenant/school integrity checks, indexes, narrower role scopes and database test expansion.
-5. **Assessment/marks operational persistence** connecting the already-approved academic rules engine to actual assessment instances, marks, moderation and official results.
-6. **Statutory/EMIS readiness implementation** deriving census data from the operational source tables.
-7. **Curriculum/planning implementation** from the versioned NIED registry into pacing/scheme/lesson-prep workflows.
-8. Consolidated application-information-architecture and UI refinement pass after the core operational modules are in place.
+1. **Physical data-model hardening** across the newly added modules: composite tenant/school integrity, narrower write guards, index review and security tests.
+2. **Assessment calculation/moderation RPCs** and deterministic official-result creation from approved scheme/rule versions.
+3. **Promotion engine integration** into `year_end_progressions`.
+4. **EMIS/AEC source generators** beginning with enrolment/class/staff/attendance/LTSM readiness metrics.
+5. **Curriculum registry physical persistence** and NIED source/version/provenance tables.
+6. **Teaching-planning persistence** for pacing plans, teaching schedule items, lesson preparations, actual teaching and coverage.
+7. **Communication provider adapters/jobs** after the canonical communications layer is stable.
+8. Consolidated navigation, information architecture, responsive QA and UI refinement after core domain implementation.
 
 ## Takeover rule
 
