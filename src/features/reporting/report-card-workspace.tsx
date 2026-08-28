@@ -1,11 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, FileCheck2, FilePlus2 } from "lucide-react";
+import { BadgeCheck, FileCheck2, FilePlus2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
-import { certifyReportCard, generateReportCard, type ReportCardActionState } from "@/features/reporting/server/actions";
+import { certifyReportCard, generateReportCard, publishReportCard, type ReportCardActionState } from "@/features/reporting/server/actions";
 import type { ReportCardLearner, ReportCardSnapshotRow } from "@/features/reporting/server/report-cards";
 
 const initialState: ReportCardActionState = {};
@@ -48,7 +48,7 @@ export function ReportCardWorkspace({ learners, snapshots, terms }: { learners: 
           const snapshot = latestByKey.get(`${learner.enrolmentId}:${term.termNumber}`);
           return <div key={term.termNumber} className="rounded-[var(--radius-sm)] bg-surface-muted p-3">
             <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold">{term.name}</p>{snapshot ? <span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.64rem] font-medium ${snapshot.status === "certified" || snapshot.status === "published" ? "bg-success-soft text-[color:var(--success)]" : "bg-warning-soft text-[color:var(--warning)]"}`}>{snapshot.status}</span> : null}</div>
-            {snapshot ? <><p className="mt-2 text-[0.68rem] text-muted-foreground">Version {snapshot.snapshotVersion} · {snapshot.templateVersion}</p>{snapshot.status === "draft" ? <form action={certifyReportCard} className="mt-2"><input type="hidden" name="snapshotId" value={snapshot.id} /><button type="submit" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)]"><BadgeCheck className="size-3.5" />Certify</button></form> : <div className="mt-2 inline-flex items-center gap-1.5 text-[0.68rem] font-medium text-[color:var(--success)]"><FileCheck2 className="size-3.5" />Official snapshot</div>}</> : <p className="mt-2 text-[0.68rem] text-muted-foreground">Not generated</p>}
+            {snapshot ? <><p className="mt-2 text-[0.68rem] text-muted-foreground">Version {snapshot.snapshotVersion} · {snapshot.templateVersion}</p>{snapshot.status === "draft" ? <form action={certifyReportCard} className="mt-2"><input type="hidden" name="snapshotId" value={snapshot.id} /><button type="submit" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)]"><BadgeCheck className="size-3.5" />Certify</button></form> : snapshot.status === "certified" ? <form action={publishReportCard} className="mt-2"><input type="hidden" name="snapshotId" value={snapshot.id} /><button type="submit" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-[0.68rem] font-semibold text-brand-strong"><Send className="size-3.5" />Publish to guardians</button></form> : <div className="mt-2 inline-flex items-center gap-1.5 text-[0.68rem] font-medium text-[color:var(--success)]"><FileCheck2 className="size-3.5" />Published official snapshot</div>}</> : <p className="mt-2 text-[0.68rem] text-muted-foreground">Not generated</p>}
           </div>;
         })}</div>
       </div>)}</div> : <div className="px-4 py-10 text-center text-sm text-muted-foreground">No current learner enrolments available.</div>}
