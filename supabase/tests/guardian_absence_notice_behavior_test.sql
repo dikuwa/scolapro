@@ -7,8 +7,15 @@ values
   ('fd000000-0000-4000-8000-000000000001','absence-parent@example.test','authenticated','authenticated',now(),now()),
   ('fd000000-0000-4000-8000-000000000002','absence-teacher@example.test','authenticated','authenticated',now(),now());
 
-insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
-values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd000000-0000-4000-8000-000000000002','class_teacher',current_date);
+insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status)
+values('fd010000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fd000000-0000-4000-8000-000000000002','ABS-CLASS-001','Absence','Class Teacher','active');
+
+update public.register_classes
+set register_teacher_staff_id='fd010000-0000-4000-8000-000000000001'
+where id='40000000-0000-4000-8000-00000000001a';
+
+insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd000000-0000-4000-8000-000000000002','fd010000-0000-4000-8000-000000000001','class_teacher',current_date);
 
 insert into public.guardian_profiles(id,tenant_id,first_names,surname,identity_number)
 values('fd100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Absence','Guardian','ABSENCE-GUARDIAN-001');
@@ -64,7 +71,7 @@ select set_config('request.jwt.claim.sub','fd000000-0000-4000-8000-000000000002'
 
 select lives_ok(
   $$select public.review_guardian_absence_notice((select id from public.guardian_absence_notices where submitted_by_user_id='fd000000-0000-4000-8000-000000000001'),'accepted','Supporting evidence reviewed')$$,
-  'authorized class teacher can review a learner absence notice'
+  'assigned class teacher can review a learner absence notice'
 );
 
 select is(
