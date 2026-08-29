@@ -9,6 +9,7 @@ import { submitLearnerProfileChange, type ProfileChangeActionState } from "@/fea
 const initialState: ProfileChangeActionState = {};
 const fields = [
   ["first_names", "First names"],
+  ["initials", "Initials"],
   ["surname", "Surname"],
   ["preferred_name", "Preferred name"],
   ["date_of_birth", "Date of birth (YYYY-MM-DD)"],
@@ -24,16 +25,16 @@ export function LearnerChangeRequestForm({ learnerId }: { learnerId: string }) {
   useEffect(() => {
     if (!state.message) return;
     state.success ? toast.success(state.message) : toast.error(state.message);
-    if (state.success) setOpen(false);
   }, [state]);
 
   if (!open) {
-    return <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-foreground transition hover:bg-brand-soft hover:text-brand-strong"><FilePenLine className="size-4" />Request a data correction</button>;
+    return <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-foreground transition-colors duration-[var(--motion-fast)] hover:bg-brand-soft hover:text-brand-strong focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]"><FilePenLine className="size-4" />Request a data correction</button>;
   }
 
   return (
     <form action={action} className="mt-3 space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3">
       <input type="hidden" name="learnerId" value={learnerId} />
+      {state.success ? <p className="rounded-[var(--radius-xs)] bg-success-soft px-3 py-2 text-xs font-medium text-[color:var(--success)]">Correction submitted. It will remain pending until an authorized reviewer approves it.</p> : null}
       <div>
         <label htmlFor="profile-field" className="text-xs font-medium">Field to correct</label>
         <select id="profile-field" name="fieldKey" required className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]">
@@ -49,8 +50,8 @@ export function LearnerChangeRequestForm({ learnerId }: { learnerId: string }) {
         <textarea id="profile-reason" name="reason" rows={2} placeholder="For example: verified against learner file or parent-provided document" className="mt-1.5 w-full resize-none rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 text-xs outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" />
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="submit" disabled={pending} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60">{pending ? <Spinner className="size-3.5 text-white" /> : <Send className="size-3.5" />}{pending ? "Submitting…" : "Submit for review"}</button>
-        <button type="button" disabled={pending} onClick={() => setOpen(false)} className="min-h-9 rounded-[var(--radius-sm)] bg-surface px-3 text-xs font-semibold text-muted-foreground shadow-[var(--shadow-xs)]">Cancel</button>
+        <button type="submit" disabled={pending} className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-60">{pending ? <Spinner className="size-3.5 text-white" /> : <Send className="size-3.5" />}{pending ? "Submitting…" : "Submit for review"}</button>
+        <button type="button" disabled={pending} onClick={() => setOpen(false)} className="min-h-9 cursor-pointer rounded-[var(--radius-sm)] bg-surface px-3 text-xs font-semibold text-muted-foreground shadow-[var(--shadow-xs)] transition-colors hover:bg-surface-elevated hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60">Close</button>
       </div>
     </form>
   );
