@@ -52,7 +52,7 @@ select lives_ok(
 );
 
 select is(
-  (select previous_candidate_number from public.examination_candidate_number_history where candidate_id='fc200000-0000-4000-8000-000000000001' order by assigned_at desc limit 1),
+  (select previous_candidate_number from public.examination_candidate_number_history where candidate_id='fc200000-0000-4000-8000-000000000001' and source='official_correction' and candidate_number='AB 124' limit 1),
   'AB 123',
   'correction history preserves the previous official candidate number'
 );
