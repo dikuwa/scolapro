@@ -6,7 +6,7 @@ with checks(name, ok, detail) as (
     ('candidate number governed assignment', to_regprocedure('public.assign_examination_candidate_number(uuid,text,text)') is not null, 'DNEA number assignment RPC'),
     ('guardian absence governed review', to_regprocedure('public.review_guardian_absence_notice(uuid,text,text)') is not null, 'absence review RPC'),
     ('register teacher assignment', to_regprocedure('public.assign_register_teacher(uuid,uuid)') is not null, 'register-teacher governance'),
-    ('finance payment verification', to_regprocedure('public.verify_finance_payment(uuid,text)') is not null, 'finance verification RPC'),
+    ('finance payment verification', to_regprocedure('public.review_finance_payment(uuid,text,text)') is not null, 'finance verification/rejection RPC'),
     ('transfer approval', to_regprocedure('public.approve_learner_transfer(uuid,date,text)') is not null, 'requested-to-approved transfer RPC'),
     ('accepted admission enrolment', to_regprocedure('public.enrol_accepted_admission(uuid,uuid,text,text,text,date)') is not null, 'admission-to-enrolment handoff'),
     ('report publication', to_regprocedure('public.publish_report_card_snapshot(uuid)') is not null, 'report publication RPC'),
