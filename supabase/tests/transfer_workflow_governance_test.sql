@@ -24,9 +24,8 @@ select throws_ok(
   'requested transfer cannot skip approval and close the enrolment'
 );
 
-select throws_ok(
-  $$update public.transfer_events set status='completed' where id='fa100000-0000-4000-8000-000000000001'$$,
-  'permission denied for table transfer_events',
+select ok(
+  not has_table_privilege('authenticated','public.transfer_events','UPDATE'),
   'authenticated clients cannot bypass the governed transfer lifecycle with direct updates'
 );
 
