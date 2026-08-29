@@ -5,6 +5,8 @@ export type StaffDirectoryRow = {
   staffId: string | null;
   name: string;
   employeeNumber: string | null;
+  staffCode: string | null;
+  defaultRoomName: string | null;
   labels: string[];
   activeFrom: string;
   activeTo: string | null;
@@ -20,7 +22,7 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
   const [assignmentsResult, membershipsResult] = await Promise.all([
     supabase
       .from("staff_school_assignments")
-      .select("id,assignment_type,position_title,effective_from,effective_to,staff_member_id,staff_members(id,employee_number,first_name,last_name)")
+      .select("id,assignment_type,position_title,effective_from,effective_to,staff_member_id,staff_code,default_room_id,school_rooms(display_name),staff_members(id,employee_number,first_name,last_name)")
       .eq("school_id", schoolId)
       .order("effective_from", { ascending: false }),
     supabase
@@ -35,12 +37,15 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
   const rows = new Map<string, StaffDirectoryRow>();
   for (const assignment of assignmentsResult.data ?? []) {
     const staff = relationValue(assignment.staff_members);
+    const room = relationValue(assignment.school_rooms);
     if (!staff) continue;
     rows.set(staff.id, {
       id: assignment.id,
       staffId: staff.id,
       name: [staff.first_name, staff.last_name].filter(Boolean).join(" "),
       employeeNumber: staff.employee_number,
+      staffCode: assignment.staff_code ?? null,
+      defaultRoomName: room?.display_name ?? null,
       labels: [assignment.position_title || assignment.assignment_type],
       activeFrom: assignment.effective_from,
       activeTo: assignment.effective_to,
@@ -64,6 +69,8 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
       staffId: staff?.id ?? null,
       name: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Linked school user",
       employeeNumber: staff?.employee_number ?? null,
+      staffCode: null,
+      defaultRoomName: null,
       labels: [membership.role_key],
       activeFrom: membership.active_from,
       activeTo: membership.active_to,
