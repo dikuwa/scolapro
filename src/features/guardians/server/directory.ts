@@ -45,117 +45,98 @@ export type GuardianDirectoryRow = {
   addresses: GuardianDirectoryAddress[];
 };
 
-function relationValue<T>(value: T[] | T | null | undefined): T | null {
-  return (Array.isArray(value) ? value[0] : value) ?? null;
-}
+type ScopedLearner = {
+  learner_id?: string;
+  learner_name?: string;
+  admission_number?: string | null;
+  grade_name?: string | null;
+  class_name?: string | null;
+  relationship_type?: string;
+  is_legal_guardian?: boolean;
+  is_emergency_contact?: boolean;
+  is_pickup_authorized?: boolean;
+  priority?: number;
+};
+
+type ScopedGuardian = {
+  guardian_id: string;
+  guardian_name: string;
+  primary_mobile: string | null;
+  primary_email: string | null;
+  linked_learners: ScopedLearner[] | null;
+};
 
 export async function getGuardianDirectory(schoolId: string): Promise<GuardianDirectoryRow[]> {
   const supabase = await createSupabaseServerClient();
+  const { data: scoped, error } = await supabase.rpc("search_guardian_directory", {
+    p_school_id: schoolId,
+    p_query: null,
+    p_limit: 200,
+  });
 
-  // Get all active learner-guardian links for this school
-  const { data: links, error: linksError } = await supabase
-    .from("learner_guardians")
-    .select(`
-      id,
-      guardian_id,
-      relationship_type,
-      is_legal_guardian,
-      is_emergency_contact,
-      is_pickup_authorized,
-      priority,
-      learner_id,
-      learners!inner(id, first_names, surname, preferred_name),
-      enrolments!inner(school_id, status, admission_number, grades(display_name), register_classes(display_name))
-    `)
-    .eq("enrolments.school_id", schoolId)
-    .eq("enrolments.status", "current")
-    .is("effective_to", null)
-    .order("priority");
+  if (error) throw new Error("Unable to load the guardian directory.");
+  const rows = (scoped ?? []) as ScopedGuardian[];
+  if (!rows.length) return [];
 
-  if (linksError || !links?.length) return [];
+  const guardianIds = rows.map((row) => row.guardian_id);
+  const [{ data: profiles }, { data: contacts }, { data: addresses }] = await Promise.all([
+    supabase.from("guardian_profiles").select("id, preferred_name, status").in("id", guardianIds),
+    supabase.from("guardian_contacts").select("id, guardian_id, contact_type, contact_value, is_primary, label").in("guardian_id", guardianIds).is("effective_to", null),
+    supabase.from("guardian_addresses").select("id, guardian_id, address_type, label, address_line_1, address_line_2, suburb_or_locality, town_or_city, region, postal_code, country").in("guardian_id", guardianIds).is("effective_to", null),
+  ]);
 
-  // Collect unique guardian IDs
-  const guardianIds = [...new Set(links.map((link) => link.guardian_id))];
-
-  // Fetch guardian profiles
-  const { data: profiles } = await supabase
-    .from("guardian_profiles")
-    .select("id, first_names, surname, preferred_name, identity_number, status")
-    .in("id", guardianIds);
-
-  // Fetch contacts
-  const { data: contacts } = await supabase
-    .from("guardian_contacts")
-    .select("id, guardian_id, contact_type, contact_value, is_primary, label")
-    .in("guardian_id", guardianIds)
-    .is("effective_to", null);
-
-  // Fetch addresses
-  const { data: addresses } = await supabase
-    .from("guardian_addresses")
-    .select("id, guardian_id, address_type, label, address_line_1, address_line_2, suburb_or_locality, town_or_city, region, postal_code, country")
-    .in("guardian_id", guardianIds)
-    .is("effective_to", null);
-
-  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
   const contactMap = new Map<string, GuardianDirectoryContact[]>();
-  for (const c of contacts ?? []) {
-    const list = contactMap.get(c.guardian_id) ?? [];
-    list.push({ id: c.id, type: c.contact_type, value: c.contact_value, primary: c.is_primary, label: c.label });
-    contactMap.set(c.guardian_id, list);
+  for (const contact of contacts ?? []) {
+    const list = contactMap.get(contact.guardian_id) ?? [];
+    list.push({ id: contact.id, type: contact.contact_type, value: contact.contact_value, primary: contact.is_primary, label: contact.label });
+    contactMap.set(contact.guardian_id, list);
   }
+
   const addressMap = new Map<string, GuardianDirectoryAddress[]>();
-  for (const a of addresses ?? []) {
-    const list = addressMap.get(a.guardian_id) ?? [];
+  for (const address of addresses ?? []) {
+    const list = addressMap.get(address.guardian_id) ?? [];
     list.push({
-      id: a.id, type: a.address_type, label: a.label,
-      line1: a.address_line_1, line2: a.address_line_2,
-      locality: a.suburb_or_locality, town: a.town_or_city,
-      region: a.region, postalCode: a.postal_code, country: a.country,
+      id: address.id,
+      type: address.address_type,
+      label: address.label,
+      line1: address.address_line_1,
+      line2: address.address_line_2,
+      locality: address.suburb_or_locality,
+      town: address.town_or_city,
+      region: address.region,
+      postalCode: address.postal_code,
+      country: address.country,
     });
-    addressMap.set(a.guardian_id, list);
+    addressMap.set(address.guardian_id, list);
   }
 
-  // Build guardian map
-  const guardianMap = new Map<string, GuardianDirectoryRow>();
+  return rows.map((row) => {
+    const profile = profileMap.get(row.guardian_id);
+    const fallbackContacts: GuardianDirectoryContact[] = [];
+    if (row.primary_mobile) fallbackContacts.push({ id: `${row.guardian_id}-mobile`, type: "mobile", value: row.primary_mobile, primary: true, label: null });
+    if (row.primary_email) fallbackContacts.push({ id: `${row.guardian_id}-email`, type: "email", value: row.primary_email, primary: true, label: null });
 
-  for (const link of links) {
-    const learner = relationValue(link.learners);
-    const enrolment = relationValue(link.enrolments);
-    if (!learner || !enrolment) continue;
-
-    const grade = relationValue(enrolment.grades);
-    const registerClass = relationValue(enrolment.register_classes);
-    const profile = profileMap.get(link.guardian_id);
-
-    let row = guardianMap.get(link.guardian_id);
-    if (!row) {
-      row = {
-        guardianId: link.guardian_id,
-        name: profile ? `${profile.first_names} ${profile.surname}` : "Unknown guardian",
-        preferredName: profile?.preferred_name ?? null,
-        identityNumber: profile?.identity_number ?? null,
-        status: profile?.status ?? "active",
-        learners: [],
-        contacts: contactMap.get(link.guardian_id) ?? [],
-        addresses: addressMap.get(link.guardian_id) ?? [],
-      };
-      guardianMap.set(link.guardian_id, row);
-    }
-
-    row.learners.push({
-      learnerId: learner.id,
-      name: `${learner.first_names} ${learner.surname}`.trim(),
-      admissionNumber: enrolment.admission_number,
-      grade: grade?.display_name ?? "Unassigned",
-      registerClass: registerClass?.display_name ?? "Unassigned",
-      relationshipType: link.relationship_type,
-      isLegalGuardian: link.is_legal_guardian,
-      isEmergencyContact: link.is_emergency_contact,
-      isPickupAuthorized: link.is_pickup_authorized,
-      priority: link.priority,
-    });
-  }
-
-  return Array.from(guardianMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      guardianId: row.guardian_id,
+      name: row.guardian_name,
+      preferredName: profile?.preferred_name ?? null,
+      identityNumber: null,
+      status: profile?.status ?? "active",
+      learners: (row.linked_learners ?? []).map((learner) => ({
+        learnerId: learner.learner_id ?? "",
+        name: learner.learner_name ?? "Learner",
+        admissionNumber: learner.admission_number ?? null,
+        grade: learner.grade_name ?? "Unassigned",
+        registerClass: learner.class_name ?? "Unassigned",
+        relationshipType: learner.relationship_type ?? "guardian",
+        isLegalGuardian: Boolean(learner.is_legal_guardian),
+        isEmergencyContact: Boolean(learner.is_emergency_contact),
+        isPickupAuthorized: Boolean(learner.is_pickup_authorized),
+        priority: learner.priority ?? 1,
+      })).filter((learner) => learner.learnerId),
+      contacts: contactMap.get(row.guardian_id) ?? fallbackContacts,
+      addresses: addressMap.get(row.guardian_id) ?? [],
+    };
+  });
 }
