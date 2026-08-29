@@ -1,27 +1,21 @@
 "use server";
 
-import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { parseCsv } from "@/features/imports/server/learner-csv";
+import { fileSha256, tabularFileToRows, validTabularFile } from "@/features/imports/server/tabular-file";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-function validCsvFile(value: FormDataEntryValue | null): value is File {
-  return value instanceof File && value.name.toLowerCase().endsWith(".csv") && value.size > 0 && value.size <= 2_000_000;
-}
-
 export async function stageAcademicStructureCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  if (!validTabularFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+Excel+file+up+to+5MB");
 
   const context = await getUserContext();
   const membership = context.memberships[0];
   if (!context.user || !membership || membership.roleKey !== "school_admin") redirect("/school/imports?error=School+administrator+access+is+required");
 
-  const text = await file.text();
-  const parsedRows = parseCsv(text);
-  if (!parsedRows.length) redirect("/school/imports?error=No+academic+structure+rows+were+found");
+  const parsedRows = await tabularFileToRows(file);
+  if (!parsedRows.length) redirect("/school/imports?error=No+academic+structure+rows+were+found.+Use+the+structure+template+or+check+the+header+row");
 
   const currentYear = new Date().getFullYear();
   const allowedTypes = new Set(["grade", "class", "subject"]);
@@ -63,7 +57,7 @@ export async function stageAcademicStructureCsv(formData: FormData) {
   });
 
   const supabase = await createSupabaseServerClient();
-  const digest = createHash("sha256").update(text).digest("hex");
+  const digest = await fileSha256(file);
   const { data: batchId, error: batchError } = await supabase.rpc("create_import_batch", {
     p_school_id: membership.schoolId,
     p_import_type: "academic_structure",
@@ -73,7 +67,7 @@ export async function stageAcademicStructureCsv(formData: FormData) {
   if (batchError || !batchId) redirect("/school/imports?error=Academic+structure+import+batch+could+not+be+created");
 
   const { error: rowsError } = await supabase.rpc("stage_import_rows", { p_batch_id: batchId, p_rows: staged });
-  if (rowsError) redirect(`/school/imports?batch=${batchId}&error=Academic+structure+rows+could+not+be+staged`);
+  if (rowsError) redirect("/school/imports?error=Academic+structure+rows+could+not+be+staged.+Start+over+or+check+the+template");
   const { error: reconcileError } = await supabase.rpc("reconcile_academic_structure_import_batch", { p_batch_id: batchId });
   if (reconcileError) redirect(`/school/imports?batch=${batchId}&error=Academic+structure+rows+were+staged+but+reconciliation+could+not+finish`);
 
