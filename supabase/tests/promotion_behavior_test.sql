@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(8);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fb000000-0000-4000-8000-000000000001','promotion-test-admin@example.test','authenticated','authenticated',now(),now());
@@ -44,6 +44,27 @@ select throws_ok(
   $$select public.evaluate_promotion_recommendation('60000000-0000-4000-8000-000000000001','fb100000-0000-4000-8000-000000000002')$$,
   'Promotion rule set does not match enrolment scope',
   'promotion evaluator rejects a rule set for a different grade'
+);
+
+update public.year_end_progressions
+set status='approved'
+where enrolment_id='60000000-0000-4000-8000-000000000001';
+
+select lives_ok(
+  $$select public.lock_year_end_progression((select id from public.year_end_progressions where enrolment_id='60000000-0000-4000-8000-000000000001'))$$,
+  'approved progression can be locked by an authorized school administrator'
+);
+
+select is(
+  (select status from public.year_end_progressions where enrolment_id='60000000-0000-4000-8000-000000000001'),
+  'locked',
+  'locking preserves the progression as an immutable terminal decision'
+);
+
+select throws_ok(
+  $$select public.generate_year_end_progression('60000000-0000-4000-8000-000000000001','fb100000-0000-4000-8000-000000000001')$$,
+  'Progression is already approved or locked and cannot be regenerated',
+  'locked progression cannot be regenerated from later live rule/result state'
 );
 
 select * from finish();
