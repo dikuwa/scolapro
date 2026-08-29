@@ -6,7 +6,7 @@ insert into public.schools (id, tenant_id, name, emis_number, region, town)
 values (
   '22222222-2222-4222-8222-222222222222',
   '11111111-1111-4111-8111-111111111111',
-  'ScolaPro Demonstration School',
+  'Namib High School',
   'DEMO001',
   'Erongo',
   'Swakopmund'

@@ -1,0 +1,4 @@
+record_type,code,display_name,academic_year,grade_code
+grade,G8,Grade 8,2026,
+class,8A,Grade 8 A,2026,G8
+subject,SCI,Science,2026,

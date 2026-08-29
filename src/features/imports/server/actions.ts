@@ -2,9 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createHash } from "node:crypto";
-import * as XLSX from "xlsx";
-import { parseCsv, normalizeSex } from "@/features/imports/server/learner-csv";
+import { normalizeSex } from "@/features/imports/server/learner-csv";
+import { fileSha256, tabularFileToRows, validTabularFile } from "@/features/imports/server/tabular-file";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -15,36 +14,13 @@ async function requireSchoolAdmin() {
   return membership;
 }
 
-function validSpreadsheetFile(value: FormDataEntryValue | null): value is File {
-  if (!(value instanceof File) || value.size === 0 || value.size > 5_000_000) return false;
-  const name = value.name.toLowerCase();
-  return name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls");
-}
-
-async function fileToRows(file: File): Promise<Record<string, string>[]> {
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".csv")) {
-    const text = await file.text();
-    return parseCsv(text);
-  }
-  // XLSX/XLS
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const workbook = XLSX.read(buffer, { type: "buffer" });
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) return [];
-  const sheet = workbook.Sheets[sheetName];
-  const data = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
-  return data;
-}
-
 export async function stageLearnerCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validSpreadsheetFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+XLSX+file+up+to+5MB");
+  if (!validTabularFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+Excel+file+up+to+5MB");
   const membership = await requireSchoolAdmin();
 
-  const text = file.name.toLowerCase().endsWith(".csv") ? await file.text() : "";
-  const parsedRows = file.name.toLowerCase().endsWith(".csv") ? parseCsv(text) : await fileToRows(file);
-  if (!parsedRows.length) redirect("/school/imports?error=No+learner+rows+were+found");
+  const parsedRows = await tabularFileToRows(file);
+  if (!parsedRows.length) redirect("/school/imports?error=No+learner+rows+were+found.+Use+the+learner+template+or+check+the+header+row");
   const supabase = await createSupabaseServerClient();
   const year = new Date().getFullYear();
   const [{ data: grades }, { data: classes }] = await Promise.all([
@@ -79,11 +55,11 @@ export async function stageLearnerCsv(formData: FormData) {
     return { row_number: index + 2, source: row, normalized, resolution: issues.some((issue) => issue.level === "error") ? "error" : "create", issues };
   });
 
-  const digest = createHash("sha256").update(text).digest("hex");
+  const digest = await fileSha256(file);
   const { data: batchId, error: batchError } = await supabase.rpc("create_import_batch", { p_school_id: membership.schoolId, p_import_type: "learners", p_source_file_name: file.name, p_source_file_sha256: digest });
   if (batchError || !batchId) redirect("/school/imports?error=Import+batch+could+not+be+created");
   const { error: rowsError } = await supabase.rpc("stage_import_rows", { p_batch_id: batchId, p_rows: staged });
-  if (rowsError) redirect("/school/imports?error=CSV+rows+could+not+be+staged");
+  if (rowsError) redirect("/school/imports?error=Rows+could+not+be+staged.+Start+over+or+check+the+template");
   const { error: reconcileError } = await supabase.rpc("reconcile_learner_import_batch", { p_batch_id: batchId });
   if (reconcileError) redirect(`/school/imports?batch=${batchId}&error=Rows+were+staged+but+reconciliation+could+not+finish`);
   revalidatePath("/school/imports");
@@ -92,11 +68,10 @@ export async function stageLearnerCsv(formData: FormData) {
 
 export async function stageStaffCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validSpreadsheetFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+XLSX+file+up+to+5MB");
+  if (!validTabularFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+Excel+file+up+to+5MB");
   const membership = await requireSchoolAdmin();
-  const text = file.name.toLowerCase().endsWith(".csv") ? await file.text() : "";
-  const parsedRows = file.name.toLowerCase().endsWith(".csv") ? parseCsv(text) : await fileToRows(file);
-  if (!parsedRows.length) redirect("/school/imports?error=No+staff+rows+were+found");
+  const parsedRows = await tabularFileToRows(file);
+  if (!parsedRows.length) redirect("/school/imports?error=No+staff+rows+were+found.+Use+the+staff+template+or+check+the+header+row");
 
   const today = new Date().toISOString().slice(0, 10);
   const allowedAssignmentTypes = new Set(["staff", "teacher", "management", "support", "temporary", "other"]);
@@ -122,11 +97,11 @@ export async function stageStaffCsv(formData: FormData) {
   });
 
   const supabase = await createSupabaseServerClient();
-  const digest = createHash("sha256").update(text).digest("hex");
+  const digest = await fileSha256(file);
   const { data: batchId, error: batchError } = await supabase.rpc("create_import_batch", { p_school_id: membership.schoolId, p_import_type: "staff", p_source_file_name: file.name, p_source_file_sha256: digest });
   if (batchError || !batchId) redirect("/school/imports?error=Staff+import+batch+could+not+be+created");
   const { error: rowsError } = await supabase.rpc("stage_import_rows", { p_batch_id: batchId, p_rows: staged });
-  if (rowsError) redirect(`/school/imports?batch=${batchId}&error=Staff+CSV+rows+could+not+be+staged`);
+  if (rowsError) redirect("/school/imports?error=Staff+rows+could+not+be+staged.+Start+over+or+check+the+template");
   const { error: reconcileError } = await supabase.rpc("reconcile_staff_import_batch", { p_batch_id: batchId });
   if (reconcileError) redirect(`/school/imports?batch=${batchId}&error=Staff+rows+were+staged+but+reconciliation+could+not+finish`);
   revalidatePath("/school/imports");
@@ -137,13 +112,7 @@ export async function skipMatchedImportRow(formData: FormData) {
   const rowId = String(formData.get("rowId") ?? "");
   const batchId = String(formData.get("batchId") ?? "");
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("resolve_import_row", {
-    p_import_row_id: rowId,
-    p_resolution: "skip",
-    p_matched_entity_type: null,
-    p_matched_entity_id: null,
-    p_normalized_data: null,
-  });
+  const { error } = await supabase.rpc("resolve_import_row", { p_import_row_id: rowId, p_resolution: "skip", p_matched_entity_type: null, p_matched_entity_id: null, p_normalized_data: null });
   revalidatePath("/school/imports");
   redirect(`/school/imports?batch=${batchId}${error ? "&error=Row+could+not+be+resolved" : ""}`);
 }
@@ -154,6 +123,16 @@ export async function markLearnerImportReady(formData: FormData) {
   const { error } = await supabase.rpc("mark_import_batch_ready", { p_batch_id: batchId });
   revalidatePath("/school/imports");
   redirect(`/school/imports?batch=${batchId}${error ? "&error=Batch+could+not+be+marked+ready" : ""}`);
+}
+
+export async function discardImportBatch(formData: FormData) {
+  const batchId = String(formData.get("batchId") ?? "");
+  if (!batchId) redirect("/school/imports");
+  const membership = await requireSchoolAdmin();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("cancel_import_batch", { p_batch_id: batchId });
+  revalidatePath("/school/imports");
+  redirect(`/school/imports${error ? "?error=Staged+batch+could+not+be+discarded" : "?success=Staged+batch+discarded.+You+can+start+again"}`);
 }
 
 export async function commitLearnerImport(formData: FormData) {
