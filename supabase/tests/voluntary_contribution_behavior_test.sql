@@ -1,16 +1,25 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
   ('fe000000-0000-4000-8000-000000000001','contribution-admin@example.test','authenticated','authenticated',now(),now()),
   ('fe000000-0000-4000-8000-000000000002','contribution-teacher@example.test','authenticated','authenticated',now(),now());
 
-insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status)
+values(
+  'fe100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fe000000-0000-4000-8000-000000000002','CONTRIB-CLASS-001','Contribution','Teacher','active'
+);
+
+update public.register_classes
+set register_teacher_staff_id='fe100000-0000-4000-8000-000000000001'
+where id='40000000-0000-4000-8000-00000000001a';
+
+insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
 values
-  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe000000-0000-4000-8000-000000000001','school_admin',current_date),
-  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe000000-0000-4000-8000-000000000002','class_teacher',current_date);
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe000000-0000-4000-8000-000000000001',null,'school_admin',current_date),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe000000-0000-4000-8000-000000000002','fe100000-0000-4000-8000-000000000001','class_teacher',current_date);
 
 select set_config('request.jwt.claim.sub','fe000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
@@ -52,12 +61,18 @@ select set_config('request.jwt.claim.sub','fe000000-0000-4000-8000-000000000002'
 
 select lives_ok(
   $$select public.record_learner_voluntary_contribution('50000000-0000-4000-8000-000000000001',(select id from public.voluntary_contribution_items where label='Ream of paper'),current_date,2,null,'Received by class teacher',null)$$,
-  'class teacher can record a goods contribution against an enrolled learner'
+  'assigned class teacher can record a goods contribution against own class learner'
 );
 
 select lives_ok(
   $$select public.record_learner_voluntary_contribution('50000000-0000-4000-8000-000000000001',(select id from public.voluntary_contribution_items where label='Raffle contribution'),current_date,null,100,'Cash received',null)$$,
-  'class teacher can record a monetary contribution against an enrolled learner'
+  'assigned class teacher can record a monetary contribution against own class learner'
+);
+
+select throws_ok(
+  $$select public.record_learner_voluntary_contribution('50000000-0000-4000-8000-000000000002',(select id from public.voluntary_contribution_items where label='Ream of paper'),current_date,1,null,'Wrong class',null)$$,
+  'Permission denied',
+  'class teacher cannot record a contribution for learner outside assigned register class'
 );
 
 select is(
