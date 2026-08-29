@@ -21,7 +21,8 @@ export function normalizeImportHeader(value: string) {
 }
 
 const knownHeaders = new Set([
-  "admission_number", "first_names", "first_name", "surname", "last_name", "sex", "gender", "date_of_birth", "dob",
+  "admission_number", "first_names", "first_name", "initials", "surname", "last_name", "sex", "gender", "date_of_birth", "dob",
+  "date_of_admission", "admission_date", "enrolled_from", "enrolment_date", "enrollment_date",
   "grade_code", "class_code", "employee_number", "employee_no", "staff_number", "identity_number", "learner_admission_number",
   "record_type", "code", "display_name",
 ]);
