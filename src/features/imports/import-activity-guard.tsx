@@ -5,18 +5,14 @@ import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 
+type PendingAction = { path: string; label: string } | null;
+
 export function ImportActivityGuard() {
   const pathname = usePathname();
-  const [pendingLabel, setPendingLabel] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   useEffect(() => {
-    if (pathname !== "/school/imports") {
-      setPendingLabel(null);
-      return;
-    }
+    if (pathname !== "/school/imports") return;
 
     function handleSubmit(event: SubmitEvent) {
       const form = event.target;
@@ -25,14 +21,18 @@ export function ImportActivityGuard() {
       const label = submitter instanceof HTMLElement
         ? submitter.textContent?.trim()
         : null;
-      setPendingLabel(label || "Processing import");
+      setPendingAction({ path: pathname, label: label || "Processing import" });
     }
 
     document.addEventListener("submit", handleSubmit, true);
     return () => document.removeEventListener("submit", handleSubmit, true);
   }, [pathname]);
 
-  if (!mounted || pathname !== "/school/imports" || !pendingLabel) return null;
+  if (
+    typeof document === "undefined"
+    || pathname !== "/school/imports"
+    || pendingAction?.path !== pathname
+  ) return null;
 
   return createPortal(
     <div
@@ -43,7 +43,7 @@ export function ImportActivityGuard() {
     >
       <div className="w-full max-w-sm rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-5 text-center shadow-[var(--shadow-md)]">
         <LoaderCircle aria-hidden="true" className="mx-auto size-6 animate-spin text-brand" />
-        <p className="mt-3 text-sm font-semibold text-foreground">{pendingLabel}</p>
+        <p className="mt-3 text-sm font-semibold text-foreground">{pendingAction.label}</p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Please keep this page open. ScolaPro is processing the file and updating the import workflow.
         </p>
