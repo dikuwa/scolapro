@@ -62,7 +62,6 @@ as $$
     where c.id=p_case_id
       and (
         app_private.has_explicit_support_role(c.school_id)
-        or c.opened_by_user_id=(select auth.uid())
         or exists(
           select 1
           from public.staff_members owner_staff
@@ -145,6 +144,6 @@ revoke delete on public.learner_support_cases from authenticated;
 revoke update,delete on public.learner_support_interventions from authenticated;
 
 comment on function app_private.can_access_learner_support_case(uuid) is
-'Sensitivity-aware counselling access. Highly restricted cases require explicit support role, case opener/owner, or platform admin; restricted cases additionally permit principal/deputy oversight.';
+'Sensitivity-aware counselling access. Highly restricted cases require explicit support role, explicit case owner, or platform admin; restricted cases additionally permit principal/deputy oversight.';
 comment on table public.learner_support_interventions is
 'Append-only counselling/support interventions. Authenticated clients may add authorized notes but may not rewrite or delete historical interventions.';
