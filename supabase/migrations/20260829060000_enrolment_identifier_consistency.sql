@@ -25,7 +25,7 @@ insert into public.school_learner_identifiers(
   tenant_id,school_id,learner_id,admission_number,source,assigned_by_user_id
 )
 select
-  c.tenant_id,c.school_id,c.learner_id,c.admission_number,'reconciled',null
+  c.tenant_id,c.school_id,c.learner_id,c.admission_number,'reconciled',null::uuid
 from candidates c
 where c.candidate_admission_count=1
   and not exists (
@@ -60,7 +60,7 @@ with ranked as (
 )
 insert into public.audit_events(tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
 select distinct
-  c.tenant_id,c.school_id,null,'learner.identifier_backfill.requires_review','learner',c.learner_id,
+  c.tenant_id,c.school_id,null::uuid,'learner.identifier_backfill.requires_review','learner',c.learner_id,
   jsonb_build_object('admission_number',c.admission_number,'reason','duplicate_admission_number')
 from candidates c
 where c.candidate_admission_count>1
