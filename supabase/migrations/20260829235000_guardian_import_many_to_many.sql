@@ -83,7 +83,7 @@ begin
       coalesce((v_row.normalized_data->>'is_legal_guardian')::boolean,false),
       coalesce((v_row.normalized_data->>'is_emergency_contact')::boolean,false),
       coalesce((v_row.normalized_data->>'is_pickup_authorized')::boolean,false),
-      coalesce(nullif(v_row.normalized_data->>'priority','')::smallint,1),
+      coalesce(nullif(v_row.normalized_data->>'priority','')::smallint,1::smallint)::smallint,
       v_contacts
     );
 
