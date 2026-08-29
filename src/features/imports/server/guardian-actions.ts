@@ -85,6 +85,26 @@ export async function stageGuardianCsv(formData: FormData) {
   redirect(`/school/imports?batch=${batchId}`);
 }
 
+export async function confirmMatchedGuardianImportRow(formData: FormData) {
+  const rowId = String(formData.get("rowId") ?? "");
+  const batchId = String(formData.get("batchId") ?? "");
+  const guardianId = String(formData.get("guardianId") ?? "");
+  const context = await getUserContext();
+  const membership = context.memberships[0];
+  if (!context.user || !membership || membership.roleKey !== "school_admin") redirect(`/school/imports?batch=${batchId}&error=School+administrator+access+is+required`);
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("resolve_import_row", {
+    p_import_row_id: rowId,
+    p_resolution: "link",
+    p_matched_entity_type: "guardian",
+    p_matched_entity_id: guardianId,
+    p_normalized_data: null,
+  });
+  revalidatePath("/school/imports");
+  redirect(`/school/imports?batch=${batchId}${error ? "&error=Guardian+match+could+not+be+confirmed" : "&success=Existing+guardian+confirmed"}`);
+}
+
 export async function commitGuardianImport(formData: FormData) {
   const batchId = String(formData.get("batchId") ?? "");
   const supabase = await createSupabaseServerClient();
