@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AlertTriangle, BookOpenCheck, CheckCircle2, Download, HeartHandshake, Link2, RotateCcw, SkipForward, Trash2, Upload, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { CompactActionButton, CompactActionLink } from "@/components/ui/compact-action";
 import { ImportDropField } from "@/features/imports/import-drop-field";
 import { commitAcademicStructureImport, stageAcademicStructureCsv } from "@/features/imports/server/academic-actions";
 import { archiveImportBatch, commitLearnerImport, commitStaffImport, discardImportBatch, markLearnerImportReady, skipMatchedImportRow, stageLearnerCsv, stageStaffCsv } from "@/features/imports/server/actions";
@@ -49,19 +50,20 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
         <section className="bg-surface shadow-[var(--shadow-xs)]">
           <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
             <div><h2 className="scolapro-section-title">{showHistory ? "Import history" : "Recent import batches"}</h2><p className="scolapro-section-description">Open batches can be cancelled. Completed, cancelled or failed batches can be archived to reduce clutter without deleting their audit history.</p></div>
-            <a href={showHistory ? "/school/imports" : "/school/imports?history=1"} className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold text-muted-foreground transition-colors hover:bg-brand-soft hover:text-brand-strong">{showHistory ? "Show recent only" : "Show archived history"}</a>
+            <CompactActionLink href={showHistory ? "/school/imports" : "/school/imports?history=1"} className="shrink-0">{showHistory ? "Show recent only" : "Show archived history"}</CompactActionLink>
           </div>
           {workspace.batches.length ? <div className="divide-y divide-border-subtle">{workspace.batches.map((item) => {
             const terminal = ["completed", "cancelled", "failed"].includes(item.status);
             const canCancel = !["completed", "committing", "cancelled", "failed"].includes(item.status);
             const archived = Boolean(item.archived_at);
+            const detailHref = `/school/imports?batch=${item.id}${showHistory ? "&history=1" : ""}`;
+            const statusTone = archived ? "neutral" : item.status === "completed" ? "success" : item.status === "cancelled" || item.status === "failed" ? "danger" : "brand";
             return <div key={item.id} className={`flex flex-col gap-3 px-4 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between sm:px-5 ${batch?.id === item.id ? "bg-brand-soft/45" : "hover:bg-surface-muted/60"}`}>
-              <a href={`/school/imports?batch=${item.id}${showHistory ? "&history=1" : ""}`} className="min-w-0 flex-1 rounded-[var(--radius-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><span className="scolapro-record-title block truncate">{item.source_file_name}</span><span className="text-[0.68rem] capitalize text-muted-foreground">{item.import_type.replaceAll("_", " ")} · {item.total_rows} rows · {item.valid_rows} resolved · {item.error_rows} errors</span></a>
-              <div className="flex shrink-0 flex-wrap items-center gap-2">
-                <span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.65rem] font-medium capitalize ${archived ? "bg-surface-muted text-muted-foreground" : item.status === "completed" ? "bg-success-soft text-[color:var(--success)]" : item.status === "cancelled" || item.status === "failed" ? "bg-danger-soft text-[color:var(--danger)]" : "bg-brand-soft text-brand-strong"}`}>{archived ? `archived · ${item.status}` : item.status}</span>
-                {!archived && canCancel ? <form action={discardImportBatch}><input type="hidden" name="batchId" value={item.id} /><button type="submit" className={`${interactiveButton} min-h-8 rounded-[var(--radius-xs)] bg-danger-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--danger)] hover:bg-[color:var(--danger)] hover:text-white`}>Cancel</button></form> : null}
-                {!archived && terminal ? <form action={archiveImportBatch}><input type="hidden" name="batchId" value={item.id} /><button type="submit" className={`${interactiveButton} min-h-8 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold text-muted-foreground hover:bg-foreground hover:text-background`}>Archive</button></form> : null}
-                <a href={`/school/imports?batch=${item.id}${showHistory ? "&history=1" : ""}`} className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold text-muted-foreground transition-colors hover:bg-brand-soft hover:text-brand-strong">{terminal || archived ? "View" : "Review"}</a>
+              <a href={detailHref} className="min-w-0 flex-1 rounded-[var(--radius-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><span className="scolapro-record-title block truncate">{item.source_file_name}</span><span className="text-[0.68rem] capitalize text-muted-foreground">{item.import_type.replaceAll("_", " ")} · {item.total_rows} rows · {item.valid_rows} resolved · {item.error_rows} errors</span></a>
+              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                <CompactActionLink href={detailHref} tone={statusTone} className="capitalize">{archived ? `Archived · ${item.status}` : item.status}</CompactActionLink>
+                {!archived && canCancel ? <form action={discardImportBatch}><input type="hidden" name="batchId" value={item.id} /><CompactActionButton type="submit" tone="danger">Cancel</CompactActionButton></form> : null}
+                {!archived && terminal ? <form action={archiveImportBatch}><input type="hidden" name="batchId" value={item.id} /><CompactActionButton type="submit" tone="warning">Archive</CompactActionButton></form> : null}
               </div>
             </div>;
           })}</div> : <div className="p-8 text-center text-xs text-muted-foreground">{showHistory ? "No import history found." : "No active or recent imports."}</div>}

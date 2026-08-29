@@ -5,6 +5,7 @@ import { MobileNavigation } from "@/components/shell/navigation";
 import { ShellFrame } from "@/components/shell/shell-frame";
 import { ImportActivityGuard } from "@/features/imports/import-activity-guard";
 import { NotificationCenter } from "@/features/notifications/notification-center";
+import { getNavigationAttentionCounts, type NavigationAttentionCounts } from "@/features/notifications/server/navigation-attention";
 import { getNotificationInbox } from "@/features/notifications/server/notifications";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
@@ -28,6 +29,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let roleKey: string | undefined;
   let avatarUrl: string | null = null;
   let unreadCount = 0;
+  let attentionCounts: NavigationAttentionCounts = {};
   let notifications: Awaited<ReturnType<typeof getNotificationInbox>>["notifications"] = [];
 
   if (isSupabaseConfigured()) {
@@ -47,9 +49,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         avatarUrl = supabase.storage.from("avatars").getPublicUrl(context.avatarPath).data.publicUrl;
       }
 
-      const inbox = await getNotificationInbox();
+      const [inbox, navigationAttention] = await Promise.all([
+        getNotificationInbox(),
+        membership
+          ? getNavigationAttentionCounts(membership.schoolId, membership.roleKey)
+          : Promise.resolve({}),
+      ]);
       unreadCount = inbox.unreadCount;
       notifications = inbox.notifications;
+      attentionCounts = navigationAttention;
     }
   }
 
@@ -84,9 +92,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey}>
+    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey} attentionCounts={attentionCounts}>
       {children}
-      <MobileNavigation roleKey={roleKey} />
+      <MobileNavigation roleKey={roleKey} attentionCounts={attentionCounts} />
       <ImportActivityGuard />
     </ShellFrame>
   );
