@@ -7,10 +7,19 @@ values
   ('f8000000-0000-4000-8000-000000000001','contribution-leader@example.test','authenticated','authenticated',now(),now()),
   ('f8000000-0000-4000-8000-000000000002','contribution-class@example.test','authenticated','authenticated',now(),now());
 
-insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status)
+values(
+  'f8100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','f8000000-0000-4000-8000-000000000002','CONTRIB-LIFE-001','Lifecycle','Teacher','active'
+);
+
+update public.register_classes
+set register_teacher_staff_id='f8100000-0000-4000-8000-000000000001'
+where id='40000000-0000-4000-8000-00000000001a';
+
+insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
 values
-  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f8000000-0000-4000-8000-000000000001','school_admin',current_date),
-  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f8000000-0000-4000-8000-000000000002','class_teacher',current_date);
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f8000000-0000-4000-8000-000000000001',null,'school_admin',current_date),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f8000000-0000-4000-8000-000000000002','f8100000-0000-4000-8000-000000000001','class_teacher',current_date);
 
 select set_config('request.jwt.claim.sub','f8000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
