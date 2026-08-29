@@ -3,6 +3,7 @@ import { GraduationCap } from "lucide-react";
 import { AccountMenu } from "@/components/shell/account-menu";
 import { MobileNavigation } from "@/components/shell/navigation";
 import { ShellFrame } from "@/components/shell/shell-frame";
+import { ImportActivityGuard } from "@/features/imports/import-activity-guard";
 import { NotificationCenter } from "@/features/notifications/notification-center";
 import { getNotificationInbox } from "@/features/notifications/server/notifications";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -86,6 +87,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey}>
       {children}
       <MobileNavigation roleKey={roleKey} />
+      <ImportActivityGuard />
     </ShellFrame>
   );
 }
