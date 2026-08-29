@@ -58,6 +58,53 @@ create trigger year_end_progression_override_provenance_guard
 before insert or update on public.year_end_progressions
 for each row execute function app_private.guard_year_end_progression_override_provenance();
 
+-- Extend the existing approved/locked immutability guard to the newly introduced
+-- recommendation and override provenance. An approved decision may transition to
+-- locked, but none of its content or provenance may change during that transition.
+create or replace function app_private.guard_year_end_progression_immutability()
+returns trigger
+language plpgsql
+set search_path=public
+as $$
+begin
+  if tg_op = 'DELETE' then
+    if old.status in ('approved','locked') then
+      raise exception 'Approved or locked progression decisions cannot be deleted';
+    end if;
+    return old;
+  end if;
+
+  if old.status = 'locked' then
+    raise exception 'Locked progression decisions are immutable';
+  end if;
+
+  if old.status = 'approved' then
+    if new.status <> 'locked' then
+      raise exception 'Approved progression decisions may only transition to locked';
+    end if;
+    if new.outcome is distinct from old.outcome
+       or new.recommended_outcome is distinct from old.recommended_outcome
+       or new.rule_set_key is distinct from old.rule_set_key
+       or new.rule_set_version is distinct from old.rule_set_version
+       or new.rationale is distinct from old.rationale
+       or new.learner_id is distinct from old.learner_id
+       or new.enrolment_id is distinct from old.enrolment_id
+       or new.academic_year is distinct from old.academic_year
+       or new.source_grade_id is distinct from old.source_grade_id
+       or new.destination_grade_code is distinct from old.destination_grade_code
+       or new.decided_by_user_id is distinct from old.decided_by_user_id
+       or new.decided_at is distinct from old.decided_at
+       or new.override_reason is distinct from old.override_reason
+       or new.overridden_by_user_id is distinct from old.overridden_by_user_id
+       or new.overridden_at is distinct from old.overridden_at then
+      raise exception 'Approved progression decision content is immutable';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
 create or replace function public.generate_year_end_progression(p_enrolment_id uuid, p_promotion_rule_set_id uuid)
 returns uuid
 language plpgsql
