@@ -15,18 +15,22 @@ type RenderJob = {
   document_format: "html";
 };
 
-function authorized(request: Request): boolean {
-  const expected = process.env.INTERNAL_JOB_RUNNER_SECRET;
-  if (!expected) return false;
+function bearerToken(request: Request): string | null {
   const header = request.headers.get("authorization") ?? "";
-  return header === `Bearer ${expected}`;
+  return header.startsWith("Bearer ") ? header.slice(7) : null;
 }
 
-export async function POST(request: Request) {
-  if (!authorized(request)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+function authorizedInternalRunner(request: Request): boolean {
+  const expected = process.env.INTERNAL_JOB_RUNNER_SECRET;
+  return Boolean(expected && bearerToken(request) === expected);
+}
 
+function authorizedScheduler(request: Request): boolean {
+  const expected = process.env.CRON_SECRET;
+  return Boolean(expected && bearerToken(request) === expected);
+}
+
+async function runRenderWorker() {
   const supabase = createSupabaseAdminClient();
   const { data: claimed, error: claimError } = await supabase.rpc("claim_report_card_render_jobs", {
     p_limit: 10,
@@ -96,4 +100,18 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ claimed: jobs.length, completed, failed });
+}
+
+export async function POST(request: Request) {
+  if (!authorizedInternalRunner(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runRenderWorker();
+}
+
+export async function GET(request: Request) {
+  if (!authorizedScheduler(request)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  return runRenderWorker();
 }
