@@ -8,7 +8,7 @@ export type ProfileChangeActionState = { success?: boolean; message?: string };
 
 const submitSchema = z.object({
   learnerId: z.string().uuid(),
-  fieldKey: z.enum(["first_names","surname","preferred_name","date_of_birth","sex","national_id","birth_certificate_number"]),
+  fieldKey: z.enum(["first_names","initials","surname","preferred_name","date_of_birth","sex","national_id","birth_certificate_number"]),
   proposedValue: z.string().max(300),
   reason: z.string().trim().max(800).optional(),
 });
@@ -22,13 +22,18 @@ export async function submitLearnerProfileChange(_state: ProfileChangeActionStat
   });
   if (!parsed.success) return { message: "Choose a learner field and provide the corrected value." };
 
+  const proposedValue = parsed.data.fieldKey === "initials"
+    ? parsed.data.proposedValue.replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 12)
+    : parsed.data.proposedValue;
+  if (parsed.data.fieldKey === "initials" && !proposedValue) return { message: "Initials must contain at least one letter." };
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("submit_profile_change_request", {
     p_learner_id: parsed.data.learnerId,
     p_target_type: "learner",
     p_target_id: parsed.data.learnerId,
     p_field_key: parsed.data.fieldKey,
-    p_proposed_value: parsed.data.proposedValue,
+    p_proposed_value: proposedValue,
     p_reason: parsed.data.reason || null,
   });
   if (error) return { message: error.message || "The correction request could not be submitted." };
