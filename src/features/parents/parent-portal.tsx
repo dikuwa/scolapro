@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, CalendarCheck2, FileText, GraduationCap, Link2, ReceiptText, School, Users, WalletCards } from "lucide-react";
+import { BadgeCheck, CalendarCheck2, ExternalLink, FileText, GraduationCap, Link2, ReceiptText, School, Users, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { claimGuardianProfile, type ParentPortalActionState } from "@/features/parents/server/actions";
-import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentPayment, ParentPublishedReport } from "@/features/parents/server/portal";
+import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
 
 const initialState: ParentPortalActionState = {};
 
@@ -24,7 +24,7 @@ function money(currency: string, value: number): string {
   return `${currency} ${value.toFixed(2)}`;
 }
 
-export function ParentPortal({ familyChildren, reports, invoices, payments, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; invoices: ParentInvoice[]; payments: ParentPayment[]; claimable: ClaimableGuardianProfile[] }) {
+export function ParentPortal({ familyChildren, reports, documents, invoices, payments, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; claimable: ClaimableGuardianProfile[] }) {
   const [state, claimAction, pending] = useActionState(claimGuardianProfile, initialState);
   const [selectedLearnerId, setSelectedLearnerId] = useState(familyChildren[0]?.learnerId ?? "");
 
@@ -38,6 +38,14 @@ export function ParentPortal({ familyChildren, reports, invoices, payments, clai
   const childReports = useMemo(() => reports.filter((report) => report.learnerId === child?.learnerId), [reports, child?.learnerId]);
   const childInvoices = useMemo(() => invoices.filter((invoice) => invoice.learnerId === child?.learnerId), [invoices, child?.learnerId]);
   const childPayments = useMemo(() => payments.filter((payment) => payment.learnerId === child?.learnerId), [payments, child?.learnerId]);
+  const documentsBySnapshot = useMemo(() => {
+    const map = new Map<string, ParentReportDocument>();
+    for (const document of documents) {
+      if (document.documentFormat !== "html") continue;
+      if (!map.has(document.snapshotId)) map.set(document.snapshotId, document);
+    }
+    return map;
+  }, [documents]);
   const latestReport = childReports[0] ?? null;
   const latestSnapshot = latestReport ? record(latestReport.dataSnapshot) : {};
   const attendance = record(latestSnapshot.attendance);
@@ -94,7 +102,7 @@ export function ParentPortal({ familyChildren, reports, invoices, payments, clai
 
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><h2 className="scolapro-section-title">Published report history</h2><p className="scolapro-section-description">Historical published snapshots remain separate versions so later mark or rule changes never rewrite the report you received.</p></div>
-        {childReports.length ? <div className="divide-y divide-border-subtle">{childReports.map((report) => <div key={report.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"><div><p className="text-sm font-semibold">Term {report.termNumber} · Version {report.snapshotVersion}</p><p className="mt-0.5 text-xs text-muted-foreground">Published {report.publishedAt ? new Date(report.publishedAt).toLocaleDateString() : "by school"}</p></div><span className="inline-flex items-center gap-1.5 text-xs font-medium text-[color:var(--success)]"><BadgeCheck className="size-3.5" />Official published snapshot</span></div>)}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No published reports yet.</div>}
+        {childReports.length ? <div className="divide-y divide-border-subtle">{childReports.map((report) => { const document=documentsBySnapshot.get(report.id); return <div key={report.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"><div><p className="text-sm font-semibold">Term {report.termNumber} · Version {report.snapshotVersion}</p><p className="mt-0.5 text-xs text-muted-foreground">Published {report.publishedAt ? new Date(report.publishedAt).toLocaleDateString() : "by school"}</p></div>{document ? <a href={`/api/report-card-documents/${document.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-brand"><FileText className="size-3.5" />Open digital report<ExternalLink className="size-3" /></a> : <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[color:var(--success)]"><BadgeCheck className="size-3.5" />Official published snapshot</span>}</div>; })}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No published reports yet.</div>}
       </section>
     </> : null}
   </div>;
