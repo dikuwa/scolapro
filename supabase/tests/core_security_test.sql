@@ -27,8 +27,8 @@ select ok((select relrowsecurity from pg_class where oid = 'public.learning_reso
 select ok((select relrowsecurity from pg_class where oid = 'public.communication_messages'::regclass), 'RLS is enabled on communication messages');
 select ok((select relrowsecurity from pg_class where oid = 'public.transfer_events'::regclass), 'RLS is enabled on transfer events');
 
-select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='learners' and policyname='authorized staff can read enrolled learners'), 'hardened learner read policy exists');
-select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='enrolments' and policyname='authorized staff can read school enrolments'), 'hardened enrolment read policy exists');
+select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='learners' and policyname='scoped staff read learner identities'), 'scoped learner identity read policy exists');
+select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='enrolments' and policyname='scoped staff read enrolments'), 'scoped enrolment read policy exists');
 select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='school_invitations' and policyname='authorized admins can read school invitations'), 'invitation read policy exists');
 select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='attendance_evidence' and policyname='need to know users read attendance evidence'), 'need-to-know attendance evidence read policy exists');
 select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='learner_support_cases' and policyname='need to know users read learner support cases'), 'learner support read policy is need-to-know restricted');
