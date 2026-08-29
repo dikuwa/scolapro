@@ -4,13 +4,15 @@
 
 ScolaPro maintains one continuous learner history across academic years and school transfers while preserving the provenance, privacy and immutability of historical records.
 
-This model is the foundation for the future Cumulative Report Card (CRC), learner support, transfer history, academic progression and Ministry-level longitudinal analysis.
+This model is the foundation for the Cumulative Record Card (CRC), learner support, transfer history, academic progression and Ministry-level longitudinal analysis.
 
-The official CRC layout can be mapped onto this foundation when the latest form is obtained without redesigning the learner data model.
+The CRC mapping below is based on the physical Namibian foldable learner record supplied from a school in August 2026. ScolaPro must preserve the information purpose of that record without recreating paper-era duplication inside the database.
 
 ## Core principle
 
 A learner is not a collection of yearly profiles. The learner has one longitudinal identity with time-bound school enrolments and append-only historical events.
+
+The CRC is a governed view/export over those source records. It is not a second editable copy of identity, marks, attendance, conduct or support data.
 
 ## Core domains
 
@@ -19,15 +21,18 @@ The learner timeline can contain:
 - identity and demographic information
 - guardian/family relationships
 - contact/address history
-- enrolment history
+- enrolment and previous-school history
 - grade/class placement history
 - subject enrolment history
-- academic results
+- academic results and report-card snapshots
 - promotion decisions
 - attendance events
 - conduct incidents and positive achievements
-- learner-support interventions
-- restricted health/wellbeing records
+- learner-support interventions and learning difficulties
+- restricted physical/health history
+- highly restricted psychometric-test history
+- personality-development observations
+- general recommendations/interviews
 - extracurricular participation and achievements
 - documents and evidence
 - textbook/LTSM allocations
@@ -44,6 +49,49 @@ Represents the continuing person record.
 Represents a learner's relationship with a particular school for a defined period.
 
 A transfer closes one school enrolment and opens another; it must not create a new unrelated learner history.
+
+## Verified Namibian CRC mapping
+
+The photographed cumulative record contains the following sections. Where ScolaPro already owns the information in another governed domain, the CRC reads from that source of truth rather than storing a duplicate value.
+
+| Paper CRC section | ScolaPro source of truth | Handling |
+| --- | --- | --- |
+| Identity number, surname, sex, photo, home language | learner identity/profile | Reuse current/effective-dated learner data. |
+| Residential/postal address | learner/profile address history | Reuse effective-dated address records; do not copy into CRC tables. |
+| Father/guardian, mother, occupation and phone | guardian identity, relationships and contacts | Reuse guardian records and relationship history. |
+| Church/religious detail | optional school-policy demographic field only if there is a lawful/operational need | Do not make mandatory merely because the legacy paper card contains it. |
+| Schools attended, medium, admission/departure dates and grades | enrolments/transfers plus `learner_prior_school_history` for legacy/non-ScolaPro schools | Existing ScolaPro enrolments remain canonical; use the history table for verified records that pre-date ScolaPro. |
+| Exemption from compulsory education / initial school-entry age | `learner_prior_school_history` | Historical evidence; not a routine profile field. |
+| Physical condition/general health/problem/disability/previous illness | `learner_health_history` and learner-support domain | Restricted. A generic learner-profile permission must never reveal this section. |
+| Primary/secondary subject performance grid | approved report-card snapshots and curriculum/subject history | Do not manually re-enter marks into CRC. |
+| Average learner/grade result and pass/fail | approved report/progression sources | Derive from certified historical data and retain the rule/snapshot provenance. |
+| School attendance notation | attendance history / certified report snapshot | Derive from the relevant academic period. |
+| Psychometric data: date, test, grade, tester, remarks | `learner_psychometric_records` | Highly restricted ledger; detailed test evidence remains in governed support/document storage. |
+| Learning disabilities/problems/difficulties: nature, action, result | learner-support cases/interventions | Reuse the support workflow; do not duplicate it in a separate CRC note table. |
+| Problematic behaviour / nature of offence | conduct events | Reuse audited conduct history. |
+| Psychological personality-development observation | `learner_development_observations` | Year/grade narrative with author provenance. |
+| Social personality-development observation | `learner_development_observations` | Year/grade narrative with author provenance. |
+| Overall impression | `learner_development_observations` | Year/grade narrative with author provenance. |
+| General remarks / recommendations / interviews | `learner_cumulative_notes` | Typed longitudinal notes with sensitivity and recorder provenance. |
+
+The legacy form also provides guidance prompts for psychological, emotional, motivational, home, school and environmental observations. These prompts are guidance for trained/authorized staff; they are not labels to infer diagnoses or personality traits automatically.
+
+## CRC composition and transfer
+
+A future **Cumulative Record** screen/export should compose, in chronological context:
+
+1. verified identity and guardian summary;
+2. schools/enrolments attended;
+3. academic/report history and progression;
+4. attendance summary for the corresponding period;
+5. conduct/achievement history according to disclosure policy;
+6. learner-support material only where the recipient is entitled to receive it;
+7. restricted health and psychometric sections under separate permission checks;
+8. personality-development observations;
+9. general recommendations/interviews;
+10. transfer provenance and originating school for every historical entry.
+
+A transfer package must not automatically expose every restricted section. Transferability and visibility are separate decisions: the record may be longitudinal while specific health, psychological, safeguarding or support information remains need-to-know.
 
 ## Effective dating
 
@@ -92,22 +140,6 @@ Every historical entry retains:
 - effective date
 - creation date
 - update/version history where applicable
-
-## CRC foundation
-
-The eventual CRC should be treated as a governed view/snapshot over longitudinal data, not an independent manually maintained file.
-
-Likely CRC source areas include:
-
-- academic/report-card history
-- attendance
-- behaviour/conduct
-- achievements
-- school transitions
-- learner-support notes/interventions
-- psychological/physical/health information where officially required and legally permitted
-
-Until the current official CRC specification is verified, ScolaPro must not assume exact fields or disclosure rules. The data model should remain extensible and permission-aware.
 
 ## Sensitive information
 
@@ -207,6 +239,7 @@ Individual-sensitive data must not become generally visible merely because aggre
 - Never create disconnected learner histories for routine transfers where continuity can be verified.
 - Never allow a receiving school to rewrite another school's historical records.
 - Never expose restricted wellbeing/support data through generic profile permissions.
+- Never include all sensitive CRC sections in a transfer/export merely because they exist.
 - Never overwrite historical context using current values.
 - Preserve official academic snapshots and rule versions.
-- Keep CRC implementation flexible until the current official CRC specification is verified.
+- Keep the digital CRC compositional: authoritative domain data should appear once and be reused.

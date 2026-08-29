@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { LoaderCircle } from "lucide-react";
+import { useFormStatus } from "react-dom";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type CompactActionTone = "neutral" | "brand" | "success" | "warning" | "danger";
@@ -37,10 +41,21 @@ export function CompactActionButton({
   children,
   tone = "neutral",
   className,
+  disabled,
+  type,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
   tone?: CompactActionTone;
 }) {
-  return <button {...props} className={classes(tone, className)}>{children}</button>;
+  const { pending } = useFormStatus();
+  const isSubmit = type === "submit";
+  const waiting = isSubmit && pending;
+
+  return (
+    <button {...props} type={type} disabled={disabled || waiting} aria-busy={waiting || undefined} className={classes(tone, className)}>
+      {waiting ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" /> : null}
+      {children}
+    </button>
+  );
 }
