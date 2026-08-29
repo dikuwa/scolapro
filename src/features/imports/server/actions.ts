@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createHash } from "node:crypto";
+import * as XLSX from "xlsx";
 import { parseCsv, normalizeSex } from "@/features/imports/server/learner-csv";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -14,17 +15,35 @@ async function requireSchoolAdmin() {
   return membership;
 }
 
-function validCsvFile(value: FormDataEntryValue | null): value is File {
-  return value instanceof File && value.name.toLowerCase().endsWith(".csv") && value.size > 0 && value.size <= 2_000_000;
+function validSpreadsheetFile(value: FormDataEntryValue | null): value is File {
+  if (!(value instanceof File) || value.size === 0 || value.size > 5_000_000) return false;
+  const name = value.name.toLowerCase();
+  return name.endsWith(".csv") || name.endsWith(".xlsx") || name.endsWith(".xls");
+}
+
+async function fileToRows(file: File): Promise<Record<string, string>[]> {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".csv")) {
+    const text = await file.text();
+    return parseCsv(text);
+  }
+  // XLSX/XLS
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const sheetName = workbook.SheetNames[0];
+  if (!sheetName) return [];
+  const sheet = workbook.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "" });
+  return data;
 }
 
 export async function stageLearnerCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  if (!validSpreadsheetFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+XLSX+file+up+to+5MB");
   const membership = await requireSchoolAdmin();
 
-  const text = await file.text();
-  const parsedRows = parseCsv(text);
+  const text = file.name.toLowerCase().endsWith(".csv") ? await file.text() : "";
+  const parsedRows = file.name.toLowerCase().endsWith(".csv") ? parseCsv(text) : await fileToRows(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+learner+rows+were+found");
   const supabase = await createSupabaseServerClient();
   const year = new Date().getFullYear();
@@ -73,10 +92,10 @@ export async function stageLearnerCsv(formData: FormData) {
 
 export async function stageStaffCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  if (!validSpreadsheetFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+XLSX+file+up+to+5MB");
   const membership = await requireSchoolAdmin();
-  const text = await file.text();
-  const parsedRows = parseCsv(text);
+  const text = file.name.toLowerCase().endsWith(".csv") ? await file.text() : "";
+  const parsedRows = file.name.toLowerCase().endsWith(".csv") ? parseCsv(text) : await fileToRows(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+staff+rows+were+found");
 
   const today = new Date().toISOString().slice(0, 10);

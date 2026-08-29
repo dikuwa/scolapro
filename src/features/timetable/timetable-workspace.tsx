@@ -129,7 +129,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
                     <article key={slot.id} className="rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]">
                       <div className="flex items-center justify-between gap-2"><span className="text-[0.68rem] font-medium text-brand-strong">{slot.periodName}</span>{slot.roomLabel ? <span className="text-[0.64rem] text-muted-foreground">{slot.roomLabel}</span> : null}</div>
                       <p className="mt-1 scolapro-record-title">{slot.subjectName}</p>
-                      <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{slot.className} · {slot.staffName}</p>
+                      <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{slot.staffCode ? `${slot.staffCode} · ` : ''}{slot.roomLabel ? slot.roomLabel : slot.className}</p>
                       <Link href={`/attendance/lesson/${slot.id}`} className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1.5 text-[0.68rem] font-semibold text-brand-strong transition hover:bg-brand-soft/70"><ClipboardCheck className="size-3.5" aria-hidden="true" />Take attendance</Link>
                     </article>
                   )) : <p className="py-4 text-center text-[0.68rem] text-muted-foreground">No lessons</p>}

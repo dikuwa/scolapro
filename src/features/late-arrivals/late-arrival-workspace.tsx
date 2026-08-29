@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { Check, Clock3, Search, ShieldCheck, X } from "lucide-react";
+import Link from "next/link";
+import { Check, Clock3, History, Search, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { recordLateArrival, resolveDetention, type LateArrivalActionState } from "@/features/late-arrivals/server/actions";
@@ -58,7 +59,7 @@ export function LateArrivalWorkspace({ learners, detention, today }: { learners:
       </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
-        <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><div className="flex items-start justify-between gap-3"><div><h2 className="scolapro-section-title">Detention queue</h2><p className="scolapro-section-description">Learners reaching the weekly late-coming threshold remain here until detention is completed or explicitly waived.</p></div><span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{detention.length} open</span></div></div>
+        <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><div className="flex items-start justify-between gap-3"><div><h2 className="scolapro-section-title">Detention queue</h2><p className="scolapro-section-description">Learners reaching the weekly late-coming threshold remain here until detention is completed or explicitly waived.</p></div><div className="flex items-center gap-2"><Link href="/late-arrivals/history" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><History className="size-3.5" />History</Link><span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{detention.length} open</span></div></div></div>
         {detention.length ? <div className="divide-y divide-border-subtle">{detention.map((item) => <div key={item.id} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5"><div><p className="scolapro-record-title">{item.learnerName}</p><p className="mt-1 text-[0.68rem] text-muted-foreground">{item.lateCount} late arrivals · due {item.dueOn} · <span className="capitalize">{item.status.replaceAll("_", " ")}</span></p></div><div className="flex gap-2"><form action={resolveDetention}><input type="hidden" name="obligationId" value={item.id} /><input type="hidden" name="status" value="completed" /><button type="submit" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)]"><ShieldCheck className="size-3.5" />Completed</button></form><form action={resolveDetention}><input type="hidden" name="obligationId" value={item.id} /><input type="hidden" name="status" value="waived" /><button type="submit" className="min-h-8 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground">Waive</button></form></div></div>)}</div> : <div className="px-5 py-9 text-center text-xs text-muted-foreground">No open detention obligations.</div>}
       </section>
     </div>
