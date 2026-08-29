@@ -48,8 +48,16 @@ security definer
 set search_path=public,app_private
 as $$
 begin
-  perform app_private.refresh_finance_invoice_derived(coalesce(new.invoice_id,old.invoice_id));
-  return coalesce(new,old);
+  if tg_op='DELETE' then
+    perform app_private.refresh_finance_invoice_derived(old.invoice_id);
+    return old;
+  end if;
+
+  perform app_private.refresh_finance_invoice_derived(new.invoice_id);
+  if tg_op='UPDATE' and old.invoice_id is distinct from new.invoice_id then
+    perform app_private.refresh_finance_invoice_derived(old.invoice_id);
+  end if;
+  return new;
 end;
 $$;
 revoke all on function app_private.refresh_invoice_after_line_change() from public,anon,authenticated;
