@@ -19,6 +19,19 @@ function normalizeInitials(value: string | undefined): string {
   return (value ?? "").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 12);
 }
 
+function normalizeImportDate(value: string | undefined): string {
+  const raw = (value ?? "").trim();
+  if (!raw) return "";
+
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+
+  const dayFirst = raw.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+  if (dayFirst) return `${dayFirst[3]}-${dayFirst[2].padStart(2, "0")}-${dayFirst[1].padStart(2, "0")}`;
+
+  return raw;
+}
+
 export async function stageLearnerCsv(formData: FormData) {
   const file = formData.get("file");
   if (!validTabularFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+Excel+file+up+to+5MB");
@@ -42,6 +55,13 @@ export async function stageLearnerCsv(formData: FormData) {
     const initials = normalizeInitials(row.initials || row.initial || row.name_initials);
     const surname = formatPersonName(row.surname || row.last_name || "");
     const preferredName = formatPersonName(row.preferred_name || "");
+    const enrolledFrom = normalizeImportDate(
+      row.enrolled_from
+      || row.date_of_admission
+      || row.admission_date
+      || row.enrolment_date
+      || row.enrollment_date,
+    ) || new Date().toISOString().slice(0, 10);
     if (!firstNames) issues.push({ level: "error", field: "first_names", message: "First names are required." });
     if (!surname) issues.push({ level: "error", field: "surname", message: "Surname is required." });
     if (!grade) issues.push({ level: "error", field: "grade_code", message: "Grade does not match the current school setup." });
@@ -52,7 +72,7 @@ export async function stageLearnerCsv(formData: FormData) {
       initials,
       surname,
       preferred_name: preferredName,
-      date_of_birth: row.date_of_birth || row.dob || "",
+      date_of_birth: normalizeImportDate(row.date_of_birth || row.dob || ""),
       sex: normalizeSex(row.sex || row.gender || ""),
       national_id: row.national_id || row.id_number || "",
       birth_certificate_number: row.birth_certificate_number || row.birth_certificate || "",
@@ -60,7 +80,7 @@ export async function stageLearnerCsv(formData: FormData) {
       grade_id: grade?.id ?? "",
       register_class_id: registerClass?.id ?? "",
       admission_number: (row.admission_number || "").toUpperCase(),
-      enrolled_from: row.enrolled_from || new Date().toISOString().slice(0, 10),
+      enrolled_from: enrolledFrom,
     };
     return { row_number: index + 2, source: row, normalized, resolution: issues.some((issue) => issue.level === "error") ? "error" : "create", issues };
   });
