@@ -27,14 +27,17 @@ as $$
       lg.relationship_type,
       lg.is_legal_guardian,
       lg.is_emergency_contact,
+      lg.is_pickup_authorized,
       lg.priority,
       e.admission_number,
       l.first_names learner_first_names,
       l.surname learner_surname,
+      g.display_name grade_name,
       rc.display_name class_name
     from public.learner_guardians lg
     join public.learners l on l.id=lg.learner_id
     join public.enrolments e on e.learner_id=lg.learner_id
+    left join public.grades g on g.id=e.grade_id
     left join public.register_classes rc on rc.id=e.register_class_id
     where e.school_id=p_school_id
       and e.status='current'
@@ -84,10 +87,12 @@ as $$
           'learner_id',al.learner_id,
           'learner_name',trim(concat(al.learner_first_names,' ',al.learner_surname)),
           'admission_number',al.admission_number,
+          'grade_name',al.grade_name,
           'class_name',al.class_name,
           'relationship_type',al.relationship_type,
           'is_legal_guardian',al.is_legal_guardian,
           'is_emergency_contact',al.is_emergency_contact,
+          'is_pickup_authorized',al.is_pickup_authorized,
           'priority',al.priority
         )
         order by al.learner_surname,al.learner_first_names
