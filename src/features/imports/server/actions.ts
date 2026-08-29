@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { normalizeSex } from "@/features/imports/server/learner-csv";
 import { fileSha256, tabularFileToRows, validTabularFile } from "@/features/imports/server/tabular-file";
 import { getUserContext } from "@/lib/auth/get-user-context";
+import { formatPersonName } from "@/lib/person-name";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 async function requireSchoolAdmin() {
@@ -33,15 +34,18 @@ export async function stageLearnerCsv(formData: FormData) {
     const issues: { level: string; field: string; message: string }[] = [];
     const grade = gradeMap.get((row.grade_code || row.grade || "").toUpperCase());
     const registerClass = classMap.get((row.class_code || row.register_class || row.class || "").toUpperCase());
-    if (!row.first_names && !row.first_name) issues.push({ level: "error", field: "first_names", message: "First names are required." });
-    if (!row.surname && !row.last_name) issues.push({ level: "error", field: "surname", message: "Surname is required." });
+    const firstNames = formatPersonName(row.first_names || row.first_name || "");
+    const surname = formatPersonName(row.surname || row.last_name || "");
+    const preferredName = formatPersonName(row.preferred_name || "");
+    if (!firstNames) issues.push({ level: "error", field: "first_names", message: "First names are required." });
+    if (!surname) issues.push({ level: "error", field: "surname", message: "Surname is required." });
     if (!grade) issues.push({ level: "error", field: "grade_code", message: "Grade does not match the current school setup." });
     if (!registerClass) issues.push({ level: "error", field: "class_code", message: "Register class does not match the current school setup." });
     if (grade && registerClass && registerClass.grade_id !== grade.id) issues.push({ level: "error", field: "class_code", message: "Register class does not belong to the selected grade." });
     const normalized = {
-      first_names: row.first_names || row.first_name || "",
-      surname: row.surname || row.last_name || "",
-      preferred_name: row.preferred_name || "",
+      first_names: firstNames,
+      surname,
+      preferred_name: preferredName,
       date_of_birth: row.date_of_birth || row.dob || "",
       sex: normalizeSex(row.sex || row.gender || ""),
       national_id: row.national_id || row.id_number || "",
@@ -85,14 +89,7 @@ export async function stageStaffCsv(formData: FormData) {
     if (!firstName) issues.push({ level: "error", field: "first_name", message: "First name is required." });
     if (!lastName) issues.push({ level: "error", field: "last_name", message: "Last name is required." });
     if (!allowedAssignmentTypes.has(assignmentType)) issues.push({ level: "error", field: "assignment_type", message: "Assignment type must be staff, teacher, management, support, temporary or other." });
-    const normalized = {
-      employee_number: employeeNumber,
-      first_name: firstName,
-      last_name: lastName,
-      assignment_type: assignmentType,
-      position_title: (row.position_title || row.position || row.job_title || "").trim(),
-      effective_from: (row.effective_from || row.start_date || today).trim(),
-    };
+    const normalized = { employee_number: employeeNumber, first_name: firstName, last_name: lastName, assignment_type: assignmentType, position_title: (row.position_title || row.position || row.job_title || "").trim(), effective_from: (row.effective_from || row.start_date || today).trim() };
     return { row_number: index + 2, source: row, normalized, resolution: issues.some((issue) => issue.level === "error") ? "error" : "create", issues };
   });
 
@@ -109,44 +106,28 @@ export async function stageStaffCsv(formData: FormData) {
 }
 
 export async function skipMatchedImportRow(formData: FormData) {
-  const rowId = String(formData.get("rowId") ?? "");
-  const batchId = String(formData.get("batchId") ?? "");
-  const supabase = await createSupabaseServerClient();
+  const rowId = String(formData.get("rowId") ?? ""); const batchId = String(formData.get("batchId") ?? ""); const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("resolve_import_row", { p_import_row_id: rowId, p_resolution: "skip", p_matched_entity_type: null, p_matched_entity_id: null, p_normalized_data: null });
-  revalidatePath("/school/imports");
-  redirect(`/school/imports?batch=${batchId}${error ? "&error=Row+could+not+be+resolved" : ""}`);
+  revalidatePath("/school/imports"); redirect(`/school/imports?batch=${batchId}${error ? "&error=Row+could+not+be+resolved" : ""}`);
 }
 
 export async function markLearnerImportReady(formData: FormData) {
-  const batchId = String(formData.get("batchId") ?? "");
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("mark_import_batch_ready", { p_batch_id: batchId });
-  revalidatePath("/school/imports");
-  redirect(`/school/imports?batch=${batchId}${error ? "&error=Batch+could+not+be+marked+ready" : ""}`);
+  const batchId = String(formData.get("batchId") ?? ""); const supabase = await createSupabaseServerClient(); const { error } = await supabase.rpc("mark_import_batch_ready", { p_batch_id: batchId });
+  revalidatePath("/school/imports"); redirect(`/school/imports?batch=${batchId}${error ? "&error=Batch+could+not+be+marked+ready" : ""}`);
 }
 
 export async function discardImportBatch(formData: FormData) {
-  const batchId = String(formData.get("batchId") ?? "");
-  if (!batchId) redirect("/school/imports");
-  const membership = await requireSchoolAdmin();
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("cancel_import_batch", { p_batch_id: batchId });
-  revalidatePath("/school/imports");
-  redirect(`/school/imports${error ? "?error=Staged+batch+could+not+be+discarded" : "?success=Staged+batch+discarded.+You+can+start+again"}`);
+  const batchId = String(formData.get("batchId") ?? ""); if (!batchId) redirect("/school/imports");
+  await requireSchoolAdmin(); const supabase = await createSupabaseServerClient(); const { error } = await supabase.rpc("cancel_import_batch", { p_batch_id: batchId });
+  revalidatePath("/school/imports"); redirect(`/school/imports${error ? "?error=Staged+batch+could+not+be+discarded" : "?success=Staged+batch+discarded.+You+can+start+again"}`);
 }
 
 export async function commitLearnerImport(formData: FormData) {
-  const batchId = String(formData.get("batchId") ?? "");
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("commit_learner_import_batch", { p_batch_id: batchId });
-  revalidatePath("/school/imports"); revalidatePath("/learners");
-  redirect(`/school/imports?batch=${batchId}${error ? "&error=Import+could+not+be+committed" : "&success=Import+completed"}`);
+  const batchId = String(formData.get("batchId") ?? ""); const supabase = await createSupabaseServerClient(); const { error } = await supabase.rpc("commit_learner_import_batch", { p_batch_id: batchId });
+  revalidatePath("/school/imports"); revalidatePath("/learners"); redirect(`/school/imports?batch=${batchId}${error ? "&error=Import+could+not+be+committed" : "&success=Import+completed"}`);
 }
 
 export async function commitStaffImport(formData: FormData) {
-  const batchId = String(formData.get("batchId") ?? "");
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("commit_staff_import_batch", { p_batch_id: batchId });
-  revalidatePath("/school/imports"); revalidatePath("/staff"); revalidatePath("/timetable");
-  redirect(`/school/imports?batch=${batchId}${error ? "&error=Staff+import+could+not+be+committed" : "&success=Staff+import+completed"}`);
+  const batchId = String(formData.get("batchId") ?? ""); const supabase = await createSupabaseServerClient(); const { error } = await supabase.rpc("commit_staff_import_batch", { p_batch_id: batchId });
+  revalidatePath("/school/imports"); revalidatePath("/staff"); revalidatePath("/timetable"); redirect(`/school/imports?batch=${batchId}${error ? "&error=Staff+import+could+not+be+committed" : "&success=Staff+import+completed"}`);
 }
