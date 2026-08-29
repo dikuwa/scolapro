@@ -1,6 +1,6 @@
 -- A class/register teacher responsibility is assignment-scoped, not a school-wide
 -- finance permission. Keep campaign governance with leadership and allow class teachers
--- to record contributions only for learners currently enrolled in their assigned class.
+-- to record/read contributions only for learners currently enrolled in their assigned class.
 
 create or replace function app_private.can_manage_voluntary_contributions(p_school_id uuid)
 returns boolean
@@ -51,6 +51,11 @@ as $$
     );
 $$;
 revoke all on function app_private.can_record_voluntary_contribution(uuid,uuid) from public,anon,authenticated;
+
+drop policy if exists "authorized staff read learner contributions" on public.learner_voluntary_contributions;
+create policy "authorized scoped staff read learner contributions"
+on public.learner_voluntary_contributions for select to authenticated
+using (app_private.can_record_voluntary_contribution(school_id,learner_id));
 
 create or replace function public.record_learner_voluntary_contribution(
   p_learner_id uuid,
@@ -122,4 +127,4 @@ revoke all on function public.record_learner_voluntary_contribution(uuid,uuid,da
 grant execute on function public.record_learner_voluntary_contribution(uuid,uuid,date,numeric,numeric,text,uuid) to authenticated;
 
 comment on function app_private.can_record_voluntary_contribution(uuid,uuid) is
-'Leadership may record school-wide; a class_teacher may record only for a current learner in the register class assigned to that teacher.';
+'Leadership may record/read school-wide contributions; a class_teacher may record/read only for a current learner in the register class assigned to that teacher.';
