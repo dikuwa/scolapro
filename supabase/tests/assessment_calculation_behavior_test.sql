@@ -42,13 +42,13 @@ values
 select set_config('request.jwt.claim.sub','fc000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 
-select is(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1)->>'complete','true','complete weighted inputs produce a complete subject result');
-select is(round((public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1)->>'result_value')::numeric,2),77.00::numeric,'40/50 at weight 40 plus 75/100 at weight 60 deterministically yields 77 percent');
-select is((public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1)->>'weight_total')::numeric,100::numeric,'configured contributing weight total is preserved');
-select is(jsonb_array_length(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1)->'inputs'),2,'non-contributing formative evidence is not silently included in the report result');
-select is(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002',1)->>'complete','false','required absent examination prevents a numeric result from being treated as complete');
-select ok(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002',1)->'missing' @> '[{"component":"EXAM","reason":"absent"}]'::jsonb,'absence is preserved as a status/reason rather than converted to zero');
-select is(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002',1)->>'result_status','incomplete','non-numeric required status returns incomplete rather than a fabricated numeric result');
+select is(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1::smallint)->>'complete','true','complete weighted inputs produce a complete subject result');
+select is(round((public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1::smallint)->>'result_value')::numeric,2),77.00::numeric,'40/50 at weight 40 plus 75/100 at weight 60 deterministically yields 77 percent');
+select is((public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1::smallint)->>'weight_total')::numeric,100::numeric,'configured contributing weight total is preserved');
+select is(jsonb_array_length(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',1::smallint)->'inputs'),2,'non-contributing formative evidence is not silently included in the report result');
+select is(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002',1::smallint)->>'complete','false','required absent examination prevents a numeric result from being treated as complete');
+select ok(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002',1::smallint)->'missing' @> '[{"component":"EXAM","reason":"absent"}]'::jsonb,'absence is preserved as a status/reason rather than converted to zero');
+select is(public.calculate_subject_result('fc300000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002',1::smallint)->>'result_status','incomplete','non-numeric required status returns incomplete rather than a fabricated numeric result');
 
 select * from finish();
 rollback;
