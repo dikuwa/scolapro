@@ -23,12 +23,13 @@ function statusStyle(status: string) {
   return "bg-surface-muted text-muted-foreground";
 }
 
-export function ContributionWorkspace({ campaigns, items, contributions, learners, today }: {
+export function ContributionWorkspace({ campaigns, items, contributions, learners, today, operationId }: {
   campaigns: ContributionCampaign[];
   items: ContributionItem[];
   contributions: LearnerContribution[];
   learners: LearnerListItem[];
   today: string;
+  operationId: string;
 }) {
   const [state, action, pending] = useActionState(recordContribution, initialState);
   const [campaignId, setCampaignId] = useState(campaigns[0]?.id ?? "");
@@ -61,7 +62,6 @@ export function ContributionWorkspace({ campaigns, items, contributions, learner
 
   return (
     <div className="space-y-5">
-      {/* Record contribution form */}
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex items-start gap-3">
           <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
@@ -74,6 +74,7 @@ export function ContributionWorkspace({ campaigns, items, contributions, learner
         </div>
 
         <form action={action} className="grid gap-3 lg:grid-cols-2">
+          <input type="hidden" name="clientOperationId" value={operationId} />
           <input type="hidden" name="campaignId" value={campaignId} />
           <input type="hidden" name="itemId" value={itemId} />
           <input type="hidden" name="learnerId" value={learnerId} />
@@ -120,7 +121,6 @@ export function ContributionWorkspace({ campaigns, items, contributions, learner
         </form>
       </section>
 
-      {/* Contribution history */}
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
