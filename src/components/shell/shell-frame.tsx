@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DesktopNavigation } from "@/components/shell/navigation";
+import type { NavigationAttentionCounts } from "@/features/notifications/server/navigation-attention";
 
 export function ShellFrame({
   children,
@@ -10,12 +11,14 @@ export function ShellFrame({
   footer,
   header,
   roleKey,
+  attentionCounts = {},
 }: {
   children: React.ReactNode;
   brand: React.ReactNode;
   footer: React.ReactNode;
   header: React.ReactNode;
   roleKey?: string;
+  attentionCounts?: NavigationAttentionCounts;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -34,7 +37,7 @@ export function ShellFrame({
       >
         <div className="min-w-0">
           {brand}
-          <DesktopNavigation roleKey={roleKey} collapsed={collapsed} />
+          <DesktopNavigation roleKey={roleKey} collapsed={collapsed} attentionCounts={attentionCounts} />
         </div>
 
         <div className="border-t border-border-subtle bg-surface pt-3">{footer}</div>
