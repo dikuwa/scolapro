@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(7);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
 ('fb000000-0000-4000-8000-000000000001','photo-scope-teacher@example.test','authenticated','authenticated',now(),now()),
@@ -40,6 +40,8 @@ select set_config('request.jwt.claim.sub','fb000000-0000-4000-8000-000000000003'
 set local role authenticated;
 select is((select count(*)::integer from storage.objects where bucket_id='learner-photos'),2,'school administration retains school-wide learner photo access');
 select is(app_private.can_access_learner_photo_object('not-a-uuid/not-a-learner/file.jpg'),false,'malformed photo paths are denied safely');
+select is(app_private.can_manage_learner_photo_object('22222222-2222-4222-8222-222222222222/50000000-0000-4000-8000-000000000001/new.jpg'),true,'school admin may manage a valid learner photo path for the school');
+select is(app_private.can_manage_learner_photo_object('22222222-2222-4222-8222-222222222222/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/new.jpg'),false,'school admin cannot use learner photo bucket for an unrelated learner id');
 
 reset role;
 select * from finish();
