@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fc000000-0000-4000-8000-000000000001','progression-override-admin@example.test','authenticated','authenticated',now(),now());
@@ -69,6 +69,12 @@ select throws_ok(
   $$update public.year_end_progressions set override_reason='rewritten' where enrolment_id='60000000-0000-4000-8000-000000000001'$$,
   'Approved progression decisions may only transition to locked',
   'approved override provenance remains immutable'
+);
+
+select throws_ok(
+  $$update public.year_end_progressions set status='locked',override_reason='tampered while locking' where enrolment_id='60000000-0000-4000-8000-000000000001'$$,
+  'Approved progression decision content is immutable',
+  'approved-to-locked transition cannot rewrite override provenance'
 );
 
 select * from finish();
