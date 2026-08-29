@@ -25,6 +25,14 @@ begin
       new.reviewed_by_user_id := auth.uid();
       new.reviewed_at := now();
     elsif tg_op = 'UPDATE'
+      and old.status = 'accepted'
+      and new.status = 'enrolled' then
+      -- The canonical accepted -> enrolled handoff historically backfills missing
+      -- review provenance. Preserve existing provenance if present; otherwise derive
+      -- the missing values from the authenticated actor/server time.
+      new.reviewed_by_user_id := coalesce(old.reviewed_by_user_id, auth.uid());
+      new.reviewed_at := coalesce(old.reviewed_at, now());
+    elsif tg_op = 'UPDATE'
       and (
         new.reviewed_by_user_id is distinct from old.reviewed_by_user_id
         or new.reviewed_at is distinct from old.reviewed_at
