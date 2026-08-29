@@ -1,2 +1,2 @@
-learner_admission_number,identity_number,first_names,surname,relationship_type,email,mobile,whatsapp,is_legal_guardian,is_emergency_contact,is_pickup_authorized,priority
-4806,80010100123,Anna,Adams,mother,anna@example.com,0812345678,0812345678,true,true,true,1
+learner_admission_number,identity_number,first_names,initials,surname,relationship_type,email,mobile,whatsapp,is_legal_guardian,is_emergency_contact,is_pickup_authorized,priority
+4806,80010100123,Anna,A,Adams,mother,anna@example.com,0812345678,0812345678,true,true,true,1
