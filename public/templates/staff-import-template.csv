@@ -1,2 +1,2 @@
-employee_number,first_name,last_name,assignment_type,position_title,effective_from
-T001,Martin,Mukoya,teacher,Science Teacher,2026-01-15
+employee_number,first_name,initials,last_name,assignment_type,position_title,effective_from
+T001,Martin,MK,Mukoya,teacher,Science Teacher,2026-01-15
