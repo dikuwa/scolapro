@@ -25,25 +25,19 @@ export async function generateReportCardsBulk(_state: ReportCardActionState, for
   if (!parsed.success) return { message: "Choose at least one learner and a valid term." };
 
   const supabase = await createSupabaseServerClient();
-  let generated = 0;
-  let unavailable = 0;
+  const { data, error } = await supabase.rpc("build_report_card_snapshots_bulk", {
+    p_enrolment_ids: parsed.data.enrolmentIds,
+    p_term_number: parsed.data.termNumber,
+    p_template_version: "SCOLAPRO_TERM_REPORT_V1",
+  });
+  if (error) return { message: "The report-card batch could not be prepared." };
 
-  for (const enrolmentId of parsed.data.enrolmentIds) {
-    const { error } = await supabase.rpc("build_report_card_snapshot", {
-      p_enrolment_id: enrolmentId,
-      p_term_number: parsed.data.termNumber,
-      p_template_version: "SCOLAPRO_TERM_REPORT_V1",
-    });
-    if (error) unavailable += 1;
-    else generated += 1;
-  }
-
+  const result = (data ?? {}) as { generated?: number; skipped?: number };
+  const generated = Number(result.generated ?? 0);
+  const skipped = Number(result.skipped ?? 0);
   revalidatePath("/reports/report-cards");
-  if (!generated) return { message: `No report cards were generated. ${unavailable} learner${unavailable === 1 ? "" : "s"} may not have approved official results for this term.` };
-  return {
-    success: true,
-    message: `${generated} report card${generated === 1 ? "" : "s"} prepared${unavailable ? `; ${unavailable} skipped because approved results were unavailable` : ""}.`,
-  };
+  if (!generated) return { message: `No report cards were generated. ${skipped} learner${skipped === 1 ? "" : "s"} may not have approved official results for this term.` };
+  return { success: true, message: `${generated} report card${generated === 1 ? "" : "s"} prepared${skipped ? `; ${skipped} skipped because approved results were unavailable` : ""}.` };
 }
 
 export async function certifyReportCard(formData: FormData) {
