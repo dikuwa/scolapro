@@ -99,7 +99,7 @@ begin
   );
 
   v_contribution_id:=public.record_learner_voluntary_contribution(
-    p_item_id,p_learner_id,p_contribution_date,p_quantity,p_amount,p_note,null
+    p_learner_id,p_item_id,p_contribution_date,p_quantity,p_amount,p_note,null
   );
 
   update public.client_operation_receipts
