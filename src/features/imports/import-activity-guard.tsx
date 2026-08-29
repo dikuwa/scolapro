@@ -55,10 +55,6 @@ export function ImportActivityGuard() {
   }, [navigationKey, pathname]);
 
   useEffect(() => {
-    setPendingAction((current) => current && current.navigationKey !== navigationKey ? null : current);
-  }, [navigationKey]);
-
-  useEffect(() => {
     function clearOnPageRestore() {
       setPendingAction(null);
     }
