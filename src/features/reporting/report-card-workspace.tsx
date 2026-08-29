@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BadgeCheck, Clock3, FileCheck2, FilePlus2, FileText, RotateCcw, Send } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Clock3, ExternalLink, FileCheck2, FilePlus2, FileText, RotateCcw, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +20,7 @@ function HtmlRenderControl({ snapshot, job, document }: { snapshot: ReportCardSn
   }, [state]);
 
   if (document) {
-    return <div className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)]"><FileCheck2 className="size-3.5" />Digital report ready</div>;
+    return <a href={`/api/report-card-documents/${document.id}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)]"><FileCheck2 className="size-3.5" />Open digital report<ExternalLink className="size-3" /></a>;
   }
 
   if (job?.status === "processing" || job?.status === "pending") {
