@@ -4,7 +4,7 @@ import { AbsenceReviewList } from "@/features/parents/absence-review-list";
 import { getSchoolAbsenceNotices } from "@/features/parents/server/absence-queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
-const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "class_teacher", "hod"]);
+const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "class_teacher", "counsellor"]);
 
 export default async function AbsenceReviewsPage() {
   const context = await getUserContext();
