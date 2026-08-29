@@ -19,7 +19,9 @@ export function AbsenceNoticeForm({ learnerId, learnerName, today }: { learnerId
 
   useEffect(() => {
     if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
+    if (state.warning) toast.warning(state.message);
+    else if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [state]);
 
   return (
