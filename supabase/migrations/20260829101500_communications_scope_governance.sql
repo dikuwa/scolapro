@@ -224,8 +224,5 @@ $$;
 revoke all on function public.queue_communication(uuid) from public,anon;
 grant execute on function public.queue_communication(uuid) to authenticated;
 
--- Once queued, recipient status belongs to delivery workers, not message authors.
-revoke update,delete on public.communication_recipients from authenticated;
-
 comment on function app_private.can_read_communication(uuid) is
 'Communication-ledger privacy: author and leadership/platform admin may read; counsellor may read non-sensitive records. Ordinary teachers/HODs do not browse other authors recipient destinations.';
