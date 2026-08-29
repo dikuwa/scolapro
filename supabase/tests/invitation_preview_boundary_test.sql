@@ -13,7 +13,16 @@ insert into public.school_invitations(
   ('f9710000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','revoked-invite@example.test','Revoked','Invite','teacher',encode(extensions.digest('revoked-preview-token','sha256'),'hex'),'revoked','f9700000-0000-4000-8000-000000000001',now()+interval '1 day');
 
 select ok(has_function_privilege('anon','public.get_school_invitation_preview(text)','EXECUTE'),'anonymous join screen intentionally may call invitation preview');
-select ok(not has_function_privilege('public','public.get_school_invitation_preview(text)','EXECUTE'),'PUBLIC does not receive invitation preview execution');
+select ok(
+  not exists(
+    select 1 from information_schema.routine_privileges
+    where specific_schema='public'
+      and routine_name='get_school_invitation_preview'
+      and grantee='PUBLIC'
+      and privilege_type='EXECUTE'
+  ),
+  'PUBLIC does not receive invitation preview execution'
+);
 
 set local role anon;
 
