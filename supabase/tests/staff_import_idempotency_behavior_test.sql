@@ -1,6 +1,6 @@
 begin;
 
-select plan(6);
+select plan(7);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('f9000000-0000-4000-8000-000000000001','staff-import-idempotency@example.test','authenticated','authenticated',now(),now());
