@@ -18,10 +18,11 @@ function one<T>(value: T[] | T | null | undefined): T | null {
 
 export async function getTimetableWorkspace(schoolId: string, academicYear: number): Promise<TimetableWorkspace> {
   const supabase = await createSupabaseServerClient();
-  const [gradesResult, classesResult, membershipsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult] = await Promise.all([
+  const [gradesResult, classesResult, membershipsResult, staffAssignmentsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult] = await Promise.all([
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("grade_code"),
     supabase.from("register_classes").select("id,display_name,grade_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
-    supabase.from("school_memberships").select("staff_member_id,active_from,active_to,staff_members(id,first_name,last_name,employee_number)").eq("school_id", schoolId),
+    supabase.from("school_memberships").select("staff_member_id,active_from,active_to,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
+    supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
     supabase.from("subjects").select("id,subject_code,display_name").eq("school_id", schoolId).eq("status", "active").order("display_name"),
     supabase.from("subject_offerings").select("id,subject_id,grade_id,periods_per_cycle,subjects(display_name),grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,subject_offerings(subjects(display_name),grades(display_name)),register_classes(display_name),staff_members(first_name,last_name)").eq("school_id", schoolId).eq("academic_year", academicYear).is("active_to", null),
@@ -30,16 +31,23 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.from("timetable_slots").select("id,cycle_code,weekday,period_id,register_class_id,teacher_allocation_id,room_id,room_label,timetable_periods(display_name,period_number),register_classes(display_name),teacher_allocations(staff_member_id,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("weekday").order("period_id"),
   ]);
 
-  const error = gradesResult.error || classesResult.error || membershipsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error;
+  const error = gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error;
   if (error) throw new Error("Unable to load timetable workspace.");
 
   const today = new Date().toISOString().slice(0, 10);
   const staffMap = new Map<string, { id: string; name: string; employeeNumber: string | null }>();
+  const addStaff = (staff: { id: string; first_name: string; last_name: string; employee_number: string | null; status: string } | null) => {
+    if (!staff || staff.status !== "active") return;
+    staffMap.set(staff.id, { id: staff.id, name: [staff.first_name, staff.last_name].filter(Boolean).join(" "), employeeNumber: staff.employee_number });
+  };
+
   for (const membership of membershipsResult.data ?? []) {
     if (membership.active_from > today || (membership.active_to && membership.active_to < today)) continue;
-    const staff = one(membership.staff_members);
-    if (!staff) continue;
-    staffMap.set(staff.id, { id: staff.id, name: [staff.first_name, staff.last_name].filter(Boolean).join(" "), employeeNumber: staff.employee_number });
+    addStaff(one(membership.staff_members));
+  }
+  for (const assignment of staffAssignmentsResult.data ?? []) {
+    if (assignment.effective_from > today || (assignment.effective_to && assignment.effective_to < today)) continue;
+    addStaff(one(assignment.staff_members));
   }
 
   return {
