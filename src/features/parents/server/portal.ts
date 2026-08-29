@@ -58,6 +58,19 @@ export type ParentPayment = {
   status: string;
 };
 
+export type ParentMessage = {
+  recipientId: string;
+  messageId: string;
+  schoolId: string;
+  schoolName: string;
+  channel: string;
+  subject: string | null;
+  body: string;
+  sensitive: boolean;
+  sentAt: string | null;
+  deliveredAt: string | null;
+};
+
 export type ClaimableGuardianProfile = {
   guardianId: string;
   tenantId: string;
@@ -76,12 +89,18 @@ function numberValue(value: unknown): number {
 
 export async function getParentPortalData() {
   const supabase = await createSupabaseServerClient();
-  const [{ data: overviewData, error: overviewError }, { data: financeData, error: financeError }] = await Promise.all([
+  const [
+    { data: overviewData, error: overviewError },
+    { data: financeData, error: financeError },
+    { data: messageData, error: messageError },
+  ] = await Promise.all([
     supabase.rpc("get_parent_family_overview"),
     supabase.rpc("get_parent_finance_overview"),
+    supabase.rpc("get_parent_message_overview", { p_limit: 50 }),
   ]);
   if (overviewError) throw new Error("Unable to load your family overview.");
   if (financeError) throw new Error("Unable to load your family finance overview.");
+  if (messageError) throw new Error("Unable to load your messages.");
 
   const overview = record(overviewData);
   const rawChildren = Array.isArray(overview.children) ? overview.children : [];
@@ -176,6 +195,30 @@ export async function getParentPortalData() {
     };
   }).filter((row) => row.paymentId && row.learnerId);
 
+  const messages: ParentMessage[] = (messageData ?? []).map((row: {
+    recipient_id: string;
+    message_id: string;
+    school_id: string;
+    school_name: string;
+    channel: string;
+    subject: string | null;
+    body: string;
+    sensitive: boolean;
+    sent_at: string | null;
+    delivered_at: string | null;
+  }) => ({
+    recipientId: row.recipient_id,
+    messageId: row.message_id,
+    schoolId: row.school_id,
+    schoolName: row.school_name,
+    channel: row.channel,
+    subject: row.subject,
+    body: row.body,
+    sensitive: row.sensitive,
+    sentAt: row.sent_at,
+    deliveredAt: row.delivered_at,
+  }));
+
   const { data: claimableData, error: claimableError } = await supabase.rpc("find_claimable_guardian_profiles");
   if (claimableError) throw new Error("Unable to check guardian-account matches.");
   const claimable: ClaimableGuardianProfile[] = (claimableData ?? []).map((row: { guardian_id: string; tenant_id: string; display_name: string }) => ({
@@ -184,5 +227,5 @@ export async function getParentPortalData() {
     displayName: row.display_name,
   }));
 
-  return { children, reports, documents, invoices, payments, claimable };
+  return { children, reports, documents, invoices, payments, messages, claimable };
 }
