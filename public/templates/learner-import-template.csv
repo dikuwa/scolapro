@@ -1,2 +1,2 @@
-admission_number,first_names,surname,sex,date_of_birth,grade_code,class_code,national_id,birth_certificate_number,preferred_name,enrolled_from
-4806,Dawid JMW,Adams,M,2012-03-18,G8,8A,,,Dawid,2026-01-15
+admission_number,first_names,initials,surname,sex,date_of_birth,grade_code,class_code,national_id,birth_certificate_number,preferred_name,enrolled_from
+4806,Dawid,JMW,Adams,M,2012-03-18,G8,8A,,,Dawid,2026-01-15
