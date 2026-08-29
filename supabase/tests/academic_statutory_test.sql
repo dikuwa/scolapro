@@ -27,7 +27,7 @@ select ok(to_regprocedure('public.certify_report_card_snapshot(uuid)') is not nu
 select ok(not has_function_privilege('anon','public.certify_report_card_snapshot(uuid)','EXECUTE'),'anonymous users cannot certify report cards');
 select ok(to_regprocedure('public.publish_report_card_snapshot(uuid)') is not null,'report card publication function exists');
 select ok(not has_function_privilege('anon','public.publish_report_card_snapshot(uuid)','EXECUTE'),'anonymous users cannot publish report cards');
-select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='report_card_snapshots' and policyname='authorized users read report card snapshots'),'staff and guardian report reads use one consolidated policy');
+select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='report_card_snapshots' and policyname='scoped users read report card snapshots'),'staff and guardian report reads use one scoped consolidated policy');
 select ok(to_regprocedure('public.certify_statutory_snapshot(uuid,text,text)') is not null,'statutory certification function exists');
 select ok(not has_function_privilege('anon','public.certify_statutory_snapshot(uuid,text,text)','EXECUTE'),'anonymous users cannot certify statutory snapshots');
 select ok(exists (select 1 from pg_policies where schemaname='public' and tablename='learner_marks' and policyname='scoped academic staff can append learner marks'),'teacher mark write policy exists');
