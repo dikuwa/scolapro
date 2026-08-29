@@ -1,6 +1,6 @@
 begin;
 
-select plan(8);
+select plan(12);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fb000000-0000-4000-8000-000000000001','promotion-test-admin@example.test','authenticated','authenticated',now(),now());
@@ -46,9 +46,22 @@ select throws_ok(
   'promotion evaluator rejects a rule set for a different grade'
 );
 
-update public.year_end_progressions
-set status='approved'
-where enrolment_id='60000000-0000-4000-8000-000000000001';
+select lives_ok(
+  $$select public.approve_year_end_progression((select id from public.year_end_progressions where enrolment_id='60000000-0000-4000-8000-000000000001'))$$,
+  'reviewed progression is approved through the governed leader transition'
+);
+
+select is(
+  (select status from public.year_end_progressions where enrolment_id='60000000-0000-4000-8000-000000000001'),
+  'approved',
+  'governed approval records approved status'
+);
+
+select throws_ok(
+  $$update public.year_end_progressions set outcome='promoted' where enrolment_id='60000000-0000-4000-8000-000000000001'$$,
+  'Approved progression decisions may only transition to locked',
+  'approved progression content cannot be edited through ordinary SQL'
+);
 
 select lives_ok(
   $$select public.lock_year_end_progression((select id from public.year_end_progressions where enrolment_id='60000000-0000-4000-8000-000000000001'))$$,
@@ -65,6 +78,12 @@ select throws_ok(
   $$select public.generate_year_end_progression('60000000-0000-4000-8000-000000000001','fb100000-0000-4000-8000-000000000001')$$,
   'Progression is already approved or locked and cannot be regenerated',
   'locked progression cannot be regenerated from later live rule/result state'
+);
+
+select throws_ok(
+  $$delete from public.year_end_progressions where enrolment_id='60000000-0000-4000-8000-000000000001'$$,
+  'Approved or locked progression decisions cannot be deleted',
+  'locked progression cannot be deleted even through privileged direct SQL'
 );
 
 select * from finish();
