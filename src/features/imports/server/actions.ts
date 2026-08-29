@@ -7,12 +7,21 @@ import { parseCsv, normalizeSex } from "@/features/imports/server/learner-csv";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function stageLearnerCsv(formData: FormData) {
-  const file = formData.get("file");
-  if (!(file instanceof File) || !file.name.toLowerCase().endsWith(".csv") || file.size === 0 || file.size > 2_000_000) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+async function requireSchoolAdmin() {
   const context = await getUserContext();
   const membership = context.memberships[0];
   if (!context.user || !membership || membership.roleKey !== "school_admin") redirect("/school/imports?error=School+administrator+access+is+required");
+  return membership;
+}
+
+function validCsvFile(value: FormDataEntryValue | null): value is File {
+  return value instanceof File && value.name.toLowerCase().endsWith(".csv") && value.size > 0 && value.size <= 2_000_000;
+}
+
+export async function stageLearnerCsv(formData: FormData) {
+  const file = formData.get("file");
+  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  const membership = await requireSchoolAdmin();
 
   const text = await file.text();
   const parsedRows = parseCsv(text);
@@ -62,6 +71,49 @@ export async function stageLearnerCsv(formData: FormData) {
   redirect(`/school/imports?batch=${batchId}`);
 }
 
+export async function stageStaffCsv(formData: FormData) {
+  const file = formData.get("file");
+  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  const membership = await requireSchoolAdmin();
+  const text = await file.text();
+  const parsedRows = parseCsv(text);
+  if (!parsedRows.length) redirect("/school/imports?error=No+staff+rows+were+found");
+
+  const today = new Date().toISOString().slice(0, 10);
+  const allowedAssignmentTypes = new Set(["staff", "teacher", "management", "support", "temporary", "other"]);
+  const staged = parsedRows.map((row, index) => {
+    const issues: { level: string; field: string; message: string }[] = [];
+    const employeeNumber = (row.employee_number || row.employee_no || row.staff_number || "").trim().toUpperCase();
+    const firstName = (row.first_name || row.first_names || "").trim();
+    const lastName = (row.last_name || row.surname || "").trim();
+    const assignmentType = (row.assignment_type || row.staff_type || "staff").trim().toLowerCase();
+    if (!employeeNumber) issues.push({ level: "error", field: "employee_number", message: "Employee number is required for deterministic staff identity." });
+    if (!firstName) issues.push({ level: "error", field: "first_name", message: "First name is required." });
+    if (!lastName) issues.push({ level: "error", field: "last_name", message: "Last name is required." });
+    if (!allowedAssignmentTypes.has(assignmentType)) issues.push({ level: "error", field: "assignment_type", message: "Assignment type must be staff, teacher, management, support, temporary or other." });
+    const normalized = {
+      employee_number: employeeNumber,
+      first_name: firstName,
+      last_name: lastName,
+      assignment_type: assignmentType,
+      position_title: (row.position_title || row.position || row.job_title || "").trim(),
+      effective_from: (row.effective_from || row.start_date || today).trim(),
+    };
+    return { row_number: index + 2, source: row, normalized, resolution: issues.some((issue) => issue.level === "error") ? "error" : "create", issues };
+  });
+
+  const supabase = await createSupabaseServerClient();
+  const digest = createHash("sha256").update(text).digest("hex");
+  const { data: batchId, error: batchError } = await supabase.rpc("create_import_batch", { p_school_id: membership.schoolId, p_import_type: "staff", p_source_file_name: file.name, p_source_file_sha256: digest });
+  if (batchError || !batchId) redirect("/school/imports?error=Staff+import+batch+could+not+be+created");
+  const { error: rowsError } = await supabase.rpc("stage_import_rows", { p_batch_id: batchId, p_rows: staged });
+  if (rowsError) redirect(`/school/imports?batch=${batchId}&error=Staff+CSV+rows+could+not+be+staged`);
+  const { error: reconcileError } = await supabase.rpc("reconcile_staff_import_batch", { p_batch_id: batchId });
+  if (reconcileError) redirect(`/school/imports?batch=${batchId}&error=Staff+rows+were+staged+but+reconciliation+could+not+finish`);
+  revalidatePath("/school/imports");
+  redirect(`/school/imports?batch=${batchId}`);
+}
+
 export async function skipMatchedImportRow(formData: FormData) {
   const rowId = String(formData.get("rowId") ?? "");
   const batchId = String(formData.get("batchId") ?? "");
@@ -80,9 +132,9 @@ export async function skipMatchedImportRow(formData: FormData) {
 export async function markLearnerImportReady(formData: FormData) {
   const batchId = String(formData.get("batchId") ?? "");
   const supabase = await createSupabaseServerClient();
-  await supabase.rpc("mark_import_batch_ready", { p_batch_id: batchId });
+  const { error } = await supabase.rpc("mark_import_batch_ready", { p_batch_id: batchId });
   revalidatePath("/school/imports");
-  redirect(`/school/imports?batch=${batchId}`);
+  redirect(`/school/imports?batch=${batchId}${error ? "&error=Batch+could+not+be+marked+ready" : ""}`);
 }
 
 export async function commitLearnerImport(formData: FormData) {
@@ -91,4 +143,12 @@ export async function commitLearnerImport(formData: FormData) {
   const { error } = await supabase.rpc("commit_learner_import_batch", { p_batch_id: batchId });
   revalidatePath("/school/imports"); revalidatePath("/learners");
   redirect(`/school/imports?batch=${batchId}${error ? "&error=Import+could+not+be+committed" : "&success=Import+completed"}`);
+}
+
+export async function commitStaffImport(formData: FormData) {
+  const batchId = String(formData.get("batchId") ?? "");
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("commit_staff_import_batch", { p_batch_id: batchId });
+  revalidatePath("/school/imports"); revalidatePath("/staff"); revalidatePath("/timetable");
+  redirect(`/school/imports?batch=${batchId}${error ? "&error=Staff+import+could+not+be+committed" : "&success=Staff+import+completed"}`);
 }
