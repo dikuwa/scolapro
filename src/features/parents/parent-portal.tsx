@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, CalendarCheck2, FileText, GraduationCap, Link2, School, Users } from "lucide-react";
+import { BadgeCheck, CalendarCheck2, FileText, GraduationCap, Link2, ReceiptText, School, Users, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { claimGuardianProfile, type ParentPortalActionState } from "@/features/parents/server/actions";
-import type { ClaimableGuardianProfile, ParentChildSummary, ParentPublishedReport } from "@/features/parents/server/portal";
+import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentPayment, ParentPublishedReport } from "@/features/parents/server/portal";
 
 const initialState: ParentPortalActionState = {};
 
@@ -20,7 +20,11 @@ function numeric(value: unknown): string {
   return typeof value === "number" ? String(value) : "0";
 }
 
-export function ParentPortal({ familyChildren, reports, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; claimable: ClaimableGuardianProfile[] }) {
+function money(currency: string, value: number): string {
+  return `${currency} ${value.toFixed(2)}`;
+}
+
+export function ParentPortal({ familyChildren, reports, invoices, payments, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; invoices: ParentInvoice[]; payments: ParentPayment[]; claimable: ClaimableGuardianProfile[] }) {
   const [state, claimAction, pending] = useActionState(claimGuardianProfile, initialState);
   const [selectedLearnerId, setSelectedLearnerId] = useState(familyChildren[0]?.learnerId ?? "");
 
@@ -31,14 +35,15 @@ export function ParentPortal({ familyChildren, reports, claimable }: { familyChi
   }, [state]);
 
   const child = familyChildren.find((item) => item.learnerId === selectedLearnerId) ?? familyChildren[0] ?? null;
-  const childReports = useMemo(
-    () => reports.filter((report) => report.learnerId === child?.learnerId),
-    [reports, child?.learnerId],
-  );
+  const childReports = useMemo(() => reports.filter((report) => report.learnerId === child?.learnerId), [reports, child?.learnerId]);
+  const childInvoices = useMemo(() => invoices.filter((invoice) => invoice.learnerId === child?.learnerId), [invoices, child?.learnerId]);
+  const childPayments = useMemo(() => payments.filter((payment) => payment.learnerId === child?.learnerId), [payments, child?.learnerId]);
   const latestReport = childReports[0] ?? null;
   const latestSnapshot = latestReport ? record(latestReport.dataSnapshot) : {};
   const attendance = record(latestSnapshot.attendance);
   const resultRows = Array.isArray(latestSnapshot.results) ? latestSnapshot.results : [];
+  const outstanding = childInvoices.reduce((sum, invoice) => sum + invoice.balanceAmount, 0);
+  const financeCurrency = childInvoices[0]?.currency ?? childPayments[0]?.currency ?? "NAD";
 
   if (!familyChildren.length) {
     return <div className="space-y-5">
@@ -70,7 +75,20 @@ export function ParentPortal({ familyChildren, reports, claimable }: { familyChi
 
         <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
           <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="scolapro-section-title">Attendance on latest report</h2><p className="scolapro-section-description">This is the attendance summary frozen into the published report snapshot.</p></div><CalendarCheck2 className="size-5 text-brand" /></div>
-          {latestReport ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3"><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Recorded days</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.recorded_school_days)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Present</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.present)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Absent</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.absent)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Late</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.late)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Excused</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.excused)}</p></div></div> : <p className="text-sm text-muted-foreground">Attendance becomes available here when the school publishes a report card.</p>}
+          {latestReport ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3"><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Expected days</p><p className="mt-1 text-lg font-semibold">{attendance.expected_school_days === null || attendance.expected_school_days === undefined ? "—" : numeric(attendance.expected_school_days)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Recorded days</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.recorded_school_days)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Present</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.present)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Absent</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.absent)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Late</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.late)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Excused</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.excused)}</p></div></div> : <p className="text-sm text-muted-foreground">Attendance becomes available here when the school publishes a report card.</p>}
+        </div>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="scolapro-section-title">School account</h2><p className="scolapro-section-description">Issued learner invoices only. Internal finance notes and unrelated learners are excluded.</p></div><WalletCards className="size-5 text-brand" /></div>
+          <div className="mb-3 rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.68rem] text-muted-foreground">Outstanding balance</p><p className="mt-1 text-lg font-semibold text-foreground">{money(financeCurrency, outstanding)}</p></div>
+          {childInvoices.length ? <div className="divide-y divide-border-subtle">{childInvoices.slice(0, 5).map((invoice) => <div key={invoice.invoiceId} className="flex items-center justify-between gap-3 py-2.5"><div><p className="text-sm font-medium">{invoice.invoiceNumber}</p><p className="text-[0.68rem] text-muted-foreground">Issued {new Date(invoice.issuedOn).toLocaleDateString()} · {invoice.status.replaceAll("_", " ")}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(invoice.currency, invoice.balanceAmount)}</p><p className="text-[0.68rem] text-muted-foreground">of {money(invoice.currency, invoice.totalAmount)}</p></div></div>)}</div> : <p className="text-sm text-muted-foreground">No issued learner invoices are available.</p>}
+        </div>
+
+        <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="scolapro-section-title">Payment history</h2><p className="scolapro-section-description">Payments recorded against this learner. Verification status remains visible.</p></div><ReceiptText className="size-5 text-brand" /></div>
+          {childPayments.length ? <div className="divide-y divide-border-subtle">{childPayments.slice(0, 6).map((payment) => <div key={payment.paymentId} className="flex items-center justify-between gap-3 py-2.5"><div><p className="text-sm font-medium">{payment.paymentReference}</p><p className="text-[0.68rem] text-muted-foreground">{new Date(payment.paidOn).toLocaleDateString()} · {payment.paymentMethod.replaceAll("_", " ")}</p></div><div className="text-right"><p className="text-sm font-semibold">{money(payment.currency, payment.amount)}</p><p className={`text-[0.68rem] ${payment.status === "verified" ? "text-[color:var(--success)]" : payment.status === "rejected" || payment.status === "reversed" ? "text-[color:var(--danger)]" : "text-muted-foreground"}`}>{payment.status}</p></div></div>)}</div> : <p className="text-sm text-muted-foreground">No learner payments are recorded yet.</p>}
         </div>
       </section>
 
