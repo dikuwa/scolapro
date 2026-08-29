@@ -10,6 +10,10 @@ function boolValue(value: string | undefined): boolean {
   return ["1", "true", "yes", "y"].includes((value ?? "").trim().toLowerCase());
 }
 
+function normalizeInitials(value: string | undefined): string {
+  return (value ?? "").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 12);
+}
+
 export async function stageGuardianCsv(formData: FormData) {
   const file = formData.get("file");
   if (!validTabularFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+Excel+file+up+to+5MB");
@@ -26,6 +30,7 @@ export async function stageGuardianCsv(formData: FormData) {
     const learnerAdmissionNumber = (row.learner_admission_number || row.admission_number || row.learner_number || "").trim().toUpperCase();
     const identityNumber = (row.identity_number || row.guardian_id_number || row.id_number || "").trim();
     const firstNames = (row.first_names || row.first_name || "").trim();
+    const initials = normalizeInitials(row.initials || row.initial || row.name_initials);
     const surname = (row.surname || row.last_name || "").trim();
     const relationshipType = (row.relationship_type || row.relationship || "guardian").trim().toLowerCase();
     const priority = Number((row.priority || "1").trim());
@@ -44,6 +49,7 @@ export async function stageGuardianCsv(formData: FormData) {
         learner_admission_number: learnerAdmissionNumber,
         identity_number: identityNumber,
         first_names: firstNames,
+        initials,
         surname,
         preferred_name: (row.preferred_name || "").trim(),
         relationship_type: relationshipType,

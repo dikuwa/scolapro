@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(12);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fa000000-0000-4000-8000-000000000001','transfer-admin@example.test','authenticated','authenticated',now(),now());
@@ -27,6 +27,18 @@ select throws_ok(
 select ok(
   not has_table_privilege('authenticated','public.transfer_events','UPDATE'),
   'authenticated clients cannot bypass the governed transfer lifecycle with direct updates'
+);
+
+select has_index(
+  'public','transfer_events','transfer_events_one_open_per_source_enrolment_uidx',
+  'only one requested or approved transfer can exist for a source enrolment'
+);
+
+select throws_ok(
+  $$insert into public.transfer_events(id,tenant_id,learner_id,source_school_id,source_enrolment_id,destination_name,initiated_by_user_id)
+    values('fa100000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','50000000-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','60000000-0000-4000-8000-000000000001','Invalid Receiving School','fa000000-0000-4000-8000-000000000001')$$,
+  'Transfer learner does not match source enrolment',
+  'invalid learner/source-enrolment provenance is rejected before approval'
 );
 
 select lives_ok(

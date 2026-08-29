@@ -15,6 +15,10 @@ async function requireSchoolAdmin() {
   return membership;
 }
 
+function normalizeInitials(value: string | undefined): string {
+  return (value ?? "").replace(/[^A-Za-z]/g, "").toUpperCase().slice(0, 12);
+}
+
 export async function stageLearnerCsv(formData: FormData) {
   const file = formData.get("file");
   if (!validTabularFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+Excel+file+up+to+5MB");
@@ -35,6 +39,7 @@ export async function stageLearnerCsv(formData: FormData) {
     const grade = gradeMap.get((row.grade_code || row.grade || "").toUpperCase());
     const registerClass = classMap.get((row.class_code || row.register_class || row.class || "").toUpperCase());
     const firstNames = formatPersonName(row.first_names || row.first_name || "");
+    const initials = normalizeInitials(row.initials || row.initial || row.name_initials);
     const surname = formatPersonName(row.surname || row.last_name || "");
     const preferredName = formatPersonName(row.preferred_name || "");
     if (!firstNames) issues.push({ level: "error", field: "first_names", message: "First names are required." });
@@ -44,6 +49,7 @@ export async function stageLearnerCsv(formData: FormData) {
     if (grade && registerClass && registerClass.grade_id !== grade.id) issues.push({ level: "error", field: "class_code", message: "Register class does not belong to the selected grade." });
     const normalized = {
       first_names: firstNames,
+      initials,
       surname,
       preferred_name: preferredName,
       date_of_birth: row.date_of_birth || row.dob || "",
@@ -83,13 +89,14 @@ export async function stageStaffCsv(formData: FormData) {
     const issues: { level: string; field: string; message: string }[] = [];
     const employeeNumber = (row.employee_number || row.employee_no || row.staff_number || "").trim().toUpperCase();
     const firstName = (row.first_name || row.first_names || "").trim();
+    const initials = normalizeInitials(row.initials || row.initial || row.name_initials);
     const lastName = (row.last_name || row.surname || "").trim();
     const assignmentType = (row.assignment_type || row.staff_type || "staff").trim().toLowerCase();
     if (!employeeNumber) issues.push({ level: "error", field: "employee_number", message: "Employee number is required for deterministic staff identity." });
     if (!firstName) issues.push({ level: "error", field: "first_name", message: "First name is required." });
     if (!lastName) issues.push({ level: "error", field: "last_name", message: "Last name is required." });
     if (!allowedAssignmentTypes.has(assignmentType)) issues.push({ level: "error", field: "assignment_type", message: "Assignment type must be staff, teacher, management, support, temporary or other." });
-    const normalized = { employee_number: employeeNumber, first_name: firstName, last_name: lastName, assignment_type: assignmentType, position_title: (row.position_title || row.position || row.job_title || "").trim(), effective_from: (row.effective_from || row.start_date || today).trim() };
+    const normalized = { employee_number: employeeNumber, first_name: firstName, initials, last_name: lastName, assignment_type: assignmentType, position_title: (row.position_title || row.position || row.job_title || "").trim(), effective_from: (row.effective_from || row.start_date || today).trim() };
     return { row_number: index + 2, source: row, normalized, resolution: issues.some((issue) => issue.level === "error") ? "error" : "create", issues };
   });
 
@@ -120,6 +127,16 @@ export async function discardImportBatch(formData: FormData) {
   const batchId = String(formData.get("batchId") ?? ""); if (!batchId) redirect("/school/imports");
   await requireSchoolAdmin(); const supabase = await createSupabaseServerClient(); const { error } = await supabase.rpc("cancel_import_batch", { p_batch_id: batchId });
   revalidatePath("/school/imports"); redirect(`/school/imports${error ? "?error=Staged+batch+could+not+be+discarded" : "?success=Staged+batch+discarded.+You+can+start+again"}`);
+}
+
+export async function archiveImportBatch(formData: FormData) {
+  const batchId = String(formData.get("batchId") ?? "");
+  if (!batchId) redirect("/school/imports");
+  await requireSchoolAdmin();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("archive_import_batch", { p_batch_id: batchId });
+  revalidatePath("/school/imports");
+  redirect(`/school/imports${error ? "?error=Import+batch+could+not+be+archived" : "?success=Import+batch+archived+from+the+recent+list"}`);
 }
 
 export async function commitLearnerImport(formData: FormData) {

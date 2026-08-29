@@ -2,15 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ReportCardActionState = { success?: boolean; message?: string };
 
+const reportManagerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const generateSchema = z.object({ enrolmentId: z.string().uuid(), termNumber: z.coerce.number().int().min(1).max(6) });
 const bulkGenerateSchema = z.object({ enrolmentIds: z.array(z.string().uuid()).min(1).max(5000), termNumber: z.coerce.number().int().min(1).max(6) });
 const renderSchema = z.object({ snapshotId: z.string().uuid(), templateKey: z.string().trim().min(1).max(120).default("TERM_REPORT"), templateVersion: z.string().trim().min(1).max(120).default("SCOLAPRO_TERM_REPORT_V1"), documentFormat: z.enum(["pdf", "html"]).default("pdf") });
 
+async function canManageReportCards() {
+  const context = await getUserContext();
+  return Boolean(context.user && context.memberships.some((membership) => reportManagerRoles.has(membership.roleKey)));
+}
+
 export async function generateReportCard(_state: ReportCardActionState, formData: FormData): Promise<ReportCardActionState> {
+  if (!(await canManageReportCards())) return { message: "Report-card generation is restricted to School Administration and school management." };
   const parsed = generateSchema.safeParse({ enrolmentId: formData.get("enrolmentId"), termNumber: formData.get("termNumber") });
   if (!parsed.success) return { message: "Choose a learner and valid term." };
   const supabase = await createSupabaseServerClient();
@@ -21,6 +29,7 @@ export async function generateReportCard(_state: ReportCardActionState, formData
 }
 
 export async function generateReportCardsBulk(_state: ReportCardActionState, formData: FormData): Promise<ReportCardActionState> {
+  if (!(await canManageReportCards())) return { message: "Bulk report-card preparation is restricted to School Administration and school management." };
   const parsed = bulkGenerateSchema.safeParse({ enrolmentIds: formData.getAll("enrolmentId"), termNumber: formData.get("termNumber") });
   if (!parsed.success) return { message: "Choose at least one learner and a valid term." };
 
@@ -41,6 +50,7 @@ export async function generateReportCardsBulk(_state: ReportCardActionState, for
 }
 
 export async function certifyReportCard(formData: FormData) {
+  if (!(await canManageReportCards())) return;
   const snapshotId = String(formData.get("snapshotId") ?? "");
   if (!z.string().uuid().safeParse(snapshotId).success) return;
   const supabase = await createSupabaseServerClient();
@@ -49,6 +59,7 @@ export async function certifyReportCard(formData: FormData) {
 }
 
 export async function publishReportCard(formData: FormData) {
+  if (!(await canManageReportCards())) return;
   const snapshotId = String(formData.get("snapshotId") ?? "");
   if (!z.string().uuid().safeParse(snapshotId).success) return;
   const supabase = await createSupabaseServerClient();
@@ -57,6 +68,7 @@ export async function publishReportCard(formData: FormData) {
 }
 
 export async function queueReportCardRender(_state: ReportCardActionState, formData: FormData): Promise<ReportCardActionState> {
+  if (!(await canManageReportCards())) return { message: "Report-card rendering and printing are restricted to School Administration and school management." };
   const parsed = renderSchema.safeParse({ snapshotId: formData.get("snapshotId"), templateKey: formData.get("templateKey") || "TERM_REPORT", templateVersion: formData.get("templateVersion") || "SCOLAPRO_TERM_REPORT_V1", documentFormat: formData.get("documentFormat") || "pdf" });
   if (!parsed.success) return { message: "The report render request is invalid." };
   const supabase = await createSupabaseServerClient();

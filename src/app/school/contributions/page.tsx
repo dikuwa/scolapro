@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ContributionSetup } from "@/features/contributions/contribution-setup";
@@ -27,7 +28,7 @@ export default async function ContributionsPage() {
       <div className="space-y-5">
         <div><h1 className="scolapro-page-title text-xl">Voluntary contributions</h1><p className="mt-1 text-sm text-muted-foreground">Configure voluntary campaigns and record parent/learner contributions such as fundraising, goods and raffle participation.</p></div>
         {setupRoles.has(membership.roleKey) ? <ContributionSetup schoolId={membership.schoolId} academicYear={academicYear} today={today} campaigns={workspace.campaigns} /> : null}
-        <ContributionWorkspace campaigns={workspace.campaigns} items={workspace.items} contributions={workspace.contributions} learners={learners} today={today} />
+        <ContributionWorkspace campaigns={workspace.campaigns} items={workspace.items} contributions={workspace.contributions} learners={learners} today={today} operationId={randomUUID()} />
       </div>
     </AppShell>
   );

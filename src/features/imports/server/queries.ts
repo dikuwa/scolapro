@@ -1,17 +1,20 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function getImportWorkspace(schoolId: string, selectedBatchId?: string) {
+export async function getImportWorkspace(schoolId: string, selectedBatchId?: string, includeArchived = false) {
   const supabase = await createSupabaseServerClient();
-  const { data: batches } = await supabase
+  let batchQuery = supabase
     .from("import_batches")
-    .select("id,import_type,source_file_name,status,total_rows,valid_rows,warning_rows,error_rows,created_at,committed_at")
+    .select("id,import_type,source_file_name,status,total_rows,valid_rows,warning_rows,error_rows,created_at,committed_at,archived_at")
     .eq("school_id", schoolId)
     .order("created_at", { ascending: false })
-    .limit(15);
+    .limit(includeArchived ? 30 : 15);
+
+  if (!includeArchived) batchQuery = batchQuery.is("archived_at", null);
+  const { data: batches } = await batchQuery;
 
   // A clean /school/imports URL is intentionally a clean workspace. Historical batches
-  // remain visible below, but the potentially very large review table opens only after
-  // the user explicitly selects a batch.
+  // remain available when history is explicitly opened, but the potentially large review
+  // table opens only after the user explicitly selects a batch.
   const selectedId = selectedBatchId && (batches ?? []).some((batch) => batch.id === selectedBatchId)
     ? selectedBatchId
     : undefined;

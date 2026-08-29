@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export type ContributionActionState = { success?: boolean; message?: string };
 
 const recordContributionSchema = z.object({
-  campaignId: z.string().uuid(), itemId: z.string().uuid(), learnerId: z.string().uuid(), quantity: z.string().optional(), amount: z.string().optional(), note: z.string().optional(), contributionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  clientOperationId: z.string().uuid(), campaignId: z.string().uuid(), itemId: z.string().uuid(), learnerId: z.string().uuid(), quantity: z.string().optional(), amount: z.string().optional(), note: z.string().optional(), contributionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 const campaignSchema = z.object({ schoolId: z.string().uuid(), academicYear: z.coerce.number().int().min(2000).max(2200), title: z.string().trim().min(2).max(160), description: z.string().trim().max(1000).optional(), startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), endsOn: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal("")]).optional() });
 const itemSchema = z.object({ campaignId: z.string().uuid(), itemType: z.enum(["goods","money","raffle","service","other"]), label: z.string().trim().min(2).max(160), description: z.string().trim().max(1000).optional(), unitLabel: z.string().trim().max(60).optional(), suggestedQuantity: z.string().optional(), suggestedAmount: z.string().optional() });
@@ -57,7 +57,7 @@ export async function publishContributionCampaign(formData: FormData) {
 }
 
 export async function recordContribution(_state: ContributionActionState, formData: FormData): Promise<ContributionActionState> {
-  const parsed = recordContributionSchema.safeParse({ campaignId: formData.get("campaignId"), itemId: formData.get("itemId"), learnerId: formData.get("learnerId"), quantity: formData.get("quantity") || undefined, amount: formData.get("amount") || undefined, note: formData.get("note") || undefined, contributionDate: formData.get("contributionDate") });
+  const parsed = recordContributionSchema.safeParse({ clientOperationId: formData.get("clientOperationId"), campaignId: formData.get("campaignId"), itemId: formData.get("itemId"), learnerId: formData.get("learnerId"), quantity: formData.get("quantity") || undefined, amount: formData.get("amount") || undefined, note: formData.get("note") || undefined, contributionDate: formData.get("contributionDate") });
   if (!parsed.success) return { message: "Please fill in all required fields correctly." };
   const context = await getUserContext();
   if (!context.user) return { message: "Authentication required." };
@@ -66,7 +66,7 @@ export async function recordContribution(_state: ContributionActionState, formDa
   const supabase = await createSupabaseServerClient();
   const quantity = parsed.data.quantity ? Number(parsed.data.quantity) : null;
   const amount = parsed.data.amount ? Number(parsed.data.amount) : null;
-  const { error } = await supabase.rpc("record_learner_voluntary_contribution", { p_item_id: parsed.data.itemId, p_learner_id: parsed.data.learnerId, p_quantity: quantity, p_amount: amount, p_note: parsed.data.note || null, p_contribution_date: parsed.data.contributionDate, p_received_by_staff_member_id: null });
+  const { error } = await supabase.rpc("record_learner_voluntary_contribution_idempotent", { p_client_operation_id: parsed.data.clientOperationId, p_item_id: parsed.data.itemId, p_learner_id: parsed.data.learnerId, p_quantity: quantity, p_amount: amount, p_note: parsed.data.note || null, p_contribution_date: parsed.data.contributionDate });
   if (error) return { message: error.message || "Could not record contribution." };
   revalidatePath("/school/contributions");
   return { success: true, message: "Contribution recorded." };

@@ -5,6 +5,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { GuardianPanel } from "@/features/guardians/guardian-panel";
 import { getLearnerGuardians, getReusableGuardians, type LearnerGuardian, type ReusableGuardian } from "@/features/guardians/server/queries";
 import { getLearnerOverview, type LearnerOverview } from "@/features/learners/server/queries";
+import { LearnerChangeRequestForm } from "@/features/profile-changes/learner-change-request-form";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
@@ -12,6 +13,8 @@ const demoLearners: Record<string, LearnerOverview> = {
   "demo-001": { id: "demo-001", name: "Amara Demo", preferredName: "Amara", firstNames: "Amara N.", surname: "Demo", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current", dateOfBirth: "2010-05-14", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
   "demo-002": { id: "demo-002", name: "Tomas Sample", preferredName: "Tomas", firstNames: "Tomas K.", surname: "Sample", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current", dateOfBirth: "2010-02-03", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
 };
+
+const correctionRequestRoles = new Set(["school_admin","principal","deputy_principal","hod","teacher","class_teacher","counsellor"]);
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
@@ -25,19 +28,21 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   let learner: LearnerOverview | null = demoLearners[id] ?? null;
   let guardians: LearnerGuardian[] = [];
   let reusableGuardians: ReusableGuardian[] = [];
+  let canRequestCorrection = false;
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
     const membership = context.memberships[0];
     learner = membership ? await getLearnerOverview(id, membership.schoolId) : null;
+    canRequestCorrection = Boolean(learner && membership && correctionRequestRoles.has(membership.roleKey));
     if (learner && membership) {
       [guardians, reusableGuardians] = await Promise.all([getLearnerGuardians(id), getReusableGuardians(id, membership.schoolId)]);
     }
   }
 
   if (!learner) notFound();
-  const initials = learner.name.split(" ").map((part) => part[0]).join("").slice(0, 2);
+  const avatarInitials = learner.name.split(" ").map((part) => part[0]).join("").slice(0, 2);
 
   return (
     <AppShell>
@@ -46,7 +51,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
 
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-md)] bg-brand-soft bg-cover bg-center text-sm font-semibold text-brand-strong shadow-[var(--shadow-xs)]" style={learner.photoUrl ? { backgroundImage: `url(${learner.photoUrl})` } : undefined}>{learner.photoUrl ? <span className="sr-only">Photo of {learner.name}</span> : initials}</span>
+            <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-md)] bg-brand-soft bg-cover bg-center text-sm font-semibold text-brand-strong shadow-[var(--shadow-xs)]" style={learner.photoUrl ? { backgroundImage: `url(${learner.photoUrl})` } : undefined}>{learner.photoUrl ? <span className="sr-only">Photo of {learner.name}</span> : avatarInitials}</span>
             <div className="min-w-0"><h1 className="scolapro-page-title truncate text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">{learner.name}</h1><p className="mt-1 text-sm text-muted-foreground">{learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}</p></div>
           </div>
           <span className="inline-flex w-fit rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 text-xs font-medium capitalize text-[color:var(--success)]">{learner.status} learner</span>
@@ -65,6 +70,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
               <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><MapPin aria-hidden="true" className="size-4" /> School</dt><dd className="mt-1.5 text-sm font-medium">{learner.schoolName}</dd></div>
               <div><dt className="text-xs font-medium text-muted-foreground">Admission number</dt><dd className="mt-1.5 text-sm font-medium">{learner.admissionNumber ?? "Not recorded"}</dd></div>
             </dl>
+            {canRequestCorrection ? <div className="border-t border-border-subtle px-4 py-4 sm:px-5"><p className="mb-2 text-xs text-muted-foreground">Notice incorrect identity information? Submit a correction for review instead of editing the official record directly.</p><LearnerChangeRequestForm learnerId={learner.id} /></div> : null}
           </section>
 
           <aside className="space-y-3">
