@@ -27,6 +27,13 @@ export type ParentPublishedReport = {
   dataSnapshot: JsonRecord;
 };
 
+export type ParentReportDocument = {
+  id: string;
+  snapshotId: string;
+  documentFormat: string;
+  generatedAt: string;
+};
+
 export type ParentInvoice = {
   invoiceId: string;
   learnerId: string;
@@ -118,6 +125,26 @@ export async function getParentPortalData() {
     }
   }
 
+  const documents: ParentReportDocument[] = [];
+  const reportIds = reports.map((report) => report.id);
+  if (reportIds.length) {
+    const { data, error } = await supabase
+      .from("report_card_documents")
+      .select("id,snapshot_id,document_format,generated_at")
+      .in("snapshot_id", reportIds)
+      .eq("status", "ready")
+      .order("generated_at", { ascending: false });
+    if (error) throw new Error("Unable to load published report documents.");
+    for (const row of data ?? []) {
+      documents.push({
+        id: row.id,
+        snapshotId: row.snapshot_id,
+        documentFormat: row.document_format,
+        generatedAt: row.generated_at,
+      });
+    }
+  }
+
   const finance = record(financeData);
   const invoices: ParentInvoice[] = (Array.isArray(finance.invoices) ? finance.invoices : []).map((value) => {
     const row = record(value);
@@ -157,5 +184,5 @@ export async function getParentPortalData() {
     displayName: row.display_name,
   }));
 
-  return { children, reports, invoices, payments, claimable };
+  return { children, reports, documents, invoices, payments, claimable };
 }
