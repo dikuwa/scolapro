@@ -1,5 +1,6 @@
 begin;
 
+-- This behavioral suite also forces Database CI to exercise the production-aligned migration ordering from a clean database.
 select plan(8);
 
 insert into auth.users (id,email,aud,role,created_at,updated_at)
