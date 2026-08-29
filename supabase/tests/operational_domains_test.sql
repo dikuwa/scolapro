@@ -1,6 +1,6 @@
 begin;
 
-select plan(94);
+select plan(100);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
@@ -63,6 +63,12 @@ select ok(to_regprocedure('public.claim_guardian_profile(uuid)') is not null,'gu
 select ok(not has_function_privilege('anon','public.claim_guardian_profile(uuid)','EXECUTE'),'anonymous users cannot claim guardian profiles');
 select ok(to_regprocedure('public.create_import_batch(uuid,text,text,text)') is not null,'import batch creation function exists');
 select ok(not has_function_privilege('anon','public.create_import_batch(uuid,text,text,text)','EXECUTE'),'anonymous users cannot create import batches');
+select ok(not has_table_privilege('authenticated','public.import_batches','INSERT'),'authenticated clients cannot insert import batches directly');
+select ok(not has_table_privilege('authenticated','public.import_batches','UPDATE'),'authenticated clients cannot update import batches directly');
+select ok(not has_table_privilege('authenticated','public.import_rows','INSERT'),'authenticated clients cannot insert import rows directly');
+select ok(not has_table_privilege('authenticated','public.import_rows','UPDATE'),'authenticated clients cannot update import rows directly');
+select ok(not has_table_privilege('authenticated','public.import_rows','DELETE'),'authenticated clients cannot delete import rows directly');
+select ok(not has_table_privilege('authenticated','public.import_commit_results','INSERT'),'authenticated clients cannot forge import commit results');
 select ok(to_regprocedure('public.reconcile_learner_import_batch(uuid)') is not null,'deterministic learner import reconciliation exists');
 select ok(not has_function_privilege('anon','public.reconcile_learner_import_batch(uuid)','EXECUTE'),'anonymous users cannot reconcile learner imports');
 select ok(to_regprocedure('public.commit_learner_import_batch(uuid)') is not null,'atomic learner import commit function exists');
