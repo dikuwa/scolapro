@@ -32,6 +32,17 @@ function authorizedScheduler(request: Request): boolean {
 
 async function runRenderWorker() {
   const supabase = createSupabaseAdminClient();
+
+  const { data: recovered, error: recoveryError } = await supabase.rpc("recover_stale_report_card_render_jobs", {
+    p_stale_after_seconds: 900,
+    p_retry_after_seconds: 300,
+    p_max_attempts: 5,
+  });
+  if (recoveryError) {
+    console.error("report-card-render recovery failed", recoveryError.message);
+    return NextResponse.json({ error: "Unable to recover stale render jobs" }, { status: 500 });
+  }
+
   const { data: claimed, error: claimError } = await supabase.rpc("claim_report_card_render_jobs", {
     p_limit: 10,
     p_document_format: "html",
@@ -99,7 +110,7 @@ async function runRenderWorker() {
     }
   }
 
-  return NextResponse.json({ claimed: jobs.length, completed, failed });
+  return NextResponse.json({ recovered: Number(recovered ?? 0), claimed: jobs.length, completed, failed });
 }
 
 export async function POST(request: Request) {
