@@ -16,6 +16,7 @@ values('f7300000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111
 
 select set_config('request.jwt.claim.sub','f7000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
+set local role authenticated;
 
 select is(
   jsonb_array_length(public.get_parent_family_overview()->'children'),
@@ -34,9 +35,11 @@ select ok(
   'unlinked learner is not exposed through parent family overview'
 );
 
+reset role;
 update public.learner_guardians
 set effective_to=current_date-1
 where id='f7200000-0000-4000-8000-000000000001';
+set local role authenticated;
 
 select is(
   jsonb_array_length(public.get_parent_family_overview()->'children'),
@@ -44,10 +47,12 @@ select is(
   'ended guardian relationship immediately removes learner from parent family overview'
 );
 
-select ok(
-  not has_table_privilege('authenticated','public.learners','UPDATE'),
-  'parent/authenticated clients are not granted learner mutation privileges by the parent portal read model'
+select results_eq(
+  $$update public.learners set preferred_name='RLS BREACH' where id='50000000-0000-4000-8000-000000000001' returning id$$,
+  ARRAY[]::uuid[],
+  'parent account cannot mutate learner identity even though authenticated has table UPDATE privilege for staff workflows'
 );
 
+reset role;
 select * from finish();
 rollback;
