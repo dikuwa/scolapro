@@ -12,14 +12,11 @@ set search_path=public,storage,app_private
 as $$
   select case
     when array_length(storage.foldername(p_name),1) < 3 then false
-    when (storage.foldername(p_name))[1] !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then false
-    when (storage.foldername(p_name))[2] !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then false
-    when (storage.foldername(p_name))[3] !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then false
     else exists(
       select 1
       from public.guardian_absence_notices n
-      where n.id=((storage.foldername(p_name))[3])::uuid
-        and n.school_id=((storage.foldername(p_name))[1])::uuid
+      where n.id::text=(storage.foldername(p_name))[3]
+        and n.school_id::text=(storage.foldername(p_name))[1]
         and (
           n.submitted_by_user_id=(select auth.uid())
           or app_private.can_view_operational_learners(n.school_id)
@@ -40,7 +37,8 @@ with check (
   and app_private.can_access_guardian_absence_object(name)
   and exists(
     select 1 from public.guardian_absence_notices n
-    where n.id=((storage.foldername(name))[3])::uuid
+    where n.id::text=(storage.foldername(name))[3]
+      and n.school_id::text=(storage.foldername(name))[1]
       and n.submitted_by_user_id=(select auth.uid())
       and n.status in ('submitted','returned')
   )
@@ -65,8 +63,8 @@ using (
   and (storage.foldername(name))[2]=(select auth.uid())::text
   and exists(
     select 1 from public.guardian_absence_notices n
-    where n.id=((storage.foldername(name))[3])::uuid
-      and n.school_id=((storage.foldername(name))[1])::uuid
+    where n.id::text=(storage.foldername(name))[3]
+      and n.school_id::text=(storage.foldername(name))[1]
       and n.submitted_by_user_id=(select auth.uid())
       and n.status in ('submitted','returned')
   )
