@@ -18,11 +18,6 @@ values (
 select set_config('request.jwt.claim.sub','f1000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 
-insert into public.school_learner_identifiers(id,tenant_id,school_id,learner_id,admission_number,source,assigned_by_user_id)
-values
-  ('f2000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001','TST-GUARD-001','manual','f1000000-0000-4000-8000-000000000001'),
-  ('f2000000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000002','TST-GUARD-002','manual','f1000000-0000-4000-8000-000000000001');
-
 insert into public.guardian_profiles(id,tenant_id,first_names,surname,identity_number)
 values ('f3000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Existing','Guardian','G-ID-001');
 
@@ -31,9 +26,9 @@ values ('f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-11111111
 
 insert into public.import_rows(id,batch_id,tenant_id,school_id,row_number,source_data,normalized_data,resolution,issues)
 values
-  ('f5000000-0000-4000-8000-000000000001','f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2,'{}',jsonb_build_object('learner_admission_number','TST-GUARD-001','identity_number','G-ID-001','first_names','Existing','surname','Guardian','relationship_type','guardian','priority',1),'review','[]'),
-  ('f5000000-0000-4000-8000-000000000002','f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',3,'{}',jsonb_build_object('learner_admission_number','TST-GUARD-002','identity_number','G-ID-001','first_names','Different','surname','Person','relationship_type','guardian','priority',1),'review','[]'),
-  ('f5000000-0000-4000-8000-000000000003','f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',4,'{}',jsonb_build_object('learner_admission_number','TST-GUARD-001','identity_number','G-ID-002','first_names','Existing','surname','Guardian','relationship_type','aunt','priority',2),'review','[]'),
+  ('f5000000-0000-4000-8000-000000000001','f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2,'{}',jsonb_build_object('learner_admission_number','DEMO-001','identity_number','G-ID-001','first_names','Existing','surname','Guardian','relationship_type','guardian','priority',1),'review','[]'),
+  ('f5000000-0000-4000-8000-000000000002','f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',3,'{}',jsonb_build_object('learner_admission_number','DEMO-002','identity_number','G-ID-001','first_names','Different','surname','Person','relationship_type','guardian','priority',1),'review','[]'),
+  ('f5000000-0000-4000-8000-000000000003','f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',4,'{}',jsonb_build_object('learner_admission_number','DEMO-001','identity_number','G-ID-002','first_names','Existing','surname','Guardian','relationship_type','aunt','priority',2),'review','[]'),
   ('f5000000-0000-4000-8000-000000000004','f4000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',5,'{}',jsonb_build_object('learner_admission_number','NO-SUCH-LEARNER','identity_number','G-ID-003','first_names','Missing','surname','Learner','relationship_type','guardian','priority',1),'review','[]');
 
 select public.reconcile_guardian_import_batch('f4000000-0000-4000-8000-000000000001');
