@@ -1,0 +1,74 @@
+name: Align migration filenames
+
+on:
+  push:
+    paths:
+      - .github/workflows/align-migration-filenames.yml
+
+permissions:
+  contents: write
+
+jobs:
+  align:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Align source migration versions to production history
+        shell: bash
+        run: |
+          set -euo pipefail
+          pairs=(
+            "20260828152000_guardian_context_rpc.sql:20260828130037_guardian_context_rpc.sql"
+            "20260828220000_detention_sessions_report_documents.sql:20260828220440_detention_sessions_report_documents.sql"
+            "20260828221500_rls_policy_performance_hardening.sql:20260828220611_rls_policy_performance_hardening.sql"
+            "20260828223000_recent_domain_fk_indexes.sql:20260828220647_recent_domain_fk_indexes.sql"
+            "20260828224500_split_manage_rls_policies.sql:20260828220856_split_manage_rls_policies.sql"
+            "20260828230000_report_card_render_outbox.sql:20260828220944_report_card_render_outbox.sql"
+            "20260828231500_complete_foreign_key_indexes.sql:20260828221056_complete_foreign_key_indexes.sql"
+            "20260828233000_report_card_snapshot_select_policy.sql:20260828221216_report_card_snapshot_select_policy.sql"
+            "20260828234500_detention_supervisor_duty.sql:20260828221348_detention_supervisor_duty.sql"
+            "20260829000000_communication_provider_routing_attempts.sql:20260828221557_communication_provider_routing_attempts.sql"
+            "20260829001500_statutory_mapping_compiler.sql:20260828221746_statutory_mapping_compiler.sql"
+            "20260829003000_latest_domain_fk_indexes.sql:20260828221829_latest_domain_fk_indexes.sql"
+            "20260829004500_report_card_artifact_storage.sql:20260828222244_report_card_artifact_storage.sql"
+            "20260829010000_report_card_render_format_claim.sql:20260828222651_report_card_render_format_claim.sql"
+            "20260829011500_report_card_term_attendance_semantics.sql:20260828234328_report_card_term_attendance_semantics.sql"
+            "20260829013000_background_job_recovery.sql:20260828234534_background_job_recovery.sql"
+            "20260829014500_remove_duplicate_render_indexes.sql:20260828234727_remove_duplicate_render_indexes.sql"
+            "20260829020000_background_job_recovery_consistency.sql:20260828235358_background_job_recovery_consistency.sql"
+            "20260829021500_provider_route_secret_guard.sql:20260828235434_provider_route_secret_guard.sql"
+            "20260829023000_parent_finance_overview.sql:20260828235833_parent_finance_overview.sql"
+            "20260829024500_finance_internal_helper_execution.sql:20260829012903_finance_internal_helper_execution.sql"
+            "20260829030000_parent_message_overview.sql:20260829013010_parent_message_overview.sql"
+            "20260829031500_staff_school_assignments.sql:20260829013324_staff_school_assignments.sql"
+            "20260829033000_staff_import_reconciliation.sql:20260829013445_staff_import_reconciliation.sql"
+            "20260829034500_staff_assignment_integrity.sql:20260829013649_staff_assignment_integrity.sql"
+            "20260829040000_staff_assignment_governed_mutations.sql:20260829013824_staff_assignment_governed_mutations.sql"
+            "20260829041500_invitation_staff_assignment_alignment.sql:20260829014200_invitation_staff_assignment_alignment.sql"
+            "20260829043000_staff_identity_account_uniqueness.sql:20260829014222_staff_identity_account_uniqueness.sql"
+            "20260829044500_staff_import_duplicate_review.sql:20260829014248_staff_import_duplicate_review.sql"
+            "20260829050000_staff_import_duplicate_reconciliation.sql:20260829014331_staff_import_duplicate_reconciliation.sql"
+            "20260829051500_teacher_allocation_staff_assignment_scope.sql:20260829014545_teacher_allocation_staff_assignment_scope.sql"
+            "20260829053000_academic_structure_import.sql:20260829014654_academic_structure_import.sql"
+          )
+          for pair in "${pairs[@]}"; do
+            old="${pair%%:*}"
+            new="${pair##*:}"
+            old_path="supabase/migrations/$old"
+            new_path="supabase/migrations/$new"
+            test -f "$old_path" || { echo "Missing source migration: $old_path"; exit 1; }
+            test ! -e "$new_path" || { echo "Target already exists: $new_path"; exit 1; }
+            git mv "$old_path" "$new_path"
+          done
+          git status --short
+      - name: Commit aligned filenames
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "ScolaPro CI"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/migrations
+          git commit -m "Align source migration versions with production"
+          git push origin HEAD:main
