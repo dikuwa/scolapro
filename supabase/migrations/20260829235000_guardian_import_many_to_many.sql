@@ -75,10 +75,10 @@ begin
     v_guardian_id := public.upsert_guardian_relationship(
       v_learner_id,
       v_guardian_id,
-      nullif(btrim(v_row.normalized_data->>'first_names'),''),
-      nullif(btrim(v_row.normalized_data->>'surname'),''),
-      nullif(btrim(v_row.normalized_data->>'preferred_name'),''),
-      nullif(btrim(v_row.normalized_data->>'identity_number'),''),
+      case when v_existing then null else nullif(btrim(v_row.normalized_data->>'first_names'),'') end,
+      case when v_existing then null else nullif(btrim(v_row.normalized_data->>'surname'),'') end,
+      case when v_existing then null else nullif(btrim(v_row.normalized_data->>'preferred_name'),'') end,
+      case when v_existing then null else nullif(btrim(v_row.normalized_data->>'identity_number'),'') end,
       coalesce(nullif(lower(btrim(v_row.normalized_data->>'relationship_type')),''),'guardian'),
       coalesce((v_row.normalized_data->>'is_legal_guardian')::boolean,false),
       coalesce((v_row.normalized_data->>'is_emergency_contact')::boolean,false),
@@ -112,4 +112,4 @@ revoke all on function public.commit_guardian_import_batch(uuid) from public,ano
 grant execute on function public.commit_guardian_import_batch(uuid) to authenticated;
 
 comment on function public.commit_guardian_import_batch(uuid) is
-'Commits guardian-to-learner relationships with tenant identity re-resolution on every row, supporting many guardians per learner and one guardian across multiple learners in the same batch.';
+'Commits guardian-to-learner relationships with tenant identity re-resolution on every row, supporting many guardians per learner and one guardian across multiple learners in the same batch without overwriting confirmed existing identity fields.';
