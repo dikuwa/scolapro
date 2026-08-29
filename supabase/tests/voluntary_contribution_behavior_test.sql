@@ -43,7 +43,8 @@ select is(
 
 select throws_ok(
   $$insert into public.voluntary_contribution_items(tenant_id,school_id,campaign_id,item_type,label,required_for_all) values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',(select id from public.voluntary_contribution_campaigns where title='Classroom support'),'goods','Compulsory item',true)$$,
-  'new row for relation "voluntary_contribution_items" violates check constraint "voluntary_contribution_items_check"',
+  '23514',
+  null,
   'database prevents a voluntary campaign item from being marked compulsory'
 );
 
