@@ -1,12 +1,12 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { BadgeCheck, CalendarCheck2, ExternalLink, FileText, GraduationCap, Link2, ReceiptText, School, Users, WalletCards } from "lucide-react";
+import { BadgeCheck, CalendarCheck2, ExternalLink, FileText, GraduationCap, Link2, Mail, ReceiptText, School, ShieldCheck, Users, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { claimGuardianProfile, type ParentPortalActionState } from "@/features/parents/server/actions";
-import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
+import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentMessage, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
 
 const initialState: ParentPortalActionState = {};
 
@@ -24,7 +24,23 @@ function money(currency: string, value: number): string {
   return `${currency} ${value.toFixed(2)}`;
 }
 
-export function ParentPortal({ familyChildren, reports, documents, invoices, payments, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; claimable: ClaimableGuardianProfile[] }) {
+function ParentMessages({ messages }: { messages: ParentMessage[] }) {
+  return <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+    <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-4 sm:px-5">
+      <div><h2 className="scolapro-section-title">Messages</h2><p className="scolapro-section-description">Only communications explicitly delivered to this signed-in account appear here. ScolaPro does not infer access from class or school-wide audiences.</p></div>
+      <Mail className="size-5 shrink-0 text-brand" />
+    </div>
+    {messages.length ? <div className="divide-y divide-border-subtle">{messages.map((message) => <article key={message.recipientId} className="px-4 py-4 sm:px-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-semibold text-foreground">{message.subject ?? "School message"}</p>{message.sensitive ? <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 text-[0.64rem] font-medium text-[color:var(--warning)]"><ShieldCheck className="size-3" />Private</span> : null}</div><p className="mt-1 text-xs text-muted-foreground">{message.schoolName} · {message.channel.toUpperCase()}</p></div>
+        <time className="shrink-0 text-[0.68rem] text-muted-foreground">{message.deliveredAt || message.sentAt ? new Date(message.deliveredAt ?? message.sentAt ?? "").toLocaleString() : "Delivered"}</time>
+      </div>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">{message.body}</p>
+    </article>)}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No directly delivered school messages yet.</div>}
+  </section>;
+}
+
+export function ParentPortal({ familyChildren, reports, documents, invoices, payments, messages, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; messages: ParentMessage[]; claimable: ClaimableGuardianProfile[] }) {
   const [state, claimAction, pending] = useActionState(claimGuardianProfile, initialState);
   const [selectedLearnerId, setSelectedLearnerId] = useState(familyChildren[0]?.learnerId ?? "");
 
@@ -59,6 +75,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
         <div className="flex items-start gap-3"><span className="scolapro-tone-brand grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Link2 className="size-4" /></span><div><h2 className="scolapro-section-title">Connect your guardian profile</h2><p className="scolapro-section-description">ScolaPro only offers profiles whose active guardian email exactly matches the email on your signed-in account.</p></div></div>
         {claimable.length ? <div className="mt-4 space-y-2">{claimable.map((profile) => <form key={profile.guardianId} action={claimAction} className="flex flex-col gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:flex-row sm:items-center sm:justify-between"><input type="hidden" name="guardianId" value={profile.guardianId} /><div><p className="text-sm font-semibold text-foreground">{profile.displayName}</p><p className="mt-0.5 text-xs text-muted-foreground">Verified exact-email guardian match</p></div><button disabled={pending} type="submit" className="scolapro-cta inline-flex min-h-9 items-center justify-center gap-2 bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60">{pending ? <Spinner className="size-3.5 text-white" /> : <BadgeCheck className="size-3.5" />}Link profile</button></form>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted p-4 text-sm text-muted-foreground">No guardian profile currently matches this account email. Ask the school to confirm the guardian email recorded on the learner profile.</div>}
       </section>
+      <ParentMessages messages={messages} />
     </div>;
   }
 
@@ -105,5 +122,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
         {childReports.length ? <div className="divide-y divide-border-subtle">{childReports.map((report) => { const document=documentsBySnapshot.get(report.id); return <div key={report.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"><div><p className="text-sm font-semibold">Term {report.termNumber} · Version {report.snapshotVersion}</p><p className="mt-0.5 text-xs text-muted-foreground">Published {report.publishedAt ? new Date(report.publishedAt).toLocaleDateString() : "by school"}</p></div>{document ? <a href={`/api/report-card-documents/${document.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-brand"><FileText className="size-3.5" />Open digital report<ExternalLink className="size-3" /></a> : <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[color:var(--success)]"><BadgeCheck className="size-3.5" />Official published snapshot</span>}</div>; })}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No published reports yet.</div>}
       </section>
     </> : null}
+
+    <ParentMessages messages={messages} />
   </div>;
 }
