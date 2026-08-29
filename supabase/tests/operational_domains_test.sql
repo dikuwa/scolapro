@@ -1,6 +1,6 @@
 begin;
 
-select plan(93);
+select plan(94);
 
 select has_table('public','conduct_events','conduct events exist');
 select has_table('public','learner_support_cases','learner support cases exist');
@@ -51,6 +51,7 @@ select ok(to_regprocedure('public.refresh_examination_readiness(uuid)') is not n
 select ok(not has_function_privilege('anon','public.refresh_examination_readiness(uuid)','EXECUTE'),'anonymous users cannot refresh DNEA readiness');
 select ok(to_regprocedure('public.allocate_finance_payment(uuid,uuid,numeric)') is not null,'finance payment allocation function exists');
 select ok(not has_function_privilege('anon','public.allocate_finance_payment(uuid,uuid,numeric)','EXECUTE'),'anonymous users cannot allocate payments');
+select ok(not has_function_privilege('authenticated','public.recalculate_finance_invoice(uuid)','EXECUTE'),'authenticated clients cannot invoke internal finance recalculation directly');
 select ok(to_regprocedure('public.set_tenant_feature(uuid,text,boolean,jsonb,date)') is not null,'tenant feature function exists');
 select ok(not has_function_privilege('anon','public.set_tenant_feature(uuid,text,boolean,jsonb,date)','EXECUTE'),'anonymous users cannot change tenant features');
 select ok(to_regprocedure('public.set_school_setting(uuid,text,jsonb)') is not null,'school setting function exists');
