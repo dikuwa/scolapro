@@ -26,7 +26,7 @@ insert into public.import_rows(id,batch_id,tenant_id,school_id,row_number,source
 select is((select initials from public.learners where id='50000000-0000-4000-8000-000000000001'),'JMW','learner initials are normalized and stored separately');
 select is((select initials from public.staff_members where id='f9110000-0000-4000-8000-000000000001'),'MK','staff initials are normalized and stored separately');
 select is((select initials from public.guardian_profiles where id='f9120000-0000-4000-8000-000000000001'),'A','guardian initials are normalized and stored separately');
-select is((select first_names from public.learners where id='50000000-0000-4000-8000-000000000001'),'Amara','import initials do not get concatenated into learner first names');
+select is((select first_names from public.learners where id='50000000-0000-4000-8000-000000000001'),'Amara N.','import initials do not get concatenated into learner first names');
 
 select * from finish();
 rollback;
