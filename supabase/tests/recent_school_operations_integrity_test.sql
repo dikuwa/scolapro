@@ -1,6 +1,6 @@
 begin;
 
-select plan(42);
+select plan(44);
 
 -- DNEA candidate-number governance.
 select has_table('public','examination_candidate_number_history','candidate-number history exists');
@@ -11,6 +11,8 @@ select ok(has_function_privilege('authenticated','public.assign_examination_cand
 select ok(not has_table_privilege('authenticated','public.examination_candidate_number_history','INSERT'),'authenticated users cannot forge candidate-number history');
 select ok(not has_table_privilege('authenticated','public.examination_candidate_number_history','UPDATE'),'authenticated users cannot rewrite candidate-number history');
 select ok(not has_table_privilege('authenticated','public.examination_candidate_number_history','DELETE'),'authenticated users cannot delete candidate-number history');
+select ok(not has_column_privilege('authenticated','public.examination_candidates','candidate_number','INSERT'),'authenticated users cannot inject candidate numbers during direct candidate creation');
+select ok(not has_column_privilege('authenticated','public.examination_candidates','centre_number','INSERT'),'authenticated users cannot inject centre numbers during direct candidate creation');
 select ok(not has_column_privilege('authenticated','public.examination_candidates','candidate_number','UPDATE'),'authenticated users cannot bypass candidate-number assignment history');
 select ok(not has_column_privilege('authenticated','public.examination_candidates','centre_number','UPDATE'),'authenticated users cannot bypass centre-number assignment history');
 select ok(has_column_privilege('authenticated','public.examination_candidates','registration_status','UPDATE'),'ordinary examination registration status remains editable through RLS');
