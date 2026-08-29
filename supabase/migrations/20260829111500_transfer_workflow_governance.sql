@@ -2,6 +2,9 @@
 -- Source managers may create requested transfers, but status/provenance changes are
 -- governed RPC transitions rather than ordinary row updates.
 
+alter table public.transfer_events
+  add column if not exists decision_note text;
+
 revoke update, delete on table public.transfer_events from authenticated;
 
 create or replace function public.approve_learner_transfer(
@@ -216,6 +219,8 @@ grant execute on function public.cancel_learner_transfer(uuid,text) to authentic
 revoke all on function public.complete_learner_transfer(uuid) from public,anon;
 grant execute on function public.complete_learner_transfer(uuid) to authenticated;
 
+comment on column public.transfer_events.decision_note is
+'Approval/cancellation rationale kept separate from the original transfer request reason.';
 comment on function public.approve_learner_transfer(uuid,date,text) is
 'Governed requested-to-approved transfer transition. Approval never closes the source enrolment.';
 comment on function public.complete_learner_transfer(uuid) is
