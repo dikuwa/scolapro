@@ -66,7 +66,7 @@ export async function recordContribution(_state: ContributionActionState, formDa
   const supabase = await createSupabaseServerClient();
   const quantity = parsed.data.quantity ? Number(parsed.data.quantity) : null;
   const amount = parsed.data.amount ? Number(parsed.data.amount) : null;
-  const { error } = await supabase.rpc("record_learner_voluntary_contribution", { p_campaign_id: parsed.data.campaignId, p_item_id: parsed.data.itemId, p_learner_id: parsed.data.learnerId, p_quantity: quantity, p_amount: amount, p_note: parsed.data.note || null, p_contribution_date: parsed.data.contributionDate });
+  const { error } = await supabase.rpc("record_learner_voluntary_contribution", { p_item_id: parsed.data.itemId, p_learner_id: parsed.data.learnerId, p_quantity: quantity, p_amount: amount, p_note: parsed.data.note || null, p_contribution_date: parsed.data.contributionDate, p_received_by_staff_member_id: null });
   if (error) return { message: error.message || "Could not record contribution." };
   revalidatePath("/school/contributions");
   return { success: true, message: "Contribution recorded." };
