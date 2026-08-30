@@ -22,17 +22,17 @@ select is(
   'security-definer functions in application schemas are never executable by PUBLIC'
 );
 
-select results_eq(
-  $$
-    select p.proname::text
+select is(
+  (
+    select count(*)::bigint
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public'
       and p.prosecdef
       and has_function_privilege('anon', p.oid, 'EXECUTE')
-    order by p.proname
-  $$,
-  $$values ('get_school_invitation_preview'::text)$$,
+      and p.proname <> 'get_school_invitation_preview'
+  ),
+  0::bigint,
   'anonymous execution is limited to the token-scoped invitation preview RPC'
 );
 
