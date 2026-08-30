@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { Check, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -90,19 +90,26 @@ export function SearchableSelect({
     return () => document.removeEventListener("pointerdown", close);
   }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
+  function openMenu() {
+    if (disabled) return;
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const selectedIndex = options.findIndex((option) => option.value === value);
     setQuery("");
-    setActiveIndex(Math.max(0, filtered.findIndex((option) => option.value === value)));
+    setActiveIndex(Math.max(0, selectedIndex));
+    setScrollTop(0);
+    setOpen(true);
     requestAnimationFrame(() => inputRef.current?.focus());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }
 
-  useEffect(() => {
+  function updateQuery(next: string) {
+    setQuery(next);
     setActiveIndex(0);
     setScrollTop(0);
     if (listRef.current) listRef.current.scrollTop = 0;
-  }, [query]);
+  }
 
   function choose(option: SearchableSelectOption) {
     onChange(option.value);
@@ -110,7 +117,7 @@ export function SearchableSelect({
     setQuery("");
   }
 
-  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+  function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
       setOpen(false);
@@ -144,22 +151,22 @@ export function SearchableSelect({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={openMenu}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ariaLabel || label || placeholder}
         className="scolapro-control-surface flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] px-3 text-left text-sm outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55"
       >
         <span className={cn("min-w-0 truncate", selected ? "text-foreground" : "text-muted-foreground")}>{selected?.label ?? placeholder}</span>
-        {selected && !disabled ? <span onClick={(event) => { event.stopPropagation(); onChange(""); }} role="button" tabIndex={-1} aria-label="Clear selection" className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted hover:text-foreground"><X className="size-3.5" /></span> : <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
 
       {open ? (
         <div className="absolute inset-x-0 top-full z-[90] mt-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)]">
           <label className="scolapro-control-surface flex min-h-9 items-center gap-2 rounded-[var(--radius-xs)] px-2.5">
             <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <input ref={inputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} placeholder={searchPlaceholder} autoComplete="off" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
-            {query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-6 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-3" /></button> : null}
+            <input ref={inputRef} value={query} onChange={(event) => updateQuery(event.target.value)} onKeyDown={onKeyDown} placeholder={searchPlaceholder} autoComplete="off" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
+            {query ? <button type="button" onClick={() => updateQuery("")} aria-label="Clear search" className="grid size-6 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-3" /></button> : null}
           </label>
 
           {filtered.length ? (
