@@ -49,8 +49,8 @@ export async function stageGuardianCsv(formData: FormData) {
     if (!surname) issues.push({ level: "error", field: "surname", message: "Guardian surname is required." });
     if (!relationshipType) issues.push({ level: "error", field: "relationship_type", message: "Relationship type is required." });
     if (!Number.isInteger(priority) || priority < 1 || priority > 20) issues.push({ level: "error", field: "priority", message: "Priority must be between 1 and 20." });
-    if (!hasMatchingEvidence) issues.push({ level: "error", field: "contact", message: "Provide an identity number or at least one contact value so the import can detect existing guardians safely." });
-    if (!identityNumber && hasMatchingEvidence) issues.push({ level: "warning", field: "identity_number", message: "No identity number supplied. Existing-guardian matching will use exact name plus contact evidence and ambiguous matches require review." });
+    if (!hasMatchingEvidence) issues.push({ level: "warning", field: "contact", message: "No identity number or contact evidence was supplied. Reconciliation may still reuse an exact guardian already linked to this learner; otherwise the row will be blocked." });
+    if (!identityNumber && hasMatchingEvidence) issues.push({ level: "warning", field: "identity_number", message: "No identity number supplied. Reconciliation first checks the learner's existing exact-name guardian links, then contact evidence; ambiguous matches require review." });
 
     return {
       row_number: index + 2,
