@@ -36,10 +36,35 @@ export async function recordLateArrival(_state: LateArrivalActionState, formData
 
 export async function resolveDetention(formData: FormData) {
   const id = String(formData.get("obligationId") ?? "");
-  const status = String(formData.get("status") ?? "");
-  const note = String(formData.get("note") ?? "");
-  if (!z.string().uuid().safeParse(id).success || !["completed", "waived"].includes(status)) return;
+  if (!z.string().uuid().safeParse(id).success) return;
   const supabase = await createSupabaseServerClient();
-  await supabase.rpc("resolve_late_detention", { p_obligation_id: id, p_status: status, p_note: note || null });
+  await supabase.rpc("resolve_late_detention", { p_obligation_id: id, p_status: "completed", p_note: null });
+  revalidatePath("/late-arrivals");
+  revalidatePath("/late-arrivals/history");
+}
+
+export async function reassignDetentionSupervisor(formData: FormData) {
+  const obligationId = String(formData.get("obligationId") ?? "");
+  const staffMemberId = String(formData.get("staffMemberId") ?? "");
+  if (!z.string().uuid().safeParse(obligationId).success || !z.string().uuid().safeParse(staffMemberId).success) return;
+  const supabase = await createSupabaseServerClient();
+  await supabase.rpc("reassign_late_detention_supervisor", {
+    p_obligation_id: obligationId,
+    p_staff_member_id: staffMemberId,
+  });
+  revalidatePath("/late-arrivals");
+}
+
+export async function setDetentionSupervisionEligibility(formData: FormData) {
+  const schoolId = String(formData.get("schoolId") ?? "");
+  const staffMemberId = String(formData.get("staffMemberId") ?? "");
+  const eligible = String(formData.get("eligible") ?? "") === "true";
+  if (!z.string().uuid().safeParse(schoolId).success || !z.string().uuid().safeParse(staffMemberId).success) return;
+  const supabase = await createSupabaseServerClient();
+  await supabase.rpc("set_detention_supervision_eligibility", {
+    p_school_id: schoolId,
+    p_staff_member_id: staffMemberId,
+    p_eligible: eligible,
+  });
   revalidatePath("/late-arrivals");
 }
