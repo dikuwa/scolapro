@@ -37,8 +37,7 @@ function LearnerDetail({ learner }: { learner: GuardianDirectoryLearner }) {
   );
 }
 
-function GuardianRow({ guardian }: { guardian: GuardianDirectoryRow }) {
-  const [expanded, setExpanded] = useState(false);
+function GuardianRow({ guardian, expanded, onToggle }: { guardian: GuardianDirectoryRow; expanded: boolean; onToggle: () => void }) {
   const phoneContact = guardian.contacts.find((contact) => contact.type === "mobile" || contact.type === "phone");
   const emailContact = guardian.contacts.find((contact) => contact.type === "email");
   const collapsedLearnerPreview = learnerPreview(guardian.learners);
@@ -48,7 +47,7 @@ function GuardianRow({ guardian }: { guardian: GuardianDirectoryRow }) {
     <div className="border-b border-border-subtle last:border-b-0">
       <button
         type="button"
-        onClick={() => setExpanded((current) => !current)}
+        onClick={onToggle}
         className="flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left transition duration-[var(--motion-fast)] hover:bg-surface-muted/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5"
         aria-expanded={expanded}
         aria-controls={`guardian-details-${guardian.guardianId}`}
@@ -119,6 +118,7 @@ function GuardianRow({ guardian }: { guardian: GuardianDirectoryRow }) {
 export function GuardianDirectory({ guardians }: { guardians: GuardianDirectoryRow[] }) {
   const [query, setQuery] = useState("");
   const [learnerQuery, setLearnerQuery] = useState("");
+  const [expandedGuardianId, setExpandedGuardianId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const needle = normalized(query);
@@ -154,7 +154,7 @@ export function GuardianDirectory({ guardians }: { guardians: GuardianDirectoryR
           <span className="text-xs text-muted-foreground">{filtered.length} shown</span>
         </div>
 
-        {filtered.length ? <div>{filtered.map((guardian) => <GuardianRow key={guardian.guardianId} guardian={guardian} />)}</div> : (
+        {filtered.length ? <div>{filtered.map((guardian) => <GuardianRow key={guardian.guardianId} guardian={guardian} expanded={expandedGuardianId === guardian.guardianId} onToggle={() => setExpandedGuardianId((current) => current === guardian.guardianId ? null : guardian.guardianId)} />)}</div> : (
           <div className="px-5 py-12 text-center">
             <span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><Users aria-hidden="true" className="size-5" /></span>
             <h3 className="mt-3 text-sm font-semibold">No guardians match these filters</h3>
