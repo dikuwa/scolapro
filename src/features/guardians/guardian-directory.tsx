@@ -49,7 +49,7 @@ function GuardianRow({ guardian }: { guardian: GuardianDirectoryRow }) {
         <ChevronRight aria-hidden="true" className={`size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] ${expanded ? "rotate-90 text-brand-strong" : ""}`} />
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <span className="scolapro-record-title shrink-0">{guardian.name}</span>
-          {!expanded && linkedLearnerNames ? <span className="min-w-0 truncate text-[0.64rem] font-normal text-muted-foreground" title={linkedLearnerNames}>· {linkedLearnerNames}</span> : null}
+          {!expanded && linkedLearnerNames ? <span className="min-w-0 truncate text-[0.64rem] font-normal text-muted-foreground">· {linkedLearnerNames}</span> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {guardian.learners.length > 1 ? <span className="hidden rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.62rem] font-medium text-brand-strong sm:inline">{guardian.learners.length} learners</span> : null}
