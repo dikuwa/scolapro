@@ -72,8 +72,8 @@ select set_config('request.jwt.claim.role','authenticated',true);
 
 create temporary table report_attendance_snapshot_ids(term_number smallint primary key,snapshot_id uuid) on commit drop;
 insert into report_attendance_snapshot_ids values
-  (1,public.build_report_card_snapshot('60000000-0000-4000-8000-000000000001',1,'TEST_ATTENDANCE')),
-  (3,public.build_report_card_snapshot('60000000-0000-4000-8000-000000000001',3,'TEST_ATTENDANCE'));
+  (1,public.build_report_card_snapshot('60000000-0000-4000-8000-000000000001',1::smallint,'TEST_ATTENDANCE')),
+  (3,public.build_report_card_snapshot('60000000-0000-4000-8000-000000000001',3::smallint,'TEST_ATTENDANCE'));
 
 select is((select (s.data_snapshot#>>'{attendance,recorded_school_days}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=1),2,'term 1 report counts only register days inside term 1 dates');
 select is((select (s.data_snapshot#>>'{attendance,present}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=1),1,'term 1 present count excludes a late exception and rows outside the term');
