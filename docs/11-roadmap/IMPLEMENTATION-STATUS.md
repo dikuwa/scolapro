@@ -2,7 +2,7 @@
 
 > **Living handoff document.** Update this file whenever a meaningful implementation slice is completed or materially changes. Any developer or AI taking over ScolaPro should read this file, `ARCHITECTURE-ROADMAP.md`, the domain documents and the design-system documents before proposing new architecture or starting duplicate work.
 
-Last updated: **29 August 2026**
+Last updated: **30 August 2026**
 
 ## How to use this document
 
@@ -16,7 +16,7 @@ Statuses:
 
 ## Current implementation mode
 
-ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI may be added when required to prove an operational workflow, but visual polish and consolidated information-architecture refinement remain deferred until the operational foundations are stable.
+ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI is added where needed to prove an operational workflow, while broad visual polish and consolidated information-architecture refinement remain deferred until the operational foundations are stable.
 
 ## Foundation
 
@@ -26,10 +26,10 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | PostgreSQL/Supabase baseline | DONE | Supabase-backed PostgreSQL, source-controlled migrations and RLS baseline established. |
 | Authentication | DONE | Authenticated user context includes school/platform memberships and guardian links. |
 | Tenant isolation | DONE / VERIFY | RLS plus role-aware authorization and cross-domain scope triggers protect major operational chains. |
-| RLS performance hardening | DONE CURRENT PASS / VERIFY | Direct `auth.uid()` init-plan hotspots and overlapping manage/read policies were hardened without broadening access. Internal finance recalculation is no longer client-executable. |
-| Physical indexes | DONE CURRENT PASS / VERIFY | Public-schema FK coverage is complete for current domains; latest advisor pass reports no unindexed-FK findings. Duplicate render-job indexes were removed. |
+| RLS performance hardening | DONE CURRENT PASS / VERIFY | Direct `auth.uid()` init-plan hotspots and overlapping manage/read policies were hardened without broadening access. |
+| Physical indexes | DONE CURRENT PASS / VERIFY | Public-schema FK coverage is complete for current domains; latest advisor pass reports no unindexed-FK findings. |
 | Platform administration | DONE FOUNDATION / VERIFY | Tenant/school onboarding, invitations, feature entitlements, school settings and lifecycle history. |
-| Design system | DONE / EVOLVING | UI foundation is intentionally stable except where operational implementation requires controls. |
+| Design system | DONE / EVOLVING | UI foundation is stable and shared controls/tokens are used for operational slices. |
 | Notifications | DONE FOUNDATION | User-scoped inbox; invitations and published reports create durable notifications. |
 | Account profile | DONE FOUNDATION / VERIFY | Avatar, password workspace and account menu implemented. |
 | Calendar | DONE FOUNDATION / VERIFY | Academic year/term and expected-school-day overrides exist. |
@@ -39,17 +39,20 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | Area | Status | Notes |
 |---|---|---|
 | Learner identity / enrolment | DONE FOUNDATION | Long-lived learner identity, stable admission number and effective-dated enrolment. |
+| Learner operational profile | DONE CURRENT PASS / VERIFY | Preferred name/photo editing is available while official identity/enrolment corrections preserve governance/history. |
 | Academic structure | DONE / VERIFY | Configurable grades/classes/subjects with safe correction semantics. |
+| Subject maintenance | DONE CURRENT PASS / VERIFY | Existing subjects can be corrected; referenced subjects are protected from destructive deletion and can be archived. |
 | Staff identity | DONE FOUNDATION / VERIFY | Tenant-wide staff identity remains separate from Auth accounts. |
-| Staff school assignments | DONE FOUNDATION / VERIFY | Effective-dated school placements allow imported staff to exist operationally before an account invitation; writes are governed through audited RPCs and overlapping same-school placements are blocked. |
-| Staff directory | DONE CURRENT PASS / VERIFY | Directory merges effective school placement with account-role membership rather than hiding staff who do not yet have login accounts. |
-| Timetable | DONE FOUNDATION / VERIFY | Offerings, allocations, periods, rooms and conflict-safe slots. Teacher selectors include actively assigned staff even before user-account onboarding. |
+| Single staff creation | DONE CURRENT PASS / VERIFY | School administrators can create/assign operational staff without requiring a login account, using governed identity/placement rules. |
+| Staff school assignments | DONE FOUNDATION / VERIFY | Effective-dated placements allow staff to exist operationally before an account invitation; overlapping same-school placements are blocked. |
+| Staff directory | DONE CURRENT PASS / VERIFY | Directory merges effective school placement with account-role membership rather than hiding staff without login accounts. |
+| Timetable | DONE FOUNDATION / VERIFY | Offerings, allocations, periods, rooms and conflict-safe slots. Teacher selectors include actively assigned staff even before account onboarding. |
 | Timetable → lesson attendance | DONE FOUNDATION / VERIFY | Teaching slots link to the separate subject-period attendance workflow. |
 | Daily / weekly register | DONE FOUNDATION / VERIFY | Exception-first daily and Monday-Friday weekly capture; mobile capture operational. |
 | Attendance evidence | DONE FOUNDATION / VERIFY | Private JPG/PNG/WebP/PDF evidence with mobile camera capture. |
 | Subject-period attendance | DONE FOUNDATION / VERIFY | Physically separate from official morning/Ministry attendance. |
 | Late arrival | DONE FOUNDATION / VERIFY | Delegated late-arrival capture remains separate from official attendance statistics. |
-| Detention sessions | DONE FOUNDATION / VERIFY | Detention obligations can be scheduled into sessions, supervised under an explicit `detention_supervisor` duty, recorded and completed with cross-school integrity enforcement. |
+| Detention sessions | DONE FOUNDATION / VERIFY | Detention obligations can be scheduled, supervised and completed with cross-school integrity enforcement. |
 | Expected school days | DONE FOUNDATION / VERIFY | Monday-Friday default plus closure/special-day overrides; report snapshots distinguish expected from recorded days. |
 
 ## Guardians, parents and onboarding
@@ -59,17 +62,18 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | Guardian identities | DONE FOUNDATION / VERIFY | Reusable tenant person identity rather than repeated learner fields. |
 | Learner guardian relationships | DONE FOUNDATION / VERIFY | Effective-dated legal/emergency/pickup relationships plus contact/address history. |
 | Sibling guardian reuse | DONE FOUNDATION / VERIFY | Existing guardian identities can be linked to multiple learners without duplicate person records. |
-| Parent account claim | DONE FOUNDATION / VERIFY | Authenticated account may claim a guardian profile only when its Auth email exactly matches an active guardian email contact. |
-| Parent portal | DONE FOUNDATION / VERIFY | `/parent` supports exact-email claim, child switching, published official results, frozen report attendance, secure report artifacts, child finance summaries and directly delivered account messages. Guardian-only accounts resolve to the `parent` shell role. |
-| Parent messages | DONE CURRENT PASS / VERIFY | Only canonical communications explicitly delivered to the signed-in `user_id` are exposed; learner/class/school audiences are never inferred into guardian access. |
-| Parent finance | DONE CURRENT PASS / VERIFY | Linked-child issued invoices and payment history are exposed through a governed RPC without broadening base finance-table RLS. |
-| Learner CSV import | DONE FOUNDATION / VERIFY | Staging, validation, review and atomic canonical create/skip commit. |
-| Learner import reconciliation | DONE FOUNDATION / VERIFY | Stable identifiers only; names never silently merge and conflicting identifiers block the row. |
-| Staff CSV import | DONE CURRENT PASS / VERIFY | Employee-number-based deterministic reconciliation supports create/link/skip and creates effective school placements independently of Auth accounts. Duplicate employee numbers in one staged batch are blocked. |
-| Guardian CSV import | DONE CURRENT PASS / VERIFY | Learners resolve by school admission number and guardians by tenant identity number. Exact identity/name disagreements require explicit human confirmation before linking; names never act as match keys. |
-| Academic-structure CSV import | DONE CURRENT PASS / VERIFY | Grades/classes/subjects reconcile by stable school/year codes and commit through existing academic RPCs; class dependencies resolve against staged grades. |
-| Import mutation boundary | DONE CURRENT PASS / VERIFY | Authenticated clients have read-only staging tables. Batch/row/result mutations are RPC-only and covered by privilege tests. |
-| XLSX import | PLANNED | Add only with a deliberate parser dependency and the same source-preserving staging/reconciliation rules. |
+| Guardian import reconciliation | DONE CURRENT PASS / VERIFY | Existing learner-linked guardians can be reused safely by exact relationship context; identity/name conflicts still require review and names are never used as a global merge key. |
+| Authoritative guardian contact/address enrichment | DONE / VERIFY | Production workbook completed on 30 Aug 2026: 1,429/1,429 relationship rows mapped uniquely to existing relationships; guardian profiles remained 1,377 and active relationships 1,429; 2,697 deduplicated contacts and 2,814 deduplicated addresses were added with zero active duplicate or placeholder records in the post-load audit. |
+| Parent account claim | DONE FOUNDATION / VERIFY | Account may claim a guardian profile only when Auth email exactly matches an active guardian email contact. |
+| Parent portal | DONE FOUNDATION / VERIFY | `/parent` supports exact-email claim, child switching, published official results, frozen report attendance, secure report artifacts, child finance summaries and directly delivered account messages. |
+| Parent messages | DONE CURRENT PASS / VERIFY | Only canonical communications explicitly delivered to the signed-in `user_id` are exposed. |
+| Parent finance | DONE CURRENT PASS / VERIFY | Linked-child invoices and payment history are exposed through a governed RPC without broadening base finance-table RLS. |
+| Learner import | DONE FOUNDATION / VERIFY | CSV/XLSX source parsing feeds the same source-preserving staging/reconciliation architecture. |
+| Staff import | DONE CURRENT PASS / VERIFY | Employee-number-based deterministic reconciliation supports create/link/skip and effective placements independently of Auth accounts. |
+| Guardian import | DONE CURRENT PASS / VERIFY | Learners resolve by school admission number; guardian matching preserves identity and explicit conflict review. |
+| Academic-structure import | DONE CURRENT PASS / VERIFY | Grades/classes/subjects reconcile by stable school/year codes and commit through existing academic RPCs. |
+| Import mutation boundary | DONE CURRENT PASS / VERIFY | Authenticated clients have read-only staging tables; mutation is RPC-only and covered by privilege tests. |
+| XLSX import | DONE CURRENT PASS / VERIFY | XLSX parser dependency is integrated and uses the same governed staging/reconciliation rules as CSV. |
 
 ## Learner conduct, support and LTSM
 
@@ -80,13 +84,20 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | Resource catalog / copies | DONE FOUNDATION / VERIFY | Shared textbook/library/resource/device model with barcode/asset, condition and location. |
 | Loans / issue / return | DONE FOUNDATION / VERIFY | Governed transactions with one-open-loan-per-copy protection. |
 
+## Sports & houses
+
+| Area | Status | Notes |
+|---|---|---|
+| Sports / house foundation | DONE CURRENT PASS / VERIFY | Configurable houses, colors/codes, annual sports settings, non-overlapping age groups, learner/staff house assignments and one leader per year. |
+| Sports mutation boundary | DONE CURRENT PASS / VERIFY | Authenticated users have read access only to base sports tables; management changes use governed security-definer RPCs. |
+
 ## Communications
 
 | Area | Status | Notes |
 |---|---|---|
 | Canonical message / recipients | DONE FOUNDATION / VERIFY | Provider-independent app/email/SMS/WhatsApp/letter intent and recipient state. |
 | Delivery outbox | DONE FOUNDATION / VERIFY | Recipient jobs support claim, retry, dead-letter and service-role worker boundaries. |
-| Provider routing | DONE FOUNDATION / VERIFY | Effective tenant/school channel routing metadata exists; provider credentials are deliberately excluded from PostgreSQL domain records. |
+| Provider routing | DONE FOUNDATION / VERIFY | Effective tenant/school channel routing metadata exists; provider credentials are excluded from PostgreSQL domain records. |
 | Delivery attempt history | DONE FOUNDATION / VERIFY | Append-oriented provider attempt history supports reconciliation and diagnostics. |
 | Worker recovery | DONE FOUNDATION / VERIFY | Stale claimed communication jobs can be safely returned to retry/dead states by service-role recovery. |
 | Parent message read model | DONE CURRENT PASS / VERIFY | Directly delivered signed-in-user messages can be read without granting parent accounts general communication-table access. |
@@ -99,9 +110,10 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | Admission applications | DONE FOUNDATION / VERIFY | Pre-enrolment workflow separate from authoritative learner identity. |
 | Transfers | DONE FOUNDATION / VERIFY | Source provenance preserved and source enrolment closes rather than being rewritten. |
 | Promotion rule sets/evaluation | DONE FOUNDATION / VERIFY | Versioned deterministic rules; no guessed Namibia rule hard-coding. |
+| Promotion attendance readiness | DONE CURRENT PASS / VERIFY | Promotion attendance is enrolment-period-clamped and missing register days do not silently count as present. |
 | Year-end progression | DONE FOUNDATION / VERIFY | Reviewed/approved/locked lifecycle with rule provenance. |
 | DNEA cycle/candidate/subjects/readiness | DONE FOUNDATION / VERIFY | Candidate identity uses authoritative learner/enrolment; official codes preserved. |
-| Finance basics | DONE FOUNDATION / VERIFY | Charge types, invoices, payments and governed allocation; intentionally not a full ERP. Internal invoice recalculation is a helper rather than a direct client endpoint. |
+| Finance basics | DONE FOUNDATION / VERIFY | Charge types, invoices, payments and governed allocation; intentionally not a full ERP. |
 
 ## Academic assessment and report cards
 
@@ -113,16 +125,19 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | Deterministic calculation | DONE FOUNDATION / VERIFY | Weighted calculation preserves inputs and versioned rule/scheme provenance. |
 | Official results | DONE FOUNDATION / VERIFY | Approved immutable results require verified contributing evidence. |
 | Report-card snapshots | DONE FOUNDATION / VERIFY | Generated only from approved official results and preserve learner, guardian, result, rule, template and attendance provenance. |
-| Final-term semantics | DONE CURRENT PASS / VERIFY | Year-end progression is included only on the configured final academic term, not by assuming `term >= 3`. |
-| Attendance semantics | DONE CURRENT PASS / VERIFY | Snapshots store expected school days, recorded days and register coverage instead of treating recorded rows as expected days. |
+| Final-term semantics | DONE CURRENT PASS / VERIFY | Year-end progression is included only on the configured final academic term. |
+| Attendance semantics | DONE CURRENT PASS / VERIFY | Snapshots store expected school days, recorded days and register coverage rather than treating recorded rows as expected days. |
+| Postal correspondence rule | DONE CURRENT PASS / VERIFY | Report-card guardian correspondence uses postal address only; residential address is not silently substituted. |
 | Certification / publication | DONE FOUNDATION / VERIFY | Exact snapshot versions are certified/published; linked guardians read only published snapshots. |
+| Durable bulk report workflow | DONE CURRENT PASS / VERIFY | Bulk is the primary management flow with Whole School / Grade / Class / Custom scopes, one selected term, durable per-learner jobs, explicit skipped/failed reasons and refresh-safe progress. |
+| Bulk publication | DONE CURRENT PASS / VERIFY | Generate → Certify → Publish → Prepare PDFs is supported in durable batches. Publish delegates to the canonical per-snapshot RPC so supersession, guardian notifications and audit provenance remain unchanged. |
 | Report-card document metadata | DONE FOUNDATION / VERIFY | Rendered artifacts are registered against immutable certified/published snapshots with hash/template/storage metadata. |
-| Private artifact storage | DONE FOUNDATION / VERIFY | `report-card-artifacts` is private; no direct authenticated storage-object policy grants were added. |
-| HTML renderer / render outbox | DONE FOUNDATION / VERIFY | Deterministic HTML renderer, format-scoped claim, retry/dead lifecycle, stale-lock recovery and internal worker endpoint exist. Worker invocation performs stale-job recovery before claiming work. |
-| Scheduler-ready worker endpoint | DONE CURRENT PASS / VERIFY | Internal POST uses `INTERNAL_JOB_RUNNER_SECRET`; scheduler GET uses `CRON_SECRET`. No live deployment scheduler is claimed until hosting is connected/configured. |
-| Automatic render scheduling | NEXT | Connect a real deployment scheduler to the authorized worker endpoint. |
-| PDF renderer | NEXT | Add an actual PDF renderer using the immutable snapshot/document layer. Do not fake PDF completion with HTML bytes. |
-| Secure artifact opening/download | DONE CURRENT PASS / VERIFY | Server endpoint first performs user-scoped report-document RLS authorization and only then mints a short-lived signed URL to the private artifact. |
+| Private artifact storage | DONE FOUNDATION / VERIFY | `report-card-artifacts` is private; document opening is authorized before short-lived signed URLs are issued. |
+| HTML renderer / render outbox | DONE FOUNDATION / VERIFY | Deterministic HTML renderer, format-scoped claim, retry/dead lifecycle, stale-lock recovery and internal worker endpoint exist. |
+| Automatic worker invocation | DONE CURRENT PASS / VERIFY | Report actions kick the durable worker immediately; the authorized scheduler endpoint remains available for recovery. Hobby-compatible daily Vercel cron is the deployment fallback when configured. |
+| PDF renderer | DONE CURRENT PASS / VERIFY | Genuine `application/pdf` artifacts are rendered from immutable snapshots with real page counts, SHA-256 hashes, private storage and separate HTML/PDF jobs. |
+| Combined bulk PDF | DONE CURRENT PASS / VERIFY | PDF batches can produce one durable combined printable PDF while retaining individual immutable report PDFs as canonical artifacts. |
+| Secure artifact opening/download | DONE CURRENT PASS / VERIFY | User-scoped report-document/batch authorization occurs before a short-lived private-storage URL is minted. |
 
 ## Curriculum and teaching planning
 
@@ -141,7 +156,7 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | Form registry / cycles | DONE FOUNDATION / VERIFY | Effective-dated definitions, form versions and school reporting cycles. |
 | Operational snapshots | DONE FOUNDATION / VERIFY | Fixed-date source generator derives learner/staff/workload/attendance/LTSM source data. |
 | Readiness / certification | DONE FOUNDATION / VERIFY | Blocking/warning issues and governed principal/admin certification. |
-| Generic mapping compiler | DONE FOUNDATION / VERIFY | Declarative `source_path → target_path` compiler validates required values and types and emits readiness issues. It deliberately does not invent Ministry fields. |
+| Generic mapping compiler | DONE FOUNDATION / VERIFY | Declarative `source_path → target_path` compiler validates required values/types and deliberately does not invent Ministry fields. |
 | Authoritative EMIS/AEC mappings | NEXT | Load and review current official form definitions before publishing form-specific mappings/export logic. |
 
 ## Tenant configuration
@@ -162,7 +177,7 @@ Staff: `tenant staff identity → effective school placement → optional accoun
 
 Assessment: `versioned scheme → assessment instance → append-only marks → submit → HOD/leader review → deterministic result → grading band → immutable official result`
 
-Report cards: `approved official results → immutable snapshot → certify exact version → optional HTML render → publish exact version → guardian access/notification → private immutable artifact`
+Report cards: `scope + term → durable Generate → Certify → Publish → durable PDF preparation → combined printable PDF → guardian access/notification; individual mode remains for exceptions/reprints`
 
 Progression: `locked official results + active versioned promotion rules → explainable evaluation → reviewed progression → governed approval/lock`
 
@@ -170,31 +185,30 @@ Curriculum: `verified NIED source → curriculum version → units/objectives/co
 
 Statutory: `versioned authoritative form → cycle/reference date → operational snapshot → generic mapping/readiness → certification → form-specific export once authoritative mapping exists`
 
-Imports: `CSV → source-preserving RPC-only staging → structural validation → stable-identifier/code reconciliation → explicit human conflict review → ready batch → atomic governed commit → audit`
+Imports: `CSV/XLSX → source-preserving RPC-only staging → structural validation → stable-identifier/code reconciliation → explicit human conflict review → ready batch → atomic governed commit → audit`
 
 Communications: `canonical message → recipients → outbox → provider route → service worker attempt → delivered/retry/dead → stale-lock recovery`
 
 ## Approved next implementation sequence
 
-1. **CI/database closure for each bulk**: resolve every current typecheck/pgTAP/fresh-migration failure before treating a slice as stable.
-2. **Behavioral integrity tests**: deepen guardian identity-mismatch decisions, parent/child isolation, staff-assignment overlap/import idempotency, final-term/report attendance, promotion calculation and cross-school invalid-write fixtures.
-3. **Report-card rendering**: connect a real scheduler when deployment is available, then implement a genuine PDF renderer without weakening immutable-snapshot provenance.
-4. **Communication adapters**: integrate real configured SMS/email/WhatsApp transports with provider credentials outside PostgreSQL and truthful delivery callbacks.
-5. **Authoritative statutory mappings**: add actual EMIS/AEC mappings only when current Ministry forms/rules are verified.
-6. **Import format expansion**: XLSX only through a deliberate parser dependency and the same governed staging/reconciliation architecture.
-7. **Parent/role operational QA**: exercise real guardian claim, report artifact, finance, messaging, guardian-import and staff-without-account workflows with seeded non-sensitive fixtures.
-8. **Consolidated UI/IA and responsive QA** after remaining operational slices stabilize.
+1. **Production/role QA for completed report-card bulk workflow** — exercise management and guardian flows with non-sensitive seeded fixtures, including large scopes, skipped rows, publish notifications, PDF retries and combined export access.
+2. **Behavioral integrity tests** — continue cross-school invalid-write fixtures, parent/child isolation, staff-assignment/import idempotency and remaining domain edge cases.
+3. **Communication adapters** — integrate real configured Namibia SMS/email/WhatsApp transports with provider credentials outside PostgreSQL and truthful delivery callbacks.
+4. **Authoritative statutory mappings** — add actual EMIS/AEC mappings only when current Ministry forms/rules are verified.
+5. **Parent/role operational QA** — exercise guardian claim, report artifact, finance, messaging and staff-without-account workflows using non-sensitive fixtures.
+6. **Consolidated UI/IA and responsive QA** after remaining operational slices stabilize.
 
 ## Security / advisor notes
 
 - `get_school_invitation_preview(text)` intentionally permits anonymous execution for the public invitation-preview flow.
 - Many authenticated `SECURITY DEFINER` RPC warnings are intentional because these functions are the self-authorizing signed-in API boundary. Audit each function individually; do not blindly revoke application RPC execution.
 - Worker-only claim/complete/fail/recovery functions remain service-role only and are covered by pgTAP privilege checks.
-- Import staging tables are read-only to authenticated clients; source rows, resolutions and commit results can only be mutated through self-authorizing import RPCs.
-- `recalculate_finance_invoice(uuid)` is intentionally no longer executable by authenticated clients; governed allocation workflows invoke it internally.
-- Latest performance-advisor pass has no unindexed-FK warnings. `unused_index` entries are expected during an early/low-data system and are not grounds for premature index deletion.
-- Supabase leaked-password protection is still disabled at the project configuration level and should be enabled before production onboarding when the platform setting is available.
+- Import staging tables are read-only to authenticated clients; source rows, resolutions and commit results can only be mutated through governed import RPCs.
+- The one-time guardian XLSX production staging helper used on 30 Aug 2026 is retired by migration `20260830230500_retire_guardian_import_loader.sql` and must not be recreated as a general ingestion API.
+- `recalculate_finance_invoice(uuid)` is intentionally not executable by authenticated clients; governed allocation workflows invoke it internally.
+- Latest performance-advisor pass has no unindexed-FK warnings. `unused_index` entries are expected during an early/low-data system and are not grounds for premature deletion.
+- Supabase leaked-password protection is still disabled at the project configuration level and should be enabled before production onboarding when available.
 
 ## Takeover rule
 
-Before beginning work, inspect the repository and this document. Do not recreate completed schema, replace established token systems, hard-code tenant modes, guess Namibia policy/form fields, bypass authorization architecture, merge learner/staff/guardian identities by name, expose provider secrets in domain tables, or recompute certified historical documents from later live data. Continue from the first **IN PROGRESS** or **NEXT** item that matches the requested feature.
+Before beginning work, inspect the repository and this document. Do not recreate completed schema, replace established token systems, hard-code tenant modes, guess Namibia policy/form fields, bypass authorization architecture, merge learner/staff/guardian identities by name, expose provider secrets in domain tables, recreate retired one-time production loaders, or recompute certified historical documents from later live data. Continue from the first **IN PROGRESS** or **NEXT** item that matches the requested feature.
