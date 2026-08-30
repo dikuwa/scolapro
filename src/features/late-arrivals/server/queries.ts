@@ -33,21 +33,19 @@ export type DetentionStaffOption = {
   eligible: boolean;
 };
 
-function currentWeekRange() {
-  const now = new Date();
-  const day = now.getDay() || 7;
-  const monday = new Date(now);
-  monday.setHours(12, 0, 0, 0);
-  monday.setDate(now.getDate() - day + 1);
+function currentWeekRange(today: string) {
+  const current = new Date(`${today}T12:00:00`);
+  const day = current.getDay() || 7;
+  const monday = new Date(current);
+  monday.setDate(current.getDate() - day + 1);
   const friday = new Date(monday);
   friday.setDate(monday.getDate() + 4);
   return { monday: monday.toISOString().slice(0, 10), friday: friday.toISOString().slice(0, 10) };
 }
 
-export async function getLateArrivalWorkspace(schoolId: string, academicYear: number) {
+export async function getLateArrivalWorkspace(schoolId: string, academicYear: number, today: string) {
   const supabase = await createSupabaseServerClient();
-  const { monday, friday } = currentWeekRange();
-  const today = new Date().toISOString().slice(0, 10);
+  const { monday, friday } = currentWeekRange(today);
 
   const [{ data: enrolments }, { data: policy }, { data: obligations }, { data: assignments }, { data: preferences }] = await Promise.all([
     supabase.from("enrolments").select("id,learner_id,admission_number,register_class_id").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "current"),
@@ -59,7 +57,10 @@ export async function getLateArrivalWorkspace(schoolId: string, academicYear: nu
 
   const learnerIds = (enrolments ?? []).map((item) => item.learner_id);
   const classIds = (enrolments ?? []).map((item) => item.register_class_id);
-  const staffIds = [...new Set([...(assignments ?? []).map((item) => item.staff_member_id), ...(obligations ?? []).map((item) => item.assigned_staff_member_id).filter(Boolean) as string[]])];
+  const obligationStaffIds = (obligations ?? [])
+    .map((item) => item.assigned_staff_member_id)
+    .filter((id): id is string => Boolean(id));
+  const staffIds = [...new Set([...(assignments ?? []).map((item) => item.staff_member_id), ...obligationStaffIds])];
 
   const [{ data: learners }, { data: classes }, { data: yearEvents }, { data: staff }] = await Promise.all([
     learnerIds.length ? supabase.from("learners").select("id,first_names,surname").in("id", learnerIds) : Promise.resolve({ data: [] }),
@@ -116,17 +117,21 @@ export async function getLateArrivalWorkspace(schoolId: string, academicYear: nu
     };
   });
 
-  const staffOptions: DetentionStaffOption[] = (assignments ?? [])
-    .map((assignment) => staffMap.get(assignment.staff_member_id))
-    .filter((member): member is NonNullable<typeof member> => Boolean(member && member.status === "active"))
-    .filter((member, index, array) => array.findIndex((item) => item.id === member.id) === index)
-    .map((member) => ({
+  const staffOptions: DetentionStaffOption[] = [];
+  const seenStaffIds = new Set<string>();
+  for (const assignment of assignments ?? []) {
+    if (seenStaffIds.has(assignment.staff_member_id)) continue;
+    const member = staffMap.get(assignment.staff_member_id);
+    if (!member || member.status !== "active") continue;
+    seenStaffIds.add(member.id);
+    staffOptions.push({
       id: member.id,
       name: `${member.first_name} ${member.last_name}`,
       employeeNumber: member.employee_number,
       eligible: preferenceMap.get(member.id) ?? true,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    });
+  }
+  staffOptions.sort((a, b) => a.name.localeCompare(b.name));
 
   return { learners: roster, detention, staffOptions };
 }
