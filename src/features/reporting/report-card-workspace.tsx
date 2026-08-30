@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BadgeCheck, Clock3, ExternalLink, Eye, FileCheck2, FilePlus2, FileText, RotateCcw, Send } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Clock3, Download, ExternalLink, Eye, FileCheck2, FilePlus2, FileText, RotateCcw, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,8 +11,12 @@ import type { ReportCardDocumentRow, ReportCardLearner, ReportCardRenderJobRow, 
 const initialState: ReportCardActionState = {};
 const actionButton = "cursor-pointer transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft active:translate-y-px";
 
-function HtmlRenderControl({ snapshot, job, document }: { snapshot: ReportCardSnapshotRow; job: ReportCardRenderJobRow | null; document: ReportCardDocumentRow | null }) {
+type ArtifactFormat = "html" | "pdf";
+
+function ReportArtifactControl({ snapshot, format, job, document }: { snapshot: ReportCardSnapshotRow; format: ArtifactFormat; job: ReportCardRenderJobRow | null; document: ReportCardDocumentRow | null }) {
   const [state, action, pending] = useActionState(queueReportCardRender, initialState);
+  const isPdf = format === "pdf";
+  const label = isPdf ? "PDF report" : "digital report";
 
   useEffect(() => {
     if (!state.message) return;
@@ -21,26 +25,26 @@ function HtmlRenderControl({ snapshot, job, document }: { snapshot: ReportCardSn
   }, [state]);
 
   if (document) {
-    return <a href={`/api/report-card-documents/${document.id}`} target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)] transition-colors hover:bg-[color:var(--success)] hover:text-white"><FileCheck2 className="size-3.5" />Open digital report<ExternalLink className="size-3" /></a>;
+    return <a href={`/api/report-card-documents/${document.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)] transition-colors hover:bg-[color:var(--success)] hover:text-white">{isPdf ? <Download className="size-3.5" /> : <FileCheck2 className="size-3.5" />}{isPdf ? "Open PDF" : "Open digital report"}<ExternalLink className="size-3" /></a>;
   }
 
   if (job?.status === "processing" || job?.status === "pending") {
-    return <div className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-info-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--info)]"><Clock3 className="size-3.5" />{job.status === "processing" ? "Rendering digital report" : "Digital report queued"}</div>;
+    return <div className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-info-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--info)]"><Clock3 className="size-3.5" />{job.status === "processing" ? `Rendering ${label}` : `${isPdf ? "PDF" : "Digital report"} queued`}</div>;
   }
 
   const retrying = job?.status === "retry";
   const failed = job?.status === "dead";
 
-  return <div className="mt-2 space-y-1.5">
-    {failed ? <div className="flex items-start gap-1.5 text-[0.68rem] text-[color:var(--danger)]"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" /><span>Rendering failed after {job.attemptCount} attempt{job.attemptCount === 1 ? "" : "s"}. It can be queued again.</span></div> : retrying ? <div className="flex items-start gap-1.5 text-[0.68rem] text-[color:var(--warning)]"><RotateCcw className="mt-0.5 size-3.5 shrink-0" /><span>Renderer retry pending after {job.attemptCount} attempt{job.attemptCount === 1 ? "" : "s"}.</span></div> : null}
+  return <div className="space-y-1.5">
+    {failed ? <div className="flex items-start gap-1.5 text-[0.68rem] text-[color:var(--danger)]"><AlertTriangle className="mt-0.5 size-3.5 shrink-0" /><span>{isPdf ? "PDF" : "Digital"} rendering failed after {job.attemptCount} attempt{job.attemptCount === 1 ? "" : "s"}. It can be queued again.</span></div> : retrying ? <div className="flex items-start gap-1.5 text-[0.68rem] text-[color:var(--warning)]"><RotateCcw className="mt-0.5 size-3.5 shrink-0" /><span>{isPdf ? "PDF" : "Digital"} renderer retry pending after {job.attemptCount} attempt{job.attemptCount === 1 ? "" : "s"}.</span></div> : null}
     <form action={action}>
       <input type="hidden" name="snapshotId" value={snapshot.id} />
       <input type="hidden" name="templateKey" value="TERM_REPORT" />
       <input type="hidden" name="templateVersion" value={snapshot.templateVersion} />
-      <input type="hidden" name="documentFormat" value="html" />
+      <input type="hidden" name="documentFormat" value={format} />
       <button type="submit" disabled={pending || retrying} className={`${actionButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-[0.68rem] font-semibold text-brand-strong hover:bg-brand hover:text-white disabled:cursor-not-allowed disabled:opacity-60`}>
-        {pending ? <Spinner className="size-3.5" /> : <FileText className="size-3.5" />}
-        {pending ? "Queueing…" : failed ? "Queue render again" : "Generate digital report"}
+        {pending ? <Spinner className="size-3.5" /> : isPdf ? <Download className="size-3.5" /> : <FileText className="size-3.5" />}
+        {pending ? "Queueing…" : failed ? `Queue ${isPdf ? "PDF" : "render"} again` : isPdf ? "Generate PDF" : "Generate digital report"}
       </button>
     </form>
   </div>;
@@ -72,20 +76,20 @@ export function ReportCardWorkspace({ learners, snapshots, terms, renderJobs, do
     return map;
   }, [snapshots]);
 
-  const htmlJobsBySnapshot = useMemo(() => {
+  const jobsBySnapshotAndFormat = useMemo(() => {
     const map = new Map<string, ReportCardRenderJobRow>();
     for (const job of renderJobs) {
-      if (job.documentFormat !== "html") continue;
-      if (!map.has(job.snapshotId)) map.set(job.snapshotId, job);
+      const key = `${job.snapshotId}:${job.documentFormat}`;
+      if (!map.has(key)) map.set(key, job);
     }
     return map;
   }, [renderJobs]);
 
-  const htmlDocumentsBySnapshot = useMemo(() => {
+  const documentsBySnapshotAndFormat = useMemo(() => {
     const map = new Map<string, ReportCardDocumentRow>();
     for (const document of documents) {
-      if (document.documentFormat !== "html") continue;
-      if (!map.has(document.snapshotId)) map.set(document.snapshotId, document);
+      const key = `${document.snapshotId}:${document.documentFormat}`;
+      if (!map.has(key)) map.set(key, document);
     }
     return map;
   }, [documents]);
@@ -101,16 +105,18 @@ export function ReportCardWorkspace({ learners, snapshots, terms, renderJobs, do
     </section> : <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><div className="flex items-start gap-3"><span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-surface text-brand-strong shadow-[var(--shadow-xs)]"><Eye className="size-4" /></span><div><h2 className="scolapro-section-title">View-only report access</h2><p className="scolapro-section-description">You can review report-card status for learners within your assigned teaching scope. Only School Administration, the Principal and Deputy Principal can generate, certify, publish or render official report cards.</p></div></div></section>}
 
     <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
-      <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><h2 className="scolapro-section-title">Current learner reports</h2><p className="scolapro-section-description">Latest snapshot status for each learner and configured term.{canManageReports ? " Digital rendering is available after certification; PDF rendering remains separate until its renderer is implemented." : " This list is read-only for teaching roles."}</p></div>
+      <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><h2 className="scolapro-section-title">Current learner reports</h2><p className="scolapro-section-description">Latest snapshot status for each learner and configured term.{canManageReports ? " Certified snapshots can be rendered as a digital HTML report or an official PDF artifact." : " This list is read-only for teaching roles."}</p></div>
       {learners.length ? <div className="divide-y divide-border-subtle">{learners.map((learner) => <div key={learner.enrolmentId} className="grid gap-3 px-4 py-4 sm:px-5 xl:grid-cols-[minmax(15rem,0.7fr)_minmax(0,1.3fr)] xl:items-start">
         <div><p className="scolapro-record-title">{learner.name}</p><p className="mt-1 text-[0.7rem] text-muted-foreground">{learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}</p></div>
         <div className="grid gap-2 sm:grid-cols-3">{terms.map((term) => {
           const snapshot = latestByKey.get(`${learner.enrolmentId}:${term.termNumber}`);
-          const renderJob = snapshot ? htmlJobsBySnapshot.get(snapshot.id) ?? null : null;
-          const document = snapshot ? htmlDocumentsBySnapshot.get(snapshot.id) ?? null : null;
+          const htmlJob = snapshot ? jobsBySnapshotAndFormat.get(`${snapshot.id}:html`) ?? null : null;
+          const pdfJob = snapshot ? jobsBySnapshotAndFormat.get(`${snapshot.id}:pdf`) ?? null : null;
+          const htmlDocument = snapshot ? documentsBySnapshotAndFormat.get(`${snapshot.id}:html`) ?? null : null;
+          const pdfDocument = snapshot ? documentsBySnapshotAndFormat.get(`${snapshot.id}:pdf`) ?? null : null;
           return <div key={term.termNumber} className="rounded-[var(--radius-sm)] bg-surface-muted p-3">
             <div className="flex items-center justify-between gap-2"><p className="text-xs font-semibold">{term.name}</p>{snapshot ? <span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.64rem] font-medium ${snapshot.status === "certified" || snapshot.status === "published" ? "bg-success-soft text-[color:var(--success)]" : "bg-warning-soft text-[color:var(--warning)]"}`}>{snapshot.status}</span> : null}</div>
-            {!canManageReports ? <ReadOnlyReportState snapshot={snapshot} /> : snapshot ? <><p className="mt-2 text-[0.68rem] text-muted-foreground">Version {snapshot.snapshotVersion} · {snapshot.templateVersion}</p>{snapshot.status === "draft" ? <form action={certifyReportCard} className="mt-2"><input type="hidden" name="snapshotId" value={snapshot.id} /><button type="submit" className={`${actionButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)] hover:bg-[color:var(--success)] hover:text-white`}><BadgeCheck className="size-3.5" />Certify</button></form> : snapshot.status === "certified" ? <><form action={publishReportCard} className="mt-2"><input type="hidden" name="snapshotId" value={snapshot.id} /><button type="submit" className={`${actionButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-[0.68rem] font-semibold text-brand-strong hover:bg-brand hover:text-white`}><Send className="size-3.5" />Publish to guardians</button></form><HtmlRenderControl snapshot={snapshot} job={renderJob} document={document} /></> : <><div className="mt-2 inline-flex items-center gap-1.5 text-[0.68rem] font-medium text-[color:var(--success)]"><FileCheck2 className="size-3.5" />Published official snapshot</div><HtmlRenderControl snapshot={snapshot} job={renderJob} document={document} /></>}</> : <p className="mt-2 text-[0.68rem] text-muted-foreground">Not generated</p>}
+            {!canManageReports ? <ReadOnlyReportState snapshot={snapshot} /> : snapshot ? <><p className="mt-2 text-[0.68rem] text-muted-foreground">Version {snapshot.snapshotVersion} · {snapshot.templateVersion}</p>{snapshot.status === "draft" ? <form action={certifyReportCard} className="mt-2"><input type="hidden" name="snapshotId" value={snapshot.id} /><button type="submit" className={`${actionButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--success)] hover:bg-[color:var(--success)] hover:text-white`}><BadgeCheck className="size-3.5" />Certify</button></form> : <><div className="mt-2 flex flex-wrap gap-2">{snapshot.status === "certified" ? <form action={publishReportCard}><input type="hidden" name="snapshotId" value={snapshot.id} /><button type="submit" className={`${actionButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-[0.68rem] font-semibold text-brand-strong hover:bg-brand hover:text-white`}><Send className="size-3.5" />Publish to guardians</button></form> : <div className="inline-flex min-h-8 items-center gap-1.5 text-[0.68rem] font-medium text-[color:var(--success)]"><FileCheck2 className="size-3.5" />Published official snapshot</div>}</div><div className="mt-2 flex flex-wrap items-start gap-2"><ReportArtifactControl snapshot={snapshot} format="html" job={htmlJob} document={htmlDocument} /><ReportArtifactControl snapshot={snapshot} format="pdf" job={pdfJob} document={pdfDocument} /></div></>}</> : <p className="mt-2 text-[0.68rem] text-muted-foreground">Not generated</p>}
           </div>;
         })}</div>
       </div>)}</div> : <div className="px-4 py-10 text-center text-sm text-muted-foreground">No current learner enrolments available.</div>}
