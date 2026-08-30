@@ -19,7 +19,7 @@ export function Picker({
 }: {
   label?: string;
   ariaLabel?: string;
-  name: string;
+  name?: string;
   value: string;
   onChange: (value: string) => void;
   options: PickerOption[];
@@ -50,7 +50,7 @@ export function Picker({
   return (
     <div ref={rootRef} className={cn("relative flex min-w-0 flex-col", label ? "gap-1.5" : "", className)}>
       {label ? <label className="text-xs font-medium leading-4">{label}</label> : null}
-      <input type="hidden" name={name} value={value} />
+      {name ? <input type="hidden" name={name} value={value} /> : null}
       <button
         type="button"
         disabled={disabled}

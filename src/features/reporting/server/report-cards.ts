@@ -5,7 +5,9 @@ export type ReportCardLearner = {
   learnerId: string;
   name: string;
   admissionNumber: string | null;
+  gradeId: string | null;
   grade: string;
+  registerClassId: string | null;
   registerClass: string;
 };
 
@@ -40,16 +42,44 @@ export type ReportCardDocumentRow = {
   generatedAt: string;
 };
 
+export type ReportCardBatchRow = {
+  id: string;
+  termNumber: number;
+  scopeType: "school" | "grade" | "class" | "custom";
+  scopeLabel: string;
+  operation: "generate" | "certify" | "pdf";
+  status: "pending" | "processing" | "completed" | "partial" | "cancelled";
+  totalItems: number;
+  processedItems: number;
+  completedItems: number;
+  skippedItems: number;
+  failedItems: number;
+  exportStatus: "not_applicable" | "waiting" | "processing" | "ready" | "failed";
+  exportPageCount: number | null;
+  exportError: string | null;
+  createdAt: string;
+  completedAt: string | null;
+};
+
+export type ReportCardBatchIssueRow = {
+  batchId: string;
+  enrolmentId: string;
+  learnerId: string;
+  status: "skipped" | "failed";
+  resultCode: string | null;
+  message: string | null;
+};
+
 function one<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
 }
 
 export async function getReportCardWorkspace(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
-  const [enrolmentsResult, snapshotsResult, termsResult, renderJobsResult, documentsResult] = await Promise.all([
+  const [enrolmentsResult, snapshotsResult, termsResult, renderJobsResult, documentsResult, batchesResult] = await Promise.all([
     supabase
       .from("enrolments")
-      .select("id,learner_id,admission_number,learners(first_names,surname),grades(display_name),register_classes(display_name)")
+      .select("id,learner_id,grade_id,register_class_id,admission_number,learners(first_names,surname),grades(display_name),register_classes(display_name)")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
       .eq("status", "current")
@@ -77,10 +107,26 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
       .eq("school_id", schoolId)
       .eq("status", "ready")
       .order("generated_at", { ascending: false }),
+    supabase
+      .from("report_card_batches")
+      .select("id,term_number,scope_type,scope_label,operation,status,total_items,processed_items,completed_items,skipped_items,failed_items,export_status,export_page_count,export_error,created_at,completed_at")
+      .eq("school_id", schoolId)
+      .eq("academic_year", academicYear)
+      .order("created_at", { ascending: false })
+      .limit(12),
   ]);
 
-  const error = enrolmentsResult.error || snapshotsResult.error || termsResult.error || renderJobsResult.error || documentsResult.error;
+  const error = enrolmentsResult.error || snapshotsResult.error || termsResult.error || renderJobsResult.error || documentsResult.error || batchesResult.error;
   if (error) throw new Error("Unable to load report-card workspace.");
+
+  const { data: batchIssueData, error: batchIssueError } = await supabase
+    .from("report_card_batch_items")
+    .select("batch_id,enrolment_id,learner_id,status,result_code,message")
+    .eq("school_id", schoolId)
+    .in("status", ["skipped", "failed"])
+    .order("completed_at", { ascending: false })
+    .limit(100);
+  if (batchIssueError) throw new Error("Unable to load report-card batch outcomes.");
 
   const learners: ReportCardLearner[] = (enrolmentsResult.data ?? []).map((item) => {
     const learner = one(item.learners);
@@ -89,7 +135,9 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
       learnerId: item.learner_id,
       name: learner ? `${learner.first_names} ${learner.surname}` : "Learner",
       admissionNumber: item.admission_number,
+      gradeId: item.grade_id,
       grade: one(item.grades)?.display_name ?? "Grade",
+      registerClassId: item.register_class_id,
       registerClass: one(item.register_classes)?.display_name ?? "Class",
     };
   });
@@ -125,8 +173,36 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
     generatedAt: item.generated_at,
   }));
 
+  const batches: ReportCardBatchRow[] = (batchesResult.data ?? []).map((item) => ({
+    id: item.id,
+    termNumber: item.term_number,
+    scopeType: item.scope_type as ReportCardBatchRow["scopeType"],
+    scopeLabel: item.scope_label,
+    operation: item.operation as ReportCardBatchRow["operation"],
+    status: item.status as ReportCardBatchRow["status"],
+    totalItems: item.total_items,
+    processedItems: item.processed_items,
+    completedItems: item.completed_items,
+    skippedItems: item.skipped_items,
+    failedItems: item.failed_items,
+    exportStatus: item.export_status as ReportCardBatchRow["exportStatus"],
+    exportPageCount: item.export_page_count,
+    exportError: item.export_error,
+    createdAt: item.created_at,
+    completedAt: item.completed_at,
+  }));
+
+  const batchIssues: ReportCardBatchIssueRow[] = (batchIssueData ?? []).map((item) => ({
+    batchId: item.batch_id,
+    enrolmentId: item.enrolment_id,
+    learnerId: item.learner_id,
+    status: item.status as ReportCardBatchIssueRow["status"],
+    resultCode: item.result_code,
+    message: item.message,
+  }));
+
   const terms = (termsResult.data ?? []).map((item) => ({ termNumber: item.term_number, name: item.display_name }));
   if (!terms.length) terms.push({ termNumber: 1, name: "Term 1" }, { termNumber: 2, name: "Term 2" }, { termNumber: 3, name: "Term 3" });
 
-  return { learners, snapshots, terms, renderJobs, documents };
+  return { learners, snapshots, terms, renderJobs, documents, batches, batchIssues, academicYear };
 }
