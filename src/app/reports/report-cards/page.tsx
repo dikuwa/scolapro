@@ -1,6 +1,7 @@
 import { Download, FileCheck2, GraduationCap, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { ReportBatchWorkerPulse } from "@/features/reporting/report-batch-worker-pulse";
 import { ReportCardWorkspace } from "@/features/reporting/report-card-workspace";
 import { getReportCardWorkspace } from "@/features/reporting/server/report-cards";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -19,8 +20,12 @@ export default async function ReportCardsPage() {
   const workspace = await getReportCardWorkspace(membership.schoolId, academicYear);
   const certifiedCount = workspace.snapshots.filter((snapshot) => snapshot.status === "certified" || snapshot.status === "published").length;
   const readyBatchExports = canManageReports ? workspace.batches.filter((batch) => batch.operation === "pdf" && batch.exportStatus === "ready").slice(0, 4) : [];
+  const hasActiveBatchWork = canManageReports && workspace.batches.some((batch) =>
+    batch.status === "pending" || batch.status === "processing" || batch.exportStatus === "waiting" || batch.exportStatus === "processing"
+  );
 
   return <AppShell><section>
+    <ReportBatchWorkerPulse active={hasActiveBatchWork} />
     <div className="mb-6"><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Report cards</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{canManageReports ? "Prepare end-of-term reports by school, grade, class or custom learner selection. Bulk jobs keep progress and explicit skipped-learner reasons, while individual mode remains available for one-off copies." : "View report-card status for learners within your teaching scope. Generation, certification, publishing and printing remain with School Administration and school management."}</p></div>
     <div className="mb-5 grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
       <div className="flex items-center justify-between gap-3 px-4 py-4"><div><p className="text-xs font-medium text-muted-foreground">Visible learners</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-indigo)]">{workspace.learners.length}</p></div><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><Users className="size-4" /></span></div>
