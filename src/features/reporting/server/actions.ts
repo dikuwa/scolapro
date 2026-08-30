@@ -1,16 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { processReportCardRenderQueue } from "@/features/reporting/server/process-report-card-render-queue";
 
 export type ReportCardActionState = { success?: boolean; message?: string };
 
 const reportManagerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const generateSchema = z.object({ enrolmentId: z.string().uuid(), termNumber: z.coerce.number().int().min(1).max(6) });
 const bulkGenerateSchema = z.object({ enrolmentIds: z.array(z.string().uuid()).min(1).max(5000), termNumber: z.coerce.number().int().min(1).max(6) });
-const renderSchema = z.object({ snapshotId: z.string().uuid(), templateKey: z.string().trim().min(1).max(120).default("TERM_REPORT"), templateVersion: z.string().trim().min(1).max(120).default("SCOLAPRO_TERM_REPORT_V1"), documentFormat: z.enum(["pdf", "html"]).default("pdf") });
+const renderSchema = z.object({ snapshotId: z.string().uuid(), templateKey: z.string().trim().min(1).max(120).default("TERM_REPORT"), templateVersion: z.string().trim().min(1).max(120).default("SCOLAPRO_TERM_REPORT_V1"), documentFormat: z.enum(["html"]).default("html") });
 
 async function canManageReportCards() {
   const context = await getUserContext();
@@ -69,14 +71,23 @@ export async function publishReportCard(formData: FormData) {
 
 export async function queueReportCardRender(_state: ReportCardActionState, formData: FormData): Promise<ReportCardActionState> {
   if (!(await canManageReportCards())) return { message: "Report-card rendering and printing are restricted to School Administration and school management." };
-  const parsed = renderSchema.safeParse({ snapshotId: formData.get("snapshotId"), templateKey: formData.get("templateKey") || "TERM_REPORT", templateVersion: formData.get("templateVersion") || "SCOLAPRO_TERM_REPORT_V1", documentFormat: formData.get("documentFormat") || "pdf" });
-  if (!parsed.success) return { message: "The report render request is invalid." };
+  const parsed = renderSchema.safeParse({ snapshotId: formData.get("snapshotId"), templateKey: formData.get("templateKey") || "TERM_REPORT", templateVersion: formData.get("templateVersion") || "SCOLAPRO_TERM_REPORT_V1", documentFormat: formData.get("documentFormat") || "html" });
+  if (!parsed.success) return { message: "Only the current digital HTML report renderer is available. PDF rendering is not enabled yet." };
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("queue_report_card_render", { p_snapshot_id: parsed.data.snapshotId, p_template_key: parsed.data.templateKey, p_template_version: parsed.data.templateVersion, p_document_format: parsed.data.documentFormat });
   if (error) {
     if (error.message.includes("Only certified historical snapshots")) return { message: "Certify the report-card snapshot before rendering it." };
     return { message: "The report-card render could not be queued." };
   }
+
+  after(async () => {
+    try {
+      await processReportCardRenderQueue(10);
+    } catch (workerError) {
+      console.error("immediate report-card render kick failed", workerError);
+    }
+  });
+
   revalidatePath("/reports/report-cards");
-  return { success: true, message: "Report-card render queued." };
+  return { success: true, message: "Digital report queued and rendering will start automatically." };
 }
