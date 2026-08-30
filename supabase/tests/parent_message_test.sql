@@ -1,6 +1,6 @@
 begin;
 
-select plan(2);
+select plan(8);
 
 select ok(
   to_regprocedure('public.get_parent_message_overview(integer)') is not null,
@@ -12,5 +12,68 @@ select ok(
   'anonymous users cannot read parent message overview'
 );
 
+insert into auth.users(id,email,aud,role,created_at,updated_at)
+values
+  ('fd000000-0000-4000-8000-000000000001','parent-message@example.test','authenticated','authenticated',now(),now()),
+  ('fd000000-0000-4000-8000-000000000002','other-parent-message@example.test','authenticated','authenticated',now(),now()),
+  ('fd000000-0000-4000-8000-000000000003','message-author@example.test','authenticated','authenticated',now(),now());
+
+insert into public.communication_messages(
+  id,tenant_id,school_id,channel,subject,body,audience_type,status,sensitive,created_by_user_id,sent_at
+)
+values
+  ('fd100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','app','Linked parent notice','Message for the signed-in parent only','individual','sent',false,'fd000000-0000-4000-8000-000000000003',now()-interval '3 minutes'),
+  ('fd100000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','app','Other parent notice','Message for another account','individual','sent',false,'fd000000-0000-4000-8000-000000000003',now()-interval '2 minutes'),
+  ('fd100000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','app','Pending parent notice','Not yet delivered','individual','sent',false,'fd000000-0000-4000-8000-000000000003',now()-interval '1 minute');
+
+insert into public.communication_recipients(
+  id,tenant_id,school_id,message_id,user_id,destination,delivery_status,delivered_at
+)
+values
+  ('fd200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd100000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','parent-message@example.test','delivered',now()-interval '2 minutes'),
+  ('fd200000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd100000-0000-4000-8000-000000000002','fd000000-0000-4000-8000-000000000002','other-parent-message@example.test','delivered',now()-interval '1 minute'),
+  ('fd200000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd100000-0000-4000-8000-000000000003','fd000000-0000-4000-8000-000000000001','parent-message@example.test','pending',null);
+
+select set_config('request.jwt.claim.sub','fd000000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+set local role authenticated;
+
+select is(
+  (select count(*)::bigint from public.get_parent_message_overview(50)),
+  1::bigint,
+  'parent message overview returns only delivered messages addressed directly to the signed-in account'
+);
+
+select is(
+  (select subject from public.get_parent_message_overview(50) limit 1),
+  'Linked parent notice',
+  'parent message overview returns the signed-in parent message content'
+);
+
+select is(
+  (select count(*)::bigint from public.get_parent_message_overview(50) where message_id='fd100000-0000-4000-8000-000000000002'),
+  0::bigint,
+  'message delivered to another parent account is never exposed'
+);
+
+select is(
+  (select count(*)::bigint from public.get_parent_message_overview(50) where message_id='fd100000-0000-4000-8000-000000000003'),
+  0::bigint,
+  'pending delivery to the signed-in account is not presented as a delivered parent message'
+);
+
+select results_eq(
+  $$select id from public.communication_messages where id='fd100000-0000-4000-8000-000000000001'$$,
+  ARRAY[]::uuid[],
+  'parent account cannot browse the canonical communication message ledger directly'
+);
+
+select results_eq(
+  $$select id from public.communication_recipients where id='fd200000-0000-4000-8000-000000000001'$$,
+  ARRAY[]::uuid[],
+  'parent account cannot browse canonical recipient rows or destinations directly'
+);
+
+reset role;
 select * from finish();
 rollback;
