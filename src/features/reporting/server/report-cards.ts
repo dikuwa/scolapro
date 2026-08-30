@@ -47,7 +47,7 @@ export type ReportCardBatchRow = {
   termNumber: number;
   scopeType: "school" | "grade" | "class" | "custom";
   scopeLabel: string;
-  operation: "generate" | "certify" | "pdf";
+  operation: "generate" | "certify" | "publish" | "pdf";
   status: "pending" | "processing" | "completed" | "partial" | "cancelled";
   totalItems: number;
   processedItems: number;
