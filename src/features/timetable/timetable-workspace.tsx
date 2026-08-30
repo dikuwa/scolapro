@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Picker, TimePicker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { saveAllocation, saveOffering, savePeriod, saveSlot, saveSubject, type TimetableActionState } from "@/features/timetable/server/actions";
+import { SubjectMaintenanceList } from "@/features/timetable/subject-maintenance-list";
 import type { TimetableWorkspace } from "@/features/timetable/server/workspace";
 
 const initialState: TimetableActionState = {};
@@ -57,14 +58,15 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
       {canManage ? (
         <div className="grid gap-5 xl:grid-cols-2 xl:items-start">
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-brand grid size-8 place-items-center rounded-[var(--radius-sm)]"><BookOpenCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Subjects & offerings</h2><p className="scolapro-section-description !mt-0">Define subjects once, then offer them to a grade for {academicYear}.</p></div></div>
+            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-brand grid size-8 place-items-center rounded-[var(--radius-sm)]"><BookOpenCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Subjects & offerings</h2><p className="scolapro-section-description !mt-0">Define subjects once, then offer them to a grade for {academicYear}. Correct names and codes without rebuilding timetable links.</p></div></div>
             <form action={subjectAction} className="grid gap-3 sm:grid-cols-[0.36fr_1fr_auto] sm:items-end">
               <input type="hidden" name="schoolId" value={schoolId} />
-              <div><label htmlFor="subject-code" className="text-xs font-medium">Code</label><input id="subject-code" name="code" placeholder="MATH" autoCapitalize="characters" className={`${fieldClass} mt-1.5 uppercase`} /></div>
-              <div><label htmlFor="subject-name" className="text-xs font-medium">Subject name</label><input id="subject-name" name="name" placeholder="Mathematics" className={`${fieldClass} mt-1.5`} /></div>
+              <div><label htmlFor="subject-code" className="text-xs font-medium">Code</label><input id="subject-code" name="code" placeholder="MATH" autoCapitalize="characters" className={`${fieldClass} mt-1.5 uppercase`} />{subjectState.fieldErrors?.code?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{subjectState.fieldErrors.code[0]}</p> : null}</div>
+              <div><label htmlFor="subject-name" className="text-xs font-medium">Subject name</label><input id="subject-name" name="name" placeholder="Mathematics" className={`${fieldClass} mt-1.5`} />{subjectState.fieldErrors?.name?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{subjectState.fieldErrors.name[0]}</p> : null}</div>
               <SubmitButton pending={subjectPending} label="Add subject" />
             </form>
-            <form action={offeringAction} className="mt-4 grid gap-3 sm:grid-cols-2 sm:items-end">
+            <SubjectMaintenanceList subjects={workspace.subjects} />
+            <form action={offeringAction} className="mt-4 grid gap-3 border-t border-border-subtle pt-4 sm:grid-cols-2 sm:items-end">
               <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
               <Picker label="Subject" name="subjectId" value={offeringSubjectId} onChange={setOfferingSubjectId} placeholder="Choose subject" options={workspace.subjects.map((item) => ({ value: item.id, label: item.name, helper: item.code.toUpperCase() }))} />
               <Picker label="Grade" name="gradeId" value={offeringGradeId} onChange={setOfferingGradeId} placeholder="Choose grade" options={workspace.grades.map((item) => ({ value: item.id, label: item.name }))} />

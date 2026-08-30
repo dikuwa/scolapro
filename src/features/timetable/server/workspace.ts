@@ -4,7 +4,7 @@ export type TimetableWorkspace = {
   grades: { id: string; name: string }[];
   classes: { id: string; name: string; gradeId: string; gradeName: string }[];
   staff: { id: string; name: string; employeeNumber: string | null }[];
-  subjects: { id: string; code: string; name: string }[];
+  subjects: { id: string; code: string; name: string; used: boolean }[];
   offerings: { id: string; subjectId: string; subjectName: string; gradeId: string; gradeName: string; periodsPerCycle: number }[];
   allocations: { id: string; offeringId: string; classId: string; className: string; staffId: string; staffName: string; staffCode: string | null; subjectName: string; gradeName: string }[];
   periods: { id: string; number: number; name: string; startsAt: string | null; endsAt: string | null; isTeaching: boolean }[];
@@ -50,11 +50,13 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     if (assignment.staff_member_id && assignment.staff_code) staffCodeMap.set(assignment.staff_member_id, assignment.staff_code);
   }
 
+  const usedSubjectIds = new Set((offeringsResult.data ?? []).map((item) => item.subject_id));
+
   return {
     grades: (gradesResult.data ?? []).map((grade) => ({ id: grade.id, name: grade.display_name })),
     classes: (classesResult.data ?? []).map((item) => ({ id: item.id, name: item.display_name, gradeId: item.grade_id, gradeName: one(item.grades)?.display_name ?? "Grade" })),
     staff: Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
-    subjects: (subjectsResult.data ?? []).map((subject) => ({ id: subject.id, code: subject.subject_code, name: subject.display_name })),
+    subjects: (subjectsResult.data ?? []).map((subject) => ({ id: subject.id, code: subject.subject_code, name: subject.display_name, used: usedSubjectIds.has(subject.id) })),
     offerings: (offeringsResult.data ?? []).map((item) => ({ id: item.id, subjectId: item.subject_id, subjectName: one(item.subjects)?.display_name ?? "Subject", gradeId: item.grade_id, gradeName: one(item.grades)?.display_name ?? "Grade", periodsPerCycle: item.periods_per_cycle })),
     allocations: (allocationsResult.data ?? []).map((item) => {
       const offering = one(item.subject_offerings); const subject = offering ? one(offering.subjects) : null; const grade = offering ? one(offering.grades) : null; const classRow = one(item.register_classes); const staff = one(item.staff_members);
