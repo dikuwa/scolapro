@@ -64,7 +64,7 @@ select is((select completed_items from public.report_card_batches where scope_la
 select is((select skipped_items from public.report_card_batches where scope_label='Operational publish mix'),1,'one ineligible publish item is skipped');
 select is((select status from public.report_card_batches where scope_label='Operational publish mix'),'completed','expected skips do not turn the batch into a failure');
 select is((select count(*)::integer from public.notifications where recipient_user_id='f9100000-0000-4000-8000-000000000004' and title='Report card available'),1,'newly published linked learner creates exactly one guardian notification');
-select is((select actor_user_id from public.audit_events where entity_id='f9170000-0000-4000-8000-000000000001'::uuid and event_type='report_card.snapshot.published' order by created_at desc limit 1),'f9100000-0000-4000-8000-000000000001'::uuid,'bulk publication preserves the initiating management actor');
+select is((select actor_user_id from public.audit_events where entity_id='f9170000-0000-4000-8000-000000000001'::uuid and event_type='report_card.snapshot.published' limit 1),'f9100000-0000-4000-8000-000000000001'::uuid,'bulk publication preserves the initiating management actor');
 
 -- Batch rows are visible only to report managers in the owning school.
 select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000001',true);
