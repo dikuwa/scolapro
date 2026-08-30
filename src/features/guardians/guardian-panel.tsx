@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Mail, MapPin, Pencil, Phone, Plus, Search, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
+import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Picker } from "@/components/ui/picker";
 import { GuardianDetailsFields } from "@/features/guardians/guardian-details-fields";
 import { addGuardianRelationship, endGuardianRelationship, linkExistingGuardian, saveGuardianContactDetails, type GuardianActionState } from "@/features/guardians/server/actions";
@@ -94,5 +95,5 @@ function GuardianRow({ learnerId, guardian, editing, onToggleEdit }: { learnerId
 }
 
 function RelationshipFlags() {
-  return <div className="mt-3 flex flex-wrap gap-3 text-[0.7rem]"><label className="inline-flex items-center gap-1.5"><input name="legalGuardian" type="checkbox" />Legal guardian</label><label className="inline-flex items-center gap-1.5"><input name="emergencyContact" type="checkbox" />Emergency contact</label><label className="inline-flex items-center gap-1.5"><input name="pickupAuthorized" type="checkbox" />Pickup authorized</label></div>;
+  return <div className="mt-3 flex flex-wrap gap-2"><CheckboxField name="legalGuardian" label="Legal guardian" /><CheckboxField name="emergencyContact" label="Emergency contact" /><CheckboxField name="pickupAuthorized" label="Pickup authorized" /></div>;
 }
