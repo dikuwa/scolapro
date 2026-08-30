@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Camera, ImagePlus, Pencil, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,18 +14,21 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
   const [removePhoto, setRemovePhoto] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [state, action, pending] = useActionState(updateLearnerOperationalProfile, initialState);
 
-  useEffect(() => {
-    if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
-    if (state.success) {
+  const [state, action, pending] = useActionState(async (previousState: LearnerProfileState, formData: FormData) => {
+    const result = await updateLearnerOperationalProfile(previousState, formData);
+    if (result.message) {
+      if (result.success) toast.success(result.message);
+      else toast.error(result.message);
+    }
+    if (result.success) {
       setOpen(false);
       setRemovePhoto(false);
       setSelectedPhoto(null);
       if (fileRef.current) fileRef.current.value = "";
     }
-  }, [state]);
+    return result;
+  }, initialState);
 
   const close = () => {
     if (pending) return;
@@ -57,7 +60,7 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
             <div>
               <label htmlFor={`preferred-name-${learnerId}`} className="text-xs font-medium">Preferred name</label>
               <input id={`preferred-name-${learnerId}`} name="preferredName" defaultValue={preferredName ?? ""} className={`${fieldClass} mt-1.5`} placeholder="Name used in day-to-day school interactions" />
-              <p className="mt-1 text-[0.68rem] text-muted-foreground">This does not alter the learner's official registered names.</p>
+              <p className="mt-1 text-[0.68rem] text-muted-foreground">This does not alter the learner&apos;s official registered names.</p>
               {state.fieldErrors?.preferredName?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{state.fieldErrors.preferredName[0]}</p> : null}
             </div>
 
