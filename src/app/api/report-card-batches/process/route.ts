@@ -18,10 +18,12 @@ export async function POST() {
   }
 
   try {
-    const batch = await processReportCardBatchQueue(100);
-    const render = await processReportCardRenderQueue(40);
-    const exportResult = await processReportCardBatchExportQueue(1);
-    return NextResponse.json({ batch, render, export: exportResult }, { headers: { "Cache-Control": "no-store" } });
+    // This pulse only accelerates already-authorized durable jobs. Do not expose global
+    // worker counts in its response because multiple schools may have work queued.
+    await processReportCardBatchQueue(100);
+    await processReportCardRenderQueue(40);
+    await processReportCardBatchExportQueue(1);
+    return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown report-card worker error";
     console.error("authenticated report-card worker pulse failed", message);
