@@ -65,7 +65,7 @@ export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: 
             <FieldError messages={state.fieldErrors?.lastName} />
           </div>
           <div>
-            <Picker label="Placement type" name="assignmentType" value={assignmentType} onChange={setAssignmentType} options={assignmentOptions} />
+            <Picker label="Placement type" name="assignmentType" value={assignmentType} onChange={setAssignmentType} placeholder="Choose placement type" options={assignmentOptions} />
             <FieldError messages={state.fieldErrors?.assignmentType} />
           </div>
           <div>
