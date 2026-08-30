@@ -1,14 +1,16 @@
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { renderReportCardHtml } from "@/features/reporting/server/render-report-card-html";
+import { renderReportCardPdf } from "@/features/reporting/server/render-report-card-pdf";
 
+type RenderFormat = "html" | "pdf";
 type RenderJob = {
   id: string;
   school_id: string;
   snapshot_id: string;
   template_key: string;
   template_version: string;
-  document_format: "html";
+  document_format: RenderFormat;
 };
 
 export type ReportCardRenderWorkerResult = {
@@ -22,7 +24,7 @@ export type ReportCardRenderWorkerResult = {
   durationMs: number;
 };
 
-export async function processReportCardRenderQueue(limit = 25): Promise<ReportCardRenderWorkerResult> {
+export async function processReportCardRenderQueue(limit = 20): Promise<ReportCardRenderWorkerResult> {
   const startedAt = Date.now();
   const supabase = createSupabaseAdminClient();
 
@@ -33,13 +35,15 @@ export async function processReportCardRenderQueue(limit = 25): Promise<ReportCa
   });
   if (recoveryError) throw new Error(`Unable to recover stale render jobs: ${recoveryError.message}`);
 
-  const { data: claimed, error: claimError } = await supabase.rpc("claim_report_card_render_jobs", {
-    p_limit: limit,
-    p_document_format: "html",
-  });
-  if (claimError) throw new Error(`Unable to claim render jobs: ${claimError.message}`);
+  const perFormatLimit = Math.max(1, Math.floor(limit / 2));
+  const [htmlClaim, pdfClaim] = await Promise.all([
+    supabase.rpc("claim_report_card_render_jobs", { p_limit: perFormatLimit, p_document_format: "html" }),
+    supabase.rpc("claim_report_card_render_jobs", { p_limit: perFormatLimit, p_document_format: "pdf" }),
+  ]);
+  if (htmlClaim.error) throw new Error(`Unable to claim HTML render jobs: ${htmlClaim.error.message}`);
+  if (pdfClaim.error) throw new Error(`Unable to claim PDF render jobs: ${pdfClaim.error.message}`);
 
-  const jobs = (claimed ?? []) as RenderJob[];
+  const jobs = [...((htmlClaim.data ?? []) as RenderJob[]), ...((pdfClaim.data ?? []) as RenderJob[])];
   let completed = 0;
   let failed = 0;
 
@@ -57,19 +61,36 @@ export async function processReportCardRenderQueue(limit = 25): Promise<ReportCa
       if (snapshotError || !snapshot) throw new Error(snapshotError?.message ?? "Report-card snapshot not found");
       if (schoolError || !school) throw new Error(schoolError?.message ?? "School not found");
 
-      const html = renderReportCardHtml({
+      const renderInput = {
         schoolName: school.name,
         schoolEmisNumber: school.emis_number,
         snapshotVersion: snapshot.snapshot_version,
         certifiedAt: snapshot.certified_at,
         dataSnapshot: snapshot.data_snapshot ?? {},
-      });
-      const bytes = new TextEncoder().encode(html);
+      };
+
+      let bytes: Uint8Array;
+      let pageCount: number | null = null;
+      let extension: RenderFormat;
+      let contentType: string;
+
+      if (job.document_format === "pdf") {
+        const rendered = await renderReportCardPdf(renderInput);
+        bytes = rendered.bytes;
+        pageCount = rendered.pageCount;
+        extension = "pdf";
+        contentType = "application/pdf";
+      } else {
+        bytes = new TextEncoder().encode(renderReportCardHtml(renderInput));
+        extension = "html";
+        contentType = "text/html; charset=utf-8";
+      }
+
       const checksum = createHash("sha256").update(bytes).digest("hex");
-      const storagePath = `${job.school_id}/${job.snapshot_id}/${job.template_key}/${job.template_version}.html`;
+      const storagePath = `${job.school_id}/${job.snapshot_id}/${job.template_key}/${job.template_version}.${extension}`;
 
       const { error: uploadError } = await supabase.storage.from("report-card-artifacts").upload(storagePath, bytes, {
-        contentType: "text/html; charset=utf-8",
+        contentType,
         upsert: true,
       });
       if (uploadError) throw new Error(uploadError.message);
@@ -79,7 +100,7 @@ export async function processReportCardRenderQueue(limit = 25): Promise<ReportCa
         p_storage_bucket: "report-card-artifacts",
         p_storage_path: storagePath,
         p_content_sha256: checksum,
-        p_page_count: null,
+        p_page_count: pageCount,
       });
       if (completeError) throw new Error(completeError.message);
       completed += 1;
@@ -100,7 +121,7 @@ export async function processReportCardRenderQueue(limit = 25): Promise<ReportCa
   const { data: queueRows, error: queueError } = await supabase
     .from("report_card_render_jobs")
     .select("status")
-    .eq("document_format", "html")
+    .in("document_format", ["html", "pdf"])
     .in("status", ["pending", "retry", "dead"]);
   if (queueError) throw new Error(`Unable to inspect render queue: ${queueError.message}`);
 
