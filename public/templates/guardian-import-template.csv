@@ -1,2 +1,2 @@
-learner_admission_number,identity_number,first_names,initials,surname,relationship_type,email,mobile,whatsapp,is_legal_guardian,is_emergency_contact,is_pickup_authorized,priority
-4806,80010100123,Anna,A,Adams,mother,anna@example.com,0812345678,0812345678,true,true,true,1
+learner_admission_number,identity_number,guardian_first_names,guardian_surname,relationship_type,email,mobile,whatsapp,home_phone,work_phone,residential_address,postal_address,work_address,is_legal_guardian,is_emergency_contact,is_pickup_authorized,guardian_priority
+4806,,Anna,Adams,mother,anna@example.com,0812345678,0812345678,062123456,061123456,"12 Example Street, Swakopmund","P.O. Box 123, Swakopmund","School Street, Swakopmund",true,true,true,1

@@ -29,18 +29,28 @@ export async function stageGuardianCsv(formData: FormData) {
     const issues: { level: string; field: string; message: string }[] = [];
     const learnerAdmissionNumber = (row.learner_admission_number || row.admission_number || row.learner_number || "").trim().toUpperCase();
     const identityNumber = (row.identity_number || row.guardian_id_number || row.id_number || "").trim();
-    const firstNames = (row.first_names || row.first_name || "").trim();
+    const firstNames = (row.guardian_first_names || row.first_names || row.first_name || "").trim();
     const initials = normalizeInitials(row.initials || row.initial || row.name_initials);
-    const surname = (row.surname || row.last_name || "").trim();
-    const relationshipType = (row.relationship_type || row.relationship || "guardian").trim().toLowerCase();
-    const priority = Number((row.priority || "1").trim());
+    const surname = (row.guardian_surname || row.surname || row.last_name || "").trim();
+    const relationshipType = (row.relationship_type || row.relationship || "parent").trim().toLowerCase();
+    const priority = Number((row.guardian_priority || row.priority || "1").trim());
+    const email = (row.email || "").trim().toLowerCase();
+    const mobile = (row.mobile || row.cell_number || row.phone || "").trim();
+    const whatsapp = (row.whatsapp || "").trim();
+    const homePhone = (row.home_telephone || row.home_phone || "").trim();
+    const workPhone = (row.work_telephone || row.work_phone || "").trim();
+    const physicalAddress = (row.residential_address || row.physical_address || "").trim();
+    const postalAddress = (row.postal_address || "").trim();
+    const workAddress = (row.work_address || "").trim();
+    const hasMatchingEvidence = Boolean(identityNumber || email || mobile || whatsapp || homePhone || workPhone);
 
     if (!learnerAdmissionNumber) issues.push({ level: "error", field: "learner_admission_number", message: "Learner admission number is required." });
-    if (!identityNumber) issues.push({ level: "error", field: "identity_number", message: "Guardian identity number is required for deterministic bulk matching." });
     if (!firstNames) issues.push({ level: "error", field: "first_names", message: "Guardian first names are required." });
     if (!surname) issues.push({ level: "error", field: "surname", message: "Guardian surname is required." });
     if (!relationshipType) issues.push({ level: "error", field: "relationship_type", message: "Relationship type is required." });
     if (!Number.isInteger(priority) || priority < 1 || priority > 20) issues.push({ level: "error", field: "priority", message: "Priority must be between 1 and 20." });
+    if (!hasMatchingEvidence) issues.push({ level: "error", field: "contact", message: "Provide an identity number or at least one contact value so the import can detect existing guardians safely." });
+    if (!identityNumber && hasMatchingEvidence) issues.push({ level: "warning", field: "identity_number", message: "No identity number supplied. Existing-guardian matching will use exact name plus contact evidence and ambiguous matches require review." });
 
     return {
       row_number: index + 2,
@@ -53,15 +63,20 @@ export async function stageGuardianCsv(formData: FormData) {
         surname,
         preferred_name: (row.preferred_name || "").trim(),
         relationship_type: relationshipType,
-        email: (row.email || "").trim().toLowerCase(),
-        mobile: (row.mobile || row.phone || "").trim(),
-        whatsapp: (row.whatsapp || "").trim(),
-        is_legal_guardian: boolValue(row.is_legal_guardian),
-        is_emergency_contact: boolValue(row.is_emergency_contact),
-        is_pickup_authorized: boolValue(row.is_pickup_authorized),
+        email,
+        mobile,
+        whatsapp,
+        home_phone: homePhone,
+        work_phone: workPhone,
+        physical_address: physicalAddress,
+        postal_address: postalAddress,
+        work_address: workAddress,
+        is_legal_guardian: boolValue(row.is_legal_guardian || row.legal_guardian),
+        is_emergency_contact: boolValue(row.is_emergency_contact || row.emergency_contact),
+        is_pickup_authorized: boolValue(row.is_pickup_authorized || row.pickup_authorised || row.pickup_authorized),
         priority: Number.isInteger(priority) ? priority : 1,
       },
-      resolution: issues.length ? "error" : "review",
+      resolution: issues.some((issue) => issue.level === "error") ? "error" : "review",
       issues,
     };
   });
