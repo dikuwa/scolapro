@@ -13,6 +13,13 @@ function ContactIcon({ type }: { type: string }) {
   return <Phone className="size-3" />;
 }
 
+function learnerPreview(learners: GuardianDirectoryLearner[]) {
+  if (!learners.length) return null;
+  const first = learners[0];
+  const placement = [first.grade, first.registerClass].filter(Boolean).join(" · ");
+  return `${first.name}${placement ? ` · ${placement}` : ""}${learners.length > 1 ? ` · +${learners.length - 1} more` : ""}`;
+}
+
 function LearnerDetail({ learner }: { learner: GuardianDirectoryLearner }) {
   return (
     <div className="rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]">
@@ -34,7 +41,7 @@ function GuardianRow({ guardian }: { guardian: GuardianDirectoryRow }) {
   const [expanded, setExpanded] = useState(false);
   const phoneContact = guardian.contacts.find((contact) => contact.type === "mobile" || contact.type === "phone");
   const emailContact = guardian.contacts.find((contact) => contact.type === "email");
-  const linkedLearnerNames = guardian.learners.map((learner) => learner.name).join(", ");
+  const collapsedLearnerPreview = learnerPreview(guardian.learners);
   const hasEmergencyLearner = guardian.learners.some((learner) => learner.isEmergencyContact);
 
   return (
@@ -49,7 +56,7 @@ function GuardianRow({ guardian }: { guardian: GuardianDirectoryRow }) {
         <ChevronRight aria-hidden="true" className={`size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] ${expanded ? "rotate-90 text-brand-strong" : ""}`} />
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
           <span className="scolapro-record-title shrink-0">{guardian.name}</span>
-          {!expanded && linkedLearnerNames ? <span className="min-w-0 truncate text-[0.64rem] font-normal text-muted-foreground">· {linkedLearnerNames}</span> : null}
+          {!expanded && collapsedLearnerPreview ? <span className="min-w-0 truncate text-[0.64rem] font-normal text-muted-foreground">· {collapsedLearnerPreview}</span> : null}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {guardian.learners.length > 1 ? <span className="hidden rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.62rem] font-medium text-brand-strong sm:inline">{guardian.learners.length} learners</span> : null}
