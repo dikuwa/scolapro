@@ -18,7 +18,7 @@ export function GuardianDetailsFields({ initialContacts = [], initialAddresses =
   const [addresses, setAddresses] = useState<AddressDraft[]>(() => initialAddresses.length ? initialAddresses.map((item) => ({ id: item.id, type: item.type as AddressDraft["type"], label: item.label ?? "", line1: item.line1, line2: item.line2 ?? "", locality: item.locality ?? "", town: item.town ?? "", region: item.region ?? "", postalCode: item.postalCode ?? "", country: item.country || "Namibia", primary: item.primary })) : [makeAddress()]);
 
   const contactPayload = contacts.filter((item) => item.value.trim()).map(({ type, label, value, primary }) => ({ type, label, value: value.trim(), primary }));
-  const addressPayload = addresses.filter((item) => item.line1.trim()).map(({ type, label, line1, line2, locality, town, region, postalCode, country, primary }) => ({ type, label, line1, line2, locality, town, region, postalCode, country: country || "Namibia", primary }));
+  const addressPayload = addresses.filter((item) => item.line1.trim()).map(({ type, label, line1, line2, locality, town, region, postalCode, country, primary }) => ({ type, label, line1: line1.trim(), line2, locality, town, region, postalCode, country: country || "Namibia", primary }));
 
   function updateContact(id: string, patch: Partial<ContactDraft>) { setContacts((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item)); }
   function updateAddress(id: string, patch: Partial<AddressDraft>) { setAddresses((current) => current.map((item) => item.id === id ? { ...item, ...patch } : item)); }
