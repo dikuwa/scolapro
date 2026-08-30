@@ -44,8 +44,8 @@ const actionButton = "cursor-pointer transition-colors duration-[var(--motion-fa
 const pageSize = 50;
 
 type ScopeType = "school" | "grade" | "class" | "custom";
-type BatchOperation = "generate" | "certify" | "pdf";
-type StatusFilter = "all" | "not_generated" | "generated" | "certified";
+type BatchOperation = "generate" | "certify" | "publish" | "pdf";
+type StatusFilter = "all" | "not_generated" | "generated" | "certified" | "published";
 
 type WorkspaceProps = {
   learners: ReportCardLearner[];
@@ -61,7 +61,9 @@ type WorkspaceProps = {
 
 function snapshotStatus(snapshot: ReportCardSnapshotRow | undefined): Exclude<StatusFilter, "all"> {
   if (!snapshot) return "not_generated";
-  return snapshot.status === "draft" ? "generated" : "certified";
+  if (snapshot.status === "draft") return "generated";
+  if (snapshot.status === "published") return "published";
+  return "certified";
 }
 
 function statusLabel(snapshot: ReportCardSnapshotRow | undefined) {
@@ -74,6 +76,7 @@ function statusLabel(snapshot: ReportCardSnapshotRow | undefined) {
 function statusClass(snapshot: ReportCardSnapshotRow | undefined) {
   if (!snapshot) return "bg-surface-muted text-muted-foreground";
   if (snapshot.status === "draft") return "bg-warning-soft text-[color:var(--warning)]";
+  if (snapshot.status === "published") return "bg-brand-soft text-brand-strong";
   return "bg-success-soft text-[color:var(--success)]";
 }
 
@@ -103,7 +106,9 @@ function BatchButton({ operation, learners, academicYear, termNumber, scopeType,
     ? { label: "Generate snapshots", Icon: FilePlus2, className: "bg-brand text-white hover:brightness-95" }
     : operation === "certify"
       ? { label: "Certify drafts", Icon: BadgeCheck, className: "bg-success-soft text-[color:var(--success)] hover:bg-[color:var(--success)] hover:text-white" }
-      : { label: "Prepare PDFs", Icon: Printer, className: "bg-brand-soft text-brand-strong hover:bg-brand hover:text-white" };
+      : operation === "publish"
+        ? { label: "Publish certified", Icon: Send, className: "bg-info-soft text-[color:var(--info)] hover:bg-[color:var(--info)] hover:text-white" }
+        : { label: "Prepare PDFs", Icon: Printer, className: "bg-brand-soft text-brand-strong hover:bg-brand hover:text-white" };
 
   return <form action={action}>
     <input type="hidden" name="academicYear" value={academicYear} />
@@ -125,7 +130,13 @@ function BatchProgress({ batch, issues, learnerByEnrolment }: {
   learnerByEnrolment: Map<string, ReportCardLearner>;
 }) {
   const progress = batch.totalItems ? Math.round((batch.processedItems / batch.totalItems) * 100) : 0;
-  const label = batch.operation === "generate" ? "Generate snapshots" : batch.operation === "certify" ? "Certify snapshots" : "Prepare PDFs";
+  const label = batch.operation === "generate"
+    ? "Generate snapshots"
+    : batch.operation === "certify"
+      ? "Certify snapshots"
+      : batch.operation === "publish"
+        ? "Publish reports"
+        : "Prepare PDFs";
   const active = batch.status === "pending" || batch.status === "processing";
   const relevantIssues = issues.filter((issue) => issue.batchId === batch.id).slice(0, 6);
 
@@ -256,19 +267,24 @@ export function ReportCardWorkspace(props: WorkspaceProps) {
     let notGenerated = 0;
     let generated = 0;
     let certified = 0;
+    let published = 0;
     let pdfReady = 0;
     for (const learner of rows) {
       const snapshot = latestByKey.get(`${learner.enrolmentId}:${selectedTerm}`);
       if (!snapshot) notGenerated += 1;
       else if (snapshot.status === "draft") generated += 1;
-      else {
+      else if (snapshot.status === "published") {
+        published += 1;
+        if (documentsByKey.has(`${snapshot.id}:pdf`)) pdfReady += 1;
+      } else {
         certified += 1;
         if (documentsByKey.has(`${snapshot.id}:pdf`)) pdfReady += 1;
       }
     }
-    return { total: rows.length, notGenerated, generated, certified, pdfReady };
+    return { total: rows.length, notGenerated, generated, certified, published, pdfReady };
   };
   const scopeSummary = summarize(scopedLearners);
+  const pdfEligible = scopeSummary.certified + scopeSummary.published;
 
   const filteredLearners = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -286,6 +302,7 @@ export function ReportCardWorkspace(props: WorkspaceProps) {
   const pageLearners = filteredLearners.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const selectedLearners = learners.filter((learner) => selectedIds.has(learner.enrolmentId));
   const selectedSummary = summarize(selectedLearners);
+  const selectedPdfEligible = selectedSummary.certified + selectedSummary.published;
   const allPageSelected = pageLearners.length > 0 && pageLearners.every((learner) => selectedIds.has(learner.enrolmentId));
 
   const setPageSelection = (checked: boolean) => {
@@ -313,7 +330,7 @@ export function ReportCardWorkspace(props: WorkspaceProps) {
 
     {canManageReports && mode === "bulk" ? <>
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="mb-4"><h2 className="scolapro-section-title">Bulk report preparation</h2><p className="scolapro-section-description">Choose school, grade, class or custom scope. Each stage is durable and records skipped learners explicitly.</p></div>
+        <div className="mb-4"><h2 className="scolapro-section-title">Bulk report preparation</h2><p className="scolapro-section-description">Choose school, grade, class or custom scope. Generate, certify, publish and prepare PDFs as separate durable stages.</p></div>
         <div className="grid gap-3 lg:grid-cols-4">
           <Picker label="Scope" value={scopeType} onChange={(value) => { setScopeType(value as ScopeType); setPage(1); }} placeholder="Choose scope" options={[{ value: "school", label: "Whole school" }, { value: "grade", label: "Specific grade" }, { value: "class", label: "Register class" }, { value: "custom", label: "Custom selection" }]} />
           {scopeType === "grade" || scopeType === "class" ? <Picker label="Grade" value={scopeGradeId} onChange={(value) => { setScopeGradeId(value); setScopeClassId(""); }} placeholder="Choose grade" options={gradeOptions} /> : <div className="hidden lg:block" />}
@@ -321,22 +338,22 @@ export function ReportCardWorkspace(props: WorkspaceProps) {
           <Picker label="Term" value={termNumber} onChange={(value) => { setTermNumber(value); setPage(1); }} placeholder="Choose term" options={terms.map((term) => ({ value: String(term.termNumber), label: term.name }))} />
         </div>
         {scopeType === "custom" && selectedIds.size === 0 ? <p className="mt-3 rounded-[var(--radius-sm)] bg-info-soft px-3 py-2 text-xs text-[color:var(--info)]">Select learners in the table below to build this custom scope.</p> : null}
-        <div className="mt-4 grid overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle sm:grid-cols-5">{[
-          ["Learners", scopeSummary.total], ["Not generated", scopeSummary.notGenerated], ["Generated", scopeSummary.generated], ["Certified", scopeSummary.certified], ["PDF ready", scopeSummary.pdfReady],
+        <div className="mt-4 grid overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle sm:grid-cols-6">{[
+          ["Learners", scopeSummary.total], ["Not generated", scopeSummary.notGenerated], ["Generated", scopeSummary.generated], ["Certified", scopeSummary.certified], ["Published", scopeSummary.published], ["PDF ready", scopeSummary.pdfReady],
         ].map(([label, value], index) => <div key={String(label)} className={`px-3 py-3 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}><p className="text-[0.65rem] font-medium text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>)}</div>
-        <div className="mt-4 flex flex-wrap gap-2"><BatchButton operation="generate" learners={scopedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType={scopeType} scopeLabel={scopeLabel} disabled={scopeSummary.notGenerated === 0} /><BatchButton operation="certify" learners={scopedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType={scopeType} scopeLabel={scopeLabel} disabled={scopeSummary.generated === 0} /><BatchButton operation="pdf" learners={scopedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType={scopeType} scopeLabel={scopeLabel} disabled={scopeSummary.certified === 0 || scopeSummary.pdfReady >= scopeSummary.certified} /></div>
+        <div className="mt-4 flex flex-wrap gap-2"><BatchButton operation="generate" learners={scopedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType={scopeType} scopeLabel={scopeLabel} disabled={scopeSummary.notGenerated === 0} /><BatchButton operation="certify" learners={scopedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType={scopeType} scopeLabel={scopeLabel} disabled={scopeSummary.generated === 0} /><BatchButton operation="publish" learners={scopedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType={scopeType} scopeLabel={scopeLabel} disabled={scopeSummary.certified === 0} /><BatchButton operation="pdf" learners={scopedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType={scopeType} scopeLabel={scopeLabel} disabled={pdfEligible === 0 || scopeSummary.pdfReady >= pdfEligible} /></div>
       </section>
       {batches.length ? <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><div className="mb-3 flex items-center justify-between gap-3"><div><h2 className="scolapro-section-title">Batch progress</h2><p className="scolapro-section-description">Recent scoped jobs and learner-level exceptions.</p></div>{hasActiveBatch ? <span className="inline-flex items-center gap-1.5 text-[0.68rem] text-[color:var(--info)]"><Spinner className="size-3.5" />Updating</span> : null}</div><div className="grid gap-2 lg:grid-cols-2">{batches.slice(0, 6).map((batch) => <BatchProgress key={batch.id} batch={batch} issues={batchIssues} learnerByEnrolment={learnerByEnrolment} />)}</div></section> : null}
     </> : null}
 
     {canManageReports && mode === "individual" ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"><div className="mb-4"><h2 className="scolapro-section-title">Individual report card</h2><p className="scolapro-section-description">Keep the one-learner workflow for reprints and exceptions.</p></div><form action={individualAction} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.35fr)_auto] lg:items-end"><Picker label="Learner" name="enrolmentId" value={individualLearnerId} onChange={setIndividualLearnerId} placeholder="Choose learner" options={learners.map((learner) => ({ value: learner.enrolmentId, label: learner.name, helper: `${learner.admissionNumber ?? "No admission number"} · ${learner.grade} · ${learner.registerClass}` }))} /><Picker label="Term" name="termNumber" value={termNumber} onChange={(value) => { setTermNumber(value); setPage(1); }} placeholder="Choose term" options={terms.map((term) => ({ value: String(term.termNumber), label: term.name }))} /><button type="submit" disabled={individualPending || !individualLearnerId} className={`${actionButton} scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white disabled:opacity-50`}>{individualPending ? <Spinner className="size-4" /> : <FilePlus2 className="size-4" />}{individualPending ? "Generating…" : "Generate snapshot"}</button></form><IndividualReport learner={learnerByEnrolment.get(individualLearnerId)} termNumber={selectedTerm} snapshot={selectedIndividualSnapshot} pdfJob={selectedPdfJob} pdfDocument={selectedPdfDocument} htmlJob={selectedHtmlJob} htmlDocument={selectedHtmlDocument} /></section> : null}
 
-    {!canManageReports ? <section className="rounded-[var(--radius-md)] bg-surface-muted p-4"><div className="flex items-start gap-3"><Eye className="mt-0.5 size-4 text-brand-strong" /><div><h2 className="scolapro-section-title">View-only report access</h2><p className="scolapro-section-description">Teaching roles can review status only. Bulk generation, certification and printing remain management actions.</p></div></div></section> : null}
+    {!canManageReports ? <section className="rounded-[var(--radius-md)] bg-surface-muted p-4"><div className="flex items-start gap-3"><Eye className="mt-0.5 size-4 text-brand-strong" /><div><h2 className="scolapro-section-title">View-only report access</h2><p className="scolapro-section-description">Teaching roles can review status only. Bulk generation, certification, publication and printing remain management actions.</p></div></div></section> : null}
 
     <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
-      <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="scolapro-section-title">Current learner reports</h2><p className="scolapro-section-description">Filtered, single-term status with 50 learners per page.</p></div><p className="text-xs font-semibold">{filteredLearners.length} learners</p></div><div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5"><label className="relative block"><span className="sr-only">Search learners</span><Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search learner or admission no." className="min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated pl-9 pr-3 text-xs outline-none focus:border-brand/50 focus:ring-4 focus:ring-brand-soft" /></label><Picker label="" value={filterGradeId} onChange={(value) => { setFilterGradeId(value); setFilterClassId(""); setPage(1); }} placeholder="All grades" options={[{ value: "", label: "All grades" }, ...gradeOptions]} /><Picker label="" value={filterClassId} onChange={(value) => { setFilterClassId(value); setPage(1); }} placeholder="All classes" options={[{ value: "", label: "All classes" }, ...classOptions.filter((item) => !filterGradeId || item.gradeId === filterGradeId).map(({ value, label }) => ({ value, label }))]} /><Picker label="" value={termNumber} onChange={(value) => { setTermNumber(value); setPage(1); }} placeholder="Choose term" options={terms.map((term) => ({ value: String(term.termNumber), label: term.name }))} /><Picker label="" value={statusFilter} onChange={(value) => { setStatusFilter(value as StatusFilter); setPage(1); }} placeholder="All statuses" options={[{ value: "all", label: "All statuses" }, { value: "not_generated", label: "Not generated" }, { value: "generated", label: "Generated" }, { value: "certified", label: "Certified / published" }]} /></div></div>
+      <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="scolapro-section-title">Current learner reports</h2><p className="scolapro-section-description">Filtered, single-term status with 50 learners per page.</p></div><p className="text-xs font-semibold">{filteredLearners.length} learners</p></div><div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-5"><label className="relative block"><span className="sr-only">Search learners</span><Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search learner or admission no." className="min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated pl-9 pr-3 text-xs outline-none focus:border-brand/50 focus:ring-4 focus:ring-brand-soft" /></label><Picker label="" value={filterGradeId} onChange={(value) => { setFilterGradeId(value); setFilterClassId(""); setPage(1); }} placeholder="All grades" options={[{ value: "", label: "All grades" }, ...gradeOptions]} /><Picker label="" value={filterClassId} onChange={(value) => { setFilterClassId(value); setPage(1); }} placeholder="All classes" options={[{ value: "", label: "All classes" }, ...classOptions.filter((item) => !filterGradeId || item.gradeId === filterGradeId).map(({ value, label }) => ({ value, label }))]} /><Picker label="" value={termNumber} onChange={(value) => { setTermNumber(value); setPage(1); }} placeholder="Choose term" options={terms.map((term) => ({ value: String(term.termNumber), label: term.name }))} /><Picker label="" value={statusFilter} onChange={(value) => { setStatusFilter(value as StatusFilter); setPage(1); }} placeholder="All statuses" options={[{ value: "all", label: "All statuses" }, { value: "not_generated", label: "Not generated" }, { value: "generated", label: "Generated" }, { value: "certified", label: "Certified" }, { value: "published", label: "Published" }]} /></div></div>
 
-      {canManageReports && selectedIds.size > 0 ? <div className="border-b border-border-subtle bg-brand-soft/40 px-4 py-3 sm:px-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold">{selectedIds.size} selected</p><p className="text-[0.65rem] text-muted-foreground">{selectedSummary.notGenerated} not generated · {selectedSummary.generated} drafts · {selectedSummary.certified} certified</p></div><div className="flex flex-wrap gap-2"><BatchButton operation="generate" learners={selectedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType="custom" scopeLabel={`Custom selection (${selectedIds.size})`} disabled={selectedSummary.notGenerated === 0} /><BatchButton operation="certify" learners={selectedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType="custom" scopeLabel={`Custom selection (${selectedIds.size})`} disabled={selectedSummary.generated === 0} /><BatchButton operation="pdf" learners={selectedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType="custom" scopeLabel={`Custom selection (${selectedIds.size})`} disabled={selectedSummary.certified === 0 || selectedSummary.pdfReady >= selectedSummary.certified} /><button type="button" onClick={() => setSelectedIds(new Set())} className={`${actionButton} min-h-9 rounded-[var(--radius-xs)] px-3 text-xs font-semibold text-muted-foreground`}>Clear</button></div></div></div> : null}
+      {canManageReports && selectedIds.size > 0 ? <div className="border-b border-border-subtle bg-brand-soft/40 px-4 py-3 sm:px-5"><div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold">{selectedIds.size} selected</p><p className="text-[0.65rem] text-muted-foreground">{selectedSummary.notGenerated} not generated · {selectedSummary.generated} drafts · {selectedSummary.certified} certified · {selectedSummary.published} published</p></div><div className="flex flex-wrap gap-2"><BatchButton operation="generate" learners={selectedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType="custom" scopeLabel={`Custom selection (${selectedIds.size})`} disabled={selectedSummary.notGenerated === 0} /><BatchButton operation="certify" learners={selectedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType="custom" scopeLabel={`Custom selection (${selectedIds.size})`} disabled={selectedSummary.generated === 0} /><BatchButton operation="publish" learners={selectedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType="custom" scopeLabel={`Custom selection (${selectedIds.size})`} disabled={selectedSummary.certified === 0} /><BatchButton operation="pdf" learners={selectedLearners} academicYear={academicYear} termNumber={selectedTerm} scopeType="custom" scopeLabel={`Custom selection (${selectedIds.size})`} disabled={selectedPdfEligible === 0 || selectedSummary.pdfReady >= selectedPdfEligible} /><button type="button" onClick={() => setSelectedIds(new Set())} className={`${actionButton} min-h-9 rounded-[var(--radius-xs)] px-3 text-xs font-semibold text-muted-foreground`}>Clear</button></div></div></div> : null}
 
       <div className="flex items-center justify-between gap-2 border-b border-border-subtle px-4 py-2 sm:px-5">{canManageReports ? <CheckboxField label={`Select all in view (${pageLearners.length})`} checked={allPageSelected} onChange={(event) => setPageSelection(event.target.checked)} /> : <span className="text-[0.68rem] text-muted-foreground">Read-only status</span>}<span className="text-[0.65rem] text-muted-foreground">Page {currentPage} of {pageCount}</span></div>
       {pageLearners.length ? <div className="divide-y divide-border-subtle">{pageLearners.map((learner) => {
