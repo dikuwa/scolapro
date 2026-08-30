@@ -23,7 +23,7 @@ The repository now includes:
 
 ## Parallel development split
 
-To avoid collisions, continuation work is split into two lanes starting from the same latest `main`.
+To avoid collisions, continuation work is split into coordinated lanes starting from the same latest `main`.
 
 ### ChatGPT lane — backend/security/data/workflow QA
 
@@ -59,11 +59,27 @@ Scope:
 8. Check dark/light theme behavior.
 9. Follow the repository design documents and reuse existing ScolaPro components/tokens; do not redesign the application or introduce a generic dashboard style.
 
+### Claude sandbox lane — targeted frontend patches
+
+Claude may work on narrowly scoped UI defects in an isolated sandbox, but its work is integrated only through reviewable patches rather than by merging the sandbox directly into `main`.
+
+Rules:
+
+1. Sync the sandbox from the latest remote `main` before each task and record the base SHA.
+2. Stay inside `src/app/**`, `src/components/**`, frontend-facing `src/features/**`, and relevant frontend tests unless explicitly coordinated otherwise.
+3. Do not touch `supabase/**`, migrations, RLS, database functions, or backend workflow/domain logic.
+4. Commit only intended UI files and generate a `git format-patch` handoff against the recorded `main` base.
+5. Every handoff includes the patch plus a short integration note: base SHA, files changed, shared components affected, typecheck/lint/build results, clean `git am` verification, known risks, and possible overlap.
+6. ChatGPT reviews each patch as KEEP / ADAPT / DROP / CONFLICT before integration so shared components, accessibility, responsive behavior and current branch work are reconciled rather than overwritten.
+7. Claude does not merge its sandbox branch directly into `main` and does not resolve substantive overlap by blindly choosing one side.
+
 ### File-conflict rule
 
 - ChatGPT lane owns `supabase/**`, backend/domain/security tests, and backend-oriented roadmap notes during this pass.
-- Codex lane should prefer `src/app/**`, `src/components/**` and frontend-specific tests/docs.
-- Do not edit the same file in both lanes unless the change is explicitly coordinated first.
+- Codex should prefer its dedicated frontend branch for broader role/responsive QA.
+- Claude should remain a patch-producing targeted frontend lane.
+- Codex and Claude must both inspect current frontend changes before touching the same shared component; any material overlap is reconciled before merge.
+- Do not edit the same file in multiple lanes unless the change is explicitly coordinated first.
 
 ## QA priorities from here
 
