@@ -48,10 +48,11 @@ select is(
   'ending the guardian relationship removes report access immediately'
 );
 
-select results_eq(
-  $$update public.report_card_snapshots set data_snapshot='{"tampered":true}'::jsonb where id='f8400000-0000-4000-8000-000000000001' returning id$$,
-  ARRAY[]::uuid[],
-  'parent cannot mutate a published report snapshot'
+select throws_ok(
+  $$update public.report_card_snapshots set data_snapshot='{"tampered":true}'::jsonb where id='f8400000-0000-4000-8000-000000000001'$$,
+  '42501',
+  null,
+  'parent cannot mutate a published report snapshot at the table privilege boundary'
 );
 
 reset role;
