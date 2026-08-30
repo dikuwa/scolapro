@@ -25,12 +25,12 @@ select set_config('request.jwt.claim.sub','f9000000-0000-4000-8000-000000000001'
 select set_config('request.jwt.claim.role','authenticated',true);
 
 select lives_ok(
-  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-08-24','08:05','first cumulative late')$$,
+  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-07-27','08:05','first cumulative late')$$,
   'first cumulative late arrival is recorded'
 );
 
 select lives_ok(
-  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-09-01','08:06','second cumulative late')$$,
+  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-08-04','08:06','second cumulative late')$$,
   'second cumulative late may occur in a later week'
 );
 
@@ -41,7 +41,7 @@ select is(
 );
 
 select lives_ok(
-  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-09-04','08:07','third cumulative late')$$,
+  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-08-07','08:07','third cumulative late')$$,
   'third cumulative late creates an obligation even though arrivals span multiple weeks'
 );
 
@@ -53,7 +53,7 @@ select is(
 
 select is(
   (select due_on from public.late_detention_obligations where learner_id='50000000-0000-4000-8000-000000000001' and academic_year=2026 order by created_at limit 1),
-  '2026-09-11'::date,
+  '2026-08-14'::date,
   'a Friday trigger is scheduled for the following Friday, not the same day'
 );
 
@@ -64,15 +64,15 @@ select is(
 );
 
 select lives_ok(
-  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-09-07','08:01','fourth cumulative late')$$,
+  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-08-10','08:01','fourth cumulative late')$$,
   'fourth cumulative late starts the next three-late block'
 );
 select lives_ok(
-  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-09-08','08:02','fifth cumulative late')$$,
+  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-08-11','08:02','fifth cumulative late')$$,
   'fifth cumulative late continues the next three-late block'
 );
 select lives_ok(
-  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-09-09','08:03','sixth cumulative late')$$,
+  $$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-08-12','08:03','sixth cumulative late')$$,
   'sixth cumulative late creates another independent obligation while the first remains open'
 );
 
@@ -83,13 +83,13 @@ select is(
 );
 
 select is(
-  public.roll_forward_late_detentions('22222222-2222-4222-8222-222222222222','2026-09-12'),
+  public.roll_forward_late_detentions('22222222-2222-4222-8222-222222222222','2026-08-15'),
   2,
   'all unresolved overdue obligations roll forward independently'
 );
 
 select is(
-  (select count(*)::integer from public.late_detention_obligations where learner_id='50000000-0000-4000-8000-000000000001' and original_due_on='2026-09-11' and due_on='2026-09-18' and rollover_count=1),
+  (select count(*)::integer from public.late_detention_obligations where learner_id='50000000-0000-4000-8000-000000000001' and original_due_on='2026-08-14' and due_on='2026-08-21' and rollover_count=1),
   2,
   'roll-forward preserves each original due date while moving the active due date'
 );
