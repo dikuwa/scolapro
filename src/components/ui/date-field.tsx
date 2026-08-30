@@ -79,7 +79,7 @@ function CalendarPanel({ value, min, max, onSelect, onClose }: { value: string; 
   }
 
   return (
-    <div className="absolute right-0 top-full z-[80] mt-2 w-[19rem] max-w-[calc(100vw-2rem)] rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-3 shadow-[var(--shadow-md)]" role="dialog" aria-label="Choose date">
+    <div className="absolute right-0 top-full z-[80] mt-1 w-[19rem] max-w-[calc(100vw-2rem)] rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-3 shadow-[var(--shadow-md)]" role="dialog" aria-label="Choose date">
       <div className="flex items-center justify-between gap-2">
         <button type="button" onClick={() => moveMonth(-1)} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface-muted hover:text-foreground" aria-label="Previous month"><ChevronLeft className="size-4" /></button>
         <button type="button" onClick={() => setYearMode((current) => !current)} className="rounded-[var(--radius-xs)] px-2 py-1.5 text-sm font-semibold text-foreground transition hover:bg-surface-muted" aria-expanded={yearMode}>{monthNames[view.getMonth()]} {view.getFullYear()}</button>
@@ -140,14 +140,16 @@ export function DateField({ label, name, value, onChange, required = false, erro
   }
 
   return (
-    <div ref={rootRef} className={cn("relative min-w-0", className)}>
+    <div ref={rootRef} className={cn("min-w-0", className)}>
       <label className="text-xs font-medium" htmlFor={`${name}-typed`}>{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label>
       <input type="hidden" name={name} value={value} />
-      <div className={cn("mt-1.5 flex min-h-10 w-full items-center rounded-[var(--radius-sm)] border bg-surface-elevated shadow-[var(--shadow-xs)] transition focus-within:ring-4", visibleError ? "border-[color:var(--danger)]/45 focus-within:ring-[color:var(--danger)]/10" : "border-border-subtle hover:border-border focus-within:border-[color:var(--brand)]/45 focus-within:ring-[color:var(--brand-soft)]")}>
-        <input id={`${name}-typed`} type="text" inputMode="numeric" autoComplete="off" value={visibleValue} onChange={(event) => { setDraft(event.target.value); setLocalError(null); }} onBlur={() => commitTyped(visibleValue)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitTyped(visibleValue); } }} placeholder="DD/MM/YYYY" aria-invalid={Boolean(visibleError)} aria-describedby={visibleError ? errorId : undefined} className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/65" />
-        <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)} aria-label={`Open ${label.toLowerCase()} calendar`} aria-expanded={open} className={cn("mr-1 grid size-8 shrink-0 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface-muted hover:text-foreground", open && "bg-brand-soft text-brand-strong")}><CalendarDays aria-hidden="true" className="size-4" /></button>
+      <div className="relative mt-1.5">
+        <div className={cn("scolapro-control-surface flex min-h-10 w-full items-center overflow-hidden rounded-[var(--radius-sm)]", visibleError ? "border-[color:var(--danger)]/45 focus-within:border-[color:var(--danger)]/55 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--danger)_10%,transparent),var(--shadow-sm)]" : "hover:border-border")}>
+          <input id={`${name}-typed`} type="text" inputMode="numeric" autoComplete="off" value={visibleValue} onChange={(event) => { setDraft(event.target.value); setLocalError(null); }} onBlur={() => commitTyped(visibleValue)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitTyped(visibleValue); } }} placeholder="DD/MM/YYYY" aria-invalid={Boolean(visibleError)} aria-describedby={visibleError ? errorId : undefined} className="min-h-10 min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground/65 focus:outline-none focus:ring-0 focus-visible:outline-none" />
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)} aria-label={`Open ${label.toLowerCase()} calendar`} aria-expanded={open} className={cn("mr-1 grid size-8 shrink-0 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45", open && "bg-brand-soft text-brand-strong")}><CalendarDays aria-hidden="true" className="size-4" /></button>
+        </div>
+        {open ? <CalendarPanel value={value} min={min} max={max} onSelect={(next) => { onChange(next); setDraft(null); setLocalError(null); }} onClose={() => setOpen(false)} /> : null}
       </div>
-      {open ? <CalendarPanel value={value} min={min} max={max} onSelect={(next) => { onChange(next); setDraft(null); setLocalError(null); }} onClose={() => setOpen(false)} /> : null}
       <p className="mt-1 text-[0.65rem] text-muted-foreground">Type DD/MM/YYYY or use the calendar button.</p>
       {visibleError ? <p id={errorId} className="mt-1 text-xs text-[color:var(--danger)]">{visibleError}</p> : null}
     </div>
