@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { Mail, MapPin, Pencil, Phone, Plus, Search, ShieldCheck, Trash2, UserRound } from "lucide-react";
+import { Mail, MapPin, Pencil, Phone, Plus, Search, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import { toast } from "sonner";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Picker } from "@/components/ui/picker";
@@ -42,7 +42,14 @@ export function GuardianPanel({ learnerId, guardians, reusableGuardians = [] }: 
       </div>
 
       {guardians.length ? <div className="divide-y divide-border-subtle">{guardians.map((guardian) => (
-        <GuardianRow key={guardian.relationshipId} learnerId={learnerId} guardian={guardian} editing={editingGuardianId === guardian.guardianId} onToggleEdit={() => setEditingGuardianId((current) => current === guardian.guardianId ? null : guardian.guardianId)} />
+        <GuardianRow
+          key={guardian.relationshipId}
+          learnerId={learnerId}
+          guardian={guardian}
+          editing={editingGuardianId === guardian.guardianId}
+          onToggleEdit={() => setEditingGuardianId((current) => current === guardian.guardianId ? null : guardian.guardianId)}
+          onClose={() => setEditingGuardianId(null)}
+        />
       ))}</div> : <div className="px-4 py-8 text-center text-xs text-muted-foreground sm:px-5">No guardian relationships linked yet.</div>}
 
       {open ? <div className="border-t border-border-subtle bg-surface-muted/45 p-4 sm:p-5">
@@ -73,13 +80,17 @@ export function GuardianPanel({ learnerId, guardians, reusableGuardians = [] }: 
   );
 }
 
-function GuardianRow({ learnerId, guardian, editing, onToggleEdit }: { learnerId: string; guardian: LearnerGuardian; editing: boolean; onToggleEdit: () => void }) {
+function GuardianRow({ learnerId, guardian, editing, onToggleEdit, onClose }: { learnerId: string; guardian: LearnerGuardian; editing: boolean; onToggleEdit: () => void; onClose: () => void }) {
   const [state, action, pending] = useActionState(saveGuardianContactDetails, initialState);
+
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) toast.success(state.message);
-    else toast.error(state.message);
-  }, [state]);
+    if (state.success) {
+      toast.success(state.message);
+      onClose();
+    } else toast.error(state.message);
+  }, [state, onClose]);
+
   return <div className="px-4 py-4 sm:px-5">
     <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
       <div className="min-w-0">
@@ -88,9 +99,9 @@ function GuardianRow({ learnerId, guardian, editing, onToggleEdit }: { learnerId
         {guardian.addresses.length ? <div className="mt-2 space-y-1 text-[0.7rem] text-muted-foreground">{guardian.addresses.map((address) => <div key={address.id} className="flex items-start gap-1.5"><MapPin className="mt-0.5 size-3 shrink-0" /><span><span className="font-medium capitalize text-foreground/80">{address.label || address.type}: </span>{[address.line1, address.line2, address.locality, address.town, address.region, address.postalCode, address.country].filter(Boolean).join(", ")}</span></div>)}</div> : null}
         <div className="mt-2 flex flex-wrap gap-1.5 text-[0.65rem]">{guardian.legalGuardian ? <span className="rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 font-medium text-[color:var(--success)]">Legal guardian</span> : null}{guardian.emergencyContact ? <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 font-medium text-[color:var(--warning)]">Emergency contact</span> : null}{guardian.pickupAuthorized ? <span className="rounded-[var(--radius-xs)] bg-info-soft px-2 py-1 font-medium text-[color:var(--info)]">Pickup authorized</span> : null}</div>
       </div>
-      <div className="flex gap-1"><button type="button" onClick={onToggleEdit} aria-label={`Edit contact details for ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-brand-soft hover:text-brand-strong"><Pencil className="size-3.5" /></button><form action={endGuardianRelationship}><input type="hidden" name="relationshipId" value={guardian.relationshipId} /><input type="hidden" name="learnerId" value={learnerId} /><button type="submit" aria-label={`End relationship with ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-danger-soft hover:text-[color:var(--danger)]"><Trash2 className="size-3.5" /></button></form></div>
+      <div className="flex gap-1"><button type="button" onClick={onToggleEdit} aria-expanded={editing} aria-label={`${editing ? "Close" : "Edit"} contact details for ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-brand-soft hover:text-brand-strong">{editing ? <X className="size-3.5" /> : <Pencil className="size-3.5" />}</button><form action={endGuardianRelationship}><input type="hidden" name="relationshipId" value={guardian.relationshipId} /><input type="hidden" name="learnerId" value={learnerId} /><button type="submit" aria-label={`End relationship with ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)]"><Trash2 className="size-3.5" /></button></form></div>
     </div>
-    {editing ? <form action={action} className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted/55 p-3 sm:p-4"><input type="hidden" name="guardianId" value={guardian.guardianId} /><input type="hidden" name="learnerId" value={learnerId} /><GuardianDetailsFields initialContacts={guardian.contacts} initialAddresses={guardian.addresses} /><div className="mt-4 flex justify-end"><button type="submit" disabled={pending} className="min-h-9 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60">{pending ? "Saving…" : "Save contact details"}</button></div></form> : null}
+    {editing ? <form action={action} className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted/55 p-3 sm:p-4"><input type="hidden" name="guardianId" value={guardian.guardianId} /><input type="hidden" name="learnerId" value={learnerId} /><GuardianDetailsFields initialContacts={guardian.contacts} initialAddresses={guardian.addresses} /><div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" onClick={onClose} disabled={pending} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] px-3 text-xs font-medium text-muted-foreground transition hover:bg-surface hover:text-foreground disabled:opacity-55"><X className="size-3.5" />Close</button><button type="submit" disabled={pending} className="min-h-9 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60">{pending ? "Saving…" : "Save contact details"}</button></div></form> : null}
   </div>;
 }
 
