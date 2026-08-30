@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { Plus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { createSingleStaff, type SingleStaffState } from "@/features/staff/server/actions";
@@ -25,6 +26,7 @@ function FieldError({ messages }: { messages?: string[] }) {
 export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: string }) {
   const [state, action, pending] = useActionState(createSingleStaff, initialState);
   const [assignmentType, setAssignmentType] = useState("teacher");
+  const [effectiveFrom, setEffectiveFrom] = useState(today);
 
   useEffect(() => {
     if (!state.message) return;
@@ -69,9 +71,7 @@ export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: 
             <FieldError messages={state.fieldErrors?.assignmentType} />
           </div>
           <div>
-            <label htmlFor="staff-effective-from" className="text-xs font-medium">Placement starts</label>
-            <input id="staff-effective-from" name="effectiveFrom" type="date" defaultValue={today} className={`${fieldClass} mt-1.5`} />
-            <FieldError messages={state.fieldErrors?.effectiveFrom} />
+            <DateField label="Placement starts" name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} required error={state.fieldErrors?.effectiveFrom?.[0]} />
           </div>
         </div>
 
