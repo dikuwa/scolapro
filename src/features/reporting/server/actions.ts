@@ -20,7 +20,7 @@ const batchSchema = z.object({
   termNumber: z.coerce.number().int().min(1).max(6),
   scopeType: z.enum(["school", "grade", "class", "custom"]),
   scopeLabel: z.string().trim().min(1).max(160),
-  operation: z.enum(["generate", "certify", "pdf"]),
+  operation: z.enum(["generate", "certify", "publish", "pdf"]),
   enrolmentIds: z.array(z.string().uuid()).min(1).max(5000),
 });
 
@@ -37,9 +37,6 @@ async function canManageReportCards() {
 }
 
 async function kickReportWorkers() {
-  // Drain several chunks immediately. The durable queue remains safe if the hosting
-  // runtime stops early; reopening the workspace or the scheduled recovery runner can
-  // continue from pending items without duplicating completed work.
   try {
     for (let pass = 0; pass < 8; pass += 1) {
       const batch = await processReportCardBatchQueue(100);
@@ -114,7 +111,13 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
   const batchId = String(data);
   after(kickReportWorkers);
   revalidatePath("/reports/report-cards");
-  const operationLabel = parsed.data.operation === "generate" ? "Snapshot generation" : parsed.data.operation === "certify" ? "Certification" : "PDF preparation";
+  const operationLabel = parsed.data.operation === "generate"
+    ? "Snapshot generation"
+    : parsed.data.operation === "certify"
+      ? "Certification"
+      : parsed.data.operation === "publish"
+        ? "Publication"
+        : "PDF preparation";
   return { success: true, batchId, message: `${operationLabel} started for ${uniqueEnrolmentIds.length} learner${uniqueEnrolmentIds.length === 1 ? "" : "s"}. Progress is saved even if you leave this page.` };
 }
 
