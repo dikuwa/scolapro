@@ -51,7 +51,7 @@ select ok(
     where r.id='f5000000-0000-4000-8000-000000000002'
       and issue->>'field'='identity_number'
       and issue->>'level'='warning'
-      and issue->>'message' like '%recorded name differs%'
+      and issue->>'message' like '%different recorded name%'
   ),
   'identity/name mismatch records an actionable identity warning instead of silently rewriting the guardian'
 );
@@ -62,8 +62,8 @@ select is(
 );
 select is(
   (select warning_rows from public.import_batches where id='f4000000-0000-4000-8000-000000000001'),
-  2,
-  'guardian reconciliation surfaces both deterministic-link and identity-mismatch warnings in batch review counts'
+  1,
+  'guardian reconciliation counts the identity-mismatch review row as a warning while exact identity links remain valid rows'
 );
 
 select throws_ok(
