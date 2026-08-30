@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { processReportCardBatchExportQueue } from "@/features/reporting/server/process-report-card-batch-export-queue";
 import { processReportCardBatchQueue } from "@/features/reporting/server/process-report-card-batch-queue";
 import { processReportCardRenderQueue } from "@/features/reporting/server/process-report-card-render-queue";
 
@@ -45,6 +46,7 @@ async function kickReportWorkers() {
       if (batch.processed === 0 || batch.pendingBatches === 0) break;
     }
     await processReportCardRenderQueue(20);
+    await processReportCardBatchExportQueue(1);
   } catch (workerError) {
     console.error("immediate report-card worker kick failed", workerError);
   }
@@ -148,6 +150,7 @@ export async function queueReportCardRender(_state: ReportCardActionState, formD
   after(async () => {
     try {
       await processReportCardRenderQueue(10);
+      await processReportCardBatchExportQueue(1);
     } catch (workerError) {
       console.error("immediate report-card render kick failed", workerError);
     }
