@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { processReportCardBatchQueue } from "@/features/reporting/server/process-report-card-batch-queue";
 import { processReportCardRenderQueue } from "@/features/reporting/server/process-report-card-render-queue";
 
 export const runtime = "nodejs";
@@ -22,12 +23,15 @@ function authorizedScheduler(request: Request): boolean {
 
 async function runWorkerResponse() {
   try {
-    const result = await processReportCardRenderQueue();
-    return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+    // Process durable generation/certification/PDF-preparation batches first. A PDF
+    // batch may enqueue render jobs, which are then picked up in the same invocation.
+    const batch = await processReportCardBatchQueue(50);
+    const render = await processReportCardRenderQueue(20);
+    return NextResponse.json({ batch, render }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown report-card render worker error";
-    console.error("report-card-render worker failed", message);
-    return NextResponse.json({ error: "Unable to process report-card render queue" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    const message = error instanceof Error ? error.message : "Unknown report-card worker error";
+    console.error("report-card worker failed", message);
+    return NextResponse.json({ error: "Unable to process report-card queues" }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
 
