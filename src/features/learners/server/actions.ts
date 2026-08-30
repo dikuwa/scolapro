@@ -125,16 +125,21 @@ export async function updateLearnerOperationalProfile(_previousState: LearnerPro
   if (photo instanceof File && photo.size > 0) {
     const photoPath = `${parsed.data.schoolId}/${parsed.data.learnerId}/${crypto.randomUUID()}.${photoExtension(photo)}`;
     const { error: uploadError } = await supabase.storage.from("learner-photos").upload(photoPath, photo, { contentType: photo.type, upsert: false });
-    if (uploadError) return { success: true, message: "Preferred name saved, but the new photo could not be uploaded. Try the photo again." };
+    if (uploadError) {
+      revalidatePath(`/learners/${parsed.data.learnerId}`);
+      return { success: false, message: "Preferred name was saved, but the new photo could not be uploaded. The editor is staying open so you can try the photo again." };
+    }
     const { error: photoLinkError } = await supabase.rpc("set_learner_photo", { p_learner_id: parsed.data.learnerId, p_school_id: parsed.data.schoolId, p_photo_path: photoPath });
     if (photoLinkError) {
       await supabase.storage.from("learner-photos").remove([photoPath]);
-      return { success: true, message: "Preferred name saved, but the new photo could not be linked. Try the photo again." };
+      revalidatePath(`/learners/${parsed.data.learnerId}`);
+      return { success: false, message: "Preferred name was saved, but the new photo could not be linked. The editor is staying open so you can try the photo again." };
     }
     if (oldPhotoPath && oldPhotoPath !== photoPath) await supabase.storage.from("learner-photos").remove([oldPhotoPath]);
   } else if (parsed.data.removePhoto === "true" && oldPhotoPath) {
     const { error: photoClearError } = await supabase.rpc("set_learner_photo", { p_learner_id: parsed.data.learnerId, p_school_id: parsed.data.schoolId, p_photo_path: null });
-    if (!photoClearError) await supabase.storage.from("learner-photos").remove([oldPhotoPath]);
+    if (photoClearError) return { success: false, message: "Profile information was saved, but the photo could not be removed. Try again." };
+    await supabase.storage.from("learner-photos").remove([oldPhotoPath]);
   }
 
   revalidatePath(`/learners/${parsed.data.learnerId}`);
