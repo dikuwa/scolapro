@@ -14,13 +14,15 @@ update public.enrolments
 set enrolled_from='2026-02-02',enrolled_to='2026-02-03'
 where id='60000000-0000-4000-8000-000000000001';
 
+-- Promotion-rule versions are authored while draft, then activated. The fixture
+-- follows the same lifecycle enforced in production instead of bypassing immutability.
 insert into public.promotion_rule_sets(
   id,tenant_id,school_id,academic_year,grade_id,rule_set_key,version,result_term_number,
   pass_outcome,fail_outcome,source_reference,effective_from,status,created_by_user_id
 ) values(
   'fc100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
   2026,'30000000-0000-4000-8000-000000000010','TEST-ATTENDANCE-READINESS','1',3,
-  'promoted','not_promoted','Behavioral test only — not Namibia policy','2026-01-01','active','fc000000-0000-4000-8000-000000000001'
+  'promoted','not_promoted','Behavioral test only — not Namibia policy','2026-01-01','draft','fc000000-0000-4000-8000-000000000001'
 );
 
 insert into public.promotion_rule_conditions(
@@ -30,6 +32,10 @@ insert into public.promotion_rule_conditions(
   'fc100000-0000-4000-8000-000000000001','ATTENDANCE','minimum_attendance_rate',80,true,
   '{"starts_on":"2026-01-01","ends_on":"2026-12-31"}',1
 );
+
+update public.promotion_rule_sets
+set status='active'
+where id='fc100000-0000-4000-8000-000000000001';
 
 -- Only one of the two expected enrolment days has a submitted register. The
 -- missing day must not be treated as present.
