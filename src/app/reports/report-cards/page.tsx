@@ -1,4 +1,4 @@
-import { FileCheck2, GraduationCap, Users } from "lucide-react";
+import { Download, FileCheck2, GraduationCap, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReportCardWorkspace } from "@/features/reporting/report-card-workspace";
@@ -18,6 +18,7 @@ export default async function ReportCardsPage() {
   const academicYear = new Date().getFullYear();
   const workspace = await getReportCardWorkspace(membership.schoolId, academicYear);
   const certifiedCount = workspace.snapshots.filter((snapshot) => snapshot.status === "certified" || snapshot.status === "published").length;
+  const readyBatchExports = canManageReports ? workspace.batches.filter((batch) => batch.operation === "pdf" && batch.exportStatus === "ready").slice(0, 4) : [];
 
   return <AppShell><section>
     <div className="mb-6"><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Report cards</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{canManageReports ? "Prepare end-of-term reports by school, grade, class or custom learner selection. Bulk jobs keep progress and explicit skipped-learner reasons, while individual mode remains available for one-off copies." : "View report-card status for learners within your teaching scope. Generation, certification, publishing and printing remain with School Administration and school management."}</p></div>
@@ -26,6 +27,7 @@ export default async function ReportCardsPage() {
       <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Snapshots</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-sky)]">{workspace.snapshots.length}</p></div><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><GraduationCap className="size-4" /></span></div>
       <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Certified</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-mint)]">{certifiedCount}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><FileCheck2 className="size-4" /></span></div>
     </div>
+    {readyBatchExports.length ? <div className="mb-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="scolapro-section-title">Ready to print</h2><p className="scolapro-section-description">Combined PDFs from completed bulk preparation jobs.</p></div><div className="flex flex-wrap gap-2">{readyBatchExports.map((batch) => <a key={batch.id} href={`/api/report-card-batches/${batch.id}/export`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)] transition-colors hover:bg-[color:var(--success)] hover:text-white"><Download className="size-3.5" />{batch.scopeLabel} · T{batch.termNumber}{batch.exportPageCount ? ` · ${batch.exportPageCount} pp` : ""}</a>)}</div></div></div> : null}
     <ReportCardWorkspace
       learners={workspace.learners}
       snapshots={workspace.snapshots}
