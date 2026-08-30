@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(15);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('a9100000-0000-4000-8000-000000000001','retry-admin@example.test','authenticated','authenticated',now(),now()),
@@ -77,7 +77,7 @@ select is(
 );
 reset role;
 select is((select status from public.report_card_batch_items where id='a9190000-0000-4000-8000-000000000001'),'pending','authorized retry returns the learner item to pending');
-select is((select result_code from public.report_card_batch_items where id='a9190000-0000-4000-8000-000000000001'),null,'authorized retry clears the previous result code');
+select is((select result_code from public.report_card_batch_items where id='a9190000-0000-4000-8000-000000000001'),null::text,'authorized retry clears the previous result code');
 select is((select status from public.report_card_batches where id='a9180000-0000-4000-8000-000000000001'),'processing','batch summary returns to processing while retried work is pending');
 select is(
   (select count(*)::integer from public.audit_events where entity_id='a9180000-0000-4000-8000-000000000001' and event_type='report_card.batch.retry_requested'),
@@ -85,7 +85,7 @@ select is(
   'authorized learner-item retry records one audit event'
 );
 select is(
-  (select actor_user_id from public.audit_events where entity_id='a9180000-0000-4000-8000-000000000001' and event_type='report_card.batch.retry_requested' order by occurred_at desc limit 1),
+  (select actor_user_id from public.audit_events where entity_id='a9180000-0000-4000-8000-000000000001' and event_type='report_card.batch.retry_requested'),
   'a9100000-0000-4000-8000-000000000001'::uuid,
   'learner-item retry audit records the acting administrator'
 );
@@ -122,7 +122,7 @@ select is(
   'authorized export retry records one audit event'
 );
 select is(
-  (select actor_user_id from public.audit_events where entity_id='a9180000-0000-4000-8000-000000000002' and event_type='report_card.batch.export.retry_requested' order by occurred_at desc limit 1),
+  (select actor_user_id from public.audit_events where entity_id='a9180000-0000-4000-8000-000000000002' and event_type='report_card.batch.export.retry_requested'),
   'a9100000-0000-4000-8000-000000000001'::uuid,
   'export retry audit records the acting administrator'
 );
