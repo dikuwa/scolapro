@@ -1,15 +1,18 @@
 begin;
 
-select plan(18);
+select plan(22);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
  ('ec000000-0000-4000-8000-000000000001','sports-admin@example.test','authenticated','authenticated',now(),now()),
- ('ec000000-0000-4000-8000-000000000002','sports-reader@example.test','authenticated','authenticated',now(),now());
+ ('ec000000-0000-4000-8000-000000000002','sports-reader@example.test','authenticated','authenticated',now(),now()),
+ ('ec000000-0000-4000-8000-000000000003','sports-other-admin@example.test','authenticated','authenticated',now(),now());
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from) values
  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','ec000000-0000-4000-8000-000000000001','school_admin',current_date),
  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','ec000000-0000-4000-8000-000000000002','teacher',current_date);
 insert into public.schools(id,tenant_id,name,status) values
  ('ec010000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Sports Other School','active');
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from) values
+ ('11111111-1111-4111-8111-111111111111','ec010000-0000-4000-8000-000000000001','ec000000-0000-4000-8000-000000000003','school_admin',current_date);
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','ec000000-0000-4000-8000-000000000001',true);
@@ -93,6 +96,29 @@ select is((select count(*)::integer from public.sports_houses),3,'ordinary schoo
 select throws_ok(
  $$select public.upsert_sports_house('22222222-2222-4222-8222-222222222222','Teacher Write',null,null,0,null)$$,
  'Permission denied','ordinary teacher cannot mutate sports configuration through RPC'
+);
+reset role;
+
+select set_config('request.jwt.claim.sub','ec000000-0000-4000-8000-000000000003',true);
+set local role authenticated;
+select lives_ok(
+ $$select public.upsert_sports_house('ec010000-0000-4000-8000-000000000001','Other Eagles','OE','#2563EB',1,null)$$,
+ 'administrator of another school can manage sports configuration in their own school'
+);
+select is(
+ (select count(*)::integer from public.sports_houses),
+ 1,
+ 'administrator of another school reads only sports houses from their accessible school'
+);
+select throws_ok(
+ $$select public.upsert_sports_house('22222222-2222-4222-8222-222222222222','Cross-school Write',null,null,0,null)$$,
+ 'Permission denied',
+ 'administrator of another school cannot mutate sports configuration in this school'
+);
+select throws_ok(
+ $$select public.assign_learner_sports_house('22222222-2222-4222-8222-222222222222',2026,'ec200000-0000-4000-8000-000000000001',null,'manual',false)$$,
+ 'Permission denied',
+ 'administrator of another school cannot assign learners into this school sports workflow'
 );
 reset role;
 
