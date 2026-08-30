@@ -19,7 +19,7 @@ revoke insert,update,delete on public.school_late_arrival_events from authentica
 
 -- Append/update ledgers: preserve only verbs for which an RLS policy exists.
 revoke delete on public.achievement_events from authenticated;
-revoke delete on public.audit_events from authenticated;
+revoke update,delete on public.audit_events from authenticated;
 revoke delete on public.communication_messages from authenticated;
 revoke delete on public.conduct_events from authenticated;
 revoke update,delete on public.learner_marks from authenticated;
