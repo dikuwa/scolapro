@@ -54,6 +54,9 @@ export type ReportCardBatchRow = {
   completedItems: number;
   skippedItems: number;
   failedItems: number;
+  exportStatus: "not_applicable" | "waiting" | "processing" | "ready" | "failed";
+  exportPageCount: number | null;
+  exportError: string | null;
   createdAt: string;
   completedAt: string | null;
 };
@@ -106,7 +109,7 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
       .order("generated_at", { ascending: false }),
     supabase
       .from("report_card_batches")
-      .select("id,term_number,scope_type,scope_label,operation,status,total_items,processed_items,completed_items,skipped_items,failed_items,created_at,completed_at")
+      .select("id,term_number,scope_type,scope_label,operation,status,total_items,processed_items,completed_items,skipped_items,failed_items,export_status,export_page_count,export_error,created_at,completed_at")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
       .order("created_at", { ascending: false })
@@ -182,6 +185,9 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
     completedItems: item.completed_items,
     skippedItems: item.skipped_items,
     failedItems: item.failed_items,
+    exportStatus: item.export_status as ReportCardBatchRow["exportStatus"],
+    exportPageCount: item.export_page_count,
+    exportError: item.export_error,
     createdAt: item.created_at,
     completedAt: item.completed_at,
   }));
