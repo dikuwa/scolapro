@@ -12,7 +12,7 @@ as $$
 declare
   b public.import_batches%rowtype;
   r public.import_rows%rowtype;
-  learner_id uuid;
+  v_learner_id uuid;
   guardian_id uuid;
   linked_name_matches uuid[];
   matches uuid[];
@@ -56,9 +56,9 @@ begin
       n_error:=n_error+1; continue;
     end if;
 
-    select sli.learner_id into learner_id from public.school_learner_identifiers sli
+    select sli.learner_id into v_learner_id from public.school_learner_identifiers sli
     where sli.school_id=b.school_id and upper(btrim(sli.admission_number))=admission limit 1;
-    if learner_id is null then
+    if v_learner_id is null then
       update public.import_rows set resolution='error',matched_entity_type=null,matched_entity_id=null,
         issues=issues||jsonb_build_array(jsonb_build_object('level','error','field','learner_admission_number','message','No learner in this school matches the supplied admission number.')),updated_at=now() where id=r.id;
       n_error:=n_error+1; continue;
@@ -69,7 +69,7 @@ begin
     from public.learner_guardians lg
     join public.guardian_profiles gp on gp.id=lg.guardian_id and gp.tenant_id=b.tenant_id
     where lg.tenant_id=b.tenant_id
-      and lg.learner_id=learner_id
+      and lg.learner_id=v_learner_id
       and lg.effective_to is null
       and lower(regexp_replace(btrim(gp.first_names),'\s+',' ','g'))=lower(regexp_replace(first_value,'\s+',' ','g'))
       and lower(regexp_replace(btrim(gp.surname),'\s+',' ','g'))=lower(regexp_replace(surname_value,'\s+',' ','g'));
@@ -96,7 +96,7 @@ begin
           issues=issues||jsonb_build_array(jsonb_build_object('level','error','field','guardian','message','Multiple active guardians with this exact name are already linked to the learner. Resolve manually; ScolaPro will not guess.')),updated_at=now() where id=r.id;
         n_error:=n_error+1;
       else
-        update public.import_rows set resolution='create',matched_entity_type='learner',matched_entity_id=learner_id,updated_at=now() where id=r.id;
+        update public.import_rows set resolution='create',matched_entity_type='learner',matched_entity_id=v_learner_id,updated_at=now() where id=r.id;
         n_create:=n_create+1;
       end if;
     elsif cardinality(linked_name_matches)=1 then
@@ -117,7 +117,7 @@ begin
     else
       matches:=app_private.guardian_import_contact_matches(b.tenant_id,first_value,surname_value,email_value,phones);
       if cardinality(matches)=0 then
-        update public.import_rows set resolution='create',matched_entity_type='learner',matched_entity_id=learner_id,updated_at=now() where id=r.id; n_create:=n_create+1;
+        update public.import_rows set resolution='create',matched_entity_type='learner',matched_entity_id=v_learner_id,updated_at=now() where id=r.id; n_create:=n_create+1;
       elsif cardinality(matches)=1 then
         update public.import_rows set resolution='review',matched_entity_type='guardian',matched_entity_id=matches[1],
           issues=issues||jsonb_build_array(jsonb_build_object('level','warning','field','contact','message','An existing guardian has the same name and contact evidence. Confirm the match because no identity number was supplied.')),updated_at=now() where id=r.id; n_review:=n_review+1;
