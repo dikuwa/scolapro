@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, FileText, GraduationCap, MapPin, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarDays, Camera, FileText, GraduationCap, MapPin, UserRound } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { GuardianPanel } from "@/features/guardians/guardian-panel";
 import { getLearnerGuardians, getReusableGuardians, type LearnerGuardian, type ReusableGuardian } from "@/features/guardians/server/queries";
+import { LearnerProfileEditor } from "@/features/learners/learner-profile-editor";
 import { getLearnerOverview, type LearnerOverview } from "@/features/learners/server/queries";
 import { LearnerChangeRequestForm } from "@/features/profile-changes/learner-change-request-form";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -29,6 +30,8 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   let guardians: LearnerGuardian[] = [];
   let reusableGuardians: ReusableGuardian[] = [];
   let canRequestCorrection = false;
+  let canManageLearner = false;
+  let managementSchoolId: string | null = null;
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
@@ -36,6 +39,8 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
     const membership = context.memberships[0];
     learner = membership ? await getLearnerOverview(id, membership.schoolId) : null;
     canRequestCorrection = Boolean(learner && membership && correctionRequestRoles.has(membership.roleKey));
+    canManageLearner = Boolean(learner && membership?.roleKey === "school_admin");
+    managementSchoolId = canManageLearner && membership ? membership.schoolId : null;
     if (learner && membership) {
       [guardians, reusableGuardians] = await Promise.all([getLearnerGuardians(id), getReusableGuardians(id, membership.schoolId)]);
     }
@@ -49,12 +54,18 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
       <section>
         <Link href="/learners" className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition duration-[var(--motion-fast)] hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" /> Learners</Link>
 
-        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-md)] bg-brand-soft bg-cover bg-center text-sm font-semibold text-brand-strong shadow-[var(--shadow-xs)]" style={learner.photoUrl ? { backgroundImage: `url(${learner.photoUrl})` } : undefined}>{learner.photoUrl ? <span className="sr-only">Photo of {learner.name}</span> : avatarInitials}</span>
-            <div className="min-w-0"><h1 className="scolapro-page-title truncate text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">{learner.name}</h1><p className="mt-1 text-sm text-muted-foreground">{learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}</p></div>
+            <div className="relative shrink-0">
+              <span className="grid size-16 place-items-center overflow-hidden rounded-[var(--radius-md)] bg-brand-soft bg-cover bg-center text-sm font-semibold text-brand-strong shadow-[var(--shadow-xs)]" style={learner.photoUrl ? { backgroundImage: `url(${learner.photoUrl})` } : undefined}>{learner.photoUrl ? <span className="sr-only">Photo of {learner.name}</span> : avatarInitials}</span>
+              {!learner.photoUrl ? <span className="absolute -bottom-1 -right-1 grid size-6 place-items-center rounded-full border-2 border-background bg-surface-elevated text-muted-foreground shadow-[var(--shadow-xs)]" title="No learner photo yet"><Camera className="size-3" aria-hidden="true" /><span className="sr-only">No learner photo yet</span></span> : null}
+            </div>
+            <div className="min-w-0"><h1 className="scolapro-page-title truncate text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">{learner.name}</h1><p className="mt-1 text-sm text-muted-foreground">{learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}</p>{!learner.photoUrl && canManageLearner ? <p className="mt-1 text-[0.66rem] text-muted-foreground">No profile photo · use Edit learner to add one</p> : null}</div>
           </div>
-          <span className="inline-flex w-fit rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 text-xs font-medium capitalize text-[color:var(--success)]">{learner.status} learner</span>
+          <div className="flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+            <span className="inline-flex w-fit rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 text-xs font-medium capitalize text-[color:var(--success)]">{learner.status} learner</span>
+            {canManageLearner && managementSchoolId ? <LearnerProfileEditor learnerId={learner.id} schoolId={managementSchoolId} preferredName={learner.preferredName} hasPhoto={Boolean(learner.photoPath)} /> : null}
+          </div>
         </div>
 
         <div className="mb-5 border-b border-border-subtle"><span className="inline-flex border-b-2 border-brand px-3 py-2.5 text-xs font-medium text-brand-strong">Overview</span></div>
@@ -70,7 +81,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
               <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><MapPin aria-hidden="true" className="size-4" /> School</dt><dd className="mt-1.5 text-sm font-medium">{learner.schoolName}</dd></div>
               <div><dt className="text-xs font-medium text-muted-foreground">Admission number</dt><dd className="mt-1.5 text-sm font-medium">{learner.admissionNumber ?? "Not recorded"}</dd></div>
             </dl>
-            {canRequestCorrection ? <div className="border-t border-border-subtle px-4 py-4 sm:px-5"><p className="mb-2 text-xs text-muted-foreground">Notice incorrect identity information? Submit a correction for review instead of editing the official record directly.</p><LearnerChangeRequestForm learnerId={learner.id} /></div> : null}
+            {canRequestCorrection ? <div className="border-t border-border-subtle px-4 py-4 sm:px-5"><p className="mb-2 text-xs text-muted-foreground">Notice incorrect official identity information? Submit a correction for review. Preferred name and profile photo can be maintained directly by the School Admin through Edit learner.</p><LearnerChangeRequestForm learnerId={learner.id} /></div> : null}
           </section>
 
           <aside className="space-y-3">
