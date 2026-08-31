@@ -51,7 +51,7 @@ using (app_private.can_manage_communications(school_id));
 
 revoke all on public.communication_delivery_receipts from anon,authenticated;
 grant select on public.communication_delivery_receipts to authenticated;
-grant select,insert,update,delete on public.communication_delivery_receipts to service_role;
+grant select,insert on public.communication_delivery_receipts to service_role;
 
 create or replace function public.complete_communication_delivery_job(
   p_job_id uuid,
@@ -185,9 +185,20 @@ begin
   ) returning id into v_receipt_id;
 
   update public.communication_recipients
-  set delivery_status=p_outcome,
-      delivered_at=case when p_outcome='delivered' then coalesce(p_occurred_at,now()) else null end,
-      failure_reason=case when p_outcome='failed' then left(coalesce(nullif(btrim(coalesce(p_error_detail,'')),''),'Provider reported delivery failure'),2000) else null end
+  set delivery_status=case
+        when delivery_status='delivered' then 'delivered'
+        when p_outcome='delivered' then 'delivered'
+        else 'failed'
+      end,
+      delivered_at=case
+        when delivery_status='delivered' then delivered_at
+        when p_outcome='delivered' then coalesce(p_occurred_at,now())
+        else null
+      end,
+      failure_reason=case
+        when delivery_status='delivered' or p_outcome='delivered' then null
+        else left(coalesce(nullif(btrim(coalesce(p_error_detail,'')),''),'Provider reported delivery failure'),2000)
+      end
   where id=v_job.recipient_id;
 
   update public.communication_messages m
