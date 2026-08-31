@@ -1,7 +1,6 @@
 -- Governed provider-neutral communication templates.
--- Canonical templates/version variables stay independent of provider credentials.
--- Provider bindings contain only secret-free identifiers/configuration needed to map a
--- reviewed ScolaPro template version to an approved provider template.
+-- Provider credentials remain outside PostgreSQL. WhatsApp queueing requires an
+-- approved ScolaPro template version and an approved binding for the resolved provider.
 
 create table public.communication_templates (
   id uuid primary key default gen_random_uuid(),
@@ -34,10 +33,7 @@ create table public.communication_template_versions (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique(template_id,version,language),
-  check (
-    (status='approved' and approved_by_user_id is not null and approved_at is not null)
-    or (status<>'approved')
-  )
+  check ((status='approved' and approved_by_user_id is not null and approved_at is not null) or status<>'approved')
 );
 
 create table public.communication_provider_template_bindings (
@@ -76,28 +72,24 @@ using (app_private.can_author_communications(school_id));
 
 create policy "communication authors read school template versions"
 on public.communication_template_versions for select to authenticated
-using (
-  exists(
-    select 1 from public.communication_templates t
-    where t.id=communication_template_versions.template_id
-      and app_private.can_author_communications(t.school_id)
-  )
-);
+using (exists(
+  select 1 from public.communication_templates t
+  where t.id=communication_template_versions.template_id
+    and app_private.can_author_communications(t.school_id)
+));
 
 create policy "communication leaders read provider template bindings"
 on public.communication_provider_template_bindings for select to authenticated
-using (
-  exists(
-    select 1
-    from public.communication_template_versions v
-    join public.communication_templates t on t.id=v.template_id
-    where v.id=communication_provider_template_bindings.template_version_id
-      and (
-        app_private.has_platform_role(array['platform_admin'])
-        or app_private.has_school_role(t.school_id,array['school_admin','principal','deputy_principal'])
-      )
-  )
-);
+using (exists(
+  select 1
+  from public.communication_template_versions v
+  join public.communication_templates t on t.id=v.template_id
+  where v.id=communication_provider_template_bindings.template_version_id
+    and (
+      app_private.has_platform_role(array['platform_admin'])
+      or app_private.has_school_role(t.school_id,array['school_admin','principal','deputy_principal'])
+    )
+));
 
 revoke all on public.communication_templates,public.communication_template_versions,public.communication_provider_template_bindings from anon,authenticated;
 grant select on public.communication_templates,public.communication_template_versions to authenticated;
@@ -119,7 +111,6 @@ begin
   if jsonb_typeof(coalesce(p_variables,'[]'::jsonb))<>'array' then
     raise exception 'Template variables must be a JSON array';
   end if;
-
   for v_item in select value from jsonb_array_elements(coalesce(p_variables,'[]'::jsonb))
   loop
     if jsonb_typeof(v_item)<>'object' then raise exception 'Each template variable must be a JSON object'; end if;
@@ -134,7 +125,6 @@ begin
     end if;
     v_count:=v_count+1;
   end loop;
-
   select count(distinct btrim(value->>'key')) into v_distinct
   from jsonb_array_elements(coalesce(p_variables,'[]'::jsonb));
   if v_distinct<>v_count then raise exception 'Template variable keys must be unique'; end if;
@@ -161,7 +151,6 @@ begin
   if jsonb_typeof(coalesce(p_parameters,'{}'::jsonb))<>'object' then
     raise exception 'Template parameters must be a JSON object';
   end if;
-
   select variables into v_variables
   from public.communication_template_versions
   where id=p_template_version_id;
@@ -183,14 +172,31 @@ begin
     if not exists(
       select 1 from jsonb_array_elements(v_variables) item
       where btrim(item->>'key')=v_supplied
-    ) then
-      raise exception 'Unexpected template parameter: %',v_supplied;
-    end if;
+    ) then raise exception 'Unexpected template parameter: %',v_supplied; end if;
   end loop;
   return true;
 end;
 $$;
 revoke all on function app_private.validate_communication_template_parameters(uuid,jsonb) from public,anon,authenticated;
+
+create or replace function app_private.enforce_provider_template_secret_free()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,app_private
+as $$
+begin
+  if app_private.jsonb_has_credential_key(new.provider_config) then
+    raise exception 'Provider template config must not contain credentials or secret-bearing keys';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function app_private.enforce_provider_template_secret_free() from public,anon,authenticated;
+
+create trigger communication_provider_template_secret_guard_trg
+before insert or update of provider_config on public.communication_provider_template_bindings
+for each row execute function app_private.enforce_provider_template_secret_free();
 
 create or replace function public.create_communication_template(
   p_school_id uuid,
@@ -216,7 +222,6 @@ begin
   ) then raise exception 'Permission denied'; end if;
   if p_channel not in ('email','sms','whatsapp') then raise exception 'Unsupported template channel'; end if;
   if btrim(coalesce(p_name,''))='' then raise exception 'Template name is required'; end if;
-
   select tenant_id into v_tenant_id from public.schools where id=p_school_id;
   if v_tenant_id is null then raise exception 'School not found'; end if;
 
@@ -320,22 +325,28 @@ declare
   v_version_status text;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  select t.*,v.status into v_template,v_version_status
+  select t.* into v_template
   from public.communication_templates t
   join public.communication_template_versions v on v.template_id=t.id
   where v.id=p_template_version_id;
   if not found then raise exception 'Communication template version not found'; end if;
+  select status into v_version_status from public.communication_template_versions where id=p_template_version_id;
+
   if not (
     app_private.has_platform_role(array['platform_admin'])
     or app_private.has_school_role(v_template.school_id,array['school_admin','principal','deputy_principal'])
   ) then raise exception 'Permission denied'; end if;
   if btrim(coalesce(p_provider_key,''))='' then raise exception 'Provider key is required'; end if;
   if btrim(coalesce(p_provider_template_key,''))='' then raise exception 'Provider template key is required'; end if;
-  if p_approval_status not in ('pending','approved','rejected','paused','disabled') then raise exception 'Unsupported provider template approval status'; end if;
+  if p_approval_status not in ('pending','approved','rejected','paused','disabled') then
+    raise exception 'Unsupported provider template approval status';
+  end if;
   if p_approval_status='approved' and v_version_status<>'approved' then
     raise exception 'Approve the ScolaPro template version before approving a provider binding';
   end if;
-  if jsonb_typeof(coalesce(p_provider_config,'{}'::jsonb))<>'object' then raise exception 'Provider template config must be a JSON object'; end if;
+  if jsonb_typeof(coalesce(p_provider_config,'{}'::jsonb))<>'object' then
+    raise exception 'Provider template config must be a JSON object';
+  end if;
   if app_private.jsonb_has_credential_key(coalesce(p_provider_config,'{}'::jsonb)) then
     raise exception 'Provider template config must not contain credentials or secret-bearing keys';
   end if;
@@ -375,11 +386,7 @@ declare
   v_provider_key text;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-
-  select * into v_message
-  from public.communication_messages
-  where id=p_message_id
-  for update;
+  select * into v_message from public.communication_messages where id=p_message_id for update;
   if not found then raise exception 'Communication not found'; end if;
 
   if not (
@@ -401,15 +408,18 @@ begin
   end if;
 
   if v_message.template_version_id is not null then
-    select t.*,v.status into v_template,v_version_status
+    select t.* into v_template
     from public.communication_templates t
     join public.communication_template_versions v on v.template_id=t.id
     where v.id=v_message.template_version_id;
     if not found then raise exception 'Communication template version not found'; end if;
+    select status into v_version_status from public.communication_template_versions where id=v_message.template_version_id;
     if v_template.school_id<>v_message.school_id or v_template.tenant_id<>v_message.tenant_id or v_template.channel<>v_message.channel then
       raise exception 'Communication template version does not match message scope/channel';
     end if;
-    if not v_template.active or v_version_status<>'approved' then raise exception 'Communication template version is not approved and active'; end if;
+    if not v_template.active or v_version_status<>'approved' then
+      raise exception 'Communication template version is not approved and active';
+    end if;
     perform app_private.validate_communication_template_parameters(v_message.template_version_id,v_message.template_parameters);
   end if;
 
@@ -443,11 +453,7 @@ begin
   insert into public.audit_events(tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
   values(
     v_message.tenant_id,v_message.school_id,auth.uid(),'communication.queued','communication_message',v_message.id,
-    jsonb_build_object(
-      'channel',v_message.channel,
-      'recipient_count',(select count(*) from public.communication_recipients where message_id=v_message.id),
-      'template_version_id',v_message.template_version_id
-    )
+    jsonb_build_object('channel',v_message.channel,'recipient_count',(select count(*) from public.communication_recipients where message_id=v_message.id),'template_version_id',v_message.template_version_id)
   );
   return true;
 end;
@@ -465,6 +471,6 @@ revoke all on function public.queue_communication(uuid) from public,anon;
 grant execute on function public.queue_communication(uuid) to authenticated;
 
 comment on table public.communication_templates is 'Provider-neutral logical communication template registry scoped to a school and channel.';
-comment on table public.communication_template_versions is 'Immutable-intent reviewed language/version definitions and declared variables for governed communications.';
+comment on table public.communication_template_versions is 'Reviewed language/version definitions and declared variables for governed communications.';
 comment on table public.communication_provider_template_bindings is 'Secret-free mapping from an approved ScolaPro template version to a provider template identifier/language/config.';
-comment on column public.communication_messages.template_parameters is 'Per-message values for the selected reviewed template version. Required keys are validated before queueing.';
+comment on column public.communication_messages.template_parameters is 'Per-message values for the selected reviewed template version; required keys are validated before queueing.';
