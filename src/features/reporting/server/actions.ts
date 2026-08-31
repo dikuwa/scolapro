@@ -21,7 +21,7 @@ const batchSchema = z.object({
   scopeType: z.enum(["school", "grade", "class", "custom"]),
   scopeLabel: z.string().trim().min(1).max(160),
   operation: z.enum(["generate", "certify", "publish", "pdf"]),
-  enrolmentIds: z.array(z.string().uuid()).min(1).max(5000),
+  enrolmentIds: z.array(z.string().uuid()).max(5000),
 });
 
 async function getReportManagerContext() {
@@ -77,7 +77,7 @@ export async function generateReportCardsBulk(_state: ReportCardActionState, for
   const generated = Number(result.generated ?? 0);
   const skipped = Number(result.skipped ?? 0);
   revalidatePath("/reports/report-cards");
-  if (!generated) return { message: `No report cards were generated. ${skipped} learner${skipped === 1 ? "" : "s"} may not have approved official results for this term.` };
+  if (!generated) return { message: `No report cards were generated. ${skipped} learner${skipped === 1 ? "" : "s"} may not have approved official results for this term yet.` };
   return { success: true, message: `${generated} report card${generated === 1 ? "" : "s"} prepared${skipped ? `; ${skipped} skipped because approved results were unavailable` : ""}.` };
 }
 
@@ -93,22 +93,62 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
     operation: formData.get("operation"),
     enrolmentIds: formData.getAll("enrolmentId"),
   });
-  if (!parsed.success) return { message: "Choose a valid report scope, term and at least one learner." };
+  if (!parsed.success) return { message: "Choose a valid report scope and term." };
 
   const uniqueEnrolmentIds = [...new Set(parsed.data.enrolmentIds)];
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("create_report_card_batch", {
-    p_school_id: manager.membership.schoolId,
-    p_academic_year: parsed.data.academicYear,
-    p_term_number: parsed.data.termNumber,
-    p_scope_type: parsed.data.scopeType,
-    p_scope_label: parsed.data.scopeLabel,
-    p_operation: parsed.data.operation,
-    p_enrolment_ids: uniqueEnrolmentIds,
-  });
-  if (error) return { message: error.message || "The report-card batch could not be created." };
+  let batchId: string | null = null;
+  let affectedCount = uniqueEnrolmentIds.length;
 
-  const batchId = String(data);
+  if (parsed.data.scopeType === "custom") {
+    if (uniqueEnrolmentIds.length === 0) return { message: "Choose at least one learner for a custom report scope." };
+    const { data, error } = await supabase.rpc("create_report_card_batch", {
+      p_school_id: manager.membership.schoolId,
+      p_academic_year: parsed.data.academicYear,
+      p_term_number: parsed.data.termNumber,
+      p_scope_type: "custom",
+      p_scope_label: parsed.data.scopeLabel,
+      p_operation: parsed.data.operation,
+      p_enrolment_ids: uniqueEnrolmentIds,
+    });
+    if (error) return { message: error.message || "The report-card batch could not be created." };
+    batchId = String(data);
+  } else {
+    let scopeId: string | null = null;
+    if (parsed.data.scopeType !== "school") {
+      const firstEnrolmentId = uniqueEnrolmentIds[0];
+      if (!firstEnrolmentId) return { message: "Choose a valid grade or class report scope." };
+      const { data: enrolment, error: enrolmentError } = await supabase
+        .from("enrolments")
+        .select("grade_id,register_class_id")
+        .eq("id", firstEnrolmentId)
+        .eq("school_id", manager.membership.schoolId)
+        .single();
+      if (enrolmentError || !enrolment) return { message: "The selected report scope could not be resolved." };
+      scopeId = parsed.data.scopeType === "grade" ? enrolment.grade_id : enrolment.register_class_id;
+      if (!scopeId) return { message: "The selected report scope is no longer available." };
+    }
+
+    const { data, error } = await supabase.rpc("create_report_card_batch_for_scope", {
+      p_school_id: manager.membership.schoolId,
+      p_academic_year: parsed.data.academicYear,
+      p_term_number: parsed.data.termNumber,
+      p_scope_type: parsed.data.scopeType,
+      p_scope_id: scopeId,
+      p_operation: parsed.data.operation,
+    });
+    if (error) return { message: error.message || "The report-card batch could not be created." };
+    batchId = String(data);
+
+    const { data: batch } = await supabase
+      .from("report_card_batches")
+      .select("total_items")
+      .eq("id", batchId)
+      .eq("school_id", manager.membership.schoolId)
+      .single();
+    affectedCount = Number(batch?.total_items ?? uniqueEnrolmentIds.length);
+  }
+
   after(kickReportWorkers);
   revalidatePath("/reports/report-cards");
   const operationLabel = parsed.data.operation === "generate"
@@ -118,7 +158,7 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
       : parsed.data.operation === "publish"
         ? "Publication"
         : "PDF preparation";
-  return { success: true, batchId, message: `${operationLabel} started for ${uniqueEnrolmentIds.length} learner${uniqueEnrolmentIds.length === 1 ? "" : "s"}. Progress is saved even if you leave this page.` };
+  return { success: true, batchId: batchId ?? undefined, message: `${operationLabel} started for ${affectedCount} learner${affectedCount === 1 ? "" : "s"}. Progress is saved even if you leave this page.` };
 }
 
 export async function certifyReportCard(formData: FormData) {
