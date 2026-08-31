@@ -21,8 +21,6 @@ export type BirdSmsWebhookResult =
 
 type BirdSmsEventData = {
   sms_id?: unknown;
-  to?: unknown;
-  from?: unknown;
   carrier?: unknown;
   mcc_mnc?: unknown;
   error?: {
@@ -77,12 +75,7 @@ export function verifyBirdWebhookSignature(rawBody: string, headers: Headers): s
   }
 
   const secret = requiredWebhookSecret();
-  let key: Buffer;
-  try {
-    key = Buffer.from(secret.slice("whsec_".length), "base64");
-  } catch {
-    throw new Error("BIRD_WEBHOOK_SECRET is invalid.");
-  }
+  const key = Buffer.from(secret.slice("whsec_".length), "base64");
   if (key.length === 0) throw new Error("BIRD_WEBHOOK_SECRET is invalid.");
 
   const expected = createHmac("sha256", key)
@@ -141,13 +134,9 @@ export function parseBirdSmsWebhook(rawBody: string, providerEventId: string): B
   const errorCode = nonEmptyString(payload.data?.error?.code);
   const errorDetail = nonEmptyString(payload.data?.error?.description);
   const metadata: Record<string, string> = { event_type: eventType };
-  const to = metadataValue(payload.data?.to);
-  const from = metadataValue(payload.data?.from);
   const carrier = metadataValue(payload.data?.carrier);
   const mccMnc = metadataValue(payload.data?.mcc_mnc);
   const carrierErrorCode = metadataValue(payload.data?.error?.carrier_error_code);
-  if (to) metadata.to = to;
-  if (from) metadata.from = from;
   if (carrier) metadata.carrier = carrier;
   if (mccMnc) metadata.mcc_mnc = mccMnc;
   if (carrierErrorCode) metadata.carrier_error_code = carrierErrorCode;
