@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { LearnerDirectory } from "@/features/learners/learner-directory";
-import { listLearnersForSchool, type LearnerDirectoryPage } from "@/features/learners/server/queries";
+import { listLearnerDirectoryPage, type LearnerDirectoryPage } from "@/features/learners/server/queries";
 import { getRegistrationOptions, type GradeOption } from "@/features/learners/server/registration-options";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
@@ -55,7 +55,7 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
     if (membership) {
       schoolName = membership.schoolName;
       [directory, academicOptions] = await Promise.all([
-        listLearnersForSchool(membership.schoolId, academicYear, {
+        listLearnerDirectoryPage(membership.schoolId, academicYear, {
           query,
           status,
           grade,
