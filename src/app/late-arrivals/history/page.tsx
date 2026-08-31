@@ -18,7 +18,7 @@ export default async function DetentionHistoryPage() {
         <div>
           <h1 className="scolapro-page-title text-xl">Detention history</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Historical detention obligations including completed and waived records. The active detention queue remains on the late arrivals page.
+            Historical detention obligations grouped by learner, including original due dates, carry-forwards, assigned supervision and completion outcomes.
           </p>
         </div>
         <DetentionHistoryView items={history} />
