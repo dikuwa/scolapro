@@ -13,70 +13,87 @@ export type StaffDirectoryRow = {
   hasAccount: boolean;
 };
 
-function relationValue<T>(value: T[] | T | null | undefined): T | null {
-  return (Array.isArray(value) ? value[0] : value) ?? null;
-}
+export type StaffDirectoryResult = {
+  rows: StaffDirectoryRow[];
+  totalStaff: number;
+  activeStaff: number;
+  accountCount: number;
+  suggestedEmployeeNumber: string;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+  filteredCount: number;
+};
 
-export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDirectoryRow[]> {
+type StaffDirectoryRpcRow = {
+  row_id: string;
+  staff_id: string | null;
+  staff_name: string;
+  employee_number: string | null;
+  staff_code: string | null;
+  default_room_name: string | null;
+  labels: string[] | null;
+  active_from: string;
+  active_to: string | null;
+  has_account: boolean;
+  total_count: number | string;
+};
+
+type StaffSummaryRpcRow = {
+  total_staff: number | string;
+  active_staff: number | string;
+  account_count: number | string;
+  suggested_employee_number: string;
+};
+
+export async function getSchoolStaffDirectory(
+  schoolId: string,
+  options: { query?: string; page?: number; pageSize?: number; onDate?: string } = {},
+): Promise<StaffDirectoryResult> {
   const supabase = await createSupabaseServerClient();
-  const [assignmentsResult, membershipsResult] = await Promise.all([
-    supabase
-      .from("staff_school_assignments")
-      .select("id,assignment_type,position_title,effective_from,effective_to,staff_member_id,staff_code,default_room_id,school_rooms(display_name),staff_members(id,employee_number,first_name,last_name)")
-      .eq("school_id", schoolId)
-      .order("effective_from", { ascending: false }),
-    supabase
-      .from("school_memberships")
-      .select("id,role_key,active_from,active_to,user_id,staff_member_id,staff_members(id,employee_number,first_name,last_name)")
-      .eq("school_id", schoolId)
-      .order("active_from", { ascending: false }),
+  const page = Math.max(options.page ?? 1, 1);
+  const pageSize = Math.min(Math.max(options.pageSize ?? 50, 1), 100);
+  const onDate = options.onDate ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+
+  const [directoryResult, summaryResult] = await Promise.all([
+    supabase.rpc("list_staff_directory_page", {
+      p_school_id: schoolId,
+      p_query: options.query?.trim() || null,
+      p_page: page,
+      p_page_size: pageSize,
+    }),
+    supabase.rpc("get_staff_directory_summary", {
+      p_school_id: schoolId,
+      p_on_date: onDate,
+    }),
   ]);
 
-  if (assignmentsResult.error || membershipsResult.error) throw new Error("Unable to load school staff directory.");
+  if (directoryResult.error || summaryResult.error) throw new Error("Unable to load school staff directory.");
 
-  const rows = new Map<string, StaffDirectoryRow>();
-  for (const assignment of assignmentsResult.data ?? []) {
-    const staff = relationValue(assignment.staff_members);
-    const room = relationValue(assignment.school_rooms);
-    if (!staff) continue;
-    rows.set(staff.id, {
-      id: assignment.id,
-      staffId: staff.id,
-      name: [staff.first_name, staff.last_name].filter(Boolean).join(" "),
-      employeeNumber: staff.employee_number,
-      staffCode: assignment.staff_code ?? null,
-      defaultRoomName: room?.display_name ?? null,
-      labels: [assignment.position_title || assignment.assignment_type],
-      activeFrom: assignment.effective_from,
-      activeTo: assignment.effective_to,
-      hasAccount: false,
-    });
-  }
+  const directoryRows = (directoryResult.data ?? []) as StaffDirectoryRpcRow[];
+  const summary = ((summaryResult.data ?? [])[0] ?? null) as StaffSummaryRpcRow | null;
+  const filteredCount = directoryRows.length ? Number(directoryRows[0].total_count) : 0;
 
-  for (const membership of membershipsResult.data ?? []) {
-    const staff = relationValue(membership.staff_members);
-    const key = staff?.id ?? `membership:${membership.id}`;
-    const existing = rows.get(key);
-    if (existing) {
-      if (!existing.labels.includes(membership.role_key)) existing.labels.push(membership.role_key);
-      existing.hasAccount = true;
-      if (membership.active_from < existing.activeFrom) existing.activeFrom = membership.active_from;
-      if (!membership.active_to || (existing.activeTo && membership.active_to > existing.activeTo)) existing.activeTo = membership.active_to;
-      continue;
-    }
-    rows.set(key, {
-      id: membership.id,
-      staffId: staff?.id ?? null,
-      name: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Linked school user",
-      employeeNumber: staff?.employee_number ?? null,
-      staffCode: null,
-      defaultRoomName: null,
-      labels: [membership.role_key],
-      activeFrom: membership.active_from,
-      activeTo: membership.active_to,
-      hasAccount: Boolean(membership.user_id),
-    });
-  }
-
-  return Array.from(rows.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    rows: directoryRows.map((row) => ({
+      id: row.row_id,
+      staffId: row.staff_id,
+      name: row.staff_name,
+      employeeNumber: row.employee_number,
+      staffCode: row.staff_code,
+      defaultRoomName: row.default_room_name,
+      labels: Array.from(new Set(row.labels ?? [])),
+      activeFrom: row.active_from,
+      activeTo: row.active_to,
+      hasAccount: row.has_account,
+    })),
+    totalStaff: Number(summary?.total_staff ?? 0),
+    activeStaff: Number(summary?.active_staff ?? 0),
+    accountCount: Number(summary?.account_count ?? 0),
+    suggestedEmployeeNumber: summary?.suggested_employee_number ?? "EMP-001",
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(filteredCount / pageSize)),
+    filteredCount,
+  };
 }
