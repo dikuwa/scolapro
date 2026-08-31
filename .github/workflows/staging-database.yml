@@ -35,6 +35,7 @@ jobs:
         uses: supabase/setup-cli@v1
         with:
           version: latest
+          github-token: ${{ github.token }}
 
       - name: Require staging deployment secrets
         shell: bash
