@@ -12,6 +12,14 @@ export type ContributionLearnerOption = {
   registerClass: string;
 };
 
+type ContributionLearnerRpcRow = {
+  learner_id: string;
+  learner_name: string;
+  admission_number: string | null;
+  grade_name: string;
+  class_name: string;
+};
+
 const searchSchema = z.object({
   academicYear: z.number().int().min(2000).max(2200),
   query: z.string().trim().max(120),
@@ -38,7 +46,7 @@ export async function searchContributionLearners(
   });
   if (error) throw new Error(error.message || "Unable to search eligible learners.");
 
-  return (data ?? []).map((row) => ({
+  return ((data ?? []) as ContributionLearnerRpcRow[]).map((row) => ({
     id: row.learner_id,
     name: row.learner_name,
     admissionNumber: row.admission_number,
