@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronRight, History, RotateCcw, Search, X } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, History, RotateCcw, Search, X } from "lucide-react";
 import type { DetentionHistoryItem } from "@/features/late-arrivals/server/detention-history-queries";
 
 function statusBadge(status: string) {
@@ -29,8 +30,27 @@ type LearnerHistory = {
   openCount: number;
 };
 
-export function DetentionHistoryView({ items }: { items: DetentionHistoryItem[] }) {
-  const [query, setQuery] = useState("");
+function pageHref(page: number, query: string) {
+  const params = new URLSearchParams();
+  if (query) params.set("q", query);
+  if (page > 1) params.set("page", String(page));
+  const suffix = params.toString();
+  return suffix ? `/late-arrivals/history?${suffix}` : "/late-arrivals/history";
+}
+
+export function DetentionHistoryView({
+  items,
+  query,
+  page,
+  pageSize,
+  totalLearners,
+}: {
+  items: DetentionHistoryItem[];
+  query: string;
+  page: number;
+  pageSize: number;
+  totalLearners: number;
+}) {
   const [expandedLearnerId, setExpandedLearnerId] = useState<string | null>(null);
 
   const grouped = useMemo<LearnerHistory[]>(() => {
@@ -54,29 +74,32 @@ export function DetentionHistoryView({ items }: { items: DetentionHistoryItem[] 
       .sort((a, b) => a.learnerName.localeCompare(b.learnerName));
   }, [items]);
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLocaleLowerCase();
-    if (!needle) return grouped;
-    return grouped.filter((group) => `${group.learnerName} ${group.admissionNumber ?? ""} ${group.gradeName ?? ""} ${group.className ?? ""}`.toLocaleLowerCase().includes(needle));
-  }, [grouped, query]);
+  const pageCount = Math.max(1, Math.ceil(totalLearners / pageSize));
+  const hasPrevious = page > 1;
+  const hasNext = page < pageCount;
+  const firstLearner = totalLearners ? (page - 1) * pageSize + 1 : 0;
+  const lastLearner = totalLearners ? Math.min(page * pageSize, totalLearners) : 0;
 
   return (
     <div className="space-y-4">
       <div className="rounded-[var(--radius-md)] bg-surface-muted/55 p-3">
-        <label className="scolapro-control-surface flex min-h-10 items-center gap-2 rounded-[var(--radius-sm)] px-3">
-          <Search className="size-4 text-muted-foreground" aria-hidden="true" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search learner by name, admission number, grade or class…" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
-          {query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-7 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface hover:text-foreground"><X className="size-3.5" /></button> : null}
-        </label>
+        <form method="get" className="flex flex-col gap-2 sm:flex-row">
+          <label className="scolapro-control-surface flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-sm)] px-3">
+            <Search className="size-4 text-muted-foreground" aria-hidden="true" />
+            <input name="q" defaultValue={query} placeholder="Search learner by name, admission number, grade or class…" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
+            {query ? <Link href="/late-arrivals/history" aria-label="Clear search" className="grid size-7 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface hover:text-foreground"><X className="size-3.5" /></Link> : null}
+          </label>
+          <button type="submit" className="scolapro-cta min-h-10 bg-brand px-4 text-xs font-semibold text-white">Search</button>
+        </form>
       </div>
 
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3 sm:px-5">
           <div><h2 className="scolapro-section-title">Detention history</h2><p className="scolapro-section-description">Only learners with a detention obligation appear here. Expand one learner to review each obligation and its real dates.</p></div>
-          <span className="shrink-0 text-xs text-muted-foreground">{filtered.length} learner{filtered.length === 1 ? "" : "s"}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{totalLearners} learner{totalLearners === 1 ? "" : "s"}</span>
         </div>
 
-        {filtered.length ? <div>{filtered.map((group) => {
+        {grouped.length ? <div>{grouped.map((group) => {
           const expanded = expandedLearnerId === group.learnerId;
           return (
             <div key={group.learnerId} className="border-b border-border-subtle last:border-b-0">
@@ -108,7 +131,18 @@ export function DetentionHistoryView({ items }: { items: DetentionHistoryItem[] 
               </div> : null}
             </div>
           );
-        })}</div> : <div className="px-5 py-10 text-center"><span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><History className="size-5" /></span><h3 className="mt-3 text-sm font-semibold">No detention records</h3><p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">{items.length ? "No learners match this search." : "No detention obligations have been recorded for this school."}</p></div>}
+        })}</div> : <div className="px-5 py-10 text-center"><span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><History className="size-5" /></span><h3 className="mt-3 text-sm font-semibold">No detention records</h3><p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">{query ? "No learners match this search." : "No detention obligations have been recorded for this school."}</p></div>}
+
+        {totalLearners > pageSize ? (
+          <div className="flex flex-col gap-2 border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <span>Showing learners {firstLearner}–{lastLearner} of {totalLearners}</span>
+            <div className="flex items-center gap-2">
+              {hasPrevious ? <Link href={pageHref(page - 1, query)} className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 font-medium text-foreground hover:bg-surface-muted/80"><ChevronLeft className="size-3.5" />Previous</Link> : <span className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted/45 px-2.5 opacity-45"><ChevronLeft className="size-3.5" />Previous</span>}
+              <span>Page {page} of {pageCount}</span>
+              {hasNext ? <Link href={pageHref(page + 1, query)} className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 font-medium text-foreground hover:bg-surface-muted/80">Next<ChevronRight className="size-3.5" /></Link> : <span className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted/45 px-2.5 opacity-45">Next<ChevronRight className="size-3.5" /></span>}
+            </div>
+          </div>
+        ) : null}
       </section>
     </div>
   );
