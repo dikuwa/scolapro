@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatPersonName } from "@/lib/person-name";
 
 export type GuardianDirectoryLearner = {
   learnerId: string;
@@ -119,13 +120,13 @@ export async function getGuardianDirectory(schoolId: string): Promise<GuardianDi
 
     return {
       guardianId: row.guardian_id,
-      name: row.guardian_name,
+      name: formatPersonName(row.guardian_name),
       preferredName: profile?.preferred_name ?? null,
       identityNumber: null,
       status: profile?.status ?? "active",
       learners: (row.linked_learners ?? []).map((learner) => ({
         learnerId: learner.learner_id ?? "",
-        name: learner.learner_name ?? "Learner",
+        name: formatPersonName(learner.learner_name ?? "Learner"),
         admissionNumber: learner.admission_number ?? null,
         grade: learner.grade_name ?? "Unassigned",
         registerClass: learner.class_name ?? "Unassigned",
