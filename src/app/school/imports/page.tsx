@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, BookOpenCheck, CheckCircle2, Download, HeartHandshake, Link2, RotateCcw, SkipForward, Trash2, Upload, UsersRound } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, CheckCircle2, ChevronLeft, ChevronRight, Download, HeartHandshake, Link2, RotateCcw, SkipForward, Trash2, Upload, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CompactActionButton, CompactActionLink } from "@/components/ui/compact-action";
@@ -12,7 +12,7 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 
 const interactiveButton = "cursor-pointer transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft active:translate-y-px";
 
-export default async function SchoolImportsPage({ searchParams }: { searchParams: Promise<{ batch?: string; error?: string; success?: string; history?: string }> }) {
+export default async function SchoolImportsPage({ searchParams }: { searchParams: Promise<{ batch?: string; error?: string; success?: string; history?: string; rowPage?: string }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
   const membership = context.memberships[0];
@@ -20,14 +20,19 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
 
   const search = await searchParams;
   const showHistory = search.history === "1";
-  const workspace = await getImportWorkspace(membership.schoolId, search.batch, showHistory);
+  const requestedRowPage = Math.max(Number(search.rowPage ?? "1") || 1, 1);
+  const workspace = await getImportWorkspace(membership.schoolId, search.batch, showHistory, requestedRowPage, 50);
   const batch = workspace.selectedBatch;
-  const unresolvedRows = workspace.rows.filter((row) => row.resolution === "review" || row.resolution === "error").length;
+  const unresolvedRows = workspace.unresolvedRowCount;
+  const rowPageCount = Math.max(1, Math.ceil(workspace.rowCount / workspace.rowPageSize));
+  const firstRow = workspace.rowCount ? (workspace.rowPage - 1) * workspace.rowPageSize + 1 : 0;
+  const lastRow = workspace.rowCount ? Math.min(workspace.rowPage * workspace.rowPageSize, workspace.rowCount) : 0;
   const isStaff = batch?.import_type === "staff";
   const isAcademic = batch?.import_type === "academic_structure";
   const isGuardian = batch?.import_type === "guardians";
   const commitAction = isStaff ? commitStaffImport : isAcademic ? commitAcademicStructureImport : isGuardian ? commitGuardianImport : commitLearnerImport;
   const commitLabel = isStaff ? "staff" : isAcademic ? "academic structure" : isGuardian ? "guardians" : "learners";
+  const reviewHref = (page: number) => batch ? `/school/imports?batch=${batch.id}${showHistory ? "&history=1" : ""}${page > 1 ? `&rowPage=${page}` : ""}` : "/school/imports";
 
   return (
     <AppShell>
@@ -85,6 +90,7 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
             const guardianReview = isGuardian && row.resolution === "review" && row.matched_entity_type === "guardian" && row.matched_entity_id;
             return <tr key={row.id}><td className="px-4 py-2.5 text-muted-foreground">{row.row_number}</td><td className="px-4 py-2.5">{renderPrimaryCell(row.normalized_data, isStaff, isAcademic, isGuardian)}</td><td className="px-4 py-2.5 text-muted-foreground">{renderScopeCell(row.source_data, row.normalized_data, isStaff, isAcademic, isGuardian)}</td><td className="px-4 py-2.5"><span className={`inline-flex items-center gap-1 rounded-[var(--radius-xs)] px-2 py-1 font-medium ${row.resolution === "create" || row.resolution === "link" ? "bg-success-soft text-[color:var(--success)]" : row.resolution === "skip" ? "bg-surface-muted text-muted-foreground" : row.resolution === "update" ? "bg-brand-soft text-brand-strong" : "bg-warning-soft text-[color:var(--warning)]"}`}>{ready ? <CheckCircle2 className="size-3" /> : <AlertTriangle className="size-3" />}{row.resolution}</span></td><td className="px-4 py-2.5 text-[0.68rem] text-muted-foreground">{issues.length ? issues.map((issue) => issue.message).join(" · ") : "Ready"}</td><td className="px-4 py-2.5">{guardianReview ? <div className="flex flex-wrap gap-1.5"><form action={confirmMatchedGuardianImportRow}><input type="hidden" name="rowId" value={row.id} /><input type="hidden" name="batchId" value={batch.id} /><input type="hidden" name="guardianId" value={row.matched_entity_id ?? ""} /><button type="submit" className={`${interactiveButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-[0.68rem] font-semibold text-brand-strong hover:bg-brand hover:text-white`}><Link2 className="size-3.5" />Use existing guardian</button></form><form action={skipMatchedImportRow}><input type="hidden" name="rowId" value={row.id} /><input type="hidden" name="batchId" value={batch.id} /><button type="submit" className={`${interactiveButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold text-muted-foreground hover:bg-surface-elevated hover:text-foreground`}><SkipForward className="size-3.5" />Skip row</button></form></div> : row.resolution === "review" && row.matched_entity_id ? <form action={skipMatchedImportRow}><input type="hidden" name="rowId" value={row.id} /><input type="hidden" name="batchId" value={batch.id} /><button type="submit" className={`${interactiveButton} inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold text-muted-foreground hover:bg-surface-elevated hover:text-foreground`}><SkipForward className="size-3.5" />Skip matched row</button></form> : <span className="text-[0.68rem] text-muted-foreground">—</span>}</td></tr>;
           })}</tbody></table></div>
+          {workspace.rowCount > workspace.rowPageSize ? <div className="flex flex-col gap-2 border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5"><span>Showing rows {firstRow}–{lastRow} of {workspace.rowCount}</span><div className="flex items-center gap-2">{workspace.rowPage > 1 ? <a href={reviewHref(workspace.rowPage - 1)} className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 font-medium text-foreground hover:bg-surface-muted/80"><ChevronLeft className="size-3.5" />Previous</a> : <span className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted/45 px-2.5 opacity-45"><ChevronLeft className="size-3.5" />Previous</span>}<span>Page {workspace.rowPage} of {rowPageCount}</span>{workspace.rowPage < rowPageCount ? <a href={reviewHref(workspace.rowPage + 1)} className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 font-medium text-foreground hover:bg-surface-muted/80">Next<ChevronRight className="size-3.5" /></a> : <span className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted/45 px-2.5 opacity-45">Next<ChevronRight className="size-3.5" /></span>}</div></div> : null}
         </section> : null}
       </div>
     </AppShell>
