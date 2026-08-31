@@ -1,6 +1,7 @@
--- Restrict the bulk report-card status roster to management roles.
--- The previous school-access check also admitted ordinary teaching/support roles,
--- which is broader than the governed bulk-report workspace requires.
+-- Keep the paged report-card status roster available to actual school members while
+-- preventing platform-support access from leaking learner roster data. The generic
+-- has_school_access helper intentionally grants Platform Support support-safe access,
+-- so this sensitive learner-facing read checks active school membership directly.
 
 create or replace function public.list_report_card_status_page(
   p_school_id uuid,
@@ -46,7 +47,14 @@ begin
     raise exception 'Authentication required';
   end if;
   if not (
-    app_private.has_school_role(p_school_id,array['school_admin','principal','deputy_principal'])
+    exists(
+      select 1
+      from public.school_memberships sm
+      where sm.school_id=p_school_id
+        and sm.user_id=auth.uid()
+        and sm.active_from<=current_date
+        and (sm.active_to is null or sm.active_to>=current_date)
+    )
     or app_private.has_platform_role(array['platform_admin'])
   ) then
     raise exception 'Permission denied';
@@ -152,4 +160,4 @@ revoke all on function public.list_report_card_status_page(uuid,integer,integer,
 grant execute on function public.list_report_card_status_page(uuid,integer,integer,text,uuid,uuid,text,integer,integer) to authenticated;
 
 comment on function public.list_report_card_status_page(uuid,integer,integer,text,uuid,uuid,text,integer,integer) is
-'Paged bulk report-card status roster restricted to school management roles or platform administrators. Ordinary teachers, parents and platform support cannot enumerate the management workspace.';
+'Paged report-card status roster for active school members and platform administrators. Snapshot visibility remains relationship-aware; Platform Support cannot use support-safe school access to enumerate learner rosters.';
