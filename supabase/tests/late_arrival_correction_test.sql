@@ -1,6 +1,6 @@
 begin;
 
-select plan(8);
+select plan(9);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('f9100000-0000-4000-8000-000000000001','late-correction-admin@example.test','authenticated','authenticated',now(),now());
@@ -48,14 +48,16 @@ select is(
 
 select lives_ok($$select public.record_school_late_arrival('60000000-0000-4000-8000-000000000001','2026-08-05','08:07','correctly re-recorded')$$,'corrected late can be recorded again and recreate its obligation');
 
+select lives_ok(
+  $$select public.resolve_late_detention(
+    (select id from public.late_detention_obligations where learner_id='50000000-0000-4000-8000-000000000001' and academic_year=2026 order by created_at desc limit 1),
+    'completed','Attended'
+  )$$,
+  'detention can be completed before history-protection check'
+);
+
 select throws_ok(
-  $$
-    select public.resolve_late_detention(
-      (select id from public.late_detention_obligations where learner_id='50000000-0000-4000-8000-000000000001' and academic_year=2026 order by created_at desc limit 1),
-      'completed','Attended'
-    );
-    select public.undo_latest_school_late_arrival('60000000-0000-4000-8000-000000000001','Attempt to rewrite history');
-  $$,
+  $$select public.undo_latest_school_late_arrival('60000000-0000-4000-8000-000000000001','Attempt to rewrite history')$$,
   'This late arrival cannot be undone because its detention history is already finalized',
   'completed detention history blocks late-arrival undo'
 );
