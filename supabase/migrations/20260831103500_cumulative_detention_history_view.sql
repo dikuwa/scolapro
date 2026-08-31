@@ -1,7 +1,10 @@
 -- Expose detention history using cumulative-obligation semantics while retaining
 -- legacy fields for older records that pre-date the cumulative model.
+-- The existing view has a different column order, so recreate it explicitly.
 
-create or replace view public.late_detention_history with (security_invoker=true) as
+drop view if exists public.late_detention_history;
+
+create view public.late_detention_history with (security_invoker=true) as
 select
   d.id,
   d.tenant_id,
