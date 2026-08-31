@@ -27,7 +27,7 @@ values('eb300000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111
 
 select ok(
   not has_function_privilege('anon','public.list_report_card_status_page(uuid,integer,integer,text,uuid,uuid,text,integer,integer)','EXECUTE'),
-  'anonymous users cannot execute the report-card management status roster'
+  'anonymous users cannot execute the report-card status roster'
 );
 select ok(
   has_function_privilege('authenticated','public.list_report_card_status_page(uuid,integer,integer,text,uuid,uuid,text,integer,integer)','EXECUTE'),
@@ -38,10 +38,10 @@ select set_config('request.jwt.claim.role','authenticated',true);
 
 select set_config('request.jwt.claim.sub','eb000000-0000-4000-8000-000000000002',true);
 set local role authenticated;
-select throws_ok(
-  $$select * from public.list_report_card_status_page('eb100000-0000-4000-8000-000000000001',2026,1,null,null,null,'all',1,50)$$,
-  'Permission denied',
-  'ordinary teacher cannot enumerate the bulk report-card management roster'
+select is(
+  (select count(*)::integer from public.list_report_card_status_page('eb100000-0000-4000-8000-000000000001',2026,1,null,null,null,'all',1,50)),
+  1,
+  'an active teacher school member retains the paged roster read used by the report workspace'
 );
 reset role;
 
@@ -50,7 +50,7 @@ set local role authenticated;
 select throws_ok(
   $$select * from public.list_report_card_status_page('eb100000-0000-4000-8000-000000000001',2026,1,null,null,null,'all',1,50)$$,
   'Permission denied',
-  'platform support cannot enumerate learner report-card management rosters'
+  'platform support cannot turn support-safe school access into learner roster enumeration'
 );
 reset role;
 
@@ -59,7 +59,7 @@ set local role authenticated;
 select is(
   (select count(*)::integer from public.list_report_card_status_page('eb100000-0000-4000-8000-000000000001',2026,1,null,null,null,'all',1,50)),
   1,
-  'school administrator can read the managed status roster'
+  'school administrator can read the status roster'
 );
 select is(
   (select learner_id from public.list_report_card_status_page('eb100000-0000-4000-8000-000000000001',2026,1,null,null,null,'all',1,50) limit 1),
