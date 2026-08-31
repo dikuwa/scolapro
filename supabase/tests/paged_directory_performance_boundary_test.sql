@@ -79,9 +79,8 @@ select is(
   'staff search executes before pagination'
 );
 
-select like(
-  (select suggested_employee_number from public.get_staff_directory_summary('22222222-2222-4222-8222-222222222222','2026-08-31')),
-  'EMP-%',
+select ok(
+  (select suggested_employee_number from public.get_staff_directory_summary('22222222-2222-4222-8222-222222222222','2026-08-31')) like 'EMP-%',
   'staff summary keeps a school-wide editable EMP number suggestion'
 );
 
