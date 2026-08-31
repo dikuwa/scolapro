@@ -55,7 +55,37 @@ type LearnerDirectoryRpcRow = {
   total_count: number | string;
 };
 
-export async function listLearnersForSchool(
+// Legacy unbounded roster contract retained temporarily for non-directory flows
+// such as contribution eligibility. Those callers will receive their own scoped
+// paging/search migration in the subsequent operational-list performance pass.
+export async function listLearnersForSchool(schoolId: string, academicYear: number): Promise<LearnerListItem[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("enrolments")
+    .select("id, admission_number, status, learners!inner(id, first_names, surname, preferred_name, sex), grades(display_name), register_classes(display_name)")
+    .eq("school_id", schoolId)
+    .eq("academic_year", academicYear)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error("Unable to load learners for this school.");
+
+  return (data ?? []).map((row) => {
+    const learner = Array.isArray(row.learners) ? row.learners[0] : row.learners;
+    const grade = Array.isArray(row.grades) ? row.grades[0] : row.grades;
+    const registerClass = Array.isArray(row.register_classes) ? row.register_classes[0] : row.register_classes;
+    return {
+      id: learner.id,
+      name: `${learner.first_names} ${learner.surname}`.trim(),
+      preferredName: learner.preferred_name,
+      admissionNumber: row.admission_number,
+      grade: grade?.display_name ?? "Unassigned",
+      registerClass: registerClass?.display_name ?? "Unassigned",
+      status: row.status,
+      sex: learner.sex ?? "unspecified",
+    };
+  });
+}
+
+export async function listLearnerDirectoryPage(
   schoolId: string,
   academicYear: number,
   filters: LearnerDirectoryFilters = {},
@@ -80,7 +110,7 @@ export async function listLearnersForSchool(
     p_page_size: pageSize,
   });
 
-  if (error) throw new Error("Unable to load learners for this school.");
+  if (error) throw new Error("Unable to load the learner directory.");
   const rows = (data ?? []) as LearnerDirectoryRpcRow[];
   const total = rows.length ? Number(rows[0].total_count) : 0;
 
@@ -106,9 +136,7 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("enrolments")
-    .select(
-      "admission_number, status, academic_year, enrolled_from, learners!inner(id, first_names, surname, preferred_name, date_of_birth, photo_path, sex), grades(display_name), register_classes(display_name), schools!inner(name)",
-    )
+    .select("admission_number, status, academic_year, enrolled_from, learners!inner(id, first_names, surname, preferred_name, date_of_birth, photo_path, sex), grades(display_name), register_classes(display_name), schools!inner(name)")
     .eq("learner_id", learnerId)
     .eq("school_id", schoolId)
     .order("academic_year", { ascending: false })
