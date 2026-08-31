@@ -11,6 +11,25 @@ export type LearnerListItem = {
   sex?: string;
 };
 
+export type LearnerDirectoryFilters = {
+  query?: string;
+  status?: string;
+  grade?: string;
+  registerClass?: string;
+  sex?: string;
+  sortOrder?: "asc" | "desc";
+  page?: number;
+  pageSize?: number;
+};
+
+export type LearnerDirectoryPage = {
+  learners: LearnerListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};
+
 export type LearnerOverview = LearnerListItem & {
   firstNames: string;
   surname: string;
@@ -22,34 +41,65 @@ export type LearnerOverview = LearnerListItem & {
   photoUrl: string | null;
 };
 
-export async function listLearnersForSchool(schoolId: string, academicYear: number): Promise<LearnerListItem[]> {
+type LearnerDirectoryRpcRow = {
+  enrolment_id: string;
+  learner_id: string;
+  first_names: string;
+  surname: string;
+  preferred_name: string | null;
+  admission_number: string | null;
+  grade_name: string;
+  class_name: string;
+  enrolment_status: string;
+  sex: string | null;
+  total_count: number | string;
+};
+
+export async function listLearnersForSchool(
+  schoolId: string,
+  academicYear: number,
+  filters: LearnerDirectoryFilters = {},
+): Promise<LearnerDirectoryPage> {
+  const pageSize = Math.min(Math.max(filters.pageSize ?? 50, 1), 100);
+  const requestedPage = Math.max(filters.page ?? 1, 1);
+  const numericRowQuery = /^\d+$/.test(filters.query?.trim() ?? "") ? Number(filters.query) : null;
+  const page = numericRowQuery && numericRowQuery > 0 ? Math.ceil(numericRowQuery / pageSize) : requestedPage;
+  const query = numericRowQuery ? null : filters.query?.trim() || null;
+
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("enrolments")
-    .select(
-      "id, admission_number, status, learners!inner(id, first_names, surname, preferred_name, sex), grades(display_name), register_classes(display_name)",
-    )
-    .eq("school_id", schoolId)
-    .eq("academic_year", academicYear)
-    .order("created_at", { ascending: false });
+  const { data, error } = await supabase.rpc("list_learner_directory_page", {
+    p_school_id: schoolId,
+    p_academic_year: academicYear,
+    p_query: query,
+    p_status: filters.status && filters.status !== "all" ? filters.status : null,
+    p_grade_name: filters.grade && filters.grade !== "all" ? filters.grade : null,
+    p_class_name: filters.registerClass && filters.registerClass !== "all" ? filters.registerClass : null,
+    p_sex: filters.sex && filters.sex !== "all" ? filters.sex : null,
+    p_sort_desc: filters.sortOrder === "desc",
+    p_page: page,
+    p_page_size: pageSize,
+  });
 
   if (error) throw new Error("Unable to load learners for this school.");
+  const rows = (data ?? []) as LearnerDirectoryRpcRow[];
+  const total = rows.length ? Number(rows[0].total_count) : 0;
 
-  return (data ?? []).map((row) => {
-    const learner = Array.isArray(row.learners) ? row.learners[0] : row.learners;
-    const grade = Array.isArray(row.grades) ? row.grades[0] : row.grades;
-    const registerClass = Array.isArray(row.register_classes) ? row.register_classes[0] : row.register_classes;
-    return {
-      id: learner.id,
-      name: `${learner.first_names} ${learner.surname}`.trim(),
-      preferredName: learner.preferred_name,
+  return {
+    learners: rows.map((row) => ({
+      id: row.learner_id,
+      name: `${row.first_names} ${row.surname}`.trim(),
+      preferredName: row.preferred_name,
       admissionNumber: row.admission_number,
-      grade: grade?.display_name ?? "Unassigned",
-      registerClass: registerClass?.display_name ?? "Unassigned",
-      status: row.status,
-      sex: learner.sex ?? "unspecified",
-    };
-  });
+      grade: row.grade_name,
+      registerClass: row.class_name,
+      status: row.enrolment_status,
+      sex: row.sex ?? "unspecified",
+    })),
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
 
 export async function getLearnerOverview(learnerId: string, schoolId: string): Promise<LearnerOverview | null> {
