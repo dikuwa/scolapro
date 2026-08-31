@@ -33,6 +33,19 @@ export type DetentionStaffOption = {
   eligible: boolean;
 };
 
+type LateArrivalRosterRpcRow = {
+  enrolment_id: string;
+  learner_id: string;
+  learner_name: string;
+  admission_number: string | null;
+  class_name: string;
+  trigger_progress: number;
+  trigger_threshold: number;
+  total_late_count: number;
+  week_late_dates: string[] | null;
+  last_late_date: string | null;
+};
+
 function currentWeekRange(today: string) {
   const current = new Date(`${today}T12:00:00`);
   const day = current.getDay() || 7;
@@ -63,7 +76,7 @@ export async function getLateArrivalWorkspace(schoolId: string, academicYear: nu
     throw new Error("Unable to load the late-arrival workspace.");
   }
 
-  const roster: LateArrivalLearner[] = (rosterResult.data ?? []).map((row) => ({
+  const roster: LateArrivalLearner[] = ((rosterResult.data ?? []) as LateArrivalRosterRpcRow[]).map((row) => ({
     enrolmentId: row.enrolment_id,
     learnerId: row.learner_id,
     name: row.learner_name,
