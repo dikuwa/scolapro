@@ -47,61 +47,53 @@ export async function getLateArrivalWorkspace(schoolId: string, academicYear: nu
   const supabase = await createSupabaseServerClient();
   const { monday, friday } = currentWeekRange(today);
 
-  const [{ data: enrolments }, { data: policy }, { data: obligations }, { data: assignments }, { data: preferences }] = await Promise.all([
-    supabase.from("enrolments").select("id,learner_id,admission_number,register_class_id").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "current"),
-    supabase.from("school_late_arrival_policies").select("cumulative_threshold").eq("school_id", schoolId).maybeSingle(),
+  const [rosterResult, obligationsResult, assignmentsResult, preferencesResult] = await Promise.all([
+    supabase.rpc("list_late_arrival_roster_summary", {
+      p_school_id: schoolId,
+      p_academic_year: academicYear,
+      p_week_start: monday,
+      p_week_end: friday,
+    }),
     supabase.from("late_detention_obligations").select("id,learner_id,due_on,original_due_on,triggered_on,status,rollover_count,assigned_staff_member_id").eq("school_id", schoolId).in("status", ["pending", "carried_forward"]).order("due_on"),
     supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to").eq("school_id", schoolId).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
     supabase.from("detention_supervision_preferences").select("staff_member_id,eligible").eq("school_id", schoolId),
   ]);
 
-  const learnerIds = (enrolments ?? []).map((item) => item.learner_id);
-  const classIds = (enrolments ?? []).map((item) => item.register_class_id);
-  const obligationStaffIds = (obligations ?? [])
-    .map((item) => item.assigned_staff_member_id)
-    .filter((id): id is string => Boolean(id));
-  const staffIds = [...new Set([...(assignments ?? []).map((item) => item.staff_member_id), ...obligationStaffIds])];
-
-  const [{ data: learners }, { data: classes }, { data: yearEvents }, { data: staff }] = await Promise.all([
-    learnerIds.length ? supabase.from("learners").select("id,first_names,surname").in("id", learnerIds) : Promise.resolve({ data: [] }),
-    classIds.length ? supabase.from("register_classes").select("id,display_name").in("id", classIds) : Promise.resolve({ data: [] }),
-    learnerIds.length ? supabase.from("school_late_arrival_events").select("learner_id,arrival_date").eq("school_id", schoolId).in("learner_id", learnerIds).gte("arrival_date", `${academicYear}-01-01`).lte("arrival_date", `${academicYear}-12-31`).order("arrival_date", { ascending: false }) : Promise.resolve({ data: [] }),
-    staffIds.length ? supabase.from("staff_members").select("id,employee_number,first_name,last_name,status").in("id", staffIds) : Promise.resolve({ data: [] }),
-  ]);
-
-  const learnerMap = new Map((learners ?? []).map((item) => [item.id, item]));
-  const classMap = new Map((classes ?? []).map((item) => [item.id, item.display_name]));
-  const staffMap = new Map((staff ?? []).map((item) => [item.id, item]));
-  const preferenceMap = new Map((preferences ?? []).map((item) => [item.staff_member_id, item.eligible]));
-  const threshold = Math.max(1, Number(policy?.cumulative_threshold ?? 3));
-
-  const eventDates = new Map<string, string[]>();
-  for (const event of yearEvents ?? []) {
-    const current = eventDates.get(event.learner_id) ?? [];
-    current.push(event.arrival_date);
-    eventDates.set(event.learner_id, current);
+  if (rosterResult.error || obligationsResult.error || assignmentsResult.error || preferencesResult.error) {
+    throw new Error("Unable to load the late-arrival workspace.");
   }
 
-  const roster: LateArrivalLearner[] = (enrolments ?? []).map((item) => {
-    const learner = learnerMap.get(item.learner_id);
-    const dates = eventDates.get(item.learner_id) ?? [];
-    const weekLateDates = dates.filter((date) => date >= monday && date <= friday);
-    return {
-      enrolmentId: item.id,
-      learnerId: item.learner_id,
-      name: learner ? `${learner.first_names} ${learner.surname}` : "Learner",
-      admissionNumber: item.admission_number,
-      registerClass: classMap.get(item.register_class_id) ?? "Class",
-      triggerProgress: dates.length % threshold,
-      triggerThreshold: threshold,
-      totalLateCount: dates.length,
-      weekLateDates,
-      lastLateDate: dates[0] ?? null,
-    };
-  }).sort((a, b) => a.name.localeCompare(b.name));
+  const roster: LateArrivalLearner[] = (rosterResult.data ?? []).map((row) => ({
+    enrolmentId: row.enrolment_id,
+    learnerId: row.learner_id,
+    name: row.learner_name,
+    admissionNumber: row.admission_number,
+    registerClass: row.class_name,
+    triggerProgress: row.trigger_progress,
+    triggerThreshold: row.trigger_threshold,
+    totalLateCount: row.total_late_count,
+    weekLateDates: row.week_late_dates ?? [],
+    lastLateDate: row.last_late_date,
+  }));
 
+  const obligations = obligationsResult.data ?? [];
+  const assignments = assignmentsResult.data ?? [];
+  const preferences = preferencesResult.data ?? [];
+  const obligationStaffIds = obligations
+    .map((item) => item.assigned_staff_member_id)
+    .filter((id): id is string => Boolean(id));
+  const staffIds = [...new Set([...assignments.map((item) => item.staff_member_id), ...obligationStaffIds])];
+
+  const { data: staff, error: staffError } = staffIds.length
+    ? await supabase.from("staff_members").select("id,employee_number,first_name,last_name,status").in("id", staffIds)
+    : { data: [], error: null };
+  if (staffError) throw new Error("Unable to load detention staff.");
+
+  const staffMap = new Map((staff ?? []).map((item) => [item.id, item]));
+  const preferenceMap = new Map(preferences.map((item) => [item.staff_member_id, item.eligible]));
   const names = new Map(roster.map((item) => [item.learnerId, item.name]));
-  const detention: LateDetentionItem[] = (obligations ?? []).map((item) => {
+
+  const detention: LateDetentionItem[] = obligations.map((item) => {
     const assigned = item.assigned_staff_member_id ? staffMap.get(item.assigned_staff_member_id) : null;
     return {
       id: item.id,
@@ -119,7 +111,7 @@ export async function getLateArrivalWorkspace(schoolId: string, academicYear: nu
 
   const staffOptions: DetentionStaffOption[] = [];
   const seenStaffIds = new Set<string>();
-  for (const assignment of assignments ?? []) {
+  for (const assignment of assignments) {
     if (seenStaffIds.has(assignment.staff_member_id)) continue;
     const member = staffMap.get(assignment.staff_member_id);
     if (!member || member.status !== "active") continue;
