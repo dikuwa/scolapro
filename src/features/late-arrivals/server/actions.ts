@@ -34,18 +34,19 @@ export async function recordLateArrival(_state: LateArrivalActionState, formData
   return { success: true, message: "Late arrival recorded." };
 }
 
-export async function undoLatestLateArrival(formData: FormData) {
+export async function undoLatestLateArrival(_state: LateArrivalActionState, formData: FormData): Promise<LateArrivalActionState> {
   const enrolmentId = String(formData.get("enrolmentId") ?? "");
-  if (!z.string().uuid().safeParse(enrolmentId).success) return;
+  if (!z.string().uuid().safeParse(enrolmentId).success) return { message: "Choose a learner before undoing a late-arrival entry." };
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("undo_latest_school_late_arrival", {
     p_enrolment_id: enrolmentId,
     p_reason: "Corrected accidental latest late-arrival entry",
   });
-  if (error) throw new Error(error.message);
+  if (error) return { message: error.message };
   revalidatePath("/late-arrivals");
   revalidatePath("/late-arrivals/history");
+  return { success: true, message: "Latest late-arrival entry undone." };
 }
 
 export async function resolveDetention(formData: FormData) {
