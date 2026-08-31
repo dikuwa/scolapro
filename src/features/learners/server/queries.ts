@@ -8,7 +8,7 @@ export type LearnerListItem = {
   grade: string;
   registerClass: string;
   status: string;
-  sex: string;
+  sex?: string;
 };
 
 export type LearnerOverview = LearnerListItem & {
