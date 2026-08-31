@@ -53,8 +53,7 @@ begin
   with matching_learners as (
     select
       h.learner_id,
-      min(lower(trim(concat(h.first_names,' ',h.surname)))) as sort_name,
-      count(*) over() as ignored_count
+      min(lower(trim(concat(h.first_names,' ',h.surname)))) as sort_name
     from public.late_detention_history h
     where h.school_id=p_school_id
       and (
