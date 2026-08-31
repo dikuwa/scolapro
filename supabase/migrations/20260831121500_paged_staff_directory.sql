@@ -46,7 +46,7 @@ begin
   membership_rollup as (
     select
       sm.staff_member_id,
-      min(sm.id) as first_membership_id,
+      (array_agg(sm.id order by sm.active_from,sm.id))[1] as first_membership_id,
       min(sm.active_from) as first_active_from,
       case when bool_or(sm.active_to is null) then null else max(sm.active_to) end as last_active_to,
       bool_or(sm.user_id is not null) as has_account,
