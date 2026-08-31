@@ -43,7 +43,7 @@ begin
   from public.school_late_arrival_policies p
   where p.school_id=p_school_id
     and p.active=true
-  order by p.created_at desc
+  order by p.updated_at desc
   limit 1;
   v_threshold:=coalesce(v_threshold,3);
 
