@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   resolveCommunicationTransportAdapter,
   type CommunicationChannel,
+  type CommunicationTemplateTransportContext,
   type CommunicationTransportInput,
 } from "@/features/communications/server/transport-adapters";
 
@@ -23,11 +24,29 @@ type MessageRow = {
   channel: CommunicationChannel;
   subject: string | null;
   body: string;
+  template_version_id: string | null;
+  template_parameters: Record<string, unknown>;
 };
 
 type RecipientRow = {
   id: string;
   destination: string | null;
+};
+
+type TemplateVersionRow = {
+  id: string;
+  language: string;
+  variables: unknown;
+  status: string;
+};
+
+type ProviderTemplateBindingRow = {
+  provider_key: string;
+  provider_template_key: string;
+  provider_language: string | null;
+  approval_status: string;
+  active: boolean;
+  provider_config: Record<string, unknown>;
 };
 
 export type CommunicationDeliveryWorkerResult = {
@@ -40,6 +59,53 @@ export type CommunicationDeliveryWorkerResult = {
   dead: number;
   durationMs: number;
 };
+
+async function loadTemplateTransportContext(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  message: MessageRow,
+  providerKey: string | null,
+): Promise<CommunicationTemplateTransportContext | null> {
+  if (!message.template_version_id) return null;
+  if (!providerKey) throw new Error("A provider key is required for template-bound communications.");
+
+  const [{ data: version, error: versionError }, { data: binding, error: bindingError }] = await Promise.all([
+    supabase
+      .from("communication_template_versions")
+      .select("id,language,variables,status")
+      .eq("id", message.template_version_id)
+      .single(),
+    supabase
+      .from("communication_provider_template_bindings")
+      .select("provider_key,provider_template_key,provider_language,approval_status,active,provider_config")
+      .eq("template_version_id", message.template_version_id)
+      .eq("provider_key", providerKey)
+      .single(),
+  ]);
+
+  if (versionError || !version) {
+    throw new Error(versionError?.message ?? "Communication template version not found.");
+  }
+  if (bindingError || !binding) {
+    throw new Error(bindingError?.message ?? `No provider template binding exists for ${providerKey}.`);
+  }
+
+  const versionRow = version as TemplateVersionRow;
+  const bindingRow = binding as ProviderTemplateBindingRow;
+  if (versionRow.status !== "approved") throw new Error("Communication template version is no longer approved.");
+  if (!bindingRow.active || bindingRow.approval_status !== "approved") {
+    throw new Error(`Provider template binding for ${providerKey} is not active and approved.`);
+  }
+
+  return {
+    versionId: versionRow.id,
+    language: versionRow.language,
+    variables: versionRow.variables,
+    parameters: message.template_parameters ?? {},
+    providerTemplateKey: bindingRow.provider_template_key,
+    providerLanguage: bindingRow.provider_language,
+    providerConfig: bindingRow.provider_config ?? {},
+  };
+}
 
 export async function processCommunicationDeliveryQueue(limit = 25): Promise<CommunicationDeliveryWorkerResult> {
   const startedAt = Date.now();
@@ -73,7 +139,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
       const [{ data: message, error: messageError }, { data: recipient, error: recipientError }] = await Promise.all([
         supabase
           .from("communication_messages")
-          .select("id,channel,subject,body")
+          .select("id,channel,subject,body,template_version_id,template_parameters")
           .eq("id", job.message_id)
           .single(),
         supabase.from("communication_recipients").select("id,destination").eq("id", job.recipient_id).single(),
@@ -86,6 +152,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
       const recipientRow = recipient as RecipientRow;
       if (messageRow.channel !== job.channel) throw new Error("Communication job channel does not match its message.");
 
+      const template = await loadTemplateTransportContext(supabase, messageRow, job.provider_key);
       const adapter = resolveCommunicationTransportAdapter(job.channel, job.provider_key);
       const input: CommunicationTransportInput = {
         jobId: job.id,
@@ -95,6 +162,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
         destination: recipientRow.destination,
         subject: messageRow.subject,
         body: messageRow.body,
+        template,
       };
       const accepted = await adapter.send(input);
 
