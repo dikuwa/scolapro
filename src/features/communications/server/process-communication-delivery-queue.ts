@@ -31,6 +31,7 @@ type RecipientRow = {
 };
 
 export type CommunicationDeliveryWorkerResult = {
+  enabled: boolean;
   claimed: number;
   completed: number;
   failed: number;
@@ -42,6 +43,19 @@ export type CommunicationDeliveryWorkerResult = {
 
 export async function processCommunicationDeliveryQueue(limit = 25): Promise<CommunicationDeliveryWorkerResult> {
   const startedAt = Date.now();
+  if (process.env.COMMUNICATIONS_ENABLED !== "true") {
+    return {
+      enabled: false,
+      claimed: 0,
+      completed: 0,
+      failed: 0,
+      pending: 0,
+      retrying: 0,
+      dead: 0,
+      durationMs: Date.now() - startedAt,
+    };
+  }
+
   const supabase = createSupabaseAdminClient();
   const boundedLimit = Math.max(1, Math.min(limit, 100));
 
@@ -113,6 +127,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
   if (queueError) throw new Error(`Unable to inspect communication delivery queue: ${queueError.message}`);
 
   return {
+    enabled: true,
     claimed: jobs.length,
     completed,
     failed,
