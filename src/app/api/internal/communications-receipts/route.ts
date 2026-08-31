@@ -29,9 +29,26 @@ function optionalString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+const secretKeyPattern = /(secret|token|password|authorization|api[_-]?key|credential)/i;
+
+function assertNoSecretMetadata(value: unknown, path = "providerMetadata"): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertNoSecretMetadata(item, `${path}[${index}]`));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (secretKeyPattern.test(key)) throw new Error(`${path}.${key} is not allowed in provider metadata`);
+    assertNoSecretMetadata(nested, `${path}.${key}`);
+  }
+}
+
 function metadataObject(value: unknown): Record<string, unknown> {
   if (value == null) return {};
   if (typeof value !== "object" || Array.isArray(value)) throw new Error("providerMetadata must be a JSON object");
+  assertNoSecretMetadata(value);
+  if (JSON.stringify(value).length > 16_384) throw new Error("providerMetadata exceeds 16 KB");
   return value as Record<string, unknown>;
 }
 
