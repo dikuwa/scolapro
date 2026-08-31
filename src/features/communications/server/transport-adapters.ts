@@ -81,9 +81,9 @@ const inAppAdapter: CommunicationTransportAdapter = {
     // The canonical communication + recipient rows are already persisted before the
     // outbox is processed. Completing the transport job records that server-side
     // publication step without falsely claiming that a human opened/read the message.
-    return { providerKey: "in_app", providerMessageId: `in-app:${input.recipientId ?? input.jobId}` };
+    return { providerKey: "in_app", providerMessageId: `in-app:${input.jobId}` };
   },
-} as CommunicationTransportAdapter & { send(input: CommunicationTransportInput & { recipientId?: string }): Promise<CommunicationTransportAccepted> };
+};
 
 const mockAdapter: CommunicationTransportAdapter = {
   providerKey: "mock",
