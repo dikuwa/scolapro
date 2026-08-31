@@ -31,7 +31,10 @@ begin
   if auth.uid() is null then
     raise exception 'Authentication required';
   end if;
-  if not app_private.has_school_access(p_school_id) then
+  if not (
+    app_private.can_view_operational_learners(p_school_id)
+    or app_private.has_school_duty(p_school_id,'late_arrival_recorder')
+  ) then
     raise exception 'Permission denied';
   end if;
   if p_week_end<p_week_start then
@@ -90,4 +93,4 @@ revoke all on function public.list_late_arrival_roster_summary(uuid,integer,date
 grant execute on function public.list_late_arrival_roster_summary(uuid,integer,date,date) to authenticated;
 
 comment on function public.list_late_arrival_roster_summary(uuid,integer,date,date) is
-'Aggregated current learner roster for late-arrival entry. Yearly event counts, current-week late dates and latest event are calculated in PostgreSQL rather than loading all event rows into the application.';
+'Aggregated late-arrival roster restricted to the same operational-learner or delegated late-arrival duty scope as the underlying event data. Yearly event counts, current-week dates and latest event are calculated in PostgreSQL.';
