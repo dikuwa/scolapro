@@ -79,12 +79,9 @@ select results_eq(
   'school admin cannot update another school enrolment'
 );
 
-select results_eq(
-  $$delete from public.enrolments
-    where id='fb444444-4444-4444-8444-444444444442'
-    returning id$$,
-  ARRAY[]::uuid[],
-  'school admin cannot delete another school enrolment'
+select ok(
+  not has_table_privilege('authenticated', 'public.enrolments', 'DELETE'),
+  'authenticated clients cannot directly delete enrolments'
 );
 
 select results_eq(
