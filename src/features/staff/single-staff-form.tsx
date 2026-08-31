@@ -23,7 +23,7 @@ function FieldError({ messages }: { messages?: string[] }) {
   return messages?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{messages[0]}</p> : null;
 }
 
-export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: string }) {
+export function SingleStaffForm({ schoolId, today, suggestedEmployeeNumber }: { schoolId: string; today: string; suggestedEmployeeNumber: string }) {
   const [state, action, pending] = useActionState(createSingleStaff, initialState);
   const [assignmentType, setAssignmentType] = useState("teacher");
   const [effectiveFrom, setEffectiveFrom] = useState(today);
@@ -46,8 +46,8 @@ export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="staff-employee-number" className="text-xs font-medium">Employee number</label>
-            <input id="staff-employee-number" name="employeeNumber" className={`${fieldClass} mt-1.5 uppercase`} placeholder="EMP-001" autoCapitalize="characters" />
-            <p className="mt-1 text-[0.68rem] text-muted-foreground">Used as the stable identity key. Existing matching staff can be linked instead of duplicated.</p>
+            <input id="staff-employee-number" name="employeeNumber" defaultValue={suggestedEmployeeNumber} className={`${fieldClass} mt-1.5 uppercase`} placeholder="EMP-001" autoCapitalize="characters" />
+            <p className="mt-1 text-[0.68rem] text-muted-foreground">Suggested automatically and still editable. Duplicate numbers are blocked before a new identity can be created.</p>
             <FieldError messages={state.fieldErrors?.employeeNumber} />
           </div>
           <div>
