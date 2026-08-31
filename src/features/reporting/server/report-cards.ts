@@ -89,6 +89,7 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
       .select("id,enrolment_id,learner_id,term_number,snapshot_version,template_version,status,generated_at,certified_at")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
+      .neq("status", "superseded")
       .order("generated_at", { ascending: false }),
     supabase
       .from("academic_terms")
@@ -119,14 +120,28 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
   const error = enrolmentsResult.error || snapshotsResult.error || termsResult.error || renderJobsResult.error || documentsResult.error || batchesResult.error;
   if (error) throw new Error("Unable to load report-card workspace.");
 
-  const { data: batchIssueData, error: batchIssueError } = await supabase
-    .from("report_card_batch_items")
-    .select("batch_id,enrolment_id,learner_id,status,result_code,message")
-    .eq("school_id", schoolId)
-    .in("status", ["skipped", "failed"])
-    .order("completed_at", { ascending: false })
-    .limit(100);
-  if (batchIssueError) throw new Error("Unable to load report-card batch outcomes.");
+  const recentBatchIds = (batchesResult.data ?? []).map((batch) => batch.id);
+  let batchIssueData: Array<{
+    batch_id: string;
+    enrolment_id: string;
+    learner_id: string;
+    status: string;
+    result_code: string | null;
+    message: string | null;
+  }> = [];
+
+  if (recentBatchIds.length) {
+    const batchIssueResult = await supabase
+      .from("report_card_batch_items")
+      .select("batch_id,enrolment_id,learner_id,status,result_code,message")
+      .eq("school_id", schoolId)
+      .in("batch_id", recentBatchIds)
+      .in("status", ["skipped", "failed"])
+      .order("completed_at", { ascending: false })
+      .limit(100);
+    if (batchIssueResult.error) throw new Error("Unable to load report-card batch outcomes.");
+    batchIssueData = batchIssueResult.data ?? [];
+  }
 
   const learners: ReportCardLearner[] = (enrolmentsResult.data ?? []).map((item) => {
     const learner = one(item.learners);
@@ -192,7 +207,7 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
     completedAt: item.completed_at,
   }));
 
-  const batchIssues: ReportCardBatchIssueRow[] = (batchIssueData ?? []).map((item) => ({
+  const batchIssues: ReportCardBatchIssueRow[] = batchIssueData.map((item) => ({
     batchId: item.batch_id,
     enrolmentId: item.enrolment_id,
     learnerId: item.learner_id,
