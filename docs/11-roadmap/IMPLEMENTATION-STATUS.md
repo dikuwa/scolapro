@@ -2,7 +2,7 @@
 
 > **Living handoff document.** Update this file whenever a meaningful implementation slice is completed or materially changes. Any developer or AI taking over ScolaPro should read this file, `ARCHITECTURE-ROADMAP.md`, the domain documents and the design-system documents before proposing new architecture or starting duplicate work.
 
-Last updated: **30 August 2026**
+Last updated: **31 August 2026**
 
 ## How to use this document
 
@@ -96,12 +96,14 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 | Area | Status | Notes |
 |---|---|---|
 | Canonical message / recipients | DONE FOUNDATION / VERIFY | Provider-independent app/email/SMS/WhatsApp/letter intent and recipient state. |
-| Delivery outbox | DONE FOUNDATION / VERIFY | Recipient jobs support claim, retry, dead-letter and service-role worker boundaries. |
-| Provider routing | DONE FOUNDATION / VERIFY | Effective tenant/school channel routing metadata exists; provider credentials are excluded from PostgreSQL domain records. |
-| Delivery attempt history | DONE FOUNDATION / VERIFY | Append-oriented provider attempt history supports reconciliation and diagnostics. |
+| Delivery outbox | DONE FOUNDATION / VERIFY | Recipient jobs support claim, retry, dead-letter and service-role worker boundaries. Provider acceptance is `submitted`, not falsely treated as final delivery. |
+| Provider routing | DONE CURRENT PASS / VERIFY | Effective tenant/school channel routing metadata exists; provider credentials are excluded from PostgreSQL domain records and provider-route reads are leadership/platform scoped. |
+| Delivery attempt / receipt history | DONE CURRENT PASS / VERIFY | Append-oriented attempts plus signed provider receipts distinguish accepted submission from final delivered/failed truth and are privacy-scoped to the governed message ledger. |
 | Worker recovery | DONE FOUNDATION / VERIFY | Stale claimed communication jobs can be safely returned to retry/dead states by service-role recovery. |
 | Parent message read model | DONE CURRENT PASS / VERIFY | Directly delivered signed-in-user messages can be read without granting parent accounts general communication-table access. |
-| Actual vendor transports | NEXT | Implement configured Namibia SMS/email/WhatsApp provider adapters outside the canonical database. Do not mark delivery successful without a real provider result. |
+| Governed communication templates | DONE CURRENT PASS / VERIFY | School templates use approved language/version records, declared variables and secret-free provider bindings; WhatsApp fails closed without an active approved template/binding for the resolved provider. |
+| Actual vendor transports | DONE CURRENT PASS / VERIFY LIVE | Resend email, Bird SMS and governed Bird WhatsApp adapters are implemented with server-only credentials, provider idempotency and signed terminal delivery webhooks. Production remains VERIFY until real credentials, Namibia sender/destination/template onboarding and live provider send/receipt tests are completed. |
+| Communication read isolation | DONE CURRENT PASS / VERIFY | Real `authenticated`-role pgTAP covers message, recipient, job, attempt, receipt and provider-route visibility for leadership, authors, peer teachers and legitimate other-school administrators. |
 
 ## Admissions, examinations, finance and progression
 
@@ -187,13 +189,13 @@ Statutory: `versioned authoritative form → cycle/reference date → operationa
 
 Imports: `CSV/XLSX → source-preserving RPC-only staging → structural validation → stable-identifier/code reconciliation → explicit human conflict review → ready batch → atomic governed commit → audit`
 
-Communications: `canonical message → recipients → outbox → provider route → service worker attempt → delivered/retry/dead → stale-lock recovery`
+Communications: `canonical message → recipients → governed template/binding where required → outbox → provider route → service worker submission → submitted → signed provider receipt → delivered/failed → retry/dead/stale-lock recovery`
 
 ## Approved next implementation sequence
 
 1. **Production/role QA for completed report-card bulk workflow** — exercise management and guardian flows with non-sensitive seeded fixtures, including large scopes, skipped rows, publish notifications, PDF retries and combined export access.
 2. **Behavioral integrity tests** — continue cross-school invalid-write fixtures, parent/child isolation, staff-assignment/import idempotency and remaining domain edge cases.
-3. **Communication adapters** — integrate real configured Namibia SMS/email/WhatsApp transports with provider credentials outside PostgreSQL and truthful delivery callbacks.
+3. **Live communication provider verification** — provision real Resend/Bird deployment secrets outside source control, complete Namibia sender/destination/template onboarding, register production webhooks and verify test sends plus signed terminal receipts before enabling production communication traffic.
 4. **Authoritative statutory mappings** — add actual EMIS/AEC mappings only when current Ministry forms/rules are verified.
 5. **Parent/role operational QA** — exercise guardian claim, report artifact, finance, messaging and staff-without-account workflows using non-sensitive fixtures.
 6. **Consolidated UI/IA and responsive QA** after remaining operational slices stabilize.
@@ -203,6 +205,7 @@ Communications: `canonical message → recipients → outbox → provider route 
 - `get_school_invitation_preview(text)` intentionally permits anonymous execution for the public invitation-preview flow.
 - Many authenticated `SECURITY DEFINER` RPC warnings are intentional because these functions are the self-authorizing signed-in API boundary. Audit each function individually; do not blindly revoke application RPC execution.
 - Worker-only claim/complete/fail/recovery functions remain service-role only and are covered by pgTAP privilege checks.
+- Communication RLS policies must call narrow policy-safe wrappers when the underlying authorization helper is intentionally private; do not grant clients direct execution merely to make an RLS expression work.
 - Import staging tables are read-only to authenticated clients; source rows, resolutions and commit results can only be mutated through governed import RPCs.
 - The one-time guardian XLSX production staging helper used on 30 Aug 2026 is retired by migration `20260830230500_retire_guardian_import_loader.sql` and must not be recreated as a general ingestion API.
 - `recalculate_finance_invoice(uuid)` is intentionally not executable by authenticated clients; governed allocation workflows invoke it internally.
