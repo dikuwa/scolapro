@@ -46,6 +46,14 @@ export type GuardianDirectoryRow = {
   addresses: GuardianDirectoryAddress[];
 };
 
+export type GuardianDirectoryPage = {
+  guardians: GuardianDirectoryRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};
+
 type ScopedLearner = {
   learner_id?: string;
   learner_name?: string;
@@ -65,23 +73,17 @@ type ScopedGuardian = {
   primary_mobile: string | null;
   primary_email: string | null;
   linked_learners: ScopedLearner[] | null;
+  total_count?: number | string;
 };
 
-export async function getGuardianDirectory(schoolId: string): Promise<GuardianDirectoryRow[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data: scoped, error } = await supabase.rpc("search_guardian_directory", {
-    p_school_id: schoolId,
-    p_query: null,
-    p_limit: 200,
-  });
-
-  if (error) throw new Error("Unable to load the guardian directory.");
-  const rows = (scoped ?? []) as ScopedGuardian[];
+async function hydrateGuardianRows(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  rows: ScopedGuardian[],
+): Promise<GuardianDirectoryRow[]> {
   if (!rows.length) return [];
-
   const guardianIds = rows.map((row) => row.guardian_id);
   const [{ data: profiles }, { data: contacts }, { data: addresses }] = await Promise.all([
-    supabase.from("guardian_profiles").select("id, preferred_name, status").in("id", guardianIds),
+    supabase.from("guardian_profiles").select("id, preferred_name, identity_number, status").in("id", guardianIds),
     supabase.from("guardian_contacts").select("id, guardian_id, contact_type, contact_value, is_primary, label").in("guardian_id", guardianIds).is("effective_to", null),
     supabase.from("guardian_addresses").select("id, guardian_id, address_type, label, address_line_1, address_line_2, suburb_or_locality, town_or_city, region, postal_code, country").in("guardian_id", guardianIds).is("effective_to", null),
   ]);
@@ -122,7 +124,7 @@ export async function getGuardianDirectory(schoolId: string): Promise<GuardianDi
       guardianId: row.guardian_id,
       name: formatPersonName(row.guardian_name),
       preferredName: profile?.preferred_name ?? null,
-      identityNumber: null,
+      identityNumber: profile?.identity_number ?? null,
       status: profile?.status ?? "active",
       learners: (row.linked_learners ?? []).map((learner) => ({
         learnerId: learner.learner_id ?? "",
@@ -140,4 +142,41 @@ export async function getGuardianDirectory(schoolId: string): Promise<GuardianDi
       addresses: addressMap.get(row.guardian_id) ?? [],
     };
   });
+}
+
+export async function getGuardianDirectory(schoolId: string): Promise<GuardianDirectoryRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data: scoped, error } = await supabase.rpc("search_guardian_directory", {
+    p_school_id: schoolId,
+    p_query: null,
+    p_limit: 200,
+  });
+  if (error) throw new Error("Unable to load the guardian directory.");
+  return hydrateGuardianRows(supabase, (scoped ?? []) as ScopedGuardian[]);
+}
+
+export async function getGuardianDirectoryPage(
+  schoolId: string,
+  options: { query?: string; page?: number; pageSize?: number } = {},
+): Promise<GuardianDirectoryPage> {
+  const supabase = await createSupabaseServerClient();
+  const page = Math.max(options.page ?? 1, 1);
+  const pageSize = Math.min(Math.max(options.pageSize ?? 50, 1), 100);
+  const { data: scoped, error } = await supabase.rpc("search_guardian_directory_page", {
+    p_school_id: schoolId,
+    p_query: options.query?.trim() || null,
+    p_page: page,
+    p_page_size: pageSize,
+  });
+  if (error) throw new Error("Unable to load the guardian directory.");
+
+  const rows = (scoped ?? []) as ScopedGuardian[];
+  const total = rows.length ? Number(rows[0].total_count ?? 0) : 0;
+  return {
+    guardians: await hydrateGuardianRows(supabase, rows),
+    total,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil(total / pageSize)),
+  };
 }
