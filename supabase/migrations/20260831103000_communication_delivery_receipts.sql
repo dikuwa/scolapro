@@ -50,6 +50,7 @@ on public.communication_delivery_receipts for select to authenticated
 using (app_private.can_manage_communications(school_id));
 
 revoke all on public.communication_delivery_receipts from anon,authenticated;
+revoke update,delete on public.communication_delivery_receipts from service_role;
 grant select on public.communication_delivery_receipts to authenticated;
 grant select,insert on public.communication_delivery_receipts to service_role;
 
