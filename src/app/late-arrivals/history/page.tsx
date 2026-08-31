@@ -1,16 +1,28 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { DetentionHistoryView } from "@/features/late-arrivals/detention-history-view";
-import { getDetentionHistory } from "@/features/late-arrivals/server/detention-history-queries";
+import { getDetentionHistoryPage } from "@/features/late-arrivals/server/detention-history-queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
-export default async function DetentionHistoryPage() {
+type DetentionHistorySearchParams = {
+  q?: string | string[];
+  page?: string | string[];
+};
+
+function single(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function DetentionHistoryPage({ searchParams }: { searchParams: Promise<DetentionHistorySearchParams> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
   const membership = context.memberships[0];
   if (!membership) redirect("/");
 
-  const history = await getDetentionHistory(membership.schoolId);
+  const params = await searchParams;
+  const query = single(params.q) ?? "";
+  const requestedPage = Math.max(Number(single(params.page) ?? "1") || 1, 1);
+  const history = await getDetentionHistoryPage(membership.schoolId, { query, page: requestedPage, pageSize: 25 });
 
   return (
     <AppShell>
@@ -21,7 +33,13 @@ export default async function DetentionHistoryPage() {
             Historical detention obligations grouped by learner, including original due dates, carry-forwards, assigned supervision and completion outcomes.
           </p>
         </div>
-        <DetentionHistoryView items={history} />
+        <DetentionHistoryView
+          items={history.items}
+          query={history.query}
+          page={history.page}
+          pageSize={history.pageSize}
+          totalLearners={history.totalLearners}
+        />
       </div>
     </AppShell>
   );
