@@ -3,18 +3,47 @@ import { Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { LearnerDirectory } from "@/features/learners/learner-directory";
-import { listLearnersForSchool, type LearnerListItem } from "@/features/learners/server/queries";
+import { listLearnersForSchool, type LearnerDirectoryPage } from "@/features/learners/server/queries";
 import { getRegistrationOptions, type GradeOption } from "@/features/learners/server/registration-options";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
-const demoLearners: LearnerListItem[] = [
-  { id: "demo-001", name: "Amara Demo", preferredName: "Amara", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current" },
-  { id: "demo-002", name: "Tomas Sample", preferredName: "Tomas", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current" },
-];
+const demoDirectory: LearnerDirectoryPage = {
+  learners: [
+    { id: "demo-001", name: "Amara Demo", preferredName: "Amara", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current" },
+    { id: "demo-002", name: "Tomas Sample", preferredName: "Tomas", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current" },
+  ],
+  total: 2,
+  page: 1,
+  pageSize: 50,
+  pageCount: 1,
+};
 
-export default async function LearnersPage() {
-  let learners = demoLearners;
+type LearnerSearchParams = {
+  q?: string | string[];
+  status?: string | string[];
+  grade?: string | string[];
+  class?: string | string[];
+  sex?: string | string[];
+  sort?: string | string[];
+  page?: string | string[];
+};
+
+function single(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function LearnersPage({ searchParams }: { searchParams: Promise<LearnerSearchParams> }) {
+  const params = await searchParams;
+  const query = single(params.q) ?? "";
+  const status = single(params.status) ?? "current";
+  const grade = single(params.grade) ?? "all";
+  const registerClass = single(params.class) ?? "all";
+  const sex = single(params.sex) ?? "all";
+  const sortOrder = single(params.sort) === "desc" ? "desc" : "asc";
+  const requestedPage = Math.max(Number(single(params.page) ?? "1") || 1, 1);
+
+  let directory = demoDirectory;
   let academicOptions: GradeOption[] = [];
   let schoolName = "ScolaPro Demonstration School";
   const academicYear = new Date().getFullYear();
@@ -25,11 +54,20 @@ export default async function LearnersPage() {
     const membership = context.memberships[0];
     if (membership) {
       schoolName = membership.schoolName;
-      [learners, academicOptions] = await Promise.all([
-        listLearnersForSchool(membership.schoolId, academicYear),
+      [directory, academicOptions] = await Promise.all([
+        listLearnersForSchool(membership.schoolId, academicYear, {
+          query,
+          status,
+          grade,
+          registerClass,
+          sex,
+          sortOrder,
+          page: requestedPage,
+          pageSize: 50,
+        }),
         getRegistrationOptions(membership.schoolId, academicYear),
       ]);
-    } else learners = [];
+    } else directory = { learners: [], total: 0, page: 1, pageSize: 50, pageCount: 1 };
   }
 
   return (
@@ -45,7 +83,15 @@ export default async function LearnersPage() {
           </Link>
         </div>
 
-        <LearnerDirectory learners={learners} academicOptions={academicOptions} />
+        <LearnerDirectory
+          learners={directory.learners}
+          academicOptions={academicOptions}
+          total={directory.total}
+          page={directory.page}
+          pageSize={directory.pageSize}
+          pageCount={directory.pageCount}
+          initialFilters={{ query, status, grade, registerClass, sex, sortOrder }}
+        />
       </section>
     </AppShell>
   );
