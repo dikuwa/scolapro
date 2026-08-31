@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
+import { ContributionLearnerLookup } from "@/features/contributions/contribution-learner-lookup";
 import { recordContribution, type ContributionActionState } from "@/features/contributions/server/actions";
 import type { ContributionCampaign, ContributionItem, LearnerContribution } from "@/features/contributions/server/queries";
-import type { LearnerListItem } from "@/features/learners/server/queries";
 
 const initialState: ContributionActionState = {};
 
@@ -23,11 +23,11 @@ function statusStyle(status: string) {
   return "bg-surface-muted text-muted-foreground";
 }
 
-export function ContributionWorkspace({ campaigns, items, contributions, learners, today, operationId }: {
+export function ContributionWorkspace({ campaigns, items, contributions, academicYear, today, operationId }: {
   campaigns: ContributionCampaign[];
   items: ContributionItem[];
   contributions: LearnerContribution[];
-  learners: LearnerListItem[];
+  academicYear: number;
   today: string;
   operationId: string;
 }) {
@@ -86,8 +86,7 @@ export function ContributionWorkspace({ campaigns, items, contributions, learner
           <Picker label="Item" name="itemId-ui" value={itemId} onChange={setItemId} placeholder="Choose contribution item"
             options={campaignItems.map((i) => ({ value: i.id, label: i.label, helper: `${itemTypeLabel(i.itemType)}${i.suggestedAmount ? ` · N$${i.suggestedAmount}` : ""}${i.suggestedQuantity ? ` · ${i.suggestedQuantity} ${i.unitLabel ?? "units"}` : ""}` }))} />
 
-          <Picker label="Learner" name="learnerId-ui" value={learnerId} onChange={setLearnerId} placeholder="Choose learner"
-            options={learners.map((l) => ({ value: l.id, label: l.name, helper: `${l.admissionNumber ?? "No number"} · ${l.grade} · ${l.registerClass}` }))} />
+          <ContributionLearnerLookup academicYear={academicYear} value={learnerId} onChange={setLearnerId} />
 
           <DateField label="Date received" name="contributionDate-ui" value={contributionDate} onChange={setContributionDate} max={today} />
 
