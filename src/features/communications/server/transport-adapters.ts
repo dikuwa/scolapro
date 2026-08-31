@@ -34,6 +34,23 @@ function destinationRequired(input: CommunicationTransportInput): string {
   return destination;
 }
 
+function birdApiBaseUrl(): string {
+  const configured = requiredEnv("BIRD_API_BASE_URL");
+  const url = new URL(configured);
+  if (url.protocol !== "https:" || !url.hostname.endsWith(".platform.bird.com")) {
+    throw new Error("BIRD_API_BASE_URL must be an HTTPS Bird regional platform host.");
+  }
+  return url.toString().replace(/\/$/, "");
+}
+
+function birdSmsCategory(): "transactional" | "marketing" | "authentication" | "service" {
+  const value = process.env.BIRD_SMS_CATEGORY?.trim() || "transactional";
+  if (value === "transactional" || value === "marketing" || value === "authentication" || value === "service") {
+    return value;
+  }
+  throw new Error("BIRD_SMS_CATEGORY must be transactional, marketing, authentication, or service.");
+}
+
 const resendEmailAdapter: CommunicationTransportAdapter = {
   providerKey: "resend_email",
   async send(input) {
@@ -74,6 +91,59 @@ const resendEmailAdapter: CommunicationTransportAdapter = {
   },
 };
 
+const birdSmsAdapter: CommunicationTransportAdapter = {
+  providerKey: "bird_sms",
+  async send(input) {
+    if (input.channel !== "sms") throw new Error(`Provider bird_sms cannot send ${input.channel} communications.`);
+
+    const apiKey = requiredEnv("BIRD_API_KEY");
+    const baseUrl = birdApiBaseUrl();
+    const from = requiredEnv("BIRD_SMS_FROM");
+    const destination = destinationRequired(input);
+
+    const response = await fetch(`${baseUrl}/v1/sms/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": `scolapro/communication/${input.jobId}`,
+      },
+      body: JSON.stringify({
+        to: destination,
+        from,
+        text: input.body,
+        category: birdSmsCategory(),
+        metadata: { scolapro_job_id: input.jobId },
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    const responseBody = (await response.json().catch(() => null)) as {
+      id?: unknown;
+      message?: unknown;
+      error?: { message?: unknown } | unknown;
+    } | null;
+    if (!response.ok) {
+      const nestedMessage =
+        responseBody?.error && typeof responseBody.error === "object" && "message" in responseBody.error
+          ? (responseBody.error as { message?: unknown }).message
+          : null;
+      const detail =
+        typeof responseBody?.message === "string"
+          ? responseBody.message
+          : typeof nestedMessage === "string"
+            ? nestedMessage
+            : `HTTP ${response.status}`;
+      throw new Error(`Bird rejected SMS submission: ${detail}`);
+    }
+
+    const providerMessageId = typeof responseBody?.id === "string" ? responseBody.id : null;
+    if (!providerMessageId) throw new Error("Bird accepted the SMS without returning a message id.");
+
+    return { providerKey: "bird_sms", providerMessageId };
+  },
+};
+
 const inAppAdapter: CommunicationTransportAdapter = {
   providerKey: "in_app",
   async send(input) {
@@ -104,6 +174,7 @@ export function resolveCommunicationTransportAdapter(
   const normalized = providerKey?.trim() || null;
   if (!normalized) throw new Error(`No active provider route is configured for ${channel}.`);
   if (normalized === resendEmailAdapter.providerKey) return resendEmailAdapter;
+  if (normalized === birdSmsAdapter.providerKey) return birdSmsAdapter;
   if (normalized === mockAdapter.providerKey) return mockAdapter;
 
   throw new Error(`No communication transport adapter is registered for provider ${normalized}.`);
