@@ -16,11 +16,20 @@ returns table(
   linked_learners jsonb,
   total_count bigint
 )
-language sql
+language plpgsql
 stable
 security definer
 set search_path=public,app_private
 as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+  if not app_private.has_school_access(p_school_id) then
+    raise exception 'Permission denied';
+  end if;
+
+  return query
   with authorized_links as (
     select distinct
       lg.guardian_id,
@@ -59,8 +68,8 @@ as $$
       )
   ), guardian_rows as (
     select
-      gp.id guardian_id,
-      trim(concat(gp.first_names,' ',gp.surname)) guardian_name,
+      gp.id as guardian_id,
+      trim(concat(gp.first_names,' ',gp.surname)) as guardian_name,
       (
         select gc.contact_value
         from public.guardian_contacts gc
@@ -72,7 +81,7 @@ as $$
           case gc.contact_type when 'mobile' then 1 when 'phone' then 2 else 3 end,
           gc.created_at desc
         limit 1
-      ) primary_mobile,
+      ) as primary_mobile,
       (
         select gc.contact_value
         from public.guardian_contacts gc
@@ -82,7 +91,7 @@ as $$
           and (gc.effective_to is null or gc.effective_to>=current_date)
         order by gc.is_primary desc,gc.created_at desc
         limit 1
-      ) primary_email,
+      ) as primary_email,
       jsonb_agg(
         jsonb_build_object(
           'learner_id',al.learner_id,
@@ -97,7 +106,7 @@ as $$
           'priority',al.priority
         )
         order by al.learner_surname,al.learner_first_names
-      ) linked_learners
+      ) as linked_learners
     from authorized_links al
     join public.guardian_profiles gp on gp.id=al.guardian_id
     where gp.status='active'
@@ -135,10 +144,11 @@ as $$
   order by gr.guardian_name,gr.guardian_id
   limit least(greatest(coalesce(p_page_size,50),1),100)
   offset (greatest(coalesce(p_page,1),1)-1)*least(greatest(coalesce(p_page_size,50),1),100);
+end;
 $$;
 
 revoke all on function public.search_guardian_directory_page(uuid,text,integer,integer) from public,anon;
 grant execute on function public.search_guardian_directory_page(uuid,text,integer,integer) to authenticated;
 
 comment on function public.search_guardian_directory_page(uuid,text,integer,integer) is
-'Permission-aware paged guardian directory. Guardian/learner search executes before a bounded page is returned; existing search_guardian_directory remains backward compatible.';
+'Permission-aware paged guardian directory. School access is checked before search; guardian/learner filtering executes before a bounded page is returned; existing search_guardian_directory remains backward compatible.';
