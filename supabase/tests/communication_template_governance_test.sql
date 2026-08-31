@@ -135,7 +135,15 @@ select throws_ok(
 
 select lives_ok(
   $$select public.set_communication_provider_route(
-      '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','whatsapp','bird_whatsapp',100,true,current_date,null,'{}'::jsonb
+      '11111111-1111-4111-8111-111111111111'::uuid,
+      '22222222-2222-4222-8222-222222222222'::uuid,
+      'whatsapp'::text,
+      'bird_whatsapp'::text,
+      100::smallint,
+      true,
+      current_date,
+      null::date,
+      '{}'::jsonb
     )$$,
   'school administrator configures the WhatsApp provider route without credentials'
 );
