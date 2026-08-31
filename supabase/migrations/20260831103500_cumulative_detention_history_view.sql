@@ -51,11 +51,13 @@ left join public.detention_session_items session_item on session_item.obligation
 left join public.detention_sessions session on session.id=session_item.detention_session_id
 group by
   d.id,
-  learner.id,
-  supervisor.id,
-  current_enrolment.id,
-  grade.id,
-  register_class.id;
+  learner.first_names,
+  learner.surname,
+  supervisor.first_name,
+  supervisor.last_name,
+  current_enrolment.admission_number,
+  grade.display_name,
+  register_class.display_name;
 
 grant select on public.late_detention_history to authenticated;
 
