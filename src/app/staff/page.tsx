@@ -7,6 +7,23 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 
 function humanRole(value: string) { return value.replaceAll("_", " "); }
 
+function roleStyle(value: string) {
+  const role = value.toLocaleLowerCase();
+  if (["school_admin", "principal", "deputy_principal", "hod", "management"].some((token) => role.includes(token))) return "bg-[color:var(--accent-indigo-soft)] text-[color:var(--accent-indigo)]";
+  if (role.includes("teacher")) return "bg-[color:var(--accent-mint-soft)] text-[color:var(--accent-mint)]";
+  if (["support", "library", "admin", "technical"].some((token) => role.includes(token))) return "bg-[color:var(--accent-sky-soft)] text-[color:var(--accent-sky)]";
+  return "bg-surface-muted text-muted-foreground";
+}
+
+function nextEmployeeNumber(numbers: Array<string | null>) {
+  let highest = 0;
+  for (const value of numbers) {
+    const match = value?.trim().match(/^EMP-(\d+)$/i);
+    if (match) highest = Math.max(highest, Number(match[1]));
+  }
+  return `EMP-${String(highest + 1).padStart(3, "0")}`;
+}
+
 export default async function StaffPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/staff");
@@ -14,10 +31,11 @@ export default async function StaffPage() {
   if (!membership) redirect("/");
 
   const rows = await getSchoolStaffDirectory(membership.schoolId);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const activeCount = rows.filter((row) => row.activeFrom <= today && (!row.activeTo || row.activeTo >= today)).length;
   const accountCount = rows.filter((row) => row.hasAccount).length;
   const canAddStaff = membership.roleKey === "school_admin";
+  const suggestedEmployeeNumber = nextEmployeeNumber(rows.map((row) => row.employeeNumber));
 
   return (
     <AppShell>
@@ -29,11 +47,11 @@ export default async function StaffPage() {
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Login accounts</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-sky)]">{accountCount}</p></div><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><BadgeCheck className="size-4" aria-hidden="true" /></span></div>
         </div>
 
-        {canAddStaff ? <div className="mt-5"><SingleStaffForm schoolId={membership.schoolId} today={today} /></div> : null}
+        {canAddStaff ? <div className="mt-5"><SingleStaffForm schoolId={membership.schoolId} today={today} suggestedEmployeeNumber={suggestedEmployeeNumber} /></div> : null}
 
         <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
           <div className="mb-4 border-b border-border-subtle pb-4"><h2 className="scolapro-section-title">School staff</h2><p className="scolapro-section-description">Placement describes who works at the school; account roles describe what an invited user may do in ScolaPro.</p></div>
-          {rows.length ? <div className="divide-y divide-border-subtle">{rows.map((row) => <article key={row.id} className="grid gap-3 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.7fr)_auto] sm:items-center"><div className="min-w-0"><p className="scolapro-record-title truncate">{row.name}</p><p className="mt-0.5 text-xs text-muted-foreground">{row.employeeNumber ? `Employee ${row.employeeNumber}` : "Employee number not set"} · {row.hasAccount ? "Account linked" : "No login account yet"}</p></div><div className="flex flex-wrap gap-1.5">{row.labels.map((label)=><span key={label} className="inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-[color:var(--accent-indigo-soft)] px-2.5 py-1.5 text-xs font-medium capitalize text-[color:var(--accent-indigo)]"><BadgeCheck className="size-3.5" aria-hidden="true" />{humanRole(label)}</span>)}</div><p className="text-xs tabular-nums text-muted-foreground">From {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(row.activeFrom))}</p></article>)}</div> : <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center"><p className="text-sm font-medium">No school staff linked yet</p><p className="mt-1 text-xs text-muted-foreground">{canAddStaff ? "Add one staff member above or use bulk import for a larger roster." : "The School Admin can add or import staff members."}</p></div>}
+          {rows.length ? <div className="divide-y divide-border-subtle">{rows.map((row, index) => <article key={row.id} className="grid gap-3 py-3 first:pt-0 last:pb-0 sm:grid-cols-[2rem_minmax(0,1fr)_minmax(12rem,0.7fr)_auto] sm:items-center"><span className="hidden text-center text-xs tabular-nums text-muted-foreground sm:block">{index + 1}</span><div className="min-w-0"><div className="flex items-baseline gap-2"><span className="text-xs tabular-nums text-muted-foreground sm:hidden">{index + 1}.</span><p className="scolapro-record-title truncate">{row.name}</p></div><p className="mt-0.5 text-xs text-muted-foreground">{row.employeeNumber ? `Employee ${row.employeeNumber}` : "Employee number not set"} · {row.hasAccount ? "Account linked" : "No login account yet"}</p></div><div className="flex flex-wrap gap-1.5">{row.labels.map((label)=><span key={label} className={`inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] px-2.5 py-1.5 text-xs font-medium capitalize ${roleStyle(label)}`}><BadgeCheck className="size-3.5" aria-hidden="true" />{humanRole(label)}</span>)}</div><p className="text-xs tabular-nums text-muted-foreground">From {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${row.activeFrom}T12:00:00`))}</p></article>)}</div> : <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center"><p className="text-sm font-medium">No school staff linked yet</p><p className="mt-1 text-xs text-muted-foreground">{canAddStaff ? "Add one staff member above or use bulk import for a larger roster." : "The School Admin can add or import staff members."}</p></div>}
         </section>
       </section>
     </AppShell>

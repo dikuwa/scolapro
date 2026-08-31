@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { Plus, UserPlus } from "lucide-react";
 import { toast } from "sonner";
+import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { createSingleStaff, type SingleStaffState } from "@/features/staff/server/actions";
@@ -22,9 +23,10 @@ function FieldError({ messages }: { messages?: string[] }) {
   return messages?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{messages[0]}</p> : null;
 }
 
-export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: string }) {
+export function SingleStaffForm({ schoolId, today, suggestedEmployeeNumber }: { schoolId: string; today: string; suggestedEmployeeNumber: string }) {
   const [state, action, pending] = useActionState(createSingleStaff, initialState);
   const [assignmentType, setAssignmentType] = useState("teacher");
+  const [effectiveFrom, setEffectiveFrom] = useState(today);
 
   useEffect(() => {
     if (!state.message) return;
@@ -44,8 +46,8 @@ export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="staff-employee-number" className="text-xs font-medium">Employee number</label>
-            <input id="staff-employee-number" name="employeeNumber" className={`${fieldClass} mt-1.5 uppercase`} placeholder="EMP-001" autoCapitalize="characters" />
-            <p className="mt-1 text-[0.68rem] text-muted-foreground">Used as the stable identity key. Existing matching staff can be linked instead of duplicated.</p>
+            <input id="staff-employee-number" name="employeeNumber" defaultValue={suggestedEmployeeNumber} className={`${fieldClass} mt-1.5 uppercase`} placeholder="EMP-001" autoCapitalize="characters" />
+            <p className="mt-1 text-[0.68rem] text-muted-foreground">Suggested automatically and still editable. Duplicate numbers are blocked before a new identity can be created.</p>
             <FieldError messages={state.fieldErrors?.employeeNumber} />
           </div>
           <div>
@@ -69,9 +71,7 @@ export function SingleStaffForm({ schoolId, today }: { schoolId: string; today: 
             <FieldError messages={state.fieldErrors?.assignmentType} />
           </div>
           <div>
-            <label htmlFor="staff-effective-from" className="text-xs font-medium">Placement starts</label>
-            <input id="staff-effective-from" name="effectiveFrom" type="date" defaultValue={today} className={`${fieldClass} mt-1.5`} />
-            <FieldError messages={state.fieldErrors?.effectiveFrom} />
+            <DateField label="Placement starts" name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} required error={state.fieldErrors?.effectiveFrom?.[0]} />
           </div>
         </div>
 

@@ -38,6 +38,7 @@ export async function addGuardianRelationship(_state: GuardianActionState, formD
   const { error: detailsError } = await supabase.rpc("replace_guardian_contact_details", { p_guardian_id: guardianId, p_learner_id: parsed.data.learnerId, p_contacts: contacts, p_addresses: addresses });
   if (detailsError) return { message: "Guardian was linked, but contact details could not be completed." };
   revalidatePath(`/learners/${parsed.data.learnerId}`);
+  revalidatePath("/school/guardians");
   return { success: true, message: "Guardian linked to learner." };
 }
 
@@ -50,6 +51,7 @@ export async function linkExistingGuardian(_state: GuardianActionState, formData
   const { error } = await supabase.rpc("link_existing_guardian_to_learner", { p_learner_id: parsed.data.learnerId, p_guardian_id: parsed.data.guardianId, p_relationship_type: parsed.data.relationshipType, p_is_legal_guardian: formData.get("legalGuardian") === "on", p_is_emergency_contact: formData.get("emergencyContact") === "on", p_is_pickup_authorized: formData.get("pickupAuthorized") === "on", p_priority: parsed.data.priority });
   if (error) return { message: "The existing guardian could not be linked to this learner." };
   revalidatePath(`/learners/${parsed.data.learnerId}`);
+  revalidatePath("/school/guardians");
   return { success: true, message: "Existing guardian linked to learner." };
 }
 
@@ -63,6 +65,7 @@ export async function saveGuardianContactDetails(_state: GuardianActionState, fo
   const { error } = await supabase.rpc("replace_guardian_contact_details", { p_guardian_id: guardianId.data, p_learner_id: learnerId.data, p_contacts: contacts, p_addresses: addresses });
   if (error) return { message: "Guardian contact details could not be saved." };
   revalidatePath(`/learners/${learnerId.data}`);
+  revalidatePath("/school/guardians");
   return { success: true, message: "Guardian contact details updated." };
 }
 
@@ -73,4 +76,5 @@ export async function endGuardianRelationship(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   await supabase.rpc("end_guardian_relationship", { p_relationship_id: relationshipId });
   if (learnerId) revalidatePath(`/learners/${learnerId}`);
+  revalidatePath("/school/guardians");
 }

@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { Building2, Search, School, UsersRound } from "lucide-react";
+import { Building2, School, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Spinner } from "@/components/ui/spinner";
 import { generateReportCardsBulk, type ReportCardActionState } from "@/features/reporting/server/actions";
 import type { ReportCardLearner } from "@/features/reporting/server/report-cards";
@@ -22,7 +23,6 @@ export function BulkReportSelector({ learners, terms, snapshots }: {
   const [selectedGrade, setSelectedGrade] = useState("");
   const [selectedClass, setSelectedClass] = useState("");
   const [selectedLearnerId, setSelectedLearnerId] = useState("");
-  const [learnerQuery, setLearnerQuery] = useState("");
   const [termNumber, setTermNumber] = useState(String(terms[0]?.termNumber ?? 1));
 
   useEffect(() => {
@@ -30,18 +30,13 @@ export function BulkReportSelector({ learners, terms, snapshots }: {
     state.success ? toast.success(state.message) : toast.error(state.message);
   }, [state]);
 
-  const grades = useMemo(() => [...new Set(learners.map((l) => l.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), [learners]);
-  const classes = useMemo(() => [...new Set(learners.filter((l) => !selectedGrade || l.grade === selectedGrade).map((l) => l.registerClass))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), [learners, selectedGrade]);
-  const searchedLearners = useMemo(() => {
-    const needle = learnerQuery.trim().toLocaleLowerCase();
-    if (!needle) return learners.slice(0, 30);
-    return learners.filter((learner) => `${learner.name} ${learner.grade} ${learner.registerClass}`.toLocaleLowerCase().includes(needle)).slice(0, 50);
-  }, [learnerQuery, learners]);
+  const grades = useMemo(() => [...new Set(learners.map((learner) => learner.grade))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), [learners]);
+  const classes = useMemo(() => [...new Set(learners.filter((learner) => !selectedGrade || learner.grade === selectedGrade).map((learner) => learner.registerClass))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })), [learners, selectedGrade]);
 
   const filteredLearners = useMemo(() => {
-    if (scope === "learner") return learners.filter((l) => l.enrolmentId === selectedLearnerId);
-    if (scope === "class" && selectedClass) return learners.filter((l) => l.registerClass === selectedClass && (!selectedGrade || l.grade === selectedGrade));
-    if (scope === "grade" && selectedGrade) return learners.filter((l) => l.grade === selectedGrade);
+    if (scope === "learner") return learners.filter((learner) => learner.enrolmentId === selectedLearnerId);
+    if (scope === "class" && selectedClass) return learners.filter((learner) => learner.registerClass === selectedClass && (!selectedGrade || learner.grade === selectedGrade));
+    if (scope === "grade" && selectedGrade) return learners.filter((learner) => learner.grade === selectedGrade);
     if (scope === "school") return learners;
     return [];
   }, [learners, scope, selectedLearnerId, selectedClass, selectedGrade]);
@@ -79,8 +74,8 @@ export function BulkReportSelector({ learners, terms, snapshots }: {
         <input type="hidden" name="termNumber" value={termNumber} />
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {scope === "grade" || scope === "class" ? <Picker label="Grade" name="gradeFilter" value={selectedGrade} onChange={(value) => { setSelectedGrade(value); setSelectedClass(""); }} placeholder="Choose grade" options={grades.map((grade) => ({ value: grade, label: grade, helper: `${learners.filter((l) => l.grade === grade).length} learners` }))} /> : null}
-          {scope === "class" ? <Picker label="Register class" name="classFilter" value={selectedClass} onChange={setSelectedClass} placeholder="Choose class" options={classes.map((registerClass) => ({ value: registerClass, label: registerClass, helper: `${learners.filter((l) => l.registerClass === registerClass && (!selectedGrade || l.grade === selectedGrade)).length} learners` }))} /> : null}
+          {scope === "grade" || scope === "class" ? <Picker label="Grade" name="gradeFilter" value={selectedGrade} onChange={(value) => { setSelectedGrade(value); setSelectedClass(""); }} placeholder="Choose grade" options={grades.map((grade) => ({ value: grade, label: grade, helper: `${learners.filter((learner) => learner.grade === grade).length} learners` }))} /> : null}
+          {scope === "class" ? <Picker label="Register class" name="classFilter" value={selectedClass} onChange={setSelectedClass} placeholder="Choose class" options={classes.map((registerClass) => ({ value: registerClass, label: registerClass, helper: `${learners.filter((learner) => learner.registerClass === registerClass && (!selectedGrade || learner.grade === selectedGrade)).length} learners` }))} /> : null}
           <Picker label="Term" name="term-ui" value={termNumber} onChange={setTermNumber} placeholder="Choose term" options={terms.map((term) => ({ value: String(term.termNumber), label: term.name }))} />
           <div className="flex items-end"><button type="submit" disabled={pending || selectedCount === 0} className="scolapro-cta inline-flex min-h-10 w-full items-center justify-center gap-2 bg-brand px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-55">{pending ? <Spinner className="size-4 text-white" /> : null}{pending ? "Preparing…" : `Prepare ${selectedCount || ""} report card${selectedCount === 1 ? "" : "s"}`}</button></div>
         </div>
@@ -88,10 +83,10 @@ export function BulkReportSelector({ learners, terms, snapshots }: {
 
       <div className="mt-5 border-t border-border-subtle pt-4">
         <button type="button" onClick={() => setScope(scope === "learner" ? "school" : "learner")} className="text-xs font-semibold text-brand-strong hover:underline">{scope === "learner" ? "Back to bulk report printing" : "Need one learner only? Search individual report"}</button>
-        {scope === "learner" ? <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.6fr)]"><label className="scolapro-control-surface flex min-h-10 items-center gap-2 rounded-[var(--radius-sm)] px-3"><Search className="size-4 text-muted-foreground" /><input value={learnerQuery} onChange={(event) => setLearnerQuery(event.target.value)} placeholder="Search learner by name, grade or class…" className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label><Picker ariaLabel="Individual learner" name="individualLearner" value={selectedLearnerId} onChange={setSelectedLearnerId} placeholder="Choose learner" options={searchedLearners.map((learner) => ({ value: learner.enrolmentId, label: formatPersonName(learner.name), helper: `${learner.grade} · ${learner.registerClass}` }))} /></div> : null}
+        {scope === "learner" ? <div className="mt-3 max-w-2xl"><SearchableSelect label="Learner" ariaLabel="Individual learner" name="individualLearner" value={selectedLearnerId} onChange={setSelectedLearnerId} placeholder="Choose learner" searchPlaceholder="Search by learner name, grade or class…" emptyMessage={(query) => `No learner found for '${query}' — check the spelling or search by class.`} options={learners.map((learner) => ({ value: learner.enrolmentId, label: formatPersonName(learner.name), helper: `${learner.grade} · ${learner.registerClass}`, group: `${learner.grade} · ${learner.registerClass}`, searchText: `${learner.grade} ${learner.registerClass}` }))} /></div> : null}
       </div>
 
-      {selectedCount > 0 ? <div className="mt-4 overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle"><table className="w-full min-w-[30rem] border-collapse text-left text-xs"><thead className="bg-surface-muted"><tr><th className="px-3 py-2 font-medium">Learner</th><th className="px-3 py-2 font-medium">Grade</th><th className="px-3 py-2 font-medium">Class</th><th className="px-3 py-2 font-medium">Current status</th></tr></thead><tbody className="divide-y divide-border-subtle">{filteredLearners.slice(0, 50).map((learner) => { const status = snapshotMap.get(`${learner.enrolmentId}:${termNumber}`); return <tr key={learner.enrolmentId}><td className="px-3 py-2 font-medium">{formatPersonName(learner.name)}</td><td className="px-3 py-2 text-muted-foreground">{learner.grade}</td><td className="px-3 py-2 text-muted-foreground">{learner.registerClass}</td><td className="px-3 py-2">{status ? <span className={`rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.64rem] font-medium ${status === "published" ? "bg-success-soft text-[color:var(--success)]" : "bg-warning-soft text-[color:var(--warning)]"}`}>{status}</span> : <span className="text-muted-foreground">Not generated</span>}</td></tr>; })}{selectedCount > 50 ? <tr><td colSpan={4} className="px-3 py-2 text-center text-muted-foreground">…and {selectedCount - 50} more learners</td></tr> : null}</tbody></table></div> : null}
+      {selectedCount > 0 ? <div className="mt-4 max-h-[32rem] overflow-auto rounded-[var(--radius-sm)] border border-border-subtle"><table className="w-full min-w-[32rem] border-collapse text-left text-xs"><thead className="sticky top-0 z-10 bg-surface-muted shadow-[0_1px_0_var(--border-subtle)]"><tr><th className="w-12 px-3 py-2 text-center font-medium">No.</th><th className="px-3 py-2 font-medium">Learner</th><th className="px-3 py-2 font-medium">Grade</th><th className="px-3 py-2 font-medium">Class</th><th className="px-3 py-2 font-medium">Current status</th></tr></thead><tbody className="divide-y divide-border-subtle">{filteredLearners.slice(0, 50).map((learner, index) => { const status = snapshotMap.get(`${learner.enrolmentId}:${termNumber}`); return <tr key={learner.enrolmentId}><td className="px-3 py-2 text-center tabular-nums text-muted-foreground">{index + 1}</td><td className="px-3 py-2 font-medium">{formatPersonName(learner.name)}</td><td className="px-3 py-2 text-muted-foreground">{learner.grade}</td><td className="px-3 py-2 text-muted-foreground">{learner.registerClass}</td><td className="px-3 py-2">{status ? <span className={`rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.64rem] font-medium ${status === "published" ? "bg-success-soft text-[color:var(--success)]" : "bg-warning-soft text-[color:var(--warning)]"}`}>{status}</span> : <span className="text-muted-foreground">Not generated</span>}</td></tr>; })}{selectedCount > 50 ? <tr><td colSpan={5} className="px-3 py-2 text-center text-muted-foreground">…and {selectedCount - 50} more learners</td></tr> : null}</tbody></table></div> : null}
       {selectedCount > 0 ? <p className="mt-3 text-[0.68rem] text-muted-foreground">Only approved official results are included. Each learner receives an independent immutable snapshot before certification and printing.</p> : null}
     </section>
   );

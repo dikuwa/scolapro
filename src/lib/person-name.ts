@@ -14,14 +14,17 @@ function formatWord(word: string) {
 }
 
 /**
- * Display-only normalization for person names. It fixes fully upper/lower-case imports
- * without rewriting authoritative identity data or damaging intentional mixed-case names.
+ * Display-only normalization for person names. It fixes fully upper/lower-case imports,
+ * collapses whitespace, and ignores punctuation-only placeholder fragments such as a
+ * lone period without rewriting authoritative identity data or damaging intentional
+ * mixed-case names and initials such as "J.".
  */
 export function formatPersonName(value: string | null | undefined) {
   return (value ?? "")
     .trim()
     .replace(/\s+/g, " ")
     .split(" ")
+    .filter((part) => /[\p{L}\p{N}]/u.test(part))
     .map(formatWord)
     .join(" ");
 }
