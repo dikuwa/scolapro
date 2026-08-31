@@ -1,0 +1,60 @@
+name: Staging Database Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type DEPLOY to apply pending migrations to staging"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scolapro-staging-database
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirmation == 'DEPLOY' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
+      STAGING_PROJECT_ID: ${{ secrets.STAGING_PROJECT_ID }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Require staging deployment secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || { echo "Missing SUPABASE_ACCESS_TOKEN"; exit 1; }
+          test -n "$SUPABASE_DB_PASSWORD" || { echo "Missing STAGING_DB_PASSWORD"; exit 1; }
+          test -n "$STAGING_PROJECT_ID" || { echo "Missing STAGING_PROJECT_ID"; exit 1; }
+
+      - name: Link staging project
+        run: supabase link --project-ref "$STAGING_PROJECT_ID"
+
+      - name: Show migration parity
+        run: supabase migration list --linked
+
+      - name: Preview pending migrations
+        run: supabase db push --linked --dry-run
+
+      - name: Apply pending migrations
+        run: supabase db push --linked
+
+      - name: Verify migration parity
+        run: supabase migration list --linked
