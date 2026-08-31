@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatPersonName } from "@/lib/person-name";
 
 export type GuardianContact = { id: string; type: string; value: string; primary: boolean; label: string | null };
 export type GuardianAddress = {
@@ -18,6 +19,8 @@ export type GuardianAddress = {
 export type LearnerGuardian = {
   relationshipId: string;
   guardianId: string;
+  firstNames: string;
+  surname: string;
   name: string;
   relationshipType: string;
   legalGuardian: boolean;
@@ -50,10 +53,14 @@ export async function getLearnerGuardians(learnerId: string): Promise<LearnerGua
   const profileMap = new Map((profiles ?? []).map((item) => [item.id, item]));
   return links.map((link) => {
     const profile = profileMap.get(link.guardian_id);
+    const firstNames = profile?.first_names ?? "";
+    const surname = profile?.surname ?? "";
     return {
       relationshipId: link.id,
       guardianId: link.guardian_id,
-      name: profile ? `${profile.first_names} ${profile.surname}` : "Guardian",
+      firstNames,
+      surname,
+      name: profile ? formatPersonName(`${firstNames} ${surname}`) : "Guardian",
       relationshipType: link.relationship_type,
       legalGuardian: link.is_legal_guardian,
       emergencyContact: link.is_emergency_contact,
@@ -99,7 +106,7 @@ export async function getReusableGuardians(learnerId: string, schoolId: string):
 
   return candidates.map((profile) => ({
     id: profile.id,
-    name: `${profile.first_names} ${profile.surname}`,
+    name: formatPersonName(`${profile.first_names} ${profile.surname}`),
     contacts: (contacts ?? []).filter((item) => item.guardian_id === profile.id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
   }));
 }
