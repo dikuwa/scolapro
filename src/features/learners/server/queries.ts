@@ -8,6 +8,7 @@ export type LearnerListItem = {
   grade: string;
   registerClass: string;
   status: string;
+  sex: string;
 };
 
 export type LearnerOverview = LearnerListItem & {
@@ -26,7 +27,7 @@ export async function listLearnersForSchool(schoolId: string, academicYear: numb
   const { data, error } = await supabase
     .from("enrolments")
     .select(
-      "id, admission_number, status, learners!inner(id, first_names, surname, preferred_name), grades(display_name), register_classes(display_name)",
+      "id, admission_number, status, learners!inner(id, first_names, surname, preferred_name, sex), grades(display_name), register_classes(display_name)",
     )
     .eq("school_id", schoolId)
     .eq("academic_year", academicYear)
@@ -46,6 +47,7 @@ export async function listLearnersForSchool(schoolId: string, academicYear: numb
       grade: grade?.display_name ?? "Unassigned",
       registerClass: registerClass?.display_name ?? "Unassigned",
       status: row.status,
+      sex: learner.sex ?? "unspecified",
     };
   });
 }
@@ -55,7 +57,7 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
   const { data, error } = await supabase
     .from("enrolments")
     .select(
-      "admission_number, status, academic_year, enrolled_from, learners!inner(id, first_names, surname, preferred_name, date_of_birth, photo_path), grades(display_name), register_classes(display_name), schools!inner(name)",
+      "admission_number, status, academic_year, enrolled_from, learners!inner(id, first_names, surname, preferred_name, date_of_birth, photo_path, sex), grades(display_name), register_classes(display_name), schools!inner(name)",
     )
     .eq("learner_id", learnerId)
     .eq("school_id", schoolId)
@@ -86,6 +88,7 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
     grade: grade?.display_name ?? "Unassigned",
     registerClass: registerClass?.display_name ?? "Unassigned",
     status: data.status,
+    sex: learner.sex ?? "unspecified",
     dateOfBirth: learner.date_of_birth,
     academicYear: data.academic_year,
     enrolledFrom: data.enrolled_from,
