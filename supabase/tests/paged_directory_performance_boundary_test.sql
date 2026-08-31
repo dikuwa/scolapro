@@ -104,9 +104,9 @@ select isnt(
 );
 
 select is(
-  (select count(*)::integer from public.search_guardian_directory_page('22222222-2222-4222-8222-222222222222','PERF-G-002',1,50)),
+  (select count(*)::integer from public.search_guardian_directory_page('22222222-2222-4222-8222-222222222222','Beta Guardian',1,50)),
   1,
-  'guardian identity/contact/learner search executes before pagination'
+  'guardian name/contact/learner search executes before pagination'
 );
 
 select throws_ok(
