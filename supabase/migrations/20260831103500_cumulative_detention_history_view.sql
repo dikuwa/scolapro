@@ -62,6 +62,9 @@ group by
   grade.display_name,
   register_class.display_name;
 
+-- Recreating a view can reintroduce broad default relation privileges. Keep this
+-- derived read model explicitly read-only for authenticated clients.
+revoke all on public.late_detention_history from public, anon, authenticated;
 grant select on public.late_detention_history to authenticated;
 
 comment on view public.late_detention_history is
