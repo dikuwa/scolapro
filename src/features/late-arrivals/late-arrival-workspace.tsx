@@ -12,6 +12,7 @@ import {
   reassignDetentionSupervisor,
   resolveDetention,
   setDetentionSupervisionEligibility,
+  undoLatestLateArrival,
   type LateArrivalActionState,
 } from "@/features/late-arrivals/server/actions";
 import type { DetentionStaffOption, LateArrivalLearner, LateDetentionItem } from "@/features/late-arrivals/server/queries";
@@ -51,6 +52,7 @@ export function LateArrivalWorkspace({
   today: string;
 }) {
   const [state, action, pending] = useActionState(recordLateArrival, initialState);
+  const [undoState, undoAction, undoPending] = useActionState(undoLatestLateArrival, initialState);
   const [enrolmentId, setEnrolmentId] = useState("");
   const [arrivalDate, setArrivalDate] = useState(today);
   const [supervisors, setSupervisors] = useState<Record<string, string>>(() => Object.fromEntries(detention.map((item) => [item.id, item.assignedStaffMemberId ?? ""])));
@@ -62,6 +64,12 @@ export function LateArrivalWorkspace({
     if (state.success) toast.success(state.message);
     else toast.error(state.message);
   }, [state]);
+
+  useEffect(() => {
+    if (!undoState.message) return;
+    if (undoState.success) toast.success(undoState.message);
+    else toast.error(undoState.message);
+  }, [undoState]);
 
   return (
     <div className="space-y-5">
@@ -119,7 +127,18 @@ export function LateArrivalWorkspace({
                     );
                   })}
                 </div>
-                <p className="mt-2 text-[0.65rem] text-muted-foreground">Select a filled day to edit that date, or select an available day before recording. Future dates remain blocked.</p>
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-[0.65rem] text-muted-foreground">Select a filled day to edit that date, or select an available day before recording. Future dates remain blocked.</p>
+                  {canManage && selectedLearner.lastLateDate ? (
+                    <form action={undoAction}>
+                      <input type="hidden" name="enrolmentId" value={selectedLearner.enrolmentId} />
+                      <button type="submit" disabled={undoPending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-danger-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--danger)] disabled:opacity-50">
+                        {undoPending ? <Spinner className="size-3.5" /> : <RotateCcw className="size-3.5" aria-hidden="true" />}
+                        {undoPending ? "Undoing…" : `Undo last entry · ${formatDate(selectedLearner.lastLateDate)}`}
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
               </div>
             ) : null}
           </div>
