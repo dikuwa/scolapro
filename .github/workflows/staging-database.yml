@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: "Type PREVIEW to inspect pending migrations or DEPLOY to apply them"
+        description: "Type PREVIEW, RECONCILE, or DEPLOY"
         required: true
         type: string
 
@@ -17,9 +17,9 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ inputs.confirmation == 'PREVIEW' || inputs.confirmation == 'DEPLOY' }}
+    if: ${{ inputs.confirmation == 'PREVIEW' || inputs.confirmation == 'RECONCILE' || inputs.confirmation == 'DEPLOY' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_DB_PASSWORD }}
@@ -49,6 +49,128 @@ jobs:
         run: supabase link --project-ref "$STAGING_PROJECT_ID"
 
       - name: Show migration parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --linked | tee /tmp/scolapro-migration-list.txt
+
+      - name: Plan duplicate history reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          marker='ScolaPro staging migration-history bridge.'
+          mapfile -t bridge_files < <(grep -lF "$marker" supabase/migrations/*.sql | sort)
+
+          if [[ ${#bridge_files[@]} -ne 82 ]]; then
+            echo "Expected exactly 82 staging-history bridge files; found ${#bridge_files[@]}."
+            echo "Refusing to infer migration-history equivalence from an unexpected repository state."
+            exit 1
+          fi
+
+          : > /tmp/scolapro-duplicate-versions.txt
+          for bridge in "${bridge_files[@]}"; do
+            bridge_base="$(basename "$bridge")"
+            suffix="${bridge_base:15}"
+            mapfile -t same_name < <(find supabase/migrations -maxdepth 1 -type f -name "??????????????_${suffix}" -print | sort)
+
+            if [[ ${#same_name[@]} -ne 2 ]]; then
+              echo "Expected one historical bridge and one canonical migration for suffix: $suffix"
+              printf 'Matches: %s\n' "${same_name[*]:-none}"
+              exit 1
+            fi
+
+            canonical=''
+            for candidate in "${same_name[@]}"; do
+              if [[ "$candidate" != "$bridge" ]]; then
+                canonical="$candidate"
+              fi
+            done
+
+            [[ -n "$canonical" ]] || { echo "Canonical migration not found for $bridge_base"; exit 1; }
+            canonical_version="$(basename "$canonical" | cut -d_ -f1)"
+            printf '%s\n' "$canonical_version" >> /tmp/scolapro-duplicate-versions.txt
+          done
+
+          sort -u /tmp/scolapro-duplicate-versions.txt -o /tmp/scolapro-duplicate-versions.txt
+          duplicate_count="$(wc -l < /tmp/scolapro-duplicate-versions.txt | tr -d ' ')"
+          if [[ "$duplicate_count" -ne 82 ]]; then
+            echo "Expected 82 unique canonical duplicate versions; found $duplicate_count."
+            exit 1
+          fi
+
+          echo "Validated 82 exact-name historical/canonical migration pairs."
+          echo "Canonical versions whose schema effects are already represented by staging history:"
+          cat /tmp/scolapro-duplicate-versions.txt
+
+      - name: Reconcile duplicate migration versions
+        if: ${{ inputs.confirmation == 'RECONCILE' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repaired=0
+          already_applied=0
+          while IFS= read -r version; do
+            row="$(awk -F'|' -v v="$version" '
+              {
+                local_version=$1; remote_version=$2;
+                gsub(/[`[:space:]]/, "", local_version);
+                gsub(/[`[:space:]]/, "", remote_version);
+                if (local_version == v) { print local_version "|" remote_version; exit }
+              }
+            ' /tmp/scolapro-migration-list.txt)"
+
+            [[ -n "$row" ]] || { echo "Migration $version was not present in migration list."; exit 1; }
+            remote_version="${row#*|}"
+
+            if [[ -z "$remote_version" ]]; then
+              echo "Marking duplicate canonical version $version as applied (history only)."
+              supabase migration repair --linked --status applied "$version"
+              repaired=$((repaired + 1))
+            elif [[ "$remote_version" == "$version" ]]; then
+              echo "Version $version is already recorded remotely; skipping."
+              already_applied=$((already_applied + 1))
+            else
+              echo "Unexpected remote version '$remote_version' for local version '$version'."
+              exit 1
+            fi
+          done < /tmp/scolapro-duplicate-versions.txt
+
+          echo "History reconciliation complete: repaired=$repaired already_applied=$already_applied"
+
+      - name: Require duplicate history reconciled before deploy
+        if: ${{ inputs.confirmation == 'DEPLOY' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase migration list --linked > /tmp/scolapro-predeploy-list.txt
+          unresolved=0
+
+          while IFS= read -r version; do
+            row="$(awk -F'|' -v v="$version" '
+              {
+                local_version=$1; remote_version=$2;
+                gsub(/[`[:space:]]/, "", local_version);
+                gsub(/[`[:space:]]/, "", remote_version);
+                if (local_version == v) { print local_version "|" remote_version; exit }
+              }
+            ' /tmp/scolapro-predeploy-list.txt)"
+            remote_version="${row#*|}"
+            if [[ "$remote_version" != "$version" ]]; then
+              echo "Duplicate version $version is not yet reconciled."
+              unresolved=$((unresolved + 1))
+            fi
+          done < /tmp/scolapro-duplicate-versions.txt
+
+          if [[ "$unresolved" -ne 0 ]]; then
+            echo "Refusing schema deployment with $unresolved duplicate historical versions unresolved."
+            echo "Run this workflow with RECONCILE first."
+            exit 1
+          fi
+
+      - name: Show parity after reconciliation
+        if: ${{ inputs.confirmation == 'RECONCILE' }}
         run: supabase migration list --linked
 
       - name: Preview pending migrations
