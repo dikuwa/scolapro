@@ -67,7 +67,8 @@ $$;
 revoke all on function app_private.enforce_enrolment_scope_integrity() from public, anon, authenticated;
 
 drop trigger if exists enrolment_scope_integrity_trg on public.enrolments;
-create trigger enrolment_scope_integrity_trg
+drop trigger if exists enrolment_core_scope_integrity_trg on public.enrolments;
+create trigger enrolment_core_scope_integrity_trg
 before insert or update of tenant_id, school_id, learner_id, academic_year, grade_id, register_class_id
 on public.enrolments
 for each row execute function app_private.enforce_enrolment_scope_integrity();
