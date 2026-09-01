@@ -101,18 +101,6 @@ begin
     raise exception 'Teacher allocation scope mismatch: staff member does not belong to tenant';
   end if;
 
-  if not exists (
-    select 1
-    from public.staff_school_assignments ssa
-    where ssa.tenant_id = new.tenant_id
-      and ssa.school_id = new.school_id
-      and ssa.staff_member_id = new.staff_member_id
-      and ssa.effective_from <= new.active_from
-      and (ssa.effective_to is null or ssa.effective_to >= coalesce(new.active_to, new.active_from))
-  ) then
-    raise exception 'Teacher allocation scope mismatch: staff member has no effective school assignment for allocation period';
-  end if;
-
   return new;
 end;
 $$;
@@ -121,6 +109,6 @@ revoke all on function app_private.enforce_teacher_allocation_scope_integrity() 
 
 drop trigger if exists teacher_allocation_scope_integrity_trg on public.teacher_allocations;
 create trigger teacher_allocation_scope_integrity_trg
-before insert or update of tenant_id, school_id, academic_year, subject_offering_id, register_class_id, staff_member_id, active_from, active_to
+before insert or update of tenant_id, school_id, academic_year, subject_offering_id, register_class_id, staff_member_id
 on public.teacher_allocations
 for each row execute function app_private.enforce_teacher_allocation_scope_integrity();
