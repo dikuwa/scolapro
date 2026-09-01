@@ -1,6 +1,6 @@
 begin;
 
-select plan(4);
+select plan(6);
 
 select is(
   (
@@ -62,6 +62,29 @@ select is(
   ),
   0,
   'anon has no direct or inherited CRUD privilege on public tables or views'
+);
+
+select ok(
+  not has_schema_privilege('anon', 'public', 'CREATE')
+  and not has_schema_privilege('authenticated', 'public', 'CREATE'),
+  'client roles cannot create objects in the public schema'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and not exists (
+        select 1
+        from unnest(coalesce(p.proconfig, array[]::text[])) cfg
+        where cfg like 'search_path=%'
+      )
+  ),
+  0,
+  'every public SECURITY DEFINER function pins search_path'
 );
 
 select * from finish();
