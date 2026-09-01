@@ -60,8 +60,8 @@ select throws_ok(
       '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
       'f8b10000-0000-4000-8000-000000000001','f8b20000-0000-4000-8000-000000000002','email','pending'
     )$$,
-  'Communication delivery job scope mismatch: recipient does not belong to message',
-  'delivery job rejects recipient provenance inconsistent with the message'
+  'Communication delivery job channel does not match message channel',
+  'delivery job channel must match the source message channel'
 );
 
 select throws_ok(
