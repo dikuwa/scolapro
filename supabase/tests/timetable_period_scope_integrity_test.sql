@@ -1,6 +1,6 @@
 begin;
 
-select plan(7);
+select plan(8);
 
 select has_function(
   'app_private',
@@ -55,8 +55,16 @@ select throws_ok(
   $$update public.timetable_periods
        set academic_year=2025
      where id='fc340000-0000-4000-8000-000000000001'$$,
-  'Timetable period root scope and provenance are immutable',
+  'Timetable period tenant, school, academic year, and period number are immutable',
   'timetable period cannot be moved to another academic year'
+);
+
+select throws_ok(
+  $$update public.timetable_periods
+       set created_at=created_at + interval '1 second'
+     where id='fc340000-0000-4000-8000-000000000001'$$,
+  'Timetable period creation provenance is immutable',
+  'timetable period creation provenance cannot be rewritten'
 );
 
 select * from finish();
