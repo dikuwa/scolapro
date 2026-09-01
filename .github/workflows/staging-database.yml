@@ -52,11 +52,11 @@ jobs:
         run: supabase migration list --linked
 
       - name: Preview pending migrations
-        run: supabase db push --linked --dry-run
+        run: supabase db push --linked --dry-run --include-all
 
       - name: Apply pending migrations
         if: ${{ inputs.confirmation == 'DEPLOY' }}
-        run: supabase db push --linked
+        run: supabase db push --linked --include-all
 
       - name: Verify migration parity
         run: supabase migration list --linked
