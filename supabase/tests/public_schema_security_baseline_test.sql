@@ -20,13 +20,14 @@ select is(
     select count(*)::integer
     from pg_class c
     join pg_namespace n on n.oid = c.relnamespace
-    left join pg_policies p
-      on p.schemaname = n.nspname
-     and p.tablename = c.relname
     where n.nspname = 'public'
       and c.relkind = 'r'
-    group by n.nspname
-    having count(*) filter (where p.policyname is null) > 0
+      and not exists (
+        select 1
+        from pg_policies p
+        where p.schemaname = n.nspname
+          and p.tablename = c.relname
+      )
   ),
   0,
   'every public table has at least one RLS policy'
