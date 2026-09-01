@@ -31,6 +31,12 @@ values
 insert into public.guardian_profiles(id,tenant_id,first_names,surname)
 values('fa320000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Absence','Owner');
 
+insert into public.learner_guardians(id,tenant_id,learner_id,guardian_id,priority,effective_from)
+values('fa325000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','50000000-0000-4000-8000-000000000001','fa320000-0000-4000-8000-000000000001',1,current_date);
+
+insert into public.guardian_user_links(id,tenant_id,guardian_id,user_id)
+values('fa326000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fa320000-0000-4000-8000-000000000001','fa300000-0000-4000-8000-000000000001');
+
 insert into public.guardian_absence_notices(
   id,tenant_id,school_id,learner_id,enrolment_id,guardian_id,submitted_by_user_id,
   absence_from,absence_to,reason_category,message
