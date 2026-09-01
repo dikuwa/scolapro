@@ -36,8 +36,8 @@ values
 
 insert into public.communication_template_versions(id,template_id,version,language,body_preview,variables,status,created_by_user_id)
 values
-  ('fc780000-0000-4000-8000-000000000001','fc770000-0000-4000-8000-000000000001',1,'en','Scope A body','[]'::jsonb,'approved','fc700000-0000-4000-8000-000000000001'),
-  ('fc780000-0000-4000-8000-000000000002','fc770000-0000-4000-8000-000000000002',1,'en','Scope B body','[]'::jsonb,'approved','fc700000-0000-4000-8000-000000000001');
+  ('fc780000-0000-4000-8000-000000000001','fc770000-0000-4000-8000-000000000001',1,'en','Scope A body','[]'::jsonb,'draft','fc700000-0000-4000-8000-000000000001'),
+  ('fc780000-0000-4000-8000-000000000002','fc770000-0000-4000-8000-000000000002',1,'en','Scope B body','[]'::jsonb,'draft','fc700000-0000-4000-8000-000000000001');
 
 select throws_ok(
   $$insert into public.communication_messages(tenant_id,school_id,channel,body,audience_type,status,created_by_user_id)
