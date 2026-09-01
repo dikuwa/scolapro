@@ -24,7 +24,7 @@ select is(
         'learner_psychometric_records'
       ])
   ),
-  58,
+  46,
   'post-staging closure tables retain the expected foreign-key surface'
 );
 
