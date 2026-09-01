@@ -2,6 +2,9 @@ begin;
 
 select plan(7);
 
+insert into auth.users(id,email,aud,role,created_at,updated_at)
+values('a1000000-0000-4000-8000-000000000001','import-scope-admin@example.test','authenticated','authenticated',now(),now());
+
 insert into public.tenants(id,name,slug,status)
 values
   ('a1100000-0000-4000-8000-000000000001','Import Scope Tenant A','import-scope-a','active'),
@@ -24,7 +27,7 @@ select ok(
 
 select throws_ok(
   $$insert into public.import_batches(tenant_id,school_id,import_type,source_file_name,status,created_by_user_id)
-    values('a1100000-0000-4000-8000-000000000002','a1200000-0000-4000-8000-000000000001','staff','mismatch.csv','review','00000000-0000-0000-0000-000000000001')$$,
+    values('a1100000-0000-4000-8000-000000000002','a1200000-0000-4000-8000-000000000001','staff','mismatch.csv','review','a1000000-0000-4000-8000-000000000001')$$,
   '23503',
   null,
   'import batch cannot pair a school with a different tenant'
@@ -35,7 +38,7 @@ values(
   'a1300000-0000-4000-8000-000000000001',
   'a1100000-0000-4000-8000-000000000001',
   'a1200000-0000-4000-8000-000000000001',
-  'staff','valid.csv','review','00000000-0000-0000-0000-000000000001'
+  'staff','valid.csv','review','a1000000-0000-4000-8000-000000000001'
 );
 
 select ok(
