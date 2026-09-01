@@ -117,12 +117,19 @@ select throws_ok(
   'mark learner identity must match the selected enrolment'
 );
 
+insert into public.assessment_components(
+  id,tenant_id,school_id,assessment_scheme_id,component_code,display_name,component_type,raw_max,weight,contributes_to_report,required,sort_order
+) values(
+  'fd400000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+  'fd300000-0000-4000-8000-000000000001','CA2','Second Assessment','task',50,null,false,false,20
+);
+
 select lives_ok(
   $$insert into public.assessment_instances(
       id,tenant_id,school_id,academic_year,assessment_scheme_id,assessment_component_id,subject_offering_id,register_class_id,term_number,display_name,raw_max,status,created_by_user_id
     ) values(
       'fd500000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,
-      'fd300000-0000-4000-8000-000000000001','fd400000-0000-4000-8000-000000000001','fd200000-0000-4000-8000-000000000001',
+      'fd300000-0000-4000-8000-000000000001','fd400000-0000-4000-8000-000000000002','fd200000-0000-4000-8000-000000000001',
       '40000000-0000-4000-8000-00000000001a',1,'Second 10A instance',50,'not_open','fd000000-0000-4000-8000-000000000001'
     )$$,
   'second valid assessment instance remains allowed'
