@@ -12,10 +12,7 @@ begin
     or new.enrolment_id is distinct from old.enrolment_id
     or new.recorded_by_user_id is distinct from old.recorded_by_user_id
     or new.created_at is distinct from old.created_at
-    or (
-      tg_table_name = 'conduct_events'
-      and new.recorded_at is distinct from old.recorded_at
-    )
+    or (to_jsonb(new)->'recorded_at') is distinct from (to_jsonb(old)->'recorded_at')
   ) then
     raise exception 'Learner observation scope and provenance are immutable';
   end if;
