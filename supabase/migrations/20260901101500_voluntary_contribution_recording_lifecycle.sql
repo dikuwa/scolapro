@@ -26,12 +26,11 @@ begin
     raise exception 'Contribution date is required';
   end if;
 
-  select i.*, c.id as campaign_join_id
+  select *
     into v_item
-    from public.voluntary_contribution_items i
-    join public.voluntary_contribution_campaigns c on c.id = i.campaign_id
-   where i.id = p_item_id
-     and i.active = true;
+    from public.voluntary_contribution_items
+   where id = p_item_id
+     and active = true;
 
   if not found then
     raise exception 'Contribution item not found';
@@ -41,6 +40,10 @@ begin
     into v_campaign
     from public.voluntary_contribution_campaigns
    where id = v_item.campaign_id;
+
+  if not found then
+    raise exception 'Contribution campaign not found';
+  end if;
 
   if v_campaign.status <> 'published' then
     raise exception 'Contribution campaign is not open for recording';
