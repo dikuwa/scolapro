@@ -5,18 +5,40 @@ select plan(7);
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fb700000-0000-4000-8000-000000000001','assessment-scheme-scope@example.test','authenticated','authenticated',now(),now());
 
+insert into public.subjects(
+  id,tenant_id,school_id,subject_code,display_name,status
+) values(
+  'fb705000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'ASCOPE',
+  'Assessment Scope Fixture',
+  'active'
+);
+
+insert into public.grades(
+  id,tenant_id,school_id,academic_year,grade_code,display_name
+) values(
+  'fb706000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  2026,
+  'ASCOPE',
+  'Assessment Scope Fixture'
+);
+
 insert into public.subject_offerings(
   id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status
-)
-select
+) values(
   'fb710000-0000-4000-8000-000000000001',
   '11111111-1111-4111-8111-111111111111',
   '22222222-2222-4222-8222-222222222222',
   2026,
-  (select id from public.subjects where school_id='22222222-2222-4222-8222-222222222222' order by id limit 1),
-  (select id from public.grades where school_id='22222222-2222-4222-8222-222222222222' order by id limit 1),
+  'fb705000-0000-4000-8000-000000000001',
+  'fb706000-0000-4000-8000-000000000001',
   5,
-  'active';
+  'active'
+);
 
 insert into public.tenants(id,name,slug)
 values('fb720000-0000-4000-8000-000000000001','Assessment Scope Tenant B','assessment-scope-tenant-b');
