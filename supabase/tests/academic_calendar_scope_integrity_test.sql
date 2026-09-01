@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(13);
 
 insert into public.tenants(id,name,slug)
 values('fc100000-0000-4000-8000-000000000001','Calendar Scope Tenant B','calendar-scope-tenant-b');
