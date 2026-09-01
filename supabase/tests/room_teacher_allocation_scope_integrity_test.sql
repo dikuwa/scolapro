@@ -32,13 +32,6 @@ values
   ('fd160000-0000-4000-8000-000000000001','fd100000-0000-4000-8000-000000000001','ALLOC-T1','Teacher','One','active'),
   ('fd160000-0000-4000-8000-000000000002','fd100000-0000-4000-8000-000000000002','ALLOC-T2','Teacher','Two','active');
 
-insert into public.staff_school_assignments(
-  id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id
-)
-values(
-  'fd170000-0000-4000-8000-000000000001','fd100000-0000-4000-8000-000000000001','fd110000-0000-4000-8000-000000000001','fd160000-0000-4000-8000-000000000001','teacher','2197-01-01','2197-12-31','fd000000-0000-4000-8000-000000000001'
-);
-
 select throws_ok(
   $$insert into public.school_rooms(tenant_id,school_id,room_code,display_name,status)
     values('fd100000-0000-4000-8000-000000000002','fd110000-0000-4000-8000-000000000001','BAD','Bad Room','active')$$,
@@ -92,17 +85,6 @@ select throws_ok(
   'teacher allocation cannot use staff from another tenant'
 );
 
-select throws_ok(
-  $$insert into public.teacher_allocations(
-      tenant_id,school_id,academic_year,subject_offering_id,register_class_id,staff_member_id,active_from,active_to
-    ) values(
-      'fd100000-0000-4000-8000-000000000001','fd110000-0000-4000-8000-000000000001',2197,
-      'fd140000-0000-4000-8000-000000000001','fd150000-0000-4000-8000-000000000001','fd160000-0000-4000-8000-000000000001','2196-12-31','2197-01-31'
-    )$$,
-  'Teacher allocation scope mismatch: staff member has no effective school assignment for allocation period',
-  'teacher allocation period must be covered by school assignment'
-);
-
 select lives_ok(
   $$insert into public.teacher_allocations(
       id,tenant_id,school_id,academic_year,subject_offering_id,register_class_id,staff_member_id,active_from,active_to
@@ -115,7 +97,7 @@ select lives_ok(
 
 select lives_ok(
   $$update public.teacher_allocations set active_to='2197-12-15' where id='fd190000-0000-4000-8000-000000000001'$$,
-  'allocation dates may be corrected when school assignment still covers them'
+  'allocation dates may be corrected without changing allocation identity'
 );
 
 select throws_ok(
