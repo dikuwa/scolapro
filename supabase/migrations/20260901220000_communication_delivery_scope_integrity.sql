@@ -8,6 +8,7 @@ declare
   v_school_tenant uuid;
   v_message_tenant uuid;
   v_message_school uuid;
+  v_message_channel text;
   v_recipient_tenant uuid;
   v_recipient_school uuid;
   v_recipient_message uuid;
@@ -21,10 +22,13 @@ begin
   end if;
 
   if tg_table_name = 'communication_delivery_jobs' then
-    select m.tenant_id,m.school_id into v_message_tenant,v_message_school
+    select m.tenant_id,m.school_id,m.channel into v_message_tenant,v_message_school,v_message_channel
     from public.communication_messages m where m.id=new.message_id;
     if not found or (v_message_tenant,v_message_school) is distinct from (new.tenant_id,new.school_id) then
       raise exception 'Communication delivery job scope mismatch: message does not belong to school';
+    end if;
+    if v_message_channel is distinct from new.channel then
+      raise exception 'Communication delivery job channel does not match message channel';
     end if;
 
     select r.tenant_id,r.school_id,r.message_id into v_recipient_tenant,v_recipient_school,v_recipient_message
