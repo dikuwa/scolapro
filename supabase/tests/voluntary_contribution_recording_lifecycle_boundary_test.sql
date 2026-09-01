@@ -1,6 +1,6 @@
 begin;
 
-select plan(7);
+select plan(8);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('f8700000-0000-4000-8000-000000000001','contribution-lifecycle-boundary@example.test','authenticated','authenticated',now(),now());
