@@ -32,16 +32,19 @@ begin
   end if;
 
   if new.trigger_event_id is not null then
-    select e.*, n.academic_year into v_event, v_event_year
-    from public.school_late_arrival_events e
-    join public.enrolments n on n.id = e.enrolment_id
-    where e.id = new.trigger_event_id;
+    select * into v_event
+    from public.school_late_arrival_events
+    where id = new.trigger_event_id;
 
     if not found
       or (v_event.tenant_id,v_event.school_id,v_event.learner_id)
          is distinct from (new.tenant_id,new.school_id,new.learner_id) then
       raise exception 'Late detention obligation scope mismatch: trigger event does not match obligation scope';
     end if;
+
+    select n.academic_year into v_event_year
+    from public.enrolments n
+    where n.id = v_event.enrolment_id;
 
     if new.academic_year is not null and v_event_year <> new.academic_year then
       raise exception 'Late detention obligation scope mismatch: trigger event does not match academic year';
