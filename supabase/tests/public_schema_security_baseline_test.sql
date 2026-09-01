@@ -1,6 +1,6 @@
 begin;
 
-select plan(3);
+select plan(4);
 
 select is(
   (
@@ -44,6 +44,24 @@ select is(
   ),
   0,
   'every public view is security invoker'
+);
+
+select is(
+  (
+    select count(*)::integer
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'v')
+      and (
+        has_table_privilege('anon', c.oid, 'SELECT')
+        or has_table_privilege('anon', c.oid, 'INSERT')
+        or has_table_privilege('anon', c.oid, 'UPDATE')
+        or has_table_privilege('anon', c.oid, 'DELETE')
+      )
+  ),
+  0,
+  'anon has no direct or inherited CRUD privilege on public tables or views'
 );
 
 select * from finish();
