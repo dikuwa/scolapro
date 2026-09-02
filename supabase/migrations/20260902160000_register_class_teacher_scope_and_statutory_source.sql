@@ -104,14 +104,6 @@ begin
     if v_staff_tenant is null or v_staff_tenant <> new.tenant_id then
       raise exception 'Register class teacher scope mismatch: staff member does not belong to tenant';
     end if;
-
-    if tg_op='UPDATE'
-       and new.register_teacher_staff_id is distinct from old.register_teacher_staff_id
-       and not app_private.register_teacher_has_school_overlap(
-         new.register_teacher_staff_id,new.tenant_id,new.school_id,new.academic_year
-       ) then
-      raise exception 'Register teacher is not actively assigned to this school';
-    end if;
   end if;
 
   return new;
@@ -334,9 +326,11 @@ grant execute on function public.generate_statutory_snapshot(uuid) to authentica
 
 comment on function app_private.register_teacher_has_school_overlap(uuid,uuid,uuid,integer) is
   'Returns whether a staff identity has a governed school placement overlapping the target class academic year. Supports both staff_school_assignments and legacy staff-linked school memberships.';
+comment on function app_private.enforce_register_class_scope_integrity() is
+  'Protects register-class tenant/school/grade/year integrity and requires any stored teacher identity to belong to the class tenant. School-placement verification is intentionally deferred to the governed assignment RPC and statutory readiness because staged/import transactions may add the matching membership later in the same workflow.';
 comment on function public.assign_register_teacher(uuid,uuid) is
   'Assigns or clears the operational register teacher through a year-aware staff-school placement check and emits an audit event.';
 comment on function app_private.build_register_class_teacher_statutory_source(uuid,integer) is
-  'Private statutory source for register-class teacher identity. Separates verified assignments, unverified legacy assignments, and unassigned classes without fabricating missing staff particulars.';
+  'Private statutory source for register-class teacher identity. Separates verified assignments, unverified staged/legacy assignments, and unassigned classes without fabricating missing staff particulars.';
 comment on function public.generate_statutory_snapshot(uuid) is
   'Creates a numbered provisional statutory snapshot from fixed-reference operational facts, including register-class teacher assignment readiness, without re-entering known data.';
