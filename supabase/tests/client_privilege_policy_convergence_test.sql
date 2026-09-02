@@ -43,9 +43,9 @@ select ok(
 select ok(
   has_table_privilege('authenticated','public.attendance_evidence','INSERT')
   and has_table_privilege('authenticated','public.attendance_evidence','SELECT')
-  and has_table_privilege('authenticated','public.attendance_evidence','DELETE')
-  and not has_table_privilege('authenticated','public.attendance_evidence','UPDATE'),
-  'attendance evidence cannot be raw-updated where no update RLS policy exists'
+  and not has_table_privilege('authenticated','public.attendance_evidence','UPDATE')
+  and not has_table_privilege('authenticated','public.attendance_evidence','DELETE'),
+  'registered attendance evidence is append/read only at the client table boundary'
 );
 
 select ok(
