@@ -93,6 +93,11 @@ select is(
   'assigned active due-date-valid supervisor can complete their own detention obligation'
 );
 
+-- Base detention/audit RLS intentionally does not grant ordinary assigned staff
+-- school-wide read access. Verify persisted state as the test owner after proving
+-- the authenticated RPC invocation above.
+reset role;
+
 select is(
   (select status from public.late_detention_obligations where id='fcc50000-0000-4000-8000-000000000001'),
   'completed',
@@ -122,6 +127,10 @@ select is(
   'true',
   'resolution audit explicitly identifies assigned-supervisor completion'
 );
+
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fcc00000-0000-4000-8000-000000000002',true);
+set local role authenticated;
 
 select throws_ok(
   $$select public.resolve_late_detention('fcc50000-0000-4000-8000-000000000001','completed','duplicate completion')$$,
