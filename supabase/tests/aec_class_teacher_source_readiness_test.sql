@@ -63,7 +63,7 @@ select ok(
       and not t.tgisinternal
       and pg_get_triggerdef(t.oid) ilike '%register_teacher_staff_id%'
   ),
-  'register-class integrity trigger covers teacher assignment changes'
+  'register-class integrity trigger covers teacher identity scope changes'
 );
 
 select lives_ok(
@@ -75,13 +75,11 @@ select lives_ok(
     )$$,
   'legacy-compatible class insert may retain same-tenant teacher identity before placement reconciliation'
 );
-select throws_ok(
+select lives_ok(
   $$update public.register_classes
     set register_teacher_staff_id='facc1000-0000-4000-8000-000000000002'
     where id='40000000-0000-4000-8000-00000000001a'$$,
-  'P0001',
-  'Register teacher is not actively assigned to this school',
-  'changing an existing class to unplaced staff is blocked even through direct table mutation'
+  'staged direct update may precede creation of the matching school membership'
 );
 
 select set_config('request.jwt.claim.role','authenticated',true);
@@ -162,7 +160,7 @@ select is(
   (select (s.values #>> '{structure,register_class_teacher_source,unverified_assigned_classes}')::integer
    from public.statutory_snapshots s join aec_teacher_snapshot x on x.snapshot_id=s.id),
   1,
-  'snapshot exposes the legacy same-tenant assignment without school placement as unverified'
+  'snapshot exposes the staged/legacy same-tenant assignment without school placement as unverified'
 );
 select is(
   (select (s.values #>> '{structure,register_class_teacher_source,unassigned_classes}')::integer
@@ -195,7 +193,7 @@ select is(
    cross join lateral jsonb_array_elements(s.values #> '{structure,register_class_teacher_source,classes}') item
    where item->>'class_id'='facc4000-0000-4000-8000-000000000001'),
   'false',
-  'legacy assignment remains visible but explicitly unverified rather than silently trusted'
+  'staged/legacy assignment remains visible but explicitly unverified rather than silently trusted'
 );
 select is(
   (select count(*)::integer
