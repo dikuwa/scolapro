@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('faec0000-0000-4000-8000-000000000001','aec-source-admin@example.test','authenticated','authenticated',now(),now());
