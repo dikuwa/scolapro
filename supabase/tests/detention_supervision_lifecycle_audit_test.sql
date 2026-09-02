@@ -88,7 +88,7 @@ select is(
   (select actor_user_id from public.audit_events
    where event_type='detention_supervision.preference_enabled'
      and metadata->>'staff_member_id'='fca10000-0000-4000-8000-000000000001'
-   order by created_at desc limit 1),
+   limit 1),
   'fca00000-0000-4000-8000-000000000001'::uuid,
   'preference audit records the authenticated actor'
 );
