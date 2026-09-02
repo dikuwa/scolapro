@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(25);
 
 update public.register_classes
 set register_teacher_staff_id=null
