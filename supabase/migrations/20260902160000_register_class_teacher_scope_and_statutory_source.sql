@@ -1,3 +1,61 @@
+create or replace function app_private.register_teacher_has_school_overlap(
+  p_staff_member_id uuid,
+  p_tenant_id uuid,
+  p_school_id uuid,
+  p_academic_year integer
+)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_staff_tenant uuid;
+  v_year_start date;
+  v_year_end date;
+begin
+  select sm.tenant_id into v_staff_tenant
+  from public.staff_members sm
+  where sm.id=p_staff_member_id;
+
+  if v_staff_tenant is null or v_staff_tenant<>p_tenant_id then
+    return false;
+  end if;
+
+  select coalesce(ay.starts_on,make_date(p_academic_year,1,1)),
+         coalesce(ay.ends_on,make_date(p_academic_year,12,31))
+  into v_year_start,v_year_end
+  from public.academic_years ay
+  where ay.school_id=p_school_id and ay.year=p_academic_year
+  order by ay.created_at desc
+  limit 1;
+
+  v_year_start:=coalesce(v_year_start,make_date(p_academic_year,1,1));
+  v_year_end:=coalesce(v_year_end,make_date(p_academic_year,12,31));
+
+  return exists(
+    select 1
+    from public.staff_school_assignments ssa
+    where ssa.staff_member_id=p_staff_member_id
+      and ssa.tenant_id=p_tenant_id
+      and ssa.school_id=p_school_id
+      and ssa.effective_from<=v_year_end
+      and (ssa.effective_to is null or ssa.effective_to>=v_year_start)
+  ) or exists(
+    select 1
+    from public.school_memberships sm
+    where sm.staff_member_id=p_staff_member_id
+      and sm.tenant_id=p_tenant_id
+      and sm.school_id=p_school_id
+      and sm.active_from<=v_year_end
+      and (sm.active_to is null or sm.active_to>=v_year_start)
+  );
+end;
+$$;
+
+revoke all on function app_private.register_teacher_has_school_overlap(uuid,uuid,uuid,integer) from public,anon,authenticated;
+
 create or replace function app_private.enforce_register_class_scope_integrity()
 returns trigger
 language plpgsql
@@ -10,8 +68,6 @@ declare
   v_grade_school uuid;
   v_grade_year integer;
   v_staff_tenant uuid;
-  v_year_start date;
-  v_year_end date;
 begin
   if tg_op = 'UPDATE' and (
     new.tenant_id is distinct from old.tenant_id
@@ -49,27 +105,12 @@ begin
       raise exception 'Register class teacher scope mismatch: staff member does not belong to tenant';
     end if;
 
-    select coalesce(ay.starts_on,make_date(new.academic_year,1,1)),
-           coalesce(ay.ends_on,make_date(new.academic_year,12,31))
-    into v_year_start,v_year_end
-    from public.academic_years ay
-    where ay.school_id=new.school_id and ay.year=new.academic_year
-    order by ay.created_at desc
-    limit 1;
-
-    v_year_start:=coalesce(v_year_start,make_date(new.academic_year,1,1));
-    v_year_end:=coalesce(v_year_end,make_date(new.academic_year,12,31));
-
-    if not exists(
-      select 1
-      from public.staff_school_assignments ssa
-      where ssa.staff_member_id=new.register_teacher_staff_id
-        and ssa.tenant_id=new.tenant_id
-        and ssa.school_id=new.school_id
-        and ssa.effective_from<=v_year_end
-        and (ssa.effective_to is null or ssa.effective_to>=v_year_start)
-    ) then
-      raise exception 'Register class teacher scope mismatch: staff member has no school assignment overlapping the academic year';
+    if tg_op='UPDATE'
+       and new.register_teacher_staff_id is distinct from old.register_teacher_staff_id
+       and not app_private.register_teacher_has_school_overlap(
+         new.register_teacher_staff_id,new.tenant_id,new.school_id,new.academic_year
+       ) then
+      raise exception 'Register teacher is not actively assigned to this school';
     end if;
   end if;
 
@@ -84,6 +125,84 @@ create trigger register_class_scope_integrity_trg
 before insert or update of tenant_id,school_id,grade_id,academic_year,register_teacher_staff_id
 on public.register_classes
 for each row execute function app_private.enforce_register_class_scope_integrity();
+
+create or replace function public.assign_register_teacher(
+  p_register_class_id uuid,
+  p_staff_member_id uuid default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path=public,app_private
+as $$
+declare
+  v_class public.register_classes%rowtype;
+  v_staff public.staff_members%rowtype;
+  v_previous_staff_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+
+  select * into v_class
+  from public.register_classes
+  where id=p_register_class_id
+  for update;
+  if not found then raise exception 'Register class not found'; end if;
+
+  if not (
+    app_private.has_platform_role(array['platform_admin'])
+    or exists(
+      select 1 from public.school_memberships sm
+      where sm.school_id=v_class.school_id
+        and sm.user_id=(select auth.uid())
+        and sm.role_key in ('school_admin','principal','deputy_principal')
+        and sm.active_from<=current_date
+        and (sm.active_to is null or sm.active_to>=current_date)
+    )
+  ) then raise exception 'Permission denied'; end if;
+
+  v_previous_staff_id:=v_class.register_teacher_staff_id;
+
+  if p_staff_member_id is not null then
+    select * into v_staff from public.staff_members where id=p_staff_member_id;
+    if not found
+      or v_staff.tenant_id<>v_class.tenant_id
+      or v_staff.status<>'active'
+    then raise exception 'Register teacher is not an active staff member in this tenant'; end if;
+
+    if not app_private.register_teacher_has_school_overlap(
+      v_staff.id,v_class.tenant_id,v_class.school_id,v_class.academic_year
+    ) then
+      raise exception 'Register teacher is not actively assigned to this school';
+    end if;
+  end if;
+
+  update public.register_classes
+  set register_teacher_staff_id=p_staff_member_id
+  where id=v_class.id;
+
+  insert into public.audit_events(
+    tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+  ) values(
+    v_class.tenant_id,v_class.school_id,auth.uid(),
+    case when p_staff_member_id is null then 'register_class.teacher_unassigned' else 'register_class.teacher_assigned' end,
+    'register_class',v_class.id,
+    jsonb_build_object(
+      'previous_staff_member_id',v_previous_staff_id,
+      'staff_member_id',p_staff_member_id,
+      'academic_year',v_class.academic_year,
+      'class_code',v_class.class_code,
+      'assignment_scope_verified',p_staff_member_id is null or app_private.register_teacher_has_school_overlap(
+        p_staff_member_id,v_class.tenant_id,v_class.school_id,v_class.academic_year
+      )
+    )
+  );
+
+  return true;
+end;
+$$;
+
+revoke all on function public.assign_register_teacher(uuid,uuid) from public,anon;
+grant execute on function public.assign_register_teacher(uuid,uuid) to authenticated;
 
 create or replace function app_private.build_register_class_teacher_statutory_source(
   p_school_id uuid,
@@ -110,12 +229,15 @@ as $$
           'employee_number',x.employee_number,
           'initials',x.initials,
           'first_name',x.first_name,
-          'last_name',x.last_name
+          'last_name',x.last_name,
+          'assignment_verified',x.assignment_verified
         )
       end
     ) order by x.grade_code,x.class_code),'[]'::jsonb),
     'total_classes',count(*)::integer,
     'assigned_classes',count(*) filter(where x.staff_member_id is not null)::integer,
+    'verified_assigned_classes',count(*) filter(where x.staff_member_id is not null and x.assignment_verified)::integer,
+    'unverified_assigned_classes',count(*) filter(where x.staff_member_id is not null and not x.assignment_verified)::integer,
     'unassigned_classes',count(*) filter(where x.staff_member_id is null)::integer
   )
   from (
@@ -130,7 +252,10 @@ as $$
       sm.employee_number,
       sm.initials,
       sm.first_name,
-      sm.last_name
+      sm.last_name,
+      case when sm.id is null then false else app_private.register_teacher_has_school_overlap(
+        sm.id,rc.tenant_id,rc.school_id,rc.academic_year
+      ) end assignment_verified
     from public.register_classes rc
     join public.grades g on g.id=rc.grade_id
     left join public.staff_members sm on sm.id=rc.register_teacher_staff_id
@@ -207,7 +332,11 @@ $$;
 revoke all on function public.generate_statutory_snapshot(uuid) from public,anon;
 grant execute on function public.generate_statutory_snapshot(uuid) to authenticated;
 
+comment on function app_private.register_teacher_has_school_overlap(uuid,uuid,uuid,integer) is
+  'Returns whether a staff identity has a governed school placement overlapping the target class academic year. Supports both staff_school_assignments and legacy staff-linked school memberships.';
+comment on function public.assign_register_teacher(uuid,uuid) is
+  'Assigns or clears the operational register teacher through a year-aware staff-school placement check and emits an audit event.';
 comment on function app_private.build_register_class_teacher_statutory_source(uuid,integer) is
-  'Private statutory source for configured register-class teacher identity and missing-assignment counts. Teacher contact, ID and signatures remain outside this source until governed staff data exists.';
+  'Private statutory source for register-class teacher identity. Separates verified assignments, unverified legacy assignments, and unassigned classes without fabricating missing staff particulars.';
 comment on function public.generate_statutory_snapshot(uuid) is
   'Creates a numbered provisional statutory snapshot from fixed-reference operational facts, including register-class teacher assignment readiness, without re-entering known data.';
