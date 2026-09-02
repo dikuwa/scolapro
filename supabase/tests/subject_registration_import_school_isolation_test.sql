@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(16);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fcf00000-0000-4000-8000-000000000001','subject-school-admin@example.test','authenticated','authenticated',now(),now()),
