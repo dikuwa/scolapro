@@ -153,6 +153,7 @@ select is(
   'automatic roll-forward supervisor assignment has durable audit provenance'
 );
 
+reset role;
 select is(
   (select count(*)::integer from public.notifications
    where recipient_user_id='fca00000-0000-4000-8000-000000000002'
@@ -161,6 +162,7 @@ select is(
   1,
   'newly assigned supervisor receives a roll-forward notification'
 );
+set local role authenticated;
 
 select is(
   (select rollover_count from public.late_detention_obligations where id='fca50000-0000-4000-8000-000000000001'),
