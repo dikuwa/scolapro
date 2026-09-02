@@ -210,6 +210,7 @@ select is(
   'automatic detention uses the configured next detention weekday'
 );
 
+reset role;
 select ok(
   (select assigned_staff_member_id is not null
       and app_private.staff_member_has_school_assignment(
@@ -219,6 +220,7 @@ select ok(
    where learner_id='fc710000-0000-4000-8000-000000000002' and academic_year=2026),
   'automatic supervisor selection is valid on the detention due date rather than merely on the arrival date'
 );
+set local role authenticated;
 
 select is(
   public.reassign_late_detention_supervisor(
@@ -245,6 +247,7 @@ select is(
   'roll-forward moves the obligation to the next configured detention date'
 );
 
+reset role;
 select ok(
   (select assigned_staff_member_id is distinct from 'fc730000-0000-4000-8000-000000000001'::uuid
       and assigned_staff_member_id is not null
@@ -253,6 +256,7 @@ select ok(
    where id='fc860000-0000-4000-8000-000000000002'),
   'roll-forward replaces an expired supervisor with staff valid on the new due date'
 );
+set local role authenticated;
 
 select is(
   (select status from public.late_detention_obligations where id='fc860000-0000-4000-8000-000000000002'),
