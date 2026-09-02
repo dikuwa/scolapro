@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(15);
 
 -- Cross-tenant authorization matrix:
 -- * ordinary School Admin belongs only to Tenant A / School A
