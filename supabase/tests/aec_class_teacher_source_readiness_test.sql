@@ -1,6 +1,12 @@
 begin;
 
-select plan(17);
+select plan(24);
+
+update public.register_classes
+set register_teacher_staff_id=null
+where school_id='22222222-2222-4222-8222-222222222222'
+  and academic_year=2026
+  and register_teacher_staff_id is not null;
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('facc0000-0000-4000-8000-000000000001','aec-class-teacher-admin@example.test','authenticated','authenticated',now(),now());
@@ -10,7 +16,7 @@ insert into public.school_memberships(tenant_id,school_id,user_id,role_key,activ
 
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,initials,status) values
   ('facc1000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','AEC-T-001','Valid','Teacher','VT','active'),
-  ('facc1000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','AEC-T-002','NoSchool','Teacher','NT','active'),
+  ('facc1000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','AEC-T-002','Legacy','Teacher','LT','active'),
   ('facc1000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','AEC-T-003','Expired','Teacher','ET','active');
 
 insert into public.staff_school_assignments(
@@ -33,6 +39,10 @@ insert into public.statutory_reporting_cycles(
   'facc3000-0000-4000-8000-000000000002',2026,'aec-class-teacher-qa','2026-09-01','open','facc0000-0000-4000-8000-000000000001'
 );
 
+select ok(
+  to_regprocedure('app_private.register_teacher_has_school_overlap(uuid,uuid,uuid,integer)') is not null,
+  'private year-aware register-teacher placement helper exists'
+);
 select ok(
   to_regprocedure('app_private.build_register_class_teacher_statutory_source(uuid,integer)') is not null,
   'private register-class teacher statutory source helper exists'
@@ -57,43 +67,65 @@ select ok(
 );
 
 select lives_ok(
-  $$update public.register_classes
-    set register_teacher_staff_id='facc1000-0000-4000-8000-000000000001'
-    where id='40000000-0000-4000-8000-00000000001a'$$,
-  'teacher with an overlapping assignment to the same school can own the register class'
+  $$insert into public.register_classes(
+      id,tenant_id,school_id,grade_id,academic_year,class_code,display_name,register_teacher_staff_id
+    ) values(
+      'facc4000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+      '30000000-0000-4000-8000-000000000008',2026,'AEC-LEGACY','AEC Legacy Class','facc1000-0000-4000-8000-000000000002'
+    )$$,
+  'legacy-compatible class insert may retain same-tenant teacher identity before placement reconciliation'
 );
 select throws_ok(
   $$update public.register_classes
     set register_teacher_staff_id='facc1000-0000-4000-8000-000000000002'
     where id='40000000-0000-4000-8000-00000000001a'$$,
   'P0001',
-  'Register class teacher scope mismatch: staff member has no school assignment overlapping the academic year',
-  'same-tenant staff without a school assignment cannot be attached to the class'
-);
-select throws_ok(
-  $$update public.register_classes
-    set register_teacher_staff_id='facc1000-0000-4000-8000-000000000003'
-    where id='40000000-0000-4000-8000-00000000001a'$$,
-  'P0001',
-  'Register class teacher scope mismatch: staff member has no school assignment overlapping the academic year',
-  'historical school assignment outside the class academic year cannot be reused'
-);
-select lives_ok(
-  $$update public.register_classes
-    set register_teacher_staff_id=null
-    where id='40000000-0000-4000-8000-00000000001a'$$,
-  'register classes may remain temporarily unassigned'
-);
-select lives_ok(
-  $$update public.register_classes
-    set register_teacher_staff_id='facc1000-0000-4000-8000-000000000001'
-    where id='40000000-0000-4000-8000-00000000001a'$$,
-  'valid register teacher can be restored after readiness checks'
+  'Register teacher is not actively assigned to this school',
+  'changing an existing class to unplaced staff is blocked even through direct table mutation'
 );
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','facc0000-0000-4000-8000-000000000001',true);
 set local role authenticated;
+
+select is(
+  public.assign_register_teacher('40000000-0000-4000-8000-00000000001a','facc1000-0000-4000-8000-000000000001'),
+  true,
+  'governed mutation accepts active staff with placement overlapping the class academic year'
+);
+select is(
+  (select register_teacher_staff_id from public.register_classes where id='40000000-0000-4000-8000-00000000001a'),
+  'facc1000-0000-4000-8000-000000000001'::uuid,
+  'validated register-teacher assignment persists on the class'
+);
+select throws_ok(
+  $$select public.assign_register_teacher('40000000-0000-4000-8000-00000000001b','facc1000-0000-4000-8000-000000000002')$$,
+  'Register teacher is not actively assigned to this school',
+  'governed mutation rejects same-tenant staff with no school placement'
+);
+select throws_ok(
+  $$select public.assign_register_teacher('40000000-0000-4000-8000-00000000001b','facc1000-0000-4000-8000-000000000003')$$,
+  'Register teacher is not actively assigned to this school',
+  'governed mutation rejects a school placement outside the class academic year'
+);
+select is(
+  public.assign_register_teacher('40000000-0000-4000-8000-00000000001a',null),
+  true,
+  'management can deliberately clear a register teacher while readiness remains visible'
+);
+select is(
+  public.assign_register_teacher('40000000-0000-4000-8000-00000000001a','facc1000-0000-4000-8000-000000000001'),
+  true,
+  'validated register teacher can be restored'
+);
+select is(
+  (select count(*)::integer from public.audit_events
+   where entity_type='register_class'
+     and entity_id='40000000-0000-4000-8000-00000000001a'
+     and event_type in ('register_class.teacher_assigned','register_class.teacher_unassigned')),
+  3,
+  'governed class-teacher changes remain auditable'
+);
 
 create temporary table aec_teacher_snapshot on commit drop as
 select public.generate_statutory_snapshot('facc3000-0000-4000-8000-000000000003') as snapshot_id;
@@ -117,13 +149,25 @@ select is(
 select is(
   (select (s.values #>> '{structure,register_class_teacher_source,assigned_classes}')::integer
    from public.statutory_snapshots s join aec_teacher_snapshot x on x.snapshot_id=s.id),
-  (select count(*)::integer from public.register_classes where school_id='22222222-2222-4222-8222-222222222222' and academic_year=2026 and register_teacher_staff_id is not null),
-  'assigned class count matches configured teacher assignments'
+  2,
+  'snapshot distinguishes the two assigned classes from all unassigned classes'
+);
+select is(
+  (select (s.values #>> '{structure,register_class_teacher_source,verified_assigned_classes}')::integer
+   from public.statutory_snapshots s join aec_teacher_snapshot x on x.snapshot_id=s.id),
+  1,
+  'snapshot counts the governed valid class-teacher assignment as verified'
+);
+select is(
+  (select (s.values #>> '{structure,register_class_teacher_source,unverified_assigned_classes}')::integer
+   from public.statutory_snapshots s join aec_teacher_snapshot x on x.snapshot_id=s.id),
+  1,
+  'snapshot exposes the legacy same-tenant assignment without school placement as unverified'
 );
 select is(
   (select (s.values #>> '{structure,register_class_teacher_source,unassigned_classes}')::integer
    from public.statutory_snapshots s join aec_teacher_snapshot x on x.snapshot_id=s.id),
-  (select count(*)::integer from public.register_classes where school_id='22222222-2222-4222-8222-222222222222' and academic_year=2026 and register_teacher_staff_id is null),
+  (select count(*)::integer from public.register_classes where school_id='22222222-2222-4222-8222-222222222222' and academic_year=2026)-2,
   'unassigned class count remains explicit for statutory readiness'
 );
 select is(
@@ -136,13 +180,22 @@ select is(
   'class roster snapshot preserves the validated register-teacher identity'
 );
 select is(
-  (select item #>> '{register_teacher,employee_number}'
+  (select item #>> '{register_teacher,assignment_verified}'
    from public.statutory_snapshots s
    join aec_teacher_snapshot x on x.snapshot_id=s.id
    cross join lateral jsonb_array_elements(s.values #> '{structure,register_class_teacher_source,classes}') item
    where item->>'class_id'='40000000-0000-4000-8000-00000000001a'),
-  'AEC-T-001',
-  'class roster snapshot exposes known governed staff identity without inventing missing contact fields'
+  'true',
+  'validated register-teacher identity is marked verified in the statutory source'
+);
+select is(
+  (select item #>> '{register_teacher,assignment_verified}'
+   from public.statutory_snapshots s
+   join aec_teacher_snapshot x on x.snapshot_id=s.id
+   cross join lateral jsonb_array_elements(s.values #> '{structure,register_class_teacher_source,classes}') item
+   where item->>'class_id'='facc4000-0000-4000-8000-000000000001'),
+  'false',
+  'legacy assignment remains visible but explicitly unverified rather than silently trusted'
 );
 select is(
   (select count(*)::integer
