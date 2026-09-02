@@ -1,17 +1,22 @@
 begin;
 
-select plan(14);
+select plan(24);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
   ('fc700000-0000-4000-8000-000000000001','late-detention-scope@example.test','authenticated','authenticated',now(),now()),
-  ('fc700000-0000-4000-8000-000000000002','late-detention-scope-2@example.test','authenticated','authenticated',now(),now());
+  ('fc700000-0000-4000-8000-000000000002','late-detention-scope-2@example.test','authenticated','authenticated',now(),now()),
+  ('fc700000-0000-4000-8000-000000000003','late-detention-admin@example.test','authenticated','authenticated',now(),now());
 
 insert into public.learners(id,tenant_id,first_names,surname)
-values('fc710000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Scope','Learner A');
+values
+  ('fc710000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Scope','Learner A'),
+  ('fc710000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','Automatic','Learner');
 
 insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,enrolled_from,status)
-values('fc720000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc710000-0000-4000-8000-000000000001',2026,'2026-01-01','current');
+values
+  ('fc720000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc710000-0000-4000-8000-000000000001',2026,'2026-01-01','current'),
+  ('fc720000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc710000-0000-4000-8000-000000000002',2026,'2026-01-01','current');
 
 insert into public.staff_members(id,tenant_id,user_id,first_name,last_name,status)
 values
@@ -24,7 +29,25 @@ insert into public.school_memberships(
 )
 values
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc700000-0000-4000-8000-000000000001','fc730000-0000-4000-8000-000000000001','teacher','2026-01-01','2026-02-10'),
-  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc700000-0000-4000-8000-000000000002','fc730000-0000-4000-8000-000000000002','teacher','2026-01-01',null);
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc700000-0000-4000-8000-000000000002','fc730000-0000-4000-8000-000000000002','teacher','2026-01-01',null),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc700000-0000-4000-8000-000000000003',null,'school_admin','2026-01-01',null);
+
+insert into public.staff_school_assignments(
+  id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id
+) values
+  ('fc731000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc730000-0000-4000-8000-000000000001','teacher','2026-01-01','2026-02-03','fc700000-0000-4000-8000-000000000003'),
+  ('fc731000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc730000-0000-4000-8000-000000000002','teacher','2026-02-04',null,'fc700000-0000-4000-8000-000000000003');
+
+insert into public.school_late_arrival_policies(
+  school_id,tenant_id,cumulative_threshold,detention_weekday,carry_forward,active
+) values(
+  '22222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111',1,5,true,true
+)
+on conflict(school_id) do update
+set cumulative_threshold=excluded.cumulative_threshold,
+    detention_weekday=excluded.detention_weekday,
+    carry_forward=excluded.carry_forward,
+    active=excluded.active;
 
 insert into public.school_late_arrival_events(
   id,tenant_id,school_id,learner_id,enrolment_id,arrival_date,recorded_by_user_id
@@ -127,7 +150,7 @@ select lives_ok(
 
 select lives_ok(
   $$update public.late_detention_obligations set status='carried_forward', due_on='2026-02-13', rollover_count=1 where id='fc860000-0000-4000-8000-000000000001'$$,
-  'ordinary rollover remains allowed when the replacement staff placement covers the new due date'
+  'ordinary rollover remains allowed when the replacement supervisor placement covers the new date'
 );
 
 select throws_ok(
@@ -148,5 +171,101 @@ select is(
   'late detention obligations have exactly one scope-integrity trigger'
 );
 
+select is(
+  app_private.staff_member_has_school_assignment(
+    'fc730000-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222222','2026-02-06'
+  ),
+  true,
+  'legacy staff-linked school membership is accepted on the actual detention due date'
+);
+
+select is(
+  app_private.staff_member_has_school_assignment(
+    'fc730000-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222222','2026-02-13'
+  ),
+  false,
+  'expired school placement is rejected on a later detention date'
+);
+
+insert into public.late_detention_obligations(
+  id,tenant_id,school_id,learner_id,qualifying_late_count,due_on,status,academic_year,triggered_on,original_due_on
+) values(
+  'fc860000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+  'fc710000-0000-4000-8000-000000000001',1,'2026-02-06','pending',2026,'2026-02-03','2026-02-06'
+);
+
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fc700000-0000-4000-8000-000000000003',true);
+set local role authenticated;
+
+select ok(
+  public.record_school_late_arrival('fc720000-0000-4000-8000-000000000002','2026-02-03',null,'due-date supervisor QA') is not null,
+  'threshold late-arrival workflow creates its durable event under management authorization'
+);
+
+select is(
+  (select due_on from public.late_detention_obligations
+   where learner_id='fc710000-0000-4000-8000-000000000002' and academic_year=2026),
+  '2026-02-06'::date,
+  'automatic detention uses the configured next detention weekday'
+);
+
+select ok(
+  (select assigned_staff_member_id is not null
+      and app_private.staff_member_has_school_assignment(
+        assigned_staff_member_id,school_id,due_on
+      )
+   from public.late_detention_obligations
+   where learner_id='fc710000-0000-4000-8000-000000000002' and academic_year=2026),
+  'automatic supervisor selection is valid on the detention due date rather than merely on the arrival date'
+);
+
+select is(
+  public.reassign_late_detention_supervisor(
+    'fc860000-0000-4000-8000-000000000002','fc730000-0000-4000-8000-000000000001'
+  ),
+  true,
+  'manual reassignment validates historical placement on the obligation due date instead of current_date'
+);
+
+select is(
+  (select assigned_staff_member_id from public.late_detention_obligations where id='fc860000-0000-4000-8000-000000000002'),
+  'fc730000-0000-4000-8000-000000000001'::uuid,
+  'due-date-valid historical supervisor reassignment persists'
+);
+
+select ok(
+  public.roll_forward_late_detentions('22222222-2222-4222-8222-222222222222','2026-02-10') >= 1,
+  'roll-forward processes overdue detention obligations without aborting on expired supervisor placement'
+);
+
+select is(
+  (select due_on from public.late_detention_obligations where id='fc860000-0000-4000-8000-000000000002'),
+  '2026-02-13'::date,
+  'roll-forward moves the obligation to the next configured detention date'
+);
+
+select ok(
+  (select assigned_staff_member_id is distinct from 'fc730000-0000-4000-8000-000000000001'::uuid
+      and assigned_staff_member_id is not null
+      and app_private.staff_member_has_school_assignment(assigned_staff_member_id,school_id,due_on)
+   from public.late_detention_obligations
+   where id='fc860000-0000-4000-8000-000000000002'),
+  'roll-forward replaces an expired supervisor with staff valid on the new due date'
+);
+
+select is(
+  (select status from public.late_detention_obligations where id='fc860000-0000-4000-8000-000000000002'),
+  'carried_forward',
+  'roll-forward preserves the obligation lifecycle state while repairing supervision'
+);
+
+select ok(
+  not has_function_privilege('authenticated','app_private.staff_member_has_school_assignment(uuid,uuid,date)','EXECUTE')
+  and not has_function_privilege('anon','app_private.staff_member_has_school_assignment(uuid,uuid,date)','EXECUTE'),
+  'date-aware staff-placement helper remains private from client roles'
+);
+
+reset role;
 select * from finish();
 rollback;
