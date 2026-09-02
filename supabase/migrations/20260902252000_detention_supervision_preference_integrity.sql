@@ -29,11 +29,11 @@ begin
   where sm.id=new.staff_member_id;
 
   if v_staff_tenant is null or v_staff_tenant<>new.tenant_id then
-    raise exception 'Detention supervision preference scope mismatch: staff does not belong to tenant';
+    raise exception 'Detention supervision preference scope mismatch: staff member does not belong to tenant';
   end if;
 
   if not app_private.staff_member_has_school_assignment(new.staff_member_id,new.school_id,current_date) then
-    raise exception 'Detention supervision preference scope mismatch: staff is not currently assigned to school';
+    raise exception 'Detention supervision preference scope mismatch: staff member has no current school assignment';
   end if;
 
   if auth.uid() is not null then
