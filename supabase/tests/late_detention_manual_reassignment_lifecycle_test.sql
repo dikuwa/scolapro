@@ -104,6 +104,7 @@ select is(
   'manual audit preserves the authenticated actor'
 );
 
+reset role;
 select is(
   (select count(*)::integer from public.notifications
    where recipient_user_id='fcb00000-0000-4000-8000-000000000003'
@@ -112,6 +113,10 @@ select is(
   1,
   'newly assigned manual supervisor receives a notification'
 );
+
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fcb00000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 
 select is(
   public.reassign_late_detention_supervisor(
@@ -130,6 +135,7 @@ select is(
   'idempotent retry does not duplicate manual reassignment audit events'
 );
 
+reset role;
 select is(
   (select count(*)::integer from public.notifications
    where recipient_user_id='fcb00000-0000-4000-8000-000000000003'
@@ -139,6 +145,5 @@ select is(
   'idempotent retry does not duplicate supervisor notifications'
 );
 
-reset role;
 select * from finish();
 rollback;
