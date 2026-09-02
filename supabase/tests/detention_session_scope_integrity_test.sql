@@ -1,14 +1,24 @@
 begin;
 
-select plan(8);
+select plan(10);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
-values('fd700000-0000-4000-8000-000000000001','detention-session-scope@example.test','authenticated','authenticated',now(),now());
-
-insert into public.staff_members(id,tenant_id,first_name,last_name,status)
 values
-  ('fd710000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Scope','Supervisor A','active'),
-  ('fd710000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','Scope','Supervisor A2','active');
+  ('fd700000-0000-4000-8000-000000000001','detention-session-scope@example.test','authenticated','authenticated',now(),now()),
+  ('fd700000-0000-4000-8000-000000000002','detention-session-scope-2@example.test','authenticated','authenticated',now(),now());
+
+insert into public.staff_members(id,tenant_id,user_id,first_name,last_name,status)
+values
+  ('fd710000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fd700000-0000-4000-8000-000000000001','Scope','Supervisor A','active'),
+  ('fd710000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','fd700000-0000-4000-8000-000000000002','Scope','Supervisor A2','active'),
+  ('fd710000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111',null,'Scope','Unassigned Supervisor','active');
+
+insert into public.school_memberships(
+  tenant_id,school_id,user_id,staff_member_id,role_key,active_from,active_to
+)
+values
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd700000-0000-4000-8000-000000000001','fd710000-0000-4000-8000-000000000001','teacher','2026-01-01','2026-02-10'),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd700000-0000-4000-8000-000000000002','fd710000-0000-4000-8000-000000000002','teacher','2026-01-01',null);
 
 insert into public.tenants(id,name,slug)
 values('fd800000-0000-4000-8000-000000000001','Detention Session Scope Tenant B','detention-session-scope-b');
@@ -33,20 +43,33 @@ select throws_ok(
   'detention supervisor must match session tenant'
 );
 
+select throws_ok(
+  $$insert into public.detention_sessions(tenant_id,school_id,session_date,supervisor_staff_member_id,created_by_user_id)
+    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','2026-02-06','fd710000-0000-4000-8000-000000000003','fd700000-0000-4000-8000-000000000001')$$,
+  'Detention session scope mismatch: supervisor is not assigned to school on session date',
+  'same-tenant staff without a school placement cannot supervise detention'
+);
+
 select lives_ok(
   $$insert into public.detention_sessions(id,tenant_id,school_id,session_date,supervisor_staff_member_id,created_by_user_id)
     values('fd830000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','2026-02-06','fd710000-0000-4000-8000-000000000001','fd700000-0000-4000-8000-000000000001')$$,
-  'valid detention session remains allowed'
+  'valid detention session remains allowed while supervisor placement covers the session date'
+);
+
+select throws_ok(
+  $$update public.detention_sessions set session_date='2026-02-13' where id='fd830000-0000-4000-8000-000000000001'$$,
+  'Detention session scope mismatch: supervisor is not assigned to school on session date',
+  'rescheduling cannot carry a supervisor beyond the end of their school placement'
 );
 
 select lives_ok(
   $$update public.detention_sessions set supervisor_staff_member_id='fd710000-0000-4000-8000-000000000002' where id='fd830000-0000-4000-8000-000000000001'$$,
-  'same-tenant supervisor replacement remains allowed'
+  'replacement with another staff member assigned to the session school remains allowed'
 );
 
 select lives_ok(
   $$update public.detention_sessions set session_date='2026-02-13', status='completed', completed_at=now(), completed_by_user_id='fd700000-0000-4000-8000-000000000001' where id='fd830000-0000-4000-8000-000000000001'$$,
-  'normal detention session lifecycle and rescheduling fields remain mutable'
+  'normal rescheduling and lifecycle updates remain allowed when the replacement supervisor placement covers the new date'
 );
 
 select throws_ok(
