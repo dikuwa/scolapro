@@ -29,8 +29,9 @@ insert into public.learner_subject_registrations(
   ('fc8a5000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'60000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000002','fc8a3000-0000-4000-8000-000000000001','active','qa','fc8a0000-0000-4000-8000-000000000002',now());
 
 select ok(
-  not has_function_privilege('authenticated','app_private.can_read_learner_subject_registration(uuid,uuid,uuid)','EXECUTE'),
-  'authenticated clients cannot invoke the private registration-read helper directly'
+  has_function_privilege('authenticated','app_private.can_read_learner_subject_registration(uuid,uuid,uuid)','EXECUTE')
+  and not has_function_privilege('anon','app_private.can_read_learner_subject_registration(uuid,uuid,uuid)','EXECUTE'),
+  'narrow RLS predicate is executable only by authenticated clients'
 );
 select is(
   (select count(*)::integer from pg_policies where schemaname='public' and tablename='learner_subject_registrations' and policyname='scoped academic staff read learner subject registrations'),
