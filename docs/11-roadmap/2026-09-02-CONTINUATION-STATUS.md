@@ -95,11 +95,13 @@ Continue behavioral QA only where a new uncovered invariant is identified.
 
 ## Deployment and hosted-service verification
 
-**VERIFY**
+**HOSTED SUPABASE MIGRATION PARITY DONE AT THIS CHECKPOINT / RUNTIME VERIFY**
 
-GitHub migrations/tests are source-of-truth code readiness; a merged migration does not prove the connected hosted Supabase project has applied it. Before release, compare hosted migration state with `main` and keep live changes deliberate.
+A read-only hosted Supabase migration audit on 2 September 2026 confirmed that project `jhgumnvhoxmapmgotchu` contains repository migrations through `20260902264000_detention_attendance_outcome_finality`, matching the latest database migration on `main` at checkpoint `cc1e916b...`. No migration was applied by this audit.
 
-Supabase Auth leaked-password/HIBP protection remains a hosted configuration `VERIFY` item.
+That confirms hosted migration parity at this checkpoint; it does **not** by itself prove Vercel/runtime/browser behavior. Recheck parity after later migration merges rather than assuming it remains current indefinitely.
+
+The current Supabase security advisor still reports leaked-password/HIBP protection disabled. It also reports the expected broad family of exposed `SECURITY DEFINER` application RPCs; those warnings are not blanket defects because ScolaPro deliberately uses self-authorizing signed-in RPC boundaries. Audit individual functions and privilege tests rather than revoking application RPC execution wholesale. The anonymous invitation-preview RPC remains intentionally public.
 
 The Vercel connector currently returns zero projects for the connected team. Therefore do not claim:
 
@@ -122,7 +124,8 @@ Avoid touching the same files in parallel. Merge only after exact-head applicati
 1. Complete/merge the bounded issue #182 frontend lane after review without broadening authorization.
 2. Align detention-assignment notification href after that route exists.
 3. Continue behavioral-integrity audit only for genuinely uncovered domain invariants.
-4. Reconcile hosted Supabase migration state and deployment/runtime prerequisites without speculative production writes.
+4. Recheck hosted Supabase migration parity after any subsequent database merge; current parity is confirmed through `20260902264000`.
 5. Perform production/role browser QA once an authoritative Vercel project is visible/connected.
-6. Obtain a current authoritative Namibia AEC/EMIS source before form-specific mapping/export work.
-7. Complete consolidated UI/IA/responsive release QA after operational foundations stabilize.
+6. Enable and verify Supabase leaked-password protection before production onboarding when supported by the project plan.
+7. Obtain a current authoritative Namibia AEC/EMIS source before form-specific mapping/export work.
+8. Complete consolidated UI/IA/responsive release QA after operational foundations stabilize.
