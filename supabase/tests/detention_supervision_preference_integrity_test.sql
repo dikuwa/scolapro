@@ -85,14 +85,14 @@ select throws_ok(
 select throws_ok(
   $$insert into public.detention_supervision_preferences(tenant_id,school_id,staff_member_id,eligible)
     values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc950000-0000-4000-8000-000000000001',true)$$,
-  'Detention supervision preference scope mismatch: staff does not belong to tenant',
+  'Detention supervision preference scope mismatch: staff member does not belong to tenant',
   'preference staff must match tenant'
 );
 
 select throws_ok(
   $$insert into public.detention_supervision_preferences(tenant_id,school_id,staff_member_id,eligible)
     values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc910000-0000-4000-8000-000000000003',true)$$,
-  'Detention supervision preference scope mismatch: staff is not currently assigned to school',
+  'Detention supervision preference scope mismatch: staff member has no current school assignment',
   'same-tenant unplaced staff cannot receive a detention supervision preference'
 );
 
