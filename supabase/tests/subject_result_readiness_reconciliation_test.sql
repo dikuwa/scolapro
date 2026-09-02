@@ -42,8 +42,8 @@ insert into public.official_results(
 
 select ok(to_regprocedure('app_private.build_learner_subject_result_readiness(uuid,smallint)') is not null,'private subject-result readiness helper exists');
 select ok(not has_function_privilege('authenticated','app_private.build_learner_subject_result_readiness(uuid,smallint)','EXECUTE'),'private readiness builder cannot be invoked directly by authenticated clients');
-select ok(not has_function_privilege('anon','public.get_learner_subject_result_readiness(uuid,smallint)','EXECUTE'),'anonymous users cannot read learner subject-result readiness');
-select ok(has_function_privilege('authenticated','public.get_learner_subject_result_readiness(uuid,smallint)','EXECUTE'),'authenticated users can call the self-authorizing readiness RPC');
+select ok(not has_function_privilege('anon','public.get_learner_subject_result_readiness(uuid,integer)','EXECUTE'),'anonymous users cannot read learner subject-result readiness');
+select ok(has_function_privilege('authenticated','public.get_learner_subject_result_readiness(uuid,integer)','EXECUTE'),'authenticated users can call the self-authorizing readiness RPC');
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fa8c0000-0000-4000-8000-000000000002',true);
@@ -82,7 +82,7 @@ select is(
   'legacy-results detail identifies the unregistered result subject'
 );
 select throws_ok(
-  $$select public.get_learner_subject_result_readiness('60000000-0000-4000-8000-000000000001',0::smallint)$$,
+  $$select public.get_learner_subject_result_readiness('60000000-0000-4000-8000-000000000001',0)$$,
   'Term number is invalid',
   'invalid term numbers are rejected'
 );
