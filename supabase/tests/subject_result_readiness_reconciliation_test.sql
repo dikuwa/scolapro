@@ -87,6 +87,7 @@ select throws_ok(
   'invalid term numbers are rejected'
 );
 
+reset role;
 insert into public.official_results(
   id,tenant_id,school_id,academic_year,enrolment_id,learner_id,subject_offering_id,term_number,
   result_value,result_status,symbol,assessment_scheme_key,assessment_scheme_version,calculation_snapshot,
@@ -94,6 +95,9 @@ insert into public.official_results(
 ) values(
   'fa8c6000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'60000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001','fa8c3000-0000-4000-8000-000000000002',1,null,'withheld',null,'qa','v1','{}'::jsonb,'fa8c0000-0000-4000-8000-000000000001','2026-05-02','2026-05-02');
 
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fa8c0000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 create temporary table after_missing_fixed on commit drop as
 select public.get_learner_subject_result_readiness('60000000-0000-4000-8000-000000000001',1) data;
 select is((select (data->>'missing_registered_result_count')::integer from after_missing_fixed),0,'adding the missing registered result clears missing-result count');
