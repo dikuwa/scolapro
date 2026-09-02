@@ -58,16 +58,17 @@ select throws_ok($$select public.mark_import_batch_ready((select id from public.
 select is(public.stage_import_rows((select id from public.import_batches where source_file_name='subject-withdraw.csv'),'[{"row_number":2,"normalized":{"admission_number":"SREG-001","academic_year":2026,"subject_code":"SREG","action":"register"}}]'::jsonb),1,'invalid row can be corrected in staging');
 select is((public.reconcile_subject_registration_import_batch((select id from public.import_batches where source_file_name='subject-withdraw.csv'))->>'error')::integer,0,'corrected batch reconciles without errors');
 select is(public.mark_import_batch_ready((select id from public.import_batches where source_file_name='subject-withdraw.csv')),true,'corrected batch can be marked ready');
+select set_config('qa.subject_withdraw_batch_id',(select id::text from public.import_batches where source_file_name='subject-withdraw.csv'),true);
 reset role;
 
 select set_config('request.jwt.claim.sub','fca00000-0000-4000-8000-000000000002',true);
 set local role authenticated;
-select throws_ok($$select public.commit_subject_registration_import_batch((select id from public.import_batches where source_file_name='subject-withdraw.csv'))$$,'P0001','Permission denied','HOD cannot bypass the school import-management commit boundary');
+select throws_ok($$select public.commit_subject_registration_import_batch(current_setting('qa.subject_withdraw_batch_id')::uuid)$$,'P0001','Permission denied','HOD cannot bypass the school import-management commit boundary');
 reset role;
 
 select set_config('request.jwt.claim.sub','fca00000-0000-4000-8000-000000000001',true);
 set local role authenticated;
-select is((public.commit_subject_registration_import_batch((select id from public.import_batches where source_file_name='subject-withdraw.csv'))->>'updated')::integer,1,'authorized import manager commits the withdrawal update');
+select is((public.commit_subject_registration_import_batch(current_setting('qa.subject_withdraw_batch_id')::uuid)->>'updated')::integer,1,'authorized import manager commits the withdrawal update');
 reset role;
 
 select is((select status from public.learner_subject_registrations where enrolment_id='fca40000-0000-4000-8000-000000000002' and subject_offering_id='fca20000-0000-4000-8000-000000000001'),'withdrawn','withdraw action preserves identity and records withdrawn state');
