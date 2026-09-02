@@ -54,7 +54,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $$;
+as $$
 begin
   if tg_op = 'DELETE' then
     if old.status in ('approved','published','superseded') then
