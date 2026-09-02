@@ -6,8 +6,18 @@ insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fcb00000-0000-4000-8000-000000000001','subject-import-dupe@example.test','authenticated','authenticated',now(),now());
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
 values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcb00000-0000-4000-8000-000000000001','school_admin',current_date-5);
+
+insert into public.learners(id,tenant_id,first_names,surname,sex)
+values('fcb30000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Duplicate','Import Learner','female');
+insert into public.enrolments(
+  id,tenant_id,school_id,learner_id,academic_year,grade_id,register_class_id,admission_number,enrolled_from,status
+) values(
+  'fcb40000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+  'fcb30000-0000-4000-8000-000000000001',2026,'30000000-0000-4000-8000-000000000010','40000000-0000-4000-8000-00000000001a','DUP-001','2026-01-01','current'
+);
 insert into public.school_learner_identifiers(tenant_id,school_id,learner_id,admission_number,source)
-values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001','DUP-001','imported');
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcb30000-0000-4000-8000-000000000001','DUP-001','imported');
+
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status)
 values('fcb10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','DUPSUB','Duplicate Summary Subject','active');
 insert into public.subject_offerings(id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status)
