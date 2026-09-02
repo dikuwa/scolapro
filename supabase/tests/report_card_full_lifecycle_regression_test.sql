@@ -109,7 +109,7 @@ select lives_ok(
   $$select public.complete_report_card_render_job(
     (select j.id from public.report_card_render_jobs j join public.report_card_snapshots s on s.id=j.snapshot_id
       where s.enrolment_id='60000000-0000-4000-8000-000000000001' and s.term_number=1 and j.document_format='pdf' limit 1),
-    'report-card-artifacts','qa/lifecycle-report.pdf','abc123',1
+    'report-card-artifacts','qa/lifecycle-report.pdf','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1
   )$$,
   'render worker can register the ready learner PDF'
 );
@@ -125,7 +125,7 @@ select is(
 select lives_ok(
   $$select public.complete_report_card_batch_export(
     (select id from public.report_card_batches where scope_label='Lifecycle PDF' order by created_at desc limit 1),
-    'report-card-artifacts','qa/lifecycle-batch.zip','def456',1
+    'report-card-artifacts','qa/lifecycle-batch.zip','bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',1
   )$$,
   'export worker can complete the claimed combined artifact'
 );
