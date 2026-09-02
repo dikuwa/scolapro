@@ -135,8 +135,8 @@ select ok(
 select is(
   (select s.source_summary->>'generator'
    from public.statutory_snapshots s join aec_teacher_snapshot x on x.snapshot_id=s.id),
-  'school-operational-v2',
-  'snapshot records the upgraded statutory source generator version'
+  'school-operational-v3',
+  'snapshot records the current statutory source generator version'
 );
 select is(
   (select (s.values #>> '{structure,register_class_teacher_source,total_classes}')::integer
