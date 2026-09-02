@@ -51,7 +51,7 @@ insert into public.guardian_contacts(
 ),
 (
   'fdd50000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111',
-  'fdd30000-0000-4000-8000-000000000001','email','future@example.test',true,current_date+10,null
+  'fdd30000-0000-4000-8000-000000000001','email','future@example.test',false,current_date+10,null
 );
 
 insert into public.guardian_addresses(
@@ -63,7 +63,7 @@ insert into public.guardian_addresses(
 ),
 (
   'fdd60000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111',
-  'fdd30000-0000-4000-8000-000000000001','postal','Future Postal',true,current_date+10,null
+  'fdd30000-0000-4000-8000-000000000001','postal','Future Postal',false,current_date+10,null
 );
 
 select set_config('request.jwt.claim.role','authenticated',true);
