@@ -1,3 +1,4 @@
+-- Revalidated after guardian directory effective-period hardening landed on main.
 begin;
 
 select plan(8);
