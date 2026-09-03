@@ -32,6 +32,14 @@ export type DetentionPlanningSession = {
   }>;
 };
 
+type PlanningStaffRpcRow = {
+  staff_member_id: string;
+  employee_number: string | null;
+  first_name: string;
+  last_name: string;
+  eligible: boolean;
+};
+
 function addDays(value: string, days: number) {
   const date = new Date(`${value}T12:00:00`);
   date.setDate(date.getDate() + days);
@@ -42,7 +50,7 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
   const supabase = await createSupabaseServerClient();
   const horizon = addDays(today, 70);
 
-  const [sessionsResult, obligationsResult, assignmentsResult, preferencesResult] = await Promise.all([
+  const [sessionsResult, obligationsResult, staffResult] = await Promise.all([
     supabase
       .from("detention_sessions")
       .select("id,session_date,starts_at,ends_at,location,status")
@@ -58,29 +66,23 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
       .in("status", ["pending", "carried_forward"])
       .lte("due_on", horizon)
       .order("due_on", { ascending: true }),
-    supabase
-      .from("staff_school_assignments")
-      .select("staff_member_id,effective_from,effective_to")
-      .eq("school_id", schoolId)
-      .or(`effective_to.is.null,effective_to.gte.${today}`),
-    supabase
-      .from("detention_supervision_preferences")
-      .select("staff_member_id,eligible")
-      .eq("school_id", schoolId),
+    supabase.rpc("list_detention_planning_staff", {
+      p_school_id: schoolId,
+      p_from_date: today,
+      p_to_date: horizon,
+    }),
   ]);
 
-  if (sessionsResult.error || obligationsResult.error || assignmentsResult.error || preferencesResult.error) {
+  if (sessionsResult.error || obligationsResult.error || staffResult.error) {
     throw new Error("Unable to load detention planning data.");
   }
 
   const sessions = sessionsResult.data ?? [];
   const obligations = obligationsResult.data ?? [];
-  const assignments = assignmentsResult.data ?? [];
   const sessionIds = sessions.map((item) => item.id);
   const learnerIds = [...new Set(obligations.map((item) => item.learner_id))];
-  const staffIds = [...new Set(assignments.map((item) => item.staff_member_id))];
 
-  const [supervisorsResult, itemsResult, learnersResult, enrolmentsResult, staffResult] = await Promise.all([
+  const [supervisorsResult, itemsResult, learnersResult, enrolmentsResult] = await Promise.all([
     sessionIds.length
       ? supabase.from("detention_session_supervisors").select("detention_session_id,staff_member_id").in("detention_session_id", sessionIds)
       : Promise.resolve({ data: [], error: null }),
@@ -93,12 +95,9 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
     learnerIds.length
       ? supabase.from("enrolments").select("learner_id,register_class_id").eq("school_id", schoolId).eq("status", "current").in("learner_id", learnerIds)
       : Promise.resolve({ data: [], error: null }),
-    staffIds.length
-      ? supabase.from("staff_members").select("id,employee_number,first_name,last_name,status").in("id", staffIds)
-      : Promise.resolve({ data: [], error: null }),
   ]);
 
-  if (supervisorsResult.error || itemsResult.error || learnersResult.error || enrolmentsResult.error || staffResult.error) {
+  if (supervisorsResult.error || itemsResult.error || learnersResult.error || enrolmentsResult.error) {
     throw new Error("Unable to load detention planning details.");
   }
 
@@ -112,15 +111,13 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
   const learnerMap = new Map((learnersResult.data ?? []).map((item) => [item.id, item]));
   const enrolmentMap = new Map(enrolments.map((item) => [item.learner_id, item]));
   const classMap = new Map((classes ?? []).map((item) => [item.id, item.display_name]));
-  const preferenceMap = new Map((preferencesResult.data ?? []).map((item) => [item.staff_member_id, item.eligible]));
 
-  const staff: DetentionPlanningStaff[] = (staffResult.data ?? [])
-    .filter((item) => item.status === "active")
+  const staff: DetentionPlanningStaff[] = ((staffResult.data ?? []) as PlanningStaffRpcRow[])
     .map((item) => ({
-      id: item.id,
+      id: item.staff_member_id,
       name: `${item.first_name} ${item.last_name}`,
       employeeNumber: item.employee_number,
-      eligible: preferenceMap.get(item.id) ?? true,
+      eligible: item.eligible,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
