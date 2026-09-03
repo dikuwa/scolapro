@@ -54,7 +54,7 @@ begin
     raise exception 'Detention supervisor scope must match session';
   end if;
   if not app_private.staff_member_has_school_assignment(new.staff_member_id,v_session.school_id,v_session.session_date) then
-    raise exception 'Supervisor is not assigned to this school on the detention date';
+    raise exception 'Detention supervisor is not actively assigned to this school on the session date';
   end if;
   return new;
 end;
