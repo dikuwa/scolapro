@@ -59,6 +59,31 @@ export async function updatePlannedAllocation(_state: TimetableActionState, form
   return error ? { message: correctionError(error.message) } : finish("Planned teacher handover updated.");
 }
 
+export async function updateTimetableSlotRoom(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
+  const parsed = z.object({
+    slotId: z.string().uuid(),
+    roomId: z.union([z.string().uuid(), z.literal("")]),
+  }).safeParse({
+    slotId: formData.get("slotId"),
+    roomId: String(formData.get("roomId") ?? ""),
+  });
+  if (!parsed.success) return { message: "Choose a valid timetable slot and room." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("assign_timetable_slot_room", {
+    p_slot_id: parsed.data.slotId,
+    p_room_id: parsed.data.roomId || null,
+  });
+  if (error) {
+    if (error.message.includes("Permission denied")) return { message: "You do not have permission to change this timetable room." };
+    if (error.message.includes("not available for this school")) return { message: "That room is no longer available for this school. Refresh and choose another room." };
+    if (error.message.includes("already booked")) return { message: "That room is already booked for an overlapping timetable period. Choose another room." };
+    return { message: "The timetable room could not be updated. Refresh and try again." };
+  }
+
+  return finish(parsed.data.roomId ? "Timetable room updated." : "Room removed from the timetable slot.");
+}
+
 export async function cancelTimetableSlot(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
   const parsed = z.object({ slotId: z.string().uuid() }).safeParse({ slotId: formData.get("slotId") });
   if (!parsed.success) return { message: "This timetable slot could not be identified." };
