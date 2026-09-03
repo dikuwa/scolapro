@@ -1,6 +1,7 @@
 -- School-scoped raw staff identity reads must follow the target staff member's
 -- effective placement period. Historical or future placements are not current
 -- school identity authority. Platform Admin and self-read remain unchanged.
+-- Generic Platform Support remains excluded through has_school_membership_scope.
 
 create or replace function app_private.can_read_staff_identity(p_staff_member_id uuid)
 returns boolean
@@ -23,7 +24,7 @@ as $$
       where a.staff_member_id=p_staff_member_id
         and a.effective_from<=current_date
         and (a.effective_to is null or a.effective_to>=current_date)
-        and app_private.has_school_access(a.school_id)
+        and app_private.has_school_membership_scope(a.school_id)
     )
     or exists (
       select 1
@@ -31,7 +32,7 @@ as $$
       where target_membership.staff_member_id=p_staff_member_id
         and target_membership.active_from<=current_date
         and (target_membership.active_to is null or target_membership.active_to>=current_date)
-        and app_private.has_school_access(target_membership.school_id)
+        and app_private.has_school_membership_scope(target_membership.school_id)
     );
 $$;
 
@@ -39,4 +40,4 @@ revoke all on function app_private.can_read_staff_identity(uuid) from public,ano
 grant execute on function app_private.can_read_staff_identity(uuid) to authenticated;
 
 comment on function app_private.can_read_staff_identity(uuid) is
-'Allows Platform Admin, self-read, or current school-scoped staff identity access when the target staff member has an effective assignment or membership in a school the viewer can currently access.';
+'Allows Platform Admin, self-read, or current school-scoped staff identity access when the target has an effective assignment or membership and the viewer has strict identity/authoring scope for that school. Generic Platform Support is excluded.';
