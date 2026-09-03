@@ -33,7 +33,7 @@ export function TimetableMaintenanceHub({ schoolId, academicYear, workspace }: {
             </div>
           </div>
 
-          <div role="tablist" aria-label="Timetable maintenance areas" className="grid grid-cols-2 gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted p-1.5 sm:grid-cols-4 lg:min-w-[34rem]">
+          <div role="group" aria-label="Timetable maintenance areas" className="grid grid-cols-2 gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted p-1.5 sm:grid-cols-4 lg:min-w-[34rem]">
             {views.map((view) => {
               const Icon = view.icon;
               const active = activeView === view.id;
@@ -41,10 +41,7 @@ export function TimetableMaintenanceHub({ schoolId, academicYear, workspace }: {
                 <button
                   key={view.id}
                   type="button"
-                  role="tab"
-                  aria-selected={active}
-                  aria-controls={`timetable-maintenance-panel-${view.id}`}
-                  id={`timetable-maintenance-tab-${view.id}`}
+                  aria-pressed={active}
                   onClick={() => setActiveView(view.id)}
                   className={cn(
                     "flex min-h-12 min-w-0 items-center gap-2 rounded-[var(--radius-xs)] px-2.5 py-2 text-left outline-none transition duration-[var(--motion-fast)] focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]",
@@ -63,7 +60,7 @@ export function TimetableMaintenanceHub({ schoolId, academicYear, workspace }: {
         </div>
       </div>
 
-      <div role="tabpanel" id={`timetable-maintenance-panel-${activeView}`} aria-labelledby={`timetable-maintenance-tab-${activeView}`} tabIndex={0} className="outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]">
+      <div aria-live="polite">
         {activeView === "current" ? <TimetableCurrentMaintenance workspace={workspace} /> : null}
         {activeView === "future" ? <TimetablePlanManagement workspace={workspace} /> : null}
         {activeView === "offerings" ? <TimetableOfferingMaintenance schoolId={schoolId} academicYear={academicYear} offerings={workspace.offerings} /> : null}
