@@ -19,6 +19,12 @@ function localTodayIso() {
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 }
 
+function formatIsoDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day, 12);
+  return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "short", year: "numeric" }).format(date);
+}
+
 function useToastState(state: TimetableActionState) {
   useEffect(() => {
     if (!state.message) return;
@@ -59,11 +65,13 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
     setAllocationEnd("");
   }, [allocationState]);
 
+  const todayIso = localTodayIso();
   const allocationOffering = workspace.offerings.find((item) => item.id === allocationOfferingId);
   const allocationClassOptions = workspace.classes.filter((item) => !allocationOffering || item.gradeId === allocationOffering.gradeId);
   const slotAllocationOptions = workspace.allocations.filter((item) => !slotClassId || item.classId === slotClassId);
+  const upcomingAllocations = workspace.allocations.filter((item) => item.activeFrom > todayIso);
   const visibleSlots = viewerStaffId && !canManage ? workspace.slots.filter((slot) => slot.staffId === viewerStaffId) : workspace.slots;
-  const isFutureAllocation = allocationStart > localTodayIso();
+  const isFutureAllocation = allocationStart > todayIso;
 
   const scheduleGroups = useMemo(() => weekdayNames.map((day, index) => ({ day, weekday: index + 1, slots: visibleSlots.filter((slot) => slot.weekday === index + 1).sort((a, b) => a.periodNumber - b.periodNumber) })), [visibleSlots]);
   const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
@@ -105,6 +113,20 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
                 <div className="shrink-0"><SubmitButton pending={allocationPending} label={isFutureAllocation ? "Schedule handover" : "Assign teacher"} /></div>
               </div>
             </form>
+            {upcomingAllocations.length ? (
+              <div className="mt-4 border-t border-border-subtle pt-4">
+                <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold">Upcoming handovers</p><p className="mt-0.5 text-[0.66rem] text-muted-foreground">Future allocations stay out of the current timetable until their start date, but can already be used when planning future slots.</p></div><span className="rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.65rem] font-semibold text-brand-strong">{upcomingAllocations.length}</span></div>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {upcomingAllocations.slice(0, 6).map((item) => (
+                    <div key={item.id} className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5">
+                      <div className="flex items-center justify-between gap-2"><p className="truncate text-xs font-semibold">{item.subjectName} · {item.className}</p><span className="shrink-0 text-[0.62rem] font-medium text-brand-strong">{formatIsoDate(item.activeFrom)}</span></div>
+                      <p className="mt-1 truncate text-[0.68rem] text-muted-foreground">{item.staffName}{item.activeTo ? ` · until ${formatIsoDate(item.activeTo)}` : " · open ended"}</p>
+                    </div>
+                  ))}
+                </div>
+                {upcomingAllocations.length > 6 ? <p className="mt-2 text-[0.65rem] text-muted-foreground">+{upcomingAllocations.length - 6} more planned allocation{upcomingAllocations.length - 6 === 1 ? "" : "s"}.</p> : null}
+              </div>
+            ) : null}
           </section>
 
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -120,14 +142,14 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
           </section>
 
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-sky grid size-8 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span><div><h2 className="scolapro-section-title">Place timetable slot</h2><p className="scolapro-section-description !mt-0">Conflicts are blocked for classes, teachers and governed rooms.</p></div></div>
+            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-sky grid size-8 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span><div><h2 className="scolapro-section-title">Place timetable slot</h2><p className="scolapro-section-description !mt-0">Conflicts are blocked for classes, teachers and governed rooms. Future teacher allocations can be scheduled before their handover date.</p></div></div>
             <form action={slotAction} className="grid gap-3 sm:grid-cols-2 sm:items-end">
               <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
               <div><label htmlFor="cycle" className="text-xs font-medium">Cycle</label><input id="cycle" name="cycle" defaultValue="A" className={`${fieldClass} mt-1.5 uppercase`} /></div>
               <Picker label="Day" name="weekday" value={slotDay} onChange={setSlotDay} placeholder="Choose day" options={weekdayNames.map((day, index) => ({ value: String(index + 1), label: day }))} />
               <Picker label="Period" name="periodId" value={slotPeriodId} onChange={setSlotPeriodId} placeholder="Choose period" options={workspace.periods.filter((item) => item.isTeaching).map((item) => ({ value: item.id, label: item.name, helper: item.startsAt && item.endsAt ? `${item.startsAt.slice(0,5)}–${item.endsAt.slice(0,5)}` : undefined }))} />
               <Picker label="Class" name="classId" value={slotClassId} onChange={(value) => { setSlotClassId(value); setSlotAllocationId(""); }} placeholder="Choose class" options={workspace.classes.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }))} />
-              <Picker label="Teacher allocation" name="allocationId" value={slotAllocationId} onChange={setSlotAllocationId} placeholder="Choose subject and teacher" options={slotAllocationOptions.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.staffName}`, helper: item.className }))} />
+              <Picker label="Teacher allocation" name="allocationId" value={slotAllocationId} onChange={setSlotAllocationId} placeholder="Choose subject and teacher" options={slotAllocationOptions.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.staffName}`, helper: item.activeFrom > todayIso ? `${item.className} · starts ${formatIsoDate(item.activeFrom)}` : item.className }))} />
               <Picker label="Room" name="roomId" value={slotRoomId} onChange={setSlotRoomId} placeholder="No room" options={[{ value: "", label: "No room" }, ...workspace.rooms.map((item) => ({ value: item.id, label: item.name, helper: [item.code, item.block, item.capacity ? `${item.capacity} seats` : null].filter(Boolean).join(" · ") }))]} />
               <SubmitButton pending={slotPending} label="Add slot" />
             </form>
