@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +34,7 @@ export function Picker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const selected = options.find((option) => option.value === value);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const filteredOptions = searchable && normalizedQuery
@@ -45,12 +46,32 @@ export function Picker({
     setQuery("");
   };
 
+  function openPicker(initialQuery = "") {
+    setQuery(initialQuery);
+    setOpen(true);
+    if (searchable) requestAnimationFrame(() => searchInputRef.current?.focus());
+  }
+
+  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (disabled) return;
+    if (event.key === "ArrowDown" || event.key === "Enter" || event.key === " ") {
+      if (!open) {
+        event.preventDefault();
+        openPicker();
+      }
+      return;
+    }
+    if (!searchable || event.ctrlKey || event.metaKey || event.altKey || event.key.length !== 1) return;
+    event.preventDefault();
+    openPicker(event.key);
+  }
+
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) closePicker();
     };
-    const escape = (event: KeyboardEvent) => {
+    const escape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") closePicker();
     };
     document.addEventListener("pointerdown", close);
@@ -70,15 +91,16 @@ export function Picker({
         disabled={disabled}
         onClick={() => {
           if (open) closePicker();
-          else setOpen(true);
+          else openPicker();
         }}
+        onKeyDown={handleTriggerKeyDown}
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={ariaLabel || label || placeholder}
         className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55"
       >
         <span className={cn("min-w-0 truncate", selected ? "text-foreground" : "text-muted-foreground")}>{selected?.label ?? placeholder}</span>
-        <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} aria-hidden="true" />
+        {searchable ? <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} aria-hidden="true" />}
       </button>
       {open ? (
         <div className="absolute inset-x-0 top-full z-50 mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-sm)]">
@@ -86,7 +108,7 @@ export function Picker({
             <div className="relative mb-1.5">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
-                autoFocus
+                ref={searchInputRef}
                 type="search"
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}

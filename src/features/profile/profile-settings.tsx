@@ -4,29 +4,28 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { changePassword, deleteAvatar, uploadAvatar, type ProfileActionState } from "@/features/profile/server/actions";
+import { changePassword, deleteAvatar, saveUploadedAvatar, type ProfileActionState } from "@/features/profile/server/actions";
 import { Spinner } from "@/components/ui/spinner";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const initialState: ProfileActionState = {};
+const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxAvatarBytes = 3 * 1024 * 1024;
 
-export function ProfileSettings({ avatarUrl, mustChangePassword }: { avatarUrl: string | null; mustChangePassword: boolean }) {
+function avatarExtension(file: File) {
+  if (file.type === "image/png") return "png";
+  if (file.type === "image/webp") return "webp";
+  return "jpg";
+}
+
+export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { avatarUrl: string | null; userId: string; mustChangePassword: boolean }) {
   const router = useRouter();
-  const [avatarState, avatarAction, avatarPending] = useActionState(uploadAvatar, initialState);
   const [passwordState, passwordAction, passwordPending] = useActionState(changePassword, initialState);
   const [deletePending, startDelete] = useTransition();
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(avatarUrl);
   const [fileName, setFileName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!avatarState.message) return;
-    if (avatarState.success) {
-      toast.success(avatarState.message);
-      router.refresh();
-    } else {
-      toast.error(avatarState.message);
-    }
-  }, [avatarState, router]);
 
   useEffect(() => {
     if (!passwordState.message) return;
@@ -34,18 +33,84 @@ export function ProfileSettings({ avatarUrl, mustChangePassword }: { avatarUrl: 
     else toast.error(passwordState.message);
   }, [passwordState]);
 
+  useEffect(() => () => {
+    if (previewUrl?.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
   function choosePreview(file?: File) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (!allowedAvatarTypes.has(file.type)) {
       toast.error("Choose a JPG, PNG or WebP image.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
+    if (file.size > maxAvatarBytes) {
+      toast.error("Avatar images must be 3 MB or smaller.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setFileName(file.name);
     const objectUrl = URL.createObjectURL(file);
     setPreviewUrl((current) => {
       if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
       return objectUrl;
     });
+  }
+
+  async function uploadSelectedAvatar() {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) {
+      toast.error("Choose an image first.");
+      return;
+    }
+    if (!allowedAvatarTypes.has(file.type)) {
+      toast.error("Use a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size > maxAvatarBytes) {
+      toast.error("Avatar images must be 3 MB or smaller.");
+      return;
+    }
+
+    setAvatarUploading(true);
+    const path = `${userId}/avatar-${Date.now()}-${crypto.randomUUID()}.${avatarExtension(file)}`;
+    const supabase = createSupabaseBrowserClient();
+
+    try {
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
+        contentType: file.type,
+        cacheControl: "3600",
+        upsert: false,
+      });
+      if (uploadError) {
+        const lower = uploadError.message.toLocaleLowerCase();
+        if (lower.includes("row-level") || lower.includes("unauthorized")) toast.error("Your session could not upload this photo. Refresh the page and try again.");
+        else if (lower.includes("mime") || lower.includes("content type")) toast.error("Use a JPG, PNG or WebP image.");
+        else if (lower.includes("size") || lower.includes("limit")) toast.error("Avatar images must be 3 MB or smaller.");
+        else toast.error("The avatar could not be uploaded. Please try again.");
+        return;
+      }
+
+      const result = await saveUploadedAvatar(path);
+      if (!result.success) {
+        await supabase.storage.from("avatars").remove([path]);
+        toast.error(result.message ?? "The avatar could not be saved to your profile.");
+        return;
+      }
+
+      const publicUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+      setPreviewUrl((current) => {
+        if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
+        return `${publicUrl}?v=${Date.now()}`;
+      });
+      setFileName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      toast.success(result.message ?? "Profile photo updated.");
+      router.refresh();
+    } finally {
+      setAvatarUploading(false);
+    }
   }
 
   return (
@@ -58,13 +123,13 @@ export function ProfileSettings({ avatarUrl, mustChangePassword }: { avatarUrl: 
             {previewUrl ? <img src={previewUrl} alt="Current profile" className="size-full object-cover" /> : <div className="grid size-full place-items-center text-xs font-medium text-muted-foreground">No photo</div>}
           </div>
           <div className="min-w-0 flex-1">
-            <form action={avatarAction} className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input ref={fileInputRef} id="avatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => choosePreview(event.target.files?.[0])} />
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-foreground transition hover:bg-surface-subtle"><ImagePlus className="size-3.5" aria-hidden="true" /> Choose photo</button>
+              <button type="button" disabled={avatarUploading} onClick={() => fileInputRef.current?.click()} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-foreground transition hover:bg-surface-subtle disabled:opacity-60"><ImagePlus className="size-3.5" aria-hidden="true" /> Choose photo</button>
               <span className="max-w-48 truncate text-xs text-muted-foreground">{fileName || (avatarUrl ? "Current photo" : "No photo selected")}</span>
-              <button type="submit" disabled={avatarPending || !fileName} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50">{avatarPending ? <Spinner className="size-3.5 text-white" /> : <Camera className="size-3.5" />} {avatarPending ? "Uploading…" : "Update"}</button>
-            </form>
-            {avatarUrl ? <button type="button" disabled={deletePending} onClick={() => startDelete(async () => { const result = await deleteAvatar(); if (result.success) { setPreviewUrl(null); router.refresh(); toast.success(result.message); } else toast.error(result.message); })} className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] px-3 text-xs font-medium text-[color:var(--danger)] hover:bg-danger-soft disabled:opacity-60">{deletePending ? <Spinner className="size-3.5" /> : <Trash2 className="size-3.5" />} Remove photo</button> : null}
+              <button type="button" onClick={uploadSelectedAvatar} disabled={avatarUploading || !fileName} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50">{avatarUploading ? <Spinner className="size-3.5 text-white" /> : <Camera className="size-3.5" />} {avatarUploading ? "Uploading…" : "Update"}</button>
+            </div>
+            {avatarUrl ? <button type="button" disabled={deletePending || avatarUploading} onClick={() => startDelete(async () => { const result = await deleteAvatar(); if (result.success) { setPreviewUrl(null); setFileName(""); if (fileInputRef.current) fileInputRef.current.value = ""; router.refresh(); toast.success(result.message); } else toast.error(result.message); })} className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] px-3 text-xs font-medium text-[color:var(--danger)] hover:bg-danger-soft disabled:opacity-60">{deletePending ? <Spinner className="size-3.5" /> : <Trash2 className="size-3.5" />} Remove photo</button> : null}
           </div>
         </div>
       </section>

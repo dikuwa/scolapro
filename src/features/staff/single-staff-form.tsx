@@ -43,36 +43,35 @@ export function SingleStaffForm({ schoolId, today, suggestedEmployeeNumber }: { 
 
       <form action={action} className="mt-5 space-y-4" noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
           <div>
-            <label htmlFor="staff-employee-number" className="text-xs font-medium">Employee number</label>
+            <label htmlFor="staff-employee-number" className="text-xs font-medium leading-4">Employee number</label>
             <input id="staff-employee-number" name="employeeNumber" defaultValue={suggestedEmployeeNumber} className={`${fieldClass} mt-1.5 uppercase`} placeholder="EMP-001" autoCapitalize="characters" />
             <p className="mt-1 text-[0.68rem] text-muted-foreground">Suggested automatically and still editable. Duplicate numbers are blocked before a new identity can be created.</p>
             <FieldError messages={state.fieldErrors?.employeeNumber} />
           </div>
           <div>
-            <label htmlFor="staff-position-title" className="text-xs font-medium">Position title <span className="font-normal text-muted-foreground">(optional)</span></label>
+            <label htmlFor="staff-position-title" className="text-xs font-medium leading-4">Position title <span className="font-normal text-muted-foreground">(optional)</span></label>
             <input id="staff-position-title" name="positionTitle" className={`${fieldClass} mt-1.5`} placeholder="Science Teacher" />
             <p className="mt-1 text-[0.68rem] text-muted-foreground">Human-readable school position; access permissions are assigned separately.</p>
             <FieldError messages={state.fieldErrors?.positionTitle} />
           </div>
           <div>
-            <label htmlFor="staff-first-name" className="text-xs font-medium">First name</label>
+            <label htmlFor="staff-first-name" className="text-xs font-medium leading-4">First name</label>
             <input id="staff-first-name" name="firstName" className={`${fieldClass} mt-1.5`} placeholder="First name" autoComplete="given-name" />
             <FieldError messages={state.fieldErrors?.firstName} />
           </div>
           <div>
-            <label htmlFor="staff-last-name" className="text-xs font-medium">Last name</label>
+            <label htmlFor="staff-last-name" className="text-xs font-medium leading-4">Last name</label>
             <input id="staff-last-name" name="lastName" className={`${fieldClass} mt-1.5`} placeholder="Last name" autoComplete="family-name" />
             <FieldError messages={state.fieldErrors?.lastName} />
           </div>
           <div>
             <Picker label="Placement type" name="assignmentType" value={assignmentType} onChange={setAssignmentType} placeholder="Choose placement type" options={assignmentOptions} />
+            <p className="mt-1 text-[0.65rem] text-muted-foreground">Operational placement category; sign-in permissions remain governed separately.</p>
             <FieldError messages={state.fieldErrors?.assignmentType} />
           </div>
-          <div>
-            <DateField label="Placement starts" name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} required error={state.fieldErrors?.effectiveFrom?.[0]} />
-          </div>
+          <DateField label="Placement starts" name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} required error={state.fieldErrors?.effectiveFrom?.[0]} />
         </div>
 
         <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3 text-[0.68rem] leading-relaxed text-muted-foreground">
