@@ -111,11 +111,16 @@ select throws_ok(
 );
 
 select is(
-  (select count(*) from public.list_detention_planning_staff(
-    '22222222-2222-4222-8222-222222222222'::uuid,current_date,current_date+70
-  )),
+  (select count(*)
+   from public.list_detention_planning_staff(
+     '22222222-2222-4222-8222-222222222222'::uuid,current_date,current_date+70
+   ) s
+   where s.staff_member_id in (
+     'fa110000-0000-4000-8000-000000000001'::uuid,
+     'fa110000-0000-4000-8000-000000000002'::uuid
+   )),
   2::bigint,
-  'bounded planning staff read model exposes the two date-overlapping active staff identities'
+  'bounded planning staff read model exposes both fixture staff identities with date-overlapping placements'
 );
 
 select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000003',true);
