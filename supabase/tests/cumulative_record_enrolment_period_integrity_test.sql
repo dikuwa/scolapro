@@ -1,6 +1,6 @@
 begin;
 
-select plan(13);
+select plan(14);
 
 select trigger_is(
   'public','learner_health_history','learner_health_history_temporal_scope_guard',
