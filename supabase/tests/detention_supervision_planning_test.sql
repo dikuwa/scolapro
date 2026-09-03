@@ -67,6 +67,10 @@ select is(
   'both supervisors persist on the session duty team'
 );
 
+-- Verify durable notification persistence outside recipient-scoped RLS rather than
+-- weakening notification isolation merely to make the planning test observable.
+reset role;
+
 select is(
   (select count(*) from public.notifications where recipient_user_id='fa100000-0000-4000-8000-000000000002' and title='Detention duty scheduled'),
   1::bigint,
@@ -78,6 +82,10 @@ select is(
   1::bigint,
   'secondary account-linked supervisor receives an in-app notification'
 );
+
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 
 select is(
   public.assign_detention_session_learners(
@@ -134,6 +142,10 @@ select lives_ok(
   $$select * from public.list_my_detention_supervision(false,1,25)$$,
   'existing self-scoped detention supervision read model remains usable for the assigned supervisor'
 );
+
+-- Audit persistence is a durable provenance assertion, not an end-user audit visibility
+-- assertion. Inspect it outside RLS so the test does not broaden the production policy.
+reset role;
 
 select is(
   (select count(*) from public.audit_events where event_type in ('detention.session.created','detention.session.supervisors_updated','detention.session.learners_allocated') and entity_id=(select id from public.detention_sessions where notes='Advance planning QA')),
