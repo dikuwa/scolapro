@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(4);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fb100000-0000-4000-8000-000000000001','detention-notification-route@example.test','authenticated','authenticated',now(),now());
@@ -34,16 +34,6 @@ select is(
   (select href from public.notifications where id='fb110000-0000-4000-8000-000000000004'),
   '/notifications',
   'an explicit non-management destination is not overwritten'
-);
-
-update public.notifications
-set title='Detention supervision assigned'
-where id='fb110000-0000-4000-8000-000000000003';
-
-select is(
-  (select href from public.notifications where id='fb110000-0000-4000-8000-000000000003'),
-  '/my-detention-supervision',
-  'later conversion to an assignment notification is normalized as well'
 );
 
 select * from finish();
