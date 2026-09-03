@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(7);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fd500000-0000-4000-8000-000000000001','observation-allocation@example.test','authenticated','authenticated',now(),now());
@@ -71,22 +71,12 @@ select is(
     '50000000-0000-4000-8000-000000000001'
   ),
   true,
-  'active teacher allocation grants observation access while placement is current'
+  'active teacher allocation grants observation access while placement and enrolment are current'
 );
 
 update public.staff_school_assignments
 set effective_to=current_date-1
 where id='fd520000-0000-4000-8000-000000000001';
-
-select is(
-  app_private.staff_member_has_school_assignment(
-    'fd510000-0000-4000-8000-000000000001',
-    '22222222-2222-4222-8222-222222222222',
-    current_date
-  ),
-  false,
-  'school placement ends independently of the historical teacher allocation'
-);
 
 select is(
   app_private.can_access_learner_observations(
@@ -95,6 +85,48 @@ select is(
   ),
   false,
   'open teacher allocation no longer grants learner observation access after placement ends'
+);
+
+update public.staff_school_assignments
+set effective_to=null
+where id='fd520000-0000-4000-8000-000000000001';
+
+update public.enrolments
+set enrolled_from=current_date+1,
+    enrolled_to=null
+where learner_id='50000000-0000-4000-8000-000000000001'
+  and school_id='22222222-2222-4222-8222-222222222222'
+  and status='current';
+
+select is(
+  app_private.can_access_learner_observations(
+    '22222222-2222-4222-8222-222222222222',
+    '50000000-0000-4000-8000-000000000001'
+  ),
+  false,
+  'future-start current-status enrolment does not expose learner observations early'
+);
+
+update public.enrolments
+set enrolled_from=current_date-30,
+    enrolled_to=current_date-1
+where learner_id='50000000-0000-4000-8000-000000000001'
+  and school_id='22222222-2222-4222-8222-222222222222'
+  and status='current';
+
+select is(
+  app_private.can_access_learner_observations(
+    '22222222-2222-4222-8222-222222222222',
+    '50000000-0000-4000-8000-000000000001'
+  ),
+  false,
+  'ended current-status enrolment does not retain learner observation authority'
+);
+
+select is(
+  (select count(*)::integer from public.teacher_allocations where staff_member_id='fd510000-0000-4000-8000-000000000001'),
+  1,
+  'historical teacher allocation remains stored while effective-period authority is removed'
 );
 
 select * from finish();
