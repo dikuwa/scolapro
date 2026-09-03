@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { BookOpenCheck, CalendarDays, ClipboardCheck, Clock3, Plus, UserRoundCheck } from "lucide-react";
 import { toast } from "sonner";
+import { DateField } from "@/components/ui/date-field";
 import { Picker, TimePicker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { saveAllocation, saveOffering, savePeriod, saveSlot, saveSubject, type TimetableActionState } from "@/features/timetable/server/actions";
@@ -12,6 +13,11 @@ import type { TimetableWorkspace } from "@/features/timetable/server/workspace";
 
 const initialState: TimetableActionState = {};
 const weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+
+function localTodayIso() {
+  const today = new Date();
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+}
 
 function useToastState(state: TimetableActionState) {
   useEffect(() => {
@@ -37,6 +43,8 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
   const [allocationOfferingId, setAllocationOfferingId] = useState("");
   const [allocationClassId, setAllocationClassId] = useState("");
   const [allocationStaffId, setAllocationStaffId] = useState("");
+  const [allocationStart, setAllocationStart] = useState(localTodayIso);
+  const [allocationEnd, setAllocationEnd] = useState("");
   const [slotDay, setSlotDay] = useState("");
   const [slotPeriodId, setSlotPeriodId] = useState("");
   const [slotClassId, setSlotClassId] = useState("");
@@ -45,10 +53,17 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
 
+  useEffect(() => {
+    if (!allocationState.success) return;
+    setAllocationStart(localTodayIso());
+    setAllocationEnd("");
+  }, [allocationState.success]);
+
   const allocationOffering = workspace.offerings.find((item) => item.id === allocationOfferingId);
   const allocationClassOptions = workspace.classes.filter((item) => !allocationOffering || item.gradeId === allocationOffering.gradeId);
   const slotAllocationOptions = workspace.allocations.filter((item) => !slotClassId || item.classId === slotClassId);
   const visibleSlots = viewerStaffId && !canManage ? workspace.slots.filter((slot) => slot.staffId === viewerStaffId) : workspace.slots;
+  const isFutureAllocation = allocationStart > localTodayIso();
 
   const scheduleGroups = useMemo(() => weekdayNames.map((day, index) => ({ day, weekday: index + 1, slots: visibleSlots.filter((slot) => slot.weekday === index + 1).sort((a, b) => a.periodNumber - b.periodNumber) })), [visibleSlots]);
   const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
@@ -76,13 +91,19 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
           </section>
 
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-mint grid size-8 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Teacher allocations</h2><p className="scolapro-section-description !mt-0">Connect a teacher to an offered subject and class. This allocation is reused by timetable, marks and planning.</p></div></div>
+            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-mint grid size-8 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Teacher allocations</h2><p className="scolapro-section-description !mt-0">Connect a teacher to an offered subject and class. Set effective dates to prepare a replacement before a planned handover.</p></div></div>
             <form action={allocationAction} className="grid gap-3 sm:grid-cols-2 sm:items-end">
               <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
               <Picker label="Subject offering" name="offeringId" value={allocationOfferingId} onChange={(value) => { setAllocationOfferingId(value); setAllocationClassId(""); }} placeholder="Choose subject and grade" options={workspace.offerings.map((item) => ({ value: item.id, label: item.subjectName, helper: `${item.gradeName} · ${item.periodsPerCycle} periods/cycle` }))} />
               <Picker label="Register class" name="classId" value={allocationClassId} onChange={setAllocationClassId} placeholder="Choose class" options={allocationClassOptions.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }))} />
               <Picker label="Teacher" name="staffId" value={allocationStaffId} onChange={setAllocationStaffId} placeholder="Choose staff member" options={workspace.staff.map((item) => ({ value: item.id, label: item.name, helper: item.employeeNumber ? `Employee ${item.employeeNumber}` : undefined }))} />
-              <div className="flex items-end"><SubmitButton pending={allocationPending} label="Assign teacher" /></div>
+              <div className="hidden sm:block" aria-hidden="true" />
+              <DateField label="Starts on" name="activeFrom" value={allocationStart} onChange={(value) => { setAllocationStart(value); if (allocationEnd && value && allocationEnd < value) setAllocationEnd(""); }} required error={allocationState.fieldErrors?.activeFrom?.[0]} />
+              <DateField label="Ends on" name="activeTo" value={allocationEnd} onChange={setAllocationEnd} min={allocationStart || undefined} error={allocationState.fieldErrors?.activeTo?.[0]} />
+              <div className="sm:col-span-2 flex flex-col gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-[0.68rem] leading-relaxed text-muted-foreground">{isFutureAllocation ? "Planned handover: this teacher becomes active on the selected future date." : "The allocation starts on the selected date. Leave the end date empty for an open-ended assignment."}</p>
+                <div className="shrink-0"><SubmitButton pending={allocationPending} label={isFutureAllocation ? "Schedule handover" : "Assign teacher"} /></div>
+              </div>
             </form>
           </section>
 
