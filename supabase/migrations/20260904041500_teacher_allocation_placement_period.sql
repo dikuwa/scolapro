@@ -122,7 +122,9 @@ begin
     raise exception 'Teacher allocation scope mismatch: staff member does not belong to tenant';
   end if;
 
-  if not app_private.staff_member_covers_school_period(
+  -- Trusted bootstrap/history writes may not have request identity. Governed application
+  -- writes always do, and must stay inside the teacher's effective school placement.
+  if auth.uid() is not null and not app_private.staff_member_covers_school_period(
     new.staff_member_id,new.school_id,new.active_from,new.active_to
   ) then
     raise exception 'Teacher allocation period must be covered by an active staff school placement';
