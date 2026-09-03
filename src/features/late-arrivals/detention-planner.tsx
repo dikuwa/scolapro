@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { CalendarDays, Check, Users } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
@@ -21,16 +21,51 @@ import type {
 const initialState: DetentionPlanningActionState = {};
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+  return new Intl.DateTimeFormat("en-NA", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(`${value}T12:00:00`));
 }
 
 function nextFriday(today: string) {
   const date = new Date(`${today}T12:00:00`);
-  const day = date.getDay();
-  let delta = (5 - day + 7) % 7;
-  if (delta === 0 && day === 5) delta = 0;
+  const delta = (5 - date.getDay() + 7) % 7;
   date.setDate(date.getDate() + delta);
   return date.toISOString().slice(0, 10);
+}
+
+function toggleValue(values: string[], value: string) {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
+
+function StaffChoice({
+  member,
+  checked,
+  onToggle,
+}: {
+  member: DetentionPlanningStaff;
+  checked: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex min-h-10 w-full items-center gap-2 rounded-[var(--radius-xs)] border px-2.5 text-left transition ${
+        checked ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-transparent hover:bg-surface-muted"
+      }`}
+    >
+      <span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>
+        {checked ? <Check className="size-3" aria-hidden="true" /> : null}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-medium">{member.name}</span>
+        <span className="block truncate text-[0.65rem] text-muted-foreground">{member.employeeNumber ?? "Staff member"}</span>
+      </span>
+    </button>
+  );
 }
 
 export function DetentionPlanner({
@@ -54,88 +89,102 @@ export function DetentionPlanner({
   const [selectedSessionId, setSelectedSessionId] = useState(sessions[0]?.id ?? "");
   const [editingTeam, setEditingTeam] = useState<string[]>(sessions[0]?.supervisorIds ?? []);
   const [selectedObligations, setSelectedObligations] = useState<string[]>([]);
-  const [allocationSupervisor, setAllocationSupervisor] = useState("");
-
-  const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
-  const eligibleStaff = staff.filter((member) => member.eligible);
-  const staffMap = useMemo(() => new Map(staff.map((member) => [member.id, member])), [staff]);
-  const alreadyScheduled = useMemo(() => new Set(sessions.flatMap((session) => session.learnerAssignments.filter((item) => item.attendanceStatus === "scheduled").map((item) => item.obligationId))), [sessions]);
-  const eligibleQueue = selectedSession
-    ? queue.filter((item) => item.dueOn <= selectedSession.sessionDate && (!alreadyScheduled.has(item.obligationId) || selectedSession.learnerAssignments.some((assignment) => assignment.obligationId === item.obligationId)))
-    : [];
-  const groupedQueue = useMemo(() => {
-    const groups = new Map<string, DetentionPlanningLearner[]>();
-    for (const item of eligibleQueue) groups.set(item.registerClass, [...(groups.get(item.registerClass) ?? []), item]);
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [eligibleQueue]);
+  const [allocationSupervisor, setAllocationSupervisor] = useState(sessions[0]?.supervisorIds[0] ?? "");
 
   useEffect(() => {
-    for (const state of [createState, teamState, allocateState]) {
+    const states = [createState, teamState, allocateState];
+    for (const state of states) {
       if (!state.message) continue;
       if (state.success) toast.success(state.message);
       else toast.error(state.message);
     }
   }, [createState, teamState, allocateState]);
 
-  const chooseSession = (id: string) => {
-    setSelectedSessionId(id);
-    const session = sessions.find((item) => item.id === id);
-    setEditingTeam(session?.supervisorIds ?? []);
-    setAllocationSupervisor(session?.supervisorIds[0] ?? "");
-    setSelectedObligations([]);
-  };
+  const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
+  const eligibleStaff = staff.filter((member) => member.eligible);
+  const staffById = new Map(staff.map((member) => [member.id, member]));
+  const scheduledElsewhere = new Set(
+    sessions.flatMap((session) =>
+      session.learnerAssignments
+        .filter((item) => item.attendanceStatus === "scheduled" && session.id !== selectedSessionId)
+        .map((item) => item.obligationId),
+    ),
+  );
+  const eligibleQueue = selectedSession
+    ? queue.filter((item) => item.dueOn <= selectedSession.sessionDate && !scheduledElsewhere.has(item.obligationId))
+    : [];
+  const groups = new Map<string, DetentionPlanningLearner[]>();
+  for (const item of eligibleQueue) groups.set(item.registerClass, [...(groups.get(item.registerClass) ?? []), item]);
+  const groupedQueue = [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
 
-  const toggle = (values: string[], value: string, setter: (next: string[]) => void) => {
-    setter(values.includes(value) ? values.filter((item) => item !== value) : [...values, value]);
+  const selectSession = (session: DetentionPlanningSession) => {
+    setSelectedSessionId(session.id);
+    setEditingTeam(session.supervisorIds);
+    setAllocationSupervisor(session.supervisorIds[0] ?? "");
+    setSelectedObligations([]);
   };
 
   const toggleClass = (items: DetentionPlanningLearner[]) => {
     const ids = items.map((item) => item.obligationId);
     const allSelected = ids.every((id) => selectedObligations.includes(id));
-    setSelectedObligations((current) => allSelected ? current.filter((id) => !ids.includes(id)) : [...new Set([...current, ...ids])]);
+    setSelectedObligations((current) => allSelected
+      ? current.filter((id) => !ids.includes(id))
+      : [...new Set([...current, ...ids])]);
   };
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
       <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
         <div className="flex items-start gap-3">
-          <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span>
+          <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
+            <CalendarDays className="size-4" aria-hidden="true" />
+          </span>
           <div>
             <h2 className="scolapro-section-title">Friday detention planning</h2>
-            <p className="scolapro-section-description">Schedule the duty team weeks ahead, then allocate whole classes or individual learners to a supervisor. Staff with linked accounts receive an in-app duty notification.</p>
+            <p className="scolapro-section-description">Schedule staff weeks ahead, then allocate a whole class group or individual learners to each supervisor. Account-linked staff receive an in-app duty notification.</p>
           </div>
         </div>
       </div>
 
       <div className="grid gap-5 p-4 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)] sm:p-5">
-        <div className="space-y-4">
+        <div className="space-y-5">
           <form action={createAction} className="rounded-[var(--radius-md)] bg-surface-muted/55 p-4">
             <input type="hidden" name="schoolId" value={schoolId} />
             {newTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}
             <h3 className="text-sm font-semibold">Plan a detention date</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Use the coming Friday or schedule several weeks ahead. The database validates that each selected staff member is actually placed at this school on that date.</p>
+            <p className="mt-1 text-xs text-muted-foreground">The coming Friday is preselected. You can also roster detention several weeks ahead.</p>
             <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={setSessionDate} min={today} required className="mt-3" />
             <div className="mt-3 grid grid-cols-2 gap-2">
               <label className="text-xs font-medium">Starts at<input name="startsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
               <label className="text-xs font-medium">Ends at<input name="endsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
             </div>
             <label className="mt-3 block text-xs font-medium">Location<input name="location" placeholder="e.g. Room 12" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
-            <div className="mt-3">
+
+            <div className="mt-4">
               <p className="text-xs font-medium">Duty team</p>
-              <div className="mt-1.5 max-h-52 space-y-1 overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-2">
-                {eligibleStaff.map((member) => {
-                  const checked = newTeam.includes(member.id);
-                  return <button key={member.id} type="button" onClick={() => toggle(newTeam, member.id, setNewTeam)} className="flex min-h-10 w-full items-center gap-2 rounded-[var(--radius-xs)] px-2 text-left hover:bg-surface-muted"><span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? <Check className="size-3" /> : null}</span><span className="min-w-0"><span className="block truncate text-xs font-medium">{member.name}</span><span className="block truncate text-[0.65rem] text-muted-foreground">{member.employeeNumber ?? "Staff member"}</span></span></button>;
-                })}
+              <div className="mt-1.5 max-h-56 space-y-1 overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-2">
+                {eligibleStaff.map((member) => (
+                  <StaffChoice key={member.id} member={member} checked={newTeam.includes(member.id)} onToggle={() => setNewTeam((current) => toggleValue(current, member.id))} />
+                ))}
               </div>
+              <p className="mt-1.5 text-[0.65rem] text-muted-foreground">Any active school staff member may supervise if detention-eligible and placed at the school on the selected date.</p>
             </div>
-            <button type="submit" disabled={createPending || !newTeam.length} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">{createPending ? <Spinner className="size-4 text-white" /> : <CalendarDays className="size-4" />}{createPending ? "Scheduling…" : "Schedule detention"}</button>
+
+            <button type="submit" disabled={createPending || !newTeam.length} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">
+              {createPending ? <Spinner className="size-4 text-white" /> : <CalendarDays className="size-4" aria-hidden="true" />}
+              {createPending ? "Scheduling…" : "Schedule detention"}
+            </button>
           </form>
 
           <div>
-            <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Upcoming dates</h3><span className="text-xs text-muted-foreground">{sessions.length} planned</span></div>
+            <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Upcoming dates</h3><span className="text-xs text-muted-foreground">{sessions.length} planned</span></div>
             <div className="mt-2 space-y-2">
-              {sessions.map((session) => <button key={session.id} type="button" onClick={() => chooseSession(session.id)} className={`w-full rounded-[var(--radius-sm)] border p-3 text-left transition ${selectedSessionId === session.id ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-border-subtle bg-surface hover:border-border"}`}><div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{formatDate(session.sessionDate)}</span><span className="text-[0.65rem] text-muted-foreground">{session.supervisorIds.length} staff · {session.learnerAssignments.length} learners</span></div><p className="mt-1 text-[0.65rem] text-muted-foreground">{session.location ?? "Location not set"}{session.startsAt ? ` · ${session.startsAt.slice(0,5)}` : ""}</p></button>)}
+              {sessions.map((session) => (
+                <button key={session.id} type="button" onClick={() => selectSession(session)} className={`w-full rounded-[var(--radius-sm)] border p-3 text-left transition ${selectedSessionId === session.id ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-border-subtle bg-surface hover:border-border"}`}>
+                  <div className="flex items-center justify-between gap-2"><span className="text-xs font-semibold">{formatDate(session.sessionDate)}</span><span className="text-[0.65rem] text-muted-foreground">{session.supervisorIds.length} staff · {session.learnerAssignments.length} learners</span></div>
+                  <p className="mt-1 text-[0.65rem] text-muted-foreground">{session.location ?? "Location not set"}{session.startsAt ? ` · ${session.startsAt.slice(0, 5)}` : ""}</p>
+                </button>
+              ))}
               {!sessions.length ? <div className="rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-xs text-muted-foreground">No upcoming detention dates have been scheduled yet.</div> : null}
             </div>
           </div>
@@ -145,12 +194,19 @@ export function DetentionPlanner({
           {selectedSession ? (
             <div className="space-y-4">
               <div className="rounded-[var(--radius-md)] border border-border-subtle p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-semibold">{formatDate(selectedSession.sessionDate)}</p><p className="mt-1 text-xs text-muted-foreground">Manage who supervises this date before distributing learners.</p></div><span className="rounded-[var(--radius-xs)] bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-strong">{selectedSession.supervisorIds.length} supervisors</span></div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div><p className="text-sm font-semibold">{formatDate(selectedSession.sessionDate)}</p><p className="mt-1 text-xs text-muted-foreground">Manage this date’s duty team before distributing learners.</p></div>
+                  <span className="rounded-[var(--radius-xs)] bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-strong">{selectedSession.supervisorIds.length} supervisors</span>
+                </div>
                 <form action={teamAction} className="mt-3">
                   <input type="hidden" name="sessionId" value={selectedSession.id} />
                   {editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{eligibleStaff.map((member) => { const checked = editingTeam.includes(member.id); return <button key={member.id} type="button" onClick={() => toggle(editingTeam, member.id, setEditingTeam)} className={`flex min-h-10 items-center gap-2 rounded-[var(--radius-sm)] border px-2.5 text-left ${checked ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-border-subtle bg-surface"}`}><span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? <Check className="size-3" /> : null}</span><span className="truncate text-xs font-medium">{member.name}</span></button>; })}</div>
-                  <button type="submit" disabled={teamPending || !editingTeam.length || editingTeam.join("|") === selectedSession.supervisorIds.join("|")} className="mt-3 min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-45">{teamPending ? "Saving team…" : "Save duty team"}</button>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {eligibleStaff.map((member) => (
+                      <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />
+                    ))}
+                  </div>
+                  <button type="submit" disabled={teamPending || !editingTeam.length} className="mt-3 min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-45">{teamPending ? "Saving team…" : "Save duty team"}</button>
                 </form>
               </div>
 
@@ -158,20 +214,51 @@ export function DetentionPlanner({
                 <input type="hidden" name="sessionId" value={selectedSession.id} />
                 {selectedObligations.map((id) => <input key={id} type="hidden" name="obligationIds" value={id} />)}
                 <input type="hidden" name="supervisorStaffMemberId" value={allocationSupervisor} />
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h3 className="text-sm font-semibold">Allocate learners</h3><p className="mt-1 text-xs text-muted-foreground">Select a whole class group or individual learners, then assign them to one member of this Friday’s duty team.</p></div><div className="w-full sm:max-w-xs"><Picker ariaLabel="Allocate selected learners to supervisor" value={allocationSupervisor} onChange={setAllocationSupervisor} placeholder="Choose supervisor" searchable searchPlaceholder="Search duty team" options={selectedSession.supervisorIds.map((id) => ({ value: id, label: staffMap.get(id)?.name ?? "Supervisor", helper: staffMap.get(id)?.employeeNumber ?? undefined }))} /></div></div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div><h3 className="text-sm font-semibold">Allocate learners</h3><p className="mt-1 text-xs text-muted-foreground">Select a whole class group or individual learners, then assign them to one supervisor.</p></div>
+                  <div className="w-full sm:max-w-xs">
+                    <Picker ariaLabel="Allocate selected learners to supervisor" value={allocationSupervisor} onChange={setAllocationSupervisor} placeholder="Choose supervisor" searchable searchPlaceholder="Search duty team" options={selectedSession.supervisorIds.map((id) => ({ value: id, label: staffById.get(id)?.name ?? "Supervisor", helper: staffById.get(id)?.employeeNumber ?? undefined }))} />
+                  </div>
+                </div>
 
                 <div className="mt-4 space-y-3">
                   {groupedQueue.map(([className, items]) => {
                     const allSelected = items.every((item) => selectedObligations.includes(item.obligationId));
-                    return <div key={className} className="overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle"><button type="button" onClick={() => toggleClass(items)} className="flex min-h-10 w-full items-center justify-between gap-3 bg-surface-muted/55 px-3 text-left"><span className="text-xs font-semibold">{className}</span><span className="text-[0.65rem] font-medium text-muted-foreground">{allSelected ? "Clear class" : `Select all ${items.length}`}</span></button><div className="divide-y divide-border-subtle">{items.map((item) => { const checked = selectedObligations.includes(item.obligationId); const currentAssignment = selectedSession.learnerAssignments.find((assignment) => assignment.obligationId === item.obligationId); return <button key={item.obligationId} type="button" onClick={() => toggle(selectedObligations, item.obligationId, setSelectedObligations)} className="flex min-h-11 w-full items-center gap-2 px-3 text-left hover:bg-surface-muted/45"><span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? <Check className="size-3" /> : null}</span><span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium">{item.learnerName}</span><span className="block text-[0.65rem] text-muted-foreground">Due {formatDate(item.dueOn)}{currentAssignment?.supervisorStaffMemberId ? ` · assigned to ${staffMap.get(currentAssignment.supervisorStaffMemberId)?.name ?? "supervisor"}` : ""}</span></span></button>; })}</div></div>;
+                    return (
+                      <div key={className} className="overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle">
+                        <button type="button" onClick={() => toggleClass(items)} className="flex min-h-10 w-full items-center justify-between gap-3 bg-surface-muted/55 px-3 text-left"><span className="text-xs font-semibold">{className}</span><span className="text-[0.65rem] font-medium text-muted-foreground">{allSelected ? "Clear class" : `Select all ${items.length}`}</span></button>
+                        <div className="divide-y divide-border-subtle">
+                          {items.map((item) => {
+                            const checked = selectedObligations.includes(item.obligationId);
+                            const currentAssignment = selectedSession.learnerAssignments.find((assignment) => assignment.obligationId === item.obligationId);
+                            return (
+                              <button key={item.obligationId} type="button" onClick={() => setSelectedObligations((current) => toggleValue(current, item.obligationId))} className="flex min-h-11 w-full items-center gap-2 px-3 text-left hover:bg-surface-muted/45">
+                                <span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? <Check className="size-3" aria-hidden="true" /> : null}</span>
+                                <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium">{item.learnerName}</span><span className="block text-[0.65rem] text-muted-foreground">Due {formatDate(item.dueOn)}{currentAssignment?.supervisorStaffMemberId ? ` · assigned to ${staffById.get(currentAssignment.supervisorStaffMemberId)?.name ?? "supervisor"}` : ""}</span></span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
                   })}
                   {!groupedQueue.length ? <div className="rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-xs text-muted-foreground">No eligible open detention obligations for this date.</div> : null}
                 </div>
 
-                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">{selectedObligations.length} learner{selectedObligations.length === 1 ? "" : "s"} selected</p><button type="submit" disabled={allocatePending || !allocationSupervisor || !selectedObligations.length} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">{allocatePending ? <Spinner className="size-4 text-white" /> : <Users className="size-4" />}{allocatePending ? "Assigning…" : "Assign selected learners"}</button></div>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">{selectedObligations.length} learner{selectedObligations.length === 1 ? "" : "s"} selected</p>
+                  <button type="submit" disabled={allocatePending || !allocationSupervisor || !selectedObligations.length} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">
+                    {allocatePending ? <Spinner className="size-4 text-white" /> : <Users className="size-4" aria-hidden="true" />}
+                    {allocatePending ? "Assigning…" : "Assign selected learners"}
+                  </button>
+                </div>
               </form>
             </div>
-          ) : <div className="grid min-h-72 place-items-center rounded-[var(--radius-md)] border border-dashed border-border p-6 text-center"><div><Users className="mx-auto size-6 text-muted-foreground" /><p className="mt-2 text-sm font-semibold">Plan a detention date first</p><p className="mt-1 max-w-sm text-xs text-muted-foreground">Once a Friday session exists, you can assign several staff and distribute learners by class or individually.</p></div></div>}
+          ) : (
+            <div className="grid min-h-72 place-items-center rounded-[var(--radius-md)] border border-dashed border-border p-6 text-center">
+              <div><Users className="mx-auto size-6 text-muted-foreground" aria-hidden="true" /><p className="mt-2 text-sm font-semibold">Plan a detention date first</p><p className="mt-1 max-w-sm text-xs text-muted-foreground">Once a Friday session exists, you can assign several staff and distribute learners by class or individually.</p></div>
+            </div>
+          )}
         </div>
       </div>
     </section>
