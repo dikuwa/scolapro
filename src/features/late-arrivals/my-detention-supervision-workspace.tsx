@@ -29,10 +29,8 @@ function AssignmentCard({ item }: { item: MyDetentionSupervisionPage["items"][nu
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) {
-      toast.success(state.message);
-      setConfirming(false);
-    } else toast.error(state.message);
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [state]);
 
   return (
