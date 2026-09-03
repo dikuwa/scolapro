@@ -43,6 +43,8 @@ values(
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fd600000-0000-4000-8000-000000000001',true);
 
+-- Revalidated after learner-observation effective-period hardening: school-side
+-- guardian authority must still follow the learner enrolment start boundary.
 select is(
   app_private.can_manage_guardians_for_learner('50000000-0000-4000-8000-000000000001'),
   true,
