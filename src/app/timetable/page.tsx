@@ -1,6 +1,7 @@
 import { BookOpenCheck, CalendarDays, Clock3, UserRoundCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { TimetablePlanManagement } from "@/features/timetable/timetable-plan-management";
 import { TimetableWorkspaceView } from "@/features/timetable/timetable-workspace";
 import { getTimetableWorkspace } from "@/features/timetable/server/workspace";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -15,6 +16,7 @@ export default async function TimetablePage() {
   const academicYear = new Date().getFullYear();
   const workspace = await getTimetableWorkspace(membership.schoolId, academicYear);
   const canManage = membership.roleKey === "school_admin";
+  const scheduledSlotCount = workspace.slots.length + workspace.plannedSlots.length;
 
   return (
     <AppShell>
@@ -24,9 +26,10 @@ export default async function TimetablePage() {
           <div className="flex items-center justify-between gap-3 px-4 py-4"><div><p className="text-xs font-medium text-muted-foreground">Subjects</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-indigo)]">{workspace.subjects.length}</p></div><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><BookOpenCheck className="size-4" /></span></div>
           <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Allocations</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-mint)]">{workspace.allocations.length}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span></div>
           <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Periods</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-amber)]">{workspace.periods.length}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span></div>
-          <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Scheduled slots</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-sky)]">{workspace.slots.length}</p></div><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span></div>
+          <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Scheduled slots</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-sky)]">{scheduledSlotCount}</p></div><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span></div>
         </div>
         <TimetableWorkspaceView schoolId={membership.schoolId} academicYear={academicYear} canManage={canManage} viewerStaffId={membership.staffMemberId} workspace={workspace} />
+        {canManage ? <div className="mt-5"><TimetablePlanManagement workspace={workspace} /></div> : null}
       </section>
     </AppShell>
   );
