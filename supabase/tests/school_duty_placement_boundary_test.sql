@@ -81,7 +81,7 @@ select is(
 
 select throws_ok(
   $$select public.record_school_late_arrival(
-    (select id from public.enrolments where school_id='22222222-2222-4222-8222-222222222222' and status='current' order by created_at limit 1),
+    '60000000-0000-4000-8000-000000000001'::uuid,
     current_date,
     '08:10'::time,
     'duty placement boundary regression'
