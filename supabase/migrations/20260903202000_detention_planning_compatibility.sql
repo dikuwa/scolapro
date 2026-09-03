@@ -47,7 +47,7 @@ begin
 
   if p_supervisor_staff_member_id is not null
     and not app_private.staff_member_has_school_assignment(p_supervisor_staff_member_id,p_school_id,p_session_date) then
-    raise exception 'Supervisor is not assigned to this school on the detention date';
+    raise exception 'Detention supervisor is not actively assigned to this school on the session date';
   end if;
 
   insert into public.detention_sessions(
