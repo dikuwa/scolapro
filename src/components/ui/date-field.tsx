@@ -141,7 +141,7 @@ export function DateField({ label, name, value, onChange, required = false, erro
 
   return (
     <div ref={rootRef} className={cn("min-w-0", className)}>
-      <label className="text-xs font-medium" htmlFor={`${name}-typed`}>{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label>
+      <label className="text-xs font-medium leading-4" htmlFor={`${name}-typed`}>{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label>
       <input type="hidden" name={name} value={value} />
       <div className="relative mt-1.5">
         <div className={cn("scolapro-control-surface flex min-h-10 w-full items-center overflow-hidden rounded-[var(--radius-sm)]", visibleError ? "border-[color:var(--danger)]/45 focus-within:border-[color:var(--danger)]/55 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--danger)_10%,transparent),var(--shadow-sm)]" : "hover:border-border")}>
