@@ -66,7 +66,7 @@ export function TimetableCurrentMaintenance({ workspace }: { workspace: Timetabl
       {workspace.slots.length ? (
         <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="min-w-0">
-            <Picker label="Current timetable slot" name="currentSlotPicker" value={slotId} onChange={selectSlot} placeholder="Choose a live lesson" options={slotOptions} />
+            <Picker label="Current timetable slot" name="currentSlotPicker" value={slotId} onChange={selectSlot} placeholder="Choose a live lesson" options={slotOptions} searchable searchPlaceholder="Search class, subject or teacher" />
             {selectedSlot ? (
               <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold">{selectedSlot.subjectName} · {selectedSlot.className}</p><span className="text-[0.64rem] font-medium text-[color:var(--accent-sky)]">{weekdays[selectedSlot.weekday - 1] ?? `Day ${selectedSlot.weekday}`} · {selectedSlot.periodName}</span></div>
@@ -79,7 +79,7 @@ export function TimetableCurrentMaintenance({ workspace }: { workspace: Timetabl
           <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
             <form action={roomAction} className="rounded-[var(--radius-sm)] border border-border-subtle p-3">
               <input type="hidden" name="slotId" value={slotId} />
-              <Picker label="Room assignment" name="roomId" value={roomId} onChange={setRoomId} placeholder="Choose room" options={roomOptions} disabled={!selectedSlot || roomPending} />
+              <Picker label="Room assignment" name="roomId" value={roomId} onChange={setRoomId} placeholder="Choose room" options={roomOptions} disabled={!selectedSlot || roomPending} searchable={roomOptions.length > 8} searchPlaceholder="Search room, block or code" />
               <p className="mt-2 text-[0.66rem] leading-relaxed text-muted-foreground">Room conflicts are checked against overlapping timetable allocation periods before the change is saved.</p>
               <button type="submit" disabled={!selectedSlot || roomPending} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-xs)] bg-brand px-3 text-xs font-semibold text-white transition hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50">{roomPending ? <Spinner className="size-3.5 text-white" /> : <DoorOpen className="size-3.5" aria-hidden="true" />}{roomPending ? "Saving…" : roomId ? "Update room" : "Remove room"}</button>
             </form>
