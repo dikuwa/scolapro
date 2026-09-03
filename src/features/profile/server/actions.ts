@@ -5,33 +5,33 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ProfileActionState = { success?: boolean; message?: string };
 
-const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const avatarPathPattern = /^([0-9a-f-]{36})\/avatar-[0-9]+-[0-9a-f-]{36}\.(jpg|png|webp)$/i;
 
-export async function uploadAvatar(_state: ProfileActionState, formData: FormData): Promise<ProfileActionState> {
+export async function saveUploadedAvatar(path: string): Promise<ProfileActionState> {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: "Sign in again before changing your avatar." };
 
-  const file = formData.get("avatar");
-  if (!(file instanceof File) || !file.size) return { success: false, message: "Choose an image first." };
-  if (!allowedTypes.has(file.type)) return { success: false, message: "Use a JPG, PNG or WebP image." };
-  if (file.size > 3 * 1024 * 1024) return { success: false, message: "Avatar images must be 3 MB or smaller." };
+  const match = avatarPathPattern.exec(path);
+  if (!match || match[1] !== user.id) return { success: false, message: "The uploaded avatar path is invalid." };
 
-  const { data: profile } = await supabase.from("user_profiles").select("avatar_path").eq("user_id", user.id).maybeSingle();
-  const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  const path = `${user.id}/avatar-${Date.now()}.${extension}`;
-  const bytes = await file.arrayBuffer();
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("avatar_path")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profileError) return { success: false, message: "Your profile could not be loaded." };
 
-  const { error: uploadError } = await supabase.storage.from("avatars").upload(path, bytes, { contentType: file.type, upsert: false });
-  if (uploadError) return { success: false, message: "The avatar could not be uploaded." };
+  const { error: updateError } = await supabase
+    .from("user_profiles")
+    .update({ avatar_path: path, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (updateError) return { success: false, message: "The avatar could not be saved to your profile." };
 
-  const { error: updateError } = await supabase.from("user_profiles").update({ avatar_path: path, updated_at: new Date().toISOString() }).eq("user_id", user.id);
-  if (updateError) {
-    await supabase.storage.from("avatars").remove([path]);
-    return { success: false, message: "The avatar could not be saved to your profile." };
+  if (profile?.avatar_path && profile.avatar_path !== path) {
+    await supabase.storage.from("avatars").remove([profile.avatar_path]);
   }
 
-  if (profile?.avatar_path && profile.avatar_path !== path) await supabase.storage.from("avatars").remove([profile.avatar_path]);
   revalidatePath("/", "layout");
   return { success: true, message: "Profile photo updated." };
 }
@@ -41,9 +41,24 @@ export async function deleteAvatar(): Promise<ProfileActionState> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: "Sign in again before changing your avatar." };
 
-  const { data: profile } = await supabase.from("user_profiles").select("avatar_path").eq("user_id", user.id).maybeSingle();
-  if (profile?.avatar_path) await supabase.storage.from("avatars").remove([profile.avatar_path]);
-  await supabase.from("user_profiles").update({ avatar_path: null, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("avatar_path")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profileError) return { success: false, message: "Your profile could not be loaded." };
+
+  if (profile?.avatar_path) {
+    const { error: removeError } = await supabase.storage.from("avatars").remove([profile.avatar_path]);
+    if (removeError) return { success: false, message: "The profile photo could not be removed from storage." };
+  }
+
+  const { error: updateError } = await supabase
+    .from("user_profiles")
+    .update({ avatar_path: null, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (updateError) return { success: false, message: "The profile photo could not be cleared from your account." };
+
   revalidatePath("/", "layout");
   return { success: true, message: "Profile photo removed." };
 }
