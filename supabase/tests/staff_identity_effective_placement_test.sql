@@ -1,3 +1,4 @@
+-- Revalidation marker after school-duty placement boundary merged to main.
 begin;
 
 select plan(6);
