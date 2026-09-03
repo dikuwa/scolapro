@@ -2,6 +2,11 @@
 -- effective today. Future-scheduled rows are not current evidence and must not
 -- suppress today's imported address or prevent it from becoming the current
 -- primary address.
+--
+-- When a future primary is already scheduled, a newly imported current primary
+-- is bounded to the day before the next scheduled primary begins. This preserves
+-- both current correctness and the future schedule while satisfying the existing
+-- one-open-primary invariant.
 
 create or replace function public.commit_guardian_import_batch(p_batch_id uuid)
 returns jsonb
@@ -16,7 +21,7 @@ declare
   learner_id uuid; guardian_id uuid; matches uuid[]; contacts jsonb;
   identity_value text; first_value text; surname_value text; email_value text; phones text[];
   existing boolean; created_count int:=0; linked_count int:=0; skipped_count int:=0;
-  address_type text; address_value text; address_primary boolean;
+  address_type text; address_value text; address_primary boolean; address_effective_to date;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   select * into b from public.import_batches where id=p_batch_id for update;
@@ -98,8 +103,23 @@ begin
           and ga.effective_from<=current_date
           and (ga.effective_to is null or ga.effective_to>=current_date)
       );
-      insert into public.guardian_addresses(tenant_id,guardian_id,address_type,label,address_line_1,country,is_primary,created_by_user_id)
-      values(b.tenant_id,guardian_id,address_type,initcap(address_type),address_value,'Namibia',address_primary,auth.uid());
+      address_effective_to:=null;
+      if address_primary then
+        select min(ga.effective_from)-1
+          into address_effective_to
+        from public.guardian_addresses ga
+        where ga.guardian_id=guardian_id
+          and ga.address_type=address_type
+          and ga.is_primary
+          and ga.effective_from>current_date;
+      end if;
+      insert into public.guardian_addresses(
+        tenant_id,guardian_id,address_type,label,address_line_1,country,
+        is_primary,effective_from,effective_to,created_by_user_id
+      ) values(
+        b.tenant_id,guardian_id,address_type,initcap(address_type),address_value,'Namibia',
+        address_primary,current_date,address_effective_to,auth.uid()
+      );
     end loop;
 
     insert into public.import_commit_results(batch_id,import_row_id,entity_type,entity_id,outcome,message)
@@ -119,4 +139,4 @@ revoke all on function public.commit_guardian_import_batch(uuid) from public,ano
 grant execute on function public.commit_guardian_import_batch(uuid) to authenticated;
 
 comment on function public.commit_guardian_import_batch(uuid) is
-'Commits a ready guardian import atomically. Guardian address deduplication and primary selection use addresses effective on the commit date; future schedules remain untouched.';
+'Commits a ready guardian import atomically. Address matching and primary selection use rows effective today; a newly imported current primary is bounded to the day before the next scheduled primary so future schedules remain intact.';
