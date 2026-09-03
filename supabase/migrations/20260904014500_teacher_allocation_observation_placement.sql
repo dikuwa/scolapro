@@ -1,7 +1,7 @@
--- Teacher allocations are historical scheduling records. They must not continue
--- granting learner-observation authority after the allocated staff member's actual
--- school placement ends. Reuse the governed placement helper so assignment and
--- staff-linked membership sources share one effective-period rule.
+-- Learner-observation authority must follow both sides of the effective relationship:
+-- the learner must be currently enrolled at the school, and teacher-allocation access
+-- must be backed by a current governed staff placement. Historical scheduling rows
+-- remain intact without continuing sensitive learner access.
 
 create or replace function app_private.can_access_learner_observations(
   p_school_id uuid,
@@ -31,6 +31,8 @@ as $$
       where e.school_id=p_school_id
         and e.learner_id=p_learner_id
         and e.status='current'
+        and e.enrolled_from<=current_date
+        and (e.enrolled_to is null or e.enrolled_to>=current_date)
         and (
           (
             register_staff.user_id=(select auth.uid())
@@ -71,4 +73,4 @@ grant execute on function app_private.can_access_learner_observations(uuid,uuid)
 to authenticated;
 
 comment on function app_private.can_access_learner_observations(uuid,uuid) is
-'Learner-observation access is limited to Platform Admin, current authorised school leadership/counselling, current register-teacher scope, or an active teacher allocation backed by a current governed staff placement at that school.';
+'Learner-observation access is limited to Platform Admin, current authorised school leadership/counselling, or current class/teacher scope for a learner whose school enrolment is effective today; teacher-allocation access also requires current governed staff placement.';
