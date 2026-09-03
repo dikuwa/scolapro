@@ -25,33 +25,56 @@ insert into public.staff_school_assignments(
   'fd500000-0000-4000-8000-000000000001'
 );
 
--- Use the seeded learner/class and any active offering for that class grade/year so
--- this regression exercises the real teacher-allocation relationship without
--- hard-coding an offering id.
-insert into public.teacher_allocations(
-  tenant_id,school_id,academic_year,subject_offering_id,register_class_id,staff_member_id,active_from
+-- Build a dedicated subject/offering around the canonical seeded learner so the
+-- regression does not depend on optional seed curriculum offerings.
+insert into public.subjects(
+  id,tenant_id,school_id,subject_code,display_name,status
+) values(
+  'fd530000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'OBS-ALLOC','Observation Allocation Fixture','active'
+);
+
+insert into public.subject_offerings(
+  id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status
 )
 select
-  e.tenant_id,e.school_id,e.academic_year,so.id,e.register_class_id,
-  'fd510000-0000-4000-8000-000000000001'::uuid,current_date-10
+  'fd540000-0000-4000-8000-000000000001'::uuid,
+  e.tenant_id,e.school_id,e.academic_year,
+  'fd530000-0000-4000-8000-000000000001'::uuid,
+  e.grade_id,1,'active'
 from public.enrolments e
-join public.subject_offerings so
-  on so.school_id=e.school_id
- and so.academic_year=e.academic_year
- and so.grade_id=e.grade_id
- and so.status='active'
 where e.learner_id='50000000-0000-4000-8000-000000000001'::uuid
   and e.school_id='22222222-2222-4222-8222-222222222222'::uuid
   and e.status='current'
   and e.register_class_id is not null
-order by so.id
+order by e.created_at
+limit 1;
+
+insert into public.teacher_allocations(
+  id,tenant_id,school_id,academic_year,subject_offering_id,register_class_id,staff_member_id,active_from
+)
+select
+  'fd550000-0000-4000-8000-000000000001'::uuid,
+  e.tenant_id,e.school_id,e.academic_year,
+  'fd540000-0000-4000-8000-000000000001'::uuid,
+  e.register_class_id,
+  'fd510000-0000-4000-8000-000000000001'::uuid,
+  current_date-10
+from public.enrolments e
+where e.learner_id='50000000-0000-4000-8000-000000000001'::uuid
+  and e.school_id='22222222-2222-4222-8222-222222222222'::uuid
+  and e.status='current'
+  and e.register_class_id is not null
+order by e.created_at
 limit 1;
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fd500000-0000-4000-8000-000000000001',true);
 
 select ok(
-  exists(select 1 from public.teacher_allocations where staff_member_id='fd510000-0000-4000-8000-000000000001'),
+  exists(select 1 from public.teacher_allocations where id='fd550000-0000-4000-8000-000000000001'),
   'teacher allocation fixture remains present'
 );
 
@@ -124,7 +147,7 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from public.teacher_allocations where staff_member_id='fd510000-0000-4000-8000-000000000001'),
+  (select count(*)::integer from public.teacher_allocations where id='fd550000-0000-4000-8000-000000000001'),
   1,
   'historical teacher allocation remains stored while effective-period authority is removed'
 );
