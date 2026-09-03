@@ -1,5 +1,23 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+type TimetableSlotView = {
+  id: string;
+  cycle: string;
+  weekday: number;
+  periodId: string;
+  periodName: string;
+  periodNumber: number;
+  classId: string;
+  className: string;
+  allocationId: string;
+  staffId: string;
+  staffName: string;
+  staffCode: string | null;
+  subjectName: string;
+  roomId: string | null;
+  roomLabel: string | null;
+};
+
 export type TimetableWorkspace = {
   grades: { id: string; name: string }[];
   classes: { id: string; name: string; gradeId: string; gradeName: string }[];
@@ -9,7 +27,8 @@ export type TimetableWorkspace = {
   allocations: { id: string; offeringId: string; classId: string; className: string; staffId: string; staffName: string; staffCode: string | null; subjectName: string; gradeName: string; activeFrom: string; activeTo: string | null }[];
   periods: { id: string; number: number; name: string; startsAt: string | null; endsAt: string | null; isTeaching: boolean }[];
   rooms: { id: string; code: string; name: string; block: string | null; capacity: number | null }[];
-  slots: { id: string; cycle: string; weekday: number; periodId: string; periodName: string; periodNumber: number; classId: string; className: string; allocationId: string; staffId: string; staffName: string; staffCode: string | null; subjectName: string; roomId: string | null; roomLabel: string | null }[];
+  slots: TimetableSlotView[];
+  plannedSlots: (TimetableSlotView & { activeFrom: string; activeTo: string | null })[];
 };
 
 function one<T>(value: T[] | T | null | undefined): T | null { return (Array.isArray(value) ? value[0] : value) ?? null; }
@@ -74,6 +93,39 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
       ? isEffectiveOn(today, allocation.active_from, allocation.active_to) && currentStaffIds.has(allocation.staff_member_id)
       : false;
   });
+  const futureSlots = (slotsResult.data ?? []).filter((item) => {
+    const allocation = one(item.teacher_allocations);
+    return allocation
+      ? allocation.active_from > today && isCurrentOrFuture(today, allocation.active_to) && eligibleStaffMap.has(allocation.staff_member_id)
+      : false;
+  });
+
+  const mapSlot = (item: (typeof slotsResult.data)[number]): TimetableSlotView => {
+    const period = one(item.timetable_periods);
+    const classRow = one(item.register_classes);
+    const allocation = one(item.teacher_allocations);
+    const staff = allocation ? one(allocation.staff_members) : null;
+    const offering = allocation ? one(allocation.subject_offerings) : null;
+    const subject = offering ? one(offering.subjects) : null;
+    const staffId = allocation?.staff_member_id ?? "";
+    return {
+      id: item.id,
+      cycle: item.cycle_code,
+      weekday: item.weekday,
+      periodId: item.period_id,
+      periodName: period?.display_name ?? "Period",
+      periodNumber: period?.period_number ?? 0,
+      classId: item.register_class_id,
+      className: classRow?.display_name ?? "Class",
+      allocationId: item.teacher_allocation_id,
+      staffId,
+      staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher",
+      staffCode: staffCodeMap.get(staffId) ?? null,
+      subjectName: subject?.display_name ?? "Subject",
+      roomId: item.room_id,
+      roomLabel: item.room_label,
+    };
+  };
 
   return {
     grades: (gradesResult.data ?? []).map((grade) => ({ id: grade.id, name: grade.display_name })),
@@ -87,9 +139,11 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     }).sort((a, b) => a.activeFrom.localeCompare(b.activeFrom) || a.className.localeCompare(b.className)),
     periods: (periodsResult.data ?? []).map((item) => ({ id: item.id, number: item.period_number, name: item.display_name, startsAt: item.starts_at, endsAt: item.ends_at, isTeaching: item.is_teaching_period })),
     rooms: (roomsResult.data ?? []).map((item) => ({ id: item.id, code: item.room_code, name: item.display_name, block: item.block_name, capacity: item.capacity })),
-    slots: currentSlots.map((item) => {
-      const period = one(item.timetable_periods); const classRow = one(item.register_classes); const allocation = one(item.teacher_allocations); const staff = allocation ? one(allocation.staff_members) : null; const offering = allocation ? one(allocation.subject_offerings) : null; const subject = offering ? one(offering.subjects) : null; const staffId = allocation?.staff_member_id ?? "";
-      return { id: item.id, cycle: item.cycle_code, weekday: item.weekday, periodId: item.period_id, periodName: period?.display_name ?? "Period", periodNumber: period?.period_number ?? 0, classId: item.register_class_id, className: classRow?.display_name ?? "Class", allocationId: item.teacher_allocation_id, staffId, staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", staffCode: staffCodeMap.get(staffId) ?? null, subjectName: subject?.display_name ?? "Subject", roomId: item.room_id, roomLabel: item.room_label };
-    }),
+    slots: currentSlots.map(mapSlot),
+    plannedSlots: futureSlots.map((item) => {
+      const slot = mapSlot(item);
+      const allocation = one(item.teacher_allocations);
+      return { ...slot, activeFrom: allocation?.active_from ?? today, activeTo: allocation?.active_to ?? null };
+    }).sort((a, b) => a.activeFrom.localeCompare(b.activeFrom) || a.weekday - b.weekday || a.periodNumber - b.periodNumber),
   };
 }
