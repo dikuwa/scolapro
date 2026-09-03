@@ -21,7 +21,7 @@ export default async function SettingsPage() {
           <h1 className="text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)] font-semibold tracking-[-0.035em]">Account settings</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Manage your personal ScolaPro account appearance and sign-in security. School roles and permissions remain governed separately.</p>
         </div>
-        <ProfileSettings avatarUrl={avatarUrl} mustChangePassword={context.mustChangePassword} />
+        <ProfileSettings avatarUrl={avatarUrl} userId={context.user.id} mustChangePassword={context.mustChangePassword} />
       </section>
     </AppShell>
   );
