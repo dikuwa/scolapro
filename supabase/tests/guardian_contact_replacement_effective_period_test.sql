@@ -1,9 +1,12 @@
 begin;
 
-select plan(10);
+select plan(14);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
-values('fdd00000-0000-4000-8000-000000000001','guardian-replace-admin@example.test','authenticated','authenticated',now(),now());
+values
+  ('fdd00000-0000-4000-8000-000000000001','guardian-replace-admin@example.test','authenticated','authenticated',now(),now()),
+  ('fdd00000-0000-4000-8000-000000000002','old-current@example.test','authenticated','authenticated',now(),now()),
+  ('fdd00000-0000-4000-8000-000000000003','new-current@example.test','authenticated','authenticated',now(),now());
 
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
 values(
@@ -52,6 +55,10 @@ insert into public.guardian_contacts(
 (
   'fdd50000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111',
   'fdd30000-0000-4000-8000-000000000001','email','future@example.test',false,current_date+10,null
+),
+(
+  'fdd50000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111',
+  'fdd30000-0000-4000-8000-000000000001','mobile','0810000000',false,current_date,null
 );
 
 insert into public.guardian_addresses(
@@ -83,8 +90,13 @@ reset role;
 
 select is(
   (select effective_to from public.guardian_contacts where id='fdd50000-0000-4000-8000-000000000001'),
-  current_date,
-  'previously current contact is retired on replacement date'
+  current_date-1,
+  'previously current contact stops being effective immediately on replacement'
+);
+select is(
+  (select count(*)::integer from public.guardian_contacts where id='fdd50000-0000-4000-8000-000000000003'),
+  0,
+  'same-day superseded contact is removed instead of creating an invalid closed date range'
 );
 select is(
   (select effective_to from public.guardian_contacts where id='fdd50000-0000-4000-8000-000000000002'),
@@ -108,8 +120,8 @@ select is(
 
 select is(
   (select effective_to from public.guardian_addresses where id='fdd60000-0000-4000-8000-000000000001'),
-  current_date,
-  'previously current address is retired on replacement date'
+  current_date-1,
+  'previously current address stops being effective immediately on replacement'
 );
 select is(
   (select effective_to from public.guardian_addresses where id='fdd60000-0000-4000-8000-000000000002'),
@@ -137,6 +149,34 @@ select is(
   1,
   'successful replacement preserves one durable audit event'
 );
+
+select set_config('request.jwt.claim.sub','fdd00000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+select is(
+  (select count(*)::integer from public.find_claimable_guardian_profiles()),
+  0,
+  'superseded guardian email is no longer claimable on the replacement date'
+);
+select throws_ok(
+  $$select public.claim_guardian_profile('fdd30000-0000-4000-8000-000000000001'::uuid)$$,
+  'P0001','Account email does not match an active guardian email',
+  'superseded email cannot bind a guardian account after replacement'
+);
+reset role;
+
+select set_config('request.jwt.claim.sub','fdd00000-0000-4000-8000-000000000003',true);
+set local role authenticated;
+select is(
+  (select count(*)::integer from public.find_claimable_guardian_profiles()),
+  1,
+  'replacement email becomes the only claimable guardian identity'
+);
+select is(
+  public.claim_guardian_profile('fdd30000-0000-4000-8000-000000000001'::uuid),
+  true,
+  'replacement email can bind the guardian account immediately'
+);
+reset role;
 
 select * from finish();
 rollback;
