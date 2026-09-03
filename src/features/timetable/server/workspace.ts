@@ -54,11 +54,14 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
   }
   for (const assignment of staffAssignmentsResult.data ?? []) {
     const staff = one(assignment.staff_members);
-    if (isCurrentOrFuture(today, assignment.effective_to)) {
-      addEligibleStaff(staff);
+    const current = staff?.status === "active" && isEffectiveOn(today, assignment.effective_from, assignment.effective_to);
+    if (isCurrentOrFuture(today, assignment.effective_to)) addEligibleStaff(staff);
+    if (current) {
+      currentStaffIds.add(staff.id);
       if (assignment.staff_member_id && assignment.staff_code) staffCodeMap.set(assignment.staff_member_id, assignment.staff_code);
+    } else if (isCurrentOrFuture(today, assignment.effective_to) && assignment.staff_member_id && assignment.staff_code && !staffCodeMap.has(assignment.staff_member_id)) {
+      staffCodeMap.set(assignment.staff_member_id, assignment.staff_code);
     }
-    if (staff?.status === "active" && isEffectiveOn(today, assignment.effective_from, assignment.effective_to)) currentStaffIds.add(staff.id);
   }
 
   const usedSubjectIds = new Set((offeringsResult.data ?? []).map((item) => item.subject_id));
