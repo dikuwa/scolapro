@@ -57,7 +57,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
     if (!allocationState.success) return;
     setAllocationStart(localTodayIso());
     setAllocationEnd("");
-  }, [allocationState.success]);
+  }, [allocationState]);
 
   const allocationOffering = workspace.offerings.find((item) => item.id === allocationOfferingId);
   const allocationClassOptions = workspace.classes.filter((item) => !allocationOffering || item.gradeId === allocationOffering.gradeId);
