@@ -131,7 +131,7 @@ export async function saveAllocation(_state: TimetableActionState, formData: For
     p_active_from: parsed.data.activeFrom,
     p_active_to: parsed.data.activeTo ?? null,
   });
-  return error ? { message: allocationError(error.message) } : finish(parsed.data.activeFrom > new Date().toISOString().slice(0, 10) ? "Future teacher handover scheduled." : "Teacher allocation saved.");
+  return error ? { message: allocationError(error.message) } : finish("Teacher allocation saved.");
 }
 
 export async function savePeriod(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
