@@ -138,7 +138,7 @@ select lives_ok(
   $$select public.create_timetable_slot(
     '22222222-2222-4222-8222-222222222222'::uuid,
     (select academic_year::integer from public.subject_offerings where id='fdf40000-0000-4000-8000-000000000001'::uuid),
-    'Z'::text,1::integer,'fdf50000-0000-4000-8000-000000000001'::uuid,
+    'Z'::text,1::smallint,'fdf50000-0000-4000-8000-000000000001'::uuid,
     (select register_class_id::uuid from public.enrolments where learner_id='50000000-0000-4000-8000-000000000001'::uuid and school_id='22222222-2222-4222-8222-222222222222'::uuid and status='current' and register_class_id is not null order by created_at limit 1),
     (select id::uuid from public.teacher_allocations where staff_member_id='fdf10000-0000-4000-8000-000000000001'::uuid and subject_offering_id='fdf40000-0000-4000-8000-000000000001'::uuid),null::text
   )$$,
