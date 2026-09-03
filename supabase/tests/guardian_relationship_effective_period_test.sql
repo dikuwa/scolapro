@@ -99,7 +99,7 @@ select lives_ok(
   $$select public.link_existing_guardian_to_learner(
     (select learner_id from public.school_learner_identifiers where school_id='22222222-2222-4222-8222-222222222222' and admission_number='DEMO-002'),
     'fde10000-0000-4000-8000-000000000002'::uuid,
-    'parent',true,false,false,1
+    'parent'::text,true,false,false,1::smallint
   )$$,
   'explicit link-now operation can reuse a pre-scheduled open relationship'
 );
@@ -113,7 +113,7 @@ select lives_ok(
   $$select public.upsert_guardian_relationship(
     (select learner_id from public.school_learner_identifiers where school_id='22222222-2222-4222-8222-222222222222' and admission_number='DEMO-002'),
     'fde10000-0000-4000-8000-000000000003'::uuid,
-    null,null,null,null,'uncle',false,true,false,2,'[]'::jsonb
+    null::text,null::text,null::text,null::text,'uncle'::text,false,true,false,2::smallint,'[]'::jsonb
   )$$,
   'explicit guardian relationship upsert can reuse a pre-scheduled open relationship'
 );
