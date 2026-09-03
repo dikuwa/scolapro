@@ -40,17 +40,28 @@ begin
     if v_academic_year is null or v_academic_year <> new.academic_year then
       raise exception 'Development observation academic year does not match enrolment';
     end if;
-  elsif new.observed_on is not null and not exists (
+  elsif new.observed_on is not null then
+    if not exists (
+      select 1
+        from public.enrolments e
+       where e.tenant_id = new.tenant_id
+         and e.school_id = new.school_id
+         and e.learner_id = new.learner_id
+         and e.academic_year = new.academic_year
+         and e.enrolled_from <= new.observed_on
+         and (e.enrolled_to is null or e.enrolled_to >= new.observed_on)
+    ) then
+      raise exception 'Development observation academic year does not match learner enrolment on observation date';
+    end if;
+  elsif not exists (
     select 1
       from public.enrolments e
      where e.tenant_id = new.tenant_id
        and e.school_id = new.school_id
        and e.learner_id = new.learner_id
        and e.academic_year = new.academic_year
-       and e.enrolled_from <= new.observed_on
-       and (e.enrolled_to is null or e.enrolled_to >= new.observed_on)
   ) then
-    raise exception 'Development observation academic year does not match learner enrolment on observation date';
+    raise exception 'Development observation academic year has no learner enrolment at school';
   end if;
 
   return new;
@@ -69,4 +80,4 @@ comment on function app_private.enforce_learner_event_enrolment_period() is
 'Ensures dated learner operational and longitudinal records, including attendance, conduct, achievement, support and cumulative-record events, fall inside the learner school-enrolment period represented by the row.';
 
 comment on function app_private.enforce_development_observation_year_integrity() is
-'Keeps development observations aligned to their academic year, including dated observations that omit a specific enrolment id.';
+'Keeps both dated and undated development observations aligned to an actual learner enrolment in the recorded academic year.';
