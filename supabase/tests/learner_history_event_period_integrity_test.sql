@@ -107,7 +107,7 @@ select throws_ok(
       tenant_id,school_id,learner_id,occurred_on,direction,category_code,severity,summary,status,recorded_by_user_id
     ) values(
       'fa100000-0000-4000-8000-000000000001','fa200000-0000-4000-8000-000000000001','fa300000-0000-4000-8000-000000000001',
-      '2027-02-01','negative','PERIOD','No covering enrolment','routine','recorded','fa000000-0000-4000-8000-000000000001'
+      '2027-02-01','negative','PERIOD','routine','No covering enrolment','recorded','fa000000-0000-4000-8000-000000000001'
     )$$,
   'Learner event date must fall within a school enrolment period',
   'omitting enrolment id cannot turn an old school relationship into authority for a later event'
@@ -118,7 +118,7 @@ select lives_ok(
       id,tenant_id,school_id,learner_id,enrolment_id,occurred_on,direction,category_code,severity,summary,status,recorded_by_user_id
     ) values(
       'fa500000-0000-4000-8000-000000000001','fa100000-0000-4000-8000-000000000001','fa200000-0000-4000-8000-000000000001','fa300000-0000-4000-8000-000000000001',
-      'fa400000-0000-4000-8000-000000000001','2026-03-10','negative','PERIOD','Valid event','routine','recorded','fa000000-0000-4000-8000-000000000001'
+      'fa400000-0000-4000-8000-000000000001','2026-03-10','negative','PERIOD','routine','Valid event','recorded','fa000000-0000-4000-8000-000000000001'
     );
     insert into public.achievement_events(
       tenant_id,school_id,learner_id,achieved_on,category_code,title,recorded_by_user_id
