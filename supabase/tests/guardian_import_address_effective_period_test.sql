@@ -1,7 +1,7 @@
 -- Revalidation marker after guardian relationship effective-period hardening merged to main.
 begin;
 
-select plan(9);
+select plan(11);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fdf00000-0000-4000-8000-000000000001','guardian-address-period-admin@example.test','authenticated','authenticated',now(),now());
@@ -26,7 +26,7 @@ where sli.school_id='22222222-2222-4222-8222-222222222222' and sli.admission_num
 
 -- A future physical address has the same value the school is importing today.
 -- A future postal primary has a different value. Neither should influence the
--- current import decision.
+-- current import decision, but both should bound the current primary period.
 insert into public.guardian_addresses(
   id,tenant_id,guardian_id,address_type,address_line_1,country,is_primary,effective_from
 ) values
@@ -110,6 +110,15 @@ select is(
   'current imported physical address becomes current primary despite future duplicate'
 );
 select is(
+  (select effective_to from public.guardian_addresses
+   where guardian_id='fdf10000-0000-4000-8000-000000000001'
+     and address_type='physical'
+     and lower(address_line_1)=lower('Scheduled Same Home')
+     and effective_from=current_date),
+  current_date+9,
+  'current physical primary ends the day before the scheduled future primary begins'
+);
+select is(
   (select count(*)::integer from public.guardian_addresses
    where guardian_id='fdf10000-0000-4000-8000-000000000001'
      and address_type='postal'
@@ -118,6 +127,15 @@ select is(
      and is_primary),
   1,
   'future postal primary does not prevent current imported postal address from becoming primary'
+);
+select is(
+  (select effective_to from public.guardian_addresses
+   where guardian_id='fdf10000-0000-4000-8000-000000000001'
+     and address_type='postal'
+     and address_line_1='Current Postal Address'
+     and effective_from=current_date),
+  current_date+9,
+  'current postal primary ends the day before the scheduled future primary begins'
 );
 select is(
   (select effective_from from public.guardian_addresses where id='fdf20000-0000-4000-8000-000000000001'),
