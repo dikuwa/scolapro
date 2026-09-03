@@ -54,10 +54,14 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
   }
 
   const usedSubjectIds = new Set((offeringsResult.data ?? []).map((item) => item.subject_id));
-  const currentAllocations = (allocationsResult.data ?? []).filter((item) => isEffectiveOn(today, item.active_from, item.active_to));
+  const currentAllocations = (allocationsResult.data ?? []).filter((item) =>
+    isEffectiveOn(today, item.active_from, item.active_to) && staffMap.has(item.staff_member_id)
+  );
   const currentSlots = (slotsResult.data ?? []).filter((item) => {
     const allocation = one(item.teacher_allocations);
-    return allocation ? isEffectiveOn(today, allocation.active_from, allocation.active_to) : false;
+    return allocation
+      ? isEffectiveOn(today, allocation.active_from, allocation.active_to) && staffMap.has(allocation.staff_member_id)
+      : false;
   });
 
   return {

@@ -14,7 +14,7 @@ export type SubjectPeriodRoster = {
 export async function getSubjectPeriodRoster(slotId: string, attendanceDate: string): Promise<SubjectPeriodRoster | null> {
   const supabase = await createSupabaseServerClient();
   const { data: slot, error } = await supabase.from("timetable_slots")
-    .select("id,weekday,register_class_id,room_label,academic_year,register_classes(display_name),timetable_periods(display_name),teacher_allocations(active_from,active_to,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))")
+    .select("id,school_id,weekday,register_class_id,room_label,academic_year,register_classes(display_name),timetable_periods(display_name),teacher_allocations(staff_member_id,active_from,active_to,staff_members(first_name,last_name,status),subject_offerings(subjects(display_name)))")
     .eq("id", slotId).eq("status", "active").maybeSingle();
   if (error || !slot) return null;
 
@@ -23,6 +23,27 @@ export async function getSubjectPeriodRoster(slotId: string, attendanceDate: str
   if (!allocation || allocation.active_from > attendanceDate || (allocation.active_to && allocation.active_to < attendanceDate)) return null;
 
   const staff = one(allocation.staff_members);
+  const today = new Date().toISOString().slice(0, 10);
+  if (attendanceDate >= today && staff?.status !== "active") return null;
+
+  const [{ data: staffAssignments, error: staffAssignmentError }, { data: staffMemberships, error: staffMembershipError }] = await Promise.all([
+    supabase.from("staff_school_assignments")
+      .select("id")
+      .eq("school_id", slot.school_id)
+      .eq("staff_member_id", allocation.staff_member_id)
+      .lte("effective_from", attendanceDate)
+      .or(`effective_to.is.null,effective_to.gte.${attendanceDate}`)
+      .limit(1),
+    supabase.from("school_memberships")
+      .select("id")
+      .eq("school_id", slot.school_id)
+      .eq("staff_member_id", allocation.staff_member_id)
+      .lte("active_from", attendanceDate)
+      .or(`active_to.is.null,active_to.gte.${attendanceDate}`)
+      .limit(1),
+  ]);
+  if (staffAssignmentError || staffMembershipError || (!(staffAssignments?.length) && !(staffMemberships?.length))) return null;
+
   const offering = one(allocation.subject_offerings);
   const subject = offering ? one(offering.subjects) : null;
   const period = one(slot.timetable_periods);
