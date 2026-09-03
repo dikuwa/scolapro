@@ -18,6 +18,36 @@ values
   ('fd000000-0000-4000-8000-000000000002','other-parent-message@example.test','authenticated','authenticated',now(),now()),
   ('fd000000-0000-4000-8000-000000000003','message-author@example.test','authenticated','authenticated',now(),now());
 
+-- Parent-facing communication rows represent actual school-linked guardian accounts.
+-- Keep the fixture faithful to that domain relationship rather than creating arbitrary
+-- auth users that happen to be labelled as parents.
+insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex)
+values
+  ('fd010000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Parent Message','Learner One','2010-01-01','unspecified'),
+  ('fd010000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','Parent Message','Learner Two','2010-01-02','unspecified');
+
+insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,enrolled_from,status)
+values
+  ('fd020000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd010000-0000-4000-8000-000000000001',2026,current_date,'current'),
+  ('fd020000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd010000-0000-4000-8000-000000000002',2026,current_date,'current');
+
+insert into public.guardian_profiles(id,tenant_id,first_names,surname,status)
+values
+  ('fd030000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Parent','Message One','active'),
+  ('fd030000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','Parent','Message Two','active');
+
+insert into public.guardian_user_links(id,tenant_id,guardian_id,user_id,linked_by_user_id)
+values
+  ('fd040000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fd030000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000003'),
+  ('fd040000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','fd030000-0000-4000-8000-000000000002','fd000000-0000-4000-8000-000000000002','fd000000-0000-4000-8000-000000000003');
+
+insert into public.learner_guardians(
+  id,tenant_id,learner_id,guardian_id,relationship_type,is_legal_guardian,is_emergency_contact,is_pickup_authorized,priority,effective_from
+)
+values
+  ('fd050000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fd010000-0000-4000-8000-000000000001','fd030000-0000-4000-8000-000000000001','parent',true,true,true,1,current_date),
+  ('fd050000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','fd010000-0000-4000-8000-000000000002','fd030000-0000-4000-8000-000000000002','parent',true,true,true,1,current_date);
+
 insert into public.communication_messages(
   id,tenant_id,school_id,channel,subject,body,audience_type,status,sensitive,created_by_user_id,sent_at
 )
