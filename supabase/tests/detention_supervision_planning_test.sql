@@ -49,30 +49,16 @@ select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000001'
 set local role authenticated;
 
 select lives_ok(
-  $$select public.create_detention_session(
+  $$select public.create_detention_session_plan(
     '22222222-2222-4222-8222-222222222222'::uuid,
     current_date+7,
     '14:00'::time,
     '15:00'::time,
-    'fa110000-0000-4000-8000-000000000001'::uuid,
     'Room 12'::text,
-    'Advance planning QA'::text
-  )$$,
-  'school leadership can schedule a future detention session'
-);
-
-select is(
-  (select count(*) from public.detention_session_supervisors where staff_member_id='fa110000-0000-4000-8000-000000000001'),
-  1::bigint,
-  'legacy primary supervisor is mirrored into the detention duty team'
-);
-
-select lives_ok(
-  $$select public.set_detention_session_supervisors(
-    (select id from public.detention_sessions where school_id='22222222-2222-4222-8222-222222222222' and notes='Advance planning QA'),
+    'Advance planning QA'::text,
     array['fa110000-0000-4000-8000-000000000001'::uuid,'fa110000-0000-4000-8000-000000000002'::uuid]
   )$$,
-  'leadership can schedule more than one staff member for the same detention date'
+  'school leadership can atomically schedule a future detention session and multi-staff duty team'
 );
 
 select is(
@@ -82,9 +68,15 @@ select is(
 );
 
 select is(
+  (select count(*) from public.notifications where recipient_user_id='fa100000-0000-4000-8000-000000000002' and title='Detention duty scheduled'),
+  1::bigint,
+  'primary account-linked supervisor receives an in-app notification'
+);
+
+select is(
   (select count(*) from public.notifications where recipient_user_id='fa100000-0000-4000-8000-000000000003' and title='Detention duty scheduled'),
   1::bigint,
-  'new account-linked duty team member receives an in-app notification'
+  'secondary account-linked supervisor receives an in-app notification'
 );
 
 select is(
@@ -118,6 +110,14 @@ select throws_ok(
   'a supervisor with scheduled learners cannot be silently removed'
 );
 
+select is(
+  (select count(*) from public.list_detention_planning_staff(
+    '22222222-2222-4222-8222-222222222222'::uuid,current_date,current_date+70
+  )),
+  2::bigint,
+  'bounded planning staff read model exposes the two date-overlapping active staff identities'
+);
+
 select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000003',true);
 
 select ok(
@@ -131,9 +131,9 @@ select lives_ok(
 );
 
 select is(
-  (select count(*) from public.audit_events where event_type in ('detention.session.supervisors_updated','detention.session.learners_allocated') and entity_id=(select id from public.detention_sessions where notes='Advance planning QA')),
-  2::bigint,
-  'duty-team and learner-allocation planning changes are audit logged'
+  (select count(*) from public.audit_events where event_type in ('detention.session.created','detention.session.supervisors_updated','detention.session.learners_allocated') and entity_id=(select id from public.detention_sessions where notes='Advance planning QA')),
+  3::bigint,
+  'session creation, duty-team planning and learner allocation are audit logged'
 );
 
 select * from finish();
