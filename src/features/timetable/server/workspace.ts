@@ -56,7 +56,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     const staff = one(assignment.staff_members);
     const current = staff?.status === "active" && isEffectiveOn(today, assignment.effective_from, assignment.effective_to);
     if (isCurrentOrFuture(today, assignment.effective_to)) addEligibleStaff(staff);
-    if (current) {
+    if (current && staff) {
       currentStaffIds.add(staff.id);
       if (assignment.staff_member_id && assignment.staff_code) staffCodeMap.set(assignment.staff_member_id, assignment.staff_code);
     } else if (isCurrentOrFuture(today, assignment.effective_to) && assignment.staff_member_id && assignment.staff_code && !staffCodeMap.has(assignment.staff_member_id)) {
