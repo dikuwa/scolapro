@@ -9,7 +9,7 @@ export type DetentionPlanningActionState = { success?: boolean; message?: string
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
 function uuidList(formData: FormData, name: string) {
-  return formData.getAll(name).map(String).filter((value) => z.string().uuid().safeParse(value).success);
+  return [...new Set(formData.getAll(name).map(String).filter((value) => z.string().uuid().safeParse(value).success))];
 }
 
 export async function createPlannedDetentionSession(
@@ -29,22 +29,16 @@ export async function createPlannedDetentionSession(
   if (!staffIds.length) return { message: "Choose at least one staff member for the detention duty team." };
 
   const supabase = await createSupabaseServerClient();
-  const { data: sessionId, error: createError } = await supabase.rpc("create_detention_session", {
+  const { data: sessionId, error } = await supabase.rpc("create_detention_session_plan", {
     p_school_id: schoolId,
     p_session_date: sessionDate,
     p_starts_at: startsAt || null,
     p_ends_at: endsAt || null,
-    p_supervisor_staff_member_id: staffIds[0],
     p_location: location || null,
     p_notes: "Planned from the late-arrival detention duty roster",
-  });
-  if (createError || !sessionId) return { message: createError?.message ?? "Unable to create the detention session." };
-
-  const { error: teamError } = await supabase.rpc("set_detention_session_supervisors", {
-    p_session_id: sessionId,
     p_staff_member_ids: staffIds,
   });
-  if (teamError) return { message: teamError.message };
+  if (error || !sessionId) return { message: error?.message ?? "Unable to create the detention session." };
 
   revalidatePath("/late-arrivals");
   return { success: true, message: "Detention duty session scheduled. Account-linked supervisors were notified." };
@@ -91,6 +85,7 @@ export async function allocateDetentionLearners(
   });
   if (error) return { message: error.message };
 
+  const learnerCount = Number(count ?? obligationIds.length);
   revalidatePath("/late-arrivals");
-  return { success: true, message: `${Number(count ?? obligationIds.length)} learner${Number(count ?? obligationIds.length) === 1 ? "" : "s"} allocated to detention supervision.` };
+  return { success: true, message: `${learnerCount} learner${learnerCount === 1 ? "" : "s"} allocated to detention supervision.` };
 }
