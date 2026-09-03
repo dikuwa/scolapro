@@ -31,6 +31,48 @@ function subjectError(message: string) {
   return "Subject could not be saved. Review the code and name and try again.";
 }
 
+function isIsoDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+const allocationDateSchema = z.string().refine(isIsoDate, "Choose a valid date.");
+
+const allocationSchema = z.object({
+  schoolId: z.string().uuid(),
+  academicYear: z.coerce.number().int(),
+  offeringId: z.string().uuid(),
+  classId: z.string().uuid(),
+  staffId: z.string().uuid(),
+  activeFrom: allocationDateSchema,
+  activeTo: z.preprocess((value) => {
+    const normalized = String(value ?? "").trim();
+    return normalized || undefined;
+  }, allocationDateSchema.optional()),
+}).superRefine((value, context) => {
+  if (value.activeTo && value.activeTo < value.activeFrom) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["activeTo"], message: "End date cannot be before the start date." });
+  }
+});
+
+function allocationError(message: string) {
+  if (message.includes("Staff member placement does not cover teacher allocation period") || message.includes("Teacher allocation period must be covered by an active staff school placement")) {
+    return "The selected teacher is not placed at this school for the full allocation period. Adjust the dates or the teacher's school placement.";
+  }
+  if (message.includes("Teacher allocation end date cannot precede start date") || message.includes("active-to date cannot precede active-from date")) {
+    return "The allocation end date cannot be before its start date.";
+  }
+  if (message.includes("already exists with a different end date")) {
+    return "This teacher allocation already starts on that date with a different end date. Review the existing allocation before saving another.";
+  }
+  if (message.includes("outside school/year scope") || message.includes("scope mismatch")) {
+    return "The selected subject, class, teacher, or school year no longer matches this timetable. Refresh and try again.";
+  }
+  return "Teacher allocation could not be saved. Review the teacher and effective dates, then try again.";
+}
+
 export async function saveSubject(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
   const parsed = subjectSchema.extend({ schoolId: z.string().uuid() }).safeParse({ schoolId: formData.get("schoolId"), code: formData.get("code"), name: formData.get("name") });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
@@ -68,13 +110,28 @@ export async function saveOffering(_state: TimetableActionState, formData: FormD
 }
 
 export async function saveAllocation(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
-  const schema = z.object({ schoolId: z.string().uuid(), academicYear: z.coerce.number().int(), offeringId: z.string().uuid(), classId: z.string().uuid(), staffId: z.string().uuid() });
-  const parsed = schema.safeParse({ schoolId: formData.get("schoolId"), academicYear: formData.get("academicYear"), offeringId: formData.get("offeringId"), classId: formData.get("classId"), staffId: formData.get("staffId") });
+  const parsed = allocationSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    academicYear: formData.get("academicYear"),
+    offeringId: formData.get("offeringId"),
+    classId: formData.get("classId"),
+    staffId: formData.get("staffId"),
+    activeFrom: formData.get("activeFrom"),
+    activeTo: formData.get("activeTo"),
+  });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to manage this timetable." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("create_teacher_allocation", { p_school_id: parsed.data.schoolId, p_academic_year: parsed.data.academicYear, p_subject_offering_id: parsed.data.offeringId, p_register_class_id: parsed.data.classId, p_staff_member_id: parsed.data.staffId });
-  return error ? { message: error.message.includes("outside") ? error.message : "Teacher allocation could not be saved." } : finish("Teacher allocation saved.");
+  const { error } = await supabase.rpc("create_teacher_allocation_period", {
+    p_school_id: parsed.data.schoolId,
+    p_academic_year: parsed.data.academicYear,
+    p_subject_offering_id: parsed.data.offeringId,
+    p_register_class_id: parsed.data.classId,
+    p_staff_member_id: parsed.data.staffId,
+    p_active_from: parsed.data.activeFrom,
+    p_active_to: parsed.data.activeTo ?? null,
+  });
+  return error ? { message: allocationError(error.message) } : finish(parsed.data.activeFrom > new Date().toISOString().slice(0, 10) ? "Future teacher handover scheduled." : "Teacher allocation saved.");
 }
 
 export async function savePeriod(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
