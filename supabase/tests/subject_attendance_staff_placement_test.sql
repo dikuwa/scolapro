@@ -1,3 +1,4 @@
+-- Revalidated after guardian lifecycle hardening landed on main.
 begin;
 
 select plan(7);
