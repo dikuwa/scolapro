@@ -1,3 +1,4 @@
+-- Revalidation marker after guardian relationship effective-period hardening merged to main.
 begin;
 
 select plan(9);
