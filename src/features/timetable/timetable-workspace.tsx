@@ -28,7 +28,8 @@ function formatIsoDate(value: string) {
 function useToastState(state: TimetableActionState) {
   useEffect(() => {
     if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [state]);
 }
 
@@ -58,12 +59,6 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
   const [slotRoomId, setSlotRoomId] = useState("");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
-
-  useEffect(() => {
-    if (!allocationState.success) return;
-    setAllocationStart(localTodayIso());
-    setAllocationEnd("");
-  }, [allocationState]);
 
   const todayIso = localTodayIso();
   const allocationOffering = workspace.offerings.find((item) => item.id === allocationOfferingId);
