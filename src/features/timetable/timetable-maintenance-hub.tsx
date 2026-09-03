@@ -60,7 +60,7 @@ export function TimetableMaintenanceHub({ schoolId, academicYear, workspace }: {
         </div>
       </div>
 
-      <div aria-live="polite">
+      <div>
         {activeView === "current" ? <TimetableCurrentMaintenance workspace={workspace} /> : null}
         {activeView === "future" ? <TimetablePlanManagement workspace={workspace} /> : null}
         {activeView === "offerings" ? <TimetableOfferingMaintenance schoolId={schoolId} academicYear={academicYear} offerings={workspace.offerings} /> : null}
