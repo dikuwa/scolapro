@@ -13,6 +13,19 @@ values(
   'DUTY-BOUNDARY-001','Duty','Boundary','active'
 );
 
+-- Duty creation itself is governed by a staff-linked school membership on the
+-- duty start date. Both recognized placement sources end yesterday, while the
+-- duty row intentionally remains open-ended so stale authority can be tested.
+insert into public.school_memberships(
+  tenant_id,school_id,user_id,staff_member_id,role_key,active_from,active_to
+) values(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fda00000-0000-4000-8000-000000000001',
+  'fda10000-0000-4000-8000-000000000001',
+  'teacher',current_date-10,current_date-1
+);
+
 insert into public.staff_school_assignments(
   tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id
 ) values(
@@ -23,7 +36,6 @@ insert into public.staff_school_assignments(
   'fda00000-0000-4000-8000-000000000001'
 );
 
--- The duty itself remains open-ended past the staff placement end date.
 insert into public.school_duty_assignments(
   tenant_id,school_id,staff_member_id,duty_key,active_from,active_to,assigned_by_user_id
 ) values(
