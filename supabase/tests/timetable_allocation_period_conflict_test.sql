@@ -19,6 +19,17 @@ values
   ('fdc10000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','TT-PERIOD-B','Teacher','Beta','active'),
   ('fdc10000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','TT-PERIOD-C','Teacher','Gamma','active');
 
+-- These synthetic teachers exercise timetable overlap behavior. Give each teacher a
+-- governed school placement that covers every allocation date used by this test so
+-- placement validation does not mask the timetable-conflict assertions under test.
+insert into public.staff_school_assignments(
+  tenant_id,school_id,staff_member_id,assignment_type,position_title,
+  effective_from,effective_to,created_by_user_id
+) values
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdc10000-0000-4000-8000-000000000001','teacher','Teacher','2026-01-01','2026-10-31','fdc00000-0000-4000-8000-000000000001'),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdc10000-0000-4000-8000-000000000002','teacher','Teacher','2026-10-15','2026-12-31','fdc00000-0000-4000-8000-000000000001'),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdc10000-0000-4000-8000-000000000003','teacher','Teacher','2026-10-15','2026-11-15','fdc00000-0000-4000-8000-000000000001');
+
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status)
 values
   ('fdc20000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','TT-PERIOD-A','Timetable Period A','active'),
