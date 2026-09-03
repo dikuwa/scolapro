@@ -33,9 +33,14 @@ $$;
 revoke all on function app_private.enforce_finance_payment_allocation_learner_integrity()
 from public,anon,authenticated;
 
+-- PostgreSQL executes same-timing triggers in name order. Keep the established
+-- enforce_finance_payment_allocation_scope trigger first so tenant/school mismatch
+-- remains the primary physical contract; learner relationship is evaluated second.
 drop trigger if exists enforce_finance_payment_allocation_learner_integrity
 on public.finance_payment_allocations;
-create trigger enforce_finance_payment_allocation_learner_integrity
+drop trigger if exists enforce_finance_payment_allocation_scope_learner
+on public.finance_payment_allocations;
+create trigger enforce_finance_payment_allocation_scope_learner
 before insert or update of payment_id,invoice_id
 on public.finance_payment_allocations
 for each row execute function app_private.enforce_finance_payment_allocation_learner_integrity();
@@ -118,6 +123,6 @@ revoke all on function public.allocate_finance_payment(uuid,uuid,numeric) from p
 grant execute on function public.allocate_finance_payment(uuid,uuid,numeric) to authenticated;
 
 comment on function app_private.enforce_finance_payment_allocation_learner_integrity() is
-'Physically prevents a learner-specific payment from being allocated to an invoice for a different learner within the same school. Null learner scope remains available for school-level/unassigned finance records.';
+'Physically prevents a learner-specific payment from being allocated to an invoice for a different learner within the same school. Null learner scope remains available for school-level/unassigned finance records, and established tenant/school scope validation executes first.';
 comment on function public.allocate_finance_payment(uuid,uuid,numeric) is
 'Allocates a verified payment to an eligible same-school invoice while enforcing currency, balance and learner-relationship integrity for learner-specific finance records.';
