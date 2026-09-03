@@ -14,14 +14,16 @@ export type SubjectPeriodRoster = {
 export async function getSubjectPeriodRoster(slotId: string, attendanceDate: string): Promise<SubjectPeriodRoster | null> {
   const supabase = await createSupabaseServerClient();
   const { data: slot, error } = await supabase.from("timetable_slots")
-    .select("id,weekday,register_class_id,room_label,academic_year,register_classes(display_name),timetable_periods(display_name),teacher_allocations(staff_members(first_name,last_name),subject_offerings(subjects(display_name)))")
+    .select("id,weekday,register_class_id,room_label,academic_year,register_classes(display_name),timetable_periods(display_name),teacher_allocations(active_from,active_to,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))")
     .eq("id", slotId).eq("status", "active").maybeSingle();
   if (error || !slot) return null;
 
   const classRow = one(slot.register_classes);
   const allocation = one(slot.teacher_allocations);
-  const staff = allocation ? one(allocation.staff_members) : null;
-  const offering = allocation ? one(allocation.subject_offerings) : null;
+  if (!allocation || allocation.active_from > attendanceDate || (allocation.active_to && allocation.active_to < attendanceDate)) return null;
+
+  const staff = one(allocation.staff_members);
+  const offering = one(allocation.subject_offerings);
   const subject = offering ? one(offering.subjects) : null;
   const period = one(slot.timetable_periods);
 
