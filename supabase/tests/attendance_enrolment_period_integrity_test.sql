@@ -40,21 +40,21 @@ select throws_ok(
 
 select set_config('request.jwt.claim.sub','f9600000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
-set local role authenticated;
+set local role service_role;
 
 select throws_ok(
   $$select public.record_attendance_event(
       '60000000-0000-4000-8000-000000000001','2026-04-01','present'
     )$$,
   'Learner event date must fall within referenced enrolment period',
-  'attendance RPC cannot record an event after the learner enrolment ends'
+  'trusted attendance RPC cannot record an event after the learner enrolment ends'
 );
 
 select lives_ok(
   $$select public.record_attendance_event(
       '60000000-0000-4000-8000-000000000001','2026-03-31','present'
     )$$,
-  'attendance on the final enrolled day remains valid'
+  'attendance on the final enrolled day remains valid through the trusted RPC path'
 );
 
 reset role;
@@ -65,7 +65,7 @@ select is(
     where a.enrolment_id='60000000-0000-4000-8000-000000000001'
       and a.attendance_date>'2026-03-31'),
   0::bigint,
-  'failed direct and RPC attempts leave no out-of-period attendance evidence'
+  'failed direct and trusted RPC attempts leave no out-of-period attendance evidence'
 );
 
 select * from finish();
