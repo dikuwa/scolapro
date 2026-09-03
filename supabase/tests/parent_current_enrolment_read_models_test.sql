@@ -41,7 +41,8 @@ insert into public.learner_guardians(
 
 -- A learner may have one current enrolment in each academic year. The next-year row is
 -- deliberately status='current' but must not become the parent portal's present school
--- until its own enrolled_from date arrives.
+-- until its own enrolled_from date arrives. Admission number remains the learner's
+-- stable school identifier across both academic-year enrolments.
 insert into public.enrolments(
   id,tenant_id,school_id,learner_id,academic_year,admission_number,enrolled_from,enrolled_to,status
 ) values
@@ -59,7 +60,7 @@ insert into public.enrolments(
     '22222222-2222-4222-8222-222222222222',
     'fdd20000-0000-4000-8000-000000000001',
     extract(year from current_date)::integer+1,
-    'PARENT-FUTURE-001',current_date+60,null,'current'
+    'PARENT-CURRENT-001',current_date+60,null,'current'
   );
 
 insert into public.voluntary_contribution_campaigns(
