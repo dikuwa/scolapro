@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fdc00000-0000-4000-8000-000000000001','timetable-period-admin@example.test','authenticated','authenticated',now(),now());
@@ -31,9 +31,6 @@ values
   ('fdc30000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'fdc20000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000010',3,'active'),
   ('fdc30000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'fdc20000-0000-4000-8000-000000000003','30000000-0000-4000-8000-000000000010',3,'active');
 
--- Alpha owns the class/slot through October. Beta is the pre-planned November
--- handover for the same class and exact timetable position. Gamma overlaps the
--- handover window but teaches another class so it can test room occupancy separately.
 insert into public.teacher_allocations(
   id,tenant_id,school_id,academic_year,subject_offering_id,register_class_id,
   staff_member_id,active_from,active_to
@@ -125,7 +122,7 @@ select throws_ok(
   'room assignment rejects an allocation period that overlaps the existing handover bookings'
 );
 
-select throws_ok(
+select lives_ok(
   $$insert into public.teacher_allocations(
     tenant_id,school_id,academic_year,subject_offering_id,register_class_id,
     staff_member_id,active_from,active_to
@@ -135,13 +132,10 @@ select throws_ok(
     'fdc30000-0000-4000-8000-000000000003',
     '40000000-0000-4000-8000-00000000001a',
     'fdc10000-0000-4000-8000-000000000003','2026-10-15','2026-11-15'
-  ) returning id$$,
-  null,
+  )$$,
   'allocation creation itself remains independent of timetable conflicts'
 );
 
--- A direct overlapping timetable write must still be rejected even though the former
--- whole-year UNIQUE index is gone.
 select throws_ok(
   $$insert into public.timetable_slots(
     tenant_id,school_id,academic_year,cycle_code,weekday,period_id,
