@@ -13,6 +13,9 @@ export type TimetableWorkspace = {
 };
 
 function one<T>(value: T[] | T | null | undefined): T | null { return (Array.isArray(value) ? value[0] : value) ?? null; }
+function isEffectiveOn(date: string, startsOn: string, endsOn: string | null): boolean {
+  return startsOn <= date && (!endsOn || endsOn >= date);
+}
 
 export async function getTimetableWorkspace(schoolId: string, academicYear: number): Promise<TimetableWorkspace> {
   const supabase = await createSupabaseServerClient();
@@ -23,10 +26,10 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.from("staff_school_assignments").select("staff_member_id,staff_code,effective_from,effective_to,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
     supabase.from("subjects").select("id,subject_code,display_name").eq("school_id", schoolId).eq("status", "active").order("display_name"),
     supabase.from("subject_offerings").select("id,subject_id,grade_id,periods_per_cycle,subjects(display_name),grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
-    supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,subject_offerings(subjects(display_name),grades(display_name)),register_classes(display_name),staff_members(first_name,last_name)").eq("school_id", schoolId).eq("academic_year", academicYear).is("active_to", null),
+    supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,active_from,active_to,subject_offerings(subjects(display_name),grades(display_name)),register_classes(display_name),staff_members(first_name,last_name)").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("timetable_periods").select("id,period_number,display_name,starts_at,ends_at,is_teaching_period").eq("school_id", schoolId).eq("academic_year", academicYear).order("period_number"),
     supabase.from("school_rooms").select("id,room_code,display_name,block_name,capacity").eq("school_id", schoolId).eq("status", "active").order("display_name"),
-    supabase.from("timetable_slots").select("id,cycle_code,weekday,period_id,register_class_id,teacher_allocation_id,room_id,room_label,timetable_periods(display_name,period_number),register_classes(display_name),teacher_allocations(staff_member_id,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("weekday").order("period_id"),
+    supabase.from("timetable_slots").select("id,cycle_code,weekday,period_id,register_class_id,teacher_allocation_id,room_id,room_label,timetable_periods(display_name,period_number),register_classes(display_name),teacher_allocations(staff_member_id,active_from,active_to,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("weekday").order("period_id"),
   ]);
 
   const error = gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error;
@@ -41,16 +44,21 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
   };
 
   for (const membership of membershipsResult.data ?? []) {
-    if (membership.active_from > today || (membership.active_to && membership.active_to < today)) continue;
+    if (!isEffectiveOn(today, membership.active_from, membership.active_to)) continue;
     addStaff(one(membership.staff_members));
   }
   for (const assignment of staffAssignmentsResult.data ?? []) {
-    if (assignment.effective_from > today || (assignment.effective_to && assignment.effective_to < today)) continue;
+    if (!isEffectiveOn(today, assignment.effective_from, assignment.effective_to)) continue;
     addStaff(one(assignment.staff_members));
     if (assignment.staff_member_id && assignment.staff_code) staffCodeMap.set(assignment.staff_member_id, assignment.staff_code);
   }
 
   const usedSubjectIds = new Set((offeringsResult.data ?? []).map((item) => item.subject_id));
+  const currentAllocations = (allocationsResult.data ?? []).filter((item) => isEffectiveOn(today, item.active_from, item.active_to));
+  const currentSlots = (slotsResult.data ?? []).filter((item) => {
+    const allocation = one(item.teacher_allocations);
+    return allocation ? isEffectiveOn(today, allocation.active_from, allocation.active_to) : false;
+  });
 
   return {
     grades: (gradesResult.data ?? []).map((grade) => ({ id: grade.id, name: grade.display_name })),
@@ -58,13 +66,13 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     staff: Array.from(staffMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
     subjects: (subjectsResult.data ?? []).map((subject) => ({ id: subject.id, code: subject.subject_code, name: subject.display_name, used: usedSubjectIds.has(subject.id) })),
     offerings: (offeringsResult.data ?? []).map((item) => ({ id: item.id, subjectId: item.subject_id, subjectName: one(item.subjects)?.display_name ?? "Subject", gradeId: item.grade_id, gradeName: one(item.grades)?.display_name ?? "Grade", periodsPerCycle: item.periods_per_cycle })),
-    allocations: (allocationsResult.data ?? []).map((item) => {
+    allocations: currentAllocations.map((item) => {
       const offering = one(item.subject_offerings); const subject = offering ? one(offering.subjects) : null; const grade = offering ? one(offering.grades) : null; const classRow = one(item.register_classes); const staff = one(item.staff_members);
       return { id: item.id, offeringId: item.subject_offering_id, classId: item.register_class_id, className: classRow?.display_name ?? "Class", staffId: item.staff_member_id, staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", staffCode: staffCodeMap.get(item.staff_member_id) ?? null, subjectName: subject?.display_name ?? "Subject", gradeName: grade?.display_name ?? "Grade" };
     }),
     periods: (periodsResult.data ?? []).map((item) => ({ id: item.id, number: item.period_number, name: item.display_name, startsAt: item.starts_at, endsAt: item.ends_at, isTeaching: item.is_teaching_period })),
     rooms: (roomsResult.data ?? []).map((item) => ({ id: item.id, code: item.room_code, name: item.display_name, block: item.block_name, capacity: item.capacity })),
-    slots: (slotsResult.data ?? []).map((item) => {
+    slots: currentSlots.map((item) => {
       const period = one(item.timetable_periods); const classRow = one(item.register_classes); const allocation = one(item.teacher_allocations); const staff = allocation ? one(allocation.staff_members) : null; const offering = allocation ? one(allocation.subject_offerings) : null; const subject = offering ? one(offering.subjects) : null; const staffId = allocation?.staff_member_id ?? "";
       return { id: item.id, cycle: item.cycle_code, weekday: item.weekday, periodId: item.period_id, periodName: period?.display_name ?? "Period", periodNumber: period?.period_number ?? 0, classId: item.register_class_id, className: classRow?.display_name ?? "Class", allocationId: item.teacher_allocation_id, staffId, staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", staffCode: staffCodeMap.get(staffId) ?? null, subjectName: subject?.display_name ?? "Subject", roomId: item.room_id, roomLabel: item.room_label };
     }),
