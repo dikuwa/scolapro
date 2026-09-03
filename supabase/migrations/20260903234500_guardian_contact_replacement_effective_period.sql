@@ -1,7 +1,15 @@
--- Replacing guardian contact details must only retire records that are effective
--- today. Future-scheduled contact/address rows are valid planned data and must
--- remain untouched; otherwise setting effective_to=current_date can violate
--- effective_to >= effective_from and make the governed replacement RPC fail.
+-- Replacing guardian contact details must retire currently effective rows
+-- immediately without touching future-scheduled contact/address rows.
+--
+-- Effective periods are stored as inclusive dates. Setting effective_to to
+-- current_date therefore leaves an old email/address effective for the rest of
+-- today. That is especially unsafe for guardian email because account claim
+-- eligibility also uses inclusive current-period semantics. For rows that
+-- started before today we close the range at yesterday. Rows created earlier
+-- today and superseded again today cannot be closed at yesterday without
+-- violating effective_to >= effective_from, so those transient same-day rows
+-- are removed before the replacement is inserted. Future-scheduled rows remain
+-- untouched.
 
 create or replace function public.replace_guardian_contact_details(
   p_guardian_id uuid,
@@ -49,11 +57,20 @@ begin
   if jsonb_typeof(coalesce(p_contacts,'[]'::jsonb))<>'array' then raise exception 'Contacts must be an array'; end if;
   if jsonb_typeof(coalesce(p_addresses,'[]'::jsonb))<>'array' then raise exception 'Addresses must be an array'; end if;
 
-  update public.guardian_contacts
-  set effective_to=current_date
+  -- Superseded rows created today cannot be represented as an immediately
+  -- closed inclusive date range, so remove those transient same-day rows.
+  delete from public.guardian_contacts
   where guardian_id=p_guardian_id
-    and effective_from<=current_date
-    and (effective_to is null or effective_to>current_date);
+    and effective_from=current_date
+    and (effective_to is null or effective_to>=current_date);
+
+  -- Older currently effective rows retain history but stop being effective
+  -- immediately. Future-scheduled rows are deliberately excluded.
+  update public.guardian_contacts
+  set effective_to=current_date-1
+  where guardian_id=p_guardian_id
+    and effective_from<current_date
+    and (effective_to is null or effective_to>=current_date);
 
   for v_item in select value from jsonb_array_elements(coalesce(p_contacts,'[]'::jsonb)) loop
     v_type:=lower(btrim(coalesce(v_item->>'type','')));
@@ -79,11 +96,16 @@ begin
     );
   end loop;
 
-  update public.guardian_addresses
-  set effective_to=current_date
+  delete from public.guardian_addresses
   where guardian_id=p_guardian_id
-    and effective_from<=current_date
-    and (effective_to is null or effective_to>current_date);
+    and effective_from=current_date
+    and (effective_to is null or effective_to>=current_date);
+
+  update public.guardian_addresses
+  set effective_to=current_date-1
+  where guardian_id=p_guardian_id
+    and effective_from<current_date
+    and (effective_to is null or effective_to>=current_date);
 
   for v_item in select value from jsonb_array_elements(coalesce(p_addresses,'[]'::jsonb)) loop
     v_type:=lower(btrim(coalesce(v_item->>'type','physical')));
@@ -133,4 +155,4 @@ revoke all on function public.replace_guardian_contact_details(uuid,uuid,jsonb,j
 grant execute on function public.replace_guardian_contact_details(uuid,uuid,jsonb,jsonb) to authenticated;
 
 comment on function public.replace_guardian_contact_details(uuid,uuid,jsonb,jsonb) is
-'Replaces guardian contact/address details effective today without modifying future-scheduled records, preserving effective-period integrity and history.';
+'Replaces guardian contact/address details effective immediately, preserving historical periods, leaving future schedules untouched, and preventing superseded emails from remaining claimable on the replacement date.';
