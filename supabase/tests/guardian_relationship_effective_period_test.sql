@@ -1,3 +1,4 @@
+-- Revalidation marker after same-day guardian contact retirement merged to main.
 begin;
 
 select plan(9);
