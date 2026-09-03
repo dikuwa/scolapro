@@ -51,6 +51,8 @@ export function TimetableOfferingMaintenance({ schoolId, academicYear, offerings
             onChange={selectOffering}
             placeholder="Choose an offering to correct"
             options={offerings.map((offering) => ({ value: offering.id, label: offering.subjectName, helper: `${offering.gradeName} · ${offering.periodsPerCycle} periods/cycle` }))}
+            searchable
+            searchPlaceholder="Search subject or grade"
           />
           <div>
             <label htmlFor="offering-maintenance-periods" className="text-xs font-medium">Periods per cycle</label>

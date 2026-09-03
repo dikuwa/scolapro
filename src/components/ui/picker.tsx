@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type PickerOption = { value: string; label: string; helper?: string };
@@ -15,6 +15,8 @@ export function Picker({
   options,
   placeholder,
   disabled = false,
+  searchable = false,
+  searchPlaceholder = "Search options",
   className,
 }: {
   label?: string;
@@ -25,19 +27,31 @@ export function Picker({
   options: PickerOption[];
   placeholder: string;
   disabled?: boolean;
+  searchable?: boolean;
+  searchPlaceholder?: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredOptions = searchable && normalizedQuery
+    ? options.filter((option) => `${option.label} ${option.helper ?? ""}`.toLocaleLowerCase().includes(normalizedQuery))
+    : options;
+
+  const closePicker = () => {
+    setOpen(false);
+    setQuery("");
+  };
 
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(event.target as Node)) closePicker();
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closePicker();
     };
     document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", escape);
@@ -54,8 +68,12 @@ export function Picker({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => {
+          if (open) closePicker();
+          else setOpen(true);
+        }}
         aria-expanded={open}
+        aria-haspopup="listbox"
         aria-label={ariaLabel || label || placeholder}
         className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55"
       >
@@ -63,18 +81,36 @@ export function Picker({
         <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} aria-hidden="true" />
       </button>
       {open ? (
-        <div className="absolute inset-x-0 top-full z-50 mt-1.5 max-h-64 overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-sm)]">
-          {options.length ? options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => { onChange(option.value); setOpen(false); }}
-              className={cn("w-full rounded-[var(--radius-xs)] px-2.5 py-2 text-left transition hover:bg-surface-muted", option.value === value && "bg-brand-soft text-brand-strong")}
-            >
-              <span className="block truncate text-sm font-medium">{option.label}</span>
-              {option.helper ? <span className="mt-0.5 block truncate text-[0.68rem] text-muted-foreground">{option.helper}</span> : null}
-            </button>
-          )) : <p className="px-2.5 py-3 text-xs text-muted-foreground">No options available yet.</p>}
+        <div className="absolute inset-x-0 top-full z-50 mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-sm)]">
+          {searchable ? (
+            <div className="relative mb-1.5">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <input
+                autoFocus
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
+                className="min-h-9 w-full rounded-[var(--radius-xs)] border border-border-subtle bg-surface-muted pl-8 pr-2.5 text-sm outline-none transition duration-[var(--motion-fast)] placeholder:text-muted-foreground/70 focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+              />
+            </div>
+          ) : null}
+          <div role="listbox" className="max-h-60 overflow-auto">
+            {filteredOptions.length ? filteredOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                onClick={() => { onChange(option.value); closePicker(); }}
+                className={cn("w-full rounded-[var(--radius-xs)] px-2.5 py-2 text-left transition hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none", option.value === value && "bg-brand-soft text-brand-strong")}
+              >
+                <span className="block truncate text-sm font-medium">{option.label}</span>
+                {option.helper ? <span className="mt-0.5 block truncate text-[0.68rem] text-muted-foreground">{option.helper}</span> : null}
+              </button>
+            )) : <p className="px-2.5 py-3 text-xs text-muted-foreground">{options.length ? "No matching options." : "No options available yet."}</p>}
+          </div>
         </div>
       ) : null}
     </div>
