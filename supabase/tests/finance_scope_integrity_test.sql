@@ -70,7 +70,7 @@ select lives_ok(
 
 select lives_ok(
   $$insert into public.finance_payments(id,tenant_id,school_id,learner_id,payment_reference,payment_method,amount,currency,paid_on,status,recorded_by_user_id)
-    values('fe770000-0000-4000-8000-000000000001','fe710000-0000-4000-8000-000000000001','fe720000-0000-4000-8000-000000000001','fe730000-0000-4000-8000-000000000002','PAY-SCOPE-B','bank_transfer',10,'NAD',current_date,'verified','fe700000-0000-4000-8000-000000000001')$$,
+    values('fe770000-0000-4000-8000-000000000001','fe710000-0000-4000-8000-000000000001','fe720000-0000-4000-8000-000000000001','fe730000-0000-4000-8000-000000000002','PAY-SCOPE-B','bank_transfer',10,'NAD',current_date,'received','fe700000-0000-4000-8000-000000000001')$$,
   'valid same-school payment remains allowed'
 );
 
