@@ -13,7 +13,12 @@ select ok(
 );
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
-values('fc000000-0000-4000-8000-000000000001','parent-finance-isolation@example.test','authenticated','authenticated',now(),now());
+values
+('fc000000-0000-4000-8000-000000000001','parent-finance-isolation@example.test','authenticated','authenticated',now(),now()),
+('fc000000-0000-4000-8000-000000000002','parent-finance-fixture-officer@example.test','authenticated','authenticated',now(),now());
+
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc000000-0000-4000-8000-000000000002','finance_officer',current_date);
 
 insert into public.guardian_profiles(id,tenant_id,first_names,surname,identity_number)
 values('fc100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Finance','Guardian','PARENT-FIN-001');
@@ -28,15 +33,15 @@ insert into public.finance_invoices(
   id,tenant_id,school_id,learner_id,academic_year,invoice_number,issued_on,due_on,status,currency,total_amount,balance_amount,created_by_user_id
 )
 values
-  ('fc400000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001',2026,'PFIN-LINKED-001',current_date-5,current_date+20,'issued','NAD',1200,1200,'fc000000-0000-4000-8000-000000000001'),
-  ('fc400000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000002',2026,'PFIN-OTHER-001',current_date-4,current_date+20,'issued','NAD',2200,2200,'fc000000-0000-4000-8000-000000000001');
+  ('fc400000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001',2026,'PFIN-LINKED-001',current_date-5,current_date+20,'issued','NAD',1200,1200,'fc000000-0000-4000-8000-000000000002'),
+  ('fc400000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000002',2026,'PFIN-OTHER-001',current_date-4,current_date+20,'issued','NAD',2200,2200,'fc000000-0000-4000-8000-000000000002');
 
 insert into public.finance_payments(
   id,tenant_id,school_id,learner_id,payment_reference,payment_method,amount,currency,paid_on,status,recorded_by_user_id
 )
 values
-  ('fc500000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001','PFIN-PAY-LINKED-001','bank_transfer',300,'NAD',current_date-2,'verified','fc000000-0000-4000-8000-000000000001'),
-  ('fc500000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000002','PFIN-PAY-OTHER-001','bank_transfer',450,'NAD',current_date-1,'verified','fc000000-0000-4000-8000-000000000001');
+  ('fc500000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001','PFIN-PAY-LINKED-001','bank_transfer',300,'NAD',current_date-2,'verified','fc000000-0000-4000-8000-000000000002'),
+  ('fc500000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000002','PFIN-PAY-OTHER-001','bank_transfer',450,'NAD',current_date-1,'verified','fc000000-0000-4000-8000-000000000002');
 
 select set_config('request.jwt.claim.sub','fc000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);

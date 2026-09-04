@@ -11,6 +11,10 @@ values('fe710000-0000-4000-8000-000000000001','Finance Scope Tenant B','finance-
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fe720000-0000-4000-8000-000000000001','fe710000-0000-4000-8000-000000000001','Finance Scope School B','FIN-SCOPE-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from) values
+('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe700000-0000-4000-8000-000000000001','finance_officer',current_date),
+('fe710000-0000-4000-8000-000000000001','fe720000-0000-4000-8000-000000000001','fe700000-0000-4000-8000-000000000001','finance_officer',current_date);
+
 insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex)
 values
   ('fe730000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Finance','Learner A','2010-01-01','unspecified'),
