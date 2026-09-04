@@ -63,8 +63,9 @@ export function LateArrivalWorkspace({
   const days = useMemo(() => weekDates(today), [today]);
   const classOptions = useMemo(() => [...new Set(learners.map((learner) => learner.registerClass).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [learners]);
   const filteredLearners = classFilter ? learners.filter((learner) => learner.registerClass === classFilter) : learners;
-  const eligibleStaffCount = staffOptions.filter((staff) => staff.eligible).length;
-  const excludedStaffCount = staffOptions.length - eligibleStaffCount;
+  const selectableSupervisors = useMemo(() => [...staffOptions].sort((left, right) => Number(right.eligible) - Number(left.eligible) || left.name.localeCompare(right.name)), [staffOptions]);
+  const preferredStaffCount = staffOptions.filter((staff) => staff.eligible).length;
+  const generalStaffCount = staffOptions.length - preferredStaffCount;
 
   useEffect(() => {
     if (!state.message) return;
@@ -198,7 +199,7 @@ export function LateArrivalWorkspace({
               <form action={reassignDetentionSupervisor} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <input type="hidden" name="obligationId" value={item.id} />
                 <input type="hidden" name="staffMemberId" value={supervisors[item.id] ?? ""} />
-                <SearchableSelect ariaLabel={`Supervisor for ${item.learnerName}`} value={supervisors[item.id] ?? ""} onChange={(value) => setSupervisors((current) => ({ ...current, [item.id]: value }))} placeholder="Choose supervisor" searchPlaceholder="Search staff…" options={staffOptions.filter((staff) => staff.eligible).map((staff) => ({ value: staff.id, label: staff.name, helper: staff.employeeNumber ?? "No employee number", searchText: staff.employeeNumber ?? "" }))} />
+                <SearchableSelect ariaLabel={`Supervisor for ${item.learnerName}`} value={supervisors[item.id] ?? ""} onChange={(value) => setSupervisors((current) => ({ ...current, [item.id]: value }))} placeholder="Choose supervisor" searchPlaceholder="Search all active staff…" options={selectableSupervisors.map((staff) => ({ value: staff.id, label: staff.name, helper: `${staff.eligible ? "Preferred" : "General staff"} · ${staff.employeeNumber ?? "No employee number"}`, searchText: staff.employeeNumber ?? "" }))} />
                 <button type="submit" disabled={!supervisors[item.id] || supervisors[item.id] === item.assignedStaffMemberId} className="min-h-10 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45">Save</button>
               </form>
             ) : <div className="text-xs text-muted-foreground">Assigned supervision is managed by school leadership.</div>}
@@ -216,14 +217,15 @@ export function LateArrivalWorkspace({
           <button type="button" onClick={() => setStaffRotationOpen((open) => !open)} aria-expanded={staffRotationOpen} className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted/45 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5">
             <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Users className="size-4" /></span>
             <div className="min-w-0 flex-1">
-              <h2 className="scolapro-section-title">Detention staff rotation</h2>
-              <p className="scolapro-section-description">Low-frequency setup · {eligibleStaffCount} eligible · {excludedStaffCount} opted out. Expand only when eligibility changes.</p>
+              <h2 className="scolapro-section-title">Detention staff preference</h2>
+              <p className="scolapro-section-description">Low-frequency setup · {preferredStaffCount} preferred · {generalStaffCount} general staff. General staff remain available when extra supervision is needed.</p>
             </div>
             <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] ${staffRotationOpen ? "rotate-180" : ""}`} aria-hidden="true" />
           </button>
           {staffRotationOpen ? (
             <div className="border-t border-border-subtle px-4 pb-4 sm:px-5 sm:pb-5">
-              <div className="mt-4 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
+              <p className="mt-4 text-[0.68rem] text-muted-foreground">Mark regular detention supervisors as preferred so they appear first. This does not block other active school staff from being assigned when needed.</p>
+              <div className="mt-3 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
                 {staffOptions.map((staff) => (
                   <div key={staff.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
                     <div className="min-w-0"><p className="truncate text-xs font-semibold">{staff.name}</p><p className="text-[0.65rem] text-muted-foreground">{staff.employeeNumber ?? "No employee number"}</p></div>
@@ -231,7 +233,7 @@ export function LateArrivalWorkspace({
                       <input type="hidden" name="schoolId" value={schoolId} />
                       <input type="hidden" name="staffMemberId" value={staff.id} />
                       <input type="hidden" name="eligible" value={String(!staff.eligible)} />
-                      <button type="submit" aria-pressed={staff.eligible} className={`min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem] font-semibold ${staff.eligible ? "bg-success-soft text-[color:var(--success)]" : "bg-surface-muted text-muted-foreground"}`}>{staff.eligible ? "Eligible" : "Opted out"}</button>
+                      <button type="submit" aria-pressed={staff.eligible} className={`min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem] font-semibold ${staff.eligible ? "bg-success-soft text-[color:var(--success)]" : "bg-surface-muted text-muted-foreground"}`}>{staff.eligible ? "Preferred" : "General staff"}</button>
                     </form>
                   </div>
                 ))}
