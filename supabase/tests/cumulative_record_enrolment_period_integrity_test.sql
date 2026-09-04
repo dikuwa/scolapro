@@ -29,6 +29,9 @@ select trigger_is(
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('f9700000-0000-4000-8000-000000000001','crc-period-author@example.test','authenticated','authenticated',now(),now());
 
+insert into public.platform_memberships(user_id,role_key,active_from)
+values('f9700000-0000-4000-8000-000000000001','platform_admin',current_date);
+
 update public.enrolments
    set enrolled_to='2026-06-30', status='completed'
  where id='60000000-0000-4000-8000-000000000001';
