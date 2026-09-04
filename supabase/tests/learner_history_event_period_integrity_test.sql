@@ -57,6 +57,16 @@ values('fa100000-0000-4000-8000-000000000001','Learner History Period Tenant','l
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fa200000-0000-4000-8000-000000000001','fa100000-0000-4000-8000-000000000001','Learner History Period School','HIST-PERIOD','Khomas','Windhoek');
 
+-- This suite tests event/enrolment timing, not recorder authority. Keep its
+-- historical author genuinely authorized under the current observation access
+-- model so the temporal guard remains the first relevant failure.
+insert into public.school_memberships(
+  tenant_id,school_id,user_id,role_key,active_from,active_to
+) values(
+  'fa100000-0000-4000-8000-000000000001','fa200000-0000-4000-8000-000000000001',
+  'fa000000-0000-4000-8000-000000000001','principal',current_date-10,null
+);
+
 insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex)
 values('fa300000-0000-4000-8000-000000000001','fa100000-0000-4000-8000-000000000001','History','Learner','2011-03-01','unspecified');
 
