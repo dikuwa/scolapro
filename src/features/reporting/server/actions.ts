@@ -49,6 +49,29 @@ async function kickReportWorkers() {
   }
 }
 
+async function changeReportCardLifecycle(snapshotId: string, operation: "certify" | "publish"): Promise<ReportCardActionState> {
+  if (!(await canManageReportCards())) {
+    return { message: "Report-card certification and publishing are restricted to School Administration and school management." };
+  }
+  if (!z.string().uuid().safeParse(snapshotId).success) return { message: "Choose a valid report-card snapshot." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = operation === "certify"
+    ? await supabase.rpc("certify_report_card_snapshot", { p_snapshot_id: snapshotId })
+    : await supabase.rpc("publish_report_card_snapshot", { p_snapshot_id: snapshotId });
+
+  if (error) {
+    return {
+      message: operation === "certify"
+        ? (error.message || "The report card could not be certified.")
+        : (error.message || "The report card could not be published."),
+    };
+  }
+
+  revalidatePath("/reports/report-cards");
+  return { success: true, message: operation === "certify" ? "Report card certified." : "Report card published." };
+}
+
 export async function generateReportCard(_state: ReportCardActionState, formData: FormData): Promise<ReportCardActionState> {
   if (!(await canManageReportCards())) return { message: "Report-card generation is restricted to School Administration and school management." };
   const parsed = generateSchema.safeParse({ enrolmentId: formData.get("enrolmentId"), termNumber: formData.get("termNumber") });
@@ -132,21 +155,25 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
 }
 
 export async function certifyReportCard(formData: FormData) {
-  if (!(await canManageReportCards())) return;
-  const snapshotId = String(formData.get("snapshotId") ?? "");
-  if (!z.string().uuid().safeParse(snapshotId).success) return;
-  const supabase = await createSupabaseServerClient();
-  await supabase.rpc("certify_report_card_snapshot", { p_snapshot_id: snapshotId });
-  revalidatePath("/reports/report-cards");
+  await changeReportCardLifecycle(String(formData.get("snapshotId") ?? ""), "certify");
 }
 
 export async function publishReportCard(formData: FormData) {
-  if (!(await canManageReportCards())) return;
-  const snapshotId = String(formData.get("snapshotId") ?? "");
-  if (!z.string().uuid().safeParse(snapshotId).success) return;
-  const supabase = await createSupabaseServerClient();
-  await supabase.rpc("publish_report_card_snapshot", { p_snapshot_id: snapshotId });
-  revalidatePath("/reports/report-cards");
+  await changeReportCardLifecycle(String(formData.get("snapshotId") ?? ""), "publish");
+}
+
+export async function certifyReportCardWithState(
+  _state: ReportCardActionState,
+  formData: FormData,
+): Promise<ReportCardActionState> {
+  return changeReportCardLifecycle(String(formData.get("snapshotId") ?? ""), "certify");
+}
+
+export async function publishReportCardWithState(
+  _state: ReportCardActionState,
+  formData: FormData,
+): Promise<ReportCardActionState> {
+  return changeReportCardLifecycle(String(formData.get("snapshotId") ?? ""), "publish");
 }
 
 export async function queueReportCardRender(_state: ReportCardActionState, formData: FormData): Promise<ReportCardActionState> {
