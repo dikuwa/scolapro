@@ -132,14 +132,12 @@ begin
   insert into public.school_settings(school_id,setting_key,setting_value)
   values(p_school_id,'document_profile',v_document_profile)
   on conflict (school_id,setting_key) do update
-    set setting_value = excluded.setting_value,
-        updated_at = now();
+    set setting_value = excluded.setting_value;
 
   insert into public.school_settings(school_id,setting_key,setting_value)
   values(p_school_id,'report_card_settings',v_report_settings)
   on conflict (school_id,setting_key) do update
-    set setting_value = excluded.setting_value,
-        updated_at = now();
+    set setting_value = excluded.setting_value;
 end;
 $$;
 
@@ -181,8 +179,7 @@ begin
     )
   )
   on conflict (school_id,setting_key) do update
-    set setting_value = excluded.setting_value,
-        updated_at = now();
+    set setting_value = excluded.setting_value;
 end;
 $$;
 
