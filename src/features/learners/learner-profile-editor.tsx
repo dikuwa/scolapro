@@ -40,19 +40,19 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
     if (selectedPhotoUrl?.startsWith("blob:")) URL.revokeObjectURL(selectedPhotoUrl);
   }, [selectedPhotoUrl]);
 
-  const [state, action, pending] = useActionState(async (previousState: LearnerProfileState, formData: FormData) => {
+  const [state, action, pending] = useActionState(async (previousState: LearnerProfileState, formData: FormData): Promise<LearnerProfileState> => {
     const photo = formData.get("photo");
     const hasSelectedPhoto = photo instanceof File && photo.size > 0;
 
     if (hasSelectedPhoto) {
       if (!allowedPhotoTypes.has(photo.type)) {
-        const result = { success: false, fieldErrors: { photo: ["Use a JPG, PNG or WebP image."] } } satisfies LearnerProfileState;
-        toast.error(result.fieldErrors.photo[0]);
+        const result: LearnerProfileState = { success: false, fieldErrors: { photo: ["Use a JPG, PNG or WebP image."] } };
+        toast.error(result.fieldErrors?.photo?.[0] ?? "Choose a supported photo.");
         return result;
       }
       if (photo.size > maxPhotoBytes) {
-        const result = { success: false, fieldErrors: { photo: ["Learner photo must be 5 MB or smaller."] } } satisfies LearnerProfileState;
-        toast.error(result.fieldErrors.photo[0]);
+        const result: LearnerProfileState = { success: false, fieldErrors: { photo: ["Learner photo must be 5 MB or smaller."] } };
+        toast.error(result.fieldErrors?.photo?.[0] ?? "Choose a smaller photo.");
         return result;
       }
     }
@@ -79,21 +79,21 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
 
       if (uploadError) {
         console.error("Learner photo browser upload failed", { statusCode: uploadError.statusCode, error: uploadError.message });
-        const result = {
+        const result: LearnerProfileState = {
           success: false,
           message: uploadError.message.toLowerCase().includes("row-level security")
             ? "Profile information was saved, but your session is not allowed to upload this learner photo. Sign in again and retry."
             : "Profile information was saved, but the learner photo storage service rejected the upload. The editor is staying open so you can retry.",
-        } satisfies LearnerProfileState;
-        toast.error(result.message);
+        };
+        toast.error(result.message ?? "The learner photo upload failed.");
         return result;
       }
 
       const photoResult = await saveUploadedLearnerPhoto(learnerId, schoolId, photoPath);
       if (!photoResult.success) {
         await supabase.storage.from("learner-photos").remove([photoPath]);
-        const result = { success: false, message: photoResult.message ?? "The learner photo could not be linked." } satisfies LearnerProfileState;
-        toast.error(result.message);
+        const result: LearnerProfileState = { success: false, message: photoResult.message ?? "The learner photo could not be linked." };
+        toast.error(result.message ?? "The learner photo could not be linked.");
         return result;
       }
     }
