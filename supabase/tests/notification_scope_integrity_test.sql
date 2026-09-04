@@ -8,6 +8,15 @@ values('f1800000-0000-4000-8000-000000000001','notification-scope@example.test',
 insert into public.tenants(id,name,slug)
 values('f1810000-0000-4000-8000-000000000001','Notification Scope Tenant B','notification-scope-tenant-b');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'f1800000-0000-4000-8000-000000000001',
+  'teacher',
+  current_date
+);
+
 select throws_ok(
   $$insert into public.notifications(recipient_user_id,tenant_id,school_id,severity,title)
     values('f1800000-0000-4000-8000-000000000001',null,'22222222-2222-4222-8222-222222222222','info','Bad school scope')$$,
