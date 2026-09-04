@@ -12,11 +12,10 @@ import {
   updateDetentionDutyTeam,
   type DetentionPlanningActionState,
 } from "@/features/late-arrivals/server/planning-actions";
-import {
-  isDetentionStaffAvailableOn,
-  type DetentionPlanningLearner,
-  type DetentionPlanningSession,
-  type DetentionPlanningStaff,
+import type {
+  DetentionPlanningLearner,
+  DetentionPlanningSession,
+  DetentionPlanningStaff,
 } from "@/features/late-arrivals/server/planning-queries";
 
 const initialState: DetentionPlanningActionState = {};
@@ -39,6 +38,12 @@ function nextFriday(today: string) {
 
 function toggleValue(values: string[], value: string) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
+
+function isStaffAvailableOn(member: DetentionPlanningStaff, date: string) {
+  return member.availabilityWindows.some(
+    (window) => window.effectiveFrom <= date && (window.effectiveTo === null || window.effectiveTo >= date),
+  );
 }
 
 function sortStaff(staff: DetentionPlanningStaff[]) {
@@ -88,9 +93,9 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
   const selectableStaff = sortStaff(staff);
-  const staffForNewSession = selectableStaff.filter((member) => isDetentionStaffAvailableOn(member, sessionDate));
+  const staffForNewSession = selectableStaff.filter((member) => isStaffAvailableOn(member, sessionDate));
   const staffForSelectedSession = selectedSession
-    ? selectableStaff.filter((member) => isDetentionStaffAvailableOn(member, selectedSession.sessionDate))
+    ? selectableStaff.filter((member) => isStaffAvailableOn(member, selectedSession.sessionDate))
     : [];
   const staffById = new Map(staff.map((member) => [member.id, member]));
   const scheduledElsewhere = new Set(sessions.flatMap((session) => session.learnerAssignments.filter((item) => item.attendanceStatus === "scheduled" && session.id !== selectedSessionId).map((item) => item.obligationId)));
@@ -104,7 +109,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
     setSessionDate(date);
     setNewTeam((current) => current.filter((id) => {
       const member = staffById.get(id);
-      return member ? isDetentionStaffAvailableOn(member, date) : false;
+      return member ? isStaffAvailableOn(member, date) : false;
     }));
   };
 
