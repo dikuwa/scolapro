@@ -46,7 +46,7 @@ select throws_ok(
       id,tenant_id,school_id,teaching_schedule_item_id,taught_on,coverage_state,recorded_by_user_id
     ) values(
       'e1880000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-      'e1860000-0000-4000-8000-000000000001',current_date,'completed','e1800000-0000-4000-8000-000000000003'
+      'e1860000-0000-4000-8000-000000000001',current_date,'taught','e1800000-0000-4000-8000-000000000003'
     )$$,
   'Teaching actual recorder mismatch: user is not authorized for teaching allocation',
   'unrelated user cannot be forged as teaching actual recorder'
@@ -57,7 +57,7 @@ select throws_ok(
       id,tenant_id,school_id,teaching_schedule_item_id,taught_on,coverage_state,recorded_by_user_id
     ) values(
       'e1880000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-      'e1860000-0000-4000-8000-000000000001',current_date,'completed','e1800000-0000-4000-8000-000000000002'
+      'e1860000-0000-4000-8000-000000000001',current_date,'taught','e1800000-0000-4000-8000-000000000002'
     )$$,
   'Teaching actual recorder mismatch: user is not authorized for teaching allocation',
   'different teacher at same school cannot claim another allocation actual'
@@ -68,7 +68,7 @@ select lives_ok(
       id,tenant_id,school_id,teaching_schedule_item_id,taught_on,coverage_state,recorded_by_user_id
     ) values(
       'e1880000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-      'e1860000-0000-4000-8000-000000000001',current_date,'completed','e1800000-0000-4000-8000-000000000001'
+      'e1860000-0000-4000-8000-000000000001',current_date,'taught','e1800000-0000-4000-8000-000000000001'
     )$$,
   'current allocated teacher can record teaching actual'
 );
@@ -78,7 +78,7 @@ select lives_ok(
       id,tenant_id,school_id,teaching_schedule_item_id,taught_on,coverage_state,recorded_by_user_id
     ) values(
       'e1880000-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-      'e1860000-0000-4000-8000-000000000001',current_date,'completed','e1800000-0000-4000-8000-000000000004'
+      'e1860000-0000-4000-8000-000000000001',current_date,'taught','e1800000-0000-4000-8000-000000000004'
     )$$,
   'authorized HOD remains valid teaching actual recorder'
 );
