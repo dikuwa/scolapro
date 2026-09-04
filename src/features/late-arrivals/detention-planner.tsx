@@ -44,7 +44,11 @@ function StaffChoice({ member, checked, onToggle }: { member: DetentionPlanningS
   return (
     <button type="button" onClick={onToggle} className={`flex min-h-10 w-full items-center gap-2 rounded-[var(--radius-xs)] border px-2.5 text-left transition ${checked ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-transparent hover:bg-surface-muted"}`}>
       <span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? <Check className="size-3" aria-hidden="true" /> : null}</span>
-      <span className="min-w-0"><span className="block truncate text-xs font-medium">{member.name}</span><span className="block truncate text-[0.65rem] text-muted-foreground">{member.employeeNumber ?? "Staff member"}</span></span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-medium">{member.name}</span>
+        <span className="block truncate text-[0.65rem] text-muted-foreground">{member.employeeNumber ?? "Staff member"}</span>
+      </span>
+      <span className={`shrink-0 rounded-[var(--radius-xs)] px-1.5 py-0.5 text-[0.6rem] font-medium ${member.eligible ? "bg-brand-soft text-brand-strong" : "bg-surface-muted text-muted-foreground"}`}>{member.eligible ? "Preferred" : "General staff"}</span>
     </button>
   );
 }
@@ -76,7 +80,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   }, [createState, teamState, allocateState]);
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
-  const eligibleStaff = staff.filter((member) => member.eligible);
+  const selectableStaff = [...staff].sort((left, right) => Number(right.eligible) - Number(left.eligible) || left.name.localeCompare(right.name));
   const staffById = new Map(staff.map((member) => [member.id, member]));
   const scheduledElsewhere = new Set(sessions.flatMap((session) => session.learnerAssignments.filter((item) => item.attendanceStatus === "scheduled" && session.id !== selectedSessionId).map((item) => item.obligationId)));
   const eligibleQueue = selectedSession ? queue.filter((item) => item.dueOn <= selectedSession.sessionDate && !scheduledElsewhere.has(item.obligationId)) : [];
@@ -132,7 +136,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                     <div><p className="text-xs font-semibold">Step 2 · Duty team</p><p className="text-[0.65rem] text-muted-foreground">{newTeam.length ? `${newTeam.length} selected` : "Select supervisors for this date"}</p></div>
                     <ChevronDown className={`size-4 text-muted-foreground transition-transform ${newTeamOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                   </button>
-                  {newTeamOpen ? <div className="border-t border-border-subtle p-2"><div className="max-h-56 space-y-1 overflow-auto">{eligibleStaff.map((member) => <StaffChoice key={member.id} member={member} checked={newTeam.includes(member.id)} onToggle={() => setNewTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-1.5 px-1 text-[0.65rem] text-muted-foreground">Only detention-eligible staff placed at the school can be rostered.</p></div> : null}
+                  {newTeamOpen ? <div className="border-t border-border-subtle p-2"><div className="max-h-56 space-y-1 overflow-auto">{selectableStaff.map((member) => <StaffChoice key={member.id} member={member} checked={newTeam.includes(member.id)} onToggle={() => setNewTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-1.5 px-1 text-[0.65rem] text-muted-foreground">Any active staff member placed at the school may supervise detention. Preferred detention staff are listed first.</p></div> : null}
                 </div>
 
                 <button type="submit" disabled={createPending || !newTeam.length} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">{createPending ? <Spinner className="size-4 text-white" /> : <CalendarDays className="size-4" aria-hidden="true" />}{createPending ? "Scheduling…" : "Schedule detention"}</button>
@@ -155,7 +159,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                       <div><StepBadge number={2} label="Duty team" /><p className="mt-1 text-sm font-semibold">{formatDate(selectedSession.sessionDate)}</p><p className="text-xs text-muted-foreground">{selectedSession.supervisorIds.length} supervisors rostered. Expand only when the team needs changing.</p></div>
                       <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${existingTeamOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                     </button>
-                    {existingTeamOpen ? <form action={teamAction} className="border-t border-border-subtle p-4"><input type="hidden" name="sessionId" value={selectedSession.id} />{editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{eligibleStaff.map((member) => <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />)}</div><button type="submit" disabled={teamPending || !editingTeam.length} className="mt-3 min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-45">{teamPending ? "Saving team…" : "Save duty team"}</button></form> : null}
+                    {existingTeamOpen ? <form action={teamAction} className="border-t border-border-subtle p-4"><input type="hidden" name="sessionId" value={selectedSession.id} />{editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{selectableStaff.map((member) => <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-2 text-[0.65rem] text-muted-foreground">All active school staff are available here; preferred detention staff are shown first.</p><button type="submit" disabled={teamPending || !editingTeam.length} className="mt-3 min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-45">{teamPending ? "Saving team…" : "Save duty team"}</button></form> : null}
                   </div>
 
                   <form action={allocateAction} className="rounded-[var(--radius-md)] border border-border-subtle p-4">
