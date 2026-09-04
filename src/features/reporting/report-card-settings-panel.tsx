@@ -106,8 +106,9 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
         return;
       }
 
+      const { data: signedPreview } = await supabase.storage.from("school-document-assets").createSignedUrl(path, 3600);
       setLogoStoragePath(path);
-      setLogoUrl(`${supabase.storage.from("school-document-assets").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`);
+      setLogoUrl(signedPreview?.signedUrl ?? URL.createObjectURL(file));
       toast.success(result.message ?? "School document logo updated.");
       router.refresh();
     } finally {
