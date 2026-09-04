@@ -7,6 +7,9 @@ values
   ('fc700000-0000-4000-8000-000000000001','communication-scope-author@example.test','authenticated','authenticated',now(),now()),
   ('fc700000-0000-4000-8000-000000000002','communication-scope-other@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from,active_to)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc700000-0000-4000-8000-000000000001','teacher',current_date,null);
+
 insert into public.tenants(id,name,slug)
 values('fc710000-0000-4000-8000-000000000001','Communication Scope Tenant B','communication-scope-tenant-b');
 
