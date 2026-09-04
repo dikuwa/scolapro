@@ -6,6 +6,9 @@ insert into auth.users(id,email,aud,role,created_at,updated_at) values
 ('f8a00000-0000-4000-8000-000000000001','crc-provenance-a@example.test','authenticated','authenticated',now(),now()),
 ('f8a00000-0000-4000-8000-000000000002','crc-provenance-b@example.test','authenticated','authenticated',now(),now());
 
+insert into public.platform_memberships(user_id,role_key,active_from)
+values('f8a00000-0000-4000-8000-000000000001','platform_admin',current_date);
+
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
 values('f8a10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','CRC-UNASSIGNED','Unassigned','Tester','active');
 
