@@ -19,7 +19,7 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 const managerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const viewerRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
 const reportStatuses = new Set<ReportCardStatusFilter>(["all", "not_generated", "generated", "certified", "published"]);
-const scopeTypes = new Set(["school", "grade", "class", "custom"] as const);
+const scopeTypes = new Set<string>(["school", "grade", "class", "custom"]);
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 type ManagementScopeType = ReportCardScopeType | "custom";
@@ -40,7 +40,7 @@ function parseCommonParams(params: Record<string, string | string[] | undefined>
     ? rawStatus as ReportCardStatusFilter
     : "all";
   const rawTerm = Number(firstParam(params.term) ?? 1);
-  const termNumber = Number.isInteger(rawTerm) && rawTerm >= 1 && rawTerm <= 6 ? rawTerm : 1;
+  const termNumber = Number.isInteger(rawTerm) && rawTerm >= 1 && rawTerm <= 3 ? rawTerm : 1;
   const rawPage = Number(firstParam(params.page) ?? 1);
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   return { query, status, termNumber, page };
@@ -78,7 +78,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   const filterGradeId = validUuid(firstParam(params.grade));
   const filterClassId = validUuid(firstParam(params.class));
   const rawScope = firstParam(params.scope) ?? "school";
-  const scopeType: ManagementScopeType = scopeTypes.has(rawScope as ManagementScopeType)
+  const scopeType: ManagementScopeType = scopeTypes.has(rawScope)
     ? rawScope as ManagementScopeType
     : "school";
   const scopeGradeId = validUuid(firstParam(params.scopeGrade));
