@@ -5,6 +5,10 @@ export type DetentionPlanningStaff = {
   name: string;
   employeeNumber: string | null;
   eligible: boolean;
+  availabilityWindows: Array<{
+    effectiveFrom: string;
+    effectiveTo: string | null;
+  }>;
 };
 
 export type DetentionPlanningLearner = {
@@ -38,12 +42,20 @@ type PlanningStaffRpcRow = {
   first_name: string;
   last_name: string;
   eligible: boolean;
+  effective_from: string;
+  effective_to: string | null;
 };
 
 function addDays(value: string, days: number) {
   const date = new Date(`${value}T12:00:00`);
   date.setDate(date.getDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+export function isDetentionStaffAvailableOn(member: DetentionPlanningStaff, date: string) {
+  return member.availabilityWindows.some(
+    (window) => window.effectiveFrom <= date && (window.effectiveTo === null || window.effectiveTo >= date),
+  );
 }
 
 export async function getDetentionPlanning(schoolId: string, today: string) {
@@ -112,14 +124,26 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
   const enrolmentMap = new Map(enrolments.map((item) => [item.learner_id, item]));
   const classMap = new Map((classes ?? []).map((item) => [item.id, item.display_name]));
 
-  const staff: DetentionPlanningStaff[] = ((staffResult.data ?? []) as PlanningStaffRpcRow[])
-    .map((item) => ({
+  const staffMap = new Map<string, DetentionPlanningStaff>();
+  for (const item of (staffResult.data ?? []) as PlanningStaffRpcRow[]) {
+    const existing = staffMap.get(item.staff_member_id);
+    const window = { effectiveFrom: item.effective_from, effectiveTo: item.effective_to };
+    if (existing) {
+      if (!existing.availabilityWindows.some((entry) => entry.effectiveFrom === window.effectiveFrom && entry.effectiveTo === window.effectiveTo)) {
+        existing.availabilityWindows.push(window);
+      }
+      existing.eligible = existing.eligible || item.eligible;
+      continue;
+    }
+    staffMap.set(item.staff_member_id, {
       id: item.staff_member_id,
       name: `${item.first_name} ${item.last_name}`,
       employeeNumber: item.employee_number,
       eligible: item.eligible,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+      availabilityWindows: [window],
+    });
+  }
+  const staff = [...staffMap.values()].sort((a, b) => a.name.localeCompare(b.name));
 
   const queue: DetentionPlanningLearner[] = obligations.map((item) => {
     const learner = learnerMap.get(item.learner_id);
