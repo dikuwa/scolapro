@@ -10,6 +10,11 @@ values
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from,active_to)
 values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc700000-0000-4000-8000-000000000001','teacher',current_date,null);
 
+-- This fixture creates templates in two schools to test message/template scope. Make the
+-- author a legitimate platform template manager rather than relying on a forged creator.
+insert into public.platform_memberships(user_id,role_key,active_from,active_to)
+values('fc700000-0000-4000-8000-000000000001','platform_admin',current_date,null);
+
 insert into public.tenants(id,name,slug)
 values('fc710000-0000-4000-8000-000000000001','Communication Scope Tenant B','communication-scope-tenant-b');
 
