@@ -12,9 +12,9 @@
 --   report_card_subject.<subject_id>
 --     { minimum_pass_mark, promotional, show_on_report_card }
 --
--- `school_name_font = "old_english"` is intentionally school-scoped. It is NOT a
--- platform default. Schools without that explicit setting use the normal site /
--- document font.
+-- `school_name_font = "old_english"` is a Namib High School document treatment,
+-- not a platform option. Every other school is forced back to the normal ScolaPro
+-- document font even if an invalid/stale setting value exists.
 
 create or replace function app_private.enrich_report_card_snapshot_template_profile()
 returns trigger
@@ -55,6 +55,17 @@ begin
   from public.school_settings
   where school_id = new.school_id
     and setting_key = 'document_profile';
+
+  -- Old English is part of Namib High School's own historical visual identity.
+  -- It must never bleed into other tenants, including via a stale/manual DB value.
+  if lower(trim(coalesce(v_school_identity ->> 'name', ''))) <> 'namib high school' then
+    v_document_profile := jsonb_set(
+      coalesce(v_document_profile, '{}'::jsonb),
+      '{school_name_font}',
+      '"default"'::jsonb,
+      true
+    );
+  end if;
 
   select coalesce(setting_value, '{}'::jsonb)
   into v_report_settings
@@ -177,4 +188,4 @@ for each row
 execute function app_private.enrich_report_card_snapshot_template_profile();
 
 comment on function app_private.enrich_report_card_snapshot_template_profile() is
-  'Freezes school identity/document branding, report-card display settings, cumulative term results, subject pass/promotional rules, register teacher, principal, and next-term date into a new report-card snapshot.';
+  'Freezes school identity/document branding, report-card display settings, cumulative term results, subject pass/promotional rules, register teacher, principal, and next-term date into a new report-card snapshot; Old English is restricted to Namib High School.';
