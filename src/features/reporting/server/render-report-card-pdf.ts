@@ -1,32 +1,21 @@
 import "server-only";
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-
-type JsonRecord = Record<string, unknown>;
-
-type RenderReportCardPdfInput = {
-  schoolName: string;
-  schoolEmisNumber?: string | null;
-  snapshotVersion: number;
-  certifiedAt?: string | null;
-  dataSnapshot: JsonRecord;
-};
+import {
+  buildReportCardTemplateModel,
+  isFailingResult,
+  text,
+  type ReportCardRenderInput,
+  type ReportCardSubjectRow,
+} from "@/features/reporting/server/report-card-template-model";
 
 const PAGE_WIDTH = 595.28;
 const PAGE_HEIGHT = 841.89;
-const MARGIN = 42;
+const MARGIN = 34;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
-const BODY_SIZE = 9.5;
-const SMALL_SIZE = 7.5;
-
-function record(value: unknown): JsonRecord {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
-}
-
-function text(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
+const INK = rgb(0.08, 0.08, 0.08);
+const LINE = rgb(0.28, 0.28, 0.28);
+const MUTED = rgb(0.38, 0.38, 0.38);
 
 function fontSafeText(font: PDFFont, value: unknown): string {
   const source = text(value).replaceAll("—", "-").replaceAll("–", "-").replaceAll("’", "'").replaceAll("“", '"').replaceAll("”", '"');
@@ -50,19 +39,30 @@ function fitText(font: PDFFont, value: unknown, size: number, maxWidth: number):
   return `${output}...`;
 }
 
-function drawLabelValue(page: PDFPage, fonts: { regular: PDFFont; bold: PDFFont }, label: string, value: unknown, x: number, y: number, width: number) {
-  page.drawText(fontSafeText(fonts.regular, label.toUpperCase()), { x, y, size: SMALL_SIZE, font: fonts.regular, color: rgb(0.38, 0.4, 0.46) });
-  page.drawText(fitText(fonts.bold, value || "-", BODY_SIZE, width), { x, y: y - 13, size: BODY_SIZE, font: fonts.bold, color: rgb(0.09, 0.1, 0.14) });
+function drawCentered(page: PDFPage, font: PDFFont, value: unknown, size: number, x: number, width: number, y: number) {
+  const safe = fitText(font, value, size, width - 6);
+  const textWidth = font.widthOfTextAtSize(safe, size);
+  page.drawText(safe, { x: x + Math.max(3, (width - textWidth) / 2), y, size, font, color: INK });
 }
 
-function drawSectionHeading(page: PDFPage, font: PDFFont, title: string, y: number) {
-  page.drawText(fontSafeText(font, title), { x: MARGIN, y, size: 10.5, font, color: rgb(0.09, 0.1, 0.14) });
-  page.drawLine({ start: { x: MARGIN, y: y - 5 }, end: { x: PAGE_WIDTH - MARGIN, y: y - 5 }, thickness: 1.25, color: rgb(0.28, 0.32, 0.78) });
+function drawCellBorder(page: PDFPage, x: number, y: number, width: number, height: number) {
+  page.drawRectangle({ x, y: y - height, width, height, borderWidth: 0.55, borderColor: LINE });
 }
 
-export async function renderReportCardPdf(input: RenderReportCardPdfInput): Promise<{ bytes: Uint8Array; pageCount: number }> {
+function drawSignatureBox(page: PDFPage, regular: PDFFont, bold: PDFFont, x: number, y: number, width: number, label: string, name: string) {
+  page.drawLine({ start: { x: x + 8, y: y - 27 }, end: { x: x + width - 8, y: y - 27 }, thickness: 0.6, color: LINE });
+  page.drawText(label, { x: x + 8, y: y - 38, size: 6.4, font: regular, color: MUTED });
+  page.drawText(fitText(bold, `${label}: ${name || "________________"}`, 6.8, width - 16), { x: x + 8, y: y - 50, size: 6.8, font: bold, color: INK });
+}
+
+function rowSubjectLabel(row: ReportCardSubjectRow): string {
+  return `${row.promotional ? "" : "* "}${row.name}`;
+}
+
+export async function renderReportCardPdf(input: ReportCardRenderInput): Promise<{ bytes: Uint8Array; pageCount: number }> {
+  const model = buildReportCardTemplateModel(input);
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`${input.schoolName} report card`);
+  pdf.setTitle(`${model.schoolName} report card`);
   pdf.setAuthor("ScolaPro");
   pdf.setCreator("ScolaPro certified report-card renderer");
   pdf.setProducer("ScolaPro");
@@ -71,141 +71,164 @@ export async function renderReportCardPdf(input: RenderReportCardPdfInput): Prom
 
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const fonts = { regular, bold };
+  const schoolDisplayFont = model.schoolNameFont === "old_english"
+    ? await pdf.embedFont(StandardFonts.TimesRomanBold)
+    : bold;
 
-  const snapshot = record(input.dataSnapshot);
-  const learner = record(snapshot.learner);
-  const enrolment = record(snapshot.enrolment);
-  const term = record(snapshot.term);
-  const attendance = record(snapshot.attendance);
-  const progression = record(snapshot.year_end_progression);
-  const learnerName = [learner.first_names, learner.surname].map(text).filter(Boolean).join(" ");
-  const results = Array.isArray(snapshot.results) ? snapshot.results.map(record) : [];
-
-  let page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
 
-  const addPage = () => {
-    page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    y = PAGE_HEIGHT - MARGIN;
-    return page;
-  };
+  // Universal compact school header. A logo slot is preserved here; the HTML
+  // artifact can render the configured logo URL directly, while the PDF renderer
+  // deliberately does not fetch arbitrary school-configured URLs server-side.
+  const headerHeight = 84;
+  page.drawRectangle({ x: MARGIN, y: y - headerHeight, width: CONTENT_WIDTH, height: headerHeight, borderWidth: 0.85, borderColor: LINE });
+  const logoWidth = 82;
+  const postalWidth = 116;
+  const centreX = MARGIN + logoWidth;
+  const centreWidth = CONTENT_WIDTH - logoWidth - postalWidth;
+  page.drawRectangle({ x: MARGIN + 8, y: y - 72, width: 66, height: 64, borderWidth: 0.4, borderColor: rgb(0.75, 0.75, 0.75) });
+  drawCentered(page, regular, model.logoUrl ? "School logo" : "Logo", 6.2, MARGIN + 8, 66, y - 43);
 
-  const ensureSpace = (needed: number) => {
-    if (y - needed < 66) addPage();
-  };
+  const titleSize = model.schoolNameFont === "old_english" ? 19 : 16;
+  drawCentered(page, schoolDisplayFont, model.schoolName, titleSize, centreX, centreWidth, y - 22);
+  if (model.formerName) drawCentered(page, regular, `(${model.formerName})`, 6.8, centreX, centreWidth, y - 34);
+  const contacts = [
+    model.physicalAddress,
+    model.telephone ? `Tel. ${model.telephone}` : "",
+    model.fax ? `Fax ${model.fax}` : "",
+    model.email ? `E-mail: ${model.email}` : "",
+  ].filter(Boolean);
+  contacts.slice(0, 4).forEach((line, index) => {
+    drawCentered(page, regular, line, 5.8, centreX, centreWidth, y - 47 - index * 8);
+  });
+  if (model.schoolEmisNumber) drawCentered(page, regular, `EMIS: ${model.schoolEmisNumber}`, 5.4, centreX, centreWidth, y - 78);
 
-  const schoolTitle = fontSafeText(bold, input.schoolName);
-  page.drawText(schoolTitle, { x: (PAGE_WIDTH - bold.widthOfTextAtSize(schoolTitle, 16)) / 2, y, size: 16, font: bold, color: rgb(0.09, 0.1, 0.14) });
-  y -= 20;
-  const reportTitle = fontSafeText(bold, `${text(term.name) || `Term ${text(term.number)}`} Report Card`);
-  page.drawText(reportTitle, { x: (PAGE_WIDTH - bold.widthOfTextAtSize(reportTitle, 11.5)) / 2, y, size: 11.5, font: bold, color: rgb(0.28, 0.32, 0.78) });
-  y -= 15;
-  if (input.schoolEmisNumber) {
-    const emis = fontSafeText(regular, `EMIS: ${input.schoolEmisNumber}`);
-    page.drawText(emis, { x: (PAGE_WIDTH - regular.widthOfTextAtSize(emis, SMALL_SIZE)) / 2, y, size: SMALL_SIZE, font: regular, color: rgb(0.38, 0.4, 0.46) });
-    y -= 15;
-  }
-  page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_WIDTH - MARGIN, y }, thickness: 0.8, color: rgb(0.82, 0.83, 0.87) });
-  y -= 22;
+  const postalX = PAGE_WIDTH - MARGIN - postalWidth + 8;
+  const postalLines = [model.postalAddress, model.town].filter(Boolean);
+  postalLines.forEach((line, index) => {
+    page.drawText(fitText(regular, line, 6.2, postalWidth - 16), { x: postalX, y: y - 48 - index * 9, size: 6.2, font: regular, color: INK });
+  });
+  y -= headerHeight;
 
-  const half = (CONTENT_WIDTH - 24) / 2;
-  drawLabelValue(page, fonts, "Learner", learnerName, MARGIN, y, half);
-  drawLabelValue(page, fonts, "Admission number", enrolment.admission_number, MARGIN + half + 24, y, half);
-  y -= 34;
-  drawLabelValue(page, fonts, "Grade", enrolment.grade, MARGIN, y, half);
-  drawLabelValue(page, fonts, "Class", enrolment.register_class, MARGIN + half + 24, y, half);
-  y -= 34;
-  drawLabelValue(page, fonts, "Academic year", enrolment.academic_year, MARGIN, y, half);
-  drawLabelValue(page, fonts, "Certified snapshot", `Version ${input.snapshotVersion}`, MARGIN + half + 24, y, half);
-  y -= 42;
+  const learnerHeight = 22;
+  page.drawRectangle({ x: MARGIN, y: y - learnerHeight, width: CONTENT_WIDTH, height: learnerHeight, borderWidth: 0.55, borderColor: LINE });
+  const learnerText = `Learner: ${model.learnerName || "-"}${model.admissionNumber ? ` (${model.admissionNumber})` : ""}`;
+  page.drawText(fitText(bold, learnerText, 7.2, CONTENT_WIDTH * 0.58), { x: MARGIN + 6, y: y - 14, size: 7.2, font: bold, color: INK });
+  const reportText = `Progress Report: ${model.currentTermName} ${model.academicYear}`;
+  const reportSafe = fitText(bold, reportText, 7.2, CONTENT_WIDTH * 0.4 - 8);
+  page.drawText(reportSafe, { x: PAGE_WIDTH - MARGIN - bold.widthOfTextAtSize(reportSafe, 7.2) - 6, y: y - 14, size: 7.2, font: bold, color: INK });
+  y -= learnerHeight;
 
-  drawSectionHeading(page, bold, "Academic Results", y);
-  y -= 25;
+  const classHeight = 18;
+  page.drawRectangle({ x: MARGIN, y: y - classHeight, width: CONTENT_WIDTH, height: classHeight, borderWidth: 0.55, borderColor: LINE });
+  page.drawText(`Grade: ${fontSafeText(bold, model.grade || "-")}`, { x: MARGIN + 6, y: y - 12, size: 6.8, font: bold, color: INK });
+  page.drawText(`Class: ${fontSafeText(bold, model.registerClass || "-")}`, { x: MARGIN + 150, y: y - 12, size: 6.8, font: bold, color: INK });
+  y -= classHeight;
 
-  const colX = [MARGIN, MARGIN + 286, MARGIN + 356, MARGIN + 438];
-  const colW = [276, 60, 72, 73];
-  const drawResultsHeader = () => {
-    page.drawRectangle({ x: MARGIN, y: y - 5, width: CONTENT_WIDTH, height: 20, color: rgb(0.95, 0.95, 0.98) });
-    ["Subject", "Code", "Result", "Symbol"].forEach((label, index) => {
-      page.drawText(label, { x: colX[index] + 4, y, size: SMALL_SIZE, font: bold, color: rgb(0.24, 0.26, 0.32) });
+  const detailColumns = model.showPercentages ? 3 : 2;
+  const termCount = Math.max(1, model.terms.length);
+  const subjectWidth = Math.min(184, Math.max(145, CONTENT_WIDTH * (termCount === 1 ? 0.42 : termCount === 2 ? 0.34 : 0.29)));
+  const resultAreaWidth = CONTENT_WIDTH - subjectWidth;
+  const termWidth = resultAreaWidth / termCount;
+  const detailWidth = termWidth / detailColumns;
+  const header1Height = 17;
+  const header2Height = 15;
+
+  drawCellBorder(page, MARGIN, y, subjectWidth, header1Height + header2Height);
+  page.drawText("Subject", { x: MARGIN + 5, y: y - 20, size: 6.8, font: bold, color: INK });
+  model.terms.forEach((term, termIndex) => {
+    const x = MARGIN + subjectWidth + termIndex * termWidth;
+    drawCellBorder(page, x, y, termWidth, header1Height);
+    drawCentered(page, bold, term.name, 6.5, x, termWidth, y - 11);
+    const subY = y - header1Height;
+    const labels = model.showPercentages ? ["Mark", "%", "Symbol"] : ["Mark", "Symbol"];
+    labels.forEach((label, detailIndex) => {
+      const detailX = x + detailIndex * detailWidth;
+      drawCellBorder(page, detailX, subY, detailWidth, header2Height);
+      drawCentered(page, bold, label, 5.7, detailX, detailWidth, subY - 10);
     });
-    y -= 20;
-  };
-  drawResultsHeader();
+  });
+  y -= header1Height + header2Height;
 
-  if (!results.length) {
-    page.drawText("No approved results in this snapshot.", { x: MARGIN + 4, y, size: BODY_SIZE, font: regular, color: rgb(0.38, 0.4, 0.46) });
-    y -= 20;
+  const maxRows = 20;
+  const rows = model.subjectRows.slice(0, maxRows);
+  const availableForRows = Math.max(180, y - 220);
+  const rowHeight = Math.min(18, Math.max(13.2, availableForRows / Math.max(10, rows.length || 1)));
+  if (!rows.length) {
+    drawCellBorder(page, MARGIN, y, CONTENT_WIDTH, 25);
+    drawCentered(page, regular, "No approved results in this snapshot.", 7, MARGIN, CONTENT_WIDTH, y - 16);
+    y -= 25;
   } else {
-    for (const item of results) {
-      if (y < 92) {
-        addPage();
-        drawSectionHeading(page, bold, "Academic Results (continued)", y);
-        y -= 25;
-        drawResultsHeader();
-      }
-      const result = item.result_status === "numeric" ? item.result_value : item.result_status;
-      const values = [item.subject_name, item.subject_code, result, item.symbol];
-      values.forEach((value, index) => {
-        page.drawText(fitText(index === 0 ? regular : bold, value || "-", BODY_SIZE, colW[index] - 8), {
-          x: colX[index] + 4,
-          y,
-          size: BODY_SIZE,
-          font: index === 0 ? regular : bold,
-          color: rgb(0.09, 0.1, 0.14),
+    for (const row of rows) {
+      drawCellBorder(page, MARGIN, y, subjectWidth, rowHeight);
+      page.drawText(fitText(regular, rowSubjectLabel(row), 6.2, subjectWidth - 8), { x: MARGIN + 4, y: y - rowHeight + 4.4, size: 6.2, font: regular, color: INK });
+      model.terms.forEach((term, termIndex) => {
+        const result = row.termResults.get(term.number);
+        const x = MARGIN + subjectWidth + termIndex * termWidth;
+        const values = model.showPercentages
+          ? [result?.resultValue || "-", result?.percentageValue || "-", result?.symbol || "-"]
+          : [result?.resultValue || "-", result?.symbol || "-"];
+        values.forEach((value, detailIndex) => {
+          const detailX = x + detailIndex * detailWidth;
+          drawCellBorder(page, detailX, y, detailWidth, rowHeight);
+          const valueFont = detailIndex === values.length - 1 ? bold : regular;
+          drawCentered(page, valueFont, value, 6.2, detailX, detailWidth, y - rowHeight + 4.4);
+          if (detailIndex === 0 && isFailingResult(result, row.minimumPassMark)) {
+            const safe = fitText(valueFont, value, 6.2, detailWidth - 6);
+            const width = valueFont.widthOfTextAtSize(safe, 6.2);
+            const starX = detailX + (detailWidth + width) / 2 + 1;
+            page.drawText("*", { x: Math.min(detailX + detailWidth - 5, starX), y: y - 5.5, size: 4.2, font: bold, color: INK });
+          }
         });
       });
-      page.drawLine({ start: { x: MARGIN, y: y - 5 }, end: { x: PAGE_WIDTH - MARGIN, y: y - 5 }, thickness: 0.4, color: rgb(0.86, 0.87, 0.9) });
-      y -= 18;
+      y -= rowHeight;
     }
   }
 
-  ensureSpace(100);
-  y -= 10;
-  drawSectionHeading(page, bold, "Attendance Summary", y);
-  y -= 28;
-  const attendanceItems: [string, unknown][] = [
-    ["Recorded days", attendance.recorded_school_days ?? 0],
-    ["Present", attendance.present ?? 0],
-    ["Absent", attendance.absent ?? 0],
-    ["Late", attendance.late ?? 0],
-    ["Excused", attendance.excused ?? 0],
-  ];
-  const cardGap = 6;
-  const cardWidth = (CONTENT_WIDTH - cardGap * 4) / 5;
-  attendanceItems.forEach(([label, value], index) => {
-    const x = MARGIN + index * (cardWidth + cardGap);
-    page.drawRectangle({ x, y: y - 22, width: cardWidth, height: 34, borderWidth: 0.6, borderColor: rgb(0.82, 0.83, 0.87) });
-    page.drawText(fitText(regular, label, SMALL_SIZE, cardWidth - 10), { x: x + 5, y: y + 1, size: SMALL_SIZE, font: regular, color: rgb(0.38, 0.4, 0.46) });
-    page.drawText(fontSafeText(bold, value), { x: x + 5, y: y - 14, size: 11, font: bold, color: rgb(0.09, 0.1, 0.14) });
-  });
-  y -= 52;
+  const remarksHeight = 44;
+  page.drawRectangle({ x: MARGIN, y: y - remarksHeight, width: CONTENT_WIDTH, height: remarksHeight, borderWidth: 0.55, borderColor: LINE });
+  page.drawText("Remarks:", { x: MARGIN + 5, y: y - 11, size: 6.5, font: bold, color: INK });
+  const remark = fitText(regular, model.remarks || "", 6.6, CONTENT_WIDTH - 12);
+  if (remark) page.drawText(remark, { x: MARGIN + 5, y: y - 25, size: 6.6, font: regular, color: INK });
+  y -= remarksHeight;
 
-  if (Object.keys(progression).length) {
-    ensureSpace(70);
-    drawSectionHeading(page, bold, "Year-end Progression", y);
-    y -= 22;
-    const progressionText = [progression.outcome, progression.rationale].map(text).filter(Boolean).join(" - ") || "Pending";
-    page.drawText(fitText(regular, progressionText, BODY_SIZE, CONTENT_WIDTH), { x: MARGIN, y, size: BODY_SIZE, font: regular, color: rgb(0.09, 0.1, 0.14) });
-    y -= 24;
+  const signoffHeight = 76;
+  const teacherWidth = CONTENT_WIDTH * 0.4;
+  const centreWidth2 = CONTENT_WIDTH * 0.25;
+  const principalWidth = CONTENT_WIDTH - teacherWidth - centreWidth2;
+  page.drawRectangle({ x: MARGIN, y: y - signoffHeight, width: CONTENT_WIDTH, height: signoffHeight, borderWidth: 0.55, borderColor: LINE });
+  page.drawLine({ start: { x: MARGIN + teacherWidth, y }, end: { x: MARGIN + teacherWidth, y: y - signoffHeight }, thickness: 0.55, color: LINE });
+  page.drawLine({ start: { x: MARGIN + teacherWidth + centreWidth2, y }, end: { x: MARGIN + teacherWidth + centreWidth2, y: y - signoffHeight }, thickness: 0.55, color: LINE });
+  drawSignatureBox(page, regular, bold, MARGIN, y, teacherWidth, "Register Teacher", model.registerTeacherName);
+  const centreX2 = MARGIN + teacherWidth;
+  drawCentered(page, regular, "Days Absent", 6, centreX2, centreWidth2, y - 17);
+  drawCentered(page, bold, model.absentDays || "0", 9, centreX2, centreWidth2, y - 31);
+  if (model.nextTermStartsOn) {
+    drawCentered(page, regular, "School re-opens / next term", 5.5, centreX2, centreWidth2, y - 49);
+    drawCentered(page, bold, model.nextTermStartsOn, 6.3, centreX2, centreWidth2, y - 61);
   }
+  const principalX = centreX2 + centreWidth2;
+  drawSignatureBox(page, regular, bold, principalX, y, principalWidth, "Principal", model.principalName);
+  drawCentered(page, regular, "School Stamp", 5.8, principalX, principalWidth, y - 69);
+  y -= signoffHeight;
+
+  const legendHeight = 22;
+  page.drawRectangle({ x: MARGIN, y: y - legendHeight, width: CONTENT_WIDTH, height: legendHeight, borderWidth: 0.55, borderColor: LINE });
+  const legendParts: string[] = [];
+  if (model.subjectRows.some((row) => !row.promotional)) legendParts.push("* Non-promotional subject");
+  if (model.showPassMarkLegend && model.subjectRows.some((row) => row.minimumPassMark !== null)) legendParts.push("Raised * beside a mark = below configured subject pass mark");
+  page.drawText(fitText(regular, legendParts.join("     ") || " ", 5.6, CONTENT_WIDTH - 10), { x: MARGIN + 5, y: y - 14, size: 5.6, font: regular, color: MUTED });
 
   const pages = pdf.getPages();
   pages.forEach((currentPage, index) => {
-    currentPage.drawLine({ start: { x: MARGIN, y: 48 }, end: { x: PAGE_WIDTH - MARGIN, y: 48 }, thickness: 0.5, color: rgb(0.75, 0.76, 0.8) });
-    currentPage.drawText("Generated from a certified ScolaPro snapshot; later rule changes do not recalculate this document.", {
-      x: MARGIN,
-      y: 34,
-      size: 6.5,
-      font: regular,
-      color: rgb(0.38, 0.4, 0.46),
-    });
+    const meta = `ScolaPro snapshot v${model.snapshotVersion} - historical marks and report rules are frozen at generation.`;
+    currentPage.drawText(fitText(regular, meta, 5.2, 350), { x: MARGIN, y: 19, size: 5.2, font: regular, color: MUTED });
     const pageText = `Page ${index + 1} of ${pages.length}`;
-    currentPage.drawText(pageText, { x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(pageText, 6.5), y: 34, size: 6.5, font: regular, color: rgb(0.38, 0.4, 0.46) });
-    if (input.certifiedAt) {
-      const certified = fitText(regular, `Certified ${input.certifiedAt}`, 6.5, 160);
-      currentPage.drawText(certified, { x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(certified, 6.5), y: 22, size: 6.5, font: regular, color: rgb(0.38, 0.4, 0.46) });
+    currentPage.drawText(pageText, { x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(pageText, 5.2), y: 19, size: 5.2, font: regular, color: MUTED });
+    if (model.certifiedAt) {
+      const certified = fitText(regular, `Certified ${model.certifiedAt}`, 5.2, 180);
+      currentPage.drawText(certified, { x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(certified, 5.2), y: 10, size: 5.2, font: regular, color: MUTED });
     }
   });
 
