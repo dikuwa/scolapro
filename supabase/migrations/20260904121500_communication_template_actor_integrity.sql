@@ -179,6 +179,16 @@ $$;
 revoke all on function app_private.enforce_communication_template_version_provenance()
   from public, anon, authenticated;
 
+-- The earlier scope migration only fired this trigger for immutable content columns.
+-- Approval provenance is part of this integrity boundary too, so include the lifecycle
+-- fields that can introduce or rewrite approval identity.
+drop trigger if exists communication_template_versions_provenance_trg on public.communication_template_versions;
+create trigger communication_template_versions_provenance_trg
+before insert or update of template_id, version, language, body_preview, variables,
+  status, approved_by_user_id, approved_at, created_by_user_id, created_at
+on public.communication_template_versions
+for each row execute function app_private.enforce_communication_template_version_provenance();
+
 comment on function app_private.user_can_manage_communication_templates(uuid,uuid,date) is
 'Checks whether a user was an effective platform administrator or school template manager (school admin, principal, deputy principal) on a given date.';
 
