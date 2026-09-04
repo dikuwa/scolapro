@@ -82,16 +82,18 @@ select throws_ok(
 
 select lives_ok(
   $$insert into public.examination_candidates(
-      id,tenant_id,school_id,examination_cycle_id,learner_id,enrolment_id,created_by_user_id
+      tenant_id,school_id,examination_cycle_id,learner_id,enrolment_id,created_by_user_id
     ) values(
-      'f6c20000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f6c10000-0000-4000-8000-000000000001',
+      '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f6c10000-0000-4000-8000-000000000001',
       '50000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000002','f6c00000-0000-4000-8000-000000000001'
     )$$,
-  'authenticated exam manager can create candidate under own identity'
+  'authenticated exam manager can create candidate under own identity within the existing column grant boundary'
 );
 
 select is(
-  (select created_by_user_id from public.examination_candidates where id='f6c20000-0000-4000-8000-000000000002'),
+  (select created_by_user_id from public.examination_candidates
+    where examination_cycle_id='f6c10000-0000-4000-8000-000000000001'
+      and learner_id='50000000-0000-4000-8000-000000000002'),
   'f6c00000-0000-4000-8000-000000000001'::uuid,
   'authenticated candidate retains caller as creator'
 );
