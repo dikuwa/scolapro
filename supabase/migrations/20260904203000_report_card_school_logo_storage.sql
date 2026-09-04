@@ -10,7 +10,7 @@ insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_typ
 values (
   'school-document-assets',
   'school-document-assets',
-  true,
+  false,
   5242880,
   array['image/jpeg','image/png']
 )
@@ -18,6 +18,25 @@ on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "School document assets select" on storage.objects;
+create policy "School document assets select"
+on storage.objects
+for select
+to authenticated
+using (
+  bucket_id = 'school-document-assets'
+  and (storage.foldername(name))[2] = 'logos'
+  and exists (
+    select 1
+    from public.school_memberships m
+    where m.user_id = (select auth.uid())
+      and m.school_id::text = (storage.foldername(name))[1]
+      and m.role_key in ('school_admin','principal','deputy_principal')
+      and m.active_from <= current_date
+      and (m.active_to is null or m.active_to >= current_date)
+  )
+);
 
 drop policy if exists "School document assets insert" on storage.objects;
 create policy "School document assets insert"
