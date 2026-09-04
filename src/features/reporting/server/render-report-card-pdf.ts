@@ -78,9 +78,6 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
 
-  // Universal compact school header. A logo slot is preserved here; the HTML
-  // artifact can render the configured logo URL directly, while the PDF renderer
-  // deliberately does not fetch arbitrary school-configured URLs server-side.
   const headerHeight = 84;
   page.drawRectangle({ x: MARGIN, y: y - headerHeight, width: CONTENT_WIDTH, height: headerHeight, borderWidth: 0.85, borderColor: LINE });
   const logoWidth = 82;
@@ -151,10 +148,18 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   });
   y -= header1Height + header2Height;
 
-  const maxRows = 20;
-  const rows = model.subjectRows.slice(0, maxRows);
-  const availableForRows = Math.max(180, y - 220);
-  const rowHeight = Math.min(18, Math.max(13.2, availableForRows / Math.max(10, rows.length || 1)));
+  // Never silently truncate subjects on an official report. Fit all visible
+  // subjects onto the one-page form; if the configuration is physically unsafe,
+  // fail rendering so an administrator sees a real issue instead of an incomplete PDF.
+  const rows = model.subjectRows;
+  const reservedBottom = 44 + 76 + 22 + 38;
+  const availableForRows = Math.max(0, y - MARGIN - reservedBottom);
+  const minimumRowHeight = 9.5;
+  const naturalRowHeight = rows.length ? availableForRows / rows.length : 18;
+  if (rows.length && naturalRowHeight < minimumRowHeight) {
+    throw new Error(`Report card has ${rows.length} visible subjects, which cannot fit safely on the configured single-page PDF template.`);
+  }
+  const rowHeight = Math.min(18, Math.max(minimumRowHeight, naturalRowHeight));
   if (!rows.length) {
     drawCellBorder(page, MARGIN, y, CONTENT_WIDTH, 25);
     drawCentered(page, regular, "No approved results in this snapshot.", 7, MARGIN, CONTENT_WIDTH, y - 16);
