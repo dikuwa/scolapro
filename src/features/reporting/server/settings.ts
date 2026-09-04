@@ -53,9 +53,11 @@ export async function getReportCardSchoolSettings(schoolId: string): Promise<Rep
   const subjects = Array.isArray(root.subjects) ? root.subjects.map(record) : [];
   const remarksMode = text(settings.remarks_mode);
   const logoStoragePath = text(profile.logo_storage_path);
-  const storedLogoUrl = logoStoragePath
-    ? supabase.storage.from("school-document-assets").getPublicUrl(logoStoragePath).data.publicUrl
-    : "";
+  let storedLogoUrl = "";
+  if (logoStoragePath) {
+    const { data: signedLogo } = await supabase.storage.from("school-document-assets").createSignedUrl(logoStoragePath, 3600);
+    storedLogoUrl = signedLogo?.signedUrl ?? "";
+  }
 
   return {
     documentProfile: {
