@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 select ok(
   not has_function_privilege('authenticated','app_private.user_is_academic_leader(uuid,uuid)','EXECUTE')
