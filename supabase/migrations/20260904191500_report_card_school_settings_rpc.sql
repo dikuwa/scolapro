@@ -80,6 +80,8 @@ begin
 end;
 $$;
 
+revoke all on function public.get_report_card_school_settings(uuid)
+from public, anon, authenticated;
 grant execute on function public.get_report_card_school_settings(uuid) to authenticated;
 
 create or replace function public.save_report_card_school_settings(
@@ -93,7 +95,6 @@ security definer
 set search_path=pg_catalog,public
 as $$
 declare
-  v_user uuid := auth.uid();
   v_document_profile jsonb;
   v_report_settings jsonb;
 begin
@@ -128,22 +129,22 @@ begin
     'default_remark', nullif(trim(p_report_card_settings ->> 'default_remark'), '')
   );
 
-  insert into public.school_settings(school_id,setting_key,setting_value,updated_by)
-  values(p_school_id,'document_profile',v_document_profile,v_user)
+  insert into public.school_settings(school_id,setting_key,setting_value)
+  values(p_school_id,'document_profile',v_document_profile)
   on conflict (school_id,setting_key) do update
     set setting_value = excluded.setting_value,
-        updated_by = excluded.updated_by,
         updated_at = now();
 
-  insert into public.school_settings(school_id,setting_key,setting_value,updated_by)
-  values(p_school_id,'report_card_settings',v_report_settings,v_user)
+  insert into public.school_settings(school_id,setting_key,setting_value)
+  values(p_school_id,'report_card_settings',v_report_settings)
   on conflict (school_id,setting_key) do update
     set setting_value = excluded.setting_value,
-        updated_by = excluded.updated_by,
         updated_at = now();
 end;
 $$;
 
+revoke all on function public.save_report_card_school_settings(uuid,jsonb,jsonb)
+from public, anon, authenticated;
 grant execute on function public.save_report_card_school_settings(uuid,jsonb,jsonb) to authenticated;
 
 create or replace function public.save_report_card_subject_setting(
@@ -158,8 +159,6 @@ language plpgsql
 security definer
 set search_path=pg_catalog,public
 as $$
-declare
-  v_user uuid := auth.uid();
 begin
   if not app_private.can_manage_report_card_settings(p_school_id) then
     raise exception 'Not authorised to manage report-card settings';
@@ -171,7 +170,7 @@ begin
     raise exception 'Minimum pass mark must be between 0 and 100';
   end if;
 
-  insert into public.school_settings(school_id,setting_key,setting_value,updated_by)
+  insert into public.school_settings(school_id,setting_key,setting_value)
   values(
     p_school_id,
     'report_card_subject.' || p_subject_id::text,
@@ -179,16 +178,16 @@ begin
       'minimum_pass_mark', p_minimum_pass_mark,
       'promotional', coalesce(p_promotional,true),
       'show_on_report_card', coalesce(p_show_on_report_card,true)
-    ),
-    v_user
+    )
   )
   on conflict (school_id,setting_key) do update
     set setting_value = excluded.setting_value,
-        updated_by = excluded.updated_by,
         updated_at = now();
 end;
 $$;
 
+revoke all on function public.save_report_card_subject_setting(uuid,uuid,numeric,boolean,boolean)
+from public, anon, authenticated;
 grant execute on function public.save_report_card_subject_setting(uuid,uuid,numeric,boolean,boolean) to authenticated;
 
 comment on function public.get_report_card_school_settings(uuid) is 'Returns governed school document/report-card template settings and active subject report rules.';
