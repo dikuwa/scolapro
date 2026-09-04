@@ -17,6 +17,11 @@ export const metadata: Metadata = {
   },
   applicationName: SCOLAPRO_BRAND.name,
   description: SCOLAPRO_BRAND.productDescription,
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
+    shortcut: "/icon.svg",
+  },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
