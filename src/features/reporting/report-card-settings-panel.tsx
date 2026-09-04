@@ -90,7 +90,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
       </div>
 
       <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="flex items-start gap-3 border-b border-border-subtle pb-4"><span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span><div><h2 className="scolapro-section-title">Subject report rules</h2><p className="scolapro-section-description">Set each subject's minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark.</p></div></div>
+        <div className="flex items-start gap-3 border-b border-border-subtle pb-4"><span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span><div><h2 className="scolapro-section-title">Subject report rules</h2><p className="scolapro-section-description">Set each subject&apos;s minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark.</p></div></div>
         <div className="mt-2">{settings.subjects.length ? settings.subjects.map((subject) => <SubjectRule key={subject.subjectId} schoolId={schoolId} subject={subject} />) : <p className="py-6 text-sm text-muted-foreground">Configure active subjects first; their report-card rules will appear here.</p>}</div>
       </div>
     </section>
