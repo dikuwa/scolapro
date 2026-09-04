@@ -18,6 +18,9 @@ values
   ('fd000000-0000-4000-8000-000000000002','other-parent-message@example.test','authenticated','authenticated',now(),now()),
   ('fd000000-0000-4000-8000-000000000003','message-author@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd000000-0000-4000-8000-000000000003','teacher',current_date);
+
 -- Parent-facing communication rows represent actual school-linked guardian accounts.
 -- Keep the fixture faithful to that domain relationship rather than creating arbitrary
 -- auth users that happen to be labelled as parents.
