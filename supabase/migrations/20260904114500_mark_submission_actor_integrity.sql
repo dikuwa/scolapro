@@ -36,10 +36,6 @@ begin
     raise exception 'Mark submission root scope and submitter provenance are immutable';
   end if;
 
-  if old.status in ('returned','verified') and new.status is distinct from old.status then
-    raise exception 'Reviewed mark submission status is immutable';
-  end if;
-
   if old.reviewed_by_user_id is not null
      and new.reviewed_by_user_id is distinct from old.reviewed_by_user_id then
     raise exception 'Mark submission reviewer provenance is immutable';
@@ -48,6 +44,21 @@ begin
   if old.reviewed_at is not null
      and new.reviewed_at is distinct from old.reviewed_at then
     raise exception 'Mark submission review timestamp is immutable';
+  end if;
+
+  if old.status = 'returned' and new.status is distinct from old.status then
+    raise exception 'Reviewed mark submission status is immutable';
+  end if;
+
+  if old.status = 'locked' and new.status is distinct from old.status then
+    raise exception 'Locked mark submission status is immutable';
+  end if;
+
+  if old.status = 'verified' and new.status is distinct from old.status then
+    if new.status <> 'locked' then
+      raise exception 'Reviewed mark submission status is immutable';
+    end if;
+    return new;
   end if;
 
   if new.status is distinct from old.status then
@@ -83,7 +94,7 @@ revoke all on function app_private.enforce_mark_submission_actor_integrity()
   from public, anon, authenticated;
 
 comment on function app_private.enforce_mark_submission_actor_integrity() is
-'Physically binds mark-submission submitter and reviewer provenance to the existing assessment-access and academic-leader authority models, enforces the submitted-to-reviewed lifecycle, and prevents provenance rewrites.';
+'Physically binds mark-submission submitter and reviewer provenance to the existing assessment-access and academic-leader authority models, enforces submitted-to-reviewed transitions, preserves the verified-to-locked official-result finalization path, and prevents provenance rewrites.';
 
 drop trigger if exists mark_submission_actor_integrity_trg on public.mark_submissions;
 create trigger mark_submission_actor_integrity_trg
