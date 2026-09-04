@@ -79,7 +79,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
         snapshotVersion: snapshot.snapshot_version,
         certifiedAt: snapshot.certified_at,
         dataSnapshot: snapshot.data_snapshot ?? {},
-        logoBytes: job.document_format === "pdf" ? await loadFrozenSchoolLogo(supabase, snapshot.data_snapshot) : null,
+        logoBytes: await loadFrozenSchoolLogo(supabase, snapshot.data_snapshot),
       };
 
       let bytes: Uint8Array;
