@@ -33,9 +33,10 @@ const subjectSchema = z.object({
   showOnReportCard: z.boolean(),
 });
 
-async function canManageSchool(schoolId: string) {
+async function getManageableSchool(schoolId: string) {
   const context = await getUserContext();
-  return Boolean(context.user && context.memberships.some((membership) => membership.schoolId === schoolId && ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey)));
+  if (!context.user) return null;
+  return context.memberships.find((membership) => membership.schoolId === schoolId && ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey)) ?? null;
 }
 
 function checked(formData: FormData, key: string) { return formData.get(key) === "on" || formData.get(key) === "true"; }
@@ -59,8 +60,11 @@ export async function saveReportCardSchoolSettings(_previous: ReportCardSettings
     defaultRemark: formData.get("defaultRemark") ?? "",
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
-  if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to configure report cards for this school." };
+  const membership = await getManageableSchool(parsed.data.schoolId);
+  if (!membership) return { message: "You do not have permission to configure report cards for this school." };
 
+  const isNamibHigh = membership.schoolName.trim().toLowerCase() === "namib high school";
+  const schoolNameFont = isNamibHigh ? parsed.data.schoolNameFont : "default";
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("save_report_card_school_settings", {
     p_school_id: parsed.data.schoolId,
@@ -73,7 +77,7 @@ export async function saveReportCardSchoolSettings(_previous: ReportCardSettings
       email: parsed.data.email,
       postal_address: parsed.data.postalAddress,
       town: parsed.data.town,
-      school_name_font: parsed.data.schoolNameFont,
+      school_name_font: schoolNameFont,
     },
     p_report_card_settings: {
       show_percentages: parsed.data.showPercentages,
@@ -98,7 +102,7 @@ export async function saveReportCardSubjectSetting(_previous: ReportCardSettings
     showOnReportCard: checked(formData, "showOnReportCard"),
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
-  if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to configure this subject." };
+  if (!(await getManageableSchool(parsed.data.schoolId))) return { message: "You do not have permission to configure this subject." };
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("save_report_card_subject_setting", {
