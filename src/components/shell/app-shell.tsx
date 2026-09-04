@@ -8,11 +8,12 @@ import { NotificationCenter } from "@/features/notifications/notification-center
 import { getNavigationAttentionCounts, type NavigationAttentionCounts } from "@/features/notifications/server/navigation-attention";
 import { getNotificationInbox } from "@/features/notifications/server/notifications";
 import { getUserContext } from "@/lib/auth/get-user-context";
+import { SCOLAPRO_BRAND } from "@/lib/brand";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function initials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "SP";
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || SCOLAPRO_BRAND.initials;
 }
 
 function Avatar({ url, name, size = "size-8" }: { url: string | null; name: string; size?: string }) {
@@ -24,8 +25,8 @@ function Avatar({ url, name, size = "size-8" }: { url: string | null; name: stri
 }
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
-  let displayName = "ScolaPro User";
-  let schoolName = "ScolaPro Demonstration School";
+  let displayName = `${SCOLAPRO_BRAND.name} User`;
+  let schoolName = `${SCOLAPRO_BRAND.name} Demonstration School`;
   let roleKey: string | undefined;
   let avatarUrl: string | null = null;
   let unreadCount = 0;
@@ -41,7 +42,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       const guardianOnly = !membership && !platformMembership && context.guardianLinks.length > 0;
 
       schoolName = membership?.schoolName
-        ?? (platformMembership ? "ScolaPro Platform" : guardianOnly ? "Family portal" : "No school selected");
+        ?? (platformMembership ? `${SCOLAPRO_BRAND.name} Platform` : guardianOnly ? "Family portal" : "No school selected");
       roleKey = membership?.roleKey ?? platformMembership?.roleKey ?? (guardianOnly ? "parent" : undefined);
 
       if (context.avatarPath) {
@@ -67,7 +68,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const brand = (
     <Link href="/" className="mb-5 flex min-h-11 items-center gap-3 rounded-[var(--radius-sm)] px-2 py-2 text-[0.95rem] font-semibold tracking-[-0.02em] transition-colors duration-[var(--motion-fast)] hover:bg-surface-muted group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:px-1">
       <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-brand text-white shadow-[var(--shadow-xs)]"><GraduationCap aria-hidden="true" className="size-5" /></span>
-      <span className="min-w-0 group-data-[collapsed=true]/sidebar:hidden"><span className="block">ScolaPro</span><span className="mt-0.5 block truncate text-[0.68rem] font-normal tracking-normal text-muted-foreground">{schoolName}</span></span>
+      <span className="min-w-0 group-data-[collapsed=true]/sidebar:hidden"><span className="block">{SCOLAPRO_BRAND.name}</span><span className="mt-0.5 block truncate text-[0.68rem] font-normal tracking-normal text-muted-foreground">{schoolName}</span></span>
     </Link>
   );
 
@@ -80,7 +81,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex min-h-16 w-full max-w-[var(--content-max)] items-center gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-3 lg:hidden">
           <span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-brand text-white"><GraduationCap aria-hidden="true" className="size-5" /></span>
-          <span className="min-w-0"><span className="block truncate text-sm font-semibold">ScolaPro</span><span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span></span>
+          <span className="min-w-0"><span className="block truncate text-sm font-semibold">{SCOLAPRO_BRAND.name}</span><span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span></span>
         </div>
 
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
