@@ -10,10 +10,11 @@ values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222
 
 insert into public.admission_applications(
   id,tenant_id,school_id,academic_year,requested_grade_id,applicant_first_names,
-  applicant_surname,date_of_birth,guardian_name,guardian_contact,source,status
+  applicant_surname,date_of_birth,guardian_name,guardian_contact,source,status,
+  reviewed_by_user_id,reviewed_at
 ) values
-  ('f7100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'30000000-0000-4000-8000-000000000010','New Learner','Admission Test','2012-02-03','Test Guardian','0810000000','school','accepted'),
-  ('f7100000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'30000000-0000-4000-8000-000000000010','Phantom','Admission','2012-04-05','Another Guardian','0810000001','school','accepted');
+  ('f7100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'30000000-0000-4000-8000-000000000010','New Learner','Admission Test','2012-02-03','Test Guardian','0810000000','school','accepted','f7000000-0000-4000-8000-000000000001',now()),
+  ('f7100000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'30000000-0000-4000-8000-000000000010','Phantom','Admission','2012-04-05','Another Guardian','0810000001','school','accepted','f7000000-0000-4000-8000-000000000001',now());
 
 select set_config('request.jwt.claim.sub','f7000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
