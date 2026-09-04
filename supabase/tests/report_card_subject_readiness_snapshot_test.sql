@@ -5,6 +5,18 @@ select plan(9);
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fb7a0000-0000-4000-8000-000000000001','report-readiness-snapshot@example.test','authenticated','authenticated',now(),now());
 
+-- The official-result fixture represents an authorized school result approver.
+-- Keep that authority explicit so this readiness test does not rely on an
+-- unrelated auth identity once the physical official-result boundary is enforced.
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fb7a0000-0000-4000-8000-000000000001',
+  'school_admin',
+  current_date-5
+);
+
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status) values
   ('fb7a1000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','SNAP-READY','Snapshot Readiness','active');
 insert into public.subject_offerings(
