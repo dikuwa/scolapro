@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(13);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('ed000000-0000-4000-8000-000000000001','direct-lifecycle-admin@example.test','authenticated','authenticated',now(),now()),
