@@ -22,6 +22,7 @@ const registrationSchema = z.object({
 
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxPhotoBytes = 5 * 1024 * 1024;
+const learnerPhotoPathPattern = /^([0-9a-f-]{36})\/([0-9a-f-]{36})\/([0-9a-f-]{36})\.(jpg|png|webp)$/i;
 
 export type LearnerRegistrationState = {
   message?: string;
@@ -145,4 +146,43 @@ export async function updateLearnerOperationalProfile(_previousState: LearnerPro
   revalidatePath(`/learners/${parsed.data.learnerId}`);
   revalidatePath("/learners");
   return { success: true, message: "Learner profile updated." };
+}
+
+export async function saveUploadedLearnerPhoto(learnerId: string, schoolId: string, path: string): Promise<LearnerProfileState> {
+  const parsed = z.object({ learnerId: z.string().uuid(), schoolId: z.string().uuid(), path: z.string().min(1) }).safeParse({ learnerId, schoolId, path });
+  if (!parsed.success) return { success: false, message: "The uploaded learner photo reference is invalid." };
+
+  const pathMatch = learnerPhotoPathPattern.exec(parsed.data.path);
+  if (!pathMatch || pathMatch[1] !== parsed.data.schoolId || pathMatch[2] !== parsed.data.learnerId) {
+    return { success: false, message: "The uploaded learner photo path is invalid." };
+  }
+
+  const context = await getUserContext();
+  const membership = context.memberships.find((item) => item.schoolId === parsed.data.schoolId && item.roleKey === "school_admin");
+  if (!context.user || !membership) return { success: false, message: "Only the School Admin can update learner photos." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data: currentLearner, error: learnerError } = await supabase
+    .from("learners")
+    .select("photo_path")
+    .eq("id", parsed.data.learnerId)
+    .maybeSingle();
+  if (learnerError || !currentLearner) return { success: false, message: "The learner could not be loaded." };
+
+  const oldPhotoPath = currentLearner.photo_path ?? null;
+  const { error: photoLinkError } = await supabase.rpc("set_learner_photo", {
+    p_learner_id: parsed.data.learnerId,
+    p_school_id: parsed.data.schoolId,
+    p_photo_path: parsed.data.path,
+  });
+  if (photoLinkError) return { success: false, message: "The new learner photo could not be linked to the learner profile." };
+
+  if (oldPhotoPath && oldPhotoPath !== parsed.data.path) {
+    const { error: cleanupError } = await supabase.storage.from("learner-photos").remove([oldPhotoPath]);
+    if (cleanupError) console.warn("Previous learner photo cleanup failed", { learnerId: parsed.data.learnerId, error: cleanupError.message });
+  }
+
+  revalidatePath(`/learners/${parsed.data.learnerId}`);
+  revalidatePath("/learners");
+  return { success: true, message: "Learner photo updated." };
 }
