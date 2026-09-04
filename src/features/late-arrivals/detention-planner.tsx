@@ -40,6 +40,18 @@ function toggleValue(values: string[], value: string) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 }
 
+function isStaffAvailableOn(member: DetentionPlanningStaff, date: string) {
+  return member.availabilityWindows.some(
+    (window) => window.effectiveFrom <= date && (window.effectiveTo === null || window.effectiveTo >= date),
+  );
+}
+
+function sortStaff(staff: DetentionPlanningStaff[]) {
+  return [...staff].sort(
+    (left, right) => Number(right.eligible) - Number(left.eligible) || left.name.localeCompare(right.name),
+  );
+}
+
 function StaffChoice({ member, checked, onToggle }: { member: DetentionPlanningStaff; checked: boolean; onToggle: () => void }) {
   return (
     <button type="button" onClick={onToggle} className={`flex min-h-10 w-full items-center gap-2 rounded-[var(--radius-xs)] border px-2.5 text-left transition ${checked ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-transparent hover:bg-surface-muted"}`}>
@@ -80,7 +92,11 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   }, [createState, teamState, allocateState]);
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
-  const selectableStaff = [...staff].sort((left, right) => Number(right.eligible) - Number(left.eligible) || left.name.localeCompare(right.name));
+  const selectableStaff = sortStaff(staff);
+  const staffForNewSession = selectableStaff.filter((member) => isStaffAvailableOn(member, sessionDate));
+  const staffForSelectedSession = selectedSession
+    ? selectableStaff.filter((member) => isStaffAvailableOn(member, selectedSession.sessionDate))
+    : [];
   const staffById = new Map(staff.map((member) => [member.id, member]));
   const scheduledElsewhere = new Set(sessions.flatMap((session) => session.learnerAssignments.filter((item) => item.attendanceStatus === "scheduled" && session.id !== selectedSessionId).map((item) => item.obligationId)));
   const eligibleQueue = selectedSession ? queue.filter((item) => item.dueOn <= selectedSession.sessionDate && !scheduledElsewhere.has(item.obligationId)) : [];
@@ -88,6 +104,14 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   for (const item of eligibleQueue) groups.set(item.registerClass, [...(groups.get(item.registerClass) ?? []), item]);
   const groupedQueue = [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
   const nextSession = sessions[0] ?? null;
+
+  const changeSessionDate = (date: string) => {
+    setSessionDate(date);
+    setNewTeam((current) => current.filter((id) => {
+      const member = staffById.get(id);
+      return member ? isStaffAvailableOn(member, date) : false;
+    }));
+  };
 
   const selectSession = (session: DetentionPlanningSession) => {
     setSelectedSessionId(session.id);
@@ -124,7 +148,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                 {newTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}
                 <div className="flex items-center justify-between gap-2"><div><StepBadge number={1} label="Session" /><h3 className="mt-2 text-sm font-semibold">Plan a detention date</h3></div></div>
                 <p className="mt-1 text-xs text-muted-foreground">The coming Friday is preselected. You can also roster detention several weeks ahead.</p>
-                <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={setSessionDate} min={today} required className="mt-3" />
+                <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={changeSessionDate} min={today} required className="mt-3" />
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <label className="text-xs font-medium">Starts at<input name="startsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
                   <label className="text-xs font-medium">Ends at<input name="endsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
@@ -136,7 +160,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                     <div><p className="text-xs font-semibold">Step 2 · Duty team</p><p className="text-[0.65rem] text-muted-foreground">{newTeam.length ? `${newTeam.length} selected` : "Select supervisors for this date"}</p></div>
                     <ChevronDown className={`size-4 text-muted-foreground transition-transform ${newTeamOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                   </button>
-                  {newTeamOpen ? <div className="border-t border-border-subtle p-2"><div className="max-h-56 space-y-1 overflow-auto">{selectableStaff.map((member) => <StaffChoice key={member.id} member={member} checked={newTeam.includes(member.id)} onToggle={() => setNewTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-1.5 px-1 text-[0.65rem] text-muted-foreground">Any active staff member placed at the school may supervise detention. Preferred detention staff are listed first.</p></div> : null}
+                  {newTeamOpen ? <div className="border-t border-border-subtle p-2"><div className="max-h-56 space-y-1 overflow-auto">{staffForNewSession.map((member) => <StaffChoice key={member.id} member={member} checked={newTeam.includes(member.id)} onToggle={() => setNewTeam((current) => toggleValue(current, member.id))} />)}{!staffForNewSession.length ? <p className="px-2 py-4 text-center text-xs text-muted-foreground">No active staff are placed at this school on {formatDate(sessionDate)}.</p> : null}</div><p className="mt-1.5 px-1 text-[0.65rem] text-muted-foreground">Only active staff placed at the school on this detention date are shown. Preferred detention staff are listed first.</p></div> : null}
                 </div>
 
                 <button type="submit" disabled={createPending || !newTeam.length} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">{createPending ? <Spinner className="size-4 text-white" /> : <CalendarDays className="size-4" aria-hidden="true" />}{createPending ? "Scheduling…" : "Schedule detention"}</button>
@@ -159,7 +183,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                       <div><StepBadge number={2} label="Duty team" /><p className="mt-1 text-sm font-semibold">{formatDate(selectedSession.sessionDate)}</p><p className="text-xs text-muted-foreground">{selectedSession.supervisorIds.length} supervisors rostered. Expand only when the team needs changing.</p></div>
                       <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${existingTeamOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                     </button>
-                    {existingTeamOpen ? <form action={teamAction} className="border-t border-border-subtle p-4"><input type="hidden" name="sessionId" value={selectedSession.id} />{editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{selectableStaff.map((member) => <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-2 text-[0.65rem] text-muted-foreground">All active school staff are available here; preferred detention staff are shown first.</p><button type="submit" disabled={teamPending || !editingTeam.length} className="mt-3 min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-45">{teamPending ? "Saving team…" : "Save duty team"}</button></form> : null}
+                    {existingTeamOpen ? <form action={teamAction} className="border-t border-border-subtle p-4"><input type="hidden" name="sessionId" value={selectedSession.id} />{editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{staffForSelectedSession.map((member) => <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-2 text-[0.65rem] text-muted-foreground">Only active staff placed at the school on {formatDate(selectedSession.sessionDate)} are available; preferred detention staff are shown first.</p><button type="submit" disabled={teamPending || !editingTeam.length} className="mt-3 min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:opacity-45">{teamPending ? "Saving team…" : "Save duty team"}</button></form> : null}
                   </div>
 
                   <form action={allocateAction} className="rounded-[var(--radius-md)] border border-border-subtle p-4">
