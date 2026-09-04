@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(10);
 
 select ok(
   not has_function_privilege('authenticated','app_private.guard_admission_decision_provenance()','EXECUTE')
