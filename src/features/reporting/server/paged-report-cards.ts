@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ReportCardStatusFilter = "all" | "not_generated" | "generated" | "certified" | "published";
+export type ReportCardScopeType = "school" | "grade" | "class";
 
 export type ReportCardStatusPageRow = {
   enrolmentId: string;
@@ -26,6 +27,18 @@ export type ReportCardStatusPage = {
   page: number;
   pageSize: number;
   pageCount: number;
+};
+
+export type ReportCardScopeSummary = {
+  scopeType: ReportCardScopeType;
+  scopeId: string | null;
+  scopeLabel: string;
+  total: number;
+  notGenerated: number;
+  generated: number;
+  certified: number;
+  published: number;
+  pdfReady: number;
 };
 
 export async function getReportCardStatusPage(input: {
@@ -106,5 +119,62 @@ export async function getReportCardStatusPage(input: {
     page: safePage,
     pageSize,
     pageCount,
+  };
+}
+
+export async function getReportCardScopeSummary(input: {
+  schoolId: string;
+  academicYear: number;
+  termNumber: number;
+  scopeType: ReportCardScopeType;
+  scopeId?: string | null;
+}): Promise<ReportCardScopeSummary> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_report_card_scope_summary", {
+    p_school_id: input.schoolId,
+    p_academic_year: input.academicYear,
+    p_term_number: input.termNumber,
+    p_scope_type: input.scopeType,
+    p_scope_id: input.scopeType === "school" ? null : input.scopeId ?? null,
+  });
+
+  if (error) throw new Error("Unable to load report-card scope summary.");
+
+  const row = (data?.[0] ?? null) as {
+    scope_type: ReportCardScopeType;
+    scope_id: string | null;
+    scope_label: string;
+    total_count: number | string;
+    not_generated_count: number | string;
+    generated_count: number | string;
+    certified_count: number | string;
+    published_count: number | string;
+    pdf_ready_count: number | string;
+  } | null;
+
+  if (!row) {
+    return {
+      scopeType: input.scopeType,
+      scopeId: input.scopeType === "school" ? null : input.scopeId ?? null,
+      scopeLabel: input.scopeType === "school" ? "Whole school" : "Selected scope",
+      total: 0,
+      notGenerated: 0,
+      generated: 0,
+      certified: 0,
+      published: 0,
+      pdfReady: 0,
+    };
+  }
+
+  return {
+    scopeType: row.scope_type,
+    scopeId: row.scope_id,
+    scopeLabel: row.scope_label,
+    total: Number(row.total_count),
+    notGenerated: Number(row.not_generated_count),
+    generated: Number(row.generated_count),
+    certified: Number(row.certified_count),
+    published: Number(row.published_count),
+    pdfReady: Number(row.pdf_ready_count),
   };
 }
