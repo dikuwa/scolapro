@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { FileText, LoaderCircle, Save, School } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
@@ -46,6 +46,8 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   const [state, action, pending] = useActionState(saveReportCardSchoolSettings, initialState);
   const profile = settings.documentProfile;
   const report = settings.reportCardSettings;
+  const [schoolNameFont, setSchoolNameFont] = useState(profile.schoolNameFont);
+  const [remarksMode, setRemarksMode] = useState(report.remarksMode);
   useEffect(() => {
     if (!state.message) return;
     state.success ? toast.success(state.message) : toast.error(state.message);
@@ -66,7 +68,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
             <div><label className="text-xs font-medium">School email</label><input type="email" name="email" defaultValue={profile.email} className={`${fieldClass} mt-1.5`} /></div>
             <div><label className="text-xs font-medium">Postal address</label><input name="postalAddress" defaultValue={profile.postalAddress} className={`${fieldClass} mt-1.5`} placeholder="P O Box …" /></div>
             <div><label className="text-xs font-medium">School logo URL / stored asset URL</label><input name="logoUrl" defaultValue={profile.logoUrl} className={`${fieldClass} mt-1.5`} placeholder="School-scoped logo asset" /><p className="mt-1 text-[0.68rem] text-muted-foreground">A governed school-logo uploader will replace manual URL entry; this field already drives HTML report branding.</p></div>
-            <Picker label="School-name font on official documents" name="schoolNameFont" defaultValue={profile.schoolNameFont} options={[{ value: "default", label: "Default ScolaPro font", helper: "Recommended for all schools" }, { value: "old_english", label: "Old English / blackletter", helper: "School-specific override — intended for Namib High School" }]} />
+            <Picker label="School-name font on official documents" name="schoolNameFont" value={schoolNameFont} onChange={(value) => setSchoolNameFont(value as "default" | "old_english")} placeholder="Choose document font" options={[{ value: "default", label: "Default ScolaPro font", helper: "Recommended for all schools" }, { value: "old_english", label: "Old English / blackletter", helper: "School-specific override — intended for Namib High School" }]} />
           </div>
 
           <div className="rounded-[var(--radius-md)] bg-surface-muted p-4">
@@ -79,7 +81,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
           </div>
 
           <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
-            <Picker label="Remarks mode" name="remarksMode" defaultValue={report.remarksMode} options={[{ value: "manual", label: "Manual", helper: "Teacher enters/reviews remarks" }, { value: "rules", label: "Rules-based", helper: "Deterministic school rules" }, { value: "ai_assisted", label: "AI assisted", helper: "AI suggests; teacher reviews before certification" }]} />
+            <Picker label="Remarks mode" name="remarksMode" value={remarksMode} onChange={(value) => setRemarksMode(value as "manual" | "rules" | "ai_assisted")} placeholder="Choose remarks mode" options={[{ value: "manual", label: "Manual", helper: "Teacher enters/reviews remarks" }, { value: "rules", label: "Rules-based", helper: "Deterministic school rules" }, { value: "ai_assisted", label: "AI assisted", helper: "AI suggests; teacher reviews before certification" }]} />
             <div><label className="text-xs font-medium">Default / fallback remark</label><textarea name="defaultRemark" defaultValue={report.defaultRemark} rows={3} className={`${fieldClass} mt-1.5 py-2`} placeholder="Optional fallback remark" /></div>
           </div>
 
