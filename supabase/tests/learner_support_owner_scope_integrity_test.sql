@@ -43,6 +43,16 @@ insert into public.staff_school_assignments(
   ('fc530000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc520000-0000-4000-8000-000000000001','support',current_date-10,'fc500000-0000-4000-8000-000000000003'),
   ('fc530000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','fc510000-0000-4000-8000-000000000001','fc520000-0000-4000-8000-000000000002','support',current_date-10,'fc500000-0000-4000-8000-000000000003');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
+values(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fc500000-0000-4000-8000-000000000003',
+  null,
+  'learner_support',
+  current_date
+);
+
 select lives_ok(
   $$insert into public.learner_support_cases(
       id,tenant_id,school_id,learner_id,enrolment_id,opened_on,case_type,sensitivity,summary,status,owner_staff_member_id,opened_by_user_id
