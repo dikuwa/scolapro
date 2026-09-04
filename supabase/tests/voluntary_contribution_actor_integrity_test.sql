@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(17);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fd500000-0000-4000-8000-000000000001','contribution-actor-leader@example.test','authenticated','authenticated',now(),now()),
@@ -20,6 +20,12 @@ insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_i
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd500000-0000-4000-8000-000000000001',null,'school_admin',current_date),
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd500000-0000-4000-8000-000000000002','fd510000-0000-4000-8000-000000000001','class_teacher',current_date);
 
+insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex)
+values('fd550000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Contribution','Actor Learner','2010-01-01','unspecified');
+
+insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,register_class_id,enrolled_from,status)
+values('fd560000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd550000-0000-4000-8000-000000000001',2026,'40000000-0000-4000-8000-00000000001a',current_date-30,'current');
+
 select throws_ok(
   $$insert into public.voluntary_contribution_campaigns(tenant_id,school_id,academic_year,title,starts_on,status,created_by_user_id)
     values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'Forged campaign',current_date,'draft','fd500000-0000-4000-8000-000000000003')$$,
@@ -38,21 +44,21 @@ values('fd530000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111
 
 select throws_ok(
   $$insert into public.learner_voluntary_contributions(tenant_id,school_id,learner_id,enrolment_id,campaign_id,item_id,contribution_date,amount,status,recorded_by_user_id)
-    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','fd520000-0000-4000-8000-000000000001','fd530000-0000-4000-8000-000000000001',current_date,25,'recorded','fd500000-0000-4000-8000-000000000003')$$,
+    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd550000-0000-4000-8000-000000000001','fd560000-0000-4000-8000-000000000001','fd520000-0000-4000-8000-000000000001','fd530000-0000-4000-8000-000000000001',current_date,25,'recorded','fd500000-0000-4000-8000-000000000003')$$,
   'Voluntary contribution recorder is not authorized for learner',
   'trusted write cannot forge an unrelated contribution recorder'
 );
 
 select throws_ok(
   $$insert into public.learner_voluntary_contributions(tenant_id,school_id,learner_id,enrolment_id,campaign_id,item_id,contribution_date,amount,status,recorded_by_user_id,verified_by_user_id,verified_at)
-    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','fd520000-0000-4000-8000-000000000001','fd530000-0000-4000-8000-000000000001',current_date,25,'verified','fd500000-0000-4000-8000-000000000001','fd500000-0000-4000-8000-000000000001',now())$$,
+    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd550000-0000-4000-8000-000000000001','fd560000-0000-4000-8000-000000000001','fd520000-0000-4000-8000-000000000001','fd530000-0000-4000-8000-000000000001',current_date,25,'verified','fd500000-0000-4000-8000-000000000001','fd500000-0000-4000-8000-000000000001',now())$$,
   'Voluntary contributions must be created in recorded state without review provenance',
   'trusted write cannot manufacture a pre-verified contribution'
 );
 
 select lives_ok(
   $$insert into public.learner_voluntary_contributions(id,tenant_id,school_id,learner_id,enrolment_id,campaign_id,item_id,contribution_date,amount,status,recorded_by_user_id)
-    values('fd540000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','fd520000-0000-4000-8000-000000000001','fd530000-0000-4000-8000-000000000001',current_date,25,'recorded','fd500000-0000-4000-8000-000000000002')$$,
+    values('fd540000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd550000-0000-4000-8000-000000000001','fd560000-0000-4000-8000-000000000001','fd520000-0000-4000-8000-000000000001','fd530000-0000-4000-8000-000000000001',current_date,25,'recorded','fd500000-0000-4000-8000-000000000002')$$,
   'assigned register teacher remains a valid recorder for their learner'
 );
 
