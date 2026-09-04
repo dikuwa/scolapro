@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Buffer } from "node:buffer";
 import {
   buildReportCardTemplateModel,
   isFailingResult,
@@ -15,6 +16,14 @@ function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function logoDataUrl(bytes: Uint8Array | null | undefined): string {
+  if (!bytes?.length) return "";
+  const isPng = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  const isJpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const mime = isPng ? "image/png" : isJpeg ? "image/jpeg" : "";
+  return mime ? `data:${mime};base64,${Buffer.from(bytes).toString("base64")}` : "";
 }
 
 function contactLine(label: string, value: string): string {
@@ -65,7 +74,8 @@ function resultsTable(input: ReportCardRenderInput): string {
 export function renderReportCardHtml(input: ReportCardRenderInput): string {
   const model = buildReportCardTemplateModel(input);
   const oldEnglishClass = model.schoolNameFont === "old_english" ? " old-english" : "";
-  const logo = model.logoUrl ? `<div class="logo-wrap"><img class="school-logo" src="${escapeHtml(model.logoUrl)}" alt="${escapeHtml(model.schoolName)} logo" /></div>` : `<div class="logo-wrap logo-placeholder"></div>`;
+  const resolvedLogoUrl = logoDataUrl(input.logoBytes) || model.logoUrl;
+  const logo = resolvedLogoUrl ? `<div class="logo-wrap"><img class="school-logo" src="${escapeHtml(resolvedLogoUrl)}" alt="${escapeHtml(model.schoolName)} logo" /></div>` : `<div class="logo-wrap logo-placeholder"></div>`;
   const contactBlock = [
     contactLine("Address", model.physicalAddress),
     contactLine("Tel", model.telephone),
