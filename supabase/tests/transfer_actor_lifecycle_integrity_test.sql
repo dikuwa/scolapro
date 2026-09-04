@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(14);
 
 select has_function(
   'app_private','enforce_transfer_actor_lifecycle_integrity',array[]::text[],
