@@ -37,6 +37,12 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
 }
 
+function isStaffAvailableOn(staff: DetentionStaffOption, date: string) {
+  return staff.availabilityWindows.some(
+    (window) => window.effectiveFrom <= date && (window.effectiveTo === null || window.effectiveTo >= date),
+  );
+}
+
 export function LateArrivalWorkspace({
   learners,
   detention,
@@ -58,14 +64,27 @@ export function LateArrivalWorkspace({
   const [arrivalDate, setArrivalDate] = useState(today);
   const [classFilter, setClassFilter] = useState("");
   const [staffRotationOpen, setStaffRotationOpen] = useState(false);
-  const [supervisors, setSupervisors] = useState<Record<string, string>>(() => Object.fromEntries(detention.map((item) => [item.id, item.assignedStaffMemberId ?? ""])));
+  const [supervisors, setSupervisors] = useState<Record<string, string>>(
+    () => Object.fromEntries(detention.map((item) => [item.id, item.assignedStaffMemberId ?? ""])),
+  );
+
   const selectedLearner = learners.find((item) => item.enrolmentId === enrolmentId) ?? null;
   const days = useMemo(() => weekDates(today), [today]);
-  const classOptions = useMemo(() => [...new Set(learners.map((learner) => learner.registerClass).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [learners]);
+  const classOptions = useMemo(
+    () => [...new Set(learners.map((learner) => learner.registerClass).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+    [learners],
+  );
   const filteredLearners = classFilter ? learners.filter((learner) => learner.registerClass === classFilter) : learners;
-  const selectableSupervisors = useMemo(() => [...staffOptions].sort((left, right) => Number(right.eligible) - Number(left.eligible) || left.name.localeCompare(right.name)), [staffOptions]);
-  const preferredStaffCount = staffOptions.filter((staff) => staff.eligible).length;
-  const generalStaffCount = staffOptions.length - preferredStaffCount;
+  const selectableSupervisors = useMemo(
+    () => [...staffOptions].sort((left, right) => Number(right.eligible) - Number(left.eligible) || left.name.localeCompare(right.name)),
+    [staffOptions],
+  );
+  const currentStaffOptions = useMemo(
+    () => selectableSupervisors.filter((staff) => isStaffAvailableOn(staff, today)),
+    [selectableSupervisors, today],
+  );
+  const preferredStaffCount = currentStaffOptions.filter((staff) => staff.eligible).length;
+  const generalStaffCount = currentStaffOptions.length - preferredStaffCount;
 
   useEffect(() => {
     if (!state.message) return;
@@ -187,29 +206,46 @@ export function LateArrivalWorkspace({
             <div className="flex items-center gap-2"><Link href="/late-arrivals/history" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><History className="size-3.5" />History</Link><span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{detention.length} open</span></div>
           </div>
         </div>
-        {detention.length ? <div className="divide-y divide-border-subtle">{detention.map((item) => (
-          <div key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.55fr)_auto] lg:items-end sm:px-5">
-            <div>
-              <div className="flex flex-wrap items-center gap-2"><p className="scolapro-record-title">{item.learnerName}</p>{item.rolloverCount > 0 ? <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-danger-soft px-2 py-0.5 text-[0.62rem] font-semibold text-[color:var(--danger)]"><RotateCcw className="size-3" />Overdue · rolled {item.rolloverCount}×</span> : null}</div>
-              <p className="mt-1 text-[0.68rem] text-muted-foreground">Triggered {item.triggeredOn ? formatDate(item.triggeredOn) : "historically"} · due {formatDate(item.dueOn)}{item.originalDueOn !== item.dueOn ? ` · originally ${formatDate(item.originalDueOn)}` : ""}</p>
-              <p className="mt-1 text-[0.68rem] text-muted-foreground">Supervisor: <span className="font-medium text-foreground">{item.assignedStaffName ?? "Not assigned"}</span></p>
-            </div>
+        {detention.length ? <div className="divide-y divide-border-subtle">{detention.map((item) => {
+          const supervisorsForDueDate = selectableSupervisors.filter((staff) => isStaffAvailableOn(staff, item.dueOn));
+          const assignedDateValid = !item.assignedStaffMemberId || supervisorsForDueDate.some((staff) => staff.id === item.assignedStaffMemberId);
+          return (
+            <div key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.55fr)_auto] lg:items-end sm:px-5">
+              <div>
+                <div className="flex flex-wrap items-center gap-2"><p className="scolapro-record-title">{item.learnerName}</p>{item.rolloverCount > 0 ? <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-danger-soft px-2 py-0.5 text-[0.62rem] font-semibold text-[color:var(--danger)]"><RotateCcw className="size-3" />Overdue · rolled {item.rolloverCount}×</span> : null}</div>
+                <p className="mt-1 text-[0.68rem] text-muted-foreground">Triggered {item.triggeredOn ? formatDate(item.triggeredOn) : "historically"} · due {formatDate(item.dueOn)}{item.originalDueOn !== item.dueOn ? ` · originally ${formatDate(item.originalDueOn)}` : ""}</p>
+                <p className="mt-1 text-[0.68rem] text-muted-foreground">Supervisor: <span className="font-medium text-foreground">{item.assignedStaffName ?? "Not assigned"}</span></p>
+                {!assignedDateValid ? <p className="mt-1 text-[0.65rem] font-medium text-[color:var(--warning)]">This supervisor is not placed at the school on the current due date. Reassign before detention.</p> : null}
+              </div>
 
-            {canManage ? (
-              <form action={reassignDetentionSupervisor} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+              {canManage ? (
+                <form action={reassignDetentionSupervisor} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+                  <input type="hidden" name="obligationId" value={item.id} />
+                  <input type="hidden" name="staffMemberId" value={supervisors[item.id] ?? ""} />
+                  <SearchableSelect
+                    ariaLabel={`Supervisor for ${item.learnerName}`}
+                    value={supervisors[item.id] ?? ""}
+                    onChange={(value) => setSupervisors((current) => ({ ...current, [item.id]: value }))}
+                    placeholder={supervisorsForDueDate.length ? "Choose supervisor" : "No staff available on due date"}
+                    searchPlaceholder="Search staff available that Friday…"
+                    options={supervisorsForDueDate.map((staff) => ({
+                      value: staff.id,
+                      label: staff.name,
+                      helper: `${staff.eligible ? "Preferred" : "General staff"} · ${staff.employeeNumber ?? "No employee number"}`,
+                      searchText: staff.employeeNumber ?? "",
+                    }))}
+                  />
+                  <button type="submit" disabled={!supervisors[item.id] || supervisors[item.id] === item.assignedStaffMemberId || !supervisorsForDueDate.some((staff) => staff.id === supervisors[item.id])} className="min-h-10 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45">Save</button>
+                </form>
+              ) : <div className="text-xs text-muted-foreground">Assigned supervision is managed by school leadership.</div>}
+
+              <form action={resolveDetention}>
                 <input type="hidden" name="obligationId" value={item.id} />
-                <input type="hidden" name="staffMemberId" value={supervisors[item.id] ?? ""} />
-                <SearchableSelect ariaLabel={`Supervisor for ${item.learnerName}`} value={supervisors[item.id] ?? ""} onChange={(value) => setSupervisors((current) => ({ ...current, [item.id]: value }))} placeholder="Choose supervisor" searchPlaceholder="Search all active staff…" options={selectableSupervisors.map((staff) => ({ value: staff.id, label: staff.name, helper: `${staff.eligible ? "Preferred" : "General staff"} · ${staff.employeeNumber ?? "No employee number"}`, searchText: staff.employeeNumber ?? "" }))} />
-                <button type="submit" disabled={!supervisors[item.id] || supervisors[item.id] === item.assignedStaffMemberId} className="min-h-10 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45">Save</button>
+                <button type="submit" className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)] lg:w-auto"><ShieldCheck className="size-3.5" />Completed</button>
               </form>
-            ) : <div className="text-xs text-muted-foreground">Assigned supervision is managed by school leadership.</div>}
-
-            <form action={resolveDetention}>
-              <input type="hidden" name="obligationId" value={item.id} />
-              <button type="submit" className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)] lg:w-auto"><ShieldCheck className="size-3.5" />Completed</button>
-            </form>
-          </div>
-        ))}</div> : <div className="px-5 py-9 text-center text-xs text-muted-foreground">No open detention obligations.</div>}
+            </div>
+          );
+        })}</div> : <div className="px-5 py-9 text-center text-xs text-muted-foreground">No open detention obligations.</div>}
       </section>
 
       {canManage ? (
@@ -226,7 +262,7 @@ export function LateArrivalWorkspace({
             <div className="border-t border-border-subtle px-4 pb-4 sm:px-5 sm:pb-5">
               <p className="mt-4 text-[0.68rem] text-muted-foreground">Mark regular detention supervisors as preferred so they appear first. This does not block other active school staff from being assigned when needed.</p>
               <div className="mt-3 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
-                {staffOptions.map((staff) => (
+                {currentStaffOptions.map((staff) => (
                   <div key={staff.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
                     <div className="min-w-0"><p className="truncate text-xs font-semibold">{staff.name}</p><p className="text-[0.65rem] text-muted-foreground">{staff.employeeNumber ?? "No employee number"}</p></div>
                     <form action={setDetentionSupervisionEligibility}>
@@ -237,6 +273,7 @@ export function LateArrivalWorkspace({
                     </form>
                   </div>
                 ))}
+                {!currentStaffOptions.length ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">No active staff placements are available today.</p> : null}
               </div>
             </div>
           ) : null}
