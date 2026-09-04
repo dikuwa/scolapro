@@ -15,6 +15,9 @@ values
   ('fe110000-0000-4000-8000-000000000001','fe100000-0000-4000-8000-000000000001','School Core A','SCHOOL-CORE-A','Khomas','Windhoek'),
   ('fe110000-0000-4000-8000-000000000002','fe100000-0000-4000-8000-000000000002','School Core B','SCHOOL-CORE-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('fe100000-0000-4000-8000-000000000001','fe110000-0000-4000-8000-000000000001','fe000000-0000-4000-8000-000000000001','hod',current_date);
+
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
 values
   ('fe120000-0000-4000-8000-000000000001','fe100000-0000-4000-8000-000000000001','CORE-T1','Teacher','One','active'),
