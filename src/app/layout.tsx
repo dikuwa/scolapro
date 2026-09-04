@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AppToaster } from "@/components/feedback/app-toaster";
+import { SCOLAPRO_BRAND } from "@/lib/brand";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -11,10 +12,11 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "ScolaPro",
-    template: "%s · ScolaPro",
+    default: SCOLAPRO_BRAND.name,
+    template: `%s · ${SCOLAPRO_BRAND.name}`,
   },
-  description: "A Namibia-first school operations and learning platform.",
+  applicationName: SCOLAPRO_BRAND.name,
+  description: SCOLAPRO_BRAND.productDescription,
 };
 
 export default function RootLayout({
