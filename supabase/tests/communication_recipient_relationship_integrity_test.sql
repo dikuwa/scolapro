@@ -17,7 +17,10 @@ insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fd120000-0000-4000-8000-000000000001','fd110000-0000-4000-8000-000000000001','Communication Relationship School B','COMM-REL-B','Khomas','Windhoek');
 
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
-values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd100000-0000-4000-8000-000000000001','teacher',current_date);
+values
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd100000-0000-4000-8000-000000000001','teacher',current_date),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd100000-0000-4000-8000-000000000005','school_admin',current_date),
+  ('fd110000-0000-4000-8000-000000000001','fd120000-0000-4000-8000-000000000001','fd100000-0000-4000-8000-000000000005','school_admin',current_date);
 
 insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex)
 values
