@@ -7,6 +7,11 @@ values
   ('fe100000-0000-4000-8000-000000000001','contribution-scope-author@example.test','authenticated','authenticated',now(),now()),
   ('fe100000-0000-4000-8000-000000000002','contribution-scope-reviewer@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe100000-0000-4000-8000-000000000001','school_admin',current_date),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe100000-0000-4000-8000-000000000002','deputy_principal',current_date);
+
 insert into public.tenants(id,name,slug)
 values('fe110000-0000-4000-8000-000000000001','Contribution Scope Tenant B','contribution-scope-tenant-b');
 
@@ -98,7 +103,7 @@ select lives_ok(
   $$update public.learner_voluntary_contributions
        set status='verified',verified_by_user_id='fe100000-0000-4000-8000-000000000002',verified_at=now(),updated_at=now()
      where id='fe190000-0000-4000-8000-000000000001'$$,
-  'verification lifecycle remains editable'
+  'verification lifecycle remains editable for authorized leadership'
 );
 
 select throws_ok(
