@@ -89,3 +89,47 @@ export async function allocateDetentionLearners(
   revalidatePath("/late-arrivals");
   return { success: true, message: `${learnerCount} learner${learnerCount === 1 ? "" : "s"} allocated to detention supervision.` };
 }
+
+export async function balanceDetentionLearners(
+  _state: DetentionPlanningActionState,
+  formData: FormData,
+): Promise<DetentionPlanningActionState> {
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const obligationIds = uuidList(formData, "obligationIds");
+  const supervisorIds = uuidList(formData, "supervisorStaffMemberIds");
+
+  if (!z.string().uuid().safeParse(sessionId).success) return { message: "Detention session is invalid." };
+  if (!obligationIds.length) return { message: "Select at least one learner from the detention queue." };
+  if (!supervisorIds.length) return { message: "Keep at least one supervisor on the duty team before balancing learners." };
+
+  const groups = new Map<string, string[]>();
+  obligationIds.forEach((obligationId, index) => {
+    const supervisorId = supervisorIds[index % supervisorIds.length];
+    groups.set(supervisorId, [...(groups.get(supervisorId) ?? []), obligationId]);
+  });
+
+  const supabase = await createSupabaseServerClient();
+  let allocated = 0;
+  for (const [supervisorId, groupedObligations] of groups) {
+    const { data: count, error } = await supabase.rpc("assign_detention_session_learners", {
+      p_session_id: sessionId,
+      p_obligation_ids: groupedObligations,
+      p_supervisor_staff_member_id: supervisorId,
+    });
+    if (error) {
+      revalidatePath("/late-arrivals");
+      return {
+        message: allocated
+          ? `${allocated} learner${allocated === 1 ? " was" : "s were"} allocated before balancing stopped: ${error.message}`
+          : error.message,
+      };
+    }
+    allocated += Number(count ?? groupedObligations.length);
+  }
+
+  revalidatePath("/late-arrivals");
+  return {
+    success: true,
+    message: `${allocated} learner${allocated === 1 ? "" : "s"} balanced across ${supervisorIds.length} duty-team member${supervisorIds.length === 1 ? "" : "s"}.`,
+  };
+}
