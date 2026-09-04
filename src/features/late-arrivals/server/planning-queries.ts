@@ -52,12 +52,6 @@ function addDays(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-export function isDetentionStaffAvailableOn(member: DetentionPlanningStaff, date: string) {
-  return member.availabilityWindows.some(
-    (window) => window.effectiveFrom <= date && (window.effectiveTo === null || window.effectiveTo >= date),
-  );
-}
-
 export async function getDetentionPlanning(schoolId: string, today: string) {
   const supabase = await createSupabaseServerClient();
   const horizon = addDays(today, 70);
