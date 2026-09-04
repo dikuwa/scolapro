@@ -7,6 +7,11 @@ values
   ('fd900000-0000-4000-8000-000000000001','template-scope-author@example.test','authenticated','authenticated',now(),now()),
   ('fd900000-0000-4000-8000-000000000002','template-scope-other@example.test','authenticated','authenticated',now(),now());
 
+-- The scope test needs a legitimate template manager so it can exercise template identity
+-- and provider-binding invariants without relying on forged creator provenance.
+insert into public.platform_memberships(user_id,role_key,active_from,active_to)
+values('fd900000-0000-4000-8000-000000000001','platform_admin',current_date,null);
+
 insert into public.tenants(id,name,slug)
 values('fd910000-0000-4000-8000-000000000001','Template Scope Tenant B','template-scope-tenant-b');
 
