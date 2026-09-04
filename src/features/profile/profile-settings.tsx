@@ -4,19 +4,17 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { changePassword, deleteAvatar, saveUploadedAvatar, type ProfileActionState } from "@/features/profile/server/actions";
+import { changePassword, deleteAvatar, type ProfileActionState } from "@/features/profile/server/actions";
 import { Spinner } from "@/components/ui/spinner";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const initialState: ProfileActionState = {};
 const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxAvatarBytes = 3 * 1024 * 1024;
 
-function avatarExtension(file: File) {
-  if (file.type === "image/png") return "png";
-  if (file.type === "image/webp") return "webp";
-  return "jpg";
-}
+type AvatarUploadResponse = {
+  message?: string;
+  avatarUrl?: string;
+};
 
 export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { avatarUrl: string | null; userId: string; mustChangePassword: boolean }) {
   const router = useRouter();
@@ -74,40 +72,27 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
     }
 
     setAvatarUploading(true);
-    const path = `${userId}/avatar-${Date.now()}-${crypto.randomUUID()}.${avatarExtension(file)}`;
-    const supabase = createSupabaseBrowserClient();
-
     try {
-      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
-        contentType: file.type,
-        cacheControl: "3600",
-        upsert: false,
-      });
-      if (uploadError) {
-        const lower = uploadError.message.toLocaleLowerCase();
-        if (lower.includes("row-level") || lower.includes("unauthorized")) toast.error("Your session could not upload this photo. Refresh the page and try again.");
-        else if (lower.includes("mime") || lower.includes("content type")) toast.error("Use a JPG, PNG or WebP image.");
-        else if (lower.includes("size") || lower.includes("limit")) toast.error("Avatar images must be 3 MB or smaller.");
-        else toast.error("The avatar could not be uploaded. Please try again.");
+      const body = new FormData();
+      body.set("avatar", file);
+      const response = await fetch("/api/profile/avatar", { method: "POST", body });
+      const result = (await response.json().catch(() => ({}))) as AvatarUploadResponse;
+
+      if (!response.ok || !result.avatarUrl) {
+        toast.error(result.message ?? "The avatar could not be uploaded. Please try again.");
         return;
       }
 
-      const result = await saveUploadedAvatar(path);
-      if (!result.success) {
-        await supabase.storage.from("avatars").remove([path]);
-        toast.error(result.message ?? "The avatar could not be saved to your profile.");
-        return;
-      }
-
-      const publicUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       setPreviewUrl((current) => {
         if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
-        return `${publicUrl}?v=${Date.now()}`;
+        return result.avatarUrl ?? current;
       });
       setFileName("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       toast.success(result.message ?? "Profile photo updated.");
       router.refresh();
+    } catch {
+      toast.error("The avatar upload could not reach the server. Check your connection and try again.");
     } finally {
       setAvatarUploading(false);
     }
