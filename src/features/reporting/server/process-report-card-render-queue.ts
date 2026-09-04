@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { renderReportCardHtml } from "@/features/reporting/server/render-report-card-html";
 import { renderReportCardPdf } from "@/features/reporting/server/render-report-card-pdf";
+import { record, text } from "@/features/reporting/server/report-card-template-model";
 
 type RenderFormat = "html" | "pdf";
 type RenderJob = {
@@ -23,6 +24,17 @@ export type ReportCardRenderWorkerResult = {
   dead: number;
   durationMs: number;
 };
+
+async function loadFrozenSchoolLogo(supabase: ReturnType<typeof createSupabaseAdminClient>, dataSnapshot: unknown): Promise<Uint8Array | null> {
+  const snapshot = record(dataSnapshot);
+  const profile = record(snapshot.school_document_profile);
+  const storagePath = text(profile.logo_storage_path);
+  if (!storagePath) return null;
+
+  const { data, error } = await supabase.storage.from("school-document-assets").download(storagePath);
+  if (error || !data) throw new Error(`Unable to load frozen school logo asset: ${error?.message ?? "asset not found"}`);
+  return new Uint8Array(await data.arrayBuffer());
+}
 
 export async function processReportCardRenderQueue(limit = 20): Promise<ReportCardRenderWorkerResult> {
   const startedAt = Date.now();
@@ -67,6 +79,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
         snapshotVersion: snapshot.snapshot_version,
         certifiedAt: snapshot.certified_at,
         dataSnapshot: snapshot.data_snapshot ?? {},
+        logoBytes: await loadFrozenSchoolLogo(supabase, snapshot.data_snapshot),
       };
 
       let bytes: Uint8Array;

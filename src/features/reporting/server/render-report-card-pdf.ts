@@ -59,6 +59,30 @@ function rowSubjectLabel(row: ReportCardSubjectRow): string {
   return `${row.promotional ? "" : "* "}${row.name}`;
 }
 
+async function drawSchoolLogo(pdf: PDFDocument, page: PDFPage, bytes: Uint8Array | null | undefined, x: number, y: number, width: number, height: number) {
+  if (!bytes?.length) return false;
+  let image;
+  try {
+    image = await pdf.embedPng(bytes);
+  } catch {
+    try {
+      image = await pdf.embedJpg(bytes);
+    } catch {
+      return false;
+    }
+  }
+  const scale = Math.min(width / image.width, height / image.height);
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+  page.drawImage(image, {
+    x: x + (width - drawWidth) / 2,
+    y: y + (height - drawHeight) / 2,
+    width: drawWidth,
+    height: drawHeight,
+  });
+  return true;
+}
+
 export async function renderReportCardPdf(input: ReportCardRenderInput): Promise<{ bytes: Uint8Array; pageCount: number }> {
   const model = buildReportCardTemplateModel(input);
   const pdf = await PDFDocument.create();
@@ -84,8 +108,11 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   const postalWidth = 116;
   const centreX = MARGIN + logoWidth;
   const centreWidth = CONTENT_WIDTH - logoWidth - postalWidth;
-  page.drawRectangle({ x: MARGIN + 8, y: y - 72, width: 66, height: 64, borderWidth: 0.4, borderColor: rgb(0.75, 0.75, 0.75) });
-  drawCentered(page, regular, model.logoUrl ? "School logo" : "Logo", 6.2, MARGIN + 8, 66, y - 43);
+  const logoX = MARGIN + 8;
+  const logoY = y - 72;
+  page.drawRectangle({ x: logoX, y: logoY, width: 66, height: 64, borderWidth: 0.4, borderColor: rgb(0.75, 0.75, 0.75) });
+  const logoDrawn = await drawSchoolLogo(pdf, page, input.logoBytes, logoX + 4, logoY + 4, 58, 56);
+  if (!logoDrawn) drawCentered(page, regular, model.logoStoragePath || model.logoUrl ? "School logo unavailable" : "Logo", 5.7, logoX, 66, y - 43);
 
   const titleSize = model.schoolNameFont === "old_english" ? 19 : 16;
   drawCentered(page, schoolDisplayFont, model.schoolName, titleSize, centreX, centreWidth, y - 22);
@@ -148,9 +175,6 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   });
   y -= header1Height + header2Height;
 
-  // Never silently truncate subjects on an official report. Fit all visible
-  // subjects onto the one-page form; if the configuration is physically unsafe,
-  // fail rendering so an administrator sees a real issue instead of an incomplete PDF.
   const rows = model.subjectRows;
   const reservedBottom = 44 + 76 + 22 + 38;
   const availableForRows = Math.max(0, y - MARGIN - reservedBottom);

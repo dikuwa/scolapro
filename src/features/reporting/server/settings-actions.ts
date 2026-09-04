@@ -11,6 +11,7 @@ const schoolSettingsSchema = z.object({
   schoolId: z.string().uuid(),
   formerName: z.string().trim().max(160).optional().default(""),
   logoUrl: z.string().trim().max(1000).optional().default(""),
+  logoStoragePath: z.string().trim().max(1000).optional().default(""),
   physicalAddress: z.string().trim().max(240).optional().default(""),
   telephone: z.string().trim().max(80).optional().default(""),
   fax: z.string().trim().max(80).optional().default(""),
@@ -33,6 +34,11 @@ const subjectSchema = z.object({
   showOnReportCard: z.boolean(),
 });
 
+const logoPathSchema = z.object({
+  schoolId: z.string().uuid(),
+  storagePath: z.string().trim().max(1000),
+});
+
 async function getManageableSchool(schoolId: string) {
   const context = await getUserContext();
   if (!context.user) return null;
@@ -40,12 +46,37 @@ async function getManageableSchool(schoolId: string) {
 }
 
 function checked(formData: FormData, key: string) { return formData.get(key) === "on" || formData.get(key) === "true"; }
+function revalidateReportCardSettings() {
+  revalidatePath("/school/setup");
+  revalidatePath("/reports/report-cards");
+}
+
+export async function saveUploadedSchoolLogo(schoolId: string, storagePath: string): Promise<ReportCardSettingsState> {
+  const parsed = logoPathSchema.safeParse({ schoolId, storagePath });
+  if (!parsed.success) return { message: "The uploaded school logo path is invalid." };
+  if (!(await getManageableSchool(parsed.data.schoolId))) return { message: "You do not have permission to change this school logo." };
+
+  const expectedPrefix = `${parsed.data.schoolId}/logos/`;
+  if (parsed.data.storagePath && !parsed.data.storagePath.startsWith(expectedPrefix)) {
+    return { message: "The uploaded logo does not belong to this school." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("set_report_card_logo_asset", {
+    p_school_id: parsed.data.schoolId,
+    p_storage_path: parsed.data.storagePath || null,
+  });
+  if (error) return { message: "The uploaded logo could not be attached to the school document profile." };
+  revalidateReportCardSettings();
+  return { success: true, message: parsed.data.storagePath ? "School document logo updated." : "School document logo removed." };
+}
 
 export async function saveReportCardSchoolSettings(_previous: ReportCardSettingsState, formData: FormData): Promise<ReportCardSettingsState> {
   const parsed = schoolSettingsSchema.safeParse({
     schoolId: formData.get("schoolId"),
     formerName: formData.get("formerName") ?? "",
     logoUrl: formData.get("logoUrl") ?? "",
+    logoStoragePath: formData.get("logoStoragePath") ?? "",
     physicalAddress: formData.get("physicalAddress") ?? "",
     telephone: formData.get("telephone") ?? "",
     fax: formData.get("fax") ?? "",
@@ -71,6 +102,7 @@ export async function saveReportCardSchoolSettings(_previous: ReportCardSettings
     p_document_profile: {
       former_name: parsed.data.formerName,
       logo_url: parsed.data.logoUrl,
+      logo_storage_path: parsed.data.logoStoragePath,
       physical_address: parsed.data.physicalAddress,
       telephone: parsed.data.telephone,
       fax: parsed.data.fax,
@@ -88,8 +120,7 @@ export async function saveReportCardSchoolSettings(_previous: ReportCardSettings
     },
   });
   if (error) return { message: "Report-card settings could not be saved. Please try again." };
-  revalidatePath("/school/setup");
-  revalidatePath("/reports/report-cards");
+  revalidateReportCardSettings();
   return { success: true, message: "Report-card document settings saved." };
 }
 
@@ -113,7 +144,6 @@ export async function saveReportCardSubjectSetting(_previous: ReportCardSettings
     p_show_on_report_card: parsed.data.showOnReportCard,
   });
   if (error) return { message: "The subject report-card rule could not be saved." };
-  revalidatePath("/school/setup");
-  revalidatePath("/reports/report-cards");
+  revalidateReportCardSettings();
   return { success: true, message: "Subject report-card rule saved." };
 }

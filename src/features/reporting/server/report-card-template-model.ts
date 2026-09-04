@@ -8,6 +8,7 @@ export type ReportCardRenderInput = {
   snapshotVersion: number;
   certifiedAt?: string | null;
   dataSnapshot: JsonRecord;
+  logoBytes?: Uint8Array | null;
 };
 
 export type ReportCardTermResult = {
@@ -45,6 +46,7 @@ export type ReportCardTemplateModel = {
   schoolEmisNumber: string;
   formerName: string;
   logoUrl: string;
+  logoStoragePath: string;
   physicalAddress: string;
   telephone: string;
   fax: string;
@@ -203,6 +205,7 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
     schoolEmisNumber,
     formerName: text(profile.former_name),
     logoUrl: text(profile.logo_url),
+    logoStoragePath: text(profile.logo_storage_path),
     physicalAddress: text(profile.physical_address),
     telephone: text(profile.telephone || profile.phone),
     fax: text(profile.fax),
