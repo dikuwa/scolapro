@@ -235,9 +235,20 @@ export function PagedReportCardManagement(props: Props) {
   const rowByEnrolment = useMemo(() => new Map(props.statusPage.rows.map((row) => [row.enrolmentId, row])), [props.statusPage.rows]);
   const selectedRows = props.statusPage.rows.filter((row) => selectedIds.has(row.enrolmentId));
   const customSummary = summarizeRows(selectedRows);
-  const summary = scopeType === "custom" ? customSummary : props.scopeSummary;
+  const appliedScopeMatches = scopeType === props.scopeType
+    && scopeGradeId === props.scopeGradeId
+    && scopeClassId === props.scopeClassId;
+  const summary = scopeType === "custom"
+    ? customSummary
+    : appliedScopeMatches
+      ? props.scopeSummary
+      : null;
   const scopeId = scopeType === "grade" ? scopeGradeId : scopeType === "class" ? scopeClassId : null;
-  const scopeLabel = scopeType === "custom" ? `Custom selection (${selectedRows.length})` : props.scopeSummary?.scopeLabel ?? "Selected scope";
+  const scopeLabel = scopeType === "custom"
+    ? `Custom selection (${selectedRows.length})`
+    : appliedScopeMatches
+      ? props.scopeSummary?.scopeLabel ?? "Selected scope"
+      : "Apply scope to load totals";
   const pdfEligible = summary ? summary.certified + summary.published : 0;
   const allPageSelected = props.statusPage.rows.length > 0 && props.statusPage.rows.every((row) => selectedIds.has(row.enrolmentId));
   const selectedIndividual = rowByEnrolment.get(individualLearnerId);
@@ -276,7 +287,7 @@ export function PagedReportCardManagement(props: Props) {
           {scopeType !== "custom" ? <button type="button" onClick={applyScope} disabled={(scopeType === "grade" && !scopeGradeId) || (scopeType === "class" && !scopeClassId)} className={`${actionButton} mt-auto min-h-10 rounded-[var(--radius-sm)] bg-surface-muted px-4 text-xs font-semibold disabled:opacity-45`}>Apply scope</button> : <div className="hidden lg:block" />}
         </div>
         {scopeType === "custom" && !selectedRows.length ? <p className="mt-3 rounded-[var(--radius-sm)] bg-info-soft px-3 py-2 text-xs text-[color:var(--info)]">Select learners in the paged table below. Custom selection intentionally contains only learners explicitly selected on this loaded page.</p> : null}
-        {summary ? <div className="mt-4 grid overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle sm:grid-cols-6">{[["Learners", summary.total], ["Not generated", summary.notGenerated], ["Generated", summary.generated], ["Certified", summary.certified], ["Published", summary.published], ["PDF ready", summary.pdfReady]].map(([label, value], index) => <div key={String(label)} className={`px-3 py-3 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}><p className="text-[0.65rem] font-medium text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-xs text-muted-foreground">Choose and apply a valid grade or class scope to load aggregate report status.</div>}
+        {summary ? <div className="mt-4 grid overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle sm:grid-cols-6">{[["Learners", summary.total], ["Not generated", summary.notGenerated], ["Generated", summary.generated], ["Certified", summary.certified], ["Published", summary.published], ["PDF ready", summary.pdfReady]].map(([label, value], index) => <div key={String(label)} className={`px-3 py-3 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}><p className="text-[0.65rem] font-medium text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-xs text-muted-foreground">Choose and apply a valid scope to load aggregate report status before starting a bulk action.</div>}
         {summary ? <div className="mt-4 flex flex-wrap gap-2"><BatchButton operation="generate" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={summary.notGenerated === 0} /><BatchButton operation="certify" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={summary.generated === 0} /><BatchButton operation="publish" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={summary.certified === 0} /><BatchButton operation="pdf" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={pdfEligible === 0 || summary.pdfReady >= pdfEligible} /></div> : null}
       </section>
       {props.batches.length ? <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><div className="mb-3"><h2 className="scolapro-section-title">Batch progress</h2><p className="scolapro-section-description">Recent durable report-card jobs. Learner names are resolved only when they are on the current loaded page.</p></div><div className="grid gap-2 lg:grid-cols-2">{props.batches.slice(0, 6).map((batch) => <BatchProgress key={batch.id} batch={batch} issues={props.batchIssues} rowByEnrolment={rowByEnrolment} />)}</div></section> : null}
