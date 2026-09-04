@@ -23,8 +23,20 @@ insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_i
 insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex)
 values('fd550000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Contribution','Actor Learner','2010-01-01','unspecified');
 
-insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,register_class_id,enrolled_from,status)
-values('fd560000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd550000-0000-4000-8000-000000000001',2026,'40000000-0000-4000-8000-00000000001a',current_date-30,'current');
+insert into public.enrolments(
+  id,tenant_id,school_id,learner_id,academic_year,grade_id,register_class_id,enrolled_from,status
+)
+values(
+  'fd560000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fd550000-0000-4000-8000-000000000001',
+  2026,
+  (select grade_id from public.register_classes where id='40000000-0000-4000-8000-00000000001a'),
+  '40000000-0000-4000-8000-00000000001a',
+  current_date-30,
+  'current'
+);
 
 select throws_ok(
   $$insert into public.voluntary_contribution_campaigns(tenant_id,school_id,academic_year,title,starts_on,status,created_by_user_id)
