@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(12);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -70,10 +70,15 @@ select lives_ok(
   'authorized academic leader can review a submitted mark set'
 );
 
+select lives_ok(
+  $$update public.mark_submissions set status='locked' where id='fa860000-0000-4000-8000-000000000001'$$,
+  'verified submission can be locked by official-result finalization'
+);
+
 select throws_ok(
-  $$update public.mark_submissions set status='returned' where id='fa860000-0000-4000-8000-000000000001'$$,
-  'Reviewed mark submission status is immutable',
-  'reviewed submission cannot move to another terminal state'
+  $$update public.mark_submissions set status='verified' where id='fa860000-0000-4000-8000-000000000001'$$,
+  'Locked mark submission status is immutable',
+  'locked submission cannot be reopened'
 );
 
 select throws_ok(
