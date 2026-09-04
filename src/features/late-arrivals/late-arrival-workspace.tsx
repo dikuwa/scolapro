@@ -2,9 +2,10 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, Clock3, History, RotateCcw, ShieldCheck, Users } from "lucide-react";
+import { CalendarDays, ChevronDown, Clock3, History, RotateCcw, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
+import { Picker } from "@/components/ui/picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -55,9 +56,15 @@ export function LateArrivalWorkspace({
   const [undoState, undoAction, undoPending] = useActionState(undoLatestLateArrival, initialState);
   const [enrolmentId, setEnrolmentId] = useState("");
   const [arrivalDate, setArrivalDate] = useState(today);
+  const [classFilter, setClassFilter] = useState("");
+  const [staffRotationOpen, setStaffRotationOpen] = useState(false);
   const [supervisors, setSupervisors] = useState<Record<string, string>>(() => Object.fromEntries(detention.map((item) => [item.id, item.assignedStaffMemberId ?? ""])));
   const selectedLearner = learners.find((item) => item.enrolmentId === enrolmentId) ?? null;
   const days = useMemo(() => weekDates(today), [today]);
+  const classOptions = useMemo(() => [...new Set(learners.map((learner) => learner.registerClass).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [learners]);
+  const filteredLearners = classFilter ? learners.filter((learner) => learner.registerClass === classFilter) : learners;
+  const eligibleStaffCount = staffOptions.filter((staff) => staff.eligible).length;
+  const excludedStaffCount = staffOptions.length - eligibleStaffCount;
 
   useEffect(() => {
     if (!state.message) return;
@@ -71,6 +78,11 @@ export function LateArrivalWorkspace({
     else toast.error(undoState.message);
   }, [undoState]);
 
+  const changeClassFilter = (value: string) => {
+    setClassFilter(value);
+    if (value && selectedLearner?.registerClass !== value) setEnrolmentId("");
+  };
+
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -79,23 +91,35 @@ export function LateArrivalWorkspace({
             <h2 className="scolapro-section-title">Record morning late arrival</h2>
             <p className="scolapro-section-description">Detention is triggered by every 3 cumulative late arrivals across the academic year. The weekly strip is only a quick visibility aid.</p>
 
-            <SearchableSelect
-              label="Learner"
-              name="late-arrival-learner-ui"
-              value={enrolmentId}
-              onChange={setEnrolmentId}
-              placeholder="Choose learner"
-              searchPlaceholder="Search by learner name or admission number…"
-              emptyMessage={(query) => `No learner found for '${query}' — check the spelling or search by admission number.`}
-              className="mt-4"
-              options={learners.map((learner) => ({
-                value: learner.enrolmentId,
-                label: learner.name,
-                helper: `${learner.registerClass} · ${learner.admissionNumber ?? "No admission number"} · ${learner.triggerProgress} of ${learner.triggerThreshold}`,
-                group: learner.registerClass,
-                searchText: learner.admissionNumber ?? "",
-              }))}
-            />
+            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)]">
+              <Picker
+                label="Class"
+                ariaLabel="Filter late-arrival learners by class"
+                value={classFilter}
+                onChange={changeClassFilter}
+                placeholder="All classes"
+                searchable
+                searchPlaceholder="Search classes"
+                options={[{ value: "", label: "All classes" }, ...classOptions.map((registerClass) => ({ value: registerClass, label: registerClass }))]}
+              />
+              <SearchableSelect
+                label="Learner"
+                name="late-arrival-learner-ui"
+                value={enrolmentId}
+                onChange={setEnrolmentId}
+                placeholder={classFilter ? `Choose learner in ${classFilter}` : "Choose learner"}
+                searchPlaceholder="Search by learner name or admission number…"
+                emptyMessage={(query) => `No learner found for '${query}' — check the spelling or change the class filter.`}
+                options={filteredLearners.map((learner) => ({
+                  value: learner.enrolmentId,
+                  label: learner.name,
+                  helper: `${learner.registerClass} · ${learner.admissionNumber ?? "No admission number"} · ${learner.triggerProgress} of ${learner.triggerThreshold}`,
+                  group: learner.registerClass,
+                  searchText: learner.admissionNumber ?? "",
+                }))}
+              />
+            </div>
+            <p className="mt-1.5 text-[0.65rem] text-muted-foreground">Filter by class first when the learner list is long. Grade filtering will be added when grade metadata is exposed by the roster read model rather than guessed from class names.</p>
 
             {selectedLearner ? (
               <div className="mt-3 rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted/45 p-3">
@@ -188,21 +212,32 @@ export function LateArrivalWorkspace({
       </section>
 
       {canManage ? (
-        <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-          <div className="flex items-start gap-3"><span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Users className="size-4" /></span><div><h2 className="scolapro-section-title">Detention staff rotation</h2><p className="scolapro-section-description">All active school staff are eligible by default. Opt out staff who should not be automatically assigned; manual reassignment remains available.</p></div></div>
-          <div className="mt-4 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
-            {staffOptions.map((staff) => (
-              <div key={staff.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <div className="min-w-0"><p className="truncate text-xs font-semibold">{staff.name}</p><p className="text-[0.65rem] text-muted-foreground">{staff.employeeNumber ?? "No employee number"}</p></div>
-                <form action={setDetentionSupervisionEligibility}>
-                  <input type="hidden" name="schoolId" value={schoolId} />
-                  <input type="hidden" name="staffMemberId" value={staff.id} />
-                  <input type="hidden" name="eligible" value={String(!staff.eligible)} />
-                  <button type="submit" aria-pressed={staff.eligible} className={`min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem] font-semibold ${staff.eligible ? "bg-success-soft text-[color:var(--success)]" : "bg-surface-muted text-muted-foreground"}`}>{staff.eligible ? "Eligible" : "Opted out"}</button>
-                </form>
+        <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+          <button type="button" onClick={() => setStaffRotationOpen((open) => !open)} aria-expanded={staffRotationOpen} className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted/45 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5">
+            <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Users className="size-4" /></span>
+            <div className="min-w-0 flex-1">
+              <h2 className="scolapro-section-title">Detention staff rotation</h2>
+              <p className="scolapro-section-description">Low-frequency setup · {eligibleStaffCount} eligible · {excludedStaffCount} opted out. Expand only when eligibility changes.</p>
+            </div>
+            <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] ${staffRotationOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+          </button>
+          {staffRotationOpen ? (
+            <div className="border-t border-border-subtle px-4 pb-4 sm:px-5 sm:pb-5">
+              <div className="mt-4 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
+                {staffOptions.map((staff) => (
+                  <div key={staff.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div className="min-w-0"><p className="truncate text-xs font-semibold">{staff.name}</p><p className="text-[0.65rem] text-muted-foreground">{staff.employeeNumber ?? "No employee number"}</p></div>
+                    <form action={setDetentionSupervisionEligibility}>
+                      <input type="hidden" name="schoolId" value={schoolId} />
+                      <input type="hidden" name="staffMemberId" value={staff.id} />
+                      <input type="hidden" name="eligible" value={String(!staff.eligible)} />
+                      <button type="submit" aria-pressed={staff.eligible} className={`min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem] font-semibold ${staff.eligible ? "bg-success-soft text-[color:var(--success)]" : "bg-surface-muted text-muted-foreground"}`}>{staff.eligible ? "Eligible" : "Opted out"}</button>
+                    </form>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
