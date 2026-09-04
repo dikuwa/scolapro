@@ -17,6 +17,7 @@ export type ReportCardSchoolSettings = {
   documentProfile: {
     formerName: string;
     logoUrl: string;
+    logoStoragePath: string;
     physicalAddress: string;
     telephone: string;
     fax: string;
@@ -51,11 +52,16 @@ export async function getReportCardSchoolSettings(schoolId: string): Promise<Rep
   const settings = record(root.report_card_settings);
   const subjects = Array.isArray(root.subjects) ? root.subjects.map(record) : [];
   const remarksMode = text(settings.remarks_mode);
+  const logoStoragePath = text(profile.logo_storage_path);
+  const storedLogoUrl = logoStoragePath
+    ? supabase.storage.from("school-document-assets").getPublicUrl(logoStoragePath).data.publicUrl
+    : "";
 
   return {
     documentProfile: {
       formerName: text(profile.former_name),
-      logoUrl: text(profile.logo_url),
+      logoUrl: storedLogoUrl || text(profile.logo_url),
+      logoStoragePath,
       physicalAddress: text(profile.physical_address),
       telephone: text(profile.telephone),
       fax: text(profile.fax),
