@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CalendarDays, Check, ChevronDown, Users } from "lucide-react";
+import { CalendarDays, Check, ChevronDown, Scale, Users } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import {
   allocateDetentionLearners,
+  balanceDetentionLearners,
   createPlannedDetentionSession,
   updateDetentionDutyTeam,
   type DetentionPlanningActionState,
@@ -73,6 +74,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   const [createState, createAction, createPending] = useActionState(createPlannedDetentionSession, initialState);
   const [teamState, teamAction, teamPending] = useActionState(updateDetentionDutyTeam, initialState);
   const [allocateState, allocateAction, allocatePending] = useActionState(allocateDetentionLearners, initialState);
+  const [balanceState, balanceAction, balancePending] = useActionState(balanceDetentionLearners, initialState);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [newTeamOpen, setNewTeamOpen] = useState(false);
   const [existingTeamOpen, setExistingTeamOpen] = useState(false);
@@ -84,12 +86,12 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   const [allocationSupervisor, setAllocationSupervisor] = useState(sessions[0]?.supervisorIds[0] ?? "");
 
   useEffect(() => {
-    for (const state of [createState, teamState, allocateState]) {
+    for (const state of [createState, teamState, allocateState, balanceState]) {
       if (!state.message) continue;
       if (state.success) toast.success(state.message);
       else toast.error(state.message);
     }
-  }, [createState, teamState, allocateState]);
+  }, [createState, teamState, allocateState, balanceState]);
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
   const selectableStaff = sortStaff(staff);
@@ -104,6 +106,13 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   for (const item of eligibleQueue) groups.set(item.registerClass, [...(groups.get(item.registerClass) ?? []), item]);
   const groupedQueue = [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
   const nextSession = sessions[0] ?? null;
+  const balancedSupervisorIds = selectedSession
+    ? [...selectedSession.supervisorIds].sort((left, right) => {
+        const leftCount = selectedSession.learnerAssignments.filter((item) => item.supervisorStaffMemberId === left && item.attendanceStatus === "scheduled").length;
+        const rightCount = selectedSession.learnerAssignments.filter((item) => item.supervisorStaffMemberId === right && item.attendanceStatus === "scheduled").length;
+        return leftCount - rightCount || (staffById.get(left)?.name ?? "").localeCompare(staffById.get(right)?.name ?? "");
+      })
+    : [];
 
   const changeSessionDate = (date: string) => {
     setSessionDate(date);
@@ -189,9 +198,10 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                   <form action={allocateAction} className="rounded-[var(--radius-md)] border border-border-subtle p-4">
                     <input type="hidden" name="sessionId" value={selectedSession.id} />
                     {selectedObligations.map((id) => <input key={id} type="hidden" name="obligationIds" value={id} />)}
+                    {balancedSupervisorIds.map((id) => <input key={`balanced-${id}`} type="hidden" name="supervisorStaffMemberIds" value={id} />)}
                     <input type="hidden" name="supervisorStaffMemberId" value={allocationSupervisor} />
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                      <div><StepBadge number={3} label="Allocate obligations" /><h3 className="mt-2 text-sm font-semibold">Allocate due detention obligations</h3><p className="mt-1 max-w-xl text-xs text-muted-foreground">Only learners with an open detention obligation due by this session are shown. Select an entire class group or individual obligations, then assign them to one rostered supervisor.</p></div>
+                      <div><StepBadge number={3} label="Allocate obligations" /><h3 className="mt-2 text-sm font-semibold">Allocate due detention obligations</h3><p className="mt-1 max-w-xl text-xs text-muted-foreground">Select an entire class group or individual obligations. Assign them to one supervisor, or balance the selection across the whole duty team with the least-loaded supervisors receiving learners first.</p></div>
                       <div className="w-full sm:max-w-xs"><Picker ariaLabel="Allocate selected detention obligations to supervisor" value={allocationSupervisor} onChange={setAllocationSupervisor} placeholder="Choose supervisor" searchable searchPlaceholder="Search duty team" options={selectedSession.supervisorIds.map((id) => ({ value: id, label: staffById.get(id)?.name ?? "Supervisor", helper: staffById.get(id)?.employeeNumber ?? undefined }))} /></div>
                     </div>
 
@@ -214,7 +224,13 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                       {!groupedQueue.length ? <div className="rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-xs text-muted-foreground">No eligible open detention obligations for this date.</div> : null}
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">{selectedObligations.length} obligation{selectedObligations.length === 1 ? "" : "s"} selected</p><button type="submit" disabled={allocatePending || !allocationSupervisor || !selectedObligations.length} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">{allocatePending ? <Spinner className="size-4 text-white" /> : <Users className="size-4" aria-hidden="true" />}{allocatePending ? "Assigning…" : "Assign selected obligations"}</button></div>
+                    <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <p className="text-xs text-muted-foreground">{selectedObligations.length} obligation{selectedObligations.length === 1 ? "" : "s"} selected · {selectedSession.supervisorIds.length} duty-team member{selectedSession.supervisorIds.length === 1 ? "" : "s"}</p>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <button type="submit" formAction={balanceAction} disabled={balancePending || allocatePending || !selectedObligations.length || !balancedSupervisorIds.length} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-4 text-sm font-semibold text-foreground hover:bg-surface-subtle disabled:opacity-50">{balancePending ? <Spinner className="size-4" /> : <Scale className="size-4" aria-hidden="true" />}{balancePending ? "Balancing…" : "Balance across duty team"}</button>
+                        <button type="submit" disabled={allocatePending || balancePending || !allocationSupervisor || !selectedObligations.length} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">{allocatePending ? <Spinner className="size-4 text-white" /> : <Users className="size-4" aria-hidden="true" />}{allocatePending ? "Assigning…" : "Assign to selected supervisor"}</button>
+                      </div>
+                    </div>
                   </form>
                 </div>
               ) : (
