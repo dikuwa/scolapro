@@ -99,8 +99,7 @@ select throws_ok(
       '11111111-1111-4111-8111-111111111111','50000000-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','60000000-0000-4000-8000-000000000002',
       'Client Receiving School',current_date,'approved','f6a00000-0000-4000-8000-000000000001','f6a00000-0000-4000-8000-000000000001',now()
     )$$,
-  '42501',
-  'new row violates row-level security policy for table "transfer_events"',
+  'New transfer must begin in requested status',
   'authenticated source manager cannot bypass approval by inserting approved state'
 );
 
