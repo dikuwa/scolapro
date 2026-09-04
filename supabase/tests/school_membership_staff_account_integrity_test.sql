@@ -41,7 +41,7 @@ select lives_ok(
 
 select lives_ok(
   $$insert into public.school_memberships(id,tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
-    values('f9840000-0000-4000-8000-000000000002','f9810000-0000-4000-8000-000000000001','f9820000-0000-4000-8000-000000000001','f9800000-0000-4000-8000-000000000001','f9830000-0000-4000-8000-000000000002','teacher',current_date)$$,
+    values('f9840000-0000-4000-8000-000000000002','f9810000-0000-4000-8000-000000000001','f9820000-0000-4000-8000-000000000001','f9800000-0000-4000-8000-000000000001','f9830000-0000-4000-8000-000000000002','librarian',current_date)$$,
   'an unlinked same-tenant staff identity may be associated to its first membership account'
 );
 
@@ -68,9 +68,8 @@ select lives_ok(
 );
 
 select throws_ok(
-  $$update public.school_memberships
-       set staff_member_id='f9830000-0000-4000-8000-000000000001'
-     where id='f9840000-0000-4000-8000-000000000002'$$,
+  $$insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
+    values('f9810000-0000-4000-8000-000000000001','f9820000-0000-4000-8000-000000000001','f9800000-0000-4000-8000-000000000001','f9830000-0000-4000-8000-000000000001','teacher',current_date)$$,
   'duplicate key value violates unique constraint "school_memberships_school_id_user_id_role_key_active_from_key"',
   'existing membership uniqueness still prevents duplicate account-role periods independently of staff identity'
 );
