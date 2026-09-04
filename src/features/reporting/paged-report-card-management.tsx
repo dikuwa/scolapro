@@ -22,10 +22,10 @@ import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import {
-  certifyReportCard,
+  certifyReportCardWithState,
   createReportCardBatch,
   generateReportCard,
-  publishReportCard,
+  publishReportCardWithState,
   queueReportCardRender,
   type ReportCardActionState,
 } from "@/features/reporting/server/actions";
@@ -189,16 +189,21 @@ function BatchProgress({ batch, issues, rowByEnrolment }: { batch: ReportCardBat
 }
 
 function IndividualPanel({ row, termNumber, renderJobs, documents }: { row: ReportCardStatusPageRow | undefined; termNumber: number; renderJobs: ReportCardRenderJobRow[]; documents: ReportCardDocumentRow[] }) {
+  const router = useRouter();
   const [generateState, generateAction, generatePending] = useActionState(generateReportCard, initialState);
+  const [certifyState, certifyAction, certifyPending] = useActionState(certifyReportCardWithState, initialState);
+  const [publishState, publishAction, publishPending] = useActionState(publishReportCardWithState, initialState);
   const [pdfState, pdfAction, pdfPending] = useActionState(queueReportCardRender, initialState);
   const [htmlState, htmlAction, htmlPending] = useActionState(queueReportCardRender, initialState);
 
   useEffect(() => {
-    const state = [generateState, pdfState, htmlState].find((item) => item.message);
+    const state = [generateState, certifyState, publishState, pdfState, htmlState].find((item) => item.message);
     if (!state?.message) return;
-    if (state.success) toast.success(state.message);
-    else toast.error(state.message);
-  }, [generateState, htmlState, pdfState]);
+    if (state.success) {
+      toast.success(state.message);
+      router.refresh();
+    } else toast.error(state.message);
+  }, [certifyState, generateState, htmlState, pdfState, publishState, router]);
 
   if (!row) return <div className="rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-xs text-muted-foreground">Search or filter the learner table, then choose a learner from the current page for an exception or reprint.</div>;
 
@@ -206,16 +211,17 @@ function IndividualPanel({ row, termNumber, renderJobs, documents }: { row: Repo
   const htmlDocument = row.snapshotId ? documents.find((item) => item.snapshotId === row.snapshotId && item.documentFormat === "html") ?? null : null;
   const pdfJob = row.snapshotId ? renderJobs.find((item) => item.snapshotId === row.snapshotId && item.documentFormat === "pdf") ?? null : null;
   const htmlJob = row.snapshotId ? renderJobs.find((item) => item.snapshotId === row.snapshotId && item.documentFormat === "html") ?? null : null;
+  const lifecyclePending = certifyPending || publishPending;
 
   return <div className="rounded-[var(--radius-sm)] bg-surface-muted p-4">
     <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-semibold">{row.name}</p><p className="mt-1 text-[0.67rem] text-muted-foreground">{row.admissionNumber ?? "No admission number"} · {row.grade} · {row.registerClass}</p></div><span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.64rem] font-semibold ${statusClasses[row.reportStatus]}`}>{statusLabels[row.reportStatus]}</span></div>
-    {row.reportStatus === "not_generated" ? <form action={generateAction} className="mt-3"><input type="hidden" name="enrolmentId" value={row.enrolmentId} /><input type="hidden" name="termNumber" value={termNumber} /><button type="submit" disabled={generatePending} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50`}>{generatePending ? <Spinner className="size-3.5" /> : <FilePlus2 className="size-3.5" />}Generate snapshot</button></form> : null}
+    {row.reportStatus === "not_generated" ? <form action={generateAction} className="mt-3"><input type="hidden" name="enrolmentId" value={row.enrolmentId} /><input type="hidden" name="termNumber" value={termNumber} /><button type="submit" disabled={generatePending} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50`}>{generatePending ? <Spinner className="size-3.5" /> : <FilePlus2 className="size-3.5" />}{generatePending ? "Generating…" : "Generate snapshot"}</button></form> : null}
     {row.snapshotId ? <div className="mt-3 flex flex-wrap gap-2">
-      {row.reportStatus === "generated" ? <form action={certifyReportCard}><input type="hidden" name="snapshotId" value={row.snapshotId} /><button type="submit" className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)]`}><BadgeCheck className="size-3.5" />Certify</button></form> : null}
-      {row.reportStatus === "certified" ? <form action={publishReportCard}><input type="hidden" name="snapshotId" value={row.snapshotId} /><button type="submit" className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-info-soft px-3 text-xs font-semibold text-[color:var(--info)]`}><Send className="size-3.5" />Publish</button></form> : null}
+      {row.reportStatus === "generated" ? <form action={certifyAction}><input type="hidden" name="snapshotId" value={row.snapshotId} /><button type="submit" disabled={certifyPending} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)] disabled:cursor-not-allowed disabled:opacity-50`}>{certifyPending ? <Spinner className="size-3.5" /> : <BadgeCheck className="size-3.5" />}{certifyPending ? "Certifying…" : "Certify"}</button></form> : null}
+      {row.reportStatus === "certified" ? <form action={publishAction}><input type="hidden" name="snapshotId" value={row.snapshotId} /><button type="submit" disabled={publishPending} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-info-soft px-3 text-xs font-semibold text-[color:var(--info)] disabled:cursor-not-allowed disabled:opacity-50`}>{publishPending ? <Spinner className="size-3.5" /> : <Send className="size-3.5" />}{publishPending ? "Publishing…" : "Publish"}</button></form> : null}
       {row.reportStatus !== "generated" ? <>
-        {htmlDocument ? <a href={`/api/report-card-documents/${htmlDocument.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)]"><FileText className="size-3.5" />Digital</a> : <form action={htmlAction}><input type="hidden" name="snapshotId" value={row.snapshotId} /><input type="hidden" name="documentFormat" value="html" /><input type="hidden" name="templateKey" value="TERM_REPORT" /><input type="hidden" name="templateVersion" value={row.templateVersion ?? "SCOLAPRO_TERM_REPORT_V1"} /><button type="submit" disabled={htmlPending || htmlJob?.status === "pending" || htmlJob?.status === "processing"} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong disabled:opacity-50`}>{htmlPending || htmlJob?.status === "processing" ? <Spinner className="size-3.5" /> : <FileText className="size-3.5" />}Digital</button></form>}
-        {pdfDocument ? <a href={`/api/report-card-documents/${pdfDocument.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)]"><Download className="size-3.5" />PDF</a> : <form action={pdfAction}><input type="hidden" name="snapshotId" value={row.snapshotId} /><input type="hidden" name="documentFormat" value="pdf" /><input type="hidden" name="templateKey" value="TERM_REPORT" /><input type="hidden" name="templateVersion" value={row.templateVersion ?? "SCOLAPRO_TERM_REPORT_V1"} /><button type="submit" disabled={pdfPending || pdfJob?.status === "pending" || pdfJob?.status === "processing"} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong disabled:opacity-50`}>{pdfPending || pdfJob?.status === "processing" ? <Spinner className="size-3.5" /> : <Download className="size-3.5" />}PDF</button></form>}
+        {htmlDocument ? <a href={`/api/report-card-documents/${htmlDocument.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)]"><FileText className="size-3.5" />Digital</a> : <form action={htmlAction}><input type="hidden" name="snapshotId" value={row.snapshotId} /><input type="hidden" name="documentFormat" value="html" /><input type="hidden" name="templateKey" value="TERM_REPORT" /><input type="hidden" name="templateVersion" value={row.templateVersion ?? "SCOLAPRO_TERM_REPORT_V1"} /><button type="submit" disabled={lifecyclePending || htmlPending || htmlJob?.status === "pending" || htmlJob?.status === "processing"} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong disabled:cursor-not-allowed disabled:opacity-50`}>{htmlPending || htmlJob?.status === "processing" ? <Spinner className="size-3.5" /> : <FileText className="size-3.5" />}{htmlPending || htmlJob?.status === "processing" ? "Preparing…" : "Digital"}</button></form>}
+        {pdfDocument ? <a href={`/api/report-card-documents/${pdfDocument.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)]"><Download className="size-3.5" />PDF</a> : <form action={pdfAction}><input type="hidden" name="snapshotId" value={row.snapshotId} /><input type="hidden" name="documentFormat" value="pdf" /><input type="hidden" name="templateKey" value="TERM_REPORT" /><input type="hidden" name="templateVersion" value={row.templateVersion ?? "SCOLAPRO_TERM_REPORT_V1"} /><button type="submit" disabled={lifecyclePending || pdfPending || pdfJob?.status === "pending" || pdfJob?.status === "processing"} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong disabled:cursor-not-allowed disabled:opacity-50`}>{pdfPending || pdfJob?.status === "processing" ? <Spinner className="size-3.5" /> : <Download className="size-3.5" />}{pdfPending || pdfJob?.status === "processing" ? "Preparing…" : "PDF"}</button></form>}
       </> : null}
     </div> : null}
   </div>;
