@@ -47,7 +47,8 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   const [state, action, pending] = useActionState(saveReportCardSchoolSettings, initialState);
   const profile = settings.documentProfile;
   const report = settings.reportCardSettings;
-  const [schoolNameFont, setSchoolNameFont] = useState(profile.schoolNameFont);
+  const isNamibHigh = schoolName.trim().toLowerCase() === "namib high school";
+  const [schoolNameFont, setSchoolNameFont] = useState<"default" | "old_english">(isNamibHigh ? profile.schoolNameFont : "default");
   const [remarksMode, setRemarksMode] = useState(report.remarksMode);
   useEffect(() => {
     if (!state.message) return;
@@ -70,7 +71,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
             <div><label className="text-xs font-medium">School email</label><input type="email" name="email" defaultValue={profile.email} className={`${fieldClass} mt-1.5`} /></div>
             <div><label className="text-xs font-medium">Postal address</label><input name="postalAddress" defaultValue={profile.postalAddress} className={`${fieldClass} mt-1.5`} placeholder="P O Box …" /></div>
             <div><label className="text-xs font-medium">School logo URL / stored asset URL</label><input name="logoUrl" defaultValue={profile.logoUrl} className={`${fieldClass} mt-1.5`} placeholder="School-scoped logo asset" /><p className="mt-1 text-[0.68rem] text-muted-foreground">A governed school-logo uploader will replace manual URL entry; this field already drives HTML report branding.</p></div>
-            <Picker label="School-name font on official documents" name="schoolNameFont" value={schoolNameFont} onChange={(value) => setSchoolNameFont(value as "default" | "old_english")} placeholder="Choose document font" options={[{ value: "default", label: "Default ScolaPro font", helper: "Recommended for all schools" }, { value: "old_english", label: "Old English / blackletter", helper: "School-specific override — intended for Namib High School" }]} />
+            {isNamibHigh ? <Picker label="Namib High document school-name font" name="schoolNameFont" value={schoolNameFont} onChange={(value) => setSchoolNameFont(value as "default" | "old_english")} placeholder="Choose document font" options={[{ value: "default", label: "Default ScolaPro font" }, { value: "old_english", label: "Old English / blackletter", helper: "Namib High School only" }]} /> : <div><input type="hidden" name="schoolNameFont" value="default" /><p className="text-xs font-medium">Official document font</p><div className="mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 py-2.5 text-sm">Default ScolaPro font</div><p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Old English is reserved for Namib High School&apos;s established document identity and is not available to other schools.</p></div>}
           </div>
 
           <div className="rounded-[var(--radius-md)] bg-surface-muted p-4">
