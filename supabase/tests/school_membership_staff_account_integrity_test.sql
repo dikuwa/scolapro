@@ -5,7 +5,8 @@ select plan(10);
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
   ('f9800000-0000-4000-8000-000000000001','membership-account-one@example.test','authenticated','authenticated',now(),now()),
-  ('f9800000-0000-4000-8000-000000000002','membership-account-two@example.test','authenticated','authenticated',now(),now());
+  ('f9800000-0000-4000-8000-000000000002','membership-account-two@example.test','authenticated','authenticated',now(),now()),
+  ('f9800000-0000-4000-8000-000000000003','membership-account-three@example.test','authenticated','authenticated',now(),now());
 
 insert into public.tenants(id,name,slug)
 values('f9810000-0000-4000-8000-000000000001','Membership Account Tenant','membership-account-tenant');
@@ -41,20 +42,20 @@ select lives_ok(
 
 select lives_ok(
   $$insert into public.school_memberships(id,tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
-    values('f9840000-0000-4000-8000-000000000002','f9810000-0000-4000-8000-000000000001','f9820000-0000-4000-8000-000000000001','f9800000-0000-4000-8000-000000000001','f9830000-0000-4000-8000-000000000002','librarian',current_date)$$,
+    values('f9840000-0000-4000-8000-000000000002','f9810000-0000-4000-8000-000000000001','f9820000-0000-4000-8000-000000000001','f9800000-0000-4000-8000-000000000002','f9830000-0000-4000-8000-000000000002','librarian',current_date)$$,
   'an unlinked same-tenant staff identity may be associated to its first membership account'
 );
 
 select throws_ok(
   $$insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
-    values('f9810000-0000-4000-8000-000000000001','f9820000-0000-4000-8000-000000000002','f9800000-0000-4000-8000-000000000002','f9830000-0000-4000-8000-000000000002','teacher',current_date)$$,
+    values('f9810000-0000-4000-8000-000000000001','f9820000-0000-4000-8000-000000000002','f9800000-0000-4000-8000-000000000003','f9830000-0000-4000-8000-000000000002','teacher',current_date)$$,
   'School membership scope mismatch: staff identity is already attached to another user account',
   'unlinked staff identity cannot be aliased to a second account through another membership'
 );
 
 select throws_ok(
   $$update public.staff_members
-       set user_id='f9800000-0000-4000-8000-000000000002'
+       set user_id='f9800000-0000-4000-8000-000000000003'
      where id='f9830000-0000-4000-8000-000000000002'$$,
   'Staff member account does not match linked school membership account',
   'later staff-account linking cannot contradict the membership account'
@@ -62,7 +63,7 @@ select throws_ok(
 
 select lives_ok(
   $$update public.staff_members
-       set user_id='f9800000-0000-4000-8000-000000000001'
+       set user_id='f9800000-0000-4000-8000-000000000002'
      where id='f9830000-0000-4000-8000-000000000002'$$,
   'later staff-account linking to the same membership account remains valid'
 );
