@@ -64,7 +64,7 @@ set local role authenticated;
 select throws_ok(
   $$insert into public.pacing_plans(tenant_id,school_id,academic_year,subject_offering_id,curriculum_version_id,plan_level,status,created_by_user_id)
     values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'fd050000-0000-4000-8000-000000000001','fd040000-0000-4000-8000-000000000001','department','draft','fd000000-0000-4000-8000-000000000003')$$,
-  'new row violates row-level security policy for table "pacing_plans"',
+  'Pacing plan creator must match authenticated actor',
   'authenticated leader cannot claim another manager as creator'
 );
 
