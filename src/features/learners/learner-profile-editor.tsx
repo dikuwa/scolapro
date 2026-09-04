@@ -1,42 +1,143 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Pencil, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
-import { updateLearnerOperationalProfile, type LearnerProfileState } from "@/features/learners/server/actions";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { saveUploadedLearnerPhoto, updateLearnerOperationalProfile, type LearnerProfileState } from "@/features/learners/server/actions";
 
 const initialState: LearnerProfileState = {};
 const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
+const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const maxPhotoBytes = 5 * 1024 * 1024;
+
+function photoExtension(contentType: string) {
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/webp") return "webp";
+  return "jpg";
+}
 
 export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPhoto }: { learnerId: string; schoolId: string; preferredName: string | null; hasPhoto: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [removePhoto, setRemovePhoto] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [selectedPhotoUrl, setSelectedPhotoUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const clearSelectedPhoto = () => {
+    setSelectedPhoto(null);
+    setSelectedPhotoUrl((current) => {
+      if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
+      return null;
+    });
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  useEffect(() => () => {
+    if (selectedPhotoUrl?.startsWith("blob:")) URL.revokeObjectURL(selectedPhotoUrl);
+  }, [selectedPhotoUrl]);
+
   const [state, action, pending] = useActionState(async (previousState: LearnerProfileState, formData: FormData) => {
-    const result = await updateLearnerOperationalProfile(previousState, formData);
-    if (result.message) {
-      if (result.success) toast.success(result.message);
-      else toast.error(result.message);
+    const photo = formData.get("photo");
+    const hasSelectedPhoto = photo instanceof File && photo.size > 0;
+
+    if (hasSelectedPhoto) {
+      if (!allowedPhotoTypes.has(photo.type)) {
+        const result = { success: false, fieldErrors: { photo: ["Use a JPG, PNG or WebP image."] } } satisfies LearnerProfileState;
+        toast.error(result.fieldErrors.photo[0]);
+        return result;
+      }
+      if (photo.size > maxPhotoBytes) {
+        const result = { success: false, fieldErrors: { photo: ["Learner photo must be 5 MB or smaller."] } } satisfies LearnerProfileState;
+        toast.error(result.fieldErrors.photo[0]);
+        return result;
+      }
     }
-    if (result.success) {
-      setOpen(false);
-      setRemovePhoto(false);
-      setSelectedPhoto(null);
-      if (fileRef.current) fileRef.current.value = "";
+
+    const profileFormData = new FormData();
+    for (const [key, value] of formData.entries()) {
+      if (key !== "photo") profileFormData.append(key, value);
     }
-    return result;
+
+    const profileResult = await updateLearnerOperationalProfile(previousState, profileFormData);
+    if (!profileResult.success) {
+      if (profileResult.message) toast.error(profileResult.message);
+      return profileResult;
+    }
+
+    if (hasSelectedPhoto) {
+      const supabase = createSupabaseBrowserClient();
+      const photoPath = `${schoolId}/${learnerId}/${crypto.randomUUID()}.${photoExtension(photo.type)}`;
+      const { error: uploadError } = await supabase.storage.from("learner-photos").upload(photoPath, photo, {
+        contentType: photo.type,
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (uploadError) {
+        console.error("Learner photo browser upload failed", { statusCode: uploadError.statusCode, error: uploadError.message });
+        const result = {
+          success: false,
+          message: uploadError.message.toLowerCase().includes("row-level security")
+            ? "Profile information was saved, but your session is not allowed to upload this learner photo. Sign in again and retry."
+            : "Profile information was saved, but the learner photo storage service rejected the upload. The editor is staying open so you can retry.",
+        } satisfies LearnerProfileState;
+        toast.error(result.message);
+        return result;
+      }
+
+      const photoResult = await saveUploadedLearnerPhoto(learnerId, schoolId, photoPath);
+      if (!photoResult.success) {
+        await supabase.storage.from("learner-photos").remove([photoPath]);
+        const result = { success: false, message: photoResult.message ?? "The learner photo could not be linked." } satisfies LearnerProfileState;
+        toast.error(result.message);
+        return result;
+      }
+    }
+
+    const message = hasSelectedPhoto ? "Learner profile and photo updated." : profileResult.message ?? "Learner profile updated.";
+    toast.success(message);
+    setOpen(false);
+    setRemovePhoto(false);
+    clearSelectedPhoto();
+    router.refresh();
+    return { success: true, message };
   }, initialState);
 
   const close = () => {
     if (pending) return;
     setOpen(false);
     setRemovePhoto(false);
-    setSelectedPhoto(null);
-    if (fileRef.current) fileRef.current.value = "";
+    clearSelectedPhoto();
   };
+
+  function handlePhotoSelection(file?: File) {
+    if (!file) {
+      clearSelectedPhoto();
+      return;
+    }
+    if (!allowedPhotoTypes.has(file.type)) {
+      toast.error("Use a JPG, PNG or WebP image.");
+      clearSelectedPhoto();
+      return;
+    }
+    if (file.size > maxPhotoBytes) {
+      toast.error("Learner photo must be 5 MB or smaller.");
+      clearSelectedPhoto();
+      return;
+    }
+
+    setRemovePhoto(false);
+    setSelectedPhoto(file.name);
+    const objectUrl = URL.createObjectURL(file);
+    setSelectedPhotoUrl((current) => {
+      if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
+      return objectUrl;
+    });
+  }
 
   return (
     <div className="w-full sm:w-auto">
@@ -66,17 +167,20 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
 
             <div className="rounded-[var(--radius-sm)] bg-surface-muted p-3">
               <div className="flex items-center gap-2"><Camera className="size-4 text-muted-foreground" aria-hidden="true" /><p className="text-xs font-semibold">Profile photo</p></div>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium transition hover:border-border hover:bg-surface-elevated">
-                  <ImagePlus className="size-3.5" aria-hidden="true" />
-                  {hasPhoto ? "Choose new photo" : "Add photo"}
-                  <input ref={fileRef} type="file" name="photo" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { const file = event.target.files?.[0]; setSelectedPhoto(file?.name ?? null); if (file) setRemovePhoto(false); }} />
-                </label>
-                {hasPhoto ? <button type="button" onClick={() => { setRemovePhoto((value) => !value); if (fileRef.current) fileRef.current.value = ""; setSelectedPhoto(null); }} className={`inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] px-3 text-xs font-medium transition ${removePhoto ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]" : "text-muted-foreground hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]"}`}><Trash2 className="size-3.5" aria-hidden="true" />{removePhoto ? "Photo will be removed" : "Remove photo"}</button> : null}
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {selectedPhotoUrl ? <div className="size-14 shrink-0 overflow-hidden rounded-full border border-border-subtle bg-surface"><img src={selectedPhotoUrl} alt="Selected learner preview" className="size-full object-cover" /></div> : null}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium transition hover:border-border hover:bg-surface-elevated">
+                    <ImagePlus className="size-3.5" aria-hidden="true" />
+                    {hasPhoto ? "Choose new photo" : "Add photo"}
+                    <input ref={fileRef} type="file" name="photo" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => handlePhotoSelection(event.target.files?.[0])} />
+                  </label>
+                  {hasPhoto ? <button type="button" onClick={() => { setRemovePhoto((value) => !value); clearSelectedPhoto(); }} className={`inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] px-3 text-xs font-medium transition ${removePhoto ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]" : "text-muted-foreground hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]"}`}><Trash2 className="size-3.5" aria-hidden="true" />{removePhoto ? "Photo will be removed" : "Remove photo"}</button> : null}
+                </div>
               </div>
               {selectedPhoto ? <p className="mt-2 truncate text-[0.68rem] text-brand-strong">Selected: {selectedPhoto}</p> : null}
               {state.fieldErrors?.photo?.[0] ? <p className="mt-2 text-xs text-[color:var(--danger)]">{state.fieldErrors.photo[0]}</p> : null}
-              <p className="mt-2 text-[0.66rem] text-muted-foreground">JPG, PNG or WebP · maximum 5 MB.</p>
+              <p className="mt-2 text-[0.66rem] text-muted-foreground">JPG, PNG or WebP · maximum 5 MB. The preview appears before saving.</p>
             </div>
 
             <div className="rounded-[var(--radius-sm)] border border-border-subtle px-3 py-3">
