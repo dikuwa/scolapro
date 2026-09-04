@@ -104,7 +104,11 @@ select ok(
 );
 
 select is(
-  (select count(*)::integer from information_schema.triggers where trigger_schema='public' and event_object_table='finance_payments' and trigger_name='finance_payment_actor_integrity_trg'),
+  (select count(*)::integer
+   from pg_catalog.pg_trigger
+   where tgrelid='public.finance_payments'::regclass
+     and tgname='finance_payment_actor_integrity_trg'
+     and not tgisinternal),
   1,
   'finance payment actor integrity trigger is installed exactly once'
 );
