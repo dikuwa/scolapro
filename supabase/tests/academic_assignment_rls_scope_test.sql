@@ -60,12 +60,17 @@ select throws_ok(
 );
 reset role;
 
+-- Official-result approval provenance belongs to the school administrator fixture,
+-- so make the authenticated actor explicit before inserting locked results.
+select set_config('request.jwt.claim.sub','fa300000-0000-4000-8000-000000000002',true);
+
 insert into public.official_results(
   id,tenant_id,school_id,academic_year,enrolment_id,learner_id,subject_offering_id,term_number,result_value,symbol,assessment_scheme_key,assessment_scheme_version,calculation_snapshot,approved_by_user_id
 ) values
   ('fa370000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'60000000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001','fa330000-0000-4000-8000-000000000001',3,75,'B','ASSIGN','v1','{}','fa300000-0000-4000-8000-000000000002'),
   ('fa370000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'60000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000002','fa330000-0000-4000-8000-000000000001',3,70,'B','ASSIGN','v1','{}','fa300000-0000-4000-8000-000000000002');
 
+select set_config('request.jwt.claim.sub','fa300000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 select is((select count(*)::integer from public.official_results),1,'teacher sees official results only for exact allocated subject/class');
 select is((select id from public.official_results),'fa370000-0000-4000-8000-000000000001'::uuid,'teacher sees the exact in-scope official result');
