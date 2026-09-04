@@ -4,17 +4,19 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { changePassword, deleteAvatar, type ProfileActionState } from "@/features/profile/server/actions";
+import { changePassword, deleteAvatar, saveUploadedAvatar, type ProfileActionState } from "@/features/profile/server/actions";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 
 const initialState: ProfileActionState = {};
 const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxAvatarBytes = 3 * 1024 * 1024;
 
-type AvatarUploadResponse = {
-  message?: string;
-  avatarUrl?: string;
-};
+function avatarExtension(contentType: string) {
+  if (contentType === "image/png") return "png";
+  if (contentType === "image/webp") return "webp";
+  return "jpg";
+}
 
 export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { avatarUrl: string | null; userId: string; mustChangePassword: boolean }) {
   const router = useRouter();
@@ -72,27 +74,43 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
     }
 
     setAvatarUploading(true);
-    try {
-      const body = new FormData();
-      body.set("avatar", file);
-      const response = await fetch("/api/profile/avatar", { method: "POST", body });
-      const result = (await response.json().catch(() => ({}))) as AvatarUploadResponse;
+    const supabase = createSupabaseBrowserClient();
+    const path = `${userId}/avatar-${Date.now()}-${crypto.randomUUID()}.${avatarExtension(file.type)}`;
 
-      if (!response.ok || !result.avatarUrl) {
-        toast.error(result.message ?? "The avatar could not be uploaded. Please try again.");
+    try {
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
+        contentType: file.type,
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (uploadError) {
+        console.error("Avatar browser upload failed", { statusCode: uploadError.statusCode, error: uploadError.message });
+        toast.error(uploadError.message.toLowerCase().includes("row-level security")
+          ? "Your session is not allowed to upload this photo. Sign in again and retry."
+          : "The photo storage service rejected the upload. Please try again.");
         return;
       }
 
+      const result = await saveUploadedAvatar(path);
+      if (!result.success) {
+        await supabase.storage.from("avatars").remove([path]);
+        toast.error(result.message ?? "The avatar could not be saved to your profile.");
+        return;
+      }
+
+      const publicUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
       setPreviewUrl((current) => {
         if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
-        return result.avatarUrl ?? current;
+        return `${publicUrl}?v=${Date.now()}`;
       });
       setFileName("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       toast.success(result.message ?? "Profile photo updated.");
       router.refresh();
-    } catch {
-      toast.error("The avatar upload could not reach the server. Check your connection and try again.");
+    } catch (error) {
+      console.error("Avatar upload failed unexpectedly", error);
+      toast.error("The avatar upload could not be completed. Check your connection and try again.");
     } finally {
       setAvatarUploading(false);
     }

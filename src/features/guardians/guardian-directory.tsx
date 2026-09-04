@@ -48,7 +48,9 @@ function GuardianRow({ guardian, expanded, onToggle }: { guardian: GuardianDirec
       <button
         type="button"
         onClick={onToggle}
-        className="flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left transition duration-[var(--motion-fast)] hover:bg-surface-muted/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5"
+        className={`flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5 ${
+          expanded ? "bg-surface-muted/45" : "bg-transparent hover:bg-surface-muted/70"
+        }`}
         aria-expanded={expanded}
         aria-controls={`guardian-details-${guardian.guardianId}`}
       >
