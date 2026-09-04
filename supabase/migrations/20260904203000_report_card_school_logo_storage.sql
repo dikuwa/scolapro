@@ -69,7 +69,7 @@ create or replace function public.set_report_card_logo_asset(
 returns void
 language plpgsql
 security definer
-set search_path=pg_catalog,public
+set search_path=pg_catalog,public,storage
 as $$
 declare
   v_profile jsonb := '{}'::jsonb;
@@ -86,6 +86,14 @@ begin
     v_extension := lower(regexp_replace(p_storage_path, '^.*\.', ''));
     if v_extension not in ('jpg','jpeg','png') then
       raise exception 'Unsupported logo asset type';
+    end if;
+    if not exists (
+      select 1
+      from storage.objects o
+      where o.bucket_id = 'school-document-assets'
+        and o.name = p_storage_path
+    ) then
+      raise exception 'Uploaded school logo object was not found';
     end if;
   end if;
 
@@ -114,4 +122,4 @@ from public, anon, authenticated;
 grant execute on function public.set_report_card_logo_asset(uuid,text) to authenticated;
 
 comment on function public.set_report_card_logo_asset(uuid,text) is
-  'Attaches or clears one school-scoped immutable document-logo path after tenant-role validation.';
+  'Attaches or clears one existing school-scoped immutable document-logo path after tenant-role validation.';
