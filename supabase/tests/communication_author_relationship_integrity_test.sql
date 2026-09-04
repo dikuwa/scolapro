@@ -68,7 +68,7 @@ select ok(
 );
 
 select is(
-  (select count(*)::integer from pg_trigger where tgrelid='public.communication_messages'::regclass and tgname='communication_message_scope_integrity_trg' and not tgisinternal),
+  (select count(*)::integer from pg_trigger where tgrelid='public.communication_messages'::regclass and tgname='communication_message_scope_integrity_guard' and not tgisinternal),
   1,
   'communication messages retain exactly one scope-integrity trigger'
 );
