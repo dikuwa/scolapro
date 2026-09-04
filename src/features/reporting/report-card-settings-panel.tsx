@@ -16,13 +16,11 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const initialState: ReportCardSettingsState = {};
 const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
-const allowedLogoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+const allowedLogoTypes = new Set(["image/jpeg", "image/png"]);
 const maxLogoBytes = 5 * 1024 * 1024;
 
 function logoExtension(type: string) {
-  if (type === "image/png") return "png";
-  if (type === "image/webp") return "webp";
-  return "jpg";
+  return type === "image/png" ? "png" : "jpg";
 }
 
 function Toggle({ name, defaultChecked, label, description }: { name: string; defaultChecked: boolean; label: string; description: string }) {
@@ -58,6 +56,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   const router = useRouter();
   const [state, action, pending] = useActionState(saveReportCardSchoolSettings, initialState);
   const [logoPending, startLogoTransition] = useTransition();
+  const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const profile = settings.documentProfile;
   const report = settings.reportCardSettings;
@@ -73,44 +72,48 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   }, [state]);
 
   async function uploadLogo(file?: File) {
-    if (!file) return;
+    if (!file || logoUploading) return;
     if (!allowedLogoTypes.has(file.type)) {
-      toast.error("Choose a JPG, PNG or WebP school logo.");
+      toast.error("Choose a JPG or PNG school logo.");
+      if (logoInputRef.current) logoInputRef.current.value = "";
       return;
     }
     if (file.size > maxLogoBytes) {
       toast.error("School logo images must be 5 MB or smaller.");
+      if (logoInputRef.current) logoInputRef.current.value = "";
       return;
     }
 
+    setLogoUploading(true);
     const supabase = createSupabaseBrowserClient();
     const path = `${schoolId}/logos/logo-${Date.now()}-${crypto.randomUUID()}.${logoExtension(file.type)}`;
-    const previousPath = logoStoragePath;
-    const { error } = await supabase.storage.from("school-document-assets").upload(path, file, {
-      contentType: file.type,
-      cacheControl: "31536000",
-      upsert: false,
-    });
-    if (error) {
-      toast.error(error.message.toLowerCase().includes("row-level security") ? "Your account is not allowed to change this school logo." : "The school logo upload failed.");
-      return;
-    }
+    try {
+      const { error } = await supabase.storage.from("school-document-assets").upload(path, file, {
+        contentType: file.type,
+        cacheControl: "31536000",
+        upsert: false,
+      });
+      if (error) {
+        toast.error(error.message.toLowerCase().includes("row-level security") ? "Your account is not allowed to change this school logo." : "The school logo upload failed.");
+        return;
+      }
 
-    const result = await saveUploadedSchoolLogo(schoolId, path);
-    if (!result.success) {
-      await supabase.storage.from("school-document-assets").remove([path]);
-      toast.error(result.message ?? "The uploaded logo could not be saved.");
-      return;
-    }
+      const result = await saveUploadedSchoolLogo(schoolId, path);
+      if (!result.success) {
+        // The logo bucket is intentionally append-only so an asset referenced by a
+        // certified historical snapshot can never be deleted by a normal user.
+        toast.error(result.message ?? "The uploaded logo could not be saved.");
+        return;
+      }
 
-    setLogoStoragePath(path);
-    setLogoUrl(`${supabase.storage.from("school-document-assets").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`);
-    if (previousPath && previousPath !== path) {
-      // Do not delete the previous object: certified historical snapshots may still reference it.
+      setLogoStoragePath(path);
+      setLogoUrl(`${supabase.storage.from("school-document-assets").getPublicUrl(path).data.publicUrl}?v=${Date.now()}`);
+      toast.success(result.message ?? "School document logo updated.");
+      router.refresh();
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
     }
-    if (logoInputRef.current) logoInputRef.current.value = "";
-    toast.success(result.message ?? "School document logo updated.");
-    router.refresh();
   }
 
   function removeLogo() {
@@ -127,13 +130,15 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
     });
   }
 
+  const legacyLogoUrl = profile.logoStoragePath ? "" : profile.logoUrl;
+
   return (
     <section className="mt-5 space-y-5">
       <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex items-start gap-3 border-b border-border-subtle pb-4"><span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span><div><h2 className="scolapro-section-title">Report card & document identity</h2><p className="scolapro-section-description">These values belong to {schoolName}. They are frozen into each generated report so historical certified cards do not change when settings are edited later.</p></div></div>
         <form action={action} className="mt-5 space-y-5" noValidate>
           <input type="hidden" name="schoolId" value={schoolId} />
-          <input type="hidden" name="logoUrl" value={logoStoragePath ? "" : profile.logoUrl} />
+          <input type="hidden" name="logoUrl" value={logoStoragePath ? "" : legacyLogoUrl} />
           <input type="hidden" name="logoStoragePath" value={logoStoragePath} />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div><label className="text-xs font-medium">Former / secondary school name</label><input name="formerName" defaultValue={profile.formerName} className={`${fieldClass} mt-1.5`} placeholder="Formerly …" /></div>
@@ -150,13 +155,13 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
                   {logoUrl ? <img src={logoUrl} alt={`${schoolName} logo`} className="max-h-14 max-w-14 object-contain" /> : <School className="size-6 text-muted-foreground" aria-hidden="true" />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs leading-5 text-muted-foreground">JPG, PNG or WebP, up to 5 MB. Replacing the logo keeps old stored versions so historical certified reports remain reproducible.</p>
+                  <p className="text-xs leading-5 text-muted-foreground">JPG or PNG, up to 5 MB. Replacing the logo keeps old stored versions so historical certified reports remain reproducible.</p>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <label className="scolapro-cta inline-flex min-h-9 cursor-pointer items-center gap-2 bg-surface-muted px-3 text-xs font-medium hover:bg-surface">
-                      <ImagePlus className="size-3.5" aria-hidden="true" /> Choose logo
-                      <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => uploadLogo(event.target.files?.[0])} />
+                    <label className={`scolapro-cta inline-flex min-h-9 items-center gap-2 bg-surface-muted px-3 text-xs font-medium hover:bg-surface ${logoUploading ? "cursor-wait opacity-60" : "cursor-pointer"}`}>
+                      {logoUploading ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : <ImagePlus className="size-3.5" aria-hidden="true" />} {logoUploading ? "Uploading…" : "Choose logo"}
+                      <input ref={logoInputRef} type="file" accept="image/jpeg,image/png" disabled={logoUploading || logoPending} className="sr-only" onChange={(event) => uploadLogo(event.target.files?.[0])} />
                     </label>
-                    {logoStoragePath ? <button type="button" disabled={logoPending} onClick={removeLogo} className="scolapro-cta inline-flex min-h-9 items-center gap-2 px-3 text-xs font-medium text-destructive hover:bg-destructive/5 disabled:opacity-60"><Trash2 className="size-3.5" /> Remove</button> : null}
+                    {logoStoragePath ? <button type="button" disabled={logoPending || logoUploading} onClick={removeLogo} className="scolapro-cta inline-flex min-h-9 items-center gap-2 px-3 text-xs font-medium text-destructive hover:bg-destructive/5 disabled:opacity-60"><Trash2 className="size-3.5" /> Remove</button> : null}
                   </div>
                 </div>
               </div>
