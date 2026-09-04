@@ -23,6 +23,7 @@ security definer
 set search_path=pg_catalog,public
 as $$
 declare
+  v_school_identity jsonb := '{}'::jsonb;
   v_document_profile jsonb := '{}'::jsonb;
   v_report_settings jsonb := '{}'::jsonb;
   v_terms jsonb := '[]'::jsonb;
@@ -32,6 +33,21 @@ declare
 begin
   if new.school_id is null then
     raise exception 'Report-card snapshot school is required';
+  end if;
+
+  select jsonb_build_object(
+    'id', s.id,
+    'name', s.name,
+    'emis_number', s.emis_number,
+    'region', s.region,
+    'town', s.town
+  )
+  into v_school_identity
+  from public.schools s
+  where s.id = new.school_id;
+
+  if v_school_identity is null then
+    raise exception 'Report-card snapshot school not found';
   end if;
 
   select coalesce(setting_value, '{}'::jsonb)
@@ -136,6 +152,7 @@ begin
 
   new.data_snapshot := coalesce(new.data_snapshot, '{}'::jsonb)
     || jsonb_build_object(
+      'school_identity', v_school_identity,
       'school_document_profile', coalesce(v_document_profile, '{}'::jsonb),
       'report_card_settings', coalesce(v_report_settings, '{}'::jsonb),
       'report_terms', coalesce(v_terms, '[]'::jsonb),
@@ -160,4 +177,4 @@ for each row
 execute function app_private.enrich_report_card_snapshot_template_profile();
 
 comment on function app_private.enrich_report_card_snapshot_template_profile() is
-  'Freezes school document branding, report-card display settings, cumulative term results, subject pass/promotional rules, register teacher, principal, and next-term date into a new report-card snapshot.';
+  'Freezes school identity/document branding, report-card display settings, cumulative term results, subject pass/promotional rules, register teacher, principal, and next-term date into a new report-card snapshot.';
