@@ -5,6 +5,9 @@ select plan(11);
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('f8b00000-0000-4000-8000-000000000001','delivery-scope@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f8b00000-0000-4000-8000-000000000001','teacher',current_date);
+
 insert into public.communication_messages(
   id,tenant_id,school_id,channel,subject,body,audience_type,status,sensitive,created_by_user_id
 ) values(
