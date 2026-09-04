@@ -100,10 +100,13 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   const groupedQueue = [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
   const nextSession = sessions[0] ?? null;
 
-  useEffect(() => {
-    const availableIds = new Set(staffForNewSession.map((member) => member.id));
-    setNewTeam((current) => current.filter((id) => availableIds.has(id)));
-  }, [sessionDate]);
+  const changeSessionDate = (date: string) => {
+    setSessionDate(date);
+    setNewTeam((current) => current.filter((id) => {
+      const member = staffById.get(id);
+      return member ? isDetentionStaffAvailableOn(member, date) : false;
+    }));
+  };
 
   const selectSession = (session: DetentionPlanningSession) => {
     setSelectedSessionId(session.id);
@@ -140,7 +143,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                 {newTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}
                 <div className="flex items-center justify-between gap-2"><div><StepBadge number={1} label="Session" /><h3 className="mt-2 text-sm font-semibold">Plan a detention date</h3></div></div>
                 <p className="mt-1 text-xs text-muted-foreground">The coming Friday is preselected. You can also roster detention several weeks ahead.</p>
-                <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={setSessionDate} min={today} required className="mt-3" />
+                <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={changeSessionDate} min={today} required className="mt-3" />
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <label className="text-xs font-medium">Starts at<input name="startsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
                   <label className="text-xs font-medium">Ends at<input name="endsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
