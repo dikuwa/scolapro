@@ -46,6 +46,10 @@ values('fb720000-0000-4000-8000-000000000001','Assessment Scope Tenant B','asses
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fb730000-0000-4000-8000-000000000001','fb720000-0000-4000-8000-000000000001','Assessment Scope School B','ASSESS-SCOPE-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from) values
+('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fb700000-0000-4000-8000-000000000001','hod',current_date),
+('fb720000-0000-4000-8000-000000000001','fb730000-0000-4000-8000-000000000001','fb700000-0000-4000-8000-000000000001','hod',current_date);
+
 select throws_ok(
   $$insert into public.assessment_schemes(
       tenant_id,school_id,subject_offering_id,scheme_key,version,capture_mode,effective_from,status,created_by_user_id
