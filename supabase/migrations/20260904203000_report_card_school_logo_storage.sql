@@ -1,6 +1,10 @@
 -- Governed, school-scoped logo assets for official document rendering.
 -- The document profile stores the immutable object path; report-card snapshots
 -- already freeze the full document_profile JSON, preserving historical branding.
+--
+-- Logo objects are append-only for authenticated school users. Replacing or
+-- clearing the current logo changes only the document-profile pointer; old objects
+-- remain available for certified historical snapshots that reference them.
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -8,7 +12,7 @@ values (
   'school-document-assets',
   true,
   5242880,
-  array['image/jpeg','image/png','image/webp']
+  array['image/jpeg','image/png']
 )
 on conflict (id) do update set
   public = excluded.public,
@@ -22,7 +26,7 @@ for insert
 to authenticated
 with check (
   bucket_id = 'school-document-assets'
-  and lower(storage.extension(name)) in ('jpg','jpeg','png','webp')
+  and lower(storage.extension(name)) in ('jpg','jpeg','png')
   and (storage.foldername(name))[2] = 'logos'
   and exists (
     select 1
@@ -35,24 +39,9 @@ with check (
   )
 );
 
+-- Intentionally no UPDATE or DELETE policy. School document logos are immutable
+-- assets because report-card snapshots may reference an older stored path forever.
 drop policy if exists "School document assets delete" on storage.objects;
-create policy "School document assets delete"
-on storage.objects
-for delete
-to authenticated
-using (
-  bucket_id = 'school-document-assets'
-  and (storage.foldername(name))[2] = 'logos'
-  and exists (
-    select 1
-    from public.school_memberships m
-    where m.user_id = (select auth.uid())
-      and m.school_id::text = (storage.foldername(name))[1]
-      and m.role_key in ('school_admin','principal','deputy_principal')
-      and m.active_from <= current_date
-      and (m.active_to is null or m.active_to >= current_date)
-  )
-);
 
 create or replace function public.set_report_card_logo_asset(
   p_school_id uuid,
@@ -65,6 +54,7 @@ set search_path=pg_catalog,public
 as $$
 declare
   v_profile jsonb := '{}'::jsonb;
+  v_extension text;
 begin
   if not app_private.can_manage_report_card_settings(p_school_id) then
     raise exception 'Not authorised to manage report-card settings';
@@ -74,7 +64,8 @@ begin
     if p_storage_path not like p_school_id::text || '/logos/%' then
       raise exception 'Logo asset path does not belong to this school';
     end if;
-    if lower(split_part(p_storage_path, '.', array_length(string_to_array(p_storage_path, '.'), 1))) not in ('jpg','jpeg','png','webp') then
+    v_extension := lower(regexp_replace(p_storage_path, '^.*\.', ''));
+    if v_extension not in ('jpg','jpeg','png') then
       raise exception 'Unsupported logo asset type';
     end if;
   end if;
@@ -104,4 +95,4 @@ from public, anon, authenticated;
 grant execute on function public.set_report_card_logo_asset(uuid,text) to authenticated;
 
 comment on function public.set_report_card_logo_asset(uuid,text) is
-  'Attaches or clears one school-scoped stored document-logo path after tenant-role validation.';
+  'Attaches or clears one school-scoped immutable document-logo path after tenant-role validation.';
