@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(15);
 
 select has_function(
   'app_private','user_can_create_learner_support_case',array['uuid','uuid','text'],
