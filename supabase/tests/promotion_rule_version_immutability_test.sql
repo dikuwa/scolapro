@@ -5,6 +5,9 @@ select plan(8);
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fe000000-0000-4000-8000-000000000001','promotion-version-admin@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe000000-0000-4000-8000-000000000001','hod',current_date);
+
 insert into public.promotion_rule_sets(
   id,tenant_id,school_id,academic_year,grade_id,rule_set_key,version,
   result_term_number,pass_outcome,fail_outcome,source_reference,effective_from,
