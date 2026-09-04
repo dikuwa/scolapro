@@ -74,9 +74,17 @@ as $$
 declare
   v_profile jsonb := '{}'::jsonb;
   v_extension text;
+  v_tenant_id uuid;
 begin
   if not app_private.can_manage_report_card_settings(p_school_id) then
     raise exception 'Not authorised to manage report-card settings';
+  end if;
+
+  select s.tenant_id into v_tenant_id
+  from public.schools s
+  where s.id = p_school_id;
+  if v_tenant_id is null then
+    raise exception 'School not found';
   end if;
 
   if p_storage_path is not null and p_storage_path <> '' then
@@ -110,10 +118,12 @@ begin
     true
   );
 
-  insert into public.school_settings (school_id, setting_key, setting_value)
-  values (p_school_id, 'document_profile', v_profile)
+  insert into public.school_settings (tenant_id, school_id, setting_key, setting_value)
+  values (v_tenant_id, p_school_id, 'document_profile', v_profile)
   on conflict (school_id, setting_key)
-  do update set setting_value = excluded.setting_value;
+  do update set
+    tenant_id = excluded.tenant_id,
+    setting_value = excluded.setting_value;
 end;
 $$;
 
