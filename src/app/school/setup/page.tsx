@@ -4,6 +4,8 @@ import { AppShell } from "@/components/shell/app-shell";
 import { AcademicStructureForms } from "@/features/academics/structure-forms";
 import { ClassManagement } from "@/features/academics/class-management";
 import { getSchoolStructure } from "@/features/academics/server/structure";
+import { ReportCardSettingsPanel } from "@/features/reporting/report-card-settings-panel";
+import { getReportCardSchoolSettings } from "@/features/reporting/server/settings";
 import { RoomManagement } from "@/features/timetable/room-management";
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -16,9 +18,10 @@ export default async function SchoolSetupPage() {
   if (!membership) redirect("/");
 
   const academicYear = new Date().getFullYear();
-  const [structure, rooms] = await Promise.all([
+  const [structure, rooms, reportCardSettings] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     listSchoolRooms(membership.schoolId),
+    getReportCardSchoolSettings(membership.schoolId),
   ]);
 
   return (
@@ -27,7 +30,7 @@ export default async function SchoolSetupPage() {
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Academic setup</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Configure the minimal school structure used by enrolment, registers, attendance, timetable and assessment workflows for {academicYear}.
+            Configure the school structure, official document identity and academic rules used by enrolment, registers, attendance, timetable, assessment and reporting workflows for {academicYear}.
           </p>
         </div>
 
@@ -36,6 +39,8 @@ export default async function SchoolSetupPage() {
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Configured grades</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-mint)]">{structure.grades.length}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><BookOpenCheck className="size-4" aria-hidden="true" /></span></div>
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Register classes</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-amber)]">{structure.classes.length}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span></div>
         </div>
+
+        <ReportCardSettingsPanel schoolId={membership.schoolId} schoolName={membership.schoolName} settings={reportCardSettings} />
 
         <div className="mt-5"><AcademicStructureForms schoolId={membership.schoolId} academicYear={academicYear} grades={structure.grades} /></div>
 
