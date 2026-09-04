@@ -11,6 +11,15 @@ values('ac800000-0000-4000-8000-000000000001','Client Operation Scope Tenant B',
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('ac810000-0000-4000-8000-000000000001','ac800000-0000-4000-8000-000000000001','Client Operation Scope School B','COS-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'ac700000-0000-4000-8000-000000000001',
+  'teacher',
+  current_date
+);
+
 select throws_ok(
   $$insert into public.client_operation_receipts(
       tenant_id,school_id,actor_user_id,operation_type,client_operation_id,payload_fingerprint
