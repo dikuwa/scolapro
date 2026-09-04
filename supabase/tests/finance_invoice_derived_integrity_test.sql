@@ -5,6 +5,9 @@ select plan(7);
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fe600000-0000-4000-8000-000000000001','invoice-derived@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe600000-0000-4000-8000-000000000001','finance_officer',current_date);
+
 insert into public.finance_invoices(
   id,tenant_id,school_id,learner_id,academic_year,invoice_number,issued_on,status,currency,total_amount,balance_amount,created_by_user_id
 ) values(
