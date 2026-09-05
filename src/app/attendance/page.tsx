@@ -75,7 +75,7 @@ function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; 
       <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first registers. Capture daily, or reconcile a physical register later with a Monday–Friday weekly view.</p></div>
       <div className="flex flex-wrap items-center gap-2">
         <AttendanceSortControl sort={sort} />
-        <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} />
+        <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} />
       </div>
     </div>
   );
