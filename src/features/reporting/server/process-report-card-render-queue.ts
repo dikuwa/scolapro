@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { renderReportCardHtmlWithSchoolFont } from "@/features/reporting/server/render-report-card-html-with-school-font";
 import { renderReportCardPdfWithSchoolFont } from "@/features/reporting/server/render-report-card-pdf-with-school-font";
+import { REPORT_CARD_RENDERER_VERSION } from "@/features/reporting/server/report-card-renderer-version";
 import { record, text } from "@/features/reporting/server/report-card-template-model";
 
 type RenderFormat = "html" | "pdf";
@@ -11,6 +12,7 @@ type RenderJob = {
   snapshot_id: string;
   template_key: string;
   template_version: string;
+  renderer_version: string;
   document_format: RenderFormat;
 };
 
@@ -61,6 +63,10 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
 
   for (const job of jobs) {
     try {
+      if (job.renderer_version !== REPORT_CARD_RENDERER_VERSION) {
+        throw new Error(`Unsupported report-card renderer revision ${job.renderer_version}`);
+      }
+
       const [{ data: snapshot, error: snapshotError }, { data: school, error: schoolError }] = await Promise.all([
         supabase
           .from("report_card_snapshots")
@@ -100,7 +106,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
       }
 
       const checksum = createHash("sha256").update(bytes).digest("hex");
-      const storagePath = `${job.school_id}/${job.snapshot_id}/${job.template_key}/${job.template_version}.${extension}`;
+      const storagePath = `${job.school_id}/${job.snapshot_id}/${job.template_key}/${job.template_version}/${job.renderer_version}.${extension}`;
 
       const { error: uploadError } = await supabase.storage.from("report-card-artifacts").upload(storagePath, bytes, {
         contentType,
@@ -134,6 +140,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
   const { data: queueRows, error: queueError } = await supabase
     .from("report_card_render_jobs")
     .select("status")
+    .eq("renderer_version", REPORT_CARD_RENDERER_VERSION)
     .in("document_format", ["html", "pdf"])
     .in("status", ["pending", "retry", "dead"]);
   if (queueError) throw new Error(`Unable to inspect render queue: ${queueError.message}`);
