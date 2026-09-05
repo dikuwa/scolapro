@@ -62,6 +62,12 @@ values('fc800000-0000-4000-8000-000000000001','Late Detention Scope Tenant B','l
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fc810000-0000-4000-8000-000000000001','fc800000-0000-4000-8000-000000000001','Late Detention Scope School B','LDS-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  'fc800000-0000-4000-8000-000000000001','fc810000-0000-4000-8000-000000000001',
+  'fc700000-0000-4000-8000-000000000001','school_admin','2026-01-01'
+);
+
 insert into public.learners(id,tenant_id,first_names,surname)
 values('fc820000-0000-4000-8000-000000000001','fc800000-0000-4000-8000-000000000001','Scope','Learner B');
 
