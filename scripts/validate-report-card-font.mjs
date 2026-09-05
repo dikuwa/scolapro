@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, rgb } from "pdf-lib";
 
-const requireFromModule = createRequire(import.meta.url);
-const packagePath = requireFromModule.resolve("@fontsource/unifrakturcook/package.json");
 const fontPath = join(
-  dirname(packagePath),
+  process.cwd(),
+  "node_modules",
+  "@fontsource",
+  "unifrakturcook",
   "files",
-  ["unifrakturcook", "latin", "700", "normal"].join("-") + ".woff",
+  "unifrakturcook-latin-700-normal.woff",
 );
 const fontBytes = await readFile(fontPath);
 if (fontBytes.length < 1000) throw new Error("Bundled Old English report font is unexpectedly empty.");

@@ -1,21 +1,24 @@
 import "server-only";
 
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 
-const requireFromModule = createRequire(import.meta.url);
+const oldEnglishFontRelativePath = [
+  "node_modules",
+  "@fontsource",
+  "unifrakturcook",
+  "files",
+  "unifrakturcook-latin-700-normal.woff",
+];
 let oldEnglishFontBytesPromise: Promise<Uint8Array> | null = null;
 
 export function loadOldEnglishFontBytes(): Promise<Uint8Array> {
   if (!oldEnglishFontBytesPromise) {
     oldEnglishFontBytesPromise = (async () => {
-      const packagePath = requireFromModule.resolve("@fontsource/unifrakturcook/package.json");
-      const fontPath = join(
-        dirname(packagePath),
-        "files",
-        ["unifrakturcook", "latin", "700", "normal"].join("-") + ".woff",
-      );
+      // This is a runtime asset read, not a module import. Treating the WOFF as a
+      // module makes Turbopack reject it as an unknown module type. The matching
+      // next.config output-file tracing rule keeps the font in server deployments.
+      const fontPath = join(process.cwd(), ...oldEnglishFontRelativePath);
       const bytes = await readFile(fontPath);
       return new Uint8Array(bytes);
     })();
