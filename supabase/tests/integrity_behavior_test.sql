@@ -74,8 +74,8 @@ select throws_ok(
 );
 
 select lives_ok(
-  $$insert into public.report_card_documents(tenant_id,school_id,snapshot_id,template_key,template_version,document_format,storage_bucket,storage_path,content_sha256,page_count)
-    values('84111111-1111-4111-8111-111111111111','84222222-2222-4222-8222-222222222221','84888888-8888-4888-8888-888888888882','TERM_REPORT','1','pdf','private-reports','certified.pdf',repeat('a',64),1)$$,
+  $$insert into public.report_card_documents(tenant_id,school_id,snapshot_id,template_key,template_version,document_format,storage_bucket,storage_path,content_sha256,page_count,generated_by_user_id)
+    values('84111111-1111-4111-8111-111111111111','84222222-2222-4222-8222-222222222221','84888888-8888-4888-8888-888888888882','TERM_REPORT','1','pdf','private-reports','certified.pdf',repeat('a',64),1,'74000000-0000-4000-8000-000000000001')$$,
   'report-card document accepts matching certified snapshot scope'
 );
 
