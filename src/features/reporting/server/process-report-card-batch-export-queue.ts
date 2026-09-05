@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { PDFDocument } from "pdf-lib";
+import { REPORT_CARD_RENDERER_VERSION } from "@/features/reporting/server/report-card-renderer-version";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 type ExportBatch = {
@@ -65,6 +66,7 @@ export async function processReportCardBatchExportQueue(limit = 1): Promise<Repo
           .from("report_card_documents")
           .select("snapshot_id,storage_bucket,storage_path")
           .in("snapshot_id", snapshotIds)
+          .eq("renderer_version", REPORT_CARD_RENDERER_VERSION)
           .eq("document_format", "pdf")
           .eq("status", "ready"),
       ]);
@@ -86,7 +88,7 @@ export async function processReportCardBatchExportQueue(limit = 1): Promise<Repo
       for (const item of orderedItems) {
         const snapshotId = item.snapshot_id as string;
         const document = documentBySnapshot.get(snapshotId);
-        if (!document) throw new Error(`PDF artifact is not ready for snapshot ${snapshotId}`);
+        if (!document) throw new Error(`Current PDF artifact is not ready for snapshot ${snapshotId}`);
         if (document.storage_bucket !== "report-card-artifacts") throw new Error("Unexpected report-card artifact bucket");
 
         const { data: blob, error: downloadError } = await supabase.storage
@@ -101,7 +103,7 @@ export async function processReportCardBatchExportQueue(limit = 1): Promise<Repo
       if (!merged.getPageCount()) throw new Error("Combined PDF contains no pages");
       const bytes = await merged.save();
       const checksum = createHash("sha256").update(bytes).digest("hex");
-      const storagePath = `${batch.school_id}/batches/${batch.id}/term-${batch.term_number}-combined.pdf`;
+      const storagePath = `${batch.school_id}/batches/${batch.id}/${REPORT_CARD_RENDERER_VERSION}/term-${batch.term_number}-combined.pdf`;
       const { error: uploadError } = await supabase.storage.from("report-card-artifacts").upload(storagePath, bytes, {
         contentType: "application/pdf",
         upsert: true,
