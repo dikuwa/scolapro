@@ -18,25 +18,31 @@ const tenantSchema = z.object({
   town: z.string().trim().optional(),
 });
 
-const invitationSchema = z.object({
+const schoolRoleSchema = z.enum([
+  "school_admin",
+  "principal",
+  "deputy_principal",
+  "hod",
+  "teacher",
+  "class_teacher",
+  "counsellor",
+  "social_worker",
+  "librarian",
+  "board_member",
+]);
+
+const schoolInvitationSchema = z.object({
   schoolId: z.string().uuid("Choose a school."),
   email: z.string().trim().email("Enter a valid email address."),
   firstName: z.string().trim().optional(),
   lastName: z.string().trim().optional(),
   employeeNumber: z.string().trim().optional(),
-  roleKey: z.enum([
-    "school_admin",
-    "principal",
-    "deputy_principal",
-    "hod",
-    "teacher",
-    "class_teacher",
-    "counsellor",
-    "social_worker",
-    "librarian",
-    "board_member",
-  ]),
+  roleKey: schoolRoleSchema,
 });
+
+const platformInvitationSchema = schoolInvitationSchema.omit({ roleKey: true });
+
+type InvitationPayload = z.infer<typeof schoolInvitationSchema>;
 
 export type TenantOnboardingState = {
   message?: string;
@@ -95,41 +101,15 @@ export async function createTenantSchool(
   return { success: true, message: "Tenant and first school created successfully." };
 }
 
-export async function createSchoolInvitation(
-  _previousState: SchoolInvitationState,
-  formData: FormData,
-): Promise<SchoolInvitationState> {
-  const parsed = invitationSchema.safeParse({
-    schoolId: formData.get("schoolId"),
-    email: formData.get("email"),
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
-    employeeNumber: formData.get("employeeNumber"),
-    roleKey: formData.get("roleKey"),
-  });
-
-  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
-
-  const context = await getUserContext();
-  const isPlatformAdmin = context.platformMemberships.some((membership) => membership.roleKey === "platform_admin");
-  const isSchoolAdmin = context.memberships.some(
-    (membership) => membership.schoolId === parsed.data.schoolId && membership.roleKey === "school_admin",
-  );
-
-  // School Admin may only invite into a school they actually manage. Platform Admin
-  // retains onboarding authority (first school administrator, sandbox governance).
-  if (!context.user || (!isPlatformAdmin && !isSchoolAdmin)) {
-    return { message: "You do not have permission to invite users to this school." };
-  }
-
+async function submitSchoolInvitation(payload: InvitationPayload): Promise<SchoolInvitationState> {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("create_school_invitation", {
-    p_school_id: parsed.data.schoolId,
-    p_email: parsed.data.email,
-    p_first_name: parsed.data.firstName || null,
-    p_last_name: parsed.data.lastName || null,
-    p_employee_number: parsed.data.employeeNumber || null,
-    p_role_key: parsed.data.roleKey,
+    p_school_id: payload.schoolId,
+    p_email: payload.email,
+    p_first_name: payload.firstName || null,
+    p_last_name: payload.lastName || null,
+    p_employee_number: payload.employeeNumber || null,
+    p_role_key: payload.roleKey,
   });
 
   if (error) {
@@ -160,21 +140,86 @@ export async function createSchoolInvitation(
   };
 }
 
-export async function revokeSchoolInvitation(formData: FormData) {
+export async function createSchoolStaffInvitation(
+  _previousState: SchoolInvitationState,
+  formData: FormData,
+): Promise<SchoolInvitationState> {
+  const parsed = schoolInvitationSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    email: formData.get("email"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    employeeNumber: formData.get("employeeNumber"),
+    roleKey: formData.get("roleKey"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const context = await getUserContext();
+  const isSchoolAdmin = context.memberships.some(
+    (membership) => membership.schoolId === parsed.data.schoolId && membership.roleKey === "school_admin",
+  );
+  if (!context.user || !isSchoolAdmin) {
+    return { message: "You do not have permission to invite staff to this school." };
+  }
+
+  return submitSchoolInvitation(parsed.data);
+}
+
+export async function createPlatformSchoolInvitation(
+  _previousState: SchoolInvitationState,
+  formData: FormData,
+): Promise<SchoolInvitationState> {
+  const parsed = platformInvitationSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    email: formData.get("email"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    employeeNumber: formData.get("employeeNumber"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const context = await getUserContext();
+  const isPlatformAdmin = context.platformMemberships.some((membership) => membership.roleKey === "platform_admin");
+  if (!context.user || !isPlatformAdmin) {
+    return { message: "You do not have permission to establish school access." };
+  }
+
+  return submitSchoolInvitation({ ...parsed.data, roleKey: "school_admin" });
+}
+
+export async function revokeSchoolStaffInvitation(formData: FormData) {
   const invitationId = z.string().uuid().safeParse(formData.get("invitationId"));
   if (!invitationId.success) return;
 
   const context = await getUserContext();
-  const canManage = Boolean(
-    context.user && (
-      context.platformMemberships.some((membership) => membership.roleKey === "platform_admin")
-      || context.memberships.some((membership) => membership.roleKey === "school_admin")
-    )
+  if (!context.user) return;
+
+  const supabase = await createSupabaseServerClient();
+  const { data: invitation } = await supabase
+    .from("school_invitations")
+    .select("school_id")
+    .eq("id", invitationId.data)
+    .maybeSingle();
+  if (!invitation) return;
+
+  const isSchoolAdmin = context.memberships.some(
+    (membership) => membership.schoolId === invitation.school_id && membership.roleKey === "school_admin",
   );
-  if (!canManage) return;
+  if (!isSchoolAdmin) return;
+
+  await supabase.rpc("revoke_school_invitation", { p_invitation_id: invitationId.data });
+  revalidatePath("/school/invitations");
+}
+
+export async function revokePlatformSchoolInvitation(formData: FormData) {
+  const invitationId = z.string().uuid().safeParse(formData.get("invitationId"));
+  if (!invitationId.success) return;
+
+  const context = await getUserContext();
+  const isPlatformAdmin = context.platformMemberships.some((membership) => membership.roleKey === "platform_admin");
+  if (!context.user || !isPlatformAdmin) return;
 
   const supabase = await createSupabaseServerClient();
   await supabase.rpc("revoke_school_invitation", { p_invitation_id: invitationId.data });
   revalidatePath("/platform/invitations");
-  revalidatePath("/school/invitations");
 }
