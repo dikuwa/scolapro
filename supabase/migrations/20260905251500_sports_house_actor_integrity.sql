@@ -114,12 +114,16 @@ set search_path = pg_catalog, public, app_private
 as $$
 declare
   v_semantic_change boolean := false;
+  v_new jsonb := to_jsonb(new);
+  v_old jsonb;
 begin
   if new.assigned_by_user_id is null then
     raise exception 'Sports house assignment actor is required';
   end if;
 
   if tg_op = 'UPDATE' then
+    v_old := to_jsonb(old);
+
     if new.tenant_id is distinct from old.tenant_id
        or new.school_id is distinct from old.school_id
        or new.academic_year is distinct from old.academic_year then
@@ -127,25 +131,22 @@ begin
     end if;
 
     if tg_table_name = 'sports_learner_house_assignments'
-       and new.learner_id is distinct from old.learner_id then
+       and (v_new->>'learner_id') is distinct from (v_old->>'learner_id') then
       raise exception 'Sports learner assignment identity is immutable';
     end if;
 
     if tg_table_name = 'sports_staff_house_assignments'
-       and new.staff_member_id is distinct from old.staff_member_id then
+       and (v_new->>'staff_member_id') is distinct from (v_old->>'staff_member_id') then
       raise exception 'Sports staff assignment identity is immutable';
     end if;
 
-    if tg_table_name = 'sports_learner_house_assignments' then
-      v_semantic_change := new.house_id is distinct from old.house_id
-        or new.assignment_source is distinct from old.assignment_source
-        or new.is_locked is distinct from old.is_locked;
-    else
-      v_semantic_change := new.house_id is distinct from old.house_id
-        or new.role_key is distinct from old.role_key
-        or new.assignment_source is distinct from old.assignment_source
-        or new.is_locked is distinct from old.is_locked;
-    end if;
+    v_semantic_change := new.house_id is distinct from old.house_id
+      or new.assignment_source is distinct from old.assignment_source
+      or new.is_locked is distinct from old.is_locked
+      or (
+        tg_table_name = 'sports_staff_house_assignments'
+        and (v_new->>'role_key') is distinct from (v_old->>'role_key')
+      );
 
     if not v_semantic_change
        and (new.assigned_by_user_id is distinct from old.assigned_by_user_id
