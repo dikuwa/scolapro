@@ -49,7 +49,7 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = pg_catalog, public
+set search_path = pg_catalog, public, app_private
 as $$
   select p_user_id is not null and exists (
     select 1
@@ -63,7 +63,11 @@ as $$
       and ta.active_from <= p_on_date
       and (ta.active_to is null or ta.active_to >= p_on_date)
       and (
-        assigned_staff.user_id = p_user_id
+        (
+          assigned_staff.user_id = p_user_id
+          and assigned_staff.status = 'active'
+          and app_private.staff_member_has_school_assignment(assigned_staff.id,ts.school_id,p_on_date)
+        )
         or exists (
           select 1
           from public.school_memberships sm
@@ -89,7 +93,7 @@ revoke all on function app_private.user_can_record_subject_attendance(uuid,uuid,
 from public, anon, authenticated;
 
 comment on function app_private.user_can_record_subject_attendance(uuid,uuid,date) is
-'Arbitrary-user mirror of subject-period attendance authority: the date-valid allocated teacher, current school leadership/HOD, or Platform Admin.';
+'Arbitrary-user mirror of subject-period attendance authority: the date-valid allocated teacher with active school placement, current school leadership/HOD, or Platform Admin.';
 
 create or replace function app_private.enforce_daily_attendance_submission_actor_integrity()
 returns trigger
