@@ -129,6 +129,7 @@ select is(
 );
 
 reset role;
+select set_config('request.jwt.claim.sub','fea00000-0000-4000-8000-000000000002',true);
 
 select throws_ok(
   $$insert into public.sports_learner_house_assignments(
@@ -149,7 +150,6 @@ select throws_ok(
   'trusted writer cannot rewrite assignment actor evidence without changing the assignment'
 );
 
-select set_config('request.jwt.claim.sub','fea00000-0000-4000-8000-000000000002',true);
 set local role authenticated;
 select throws_ok(
   $$select public.assign_learner_sports_house(
