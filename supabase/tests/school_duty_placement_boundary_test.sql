@@ -3,7 +3,9 @@ begin;
 select plan(5);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
-values('fda00000-0000-4000-8000-000000000001','duty-boundary-staff@example.test','authenticated','authenticated',now(),now());
+values
+  ('fda00000-0000-4000-8000-000000000001','duty-boundary-staff@example.test','authenticated','authenticated',now(),now()),
+  ('fda00000-0000-4000-8000-000000000002','duty-boundary-manager@example.test','authenticated','authenticated',now(),now());
 
 insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status)
 values(
@@ -24,6 +26,12 @@ insert into public.school_memberships(
   'fda00000-0000-4000-8000-000000000001',
   'fda10000-0000-4000-8000-000000000001',
   'teacher',current_date-10,current_date-1
+),(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fda00000-0000-4000-8000-000000000002',
+  null,
+  'school_admin',current_date-20,null
 );
 
 insert into public.staff_school_assignments(
@@ -33,7 +41,7 @@ insert into public.staff_school_assignments(
   '22222222-2222-4222-8222-222222222222',
   'fda10000-0000-4000-8000-000000000001',
   'staff',current_date-10,current_date-1,
-  'fda00000-0000-4000-8000-000000000001'
+  'fda00000-0000-4000-8000-000000000002'
 );
 
 insert into public.school_duty_assignments(
@@ -43,7 +51,7 @@ insert into public.school_duty_assignments(
   '22222222-2222-4222-8222-222222222222',
   'fda10000-0000-4000-8000-000000000001',
   'late_arrival_recorder',current_date-10,null,
-  'fda00000-0000-4000-8000-000000000001'
+  'fda00000-0000-4000-8000-000000000002'
 );
 
 select set_config('request.jwt.claim.role','authenticated',true);
