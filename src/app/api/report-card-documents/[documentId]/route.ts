@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { REPORT_CARD_RENDERER_VERSION } from "@/features/reporting/server/report-card-renderer-version";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -15,11 +16,14 @@ export async function GET(_request: Request, context: RouteContext) {
 
   // The authenticated client is the authorization boundary. RLS permits only staff
   // with report access or a linked guardian reading a published learner report.
+  // The active document route deliberately serves only the current renderer revision;
+  // historical artifacts remain durable but are not exposed as current downloads.
   const { data: document, error } = await userClient
     .from("report_card_documents")
-    .select("id,storage_bucket,storage_path,status")
+    .select("id,storage_bucket,storage_path,status,renderer_version")
     .eq("id", documentId)
     .eq("status", "ready")
+    .eq("renderer_version", REPORT_CARD_RENDERER_VERSION)
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: "Unable to authorize report document" }, { status: 500 });
