@@ -68,8 +68,8 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$update public.detention_sessions set session_date='2026-02-13', status='completed', completed_at=now(), completed_by_user_id='fd700000-0000-4000-8000-000000000001' where id='fd830000-0000-4000-8000-000000000001'$$,
-  'normal rescheduling and lifecycle updates remain allowed when the replacement supervisor placement covers the new date'
+  $$update public.detention_sessions set session_date='2026-02-13', status='completed', completed_at=now(), completed_by_user_id='fd700000-0000-4000-8000-000000000002' where id='fd830000-0000-4000-8000-000000000001'$$,
+  'rescheduling and completion remain allowed when the replacement supervisor and completer are valid on the new date'
 );
 
 select throws_ok(
