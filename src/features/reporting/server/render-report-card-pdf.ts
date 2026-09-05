@@ -39,6 +39,63 @@ function fitText(font: PDFFont, value: unknown, size: number, maxWidth: number):
   return `${output}...`;
 }
 
+function wrapText(font: PDFFont, value: unknown, size: number, maxWidth: number, maxLines: number): string[] {
+  const source = fontSafeText(font, value).trim();
+  if (!source || maxLines <= 0) return [];
+
+  const lines: string[] = [];
+  let truncated = false;
+  const paragraphs = source.split(/\r?\n/);
+
+  for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
+    const paragraph = paragraphs[paragraphIndex].trim();
+    if (!paragraph) {
+      if (lines.length < maxLines) lines.push("");
+      else truncated = true;
+      continue;
+    }
+
+    const words = paragraph.split(/\s+/);
+    let current = "";
+    for (const word of words) {
+      const candidate = current ? `${current} ${word}` : word;
+      if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+        current = candidate;
+        continue;
+      }
+
+      if (current) {
+        lines.push(current);
+        if (lines.length >= maxLines) {
+          truncated = true;
+          current = "";
+          break;
+        }
+      }
+      current = word;
+      if (font.widthOfTextAtSize(current, size) > maxWidth) current = fitText(font, current, size, maxWidth);
+    }
+
+    if (truncated) break;
+    if (current) {
+      lines.push(current);
+      if (lines.length >= maxLines && paragraphIndex < paragraphs.length - 1) truncated = true;
+    }
+    if (lines.length >= maxLines) {
+      if (paragraphIndex < paragraphs.length - 1) truncated = true;
+      break;
+    }
+  }
+
+  if (truncated && lines.length) {
+    const last = lines.length > maxLines ? lines[maxLines - 1] : lines.at(-1) ?? "";
+    lines.splice(maxLines);
+    lines[lines.length - 1] = fitText(font, `${last}...`, size, maxWidth);
+  }
+
+  return lines.slice(0, maxLines);
+}
+
 function drawCentered(page: PDFPage, font: PDFFont, value: unknown, size: number, x: number, width: number, y: number) {
   const safe = fitText(font, value, size, width - 6);
   const textWidth = font.widthOfTextAtSize(safe, size);
@@ -218,8 +275,10 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   const remarksHeight = 44;
   page.drawRectangle({ x: MARGIN, y: y - remarksHeight, width: CONTENT_WIDTH, height: remarksHeight, borderWidth: 0.55, borderColor: LINE });
   page.drawText("Remarks:", { x: MARGIN + 5, y: y - 11, size: 6.5, font: bold, color: INK });
-  const remark = fitText(regular, model.remarks || "", 6.6, CONTENT_WIDTH - 12);
-  if (remark) page.drawText(remark, { x: MARGIN + 5, y: y - 25, size: 6.6, font: regular, color: INK });
+  const remarkLines = wrapText(regular, model.remarks || "", 6.6, CONTENT_WIDTH - 12, 3);
+  remarkLines.forEach((line, index) => {
+    page.drawText(line, { x: MARGIN + 5, y: y - 23 - index * 8, size: 6.6, font: regular, color: INK });
+  });
   y -= remarksHeight;
 
   const signoffHeight = 76;
