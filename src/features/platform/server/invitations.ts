@@ -43,27 +43,25 @@ function mapInvitations(invitations: unknown[]): InvitationSummary[] {
       invitedAt: row.invited_at,
       expiresAt: row.expires_at,
       schoolName: relationName(row.schools, "School"),
-      tenantName: relationName(row.tenants, "Tenant"),
+      tenantName: row.tenants ? relationName(row.tenants, "Tenant") : undefined,
     };
   });
 }
 
-/**
- * Platform-administration view: every active school with its tenant, plus recent
- * governed invitations. Used by the platform onboarding surface only.
- */
+/** Platform onboarding: every active school with tenant identity and recent governed invitations. */
 export async function getPlatformInvitationAdminData() {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Authentication required.");
 
+  const today = new Date().toISOString().slice(0, 10);
   const { data: platformMemberships, error: platformError } = await supabase
     .from("platform_memberships")
     .select("id")
     .eq("user_id", user.id)
     .eq("role_key", "platform_admin")
-    .lte("active_from", new Date().toISOString().slice(0, 10))
-    .or(`active_to.is.null,active_to.gte.${new Date().toISOString().slice(0, 10)}`);
+    .lte("active_from", today)
+    .or(`active_to.is.null,active_to.gte.${today}`);
 
   if (platformError) throw new Error("Unable to resolve platform invitation scope.");
   if (!platformMemberships?.length) {
@@ -95,53 +93,47 @@ export async function getPlatformInvitationAdminData() {
 }
 
 /**
- * School-administration view: only the schools the signed-in School Admin actually
- * manages, with their governed invitation history. School identity is rendered
- * without any tenant/demo-group context — tenant identity never leaks into ordinary
- * school workflows.
+ * School administration is bound to one explicit school context. Even users who
+ * administer more than one school never receive a cross-school picker on this route.
  */
-export async function getSchoolInvitationAdminData() {
+export async function getSchoolInvitationAdminData(schoolId: string) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Authentication required.");
 
   const today = new Date().toISOString().slice(0, 10);
-  const { data: memberships, error: membershipError } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from("school_memberships")
     .select("school_id")
     .eq("user_id", user.id)
+    .eq("school_id", schoolId)
     .eq("role_key", "school_admin")
     .lte("active_from", today)
-    .or(`active_to.is.null,active_to.gte.${today}`);
+    .or(`active_to.is.null,active_to.gte.${today}`)
+    .maybeSingle();
 
   if (membershipError) throw new Error("Unable to resolve the school invitation scope.");
-
-  const schoolIds = (memberships ?? []).map((membership) => membership.school_id);
-  if (!schoolIds.length) {
+  if (!membership) {
     return { schoolOptions: [] as SchoolOption[], invitations: [] as InvitationSummary[] };
   }
 
-  const [{ data: schools, error: schoolError }, { data: invitations, error: invitationError }] = await Promise.all([
+  const [{ data: school, error: schoolError }, { data: invitations, error: invitationError }] = await Promise.all([
     supabase
       .from("schools")
       .select("id,name")
-      .in("id", schoolIds)
+      .eq("id", schoolId)
       .eq("status", "active")
-      .order("name"),
+      .maybeSingle(),
     supabase
       .from("school_invitations")
       .select("id,email,role_key,status,invited_at,expires_at,schools(name)")
-      .in("school_id", schoolIds)
+      .eq("school_id", schoolId)
       .order("invited_at", { ascending: false })
       .limit(50),
   ]);
 
   if (schoolError || invitationError) throw new Error("Unable to load school invitation data.");
-
-  const schoolOptions: SchoolOption[] = (schools ?? []).map((school) => ({
-    id: school.id,
-    name: school.name,
-  }));
+  const schoolOptions: SchoolOption[] = school ? [{ id: school.id, name: school.name }] : [];
 
   return { schoolOptions, invitations: mapInvitations(invitations ?? []) };
 }
