@@ -40,5 +40,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Validate report-card font runtime
+        run: pnpm validate:report-font
+
       - name: Build
         run: pnpm build

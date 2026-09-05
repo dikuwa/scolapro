@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && pnpm build"
+    "validate:report-font": "node scripts/validate-report-card-font.mjs",
+    "check": "pnpm lint && pnpm typecheck && pnpm validate:report-font && pnpm build"
   },
   "dependencies": {
     "@fontsource/unifrakturcook": "^5.3.0",
