@@ -3,12 +3,16 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, Copy, LoaderCircle, Send } from "lucide-react";
 import { toast } from "sonner";
-import { createSchoolInvitation, type SchoolInvitationState } from "@/features/platform/server/actions";
+import {
+  createPlatformSchoolInvitation,
+  createSchoolStaffInvitation,
+  type SchoolInvitationState,
+} from "@/features/platform/server/actions";
 import type { SchoolOption } from "@/features/platform/server/invitations";
 
 const initialState: SchoolInvitationState = {};
 
-const roles = [
+const schoolRoles = [
   ["school_admin", "School administrator"],
   ["principal", "Principal"],
   ["deputy_principal", "Deputy principal"],
@@ -21,7 +25,8 @@ const roles = [
   ["board_member", "School board member"],
 ] as const;
 
-type RoleKey = (typeof roles)[number][0];
+type RoleKey = (typeof schoolRoles)[number][0];
+type InvitationMode = "school" | "platform";
 
 function FieldError({ messages }: { messages?: string[] }) {
   return messages?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{messages[0]}</p> : null;
@@ -55,21 +60,24 @@ function Picker({ label, valueLabel, open, onToggle, children }: {
   );
 }
 
-function schoolLabel(school: SchoolOption) {
-  return school.tenantName ? `${school.name} · ${school.tenantName}` : school.name;
+function schoolLabel(school: SchoolOption, mode: InvitationMode) {
+  if (mode === "platform" && school.tenantName) return `${school.name} · ${school.tenantName}`;
+  return school.name;
 }
 
-export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
-  const [state, action, pending] = useActionState(createSchoolInvitation, initialState);
+export function SchoolInvitationForm({ schools, mode }: { schools: SchoolOption[]; mode: InvitationMode }) {
+  const action = mode === "platform" ? createPlatformSchoolInvitation : createSchoolStaffInvitation;
+  const [state, formAction, pending] = useActionState(action, initialState);
   const [copied, setCopied] = useState(false);
-  const singleSchool = schools.length === 1 ? schools[0] : null;
-  const [schoolId, setSchoolId] = useState(singleSchool?.id ?? "");
-  const [roleKey, setRoleKey] = useState<RoleKey>("school_admin");
+  const fixedSchool = mode === "school" ? schools[0] ?? null : null;
+  const singlePlatformSchool = mode === "platform" && schools.length === 1 ? schools[0] : null;
+  const [schoolId, setSchoolId] = useState(fixedSchool?.id ?? singlePlatformSchool?.id ?? "");
+  const [roleKey, setRoleKey] = useState<RoleKey>(mode === "platform" ? "school_admin" : "teacher");
   const [schoolOpen, setSchoolOpen] = useState(false);
   const [roleOpen, setRoleOpen] = useState(false);
 
   const selectedSchool = schools.find((school) => school.id === schoolId);
-  const selectedRole = roles.find(([value]) => value === roleKey)?.[1] ?? "School administrator";
+  const selectedRole = schoolRoles.find(([value]) => value === roleKey)?.[1] ?? "Teacher";
   const joinLink = useMemo(() => {
     if (!state.invitationToken || typeof window === "undefined") return "";
     return `${window.location.origin}/join?token=${encodeURIComponent(state.invitationToken)}`;
@@ -93,23 +101,30 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
 
   return (
     <div className="space-y-5">
-      <form action={action} className="space-y-4" noValidate>
+      <form action={formAction} className="space-y-4" noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
-        <input type="hidden" name="roleKey" value={roleKey} />
+        <input type="hidden" name="roleKey" value={mode === "platform" ? "school_admin" : roleKey} />
 
-        {singleSchool ? (
+        {mode === "school" ? (
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium leading-4">School</p>
             <div className="flex min-h-10 items-center rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-sm shadow-[var(--shadow-xs)]">
-              <span className="min-w-0 truncate">{schoolLabel(singleSchool)}</span>
+              <span className="min-w-0 truncate">{fixedSchool?.name ?? "School unavailable"}</span>
             </div>
-            <p className="text-[0.68rem] leading-4 text-muted-foreground">Invitations are restricted to your authorized school scope.</p>
+            <p className="text-[0.68rem] leading-4 text-muted-foreground">This invitation is fixed to the school you are administering.</p>
+          </div>
+        ) : singlePlatformSchool ? (
+          <div className="flex flex-col gap-1.5">
+            <p className="text-xs font-medium leading-4">School</p>
+            <div className="flex min-h-10 items-center rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-sm shadow-[var(--shadow-xs)]">
+              <span className="min-w-0 truncate">{schoolLabel(singlePlatformSchool, mode)}</span>
+            </div>
           </div>
         ) : (
           <>
             <Picker
               label="School"
-              valueLabel={selectedSchool ? schoolLabel(selectedSchool) : "Choose a school"}
+              valueLabel={selectedSchool ? schoolLabel(selectedSchool, mode) : "Choose a school"}
               open={schoolOpen}
               onToggle={() => { setSchoolOpen((value) => !value); setRoleOpen(false); }}
             >
@@ -149,23 +164,31 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
         </div>
 
         <div className="grid items-start gap-4 sm:grid-cols-2">
-          <Picker
-            label="Role"
-            valueLabel={selectedRole}
-            open={roleOpen}
-            onToggle={() => { setRoleOpen((value) => !value); setSchoolOpen(false); }}
-          >
-            {roles.map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => { setRoleKey(value); setRoleOpen(false); }}
-                className={`w-full rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm transition hover:bg-surface-muted ${value === roleKey ? "bg-brand-soft text-brand-strong" : ""}`}
-              >
-                {label}
-              </button>
-            ))}
-          </Picker>
+          {mode === "platform" ? (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="text-xs font-medium leading-4">Role</p>
+              <div className="flex min-h-10 items-center rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-sm shadow-[var(--shadow-xs)]">School administrator</div>
+              <p className="text-[0.68rem] leading-4 text-muted-foreground">Platform onboarding establishes school administration only. The school then invites its own staff.</p>
+            </div>
+          ) : (
+            <Picker
+              label="Role"
+              valueLabel={selectedRole}
+              open={roleOpen}
+              onToggle={() => { setRoleOpen((value) => !value); setSchoolOpen(false); }}
+            >
+              {schoolRoles.map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => { setRoleKey(value); setRoleOpen(false); }}
+                  className={`w-full rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm transition hover:bg-surface-muted ${value === roleKey ? "bg-brand-soft text-brand-strong" : ""}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </Picker>
+          )}
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor="employeeNumber" className="text-xs font-medium leading-4">Employee number</label>
             <input id="employeeNumber" name="employeeNumber" className={fieldClass} placeholder="Optional" />
@@ -173,7 +196,7 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
         </div>
 
         <div className="flex justify-end border-t border-border-subtle pt-4">
-          <button type="submit" disabled={pending || !schools.length} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">
+          <button type="submit" disabled={pending || !schools.length || !schoolId} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">
             {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
             {pending ? "Creating…" : "Create invitation"}
           </button>
