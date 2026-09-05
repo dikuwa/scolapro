@@ -5,8 +5,14 @@ select plan(8);
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('aa700000-0000-4000-8000-000000000001','profile-change-scope@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','aa700000-0000-4000-8000-000000000001','school_admin',current_date);
+
 insert into public.learners(id,tenant_id,first_names,surname)
 values('aa710000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Profile','Learner A');
+
+insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,enrolled_from,status)
+values('aa720000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','aa710000-0000-4000-8000-000000000001',extract(year from current_date)::integer,current_date-30,'current');
 
 insert into public.tenants(id,name,slug)
 values('aa800000-0000-4000-8000-000000000001','Profile Change Scope Tenant B','profile-change-scope-b');
@@ -46,7 +52,7 @@ select lives_ok(
 
 select lives_ok(
   $$update public.profile_change_requests set status='approved', reviewed_by_user_id='aa700000-0000-4000-8000-000000000001', reviewed_at=now(), applied_at=now() where id='aa830000-0000-4000-8000-000000000001'$$,
-  'profile change review lifecycle fields remain mutable'
+  'profile change review lifecycle fields remain mutable for an authorized reviewer'
 );
 
 select throws_ok(
