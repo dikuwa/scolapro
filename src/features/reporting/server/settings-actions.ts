@@ -22,7 +22,7 @@ const schoolSettingsSchema = z.object({
   showPercentages: z.boolean(),
   showNonPromotionalSubjects: z.boolean(),
   showPassMarkLegend: z.boolean(),
-  remarksMode: z.enum(["manual", "rules", "ai_assisted"]),
+  remarksMode: z.literal("manual"),
   defaultRemark: z.string().trim().max(600).optional().default(""),
 });
 
@@ -115,7 +115,7 @@ export async function saveReportCardSchoolSettings(_previous: ReportCardSettings
       show_percentages: parsed.data.showPercentages,
       show_non_promotional_subjects: parsed.data.showNonPromotionalSubjects,
       show_pass_mark_legend: parsed.data.showPassMarkLegend,
-      remarks_mode: parsed.data.remarksMode,
+      remarks_mode: "manual",
       default_remark: parsed.data.defaultRemark,
     },
   });

@@ -30,7 +30,7 @@ export type ReportCardSchoolSettings = {
     showPercentages: boolean;
     showNonPromotionalSubjects: boolean;
     showPassMarkLegend: boolean;
-    remarksMode: "manual" | "rules" | "ai_assisted";
+    remarksMode: "manual";
     defaultRemark: string;
   };
   subjects: ReportCardSubjectSetting[];
@@ -51,7 +51,6 @@ export async function getReportCardSchoolSettings(schoolId: string): Promise<Rep
   const profile = record(root.document_profile);
   const settings = record(root.report_card_settings);
   const subjects = Array.isArray(root.subjects) ? root.subjects.map(record) : [];
-  const remarksMode = text(settings.remarks_mode);
   const logoStoragePath = text(profile.logo_storage_path);
   let storedLogoUrl = "";
   if (logoStoragePath) {
@@ -76,7 +75,9 @@ export async function getReportCardSchoolSettings(schoolId: string): Promise<Rep
       showPercentages: bool(settings.show_percentages, false),
       showNonPromotionalSubjects: bool(settings.show_non_promotional_subjects, true),
       showPassMarkLegend: bool(settings.show_pass_mark_legend, true),
-      remarksMode: remarksMode === "rules" || remarksMode === "ai_assisted" ? remarksMode : "manual",
+      // Rules-based and AI-assisted remarks are not active generation engines yet.
+      // Keep the public settings contract truthful until those governed workflows exist.
+      remarksMode: "manual",
       defaultRemark: text(settings.default_remark),
     },
     subjects: subjects.map((item) => ({

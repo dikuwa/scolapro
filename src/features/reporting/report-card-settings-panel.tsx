@@ -62,7 +62,6 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   const report = settings.reportCardSettings;
   const isNamibHigh = schoolName.trim().toLowerCase() === "namib high school";
   const [schoolNameFont, setSchoolNameFont] = useState<"default" | "old_english">(isNamibHigh ? profile.schoolNameFont : "default");
-  const [remarksMode, setRemarksMode] = useState(report.remarksMode);
   const [logoUrl, setLogoUrl] = useState(profile.logoUrl);
   const [logoStoragePath, setLogoStoragePath] = useState(profile.logoStoragePath);
   useEffect(() => {
@@ -141,6 +140,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
           <input type="hidden" name="schoolId" value={schoolId} />
           <input type="hidden" name="logoUrl" value={logoStoragePath ? "" : legacyLogoUrl} />
           <input type="hidden" name="logoStoragePath" value={logoStoragePath} />
+          <input type="hidden" name="remarksMode" value="manual" />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div><label className="text-xs font-medium">Former / secondary school name</label><input name="formerName" defaultValue={profile.formerName} className={`${fieldClass} mt-1.5`} placeholder="Formerly …" /></div>
             <div><label className="text-xs font-medium">Physical address</label><input name="physicalAddress" defaultValue={profile.physicalAddress} className={`${fieldClass} mt-1.5`} placeholder="Street / location" /></div>
@@ -180,8 +180,12 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
           </div>
 
           <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
-            <Picker label="Remarks mode" name="remarksMode" value={remarksMode} onChange={(value) => setRemarksMode(value as "manual" | "rules" | "ai_assisted")} placeholder="Choose remarks mode" options={[{ value: "manual", label: "Manual", helper: "Teacher enters/reviews remarks" }, { value: "rules", label: "Rules-based", helper: "Deterministic school rules" }, { value: "ai_assisted", label: "AI assisted", helper: "AI suggests; teacher reviews before certification" }]} />
-            <div><label className="text-xs font-medium">Default / fallback remark</label><textarea name="defaultRemark" defaultValue={report.defaultRemark} rows={3} className={`${fieldClass} mt-1.5 py-2`} placeholder="Optional fallback remark" /></div>
+            <div>
+              <p className="text-xs font-medium">Remarks mode</p>
+              <div className="mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 py-2.5 text-sm">Manual / reviewed</div>
+              <p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Certified reports currently use a reviewed manual remark or the fallback text. Rules-based and AI-assisted remark generation will only appear here after their governed review workflows are implemented.</p>
+            </div>
+            <div><label className="text-xs font-medium">Default / fallback remark</label><textarea name="defaultRemark" defaultValue={report.defaultRemark} rows={3} className={`${fieldClass} mt-1.5 py-2`} placeholder="Optional fallback remark" /><p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Used when a generated snapshot has no reviewed learner-specific remark.</p></div>
           </div>
 
           <div className="flex justify-end border-t border-border-subtle pt-4"><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}{pending ? "Saving…" : "Save document settings"}</button></div>

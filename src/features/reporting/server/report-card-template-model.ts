@@ -69,7 +69,7 @@ export type ReportCardTemplateModel = {
   showNonPromotionalSubjects: boolean;
   showPassMarkLegend: boolean;
   remarks: string;
-  remarksMode: string;
+  remarksMode: "manual";
   absentDays: string;
   registerTeacherName: string;
   principalName: string;
@@ -230,7 +230,9 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
     showNonPromotionalSubjects,
     showPassMarkLegend: boolean(settings.show_pass_mark_legend, true),
     remarks: text(snapshot.remarks || settings.default_remark),
-    remarksMode: text(settings.remarks_mode) || "manual",
+    // Until a governed rules/AI pipeline creates a reviewed learner-specific remark,
+    // the renderer must not imply that one of those engines supplied certified text.
+    remarksMode: "manual",
     absentDays: text(attendance.absent ?? 0),
     registerTeacherName: text(registerTeacher.name),
     principalName: text(principal.name),
