@@ -89,6 +89,15 @@ select set_config(
   true
 );
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  current_setting('qa.attendance_evidence_tenant_id')::uuid,
+  current_setting('qa.attendance_evidence_school_id')::uuid,
+  'fcf00000-0000-4000-8000-000000000001',
+  'teacher',
+  current_date-1
+);
+
 insert into public.attendance_register_submissions(
   id,tenant_id,school_id,academic_year,register_class_id,attendance_date,
   default_status,recorded_by_user_id,source
