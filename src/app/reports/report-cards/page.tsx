@@ -4,6 +4,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { PagedReportCardManagement } from "@/features/reporting/paged-report-card-management";
 import { ReportBatchWorkerPulse } from "@/features/reporting/report-batch-worker-pulse";
 import { ReportCardStatusReadonly } from "@/features/reporting/report-card-status-readonly";
+import { getIndividualReportCardLearnerOptions } from "@/features/reporting/server/individual-report-card-learners";
 import {
   getReportCardManagementMeta,
   getReportCardPageArtifacts,
@@ -49,6 +50,7 @@ function parseCommonParams(params: Record<string, string | string[] | undefined>
 export default async function ReportCardsPage({ searchParams }: { searchParams: SearchParams }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/reports/report-cards");
+  if (context.platformMemberships.length) redirect("/");
   const membership = context.memberships.find((item) => managerRoles.has(item.roleKey))
     ?? context.memberships.find((item) => viewerRoles.has(item.roleKey));
   if (!membership) redirect("/");
@@ -83,6 +85,13 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
     : "school";
   const scopeGradeId = validUuid(firstParam(params.scopeGrade));
   const scopeClassId = validUuid(firstParam(params.scopeClass));
+  const individualLearnerId = validUuid(firstParam(params.individual));
+
+  const individualLearners = await getIndividualReportCardLearnerOptions(membership.schoolId, academicYear);
+  const individualOption = individualLearnerId
+    ? individualLearners.find((item) => item.enrolmentId === individualLearnerId)
+    : undefined;
+  const effectiveQuery = individualOption?.searchQuery ?? common.query;
 
   const [meta, statusPage, wholeSchoolSummary] = await Promise.all([
     getReportCardManagementMeta(membership.schoolId, academicYear),
@@ -90,11 +99,11 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
       schoolId: membership.schoolId,
       academicYear,
       termNumber: common.termNumber,
-      query: common.query,
-      gradeId: filterGradeId || undefined,
-      classId: filterClassId || undefined,
-      status: common.status,
-      page: common.page,
+      query: effectiveQuery,
+      gradeId: individualOption ? undefined : filterGradeId || undefined,
+      classId: individualOption ? undefined : filterClassId || undefined,
+      status: individualOption ? "all" : common.status,
+      page: individualOption ? 1 : common.page,
       pageSize: 50,
     }),
     getReportCardScopeSummary({
@@ -147,6 +156,8 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
     {readyBatchExports.length ? <div className="mb-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="scolapro-section-title">Ready to print</h2><p className="scolapro-section-description">Combined PDFs from completed bulk preparation jobs.</p></div><div className="flex flex-wrap gap-2">{readyBatchExports.map((batch) => <a key={batch.id} href={`/api/report-card-batches/${batch.id}/export`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)] transition-colors hover:bg-[color:var(--success)] hover:text-white"><Download className="size-3.5" />{batch.scopeLabel} · T{batch.termNumber}{batch.exportPageCount ? ` · ${batch.exportPageCount} pp` : ""}</a>)}</div></div></div> : null}
     <PagedReportCardManagement
       statusPage={statusPage}
+      individualLearners={individualLearners}
+      individualLearnerId={individualLearnerId}
       terms={meta.terms}
       grades={meta.grades}
       classes={meta.classes}
@@ -156,10 +167,10 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
       documents={pageArtifacts.documents}
       academicYear={meta.academicYear}
       termNumber={common.termNumber}
-      query={common.query}
-      status={common.status}
-      filterGradeId={filterGradeId}
-      filterClassId={filterClassId}
+      query={individualOption ? "" : common.query}
+      status={individualOption ? "all" : common.status}
+      filterGradeId={individualOption ? "" : filterGradeId}
+      filterClassId={individualOption ? "" : filterClassId}
       scopeType={scopeType}
       scopeGradeId={scopeGradeId}
       scopeClassId={scopeClassId}

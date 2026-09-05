@@ -6,7 +6,9 @@ export function isSupabaseConfigured() {
 }
 
 export function assertProductionConfiguration() {
-  if (process.env.NODE_ENV !== "production") return;
+  // Local builds and CI may intentionally compile without runtime secrets. A deployed
+  // Vercel application must never silently fall back to synthetic demonstration data.
+  if (process.env.VERCEL !== "1") return;
 
   const missing = [
     ["NEXT_PUBLIC_SUPABASE_URL", process.env.NEXT_PUBLIC_SUPABASE_URL],
@@ -16,6 +18,6 @@ export function assertProductionConfiguration() {
     .map(([name]) => name);
 
   if (missing.length > 0) {
-    throw new Error(`Missing required production configuration: ${missing.join(", ")}`);
+    throw new Error(`Missing required Vercel configuration: ${missing.join(", ")}`);
   }
 }

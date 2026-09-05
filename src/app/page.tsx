@@ -5,7 +5,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { getDashboardOverview } from "@/features/dashboard/server/overview";
 import { getPlatformTenants } from "@/features/platform/server/tenants";
 import { getUserContext } from "@/lib/auth/get-user-context";
-import { isSupabaseConfigured } from "@/lib/config/runtime";
+import { assertProductionConfiguration, isSupabaseConfigured } from "@/lib/config/runtime";
 
 function getWindhoekNow() {
   const parts = new Intl.DateTimeFormat("en-NA", { timeZone: "Africa/Windhoek", weekday: "long", day: "numeric", month: "long", hour: "numeric", hourCycle: "h23" }).formatToParts(new Date());
@@ -16,6 +16,7 @@ function getWindhoekNow() {
 }
 
 export default async function Home() {
+  assertProductionConfiguration();
   const { greeting, dateLabel } = getWindhoekNow();
   let displayName = "ScolaPro User";
   let schoolName = "ScolaPro Demonstration School";
@@ -26,27 +27,31 @@ export default async function Home() {
   const academicYear = new Date().getFullYear();
   let overview = { currentLearners: 2, gradeCount: 5, registerClassCount: 2 };
   let platformOverview = { activeTenants: 0, schoolCount: 0 };
-  let isPreview = true;
+  let isPreview = !isSupabaseConfigured();
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
     displayName = context.displayName ?? displayName;
-    const membership = context.memberships[0];
-    if (membership) {
-      schoolName = membership.schoolName;
-      roleLabel = membership.roleKey.replaceAll("_", " ");
-      overview = await getDashboardOverview(membership.schoolId, academicYear);
-      isPreview = false;
-    } else if (context.platformMemberships.length) {
+    const platformMembership = context.platformMemberships[0];
+    const membership = platformMembership ? undefined : context.memberships[0];
+
+    if (platformMembership) {
       schoolName = "ScolaPro Platform";
-      roleLabel = context.platformMemberships[0].roleKey.replaceAll("_", " ");
+      roleLabel = platformMembership.roleKey.replaceAll("_", " ");
       dashboardMode = "platform";
       primaryHref = "/platform/tenants";
       primaryLabel = "Manage tenants";
       const tenants = await getPlatformTenants();
       platformOverview = { activeTenants: tenants.filter((tenant) => tenant.status === "active").length, schoolCount: tenants.reduce((total, tenant) => total + tenant.schools.length, 0) };
       isPreview = false;
+    } else if (membership) {
+      schoolName = membership.schoolName;
+      roleLabel = membership.roleKey.replaceAll("_", " ");
+      overview = await getDashboardOverview(membership.schoolId, academicYear);
+      isPreview = false;
+    } else if (context.guardianLinks.length) {
+      redirect("/parent");
     }
   }
 
@@ -66,10 +71,10 @@ export default async function Home() {
   const contextTitle = dashboardMode === "platform" ? "Platform context" : "School context";
   const contextDescription = dashboardMode === "platform" ? "This dashboard reflects platform-wide tenant scope while tenant and school data remain isolated for ordinary members." : "The dashboard reflects the authenticated school scope rather than hard-coded tenant information.";
   const contextLabel = dashboardMode === "platform" ? "Scope" : "School";
-  const verticalTitle = dashboardMode === "platform" ? "Tenant administration" : "First vertical slice";
-  const verticalDescription = dashboardMode === "platform" ? "Tenant and first-school onboarding is now an authenticated, audit-safe platform workflow backed by PostgreSQL authorization." : "Learner identity and enrolment are the first operational workflow being proven through authentication, RLS and audit-safe writes.";
-  const verticalHref = dashboardMode === "platform" ? "/platform/tenants" : "/learners";
-  const verticalLabel = dashboardMode === "platform" ? "Review tenants" : "Review learners";
+  const verticalTitle = dashboardMode === "platform" ? "Tenant administration" : "Academic operations";
+  const verticalDescription = dashboardMode === "platform" ? "Tenant and first-school onboarding is an authenticated, audit-safe platform workflow backed by PostgreSQL authorization." : "Teaching, assessment, attendance and report cards now remain within the authenticated school and role context.";
+  const verticalHref = dashboardMode === "platform" ? "/platform/tenants" : "/teaching";
+  const verticalLabel = dashboardMode === "platform" ? "Review tenants" : "Open teaching";
 
   return (
     <AppShell>
@@ -78,7 +83,7 @@ export default async function Home() {
           <div className="min-w-0"><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">{greeting}, {firstName}</h1><p className="mt-1 text-sm text-muted-foreground">{dateLabel} · {schoolName}</p></div>
           <Link href={primaryHref} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto">{primaryLabel}<ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-4" /></Link>
         </div>
-        {isPreview ? <div className="mb-4 rounded-[var(--radius-sm)] bg-info-soft px-4 py-3 text-xs leading-5 text-[color:var(--info)]">Design preview uses synthetic school data. Connect the dedicated ScolaPro Supabase environment to switch this dashboard to authenticated RLS-backed data.</div> : null}
+        {isPreview ? <div className="mb-4 rounded-[var(--radius-sm)] bg-info-soft px-4 py-3 text-xs leading-5 text-[color:var(--info)]">Local design preview uses synthetic school data. Configure the ScolaPro Supabase environment to use authenticated RLS-backed data.</div> : null}
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
           {metrics.map((metric, index) => { const Icon = metric.icon; return <article key={metric.label} className={["flex items-start justify-between gap-4 px-4 py-4 sm:px-5", index > 0 ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""].join(" ")}><div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">{metric.label}</p><p className={`mt-2 text-[clamp(1.45rem,1.2rem+0.55vw,1.9rem)] font-semibold tracking-[-0.04em] ${metric.valueColor}`}>{metric.value}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{metric.detail}</p></div><span className={`grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] ${metric.tone}`}><Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} /></span></article>; })}
         </div>

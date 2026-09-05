@@ -54,9 +54,9 @@ const navigation = [
 const enabledKeysByRole: Record<string, readonly string[]> = {
   platform_admin: ["today", "tenants", "invitations"],
   platform_support: ["today", "tenants"],
-  school_admin: ["today", "setup", "imports", "invitations", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "report_cards", "contributions", "absence_reviews", "calendar"],
-  principal: ["today", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "assessment", "report_cards", "calendar"],
-  deputy_principal: ["today", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "assessment", "report_cards", "calendar"],
+  school_admin: ["today", "setup", "imports", "invitations", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "contributions", "absence_reviews", "calendar"],
+  principal: ["today", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
+  deputy_principal: ["today", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
   hod: ["today", "staff", "learners", "guardians", "timetable", "attendance", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
   teacher: ["today", "learners", "timetable", "attendance", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
   class_teacher: ["today", "learners", "guardians", "timetable", "attendance", "my_detention", "teaching", "assessment", "report_cards", "contributions", "calendar"],
@@ -68,8 +68,7 @@ const enabledKeysByRole: Record<string, readonly string[]> = {
 };
 
 function itemsForRole(roleKey?: string) {
-  if (!roleKey) return navigation;
-  const allowed = enabledKeysByRole[roleKey] ?? ["today"];
+  const allowed = roleKey ? enabledKeysByRole[roleKey] ?? ["today"] : ["today"];
   return navigation.filter((item) => allowed.includes(item.key));
 }
 

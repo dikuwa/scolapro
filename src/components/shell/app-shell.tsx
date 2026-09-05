@@ -35,7 +35,7 @@ function BrandName() {
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   let displayName = `${SCOLAPRO_BRAND.name} User`;
-  let schoolName = `${SCOLAPRO_BRAND.name} Demonstration School`;
+  let schoolName = isSupabaseConfigured() ? "No school selected" : `${SCOLAPRO_BRAND.name} Demonstration School`;
   let roleKey: string | undefined;
   let avatarUrl: string | null = null;
   let unreadCount = 0;
@@ -46,13 +46,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     const context = await getUserContext();
     if (context.user) {
       displayName = context.displayName ?? displayName;
-      const membership = context.memberships[0];
       const platformMembership = context.platformMemberships[0];
+      const membership = platformMembership ? undefined : context.memberships[0];
       const guardianOnly = !membership && !platformMembership && context.guardianLinks.length > 0;
 
-      schoolName = membership?.schoolName
-        ?? (platformMembership ? `${SCOLAPRO_BRAND.name} Platform` : guardianOnly ? "Family portal" : "No school selected");
-      roleKey = membership?.roleKey ?? platformMembership?.roleKey ?? (guardianOnly ? "parent" : undefined);
+      schoolName = platformMembership
+        ? `${SCOLAPRO_BRAND.name} Platform`
+        : membership?.schoolName ?? (guardianOnly ? "Family portal" : "No school selected");
+      roleKey = platformMembership?.roleKey ?? membership?.roleKey ?? (guardianOnly ? "parent" : undefined);
 
       if (context.avatarPath) {
         const supabase = await createSupabaseServerClient();
@@ -81,9 +82,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     </Link>
   );
 
-  const footer = (
-    <AccountMenu avatar={avatar} displayName={displayName} roleLabel={roleLabel} compact />
-  );
+  const footer = <AccountMenu avatar={avatar} displayName={displayName} roleLabel={roleLabel} compact />;
 
   const header = (
     <header className="sticky top-0 z-30 border-b border-border-subtle bg-[color:var(--surface)]/92 backdrop-blur-xl">
@@ -92,7 +91,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <ScolaProMark className="size-9 shrink-0" />
           <span className="min-w-0"><span className="block truncate text-sm"><BrandName /></span><span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span></span>
         </div>
-
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
           <NotificationCenter unreadCount={unreadCount} notifications={notifications} />
           <AccountMenu avatar={<Avatar url={avatarUrl} name={displayName} />} displayName={displayName} roleLabel={roleLabel} />

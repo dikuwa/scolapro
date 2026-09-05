@@ -29,6 +29,7 @@ import {
   queueReportCardRender,
   type ReportCardActionState,
 } from "@/features/reporting/server/actions";
+import type { IndividualReportCardLearnerOption } from "@/features/reporting/server/individual-report-card-learners";
 import type {
   ReportCardBatchIssueRow,
   ReportCardBatchRow,
@@ -68,6 +69,8 @@ const statusClasses: Record<Exclude<ReportCardStatusFilter, "all">, string> = {
 
 type Props = {
   statusPage: ReportCardStatusPage;
+  individualLearners: IndividualReportCardLearnerOption[];
+  individualLearnerId: string;
   terms: { termNumber: number; name: string }[];
   grades: ReportCardGradeOption[];
   classes: ReportCardClassOption[];
@@ -116,17 +119,7 @@ function summarizeRows(rows: ReportCardStatusPageRow[]) {
   );
 }
 
-function BatchButton({
-  operation,
-  rows,
-  academicYear,
-  termNumber,
-  scopeType,
-  scopeId,
-  scopeLabel,
-  scopeCount,
-  disabled,
-}: {
+function BatchButton({ operation, rows, academicYear, termNumber, scopeType, scopeId, scopeLabel, scopeCount, disabled }: {
   operation: BatchOperation;
   rows: ReportCardStatusPageRow[];
   academicYear: number;
@@ -142,10 +135,8 @@ function BatchButton({
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) {
-      toast.success(state.message);
-      router.refresh();
-    } else toast.error(state.message);
+    if (state.success) { toast.success(state.message); router.refresh(); }
+    else toast.error(state.message);
   }, [router, state]);
 
   const config = operation === "generate"
@@ -155,7 +146,6 @@ function BatchButton({
       : operation === "publish"
         ? { label: "Publish certified", Icon: Send, className: "bg-info-soft text-[color:var(--info)] hover:bg-[color:var(--info)] hover:text-white" }
         : { label: "Prepare PDFs", Icon: Printer, className: "bg-brand-soft text-brand-strong hover:bg-brand hover:text-white" };
-
   const missingScopeId = (scopeType === "grade" || scopeType === "class") && !scopeId;
 
   return <form action={action}>
@@ -167,8 +157,7 @@ function BatchButton({
     <input type="hidden" name="operation" value={operation} />
     {scopeType === "custom" ? rows.map((row) => <input key={row.enrolmentId} type="hidden" name="enrolmentId" value={row.enrolmentId} />) : null}
     <button type="submit" disabled={disabled || pending || scopeCount === 0 || missingScopeId} className={`${actionButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] px-3 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-45 ${config.className}`}>
-      {pending ? <Spinner className="size-3.5" /> : <config.Icon className="size-3.5" />}
-      {pending ? "Starting…" : config.label}
+      {pending ? <Spinner className="size-3.5" /> : <config.Icon className="size-3.5" />}{pending ? "Starting…" : config.label}
     </button>
   </form>;
 }
@@ -199,13 +188,11 @@ function IndividualPanel({ row, termNumber, renderJobs, documents }: { row: Repo
   useEffect(() => {
     const state = [generateState, certifyState, publishState, pdfState, htmlState].find((item) => item.message);
     if (!state?.message) return;
-    if (state.success) {
-      toast.success(state.message);
-      router.refresh();
-    } else toast.error(state.message);
+    if (state.success) { toast.success(state.message); router.refresh(); }
+    else toast.error(state.message);
   }, [certifyState, generateState, htmlState, pdfState, publishState, router]);
 
-  if (!row) return <div className="rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-xs text-muted-foreground">Search or filter the learner table, then choose a learner from the current page for an exception or reprint.</div>;
+  if (!row) return <div className="rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-xs text-muted-foreground">Choose any current learner in the school for an exception, certification, publication or reprint.</div>;
 
   const pdfDocument = row.snapshotId ? documents.find((item) => item.snapshotId === row.snapshotId && item.documentFormat === "pdf") ?? null : null;
   const htmlDocument = row.snapshotId ? documents.find((item) => item.snapshotId === row.snapshotId && item.documentFormat === "html") ?? null : null;
@@ -229,30 +216,20 @@ function IndividualPanel({ row, termNumber, renderJobs, documents }: { row: Repo
 
 export function PagedReportCardManagement(props: Props) {
   const router = useRouter();
-  const [mode, setMode] = useState<"bulk" | "individual">("bulk");
+  const [mode, setMode] = useState<"bulk" | "individual">(props.individualLearnerId ? "individual" : "bulk");
   const [scopeType, setScopeType] = useState<ScopeType>(props.scopeType);
   const [scopeGradeId, setScopeGradeId] = useState(props.scopeGradeId);
   const [scopeClassId, setScopeClassId] = useState(props.scopeClassId);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [individualLearnerId, setIndividualLearnerId] = useState("");
+  const [individualLearnerId, setIndividualLearnerId] = useState(props.individualLearnerId);
 
   const rowByEnrolment = useMemo(() => new Map(props.statusPage.rows.map((row) => [row.enrolmentId, row])), [props.statusPage.rows]);
   const selectedRows = props.statusPage.rows.filter((row) => selectedIds.has(row.enrolmentId));
   const customSummary = summarizeRows(selectedRows);
-  const appliedScopeMatches = scopeType === props.scopeType
-    && scopeGradeId === props.scopeGradeId
-    && scopeClassId === props.scopeClassId;
-  const summary = scopeType === "custom"
-    ? customSummary
-    : appliedScopeMatches
-      ? props.scopeSummary
-      : null;
+  const appliedScopeMatches = scopeType === props.scopeType && scopeGradeId === props.scopeGradeId && scopeClassId === props.scopeClassId;
+  const summary = scopeType === "custom" ? customSummary : appliedScopeMatches ? props.scopeSummary : null;
   const scopeId = scopeType === "grade" ? scopeGradeId : scopeType === "class" ? scopeClassId : null;
-  const scopeLabel = scopeType === "custom"
-    ? `Custom selection (${selectedRows.length})`
-    : appliedScopeMatches
-      ? props.scopeSummary?.scopeLabel ?? "Selected scope"
-      : "Apply scope to load totals";
+  const scopeLabel = scopeType === "custom" ? `Custom selection (${selectedRows.length})` : appliedScopeMatches ? props.scopeSummary?.scopeLabel ?? "Selected scope" : "Apply scope to load totals";
   const pdfEligible = summary ? summary.certified + summary.published : 0;
   const allPageSelected = props.statusPage.rows.length > 0 && props.statusPage.rows.every((row) => selectedIds.has(row.enrolmentId));
   const selectedIndividual = rowByEnrolment.get(individualLearnerId);
@@ -270,6 +247,33 @@ export function PagedReportCardManagement(props: Props) {
     router.push(`/reports/report-cards?${params.toString()}`);
   };
 
+  const switchToBulk = () => {
+    setMode("bulk");
+    setIndividualLearnerId("");
+    if (!props.individualLearnerId) return;
+    const params = new URLSearchParams();
+    params.set("term", String(props.termNumber));
+    if (props.scopeType !== "school") params.set("scope", props.scopeType);
+    if (props.scopeGradeId) params.set("scopeGrade", props.scopeGradeId);
+    if (props.scopeClassId) params.set("scopeClass", props.scopeClassId);
+    router.push(`/reports/report-cards?${params.toString()}`);
+  };
+
+  const selectIndividual = (value: string) => {
+    setIndividualLearnerId(value);
+    if (!value) return;
+    const option = props.individualLearners.find((item) => item.enrolmentId === value);
+    if (!option) return;
+    const params = new URLSearchParams();
+    params.set("term", String(props.termNumber));
+    params.set("individual", value);
+    params.set("q", option.searchQuery);
+    if (props.scopeType !== "school") params.set("scope", props.scopeType);
+    if (props.scopeGradeId) params.set("scopeGrade", props.scopeGradeId);
+    if (props.scopeClassId) params.set("scopeClass", props.scopeClassId);
+    router.push(`/reports/report-cards?${params.toString()}`);
+  };
+
   const filteredClasses = props.classes.filter((item) => !scopeGradeId || item.gradeId === scopeGradeId);
   const tableClasses = props.classes.filter((item) => !props.filterGradeId || item.gradeId === props.filterGradeId);
   const start = props.statusPage.totalCount === 0 ? 0 : (props.statusPage.page - 1) * props.statusPage.pageSize + 1;
@@ -277,7 +281,7 @@ export function PagedReportCardManagement(props: Props) {
 
   return <div className="space-y-5">
     <div className="inline-flex rounded-[var(--radius-sm)] bg-surface-muted p-1 shadow-[var(--shadow-xs)]" role="tablist" aria-label="Report-card workflow mode">
-      <button type="button" onClick={() => setMode("bulk")} className={`${actionButton} rounded-[var(--radius-xs)] px-3.5 py-2 text-xs font-semibold ${mode === "bulk" ? "bg-surface shadow-[var(--shadow-xs)]" : "text-muted-foreground"}`}><span className="inline-flex items-center gap-1.5"><Layers3 className="size-3.5" />Bulk</span></button>
+      <button type="button" onClick={switchToBulk} className={`${actionButton} rounded-[var(--radius-xs)] px-3.5 py-2 text-xs font-semibold ${mode === "bulk" ? "bg-surface shadow-[var(--shadow-xs)]" : "text-muted-foreground"}`}><span className="inline-flex items-center gap-1.5"><Layers3 className="size-3.5" />Bulk</span></button>
       <button type="button" onClick={() => setMode("individual")} className={`${actionButton} rounded-[var(--radius-xs)] px-3.5 py-2 text-xs font-semibold ${mode === "individual" ? "bg-surface shadow-[var(--shadow-xs)]" : "text-muted-foreground"}`}><span className="inline-flex items-center gap-1.5"><Users className="size-3.5" />Individual</span></button>
     </div>
 
@@ -294,8 +298,12 @@ export function PagedReportCardManagement(props: Props) {
         {summary ? <div className="mt-4 grid overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle sm:grid-cols-6">{[["Learners", summary.total], ["Not generated", summary.notGenerated], ["Generated", summary.generated], ["Certified", summary.certified], ["Published", summary.published], ["PDF ready", summary.pdfReady]].map(([label, value], index) => <div key={String(label)} className={`px-3 py-3 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}><p className="text-[0.65rem] font-medium text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{value}</p></div>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-xs text-muted-foreground">Choose and apply a valid scope to load aggregate report status before starting a bulk action.</div>}
         {summary ? <div className="mt-4 flex flex-wrap gap-2"><BatchButton operation="generate" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={summary.notGenerated === 0} /><BatchButton operation="certify" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={summary.generated === 0} /><BatchButton operation="publish" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={summary.certified === 0} /><BatchButton operation="pdf" rows={selectedRows} academicYear={props.academicYear} termNumber={props.termNumber} scopeType={scopeType} scopeId={scopeId} scopeLabel={scopeLabel} scopeCount={summary.total} disabled={pdfEligible === 0 || summary.pdfReady >= pdfEligible} /></div> : null}
       </section>
-      {props.batches.length ? <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><div className="mb-3"><h2 className="scolapro-section-title">Batch progress</h2><p className="scolapro-section-description">Recent durable report-card jobs. Learner names are resolved only when they are on the current loaded page.</p></div><div className="grid gap-2 lg:grid-cols-2">{props.batches.slice(0, 6).map((batch) => <BatchProgress key={batch.id} batch={batch} issues={props.batchIssues} rowByEnrolment={rowByEnrolment} />)}</div></section> : null}
-    </> : <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"><div className="mb-4"><h2 className="scolapro-section-title">Individual report card</h2><p className="scolapro-section-description">Use the server-backed search/filter table to locate the learner, then select one current-page learner for an exception, certification, publication or reprint.</p></div><Picker label="Learner on current page" value={individualLearnerId} onChange={setIndividualLearnerId} placeholder="Choose learner" searchable searchPlaceholder="Search current page" options={props.statusPage.rows.map((row) => ({ value: row.enrolmentId, label: row.name, helper: `${row.admissionNumber ?? "No admission number"} · ${row.grade} · ${row.registerClass}` }))} /><div className="mt-3"><IndividualPanel row={selectedIndividual} termNumber={props.termNumber} renderJobs={props.renderJobs} documents={props.documents} /></div></section>}
+      {props.batches.length ? <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><div className="mb-3"><h2 className="scolapro-section-title">Batch progress</h2><p className="scolapro-section-description">Recent durable report-card jobs. Learner names are resolved when present in the loaded status view.</p></div><div className="grid gap-2 lg:grid-cols-2">{props.batches.slice(0, 6).map((batch) => <BatchProgress key={batch.id} batch={batch} issues={props.batchIssues} rowByEnrolment={rowByEnrolment} />)}</div></section> : null}
+    </> : <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <div className="mb-4"><h2 className="scolapro-section-title">Individual report card</h2><p className="scolapro-section-description">Choose any current learner in the school. The directory is school-wide; only the selected learner&apos;s report status and artifacts are loaded.</p></div>
+      <Picker label="Learner" value={individualLearnerId} onChange={selectIndividual} placeholder="Choose learner" searchable searchPlaceholder="Search all current learners" options={props.individualLearners.map((item) => ({ value: item.enrolmentId, label: item.label, helper: item.helper }))} />
+      <div className="mt-3"><IndividualPanel row={selectedIndividual} termNumber={props.termNumber} renderJobs={props.renderJobs} documents={props.documents} /></div>
+    </section>}
 
     <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
       <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
