@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { renderReportCardHtml } from "@/features/reporting/server/render-report-card-html";
-import { renderReportCardPdf } from "@/features/reporting/server/render-report-card-pdf";
+import { renderReportCardHtmlWithSchoolFont } from "@/features/reporting/server/render-report-card-html-with-school-font";
+import { renderReportCardPdfWithSchoolFont } from "@/features/reporting/server/render-report-card-pdf-with-school-font";
 import { record, text } from "@/features/reporting/server/report-card-template-model";
 
 type RenderFormat = "html" | "pdf";
@@ -88,13 +88,13 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
       let contentType: string;
 
       if (job.document_format === "pdf") {
-        const rendered = await renderReportCardPdf(renderInput);
+        const rendered = await renderReportCardPdfWithSchoolFont(renderInput);
         bytes = rendered.bytes;
         pageCount = rendered.pageCount;
         extension = "pdf";
         contentType = "application/pdf";
       } else {
-        bytes = new TextEncoder().encode(renderReportCardHtml(renderInput));
+        bytes = new TextEncoder().encode(await renderReportCardHtmlWithSchoolFont(renderInput));
         extension = "html";
         contentType = "text/html; charset=utf-8";
       }
