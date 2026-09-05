@@ -112,10 +112,38 @@ $$;
 revoke all on function app_private.can_insert_crc_custody_document_for_rls(uuid) from public,anon;
 grant execute on function app_private.can_insert_crc_custody_document_for_rls(uuid) to authenticated;
 
+create or replace function app_private.can_create_learner_support_case_for_rls(p_school_id uuid,p_sensitivity text)
+returns boolean
+language sql
+stable
+security definer
+set search_path=public,app_private
+as $$
+  select app_private.can_create_learner_support_case(p_school_id,p_sensitivity);
+$$;
+revoke all on function app_private.can_create_learner_support_case_for_rls(uuid,text) from public,anon;
+grant execute on function app_private.can_create_learner_support_case_for_rls(uuid,text) to authenticated;
+
+create or replace function app_private.can_access_learner_support_case_for_rls(p_case_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=public,app_private
+as $$
+  select app_private.can_access_learner_support_case(p_case_id);
+$$;
+revoke all on function app_private.can_access_learner_support_case_for_rls(uuid) from public,anon;
+grant execute on function app_private.can_access_learner_support_case_for_rls(uuid) to authenticated;
+
 comment on function app_private.can_read_crc_custody_record_for_rls(uuid) is
 'RLS-only wrapper for confidential CRC custody visibility. The underlying authorization helper stays private.';
 comment on function app_private.can_insert_crc_custody_document_for_rls(uuid) is
 'RLS-only wrapper for confidential CRC attachment creation. The underlying custody-management helper stays private.';
+comment on function app_private.can_create_learner_support_case_for_rls(uuid,text) is
+'RLS-only wrapper for learner-support case creation. The underlying confidentiality helper stays private.';
+comment on function app_private.can_access_learner_support_case_for_rls(uuid) is
+'RLS-only wrapper for learner-support case visibility. The underlying confidentiality helper stays private.';
 
 drop policy if exists "need to know users read custody records" on public.crc_custody_records;
 create policy "need to know users read custody records"
@@ -126,6 +154,38 @@ drop policy if exists "need to know users read custody documents" on public.crc_
 create policy "need to know users read custody documents"
 on public.crc_custody_documents for select to authenticated
 using (app_private.can_read_crc_custody_record_for_rls(custody_record_id));
+
+drop policy if exists "need to know users read learner support cases" on public.learner_support_cases;
+create policy "need to know users read learner support cases"
+on public.learner_support_cases for select to authenticated
+using (app_private.can_access_learner_support_case_for_rls(id));
+
+drop policy if exists "authorized users create learner support cases" on public.learner_support_cases;
+create policy "authorized users create learner support cases"
+on public.learner_support_cases for insert to authenticated
+with check (
+  opened_by_user_id=(select auth.uid())
+  and app_private.can_create_learner_support_case_for_rls(school_id,sensitivity)
+);
+
+drop policy if exists "authorized users update learner support cases" on public.learner_support_cases;
+create policy "authorized users update learner support cases"
+on public.learner_support_cases for update to authenticated
+using (app_private.can_access_learner_support_case_for_rls(id))
+with check (app_private.can_create_learner_support_case_for_rls(school_id,sensitivity));
+
+drop policy if exists "need to know users read support interventions" on public.learner_support_interventions;
+create policy "need to know users read support interventions"
+on public.learner_support_interventions for select to authenticated
+using (app_private.can_access_learner_support_case_for_rls(support_case_id));
+
+drop policy if exists "authorized users append support interventions" on public.learner_support_interventions;
+create policy "authorized users append support interventions"
+on public.learner_support_interventions for insert to authenticated
+with check (
+  recorded_by_user_id=(select auth.uid())
+  and app_private.can_access_learner_support_case_for_rls(support_case_id)
+);
 
 drop policy if exists "Custody documents select" on storage.objects;
 create policy "Custody documents select"
