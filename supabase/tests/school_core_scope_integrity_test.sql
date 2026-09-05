@@ -3,7 +3,9 @@ begin;
 select plan(12);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
-values('fe000000-0000-4000-8000-000000000001','school-core-scope@example.test','authenticated','authenticated',now(),now());
+values
+  ('fe000000-0000-4000-8000-000000000001','school-core-scope@example.test','authenticated','authenticated',now(),now()),
+  ('fe000000-0000-4000-8000-000000000002','school-core-settings-admin@example.test','authenticated','authenticated',now(),now());
 
 insert into public.tenants(id,name,slug)
 values
@@ -16,7 +18,9 @@ values
   ('fe110000-0000-4000-8000-000000000002','fe100000-0000-4000-8000-000000000002','School Core B','SCHOOL-CORE-B','Khomas','Windhoek');
 
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
-values('fe100000-0000-4000-8000-000000000001','fe110000-0000-4000-8000-000000000001','fe000000-0000-4000-8000-000000000001','hod',current_date);
+values
+  ('fe100000-0000-4000-8000-000000000001','fe110000-0000-4000-8000-000000000001','fe000000-0000-4000-8000-000000000001','hod',current_date),
+  ('fe100000-0000-4000-8000-000000000001','fe110000-0000-4000-8000-000000000001','fe000000-0000-4000-8000-000000000002','school_admin',current_date);
 
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
 values
@@ -32,16 +36,16 @@ values(
 );
 
 select throws_ok(
-  $$insert into public.school_settings(tenant_id,school_id,setting_key,setting_value)
-    values('fe100000-0000-4000-8000-000000000002','fe110000-0000-4000-8000-000000000001','scope-test','{}'::jsonb)$$,
+  $$insert into public.school_settings(tenant_id,school_id,setting_key,setting_value,updated_by_user_id)
+    values('fe100000-0000-4000-8000-000000000002','fe110000-0000-4000-8000-000000000001','scope-test','{}'::jsonb,'fe000000-0000-4000-8000-000000000002')$$,
   'school_settings scope mismatch: school does not belong to tenant',
   'school settings tenant must match school tenant'
 );
 
 select lives_ok(
-  $$insert into public.school_settings(id,tenant_id,school_id,setting_key,setting_value)
-    values('fe140000-0000-4000-8000-000000000001','fe100000-0000-4000-8000-000000000001','fe110000-0000-4000-8000-000000000001','scope-test','{}'::jsonb)$$,
-  'valid school setting remains allowed'
+  $$insert into public.school_settings(id,tenant_id,school_id,setting_key,setting_value,updated_by_user_id)
+    values('fe140000-0000-4000-8000-000000000001','fe100000-0000-4000-8000-000000000001','fe110000-0000-4000-8000-000000000001','scope-test','{}'::jsonb,'fe000000-0000-4000-8000-000000000002')$$,
+  'valid school setting remains allowed with legitimate actor provenance'
 );
 
 select throws_ok(
