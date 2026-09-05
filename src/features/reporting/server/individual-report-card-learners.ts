@@ -4,6 +4,7 @@ export type IndividualReportCardLearnerOption = {
   enrolmentId: string;
   label: string;
   helper: string;
+  searchQuery: string;
 };
 
 export async function getIndividualReportCardLearnerOptions(schoolId: string, academicYear: number): Promise<IndividualReportCardLearnerOption[]> {
@@ -25,10 +26,12 @@ export async function getIndividualReportCardLearnerOptions(schoolId: string, ac
       const grade = Array.isArray(item.grades) ? item.grades[0] : item.grades;
       const registerClass = Array.isArray(item.register_classes) ? item.register_classes[0] : item.register_classes;
       const label = `${learner?.surname ?? ""}, ${learner?.first_names ?? ""}`.replace(/^,\s*/, "").trim();
+      const admissionNumber = item.admission_number?.trim() ?? "";
       return {
         enrolmentId: item.id,
         label: label || "Learner",
-        helper: `${item.admission_number ?? "No admission number"} · ${grade?.display_name ?? "No grade"} · ${registerClass?.display_name ?? "No class"}`,
+        helper: `${admissionNumber || "No admission number"} · ${grade?.display_name ?? "No grade"} · ${registerClass?.display_name ?? "No class"}`,
+        searchQuery: admissionNumber || label,
       };
     })
     .sort((a, b) => a.label.localeCompare(b.label, "en"));
