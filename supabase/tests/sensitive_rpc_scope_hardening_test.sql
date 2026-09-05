@@ -56,6 +56,7 @@ select throws_ok(
 select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000001',true);
 select is(app_private.can_calculate_subject_result('fa150000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002'),true,'school administrator retains school-wide result oversight');
 
+select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000003',true);
 insert into public.profile_change_requests(
   id,tenant_id,school_id,learner_id,target_type,target_id,field_key,current_value,proposed_value,requested_by_user_id
 ) values(
@@ -63,7 +64,6 @@ insert into public.profile_change_requests(
   '50000000-0000-4000-8000-000000000001','learner','50000000-0000-4000-8000-000000000001','preferred_name','Amara','Ami','fa100000-0000-4000-8000-000000000003'
 );
 
-select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000003',true);
 select throws_ok(
   $$select public.review_profile_change_request('fa170000-0000-4000-8000-000000000001','approved',null)$$,
   'P0001','Permission denied','counsellor may manage learner support relationships but cannot approve authoritative profile corrections'
