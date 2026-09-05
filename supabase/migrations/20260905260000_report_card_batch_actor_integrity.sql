@@ -82,8 +82,11 @@ comment on function app_private.user_can_manage_report_cards(uuid,uuid) is
 comment on function app_private.enforce_report_card_batch_actor_integrity() is
 'Prevents forged report-card batch creators and freezes the durable batch identity while leaving worker-owned operational state mutable.';
 
+-- Keep the established scope-integrity guard first so canonical scope/immutability
+-- errors retain precedence. PostgreSQL orders same-timing triggers by name.
 drop trigger if exists report_card_batch_actor_integrity_trg on public.report_card_batches;
-create trigger report_card_batch_actor_integrity_trg
+drop trigger if exists zz_report_card_batch_actor_integrity_trg on public.report_card_batches;
+create trigger zz_report_card_batch_actor_integrity_trg
 before insert or update
 on public.report_card_batches
 for each row execute function app_private.enforce_report_card_batch_actor_integrity();
