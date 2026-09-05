@@ -1,5 +1,7 @@
 import "server-only";
 
+import { buildSchoolDocumentProfile } from "@/features/documents/server/school-document-profile";
+
 export type JsonRecord = Record<string, unknown>;
 
 export type ReportCardRenderInput = {
@@ -182,8 +184,6 @@ function subjectRowsFromTerms(terms: ReportCardTerm[], showNonPromotionalSubject
 
 export function buildReportCardTemplateModel(input: ReportCardRenderInput): ReportCardTemplateModel {
   const snapshot = record(input.dataSnapshot);
-  const identity = record(snapshot.school_identity);
-  const profile = record(snapshot.school_document_profile);
   const settings = record(snapshot.report_card_settings);
   const learner = record(snapshot.learner);
   const enrolment = record(snapshot.enrolment);
@@ -191,9 +191,13 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
   const attendance = record(snapshot.attendance);
   const registerTeacher = record(snapshot.register_teacher);
   const principal = record(snapshot.principal);
+  const documentProfile = buildSchoolDocumentProfile({
+    fallbackSchoolName: input.schoolName,
+    fallbackSchoolEmisNumber: input.schoolEmisNumber,
+    schoolIdentity: snapshot.school_identity,
+    schoolDocumentProfile: snapshot.school_document_profile,
+  });
 
-  const schoolName = text(identity.name) || input.schoolName;
-  const schoolEmisNumber = text(identity.emis_number) || text(input.schoolEmisNumber);
   const learnerName = [learner.first_names, learner.surname].map(text).filter(Boolean).join(" ");
   const terms = termsFromSnapshot(snapshot);
   const currentTermNumber = number(currentTerm.number) ?? terms.at(-1)?.number ?? 1;
@@ -201,18 +205,18 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
   const showNonPromotionalSubjects = boolean(settings.show_non_promotional_subjects, true);
 
   return {
-    schoolName,
-    schoolEmisNumber,
-    formerName: text(profile.former_name),
-    logoUrl: text(profile.logo_url),
-    logoStoragePath: text(profile.logo_storage_path),
-    physicalAddress: text(profile.physical_address),
-    telephone: text(profile.telephone || profile.phone),
-    fax: text(profile.fax),
-    email: text(profile.email),
-    postalAddress: text(profile.postal_address),
-    town: text(profile.town) || text(identity.town),
-    schoolNameFont: text(profile.school_name_font).toLowerCase() === "old_english" ? "old_english" : "default",
+    schoolName: documentProfile.schoolName,
+    schoolEmisNumber: documentProfile.schoolEmisNumber,
+    formerName: documentProfile.formerName,
+    logoUrl: documentProfile.logoUrl,
+    logoStoragePath: documentProfile.logoStoragePath,
+    physicalAddress: documentProfile.physicalAddress,
+    telephone: documentProfile.telephone,
+    fax: documentProfile.fax,
+    email: documentProfile.email,
+    postalAddress: documentProfile.postalAddress,
+    town: documentProfile.town,
+    schoolNameFont: documentProfile.schoolNameFont,
     learnerName,
     admissionNumber: text(enrolment.admission_number),
     grade: text(enrolment.grade),
