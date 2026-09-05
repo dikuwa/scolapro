@@ -12,20 +12,40 @@ export type IndividualReportCardLearnerOption = {
   classLabel: string;
 };
 
+const REPORT_CARD_LEARNER_PAGE_SIZE = 1000;
+
 export async function getIndividualReportCardLearnerOptions(schoolId: string, academicYear: number): Promise<IndividualReportCardLearnerOption[]> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("enrolments")
-    .select("id,admission_number,grade_id,register_class_id,learners!inner(first_names,surname),grades(display_name),register_classes(display_name)")
-    .eq("school_id", schoolId)
-    .eq("academic_year", academicYear)
-    .eq("status", "current")
-    .order("admission_number", { ascending: true })
-    .limit(5000);
+  const rows: Array<{
+    id: string;
+    admission_number: string | null;
+    grade_id: string | null;
+    register_class_id: string | null;
+    learners: { first_names: string | null; surname: string | null } | { first_names: string | null; surname: string | null }[] | null;
+    grades: { display_name: string | null } | { display_name: string | null }[] | null;
+    register_classes: { display_name: string | null } | { display_name: string | null }[] | null;
+  }> = [];
 
-  if (error) throw new Error("Unable to load report-card learners.");
+  for (let from = 0; ; from += REPORT_CARD_LEARNER_PAGE_SIZE) {
+    const to = from + REPORT_CARD_LEARNER_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from("enrolments")
+      .select("id,admission_number,grade_id,register_class_id,learners!inner(first_names,surname),grades(display_name),register_classes(display_name)")
+      .eq("school_id", schoolId)
+      .eq("academic_year", academicYear)
+      .eq("status", "current")
+      .order("admission_number", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to);
 
-  return (data ?? [])
+    if (error) throw new Error("Unable to load report-card learners.");
+
+    const page = (data ?? []) as typeof rows;
+    rows.push(...page);
+    if (page.length < REPORT_CARD_LEARNER_PAGE_SIZE) break;
+  }
+
+  return rows
     .map((item) => {
       const learner = Array.isArray(item.learners) ? item.learners[0] : item.learners;
       const grade = Array.isArray(item.grades) ? item.grades[0] : item.grades;
@@ -46,5 +66,9 @@ export async function getIndividualReportCardLearnerOptions(schoolId: string, ac
         classLabel,
       };
     })
-    .sort((a, b) => a.label.localeCompare(b.label, "en", { numeric: true, sensitivity: "base" }));
+    .sort((a, b) => {
+      const byName = a.label.localeCompare(b.label, "en", { numeric: true, sensitivity: "base" });
+      if (byName !== 0) return byName;
+      return a.admissionNumber.localeCompare(b.admissionNumber, "en", { numeric: true, sensitivity: "base" });
+    });
 }
