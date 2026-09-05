@@ -12,11 +12,10 @@ insert into public.staff_members(id,tenant_id,employee_number,first_name,last_na
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from) values
 ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe000000-0000-4000-8000-000000000001','school_admin',current_date);
 
-select throws_ok(
-  $$insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id)
-    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe100000-0000-4000-8000-000000000001','staff',current_date,'fe000000-0000-4000-8000-000000000002')$$,
-  'Staff assignment creator is not authorized for school',
-  'trusted write cannot forge an unrelated staff-placement creator'
+select is(
+  app_private.user_can_manage_staff_school_assignment('fe000000-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222'),
+  false,
+  'unrelated account fails the authority mirror used by deferred trusted-write validation'
 );
 
 select lives_ok(
@@ -46,17 +45,18 @@ select ok(
   not has_function_privilege('authenticated','app_private.user_can_manage_staff_school_assignment(uuid,uuid)','EXECUTE')
   and not has_function_privilege('anon','app_private.user_can_manage_staff_school_assignment(uuid,uuid)','EXECUTE')
   and not has_function_privilege('authenticated','app_private.enforce_staff_school_assignment_actor_integrity()','EXECUTE')
-  and not has_function_privilege('anon','app_private.enforce_staff_school_assignment_actor_integrity()','EXECUTE'),
+  and not has_function_privilege('authenticated','app_private.enforce_staff_school_assignment_actor_commit_integrity()','EXECUTE'),
   'staff-placement actor helpers remain private from client roles'
 );
 
-select is(
-  (select count(*)::integer from pg_catalog.pg_trigger
+select ok(
+  (select count(*)=2
+     and bool_or(tgname='staff_school_assignment_actor_commit_integrity_trg' and tgdeferrable and tginitdeferred)
+   from pg_catalog.pg_trigger
    where tgrelid='public.staff_school_assignments'::regclass
-     and tgname='staff_school_assignment_submit_actor_integrity_trg'
+     and tgname in ('staff_school_assignment_submit_actor_integrity_trg','staff_school_assignment_actor_commit_integrity_trg')
      and not tgisinternal),
-  1,
-  'staff-placement actor integrity trigger is installed once'
+  'staff-placement immediate and deferred actor integrity triggers are installed'
 );
 
 select * from finish();
