@@ -15,6 +15,15 @@ values
   ('fe110000-0000-4000-8000-000000000001','fe100000-0000-4000-8000-000000000001','Invitation Scope School A','INV-SCOPE-A','Khomas','Windhoek'),
   ('fe110000-0000-4000-8000-000000000002','fe100000-0000-4000-8000-000000000002','Invitation Scope School B','INV-SCOPE-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  'fe100000-0000-4000-8000-000000000001',
+  'fe110000-0000-4000-8000-000000000001',
+  'fe000000-0000-4000-8000-000000000001',
+  'school_admin',
+  current_date
+);
+
 select throws_ok(
   $$insert into public.school_invitations(tenant_id,school_id,email,role_key,token_hash,invited_by_user_id)
     values('fe100000-0000-4000-8000-000000000002','fe110000-0000-4000-8000-000000000001','bad@example.test','teacher','inv-scope-bad','fe000000-0000-4000-8000-000000000001')$$,
