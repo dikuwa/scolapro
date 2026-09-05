@@ -76,8 +76,8 @@ select lives_ok(
 
 select throws_ok(
   $$update public.learner_voluntary_contributions set recorded_by_user_id='fd500000-0000-4000-8000-000000000001' where id='fd540000-0000-4000-8000-000000000001'$$,
-  'Learner voluntary contribution identity and provenance are immutable',
-  'existing scope guard keeps recorder provenance immutable'
+  'Voluntary contribution recorder provenance is immutable',
+  'actor integrity guard keeps recorder provenance immutable'
 );
 
 select throws_ok(
