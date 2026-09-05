@@ -7,6 +7,9 @@ values
   ('fd000000-0000-4000-8000-000000000001','report-publisher@example.test','authenticated','authenticated',now(),now()),
   ('fd000000-0000-4000-8000-000000000002','other-publisher@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd000000-0000-4000-8000-000000000001','school_admin',current_date-1);
+
 insert into public.report_card_snapshots(
   id,tenant_id,school_id,learner_id,enrolment_id,academic_year,term_number,
   template_version,snapshot_version,data_snapshot,status,generated_by_user_id,
