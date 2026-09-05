@@ -103,8 +103,11 @@ revoke all on function app_private.enforce_school_settings_actor_integrity()
 comment on function app_private.enforce_school_settings_actor_integrity() is
 'Binds school-setting changes to an active authorized actor, validates tenant/school scope, and freezes setting identity.';
 
+-- Preserve the older school-scope guard's error/precedence semantics by running
+-- this actor guard after it. PostgreSQL orders same-timing triggers by name.
 drop trigger if exists school_settings_actor_integrity_trg on public.school_settings;
-create trigger school_settings_actor_integrity_trg
+drop trigger if exists zz_school_settings_actor_integrity_trg on public.school_settings;
+create trigger zz_school_settings_actor_integrity_trg
 before insert or update
 on public.school_settings
 for each row execute function app_private.enforce_school_settings_actor_integrity();
