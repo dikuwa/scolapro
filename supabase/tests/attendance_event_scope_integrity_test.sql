@@ -5,6 +5,9 @@ select plan(8);
 insert into auth.users(id,email,created_at,updated_at)
 values ('fd100000-0000-4000-8000-000000000001','attendance-event@example.test',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fd100000-0000-4000-8000-000000000001','teacher',current_date);
+
 insert into public.tenants(id,name,slug)
 values ('fd110000-0000-4000-8000-000000000001','Attendance Event Tenant B','attendance-event-tenant-b');
 
