@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(15);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fea00000-0000-4000-8000-000000000001','attendance-actor-admin@example.test','authenticated','authenticated',now(),now()),
@@ -151,18 +151,18 @@ select throws_ok(
   'ordinary school teacher cannot forge ownership of another teacher subject register'
 );
 
-select set_config('request.jwt.claim.sub','fea00000-0000-4000-8000-000000000004',true);
-set local role authenticated;
 select throws_ok(
-  $$select public.record_attendance_event(
-      '60000000-0000-4000-8000-000000000001',current_date,'absent',null,null,'subject_period',
-      'fea70000-0000-4000-8000-000000000003',null,null,'online'
+  $$insert into public.attendance_events(
+      tenant_id,school_id,academic_year,learner_id,enrolment_id,register_class_id,attendance_date,
+      observation_type,timetable_slot_id,status,recorded_by_user_id
+    ) values(
+      '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,
+      '50000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-00000000001a',
+      current_date,'subject_period','fea70000-0000-4000-8000-000000000003','absent','fea00000-0000-4000-8000-000000000004'
     )$$,
   'Attendance event recorder is not authorized for subject timetable slot and date',
-  'generic attendance event RPC cannot bypass subject timetable allocation authority'
+  'trusted subject-period event cannot bypass timetable allocation authority'
 );
-reset role;
-select set_config('request.jwt.claim.sub','',true);
 
 select set_config('request.jwt.claim.sub','fea00000-0000-4000-8000-000000000003',true);
 set local role authenticated;
