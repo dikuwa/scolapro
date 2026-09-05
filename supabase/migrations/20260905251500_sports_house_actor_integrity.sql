@@ -152,11 +152,6 @@ begin
             or new.assigned_at is distinct from old.assigned_at) then
       raise exception 'Sports house assignment actor evidence may change only with the assignment';
     end if;
-
-    if v_semantic_change
-       and new.assigned_at is not distinct from old.assigned_at then
-      raise exception 'Sports house reassignment requires a fresh assignment timestamp';
-    end if;
   end if;
 
   if auth.uid() is not null
@@ -176,7 +171,7 @@ revoke all on function app_private.enforce_sports_assignment_actor_integrity()
   from public, anon, authenticated;
 
 comment on function app_private.enforce_sports_assignment_actor_integrity() is
-'Binds learner/staff house assignment actor evidence to active Sports & Houses authority, freezes assignment scope, and requires fresh actor/timestamp evidence for semantic reassignment.';
+'Binds learner/staff house assignment actor evidence to active Sports & Houses authority, freezes assignment scope, and prevents actor-only provenance rewrites without a real assignment change.';
 
 drop trigger if exists sports_learner_house_actor_integrity_trg on public.sports_learner_house_assignments;
 create trigger sports_learner_house_actor_integrity_trg
