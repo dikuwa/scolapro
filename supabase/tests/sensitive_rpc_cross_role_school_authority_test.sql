@@ -8,7 +8,8 @@ select plan(9);
 -- from the user's unrelated School Admin membership.
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
 ('fdb00000-0000-4000-8000-000000000001','sensitive-cross-role@example.test','authenticated','authenticated',now(),now()),
-('fdb00000-0000-4000-8000-000000000002','sensitive-scheme-hod@example.test','authenticated','authenticated',now(),now());
+('fdb00000-0000-4000-8000-000000000002','sensitive-scheme-hod@example.test','authenticated','authenticated',now(),now()),
+('fdb00000-0000-4000-8000-000000000003','sensitive-profile-requester@example.test','authenticated','authenticated',now(),now());
 
 insert into public.schools(id,tenant_id,name,emis_number,status) values
 ('fdb10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Sensitive Cross Role School','SENS-XROLE-001','active');
@@ -19,12 +20,13 @@ insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name
 insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from) values
 ('11111111-1111-4111-8111-111111111111','fdb10000-0000-4000-8000-000000000001','fdb00000-0000-4000-8000-000000000001','fdb20000-0000-4000-8000-000000000001','school_admin',current_date-2),
 ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdb00000-0000-4000-8000-000000000001','fdb20000-0000-4000-8000-000000000001','teacher',current_date-2),
-('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdb00000-0000-4000-8000-000000000002',null,'hod',current_date-2);
+('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdb00000-0000-4000-8000-000000000002',null,'hod',current_date-2),
+('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdb00000-0000-4000-8000-000000000003',null,'school_admin',current_date-2);
 
 -- Give the teacher a valid staff placement in the target school, but deliberately
 -- no teacher allocation for the subject/class below.
 insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id) values
-('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdb20000-0000-4000-8000-000000000001','teacher',current_date-2,'fdb00000-0000-4000-8000-000000000001');
+('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fdb20000-0000-4000-8000-000000000001','teacher',current_date-2,'fdb00000-0000-4000-8000-000000000003');
 
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status) values
 ('fdb30000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','XROLE-MATH','Cross Role Mathematics','active');
@@ -37,7 +39,7 @@ insert into public.profile_change_requests(
   id,tenant_id,school_id,learner_id,target_type,target_id,field_key,current_value,proposed_value,requested_by_user_id
 ) values(
   'fdb60000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-  '50000000-0000-4000-8000-000000000001','learner','50000000-0000-4000-8000-000000000001','preferred_name','Amara','Ami XRole','fdb00000-0000-4000-8000-000000000001'
+  '50000000-0000-4000-8000-000000000001','learner','50000000-0000-4000-8000-000000000001','preferred_name','Amara','Ami XRole','fdb00000-0000-4000-8000-000000000003'
 );
 
 select set_config('request.jwt.claim.role','authenticated',true);
