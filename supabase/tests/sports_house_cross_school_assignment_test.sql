@@ -8,8 +8,11 @@ insert into auth.users(id,email,aud,role,created_at,updated_at) values
 insert into public.schools(id,tenant_id,name,emis_number,status) values
 ('fde10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Sports Cross School B','SPORT-X-B','active');
 
+-- The fixture creator legitimately manages both schools. The test below still proves
+-- that an assignment scoped to School A cannot substitute a house from School B.
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from) values
-('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fde00000-0000-4000-8000-000000000001','school_admin',current_date-2);
+('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fde00000-0000-4000-8000-000000000001','school_admin',current_date-2),
+('11111111-1111-4111-8111-111111111111','fde10000-0000-4000-8000-000000000001','fde00000-0000-4000-8000-000000000001','school_admin',current_date-2);
 
 insert into public.sports_houses(id,tenant_id,school_id,name,short_code,status,created_by_user_id) values
 ('fde20000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','Cross School House A','XHA','active','fde00000-0000-4000-8000-000000000001'),
