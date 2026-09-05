@@ -67,6 +67,10 @@ set local role authenticated;
 select is((select count(*)::integer from public.report_card_batches where scope_label='Operational QA publish'),0,'other-school administrator cannot read the batch');
 reset role;
 
+-- The failed-export fixture represents a batch originally created by the owning
+-- administrator. Restore that actor claim before the direct setup insert so the
+-- physical creator guard sees the same provenance as the real governed path.
+select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000001',true);
 insert into public.report_card_batches(
   id,tenant_id,school_id,academic_year,term_number,scope_type,scope_label,operation,status,
   total_items,created_by_user_id,export_status,export_error
