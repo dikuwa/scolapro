@@ -7,6 +7,9 @@ values
   ('fe700000-0000-4000-8000-000000000001','guardian-absence-scope-a@example.test','authenticated','authenticated',now(),now()),
   ('fe700000-0000-4000-8000-000000000002','guardian-absence-scope-b@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe700000-0000-4000-8000-000000000002','counsellor',current_date);
+
 insert into public.learners(id,tenant_id,first_names,surname)
 values('fe710000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Absence','Learner A');
 
@@ -89,7 +92,7 @@ select lives_ok(
 
 select lives_ok(
   $$update public.guardian_absence_notices set status='under_review', review_note='Received', reviewed_at=now(), reviewed_by_user_id='fe700000-0000-4000-8000-000000000002' where id='fe850000-0000-4000-8000-000000000001'$$,
-  'normal absence notice review lifecycle updates remain allowed'
+  'normal absence notice review lifecycle updates remain allowed for authorized reviewer'
 );
 
 select throws_ok(
