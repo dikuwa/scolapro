@@ -16,6 +16,7 @@ const roles = [
   ["teacher", "Teacher"],
   ["class_teacher", "Class teacher"],
   ["counsellor", "Learner support / counsellor"],
+  ["social_worker", "Social worker / safeguarding"],
   ["librarian", "Librarian / LTSM"],
   ["board_member", "School board member"],
 ] as const;
@@ -52,6 +53,10 @@ function Picker({ label, valueLabel, open, onToggle, children }: {
       ) : null}
     </div>
   );
+}
+
+function schoolLabel(school: SchoolOption) {
+  return school.tenantName ? `${school.name} · ${school.tenantName}` : school.name;
 }
 
 export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
@@ -96,7 +101,7 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
           <div className="flex flex-col gap-1.5">
             <p className="text-xs font-medium leading-4">School</p>
             <div className="flex min-h-10 items-center rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-sm shadow-[var(--shadow-xs)]">
-              <span className="min-w-0 truncate">{singleSchool.name} · {singleSchool.tenantName}</span>
+              <span className="min-w-0 truncate">{schoolLabel(singleSchool)}</span>
             </div>
             <p className="text-[0.68rem] leading-4 text-muted-foreground">Invitations are restricted to your authorized school scope.</p>
           </div>
@@ -104,7 +109,7 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
           <>
             <Picker
               label="School"
-              valueLabel={selectedSchool ? `${selectedSchool.name} · ${selectedSchool.tenantName}` : "Choose a school"}
+              valueLabel={selectedSchool ? schoolLabel(selectedSchool) : "Choose a school"}
               open={schoolOpen}
               onToggle={() => { setSchoolOpen((value) => !value); setRoleOpen(false); }}
             >
@@ -117,7 +122,7 @@ export function SchoolInvitationForm({ schools }: { schools: SchoolOption[] }) {
                 >
                   <span className="min-w-0">
                     <span className="block truncate font-medium">{school.name}</span>
-                    <span className="block truncate text-[0.68rem] text-muted-foreground">{school.tenantName}</span>
+                    {school.tenantName ? <span className="block truncate text-[0.68rem] text-muted-foreground">{school.tenantName}</span> : null}
                   </span>
                 </button>
               ))}
