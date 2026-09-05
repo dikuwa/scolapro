@@ -3,26 +3,32 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
+import type { AttendanceSortDirection } from "@/features/attendance/server/register";
 
 export function AttendanceViewTabs({
   view,
   date,
   requestedClass,
   weekDate,
+  sort = "asc",
 }: {
   view: "day" | "week";
   date: string;
   requestedClass?: string;
   weekDate: string;
+  sort?: AttendanceSortDirection;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function navigate(nextView: "day" | "week") {
     if (nextView === view || pending) return;
-    const classParam = requestedClass ? `&class=${encodeURIComponent(requestedClass)}` : "";
-    const targetDate = nextView === "week" ? weekDate : date;
-    startTransition(() => router.replace(`/attendance?view=${nextView}&date=${targetDate}${classParam}`, { scroll: false }));
+    const params = new URLSearchParams();
+    params.set("view", nextView);
+    params.set("date", nextView === "week" ? weekDate : date);
+    if (requestedClass) params.set("class", requestedClass);
+    if (sort === "desc") params.set("sort", "desc");
+    startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 
   return (
