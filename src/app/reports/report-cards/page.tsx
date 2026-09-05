@@ -11,9 +11,11 @@ import {
 } from "@/features/reporting/server/report-card-management";
 import {
   getReportCardScopeSummary,
+  getReportCardStatusForEnrolment,
   getReportCardStatusPage,
   type ReportCardScopeType,
   type ReportCardStatusFilter,
+  type ReportCardStatusPage,
 } from "@/features/reporting/server/paged-report-cards";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -45,6 +47,16 @@ function parseCommonParams(params: Record<string, string | string[] | undefined>
   const rawPage = Number(firstParam(params.page) ?? 1);
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   return { query, status, termNumber, page };
+}
+
+function individualStatusPage(row: Awaited<ReturnType<typeof getReportCardStatusForEnrolment>>): ReportCardStatusPage {
+  return {
+    rows: row ? [row] : [],
+    totalCount: row ? 1 : 0,
+    page: 1,
+    pageSize: 1,
+    pageCount: 1,
+  };
 }
 
 export default async function ReportCardsPage({ searchParams }: { searchParams: SearchParams }) {
@@ -91,21 +103,30 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   const individualOption = individualLearnerId
     ? individualLearners.find((item) => item.enrolmentId === individualLearnerId)
     : undefined;
-  const effectiveQuery = individualOption?.searchQuery ?? common.query;
 
-  const [meta, statusPage, wholeSchoolSummary] = await Promise.all([
+  const [meta, selectedIndividualRow, bulkStatusPage, wholeSchoolSummary] = await Promise.all([
     getReportCardManagementMeta(membership.schoolId, academicYear),
-    getReportCardStatusPage({
-      schoolId: membership.schoolId,
-      academicYear,
-      termNumber: common.termNumber,
-      query: effectiveQuery,
-      gradeId: individualOption ? undefined : filterGradeId || undefined,
-      classId: individualOption ? undefined : filterClassId || undefined,
-      status: individualOption ? "all" : common.status,
-      page: individualOption ? 1 : common.page,
-      pageSize: 50,
-    }),
+    individualOption
+      ? getReportCardStatusForEnrolment({
+          schoolId: membership.schoolId,
+          academicYear,
+          termNumber: common.termNumber,
+          enrolmentId: individualOption.enrolmentId,
+        })
+      : Promise.resolve(null),
+    individualOption
+      ? Promise.resolve(null)
+      : getReportCardStatusPage({
+          schoolId: membership.schoolId,
+          academicYear,
+          termNumber: common.termNumber,
+          query: common.query,
+          gradeId: filterGradeId || undefined,
+          classId: filterClassId || undefined,
+          status: common.status,
+          page: common.page,
+          pageSize: 50,
+        }),
     getReportCardScopeSummary({
       schoolId: membership.schoolId,
       academicYear,
@@ -113,6 +134,10 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
       scopeType: "school",
     }),
   ]);
+
+  const statusPage = individualOption
+    ? individualStatusPage(selectedIndividualRow)
+    : bulkStatusPage as ReportCardStatusPage;
 
   let scopeSummary = scopeType === "school" ? wholeSchoolSummary : null;
   if (scopeType === "grade" && scopeGradeId) {
@@ -157,7 +182,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
     <PagedReportCardManagement
       statusPage={statusPage}
       individualLearners={individualLearners}
-      individualLearnerId={individualLearnerId}
+      individualLearnerId={individualOption?.enrolmentId ?? ""}
       terms={meta.terms}
       grades={meta.grades}
       classes={meta.classes}

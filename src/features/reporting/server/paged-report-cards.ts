@@ -41,6 +41,64 @@ export type ReportCardScopeSummary = {
   pdfReady: number;
 };
 
+type ReportCardStatusRpcRow = {
+  enrolment_id: string;
+  learner_id: string;
+  first_names: string;
+  surname: string;
+  admission_number: string | null;
+  grade_id: string | null;
+  grade_name: string;
+  register_class_id: string | null;
+  class_name: string;
+  snapshot_id: string | null;
+  snapshot_version: number | null;
+  template_version: string | null;
+  report_status: Exclude<ReportCardStatusFilter, "all">;
+  generated_at: string | null;
+  certified_at: string | null;
+  pdf_ready: boolean;
+};
+
+function mapStatusRow(row: ReportCardStatusRpcRow): ReportCardStatusPageRow {
+  return {
+    enrolmentId: row.enrolment_id,
+    learnerId: row.learner_id,
+    name: `${row.first_names} ${row.surname}`.trim(),
+    admissionNumber: row.admission_number,
+    gradeId: row.grade_id,
+    grade: row.grade_name,
+    registerClassId: row.register_class_id,
+    registerClass: row.class_name,
+    snapshotId: row.snapshot_id,
+    snapshotVersion: row.snapshot_version,
+    templateVersion: row.template_version,
+    reportStatus: row.report_status,
+    generatedAt: row.generated_at,
+    certifiedAt: row.certified_at,
+    pdfReady: Boolean(row.pdf_ready),
+  };
+}
+
+export async function getReportCardStatusForEnrolment(input: {
+  schoolId: string;
+  academicYear: number;
+  termNumber: number;
+  enrolmentId: string;
+}): Promise<ReportCardStatusPageRow | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_report_card_status_for_enrolment", {
+    p_school_id: input.schoolId,
+    p_academic_year: input.academicYear,
+    p_term_number: input.termNumber,
+    p_enrolment_id: input.enrolmentId,
+  });
+
+  if (error) throw new Error("Unable to load the selected learner report-card status.");
+  const row = ((data ?? [])[0] ?? null) as ReportCardStatusRpcRow | null;
+  return row ? mapStatusRow(row) : null;
+}
+
 export async function getReportCardStatusPage(input: {
   schoolId: string;
   academicYear: number;
@@ -69,26 +127,7 @@ export async function getReportCardStatusPage(input: {
 
   if (error) throw new Error("Unable to load report-card status.");
 
-  const rawRows = (data ?? []) as Array<{
-    enrolment_id: string;
-    learner_id: string;
-    first_names: string;
-    surname: string;
-    admission_number: string | null;
-    grade_id: string | null;
-    grade_name: string;
-    register_class_id: string | null;
-    class_name: string;
-    snapshot_id: string | null;
-    snapshot_version: number | null;
-    template_version: string | null;
-    report_status: Exclude<ReportCardStatusFilter, "all">;
-    generated_at: string | null;
-    certified_at: string | null;
-    pdf_ready: boolean;
-    total_count: number | string;
-  }>;
-
+  const rawRows = (data ?? []) as Array<ReportCardStatusRpcRow & { total_count: number | string }>;
   const totalCount = Number(rawRows[0]?.total_count ?? 0);
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -98,23 +137,7 @@ export async function getReportCardStatusPage(input: {
   }
 
   return {
-    rows: rawRows.map((row) => ({
-      enrolmentId: row.enrolment_id,
-      learnerId: row.learner_id,
-      name: `${row.first_names} ${row.surname}`.trim(),
-      admissionNumber: row.admission_number,
-      gradeId: row.grade_id,
-      grade: row.grade_name,
-      registerClassId: row.register_class_id,
-      registerClass: row.class_name,
-      snapshotId: row.snapshot_id,
-      snapshotVersion: row.snapshot_version,
-      templateVersion: row.template_version,
-      reportStatus: row.report_status,
-      generatedAt: row.generated_at,
-      certifiedAt: row.certified_at,
-      pdfReady: Boolean(row.pdf_ready),
-    })),
+    rows: rawRows.map(mapStatusRow),
     totalCount,
     page: safePage,
     pageSize,
