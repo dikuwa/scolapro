@@ -11,6 +11,9 @@ values('f1910000-0000-4000-8000-000000000001','Report Queue Tenant B','report-qu
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('f1920000-0000-4000-8000-000000000001','f1910000-0000-4000-8000-000000000001','Report Queue School B','REPORT-QUEUE-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','f1900000-0000-4000-8000-000000000001','school_admin',current_date-1);
+
 select throws_ok(
   $$insert into public.report_card_batches(tenant_id,school_id,academic_year,term_number,scope_type,scope_label,operation,created_by_user_id)
     values('f1910000-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222222',2026,1,'school','Bad batch','generate','f1900000-0000-4000-8000-000000000001')$$,
