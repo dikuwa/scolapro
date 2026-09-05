@@ -32,6 +32,7 @@ const invitationSchema = z.object({
     "teacher",
     "class_teacher",
     "counsellor",
+    "social_worker",
     "librarian",
     "board_member",
   ]),
@@ -115,6 +116,8 @@ export async function createSchoolInvitation(
     (membership) => membership.schoolId === parsed.data.schoolId && membership.roleKey === "school_admin",
   );
 
+  // School Admin may only invite into a school they actually manage. Platform Admin
+  // retains onboarding authority (first school administrator, sandbox governance).
   if (!context.user || (!isPlatformAdmin && !isSchoolAdmin)) {
     return { message: "You do not have permission to invite users to this school." };
   }
@@ -147,6 +150,7 @@ export async function createSchoolInvitation(
     : undefined;
 
   revalidatePath("/platform/invitations");
+  revalidatePath("/school/invitations");
 
   return {
     success: true,
@@ -172,4 +176,5 @@ export async function revokeSchoolInvitation(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   await supabase.rpc("revoke_school_invitation", { p_invitation_id: invitationId.data });
   revalidatePath("/platform/invitations");
+  revalidatePath("/school/invitations");
 }
