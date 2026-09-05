@@ -7,17 +7,12 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { saveUploadedLearnerPhoto, updateLearnerOperationalProfile, type LearnerProfileState } from "@/features/learners/server/actions";
+import { prepareLearnerPhotoUpload } from "@/features/learners/server/photo-upload";
 
 const initialState: LearnerProfileState = {};
 const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxPhotoBytes = 5 * 1024 * 1024;
-
-function photoExtension(contentType: string) {
-  if (contentType === "image/png") return "png";
-  if (contentType === "image/webp") return "webp";
-  return "jpg";
-}
 
 export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPhoto }: { learnerId: string; schoolId: string; preferredName: string | null; hasPhoto: boolean }) {
   const router = useRouter();
@@ -69,29 +64,37 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
     }
 
     if (hasSelectedPhoto) {
-      const supabase = createSupabaseBrowserClient();
-      const photoPath = `${schoolId}/${learnerId}/${crypto.randomUUID()}.${photoExtension(photo.type)}`;
-      const { error: uploadError } = await supabase.storage.from("learner-photos").upload(photoPath, photo, {
-        contentType: photo.type,
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-      if (uploadError) {
-        console.error("Learner photo browser upload failed", { statusCode: uploadError.statusCode, error: uploadError.message });
+      const ticket = await prepareLearnerPhotoUpload(learnerId, schoolId, photo.type);
+      if (!ticket.success || !ticket.path || !ticket.token) {
         const result: LearnerProfileState = {
           success: false,
-          message: uploadError.message.toLowerCase().includes("row-level security")
-            ? "Profile information was saved, but your session is not allowed to upload this learner photo. Sign in again and retry."
-            : "Profile information was saved, but the learner photo storage service rejected the upload. The editor is staying open so you can retry.",
+          message: ticket.message ?? "Profile information was saved, but the learner photo upload could not be prepared. Try again.",
         };
-        toast.error(result.message ?? "The learner photo upload failed.");
+        toast.error(result.message ?? "The learner photo upload could not be prepared.");
         return result;
       }
 
-      const photoResult = await saveUploadedLearnerPhoto(learnerId, schoolId, photoPath);
+      const supabase = createSupabaseBrowserClient();
+      const { error: uploadError } = await supabase.storage.from("learner-photos").uploadToSignedUrl(
+        ticket.path,
+        ticket.token,
+        photo,
+        { contentType: photo.type, cacheControl: "3600" },
+      );
+
+      if (uploadError) {
+        console.error("Learner photo signed upload failed", { statusCode: uploadError.statusCode, error: uploadError.message });
+        const result: LearnerProfileState = {
+          success: false,
+          message: "Profile information was saved, but the learner photo upload did not complete. The editor is staying open so you can retry.",
+        };
+        toast.error(result.message);
+        return result;
+      }
+
+      const photoResult = await saveUploadedLearnerPhoto(learnerId, schoolId, ticket.path);
       if (!photoResult.success) {
-        await supabase.storage.from("learner-photos").remove([photoPath]);
+        await supabase.storage.from("learner-photos").remove([ticket.path]);
         const result: LearnerProfileState = { success: false, message: photoResult.message ?? "The learner photo could not be linked." };
         toast.error(result.message ?? "The learner photo could not be linked.");
         return result;
