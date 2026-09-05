@@ -8,12 +8,16 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { processReportCardBatchExportQueue } from "@/features/reporting/server/process-report-card-batch-export-queue";
 import { processReportCardBatchQueue } from "@/features/reporting/server/process-report-card-batch-queue";
 import { processReportCardRenderQueue } from "@/features/reporting/server/process-report-card-render-queue";
+import {
+  REPORT_CARD_SNAPSHOT_TEMPLATE_VERSION,
+  REPORT_CARD_TEMPLATE_KEY,
+} from "@/features/reporting/server/report-card-template-version";
 
 export type ReportCardActionState = { success?: boolean; message?: string; batchId?: string };
 
 const reportManagerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const generateSchema = z.object({ enrolmentId: z.string().uuid(), termNumber: z.coerce.number().int().min(1).max(6) });
-const renderSchema = z.object({ snapshotId: z.string().uuid(), templateKey: z.string().trim().min(1).max(120).default("TERM_REPORT"), templateVersion: z.string().trim().min(1).max(120).default("SCOLAPRO_TERM_REPORT_V1"), documentFormat: z.enum(["html", "pdf"]).default("html") });
+const renderSchema = z.object({ snapshotId: z.string().uuid(), documentFormat: z.enum(["html", "pdf"]).default("html") });
 const batchSchema = z.object({
   academicYear: z.coerce.number().int().min(2000).max(2200),
   termNumber: z.coerce.number().int().min(1).max(6),
@@ -77,7 +81,11 @@ export async function generateReportCard(_state: ReportCardActionState, formData
   const parsed = generateSchema.safeParse({ enrolmentId: formData.get("enrolmentId"), termNumber: formData.get("termNumber") });
   if (!parsed.success) return { message: "Choose a learner and valid term." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("build_report_card_snapshot", { p_enrolment_id: parsed.data.enrolmentId, p_term_number: parsed.data.termNumber, p_template_version: "SCOLAPRO_TERM_REPORT_V1" });
+  const { error } = await supabase.rpc("build_report_card_snapshot", {
+    p_enrolment_id: parsed.data.enrolmentId,
+    p_term_number: parsed.data.termNumber,
+    p_template_version: REPORT_CARD_SNAPSHOT_TEMPLATE_VERSION,
+  });
   if (error) return { message: error.message.includes("No approved official results") ? "This learner has no approved official results for the selected term yet." : "The report-card snapshot could not be generated." };
   revalidatePath("/reports/report-cards");
   return { success: true, message: "Report-card snapshot generated." };
@@ -182,10 +190,18 @@ export async function publishReportCardWithState(
 
 export async function queueReportCardRender(_state: ReportCardActionState, formData: FormData): Promise<ReportCardActionState> {
   if (!(await canManageReportCards())) return { message: "Report-card rendering and printing are restricted to School Administration and school management." };
-  const parsed = renderSchema.safeParse({ snapshotId: formData.get("snapshotId"), templateKey: formData.get("templateKey") || "TERM_REPORT", templateVersion: formData.get("templateVersion") || "SCOLAPRO_TERM_REPORT_V1", documentFormat: formData.get("documentFormat") || "html" });
+  const parsed = renderSchema.safeParse({
+    snapshotId: formData.get("snapshotId"),
+    documentFormat: formData.get("documentFormat") || "html",
+  });
   if (!parsed.success) return { message: "Choose a supported report-card document format." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("queue_report_card_render", { p_snapshot_id: parsed.data.snapshotId, p_template_key: parsed.data.templateKey, p_template_version: parsed.data.templateVersion, p_document_format: parsed.data.documentFormat });
+  const { error } = await supabase.rpc("queue_report_card_render", {
+    p_snapshot_id: parsed.data.snapshotId,
+    p_template_key: REPORT_CARD_TEMPLATE_KEY,
+    p_template_version: REPORT_CARD_SNAPSHOT_TEMPLATE_VERSION,
+    p_document_format: parsed.data.documentFormat,
+  });
   if (error) {
     if (error.message.includes("Only certified historical snapshots")) return { message: "Certify the report-card snapshot before rendering it." };
     return { message: "The report-card render could not be queued." };
