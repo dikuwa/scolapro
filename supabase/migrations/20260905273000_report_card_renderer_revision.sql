@@ -49,7 +49,7 @@ begin
   where c.conrelid='public.report_card_render_jobs'::regclass
     and c.contype='u'
     and (
-      select array_agg(a.attname order by x.ord)
+      select array_agg(a.attname::text order by x.ord)
       from unnest(c.conkey) with ordinality x(attnum,ord)
       join pg_attribute a on a.attrelid=c.conrelid and a.attnum=x.attnum
     ) = array['snapshot_id','template_key','template_version','document_format']::text[]
