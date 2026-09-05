@@ -39,6 +39,32 @@ $$;
 revoke all on function app_private.user_can_manage_guardian_actor(uuid,uuid)
 from public,anon,authenticated;
 
+create or replace function app_private.user_can_claim_guardian_actor(
+  p_user_id uuid,
+  p_guardian_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path=pg_catalog,public,auth
+as $$
+  select exists(
+    select 1
+    from auth.users u
+    join public.guardian_contacts gc
+      on gc.guardian_id=p_guardian_id
+     and gc.contact_type='email'
+     and gc.effective_from<=current_date
+     and (gc.effective_to is null or gc.effective_to>=current_date)
+    where u.id=p_user_id
+      and u.email is not null
+      and lower(btrim(gc.contact_value))=lower(btrim(u.email))
+  );
+$$;
+revoke all on function app_private.user_can_claim_guardian_actor(uuid,uuid)
+from public,anon,authenticated;
+
 create or replace function app_private.enforce_guardian_contact_actor_integrity()
 returns trigger
 language plpgsql
@@ -114,8 +140,12 @@ begin
     if auth.uid() is not null and new.linked_by_user_id<>auth.uid() then
       raise exception 'Guardian user-link actor must match authenticated actor';
     end if;
-    if new.linked_by_user_id<>new.user_id
-       and not app_private.user_can_manage_guardian_actor(new.linked_by_user_id,new.guardian_id) then
+
+    if new.linked_by_user_id=new.user_id then
+      if not app_private.user_can_claim_guardian_actor(new.user_id,new.guardian_id) then
+        raise exception 'Guardian self-link actor is not verified for guardian';
+      end if;
+    elsif not app_private.user_can_manage_guardian_actor(new.linked_by_user_id,new.guardian_id) then
       raise exception 'Guardian user-link actor is not authorized for guardian';
     end if;
   end if;
