@@ -4,6 +4,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { PagedReportCardManagement } from "@/features/reporting/paged-report-card-management";
 import { ReportBatchWorkerPulse } from "@/features/reporting/report-batch-worker-pulse";
 import { ReportCardStatusReadonly } from "@/features/reporting/report-card-status-readonly";
+import { getReportCardAcademicYear } from "@/features/reporting/server/report-card-academic-year";
 import { getIndividualReportCardLearnerOptions } from "@/features/reporting/server/individual-report-card-learners";
 import {
   getReportCardManagementMeta,
@@ -68,7 +69,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   if (!membership) redirect("/");
 
   const canManageReports = managerRoles.has(membership.roleKey);
-  const academicYear = new Date().getFullYear();
+  const academicYear = await getReportCardAcademicYear(membership.schoolId);
   const params = await searchParams;
   const common = parseCommonParams(params);
 
