@@ -41,11 +41,9 @@ begin
     raise exception 'Tenant feature identity and creation provenance are immutable';
   end if;
 
+  -- Preserve the established authenticated behavior: the server ignores any
+  -- client-supplied updater and writes the real authenticated actor.
   if auth.uid() is not null then
-    if new.updated_by_user_id is not null
-       and new.updated_by_user_id is distinct from auth.uid() then
-      raise exception 'Tenant feature updater must match authenticated actor';
-    end if;
     new.updated_by_user_id := auth.uid();
   end if;
 
