@@ -74,11 +74,13 @@ export async function processReportCardBatchExportQueue(limit = 1): Promise<Repo
       const documentBySnapshot = new Map(((documentData ?? []) as ReportDocument[]).map((document) => [document.snapshot_id, document]));
       const enrolmentOrder = new Map((enrolmentData ?? []).map((enrolment) => {
         const learner = one(enrolment.learners);
-        const name = learner ? `${learner.surname} ${learner.first_names}` : "";
-        return [enrolment.id, `${enrolment.admission_number ?? ""}\u0000${name}`];
+        const surname = learner?.surname?.trim() ?? "";
+        const firstNames = learner?.first_names?.trim() ?? "";
+        const admissionNumber = enrolment.admission_number?.trim() ?? "";
+        return [enrolment.id, `${surname}\u0000${firstNames}\u0000${admissionNumber}\u0000${enrolment.id}`];
       }));
 
-      const orderedItems = [...items].sort((a, b) => (enrolmentOrder.get(a.enrolment_id) ?? "").localeCompare(enrolmentOrder.get(b.enrolment_id) ?? "", undefined, { numeric: true }));
+      const orderedItems = [...items].sort((a, b) => (enrolmentOrder.get(a.enrolment_id) ?? a.enrolment_id).localeCompare(enrolmentOrder.get(b.enrolment_id) ?? b.enrolment_id, "en", { numeric: true, sensitivity: "base" }));
       const merged = await PDFDocument.create();
 
       for (const item of orderedItems) {
