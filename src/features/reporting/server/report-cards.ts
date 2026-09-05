@@ -1,3 +1,4 @@
+import { REPORT_CARD_RENDERER_VERSION } from "@/features/reporting/server/report-card-renderer-version";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ReportCardLearner = {
@@ -100,16 +101,18 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
       .from("report_card_render_jobs")
       .select("id,snapshot_id,document_format,status,attempt_count,last_error,output_document_id,updated_at")
       .eq("school_id", schoolId)
+      .eq("renderer_version", REPORT_CARD_RENDERER_VERSION)
       .order("updated_at", { ascending: false }),
     supabase
       .from("report_card_documents")
       .select("id,snapshot_id,document_format,status,generated_at")
       .eq("school_id", schoolId)
+      .eq("renderer_version", REPORT_CARD_RENDERER_VERSION)
       .eq("status", "ready")
       .order("generated_at", { ascending: false }),
     supabase
       .from("report_card_batches")
-      .select("id,term_number,scope_type,scope_label,operation,status,total_items,processed_items,completed_items,skipped_items,failed_items,export_status,export_page_count,export_error,created_at,completed_at")
+      .select("id,term_number,scope_type,scope_label,operation,status,total_items,processed_items,completed_items,skipped_items,failed_items,export_status,export_renderer_version,export_page_count,export_error,created_at,completed_at")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
       .order("created_at", { ascending: false })
@@ -173,24 +176,27 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
     generatedAt: item.generated_at,
   }));
 
-  const batches: ReportCardBatchRow[] = (batchesResult.data ?? []).map((item) => ({
-    id: item.id,
-    termNumber: item.term_number,
-    scopeType: item.scope_type as ReportCardBatchRow["scopeType"],
-    scopeLabel: item.scope_label,
-    operation: item.operation as ReportCardBatchRow["operation"],
-    status: item.status as ReportCardBatchRow["status"],
-    totalItems: item.total_items,
-    processedItems: item.processed_items,
-    completedItems: item.completed_items,
-    skippedItems: item.skipped_items,
-    failedItems: item.failed_items,
-    exportStatus: item.export_status as ReportCardBatchRow["exportStatus"],
-    exportPageCount: item.export_page_count,
-    exportError: item.export_error,
-    createdAt: item.created_at,
-    completedAt: item.completed_at,
-  }));
+  const batches: ReportCardBatchRow[] = (batchesResult.data ?? []).map((item) => {
+    const exportIsCurrent = item.export_status !== "ready" || item.export_renderer_version === REPORT_CARD_RENDERER_VERSION;
+    return {
+      id: item.id,
+      termNumber: item.term_number,
+      scopeType: item.scope_type as ReportCardBatchRow["scopeType"],
+      scopeLabel: item.scope_label,
+      operation: item.operation as ReportCardBatchRow["operation"],
+      status: item.status as ReportCardBatchRow["status"],
+      totalItems: item.total_items,
+      processedItems: item.processed_items,
+      completedItems: item.completed_items,
+      skippedItems: item.skipped_items,
+      failedItems: item.failed_items,
+      exportStatus: (exportIsCurrent ? item.export_status : "waiting") as ReportCardBatchRow["exportStatus"],
+      exportPageCount: exportIsCurrent ? item.export_page_count : null,
+      exportError: exportIsCurrent ? item.export_error : null,
+      createdAt: item.created_at,
+      completedAt: item.completed_at,
+    };
+  });
 
   const batchIssues: ReportCardBatchIssueRow[] = (batchIssueData ?? []).map((item) => ({
     batchId: item.batch_id,
