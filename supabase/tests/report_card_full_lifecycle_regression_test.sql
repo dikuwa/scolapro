@@ -150,11 +150,20 @@ select is(
   (select s.status from public.report_card_snapshots s where s.enrolment_id='60000000-0000-4000-8000-000000000001' and s.term_number=1 and s.status<>'superseded' order by s.snapshot_version desc limit 1),
   'published','publication releases the certified snapshot after the durable PDF stages'
 );
-select is(
-  (select count(*)::integer from public.audit_events where actor_user_id='fc000000-0000-4000-8000-000000000001' and event_type in (
+select ok(
+  (select count(*)=5 from public.audit_events where event_type in (
     'report_card.snapshot.generated','report_card.snapshot.certified','report_card.render.queued','report_card.batch.export.ready','report_card.snapshot.published'
-  )),
-  5,'the lifecycle leaves durable actor-attributed audit evidence for every major stage'
+  ))
+  and (select count(*)=4 from public.audit_events where actor_user_id='fc000000-0000-4000-8000-000000000001' and event_type in (
+    'report_card.snapshot.generated','report_card.snapshot.certified','report_card.render.queued','report_card.snapshot.published'
+  ))
+  and exists(
+    select 1 from public.audit_events
+    where event_type='report_card.batch.export.ready'
+      and actor_user_id is null
+      and metadata->>'requested_by_user_id'='fc000000-0000-4000-8000-000000000001'
+  ),
+  'the lifecycle preserves four authenticated management actors plus one explicit worker-owned export event'
 );
 
 select * from finish();
