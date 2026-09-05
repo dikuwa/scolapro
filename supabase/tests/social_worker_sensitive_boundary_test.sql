@@ -29,26 +29,12 @@ where id='40000000-0000-4000-8000-00000000001a';
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fc100000-0000-4000-8000-000000000004',true);
 
--- Evaluate private helper semantics as the database owner; client execution remains revoked below.
-select is(
-  app_private.has_explicit_support_role('22222222-2222-4222-8222-222222222222'),
-  false,
-  'platform admin is no longer an explicit support role at any school'
-);
-select is(
-  app_private.user_has_explicit_support_role('fc100000-0000-4000-8000-000000000004','22222222-2222-4222-8222-222222222222'),
-  false,
-  'platform admin fails the arbitrary-actor support-role mirror'
-);
-select is(
-  app_private.can_manage_learner_support('22222222-2222-4222-8222-222222222222'),
-  false,
-  'platform admin cannot manage learner support at a school it only operates'
-);
+select is(app_private.has_explicit_support_role('22222222-2222-4222-8222-222222222222'),false,'platform admin is no longer an explicit support role at any school');
+select is(app_private.user_has_explicit_support_role('fc100000-0000-4000-8000-000000000004','22222222-2222-4222-8222-222222222222'),false,'platform admin fails the arbitrary-actor support-role mirror');
+select is(app_private.can_manage_learner_support('22222222-2222-4222-8222-222222222222'),false,'platform admin cannot manage learner support at a school it only operates');
 
 select set_config('request.jwt.claim.sub','fc100000-0000-4000-8000-000000000002',true);
 set local role authenticated;
-
 select lives_ok(
   $$insert into public.learner_support_cases(
       id,tenant_id,school_id,learner_id,enrolment_id,case_type,sensitivity,summary,status,opened_by_user_id
@@ -72,7 +58,7 @@ select lives_ok(
       tenant_id,school_id,learner_id,enrolment_id,note_type,note,sensitivity,recorded_by_user_id
     ) values(
       '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','50000000-0000-4000-8000-000000000001',
-      '60000000-0000-4000-8000-000000000001','case_note','Protected case note','highly_restricted','fc100000-0000-4000-8000-000000000002'
+      '60000000-0000-4000-8000-000000000001','general_remark','Protected case note','highly_restricted','fc100000-0000-4000-8000-000000000002'
     )$$,
   'social worker can retain authorized confidential case notes'
 );
