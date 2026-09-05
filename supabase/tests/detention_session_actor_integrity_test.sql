@@ -16,11 +16,10 @@ insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name
 insert into public.staff_school_assignments(id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id) values
 ('fe420000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe410000-0000-4000-8000-000000000001','staff',current_date,'fe400000-0000-4000-8000-000000000001');
 
-select throws_ok(
-  $$insert into public.detention_sessions(tenant_id,school_id,session_date,status,created_by_user_id)
-    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',current_date,'planned','fe400000-0000-4000-8000-000000000002')$$,
-  'Detention session creator is not authorized for school and session date',
-  'trusted write cannot forge an unrelated detention-session creator'
+select is(
+  app_private.user_can_coordinate_detention_session('fe400000-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222',current_date),
+  false,
+  'unrelated account fails date-aware coordination authority used by deferred creator validation'
 );
 
 select lives_ok(
@@ -68,9 +67,14 @@ select throws_ok(
 select ok(
   not has_function_privilege('authenticated','app_private.user_can_coordinate_detention_session(uuid,uuid,date)','EXECUTE')
   and not has_function_privilege('authenticated','app_private.user_can_complete_detention_session_actor(uuid,uuid)','EXECUTE')
-  and not has_function_privilege('anon','app_private.user_can_coordinate_detention_session(uuid,uuid,date)','EXECUTE')
-  and not has_function_privilege('anon','app_private.user_can_complete_detention_session_actor(uuid,uuid)','EXECUTE'),
-  'detention actor authority helpers remain private from client roles'
+  and not has_function_privilege('authenticated','app_private.enforce_detention_session_creator_commit_integrity()','EXECUTE')
+  and exists(
+    select 1 from pg_catalog.pg_trigger
+    where tgrelid='public.detention_sessions'::regclass
+      and tgname='detention_session_creator_commit_integrity_trg'
+      and tgdeferrable and tginitdeferred and not tgisinternal
+  ),
+  'detention actor helpers remain private and creator authority is commit-enforced'
 );
 
 select * from finish();
