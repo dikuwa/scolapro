@@ -58,7 +58,7 @@ select throws_ok(
   $$update public.report_card_batches
     set created_by_user_id='fec00000-0000-4000-8000-000000000003'
     where id='fec10000-0000-4000-8000-000000000001'$$,
-  'Report-card batch identity and creator provenance are immutable',
+  'Report-card batch scope and creation provenance are immutable',
   'batch creator provenance cannot be rewritten'
 );
 
@@ -66,7 +66,7 @@ select throws_ok(
   $$update public.report_card_batches
     set school_id='00000000-0000-4000-8000-000000000001'
     where id='fec10000-0000-4000-8000-000000000001'$$,
-  'Report-card batch identity and creator provenance are immutable',
+  'Report-card batch scope and creation provenance are immutable',
   'batch cannot be moved to another school after creation'
 );
 
@@ -82,7 +82,7 @@ select ok(
   and not has_function_privilege('authenticated','app_private.enforce_report_card_batch_actor_integrity()','EXECUTE')
   and (select count(*)=1 from pg_trigger
        where tgrelid='public.report_card_batches'::regclass
-         and tgname='report_card_batch_actor_integrity_trg'
+         and tgname='zz_report_card_batch_actor_integrity_trg'
          and not tgisinternal),
   'report-card batch actor helpers are private and the physical guard is installed once'
 );
