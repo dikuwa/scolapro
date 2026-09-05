@@ -3,10 +3,17 @@ begin;
 select plan(5);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
+values
+  ('fdd00000-0000-4000-8000-000000000001','parent-current-enrolment@example.test','authenticated','authenticated',now(),now()),
+  ('fdd00000-0000-4000-8000-000000000002','parent-current-campaign-leader@example.test','authenticated','authenticated',now(),now());
+
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
 values(
-  'fdd00000-0000-4000-8000-000000000001',
-  'parent-current-enrolment@example.test',
-  'authenticated','authenticated',now(),now()
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fdd00000-0000-4000-8000-000000000002',
+  'school_admin',
+  current_date
 );
 
 insert into public.guardian_profiles(id,tenant_id,first_names,surname,status)
@@ -73,7 +80,7 @@ insert into public.voluntary_contribution_campaigns(
     '22222222-2222-4222-8222-222222222222',
     extract(year from current_date)::integer,
     'Current Campaign',current_date-7,current_date+7,'published',true,
-    'fdd00000-0000-4000-8000-000000000001'
+    'fdd00000-0000-4000-8000-000000000002'
   ),
   (
     'fdd40000-0000-4000-8000-000000000002',
@@ -81,7 +88,7 @@ insert into public.voluntary_contribution_campaigns(
     '22222222-2222-4222-8222-222222222222',
     extract(year from current_date)::integer+1,
     'Future Placement Campaign',current_date-7,current_date+7,'published',true,
-    'fdd00000-0000-4000-8000-000000000001'
+    'fdd00000-0000-4000-8000-000000000002'
   );
 
 insert into public.voluntary_contribution_items(
