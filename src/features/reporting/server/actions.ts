@@ -88,6 +88,10 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
   if (!manager) return { message: "Bulk report-card actions are restricted to School Administration, the Principal and Deputy Principal." };
 
   const rawScopeId = String(formData.get("scopeId") ?? "").trim();
+  const rawEnrolmentIds = formData.getAll("enrolmentId");
+  if (formData.get("scopeType") === "custom" && rawEnrolmentIds.length > 5000) {
+    return { message: "Custom report-card selection supports up to 5,000 learners per run. Use Whole school, Grade or Class for a larger governed batch." };
+  }
   const parsed = batchSchema.safeParse({
     academicYear: formData.get("academicYear"),
     termNumber: formData.get("termNumber"),
@@ -95,7 +99,7 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
     scopeId: rawScopeId || undefined,
     scopeLabel: formData.get("scopeLabel"),
     operation: formData.get("operation"),
-    enrolmentIds: formData.getAll("enrolmentId"),
+    enrolmentIds: rawEnrolmentIds,
   });
   if (!parsed.success) return { message: "Choose a valid report scope and term." };
 
