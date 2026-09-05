@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { AttendanceClassOption, AttendanceReasonOption } from "@/features/attendance/server/register";
+import type { AttendanceClassOption, AttendanceReasonOption, AttendanceSortDirection } from "@/features/attendance/server/register";
 
 export type WeeklyCell = {
   date: string;
@@ -21,6 +21,15 @@ function relation<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
 }
 
+function sortLearners<T extends { name: string; admissionNumber: string | null }>(learners: T[], direction: AttendanceSortDirection) {
+  const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+  return learners.sort((left, right) => {
+    const nameOrder = collator.compare(left.name, right.name);
+    const fallback = collator.compare(left.admissionNumber ?? "", right.admissionNumber ?? "");
+    return direction === "desc" ? -(nameOrder || fallback) : nameOrder || fallback;
+  });
+}
+
 export function mondayFor(date: string) {
   const value = new Date(`${date}T12:00:00`);
   const day = value.getDay();
@@ -38,7 +47,13 @@ export function schoolWeekDates(date: string) {
   });
 }
 
-export async function getWeeklyRegisterWorkspace(schoolId: string, academicYear: number, selectedClassId: string | null, date: string) {
+export async function getWeeklyRegisterWorkspace(
+  schoolId: string,
+  academicYear: number,
+  selectedClassId: string | null,
+  date: string,
+  sortDirection: AttendanceSortDirection = "asc",
+) {
   const supabase = await createSupabaseServerClient();
   const dates = schoolWeekDates(date);
   const monday = dates[0];
@@ -86,6 +101,8 @@ export async function getWeeklyRegisterWorkspace(schoolId: string, academicYear:
       }),
     };
   });
+
+  sortLearners(learners, sortDirection);
 
   return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, dates, learners, submissionIds };
 }

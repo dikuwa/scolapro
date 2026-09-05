@@ -1,10 +1,11 @@
 import { CalendarCheck2, ClipboardCheck, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { AttendanceSortControl } from "@/features/attendance/attendance-sort-control";
 import { AttendanceViewTabs } from "@/features/attendance/attendance-view-tabs";
 import { DailyRegister } from "@/features/attendance/daily-register";
 import { WeeklyRegister } from "@/features/attendance/weekly-register";
-import { getDailyRegisterWorkspace } from "@/features/attendance/server/register";
+import { getDailyRegisterWorkspace, type AttendanceSortDirection } from "@/features/attendance/server/register";
 import { getWeeklyRegisterWorkspace, mondayFor } from "@/features/attendance/server/week";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import "./attendance-mobile.css";
@@ -21,7 +22,7 @@ function safeSchoolDate(value?: string) {
   return parsed.toISOString().slice(0, 10);
 }
 
-export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[] }> }) {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/attendance");
 
@@ -33,18 +34,20 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedClass = Array.isArray(params.class) ? params.class[0] : params.class;
   const requestedDate = Array.isArray(params.date) ? params.date[0] : params.date;
   const requestedView = Array.isArray(params.view) ? params.view[0] : params.view;
+  const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
   const view = requestedView === "week" ? "week" : "day";
+  const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
   const date = safeSchoolDate(requestedDate);
   const academicYear = Number(date.slice(0, 4));
 
   if (view === "week") {
-    const workspace = await getWeeklyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, mondayFor(date));
+    const workspace = await getWeeklyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort);
     const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
     const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => day.status !== "present").length, 0);
     return (
       <AppShell>
         <section className="attendance-page">
-          <AttendanceHeader date={date} requestedClass={requestedClass} view="week" />
+          <AttendanceHeader date={date} requestedClass={requestedClass} view="week" sort={sort} />
           <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
           <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} />
         </section>
@@ -52,25 +55,28 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     );
   }
 
-  const workspace = await getDailyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, date);
+  const workspace = await getDailyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, date, sort);
   const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
   const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
   return (
     <AppShell>
       <section className="attendance-page">
-        <AttendanceHeader date={date} requestedClass={requestedClass} view="day" />
+        <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-        <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} />
+        <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} />
       </section>
     </AppShell>
   );
 }
 
-function AttendanceHeader({ date, requestedClass, view }: { date: string; requestedClass?: string; view: "day" | "week" }) {
+function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; requestedClass?: string; view: "day" | "week"; sort: AttendanceSortDirection }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
       <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first registers. Capture daily, or reconcile a physical register later with a Monday–Friday weekly view.</p></div>
-      <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} />
+      <div className="flex flex-wrap items-center gap-2">
+        <AttendanceSortControl sort={sort} />
+        <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} />
+      </div>
     </div>
   );
 }

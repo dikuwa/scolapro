@@ -1,3 +1,20 @@
+.attendance-page form .divide-y {
+  counter-reset: attendance-learner;
+}
+
+.attendance-page form .divide-y > div {
+  counter-increment: attendance-learner;
+}
+
+.attendance-page form .divide-y > div .scolapro-record-title::before {
+  content: counter(attendance-learner) ". ";
+  display: inline-block;
+  min-width: 1.8rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
 @media (max-width: 767px) {
   .attendance-page {
     padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));

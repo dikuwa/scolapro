@@ -24,8 +24,19 @@ export type AttendanceLearnerRow = {
   note: string | null;
 };
 
+export type AttendanceSortDirection = "asc" | "desc";
+
 function relation<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
+}
+
+function sortLearners<T extends { name: string; admissionNumber: string | null }>(learners: T[], direction: AttendanceSortDirection) {
+  const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
+  return learners.sort((left, right) => {
+    const nameOrder = collator.compare(left.name, right.name);
+    const fallback = collator.compare(left.admissionNumber ?? "", right.admissionNumber ?? "");
+    return direction === "desc" ? -(nameOrder || fallback) : nameOrder || fallback;
+  });
 }
 
 export async function getDailyRegisterWorkspace(
@@ -33,6 +44,7 @@ export async function getDailyRegisterWorkspace(
   academicYear: number,
   selectedClassId: string | null,
   attendanceDate: string,
+  sortDirection: AttendanceSortDirection = "asc",
 ) {
   const supabase = await createSupabaseServerClient();
 
@@ -70,6 +82,8 @@ export async function getDailyRegisterWorkspace(
       note: current?.note ?? null,
     };
   });
+
+  sortLearners(learners, sortDirection);
 
   return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, learners, currentSubmissionId: submission?.id ?? null };
 }
