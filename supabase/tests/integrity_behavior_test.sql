@@ -17,6 +17,9 @@ insert into public.schools(id,tenant_id,name,emis_number,region,town) values
 ('84222222-2222-4222-8222-222222222221','84111111-1111-4111-8111-111111111111','Integrity School A','INTA001','Khomas','Windhoek'),
 ('84222222-2222-4222-8222-222222222222','84111111-1111-4111-8111-111111111111','Integrity School B','INTB001','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('84111111-1111-4111-8111-111111111111','84222222-2222-4222-8222-222222222221','74000000-0000-4000-8000-000000000001','school_admin',current_date-1);
+
 insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex) values
 ('84333333-3333-4333-8333-333333333331','84111111-1111-4111-8111-111111111111','Alpha','Learner','2010-01-01','unspecified'),
 ('84333333-3333-4333-8333-333333333332','84111111-1111-4111-8111-111111111111','Beta','Learner','2010-01-02','unspecified');
@@ -51,10 +54,10 @@ select throws_ok(
 );
 
 insert into public.report_card_snapshots(
-  id,tenant_id,school_id,learner_id,enrolment_id,academic_year,term_number,template_version,snapshot_version,data_snapshot,status,generated_by_user_id
+  id,tenant_id,school_id,learner_id,enrolment_id,academic_year,term_number,template_version,snapshot_version,data_snapshot,status,generated_by_user_id,certified_by_user_id,certified_at
 ) values
-('84888888-8888-4888-8888-888888888881','84111111-1111-4111-8111-111111111111','84222222-2222-4222-8222-222222222221','84333333-3333-4333-8333-333333333331','84444444-4444-4444-8444-444444444441',2026,2,'TEST_V1',1,'{}'::jsonb,'draft','74000000-0000-4000-8000-000000000001'),
-('84888888-8888-4888-8888-888888888882','84111111-1111-4111-8111-111111111111','84222222-2222-4222-8222-222222222221','84333333-3333-4333-8333-333333333331','84444444-4444-4444-8444-444444444441',2026,2,'TEST_V1',2,'{}'::jsonb,'certified','74000000-0000-4000-8000-000000000001');
+('84888888-8888-4888-8888-888888888881','84111111-1111-4111-8111-111111111111','84222222-2222-4222-8222-222222222221','84333333-3333-4333-8333-333333333331','84444444-4444-4444-8444-444444444441',2026,2,'TEST_V1',1,'{}'::jsonb,'draft','74000000-0000-4000-8000-000000000001',null,null),
+('84888888-8888-4888-8888-888888888882','84111111-1111-4111-8111-111111111111','84222222-2222-4222-8222-222222222221','84333333-3333-4333-8333-333333333331','84444444-4444-4444-8444-444444444441',2026,2,'TEST_V1',2,'{}'::jsonb,'certified','74000000-0000-4000-8000-000000000001','74000000-0000-4000-8000-000000000001',now());
 
 select throws_ok(
   $$insert into public.report_card_documents(tenant_id,school_id,snapshot_id,template_key,template_version,document_format,storage_bucket,storage_path)
