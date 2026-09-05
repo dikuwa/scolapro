@@ -137,7 +137,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
             <input type="hidden" name="replacesSubmissionId" value={currentSubmissionId ?? ""} />
             <input type="hidden" name="exceptions" value={JSON.stringify(exceptions)} />
 
-            <div className="divide-y divide-border-subtle px-3 sm:px-5">
+            <div className="max-h-[min(62vh,42rem)] divide-y divide-border-subtle overflow-y-auto overscroll-contain px-3 sm:px-5">
               {visibleRows.map((row) => {
                 const focused = focusedId === row.enrolmentId;
                 const currentStatus = statuses.find((status) => status.value === row.status) ?? statuses[0];
