@@ -59,15 +59,6 @@ export async function getReportCardManagementMeta(
   const error = termsResult.error || gradesResult.error || classesResult.error || batchesResult.error;
   if (error) throw new Error("Unable to load report-card management metadata.");
 
-  const { data: batchIssueData, error: batchIssueError } = await supabase
-    .from("report_card_batch_items")
-    .select("batch_id,enrolment_id,learner_id,status,result_code,message")
-    .eq("school_id", schoolId)
-    .in("status", ["skipped", "failed"])
-    .order("completed_at", { ascending: false })
-    .limit(100);
-  if (batchIssueError) throw new Error("Unable to load report-card batch outcomes.");
-
   const terms = (termsResult.data ?? []).map((item) => ({
     termNumber: item.term_number,
     name: item.display_name,
@@ -99,14 +90,28 @@ export async function getReportCardManagementMeta(
     completedAt: item.completed_at,
   }));
 
-  const batchIssues: ReportCardBatchIssueRow[] = (batchIssueData ?? []).map((item) => ({
-    batchId: item.batch_id,
-    enrolmentId: item.enrolment_id,
-    learnerId: item.learner_id,
-    status: item.status as ReportCardBatchIssueRow["status"],
-    resultCode: item.result_code,
-    message: item.message,
-  }));
+  let batchIssues: ReportCardBatchIssueRow[] = [];
+  const recentBatchIds = batches.map((batch) => batch.id);
+  if (recentBatchIds.length) {
+    const { data: batchIssueData, error: batchIssueError } = await supabase
+      .from("report_card_batch_items")
+      .select("batch_id,enrolment_id,learner_id,status,result_code,message")
+      .eq("school_id", schoolId)
+      .in("batch_id", recentBatchIds)
+      .in("status", ["skipped", "failed"])
+      .order("completed_at", { ascending: false })
+      .limit(240);
+    if (batchIssueError) throw new Error("Unable to load report-card batch outcomes.");
+
+    batchIssues = (batchIssueData ?? []).map((item) => ({
+      batchId: item.batch_id,
+      enrolmentId: item.enrolment_id,
+      learnerId: item.learner_id,
+      status: item.status as ReportCardBatchIssueRow["status"],
+      resultCode: item.result_code,
+      message: item.message,
+    }));
+  }
 
   return {
     terms,
