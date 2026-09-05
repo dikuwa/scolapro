@@ -32,6 +32,17 @@ values('f9700000-0000-4000-8000-000000000001','crc-period-author@example.test','
 insert into public.platform_memberships(user_id,role_key,active_from)
 values('f9700000-0000-4000-8000-000000000001','platform_admin',current_date);
 
+-- Platform administration no longer grants sensitive-CRC recording rights, so the
+-- fixture actor must hold an explicit support role to author restricted records.
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'f9700000-0000-4000-8000-000000000001',
+  'counsellor',
+  current_date
+);
+
 update public.enrolments
    set enrolled_to='2026-06-30', status='completed'
  where id='60000000-0000-4000-8000-000000000001';
