@@ -38,6 +38,13 @@ insert into public.staff_school_assignments(
   ('fc731000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc730000-0000-4000-8000-000000000001','teacher','2026-01-01','2026-02-03','fc700000-0000-4000-8000-000000000003'),
   ('fc731000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc730000-0000-4000-8000-000000000002','teacher','2026-02-04',null,'fc700000-0000-4000-8000-000000000003');
 
+insert into public.school_duty_assignments(
+  tenant_id,school_id,staff_member_id,duty_key,active_from,active_to,assigned_by_user_id
+) values(
+  '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+  'fc730000-0000-4000-8000-000000000001','late_arrival_recorder','2026-02-03','2026-02-03','fc700000-0000-4000-8000-000000000003'
+);
+
 insert into public.school_late_arrival_policies(
   school_id,tenant_id,cumulative_threshold,detention_weekday,carry_forward,active
 ) values(
@@ -61,6 +68,12 @@ values('fc800000-0000-4000-8000-000000000001','Late Detention Scope Tenant B','l
 
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fc810000-0000-4000-8000-000000000001','fc800000-0000-4000-8000-000000000001','Late Detention Scope School B','LDS-B','Khomas','Windhoek');
+
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  'fc800000-0000-4000-8000-000000000001','fc810000-0000-4000-8000-000000000001',
+  'fc700000-0000-4000-8000-000000000001','school_admin','2026-01-01'
+);
 
 insert into public.learners(id,tenant_id,first_names,surname)
 values('fc820000-0000-4000-8000-000000000001','fc800000-0000-4000-8000-000000000001','Scope','Learner B');
