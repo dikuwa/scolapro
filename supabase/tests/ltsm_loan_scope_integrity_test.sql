@@ -33,6 +33,15 @@ select is(
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fa000000-0000-4000-8000-000000000001','ltsm-scope@example.test','authenticated','authenticated',now(),now());
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fa000000-0000-4000-8000-000000000001',
+  'librarian',
+  current_date
+);
+
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fa100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','LTSM Scope School B','LTSM-SCOPE-B','Khomas','Windhoek');
 
