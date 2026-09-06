@@ -29,11 +29,11 @@ alter table public.report_card_documents
   alter column renderer_version set default 'SCOLAPRO_TERM_REPORT_RENDERER_V9';
 
 -- Only terminal PDF batches can reach this worker. Completed learner items must
--- all have a ready PDF from the current renderer. Skipped/failed learner items
--- remain explicit batch outcomes and are intentionally not included in the
--- combined artifact. A stale ready export is automatically rebuilt; an export
--- already marked failed is not claimed until retry_report_card_batch_export()
--- changes it back to waiting.
+-- all have a ready canonical TERM_REPORT PDF from the current renderer.
+-- Skipped/failed learner items remain explicit batch outcomes and are intentionally
+-- not included in the combined artifact. A stale ready export is automatically
+-- rebuilt; an export already marked failed is not claimed until
+-- retry_report_card_batch_export() changes it back to waiting.
 create or replace function public.claim_report_card_batch_exports(p_limit integer default 1)
 returns setof public.report_card_batches
 language plpgsql
@@ -72,6 +72,7 @@ begin
               select 1
               from public.report_card_documents d
               where d.snapshot_id=i.snapshot_id
+                and d.template_key='TERM_REPORT'
                 and d.document_format='pdf'
                 and d.status='ready'
                 and d.renderer_version=app_private.current_report_card_renderer_version()
@@ -101,4 +102,4 @@ comment on function app_private.current_report_card_renderer_version() is
   'Current derived report-card renderer revision. V9 aligns both HTML/print and native PDF output with the approved progress-report layout.';
 
 comment on function public.claim_report_card_batch_exports(integer) is
-  'Claims terminal PDF batches only when every completed learner has a current-renderer PDF. Stale ready exports rebuild automatically; failed exports require an explicit management retry.';
+  'Claims terminal PDF batches only when every completed learner has a current-renderer canonical TERM_REPORT PDF. Stale ready exports rebuild automatically; failed exports require an explicit management retry.';
