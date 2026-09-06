@@ -1,0 +1,2 @@
+"use client";
+export default function ConductError({ reset }: { reset: () => void }) { return <section className="space-y-4 p-5"><h1 className="scolapro-page-title">Conduct unavailable</h1><p className="text-sm text-muted-foreground">We could not load your school’s conduct records. Check your connection and try again.</p><button onClick={reset} className="rounded-[var(--radius-sm)] bg-brand-soft px-3 py-2 text-sm text-brand-strong">Try again</button></section>; }

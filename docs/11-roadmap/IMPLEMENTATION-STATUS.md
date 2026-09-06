@@ -2,7 +2,7 @@
 
 > **Living handoff document.** Update this file whenever a meaningful implementation slice is completed or materially changes. Any developer or AI taking over ScolaPro should read this file, `ARCHITECTURE-ROADMAP.md`, the domain documents and the design-system documents before proposing new architecture or starting duplicate work.
 
-Last updated: **31 August 2026**
+Last updated: **6 September 2026**
 
 ## How to use this document
 
@@ -79,7 +79,7 @@ ScolaPro remains in a **backend/domain bulk implementation pass**. Functional UI
 
 | Area | Status | Notes |
 |---|---|---|
-| Conduct / achievement | DONE FOUNDATION / VERIFY | Separate longitudinal conduct and positive achievement histories. |
+| Conduct / achievement | DONE CURRENT PASS / VERIFY | Combined Conduct workspace now records and reads policy-driven incidents and achievements, supports atomic single/group capture, grade/class/learner history filters, archived-category history and learner-profile entry points. School policy management is principal/admin governed; legacy free-text codes remain compatible pending explicit reconciliation. |
 | Learner support | DONE FOUNDATION / VERIFY | Restricted/highly-restricted cases and append-oriented interventions. |
 | Resource catalog / copies | DONE FOUNDATION / VERIFY | Shared textbook/library/resource/device model with barcode/asset, condition and location. |
 | Loans / issue / return | DONE FOUNDATION / VERIFY | Governed transactions with one-open-loan-per-copy protection. |
@@ -193,12 +193,14 @@ Communications: `canonical message → recipients → governed template/binding 
 
 ## Approved next implementation sequence
 
-1. **Production/role QA for completed report-card bulk workflow** — exercise management and guardian flows with non-sensitive seeded fixtures, including large scopes, skipped rows, publish notifications, PDF retries and combined export access.
-2. **Behavioral integrity tests** — continue cross-school invalid-write fixtures, parent/child isolation, staff-assignment/import idempotency and remaining domain edge cases.
-3. **Live communication provider verification** — provision real Resend/Bird deployment secrets outside source control, complete Namibia sender/destination/template onboarding, register production webhooks and verify test sends plus signed terminal receipts before enabling production communication traffic.
-4. **Authoritative statutory mappings** — add actual EMIS/AEC mappings only when current Ministry forms/rules are verified.
-5. **Parent/role operational QA** — exercise guardian claim, report artifact, finance, messaging and staff-without-account workflows using non-sensitive fixtures.
-6. **Consolidated UI/IA and responsive QA** after remaining operational slices stabilize.
+1. **Conduct role/device QA and legacy-category reconciliation** — exercise principal, counsellor, assigned teacher and class-teacher workflows with non-sensitive fixtures; review every legacy category code with each school before tightening the new category reference to `NOT NULL`.
+2. **Seasonal and weekday-specific bell schedules** — add effective-dated schedule versions alongside existing timetable periods and rotating-day resolution; use the supplied summer/winter and Friday sheets as test fixtures, not default policy.
+3. **Production/role QA for completed report-card bulk workflow** — exercise management and guardian flows with non-sensitive seeded fixtures, including large scopes, skipped rows, publish notifications, PDF retries and combined export access.
+4. **Behavioral integrity tests** — continue cross-school invalid-write fixtures, parent/child isolation, staff-assignment/import idempotency and remaining domain edge cases.
+5. **Live communication provider verification** — provision real Resend/Bird deployment secrets outside source control, complete Namibia sender/destination/template onboarding, register production webhooks and verify test sends plus signed terminal receipts before enabling production communication traffic.
+6. **Authoritative statutory mappings** — add actual EMIS/AEC mappings only when current Ministry forms/rules are verified.
+7. **Parent/role operational QA** — exercise guardian claim, report artifact, finance, messaging and staff-without-account workflows using non-sensitive fixtures.
+8. **Consolidated UI/IA and responsive QA** after remaining operational slices stabilize.
 
 ## Security / advisor notes
 
