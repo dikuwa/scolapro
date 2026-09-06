@@ -76,10 +76,16 @@ select ok(
 );
 
 select ok(
-  position('report_card_snapshot_template_profile_enrichment_trg' in string_agg(tgname,',' order by tgname))
-    < position('report_card_snapshot_year_boundary_next_term_enrichment_trg' in string_agg(tgname,',' order by tgname))
-  from pg_trigger
-  where tgrelid='public.report_card_snapshots'::regclass and not tgisinternal,
+  (
+    select position('report_card_snapshot_template_profile_enrichment_trg' in names)
+      < position('report_card_snapshot_year_boundary_next_term_enrichment_trg' in names)
+    from (
+      select string_agg(tgname,',' order by tgname) as names
+      from pg_trigger
+      where tgrelid='public.report_card_snapshots'::regclass
+        and not tgisinternal
+    ) ordered_triggers
+  ),
   'year-boundary trigger sorts after template-profile enrichment so same-year dates are preserved'
 );
 
