@@ -19,6 +19,7 @@ export type ReportCardStatusPageRow = {
   generatedAt: string | null;
   certifiedAt: string | null;
   pdfReady: boolean;
+  remark: string;
 };
 
 export type ReportCardStatusPage = {
@@ -60,7 +61,7 @@ type ReportCardStatusRpcRow = {
   pdf_ready: boolean;
 };
 
-function mapStatusRow(row: ReportCardStatusRpcRow): ReportCardStatusPageRow {
+function mapStatusRow(row: ReportCardStatusRpcRow, remark = ""): ReportCardStatusPageRow {
   return {
     enrolmentId: row.enrolment_id,
     learnerId: row.learner_id,
@@ -77,7 +78,14 @@ function mapStatusRow(row: ReportCardStatusRpcRow): ReportCardStatusPageRow {
     generatedAt: row.generated_at,
     certifiedAt: row.certified_at,
     pdfReady: Boolean(row.pdf_ready),
+    remark,
   };
+}
+
+function readSnapshotRemark(value: unknown): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  const remark = (value as Record<string, unknown>).remarks;
+  return remark == null ? "" : String(remark);
 }
 
 export async function getReportCardStatusForEnrolment(input: {
@@ -96,7 +104,21 @@ export async function getReportCardStatusForEnrolment(input: {
 
   if (error) throw new Error("Unable to load the selected learner report-card status.");
   const row = ((data ?? [])[0] ?? null) as ReportCardStatusRpcRow | null;
-  return row ? mapStatusRow(row) : null;
+  if (!row) return null;
+
+  let remark = "";
+  if (row.snapshot_id) {
+    const { data: snapshot, error: snapshotError } = await supabase
+      .from("report_card_snapshots")
+      .select("data_snapshot")
+      .eq("id", row.snapshot_id)
+      .eq("school_id", input.schoolId)
+      .maybeSingle();
+    if (snapshotError) throw new Error("Unable to load the selected learner report-card remark.");
+    remark = readSnapshotRemark(snapshot?.data_snapshot);
+  }
+
+  return mapStatusRow(row, remark);
 }
 
 export async function getReportCardStatusPage(input: {
@@ -137,7 +159,7 @@ export async function getReportCardStatusPage(input: {
   }
 
   return {
-    rows: rawRows.map(mapStatusRow),
+    rows: rawRows.map((row) => mapStatusRow(row)),
     totalCount,
     page: safePage,
     pageSize,
