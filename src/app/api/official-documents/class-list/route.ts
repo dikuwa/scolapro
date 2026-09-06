@@ -17,6 +17,20 @@ function safeFilePart(value: string): string {
     .slice(0, 60) || "class";
 }
 
+function exportErrorResponse(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+
+  if (message === "This class list exceeds the supported official export size.") {
+    return Response.json({ error: message }, { status: 413 });
+  }
+
+  console.error("official class-list export failed", error);
+  return Response.json(
+    { error: "Unable to generate the official class list." },
+    { status: 500, headers: { "Cache-Control": "no-store" } },
+  );
+}
+
 async function loadStoredLogoBytes(storagePath: string, signedUrl: string): Promise<Uint8Array | null> {
   if (!storagePath || !signedUrl) return null;
   const response = await fetch(signedUrl, { cache: "no-store" });
@@ -63,7 +77,7 @@ export async function GET(request: Request) {
       sex: learner.sex,
       status: learner.status,
     }));
-    const fileBase = `${safeFilePart(roster.registerClass)}-${academicYear}-class-list`;
+    const fileBase = `${safeFilePart(roster.grade)}-${safeFilePart(roster.registerClass)}-${academicYear}-class-list`;
 
     if (format === "pdf") {
       // Only fetch a server-managed stored logo. A legacy/external logo URL is
@@ -87,6 +101,7 @@ export async function GET(request: Request) {
           "Content-Disposition": `attachment; filename="${fileBase}.pdf"`,
           "Cache-Control": "private, no-store, max-age=0",
           "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "no-referrer",
           "X-ScolaPro-Page-Count": String(rendered.pageCount),
         },
       });
@@ -109,10 +124,10 @@ export async function GET(request: Request) {
         "Content-Disposition": `inline; filename="${fileBase}.html"`,
         "Cache-Control": "private, no-store, max-age=0",
         "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to generate the official class list.";
-    return Response.json({ error: message }, { status: 500 });
+    return exportErrorResponse(error);
   }
 }
