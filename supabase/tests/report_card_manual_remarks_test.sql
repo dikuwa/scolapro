@@ -54,7 +54,7 @@ select is(
 );
 
 select is(
-  (select actor_user_id from public.audit_events where event_type='report_card.remark.saved' and entity_id='fb400000-0000-4000-8000-000000000001' order by created_at desc limit 1),
+  (select actor_user_id from public.audit_events where event_type='report_card.remark.saved' and entity_id='fb400000-0000-4000-8000-000000000001' limit 1),
   'fb000000-0000-4000-8000-000000000001'::uuid,
   'remark audit event preserves the authenticated actor'
 );
