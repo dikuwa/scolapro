@@ -26,7 +26,7 @@ export default async function LateArrivalsPage() {
 
   return (
     <AppShell>
-      <div className="space-y-5"><div><h1 className="scolapro-page-title text-xl">Late arrivals</h1><p className="mt-1 text-sm text-muted-foreground">School morning late-coming and Friday detention follow-up. These records do not change Ministry attendance statistics.</p></div><LateArrivalWorkspace learners={workspace.learners} detention={workspace.detention} today={today} /></div>
+      <div className="space-y-5"><div><h1 className="scolapro-page-title text-xl">Late arrivals</h1><p className="mt-1 text-sm text-muted-foreground">School morning late-coming and Friday detention follow-up. These records do not change Ministry attendance statistics.</p></div><LateArrivalWorkspace learners={workspace.learners} detention={workspace.detention} history={workspace.history} today={today} /></div>
     </AppShell>
   );
 }

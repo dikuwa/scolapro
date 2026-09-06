@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type StaffDirectoryRow = {
   id: string;
+  assignmentId: string | null;
   staffId: string | null;
   name: string;
   employeeNumber: string | null;
@@ -9,6 +10,9 @@ export type StaffDirectoryRow = {
   activeFrom: string;
   activeTo: string | null;
   hasAccount: boolean;
+  staffCode: string | null;
+  defaultRoomId: string | null;
+  defaultRoomLabel: string | null;
 };
 
 function relationValue<T>(value: T[] | T | null | undefined): T | null {
@@ -20,7 +24,7 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
   const [assignmentsResult, membershipsResult] = await Promise.all([
     supabase
       .from("staff_school_assignments")
-      .select("id,assignment_type,position_title,effective_from,effective_to,staff_member_id,staff_members(id,employee_number,first_name,last_name)")
+      .select("id,assignment_type,position_title,effective_from,effective_to,staff_member_id,staff_code,default_room_id,school_rooms(room_code,display_name),staff_members(id,employee_number,first_name,last_name)")
       .eq("school_id", schoolId)
       .order("effective_from", { ascending: false }),
     supabase
@@ -35,9 +39,11 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
   const rows = new Map<string, StaffDirectoryRow>();
   for (const assignment of assignmentsResult.data ?? []) {
     const staff = relationValue(assignment.staff_members);
+    const room = relationValue(assignment.school_rooms);
     if (!staff) continue;
     rows.set(staff.id, {
       id: assignment.id,
+      assignmentId: assignment.id,
       staffId: staff.id,
       name: [staff.first_name, staff.last_name].filter(Boolean).join(" "),
       employeeNumber: staff.employee_number,
@@ -45,6 +51,9 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
       activeFrom: assignment.effective_from,
       activeTo: assignment.effective_to,
       hasAccount: false,
+      staffCode: assignment.staff_code,
+      defaultRoomId: assignment.default_room_id,
+      defaultRoomLabel: room ? `${room.room_code} · ${room.display_name}` : null,
     });
   }
 
@@ -61,6 +70,7 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
     }
     rows.set(key, {
       id: membership.id,
+      assignmentId: null,
       staffId: staff?.id ?? null,
       name: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Linked school user",
       employeeNumber: staff?.employee_number ?? null,
@@ -68,6 +78,9 @@ export async function getSchoolStaffDirectory(schoolId: string): Promise<StaffDi
       activeFrom: membership.active_from,
       activeTo: membership.active_to,
       hasAccount: Boolean(membership.user_id),
+      staffCode: null,
+      defaultRoomId: null,
+      defaultRoomLabel: null,
     });
   }
 

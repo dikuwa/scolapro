@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { claimGuardianProfile, type ParentPortalActionState } from "@/features/parents/server/actions";
-import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentMessage, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
+import { ParentAbsenceNotices } from "@/features/parents/parent-absence-notices";
+import type { ClaimableGuardianProfile, ParentAbsenceNotice, ParentChildSummary, ParentInvoice, ParentMessage, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
 
 const initialState: ParentPortalActionState = {};
 
@@ -40,7 +41,7 @@ function ParentMessages({ messages }: { messages: ParentMessage[] }) {
   </section>;
 }
 
-export function ParentPortal({ familyChildren, reports, documents, invoices, payments, messages, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; messages: ParentMessage[]; claimable: ClaimableGuardianProfile[] }) {
+export function ParentPortal({ familyChildren, reports, documents, invoices, payments, messages, claimable, absenceNotices }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; messages: ParentMessage[]; claimable: ClaimableGuardianProfile[]; absenceNotices: ParentAbsenceNotice[] }) {
   const [state, claimAction, pending] = useActionState(claimGuardianProfile, initialState);
   const [selectedLearnerId, setSelectedLearnerId] = useState(familyChildren[0]?.learnerId ?? "");
 
@@ -123,6 +124,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
       </section>
     </> : null}
 
+    <ParentAbsenceNotices children={familyChildren} notices={absenceNotices} />
     <ParentMessages messages={messages} />
   </div>;
 }

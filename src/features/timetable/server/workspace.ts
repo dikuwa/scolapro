@@ -3,13 +3,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export type TimetableWorkspace = {
   grades: { id: string; name: string }[];
   classes: { id: string; name: string; gradeId: string; gradeName: string }[];
-  staff: { id: string; name: string; employeeNumber: string | null }[];
+  staff: { id: string; name: string; employeeNumber: string | null; staffCode: string | null; defaultRoomId: string | null }[];
   subjects: { id: string; code: string; name: string }[];
   offerings: { id: string; subjectId: string; subjectName: string; gradeId: string; gradeName: string; periodsPerCycle: number }[];
-  allocations: { id: string; offeringId: string; classId: string; className: string; staffId: string; staffName: string; subjectName: string; gradeName: string }[];
+  allocations: { id: string; offeringId: string; classId: string; className: string; staffId: string; staffName: string; staffCode: string | null; defaultRoomId: string | null; subjectName: string; gradeName: string }[];
   periods: { id: string; number: number; name: string; startsAt: string | null; endsAt: string | null; isTeaching: boolean }[];
   rooms: { id: string; code: string; name: string; block: string | null; capacity: number | null }[];
-  slots: { id: string; cycle: string; weekday: number; periodId: string; periodName: string; periodNumber: number; classId: string; className: string; allocationId: string; staffId: string; staffName: string; subjectName: string; roomId: string | null; roomLabel: string | null }[];
+  slots: { id: string; cycle: string; weekday: number; periodId: string; periodName: string; periodNumber: number; classId: string; className: string; allocationId: string; staffId: string; staffName: string; staffCode: string | null; subjectName: string; roomId: string | null; roomLabel: string | null }[];
 };
 
 function one<T>(value: T[] | T | null | undefined): T | null {
@@ -22,7 +22,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("grade_code"),
     supabase.from("register_classes").select("id,display_name,grade_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("school_memberships").select("staff_member_id,active_from,active_to,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
-    supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
+    supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to,staff_code,default_room_id,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
     supabase.from("subjects").select("id,subject_code,display_name").eq("school_id", schoolId).eq("status", "active").order("display_name"),
     supabase.from("subject_offerings").select("id,subject_id,grade_id,periods_per_cycle,subjects(display_name),grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,subject_offerings(subjects(display_name),grades(display_name)),register_classes(display_name),staff_members(first_name,last_name)").eq("school_id", schoolId).eq("academic_year", academicYear).is("active_to", null),
@@ -35,10 +35,11 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
   if (error) throw new Error("Unable to load timetable workspace.");
 
   const today = new Date().toISOString().slice(0, 10);
-  const staffMap = new Map<string, { id: string; name: string; employeeNumber: string | null }>();
-  const addStaff = (staff: { id: string; first_name: string; last_name: string; employee_number: string | null; status: string } | null) => {
+  const staffMap = new Map<string, { id: string; name: string; employeeNumber: string | null; staffCode: string | null; defaultRoomId: string | null }>();
+  const addStaff = (staff: { id: string; first_name: string; last_name: string; employee_number: string | null; status: string } | null, staffCode: string | null = null, defaultRoomId: string | null = null) => {
     if (!staff || staff.status !== "active") return;
-    staffMap.set(staff.id, { id: staff.id, name: [staff.first_name, staff.last_name].filter(Boolean).join(" "), employeeNumber: staff.employee_number });
+    const existing = staffMap.get(staff.id);
+    staffMap.set(staff.id, { id: staff.id, name: [staff.first_name, staff.last_name].filter(Boolean).join(" "), employeeNumber: staff.employee_number, staffCode: staffCode ?? existing?.staffCode ?? null, defaultRoomId: defaultRoomId ?? existing?.defaultRoomId ?? null });
   };
 
   for (const membership of membershipsResult.data ?? []) {
@@ -47,7 +48,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
   }
   for (const assignment of staffAssignmentsResult.data ?? []) {
     if (assignment.effective_from > today || (assignment.effective_to && assignment.effective_to < today)) continue;
-    addStaff(one(assignment.staff_members));
+    addStaff(one(assignment.staff_members), assignment.staff_code, assignment.default_room_id);
   }
 
   return {
@@ -62,7 +63,8 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
       const grade = offering ? one(offering.grades) : null;
       const classRow = one(item.register_classes);
       const staff = one(item.staff_members);
-      return { id: item.id, offeringId: item.subject_offering_id, classId: item.register_class_id, className: classRow?.display_name ?? "Class", staffId: item.staff_member_id, staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", subjectName: subject?.display_name ?? "Subject", gradeName: grade?.display_name ?? "Grade" };
+      const configured = staffMap.get(item.staff_member_id);
+      return { id: item.id, offeringId: item.subject_offering_id, classId: item.register_class_id, className: classRow?.display_name ?? "Class", staffId: item.staff_member_id, staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", staffCode: configured?.staffCode ?? null, defaultRoomId: configured?.defaultRoomId ?? null, subjectName: subject?.display_name ?? "Subject", gradeName: grade?.display_name ?? "Grade" };
     }),
     periods: (periodsResult.data ?? []).map((item) => ({ id: item.id, number: item.period_number, name: item.display_name, startsAt: item.starts_at, endsAt: item.ends_at, isTeaching: item.is_teaching_period })),
     rooms: (roomsResult.data ?? []).map((item) => ({ id: item.id, code: item.room_code, name: item.display_name, block: item.block_name, capacity: item.capacity })),
@@ -73,7 +75,8 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
       const staff = allocation ? one(allocation.staff_members) : null;
       const offering = allocation ? one(allocation.subject_offerings) : null;
       const subject = offering ? one(offering.subjects) : null;
-      return { id: item.id, cycle: item.cycle_code, weekday: item.weekday, periodId: item.period_id, periodName: period?.display_name ?? "Period", periodNumber: period?.period_number ?? 0, classId: item.register_class_id, className: classRow?.display_name ?? "Class", allocationId: item.teacher_allocation_id, staffId: allocation?.staff_member_id ?? "", staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", subjectName: subject?.display_name ?? "Subject", roomId: item.room_id, roomLabel: item.room_label };
+      const configured = allocation?.staff_member_id ? staffMap.get(allocation.staff_member_id) : null;
+      return { id: item.id, cycle: item.cycle_code, weekday: item.weekday, periodId: item.period_id, periodName: period?.display_name ?? "Period", periodNumber: period?.period_number ?? 0, classId: item.register_class_id, className: classRow?.display_name ?? "Class", allocationId: item.teacher_allocation_id, staffId: allocation?.staff_member_id ?? "", staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", staffCode: configured?.staffCode ?? null, subjectName: subject?.display_name ?? "Subject", roomId: item.room_id, roomLabel: item.room_label };
     }),
   };
 }

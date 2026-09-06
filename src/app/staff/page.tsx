@@ -1,10 +1,10 @@
 import { BadgeCheck, UserRoundCheck, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { StaffConfigurationList } from "@/features/staff/staff-configuration-list";
 import { getSchoolStaffDirectory } from "@/features/staff/server/directory";
+import { listSchoolRooms } from "@/features/timetable/server/rooms";
 import { getUserContext } from "@/lib/auth/get-user-context";
-
-function humanRole(value: string) { return value.replaceAll("_", " "); }
 
 export default async function StaffPage() {
   const context = await getUserContext();
@@ -12,7 +12,8 @@ export default async function StaffPage() {
   const membership = context.memberships[0];
   if (!membership) redirect("/");
 
-  const rows = await getSchoolStaffDirectory(membership.schoolId);
+  const [rows, rooms] = await Promise.all([getSchoolStaffDirectory(membership.schoolId), listSchoolRooms(membership.schoolId)]);
+  const canManage = membership.roleKey === "school_admin";
   const today = new Date().toISOString().slice(0, 10);
   const activeCount = rows.filter((row) => row.activeFrom <= today && (!row.activeTo || row.activeTo >= today)).length;
   const accountCount = rows.filter((row) => row.hasAccount).length;
@@ -28,7 +29,7 @@ export default async function StaffPage() {
         </div>
         <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
           <div className="mb-4 border-b border-border-subtle pb-4"><h2 className="scolapro-section-title">School staff</h2><p className="scolapro-section-description">Placement describes who works at the school; account roles describe what an invited user may do in ScolaPro.</p></div>
-          {rows.length ? <div className="divide-y divide-border-subtle">{rows.map((row) => <article key={row.id} className="grid gap-3 py-3 first:pt-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.7fr)_auto] sm:items-center"><div className="min-w-0"><p className="scolapro-record-title truncate">{row.name}</p><p className="mt-0.5 text-xs text-muted-foreground">{row.employeeNumber ? `Employee ${row.employeeNumber}` : "Employee number not set"} · {row.hasAccount ? "Account linked" : "No login account yet"}</p></div><div className="flex flex-wrap gap-1.5">{row.labels.map((label)=><span key={label} className="inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-[color:var(--accent-indigo-soft)] px-2.5 py-1.5 text-xs font-medium capitalize text-[color:var(--accent-indigo)]"><BadgeCheck className="size-3.5" aria-hidden="true" />{humanRole(label)}</span>)}</div><p className="text-xs tabular-nums text-muted-foreground">From {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(row.activeFrom))}</p></article>)}</div> : <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center"><p className="text-sm font-medium">No school staff linked yet</p><p className="mt-1 text-xs text-muted-foreground">Import staff or use Invitations to add the first school staff member.</p></div>}
+          <StaffConfigurationList rows={rows} rooms={rooms} canManage={canManage} />
         </section>
       </section>
     </AppShell>

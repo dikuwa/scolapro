@@ -79,7 +79,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
               <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
               <Picker label="Subject offering" name="offeringId" value={allocationOfferingId} onChange={(value) => { setAllocationOfferingId(value); setAllocationClassId(""); }} placeholder="Choose subject and grade" options={workspace.offerings.map((item) => ({ value: item.id, label: item.subjectName, helper: `${item.gradeName} · ${item.periodsPerCycle} periods/cycle` }))} />
               <Picker label="Register class" name="classId" value={allocationClassId} onChange={setAllocationClassId} placeholder="Choose class" options={allocationClassOptions.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }))} />
-              <Picker label="Teacher" name="staffId" value={allocationStaffId} onChange={setAllocationStaffId} placeholder="Choose staff member" options={workspace.staff.map((item) => ({ value: item.id, label: item.name, helper: item.employeeNumber ? `Employee ${item.employeeNumber}` : undefined }))} />
+              <Picker label="Teacher" name="staffId" value={allocationStaffId} onChange={setAllocationStaffId} placeholder="Choose staff member" options={workspace.staff.map((item) => ({ value: item.id, label: item.name, helper: [item.staffCode, item.employeeNumber ? `Employee ${item.employeeNumber}` : null].filter(Boolean).join(" · ") || undefined }))} />
               <div className="flex items-end"><SubmitButton pending={allocationPending} label="Assign teacher" /></div>
             </form>
           </section>
@@ -104,7 +104,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
               <Picker label="Day" name="weekday" value={slotDay} onChange={setSlotDay} placeholder="Choose day" options={weekdayNames.map((day, index) => ({ value: String(index + 1), label: day }))} />
               <Picker label="Period" name="periodId" value={slotPeriodId} onChange={setSlotPeriodId} placeholder="Choose period" options={workspace.periods.filter((item) => item.isTeaching).map((item) => ({ value: item.id, label: item.name, helper: item.startsAt && item.endsAt ? `${item.startsAt.slice(0,5)}–${item.endsAt.slice(0,5)}` : undefined }))} />
               <Picker label="Class" name="classId" value={slotClassId} onChange={(value) => { setSlotClassId(value); setSlotAllocationId(""); }} placeholder="Choose class" options={workspace.classes.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }))} />
-              <Picker label="Teacher allocation" name="allocationId" value={slotAllocationId} onChange={setSlotAllocationId} placeholder="Choose subject and teacher" options={slotAllocationOptions.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.staffName}`, helper: item.className }))} />
+              <Picker label="Teacher allocation" name="allocationId" value={slotAllocationId} onChange={(value) => { setSlotAllocationId(value); const allocation=workspace.allocations.find((item)=>item.id===value); setSlotRoomId(allocation?.defaultRoomId ?? ""); }} placeholder="Choose subject and teacher" options={slotAllocationOptions.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.staffCode ?? item.staffName}`, helper: item.staffCode ? `${item.staffName} · ${item.className}` : item.className }))} />
               <Picker label="Room" name="roomId" value={slotRoomId} onChange={setSlotRoomId} placeholder="No room" options={[{ value: "", label: "No room" }, ...workspace.rooms.map((item) => ({ value: item.id, label: item.name, helper: [item.code, item.block, item.capacity ? `${item.capacity} seats` : null].filter(Boolean).join(" · ") }))]} />
               <SubmitButton pending={slotPending} label="Add slot" />
             </form>
@@ -129,7 +129,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
                     <article key={slot.id} className="rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]">
                       <div className="flex items-center justify-between gap-2"><span className="text-[0.68rem] font-medium text-brand-strong">{slot.periodName}</span>{slot.roomLabel ? <span className="text-[0.64rem] text-muted-foreground">{slot.roomLabel}</span> : null}</div>
                       <p className="mt-1 scolapro-record-title">{slot.subjectName}</p>
-                      <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{slot.className} · {slot.staffName}</p>
+                      <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{slot.className} · {slot.staffCode ?? slot.staffName}{slot.roomLabel ? ` · ${slot.roomLabel}` : ""}</p>
                       <Link href={`/attendance/lesson/${slot.id}`} className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1.5 text-[0.68rem] font-semibold text-brand-strong transition hover:bg-brand-soft/70"><ClipboardCheck className="size-3.5" aria-hidden="true" />Take attendance</Link>
                     </article>
                   )) : <p className="py-4 text-center text-[0.68rem] text-muted-foreground">No lessons</p>}

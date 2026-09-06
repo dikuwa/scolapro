@@ -77,6 +77,8 @@ export type ClaimableGuardianProfile = {
   displayName: string;
 };
 
+export type ParentAbsenceNotice = { id: string; learnerId: string; absenceFrom: string; absenceTo: string; reasonCategory: string; message: string | null; status: string; reviewNote: string | null; createdAt: string; attachments: { id: string; fileName: string }[] };
+
 function record(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
@@ -219,6 +221,10 @@ export async function getParentPortalData() {
     deliveredAt: row.delivered_at,
   }));
 
+  const { data: noticeData, error: noticeError } = await supabase.from("guardian_absence_notices").select("id,learner_id,absence_from,absence_to,reason_category,message,status,review_note,created_at,guardian_absence_notice_attachments(id,file_name)").order("created_at", { ascending: false });
+  if (noticeError) throw new Error("Unable to load absence notices.");
+  const absenceNotices: ParentAbsenceNotice[] = (noticeData ?? []).map((row) => ({ id: row.id, learnerId: row.learner_id, absenceFrom: row.absence_from, absenceTo: row.absence_to, reasonCategory: row.reason_category, message: row.message, status: row.status, reviewNote: row.review_note, createdAt: row.created_at, attachments: (row.guardian_absence_notice_attachments ?? []).map((attachment) => ({ id: attachment.id, fileName: attachment.file_name })) }));
+
   const { data: claimableData, error: claimableError } = await supabase.rpc("find_claimable_guardian_profiles");
   if (claimableError) throw new Error("Unable to check guardian-account matches.");
   const claimable: ClaimableGuardianProfile[] = (claimableData ?? []).map((row: { guardian_id: string; tenant_id: string; display_name: string }) => ({
@@ -227,5 +233,5 @@ export async function getParentPortalData() {
     displayName: row.display_name,
   }));
 
-  return { children, reports, documents, invoices, payments, messages, claimable };
+  return { children, reports, documents, invoices, payments, messages, claimable, absenceNotices };
 }

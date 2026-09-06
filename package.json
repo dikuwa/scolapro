@@ -36,6 +36,8 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
+    "@trigger.dev/build": "^4.5.16",
+    "@trigger.dev/sdk": "^4.5.16",
     "@types/node": "^22.18.1",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",

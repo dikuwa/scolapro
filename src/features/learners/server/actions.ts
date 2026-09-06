@@ -6,6 +6,14 @@ import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+function isValidIsoDate(value: string) {
+  if (!value) return true;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+  return date.getFullYear() === Number(match[1]) && date.getMonth() === Number(match[2]) - 1 && date.getDate() === Number(match[3]);
+}
+
 const registrationSchema = z.object({
   schoolId: z.string().uuid(),
   academicYear: z.coerce.number().int().min(2000).max(2200),
@@ -14,7 +22,7 @@ const registrationSchema = z.object({
   firstNames: z.string().trim().min(1, "First names are required."),
   surname: z.string().trim().min(1, "Surname is required."),
   preferredName: z.string().trim().optional(),
-  dateOfBirth: z.string().optional(),
+  dateOfBirth: z.string().refine(isValidIsoDate, "Enter a valid date of birth.").refine((value) => !value || value <= new Date().toISOString().slice(0, 10), "Date of birth cannot be in the future.").optional(),
   sex: z.enum(["female", "male", "other", "unspecified"]),
   admissionNumber: z.string().trim().optional(),
   enrolledFrom: z.string().min(1, "Admission date is required."),

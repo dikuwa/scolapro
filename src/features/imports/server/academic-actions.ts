@@ -3,24 +3,19 @@
 import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { parseCsv } from "@/features/imports/server/learner-csv";
+import { isSupportedImportFile, parseImportFile } from "@/features/imports/server/import-file";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-function validCsvFile(value: FormDataEntryValue | null): value is File {
-  return value instanceof File && value.name.toLowerCase().endsWith(".csv") && value.size > 0 && value.size <= 2_000_000;
-}
-
 export async function stageAcademicStructureCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  if (!isSupportedImportFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+XLSX+file+up+to+2MB");
 
   const context = await getUserContext();
   const membership = context.memberships[0];
   if (!context.user || !membership || membership.roleKey !== "school_admin") redirect("/school/imports?error=School+administrator+access+is+required");
 
-  const text = await file.text();
-  const parsedRows = parseCsv(text);
+  const { rows: parsedRows, sourceBytes } = await parseImportFile(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+academic+structure+rows+were+found");
 
   const currentYear = new Date().getFullYear();
@@ -63,7 +58,7 @@ export async function stageAcademicStructureCsv(formData: FormData) {
   });
 
   const supabase = await createSupabaseServerClient();
-  const digest = createHash("sha256").update(text).digest("hex");
+  const digest = createHash("sha256").update(sourceBytes).digest("hex");
   const { data: batchId, error: batchError } = await supabase.rpc("create_import_batch", {
     p_school_id: membership.schoolId,
     p_import_type: "academic_structure",

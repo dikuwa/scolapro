@@ -19,6 +19,7 @@ export type LateDetentionItem = {
   status: string;
   weekStart: string;
 };
+export type LateDetentionHistoryItem={id:string;learnerId:string;learnerName:string;lateCount:number;dueOn:string;status:string;completedAt:string|null;resolutionNote:string|null;sessionCount:number;latestSessionDate:string|null;latestOutcome:string|null};
 
 function currentWeekRange() {
   const now = new Date();
@@ -37,10 +38,11 @@ export async function getLateArrivalWorkspace(schoolId: string, academicYear: nu
   const { data: enrolments } = await supabase.from("enrolments").select("id,learner_id,admission_number,register_class_id").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "current");
   const learnerIds = (enrolments ?? []).map((item) => item.learner_id);
   const classIds = (enrolments ?? []).map((item) => item.register_class_id);
-  const [{ data: learners }, { data: classes }, { data: obligations }, { data: weekEvents }] = await Promise.all([
+  const [{ data: learners }, { data: classes }, { data: obligations }, { data: historyRows }, { data: weekEvents }] = await Promise.all([
     learnerIds.length ? supabase.from("learners").select("id,first_names,surname").in("id", learnerIds) : Promise.resolve({ data: [] }),
     classIds.length ? supabase.from("register_classes").select("id,display_name").in("id", classIds) : Promise.resolve({ data: [] }),
-    supabase.from("late_detention_obligations").select("id,learner_id,qualifying_week_start,qualifying_late_count,due_on,status").eq("school_id", schoolId).in("status", ["pending", "carried_forward"]).order("due_on"),
+    supabase.from("late_detention_open_queue").select("id,learner_id,qualifying_week_start,qualifying_late_count,due_on,status").eq("school_id", schoolId).order("due_on"),
+    supabase.from("late_detention_history").select("id,learner_id,qualifying_late_count,due_on,status,completed_at,resolution_note,detention_session_count,latest_session_date,latest_recorded_outcome").eq("school_id",schoolId).order("due_on",{ascending:false}).limit(100),
     supabase.from("school_late_arrival_events").select("learner_id,arrival_date").eq("school_id", schoolId).gte("arrival_date", monday).lte("arrival_date", friday).order("arrival_date", { ascending: false }),
   ]);
 
@@ -77,5 +79,6 @@ export async function getLateArrivalWorkspace(schoolId: string, academicYear: nu
     weekStart: item.qualifying_week_start,
   }));
 
-  return { learners: roster, detention };
+  const history:LateDetentionHistoryItem[]=(historyRows??[]).map((item)=>({id:item.id,learnerId:item.learner_id,learnerName:names.get(item.learner_id)??"Learner",lateCount:item.qualifying_late_count,dueOn:item.due_on,status:item.status,completedAt:item.completed_at,resolutionNote:item.resolution_note,sessionCount:Number(item.detention_session_count??0),latestSessionDate:item.latest_session_date,latestOutcome:item.latest_recorded_outcome}));
+  return { learners: roster, detention, history };
 }

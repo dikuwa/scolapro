@@ -3,7 +3,8 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createHash } from "node:crypto";
-import { parseCsv, normalizeSex } from "@/features/imports/server/learner-csv";
+import { normalizeSex } from "@/features/imports/server/learner-csv";
+import { isSupportedImportFile, parseImportFile } from "@/features/imports/server/import-file";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -14,17 +15,12 @@ async function requireSchoolAdmin() {
   return membership;
 }
 
-function validCsvFile(value: FormDataEntryValue | null): value is File {
-  return value instanceof File && value.name.toLowerCase().endsWith(".csv") && value.size > 0 && value.size <= 2_000_000;
-}
-
 export async function stageLearnerCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  if (!isSupportedImportFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+XLSX+file+up+to+2MB");
   const membership = await requireSchoolAdmin();
 
-  const text = await file.text();
-  const parsedRows = parseCsv(text);
+  const { rows: parsedRows, sourceBytes } = await parseImportFile(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+learner+rows+were+found");
   const supabase = await createSupabaseServerClient();
   const year = new Date().getFullYear();
@@ -60,11 +56,11 @@ export async function stageLearnerCsv(formData: FormData) {
     return { row_number: index + 2, source: row, normalized, resolution: issues.some((issue) => issue.level === "error") ? "error" : "create", issues };
   });
 
-  const digest = createHash("sha256").update(text).digest("hex");
+  const digest = createHash("sha256").update(sourceBytes).digest("hex");
   const { data: batchId, error: batchError } = await supabase.rpc("create_import_batch", { p_school_id: membership.schoolId, p_import_type: "learners", p_source_file_name: file.name, p_source_file_sha256: digest });
   if (batchError || !batchId) redirect("/school/imports?error=Import+batch+could+not+be+created");
   const { error: rowsError } = await supabase.rpc("stage_import_rows", { p_batch_id: batchId, p_rows: staged });
-  if (rowsError) redirect("/school/imports?error=CSV+rows+could+not+be+staged");
+  if (rowsError) redirect("/school/imports?error=Import+rows+could+not+be+staged");
   const { error: reconcileError } = await supabase.rpc("reconcile_learner_import_batch", { p_batch_id: batchId });
   if (reconcileError) redirect(`/school/imports?batch=${batchId}&error=Rows+were+staged+but+reconciliation+could+not+finish`);
   revalidatePath("/school/imports");
@@ -73,10 +69,9 @@ export async function stageLearnerCsv(formData: FormData) {
 
 export async function stageStaffCsv(formData: FormData) {
   const file = formData.get("file");
-  if (!validCsvFile(file)) redirect("/school/imports?error=Choose+a+CSV+file+up+to+2MB");
+  if (!isSupportedImportFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+XLSX+file+up+to+2MB");
   const membership = await requireSchoolAdmin();
-  const text = await file.text();
-  const parsedRows = parseCsv(text);
+  const { rows: parsedRows, sourceBytes } = await parseImportFile(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+staff+rows+were+found");
 
   const today = new Date().toISOString().slice(0, 10);
@@ -103,11 +98,11 @@ export async function stageStaffCsv(formData: FormData) {
   });
 
   const supabase = await createSupabaseServerClient();
-  const digest = createHash("sha256").update(text).digest("hex");
+  const digest = createHash("sha256").update(sourceBytes).digest("hex");
   const { data: batchId, error: batchError } = await supabase.rpc("create_import_batch", { p_school_id: membership.schoolId, p_import_type: "staff", p_source_file_name: file.name, p_source_file_sha256: digest });
   if (batchError || !batchId) redirect("/school/imports?error=Staff+import+batch+could+not+be+created");
   const { error: rowsError } = await supabase.rpc("stage_import_rows", { p_batch_id: batchId, p_rows: staged });
-  if (rowsError) redirect(`/school/imports?batch=${batchId}&error=Staff+CSV+rows+could+not+be+staged`);
+  if (rowsError) redirect(`/school/imports?batch=${batchId}&error=Staff+rows+could+not+be+staged`);
   const { error: reconcileError } = await supabase.rpc("reconcile_staff_import_batch", { p_batch_id: batchId });
   if (reconcileError) redirect(`/school/imports?batch=${batchId}&error=Staff+rows+were+staged+but+reconciliation+could+not+finish`);
   revalidatePath("/school/imports");
