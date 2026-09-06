@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, KeyRound, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { changePassword, deleteAvatar, saveUploadedAvatar, type ProfileActionState } from "@/features/profile/server/actions";
+import { prepareAvatarUpload } from "@/features/profile/server/avatar-upload";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -12,10 +13,12 @@ const initialState: ProfileActionState = {};
 const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxAvatarBytes = 3 * 1024 * 1024;
 
-function avatarExtension(contentType: string) {
-  if (contentType === "image/png") return "png";
-  if (contentType === "image/webp") return "webp";
-  return "jpg";
+function avatarUploadMessage(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("expired") || normalized.includes("token")) return "The photo upload authorization expired. Choose the image again and retry.";
+  if (normalized.includes("payload") || normalized.includes("size") || normalized.includes("too large")) return "The photo is too large for storage. Choose an image up to 3 MB.";
+  if (normalized.includes("mime") || normalized.includes("content type") || normalized.includes("media type")) return "Storage rejected this image type. Use JPG, PNG or WebP.";
+  return `The photo upload did not complete: ${message}`;
 }
 
 export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { avatarUrl: string | null; userId: string; mustChangePassword: boolean }) {
@@ -75,31 +78,37 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
 
     setAvatarUploading(true);
     const supabase = createSupabaseBrowserClient();
-    const path = `${userId}/avatar-${Date.now()}-${crypto.randomUUID()}.${avatarExtension(file.type)}`;
 
     try {
-      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
-        contentType: file.type,
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-      if (uploadError) {
-        console.error("Avatar browser upload failed", { statusCode: uploadError.statusCode, error: uploadError.message });
-        toast.error(uploadError.message.toLowerCase().includes("row-level security")
-          ? "Your session is not allowed to upload this photo. Sign in again and retry."
-          : "The photo storage service rejected the upload. Please try again.");
+      const ticket = await prepareAvatarUpload(file.type);
+      if (!ticket.success || !ticket.path || !ticket.token) {
+        console.error("Avatar signed upload ticket failed", { userId, message: ticket.message });
+        toast.error(ticket.message ?? "The photo upload could not be prepared. Try again.");
         return;
       }
 
-      const result = await saveUploadedAvatar(path);
+      const { error: uploadError } = await supabase.storage.from("avatars").uploadToSignedUrl(
+        ticket.path,
+        ticket.token,
+        file,
+        { contentType: file.type, cacheControl: "3600" },
+      );
+
+      if (uploadError) {
+        console.error("Avatar signed upload failed", { userId, statusCode: uploadError.statusCode, error: uploadError.message });
+        toast.error(avatarUploadMessage(uploadError.message));
+        return;
+      }
+
+      const result = await saveUploadedAvatar(ticket.path);
       if (!result.success) {
-        await supabase.storage.from("avatars").remove([path]);
+        const { error: cleanupError } = await supabase.storage.from("avatars").remove([ticket.path]);
+        if (cleanupError) console.warn("Unlinked avatar cleanup failed", { userId, error: cleanupError.message });
         toast.error(result.message ?? "The avatar could not be saved to your profile.");
         return;
       }
 
-      const publicUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+      const publicUrl = supabase.storage.from("avatars").getPublicUrl(ticket.path).data.publicUrl;
       setPreviewUrl((current) => {
         if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
         return `${publicUrl}?v=${Date.now()}`;
@@ -109,7 +118,7 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
       toast.success(result.message ?? "Profile photo updated.");
       router.refresh();
     } catch (error) {
-      console.error("Avatar upload failed unexpectedly", error);
+      console.error("Avatar upload failed unexpectedly", { userId, error });
       toast.error("The avatar upload could not be completed. Check your connection and try again.");
     } finally {
       setAvatarUploading(false);
@@ -122,8 +131,9 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
         <div className="flex items-center gap-2"><Camera className="size-4 text-brand-strong" aria-hidden="true" /><h2 className="scolapro-section-title">Profile photo</h2></div>
         <p className="scolapro-section-description">JPG, PNG or WebP. Maximum 3 MB. A local preview appears immediately before upload.</p>
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="size-20 shrink-0 overflow-hidden rounded-full bg-surface-muted">
+          <div className="relative size-20 shrink-0 overflow-hidden rounded-full bg-surface-muted">
             {previewUrl ? <img src={previewUrl} alt="Current profile" className="size-full object-cover" /> : <div className="grid size-full place-items-center text-xs font-medium text-muted-foreground">No photo</div>}
+            {avatarUploading ? <div className="absolute inset-0 grid place-items-center bg-black/35" aria-label="Uploading profile photo"><Spinner className="size-5 text-white" /></div> : null}
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
