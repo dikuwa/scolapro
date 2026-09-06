@@ -35,6 +35,31 @@ function text(value: unknown): string {
   return String(value).trim();
 }
 
+function normalizedSchoolName(value: unknown): string {
+  return text(value)
+    .toLowerCase()
+    .replaceAll("&", "and")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Repository-bundled branding is a last-resort fallback only. An explicit
+ * frozen logo_url or logo_storage_path from the document snapshot always wins.
+ * Keeping this resolver here makes known-school defaults reusable across all
+ * official document families without hard-coding a school inside a renderer.
+ */
+function bundledSchoolLogoUrl(schoolName: string): string {
+  switch (normalizedSchoolName(schoolName)) {
+    case "namib high school":
+    case "namib high":
+      return "/brand/schools/namib-high/crest.svg";
+    default:
+      return "";
+  }
+}
+
 /**
  * Canonical frozen school identity used by official generated documents.
  *
@@ -45,13 +70,16 @@ function text(value: unknown): string {
 export function buildSchoolDocumentProfile(input: BuildSchoolDocumentProfileInput): SchoolDocumentProfile {
   const identity = record(input.schoolIdentity);
   const profile = record(input.schoolDocumentProfile);
+  const schoolName = text(identity.name) || text(input.fallbackSchoolName);
+  const logoStoragePath = text(profile.logo_storage_path);
+  const explicitLogoUrl = text(profile.logo_url);
 
   return {
-    schoolName: text(identity.name) || text(input.fallbackSchoolName),
+    schoolName,
     schoolEmisNumber: text(identity.emis_number) || text(input.fallbackSchoolEmisNumber),
     formerName: text(profile.former_name),
-    logoUrl: text(profile.logo_url),
-    logoStoragePath: text(profile.logo_storage_path),
+    logoUrl: explicitLogoUrl || (logoStoragePath ? "" : bundledSchoolLogoUrl(schoolName)),
+    logoStoragePath,
     physicalAddress: text(profile.physical_address),
     telephone: text(profile.telephone || profile.phone),
     fax: text(profile.fax),
