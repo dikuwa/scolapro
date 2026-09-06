@@ -5,6 +5,7 @@ import {
   OFFICIAL_DOCUMENT_PDF_GEOMETRY,
   officialDocumentPdfContentWidth,
 } from "@/features/documents/server/official-document-chrome";
+import { drawOfficialDocumentPdfFooter } from "@/features/documents/server/official-document-pdf-footer";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import {
   OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
@@ -31,13 +32,10 @@ const {
   pageWidth: PAGE_WIDTH,
   pageHeight: PAGE_HEIGHT,
   margin: MARGIN,
-  metadataPrimaryBaselineY: META_PRIMARY_Y,
-  metadataSecondaryBaselineY: META_SECONDARY_Y,
 } = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
 const CONTENT_WIDTH = officialDocumentPdfContentWidth();
 const INK = rgb(0.08, 0.08, 0.08);
 const LINE = rgb(0.28, 0.28, 0.28);
-const MUTED = rgb(0.38, 0.38, 0.38);
 const TITLE_HEIGHT = 34;
 const TABLE_HEADER_HEIGHT = 20;
 const ROW_HEIGHT = 16;
@@ -123,10 +121,17 @@ export async function renderOfficialClassListPdf(
   const pages = pdf.getPages();
   pages.forEach((page, index) => {
     const totalLine = `Total learners: ${input.rows.length}${input.generatedAt ? ` | Generated ${officialDocumentPdfSafeText(input.generatedAt)}` : ""}`;
-    page.drawText(fitOfficialDocumentPdfText(regular, totalLine, 5.4, 360), { x: MARGIN, y: META_PRIMARY_Y, size: 5.4, font: regular, color: MUTED });
-    const pageText = `Page ${index + 1} of ${pages.length}`;
-    page.drawText(pageText, { x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(pageText, 5.4), y: META_PRIMARY_Y, size: 5.4, font: regular, color: MUTED });
-    page.drawText("ScolaPro official class list", { x: MARGIN, y: META_SECONDARY_Y, size: 5, font: regular, color: MUTED });
+    drawOfficialDocumentPdfFooter({
+      page,
+      font: regular,
+      pageNumber: index + 1,
+      pageCount: pages.length,
+      primaryLeft: totalLine,
+      secondaryLeft: "ScolaPro official class list",
+      primaryFontSize: 5.4,
+      secondaryFontSize: 5,
+      primaryLeftMaxWidth: 360,
+    });
   });
 
   return {
