@@ -22,7 +22,7 @@ insert into public.report_card_snapshots(
 
 select is(
   app_private.current_report_card_renderer_version(),
-  'SCOLAPRO_TERM_REPORT_RENDERER_V6'::text,
+  'SCOLAPRO_TERM_REPORT_RENDERER_V7'::text,
   'current renderer revision is explicit and independent from snapshot template version'
 );
 
@@ -59,7 +59,7 @@ reset role;
 select is(
   (select renderer_version from public.report_card_render_jobs
    where snapshot_id='fea10000-0000-4000-8000-000000000001' and renderer_version<>'SCOLAPRO_TERM_REPORT_RENDERER_LEGACY' limit 1),
-  'SCOLAPRO_TERM_REPORT_RENDERER_V6'::text,
+  'SCOLAPRO_TERM_REPORT_RENDERER_V7'::text,
   'governed queue stamps the current renderer revision'
 );
 
@@ -73,7 +73,7 @@ select is(
 select is(
   (select renderer_version from public.claim_report_card_render_jobs(10,'pdf')
    where snapshot_id='fea10000-0000-4000-8000-000000000001' limit 1),
-  'SCOLAPRO_TERM_REPORT_RENDERER_V6'::text,
+  'SCOLAPRO_TERM_REPORT_RENDERER_V7'::text,
   'worker claim ignores legacy pending jobs and takes the current revision'
 );
 
@@ -81,7 +81,7 @@ select lives_ok(
   $$select public.complete_report_card_render_job(
       (select id from public.report_card_render_jobs
        where snapshot_id='fea10000-0000-4000-8000-000000000001'
-         and renderer_version='SCOLAPRO_TERM_REPORT_RENDERER_V6'),
+         and renderer_version='SCOLAPRO_TERM_REPORT_RENDERER_V7'),
       'report-card-artifacts','revision-test/current.pdf',null,1
     )$$,
   'current renderer job completes into a durable artifact'
@@ -90,7 +90,7 @@ select lives_ok(
 select is(
   (select renderer_version from public.report_card_documents
    where snapshot_id='fea10000-0000-4000-8000-000000000001' and status='ready' order by created_at desc limit 1),
-  'SCOLAPRO_TERM_REPORT_RENDERER_V6'::text,
+  'SCOLAPRO_TERM_REPORT_RENDERER_V7'::text,
   'completed document preserves the renderer revision'
 );
 
