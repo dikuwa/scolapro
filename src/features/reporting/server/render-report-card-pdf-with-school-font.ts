@@ -1,14 +1,17 @@
 import "server-only";
 
-import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
+import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
 import {
   OFFICIAL_DOCUMENT_PDF_GEOMETRY,
   officialDocumentPdfContentWidth,
 } from "@/features/documents/server/official-document-chrome";
 import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
-import { loadOldEnglishFontBytes } from "@/features/reporting/server/report-card-fonts";
+import {
+  OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
+  createOfficialDocumentPdfResources,
+  drawOfficialDocumentPdfHeader,
+} from "@/features/documents/server/official-document-pdf-header";
 import { renderReportCardPdf } from "@/features/reporting/server/render-report-card-pdf";
 import {
   buildReportCardTemplateModel,
@@ -19,22 +22,12 @@ const {
   pageWidth: PAGE_WIDTH,
   pageHeight: PAGE_HEIGHT,
   margin: MARGIN,
-  logoColumnWidth: LOGO_WIDTH,
-  postalColumnWidth: POSTAL_WIDTH,
   metadataClearanceY: META_CLEAR_Y,
   metadataClearanceHeight: META_CLEAR_HEIGHT,
   metadataPrimaryBaselineY: META_PRIMARY_Y,
   metadataSecondaryBaselineY: META_SECONDARY_Y,
-  titleBaselineOffset: TITLE_BASELINE_OFFSET,
-  titleClearOffset: TITLE_CLEAR_OFFSET,
-  titleClearHeight: TITLE_CLEAR_HEIGHT,
 } = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
 const CONTENT_WIDTH = officialDocumentPdfContentWidth();
-const TITLE_X = MARGIN + LOGO_WIDTH;
-const TITLE_WIDTH = CONTENT_WIDTH - LOGO_WIDTH - POSTAL_WIDTH;
-const TITLE_BASELINE_Y = PAGE_HEIGHT - MARGIN - TITLE_BASELINE_OFFSET;
-const TITLE_CLEAR_Y = TITLE_BASELINE_Y - TITLE_CLEAR_OFFSET;
-const INK = rgb(0.08, 0.08, 0.08);
 const MUTED = rgb(0.38, 0.38, 0.38);
 
 function fitText(font: PDFFont, value: string, size: number, maxWidth: number): string {
@@ -57,7 +50,8 @@ export async function renderReportCardPdfWithSchoolFont(
   });
 
   const pdf = await PDFDocument.load(rendered.bytes);
-  const regular = await pdf.embedFont(StandardFonts.Helvetica);
+  const resources = await createOfficialDocumentPdfResources(pdf, header, input.logoBytes);
+  const { regular } = resources;
   const pages = pdf.getPages();
 
   pages.forEach((page, index) => {
@@ -98,33 +92,15 @@ export async function renderReportCardPdfWithSchoolFont(
     });
   });
 
-  if (header.schoolNameFont === "old_english") {
-    pdf.registerFontkit(fontkit);
-    const oldEnglish = await pdf.embedFont(await loadOldEnglishFontBytes(), { subset: true });
-    const page = pdf.getPage(0);
-
-    page.drawRectangle({
-      x: TITLE_X,
-      y: TITLE_CLEAR_Y,
-      width: TITLE_WIDTH,
-      height: TITLE_CLEAR_HEIGHT,
-      color: rgb(1, 1, 1),
-    });
-
-    let fontSize = 19;
-    const maxWidth = TITLE_WIDTH - 6;
-    while (fontSize > 12 && oldEnglish.widthOfTextAtSize(header.schoolName, fontSize) > maxWidth) {
-      fontSize -= 0.5;
-    }
-    const textWidth = oldEnglish.widthOfTextAtSize(header.schoolName, fontSize);
-    page.drawText(header.schoolName, {
-      x: TITLE_X + Math.max(3, (TITLE_WIDTH - textWidth) / 2),
-      y: TITLE_BASELINE_Y,
-      size: fontSize,
-      font: oldEnglish,
-      color: INK,
-    });
-  }
+  const firstPage = pdf.getPage(0);
+  firstPage.drawRectangle({
+    x: MARGIN - 1,
+    y: PAGE_HEIGHT - MARGIN - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT - 1,
+    width: CONTENT_WIDTH + 2,
+    height: OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT + 2,
+    color: rgb(1, 1, 1),
+  });
+  drawOfficialDocumentPdfHeader(firstPage, header, resources);
 
   return {
     bytes: await pdf.save(),
