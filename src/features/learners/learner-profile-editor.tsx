@@ -14,6 +14,14 @@ const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-bor
 const allowedPhotoTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxPhotoBytes = 5 * 1024 * 1024;
 
+function learnerPhotoUploadMessage(message: string) {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("expired") || normalized.includes("token")) return "The learner photo upload authorization expired. Choose the photo again and retry.";
+  if (normalized.includes("payload") || normalized.includes("size") || normalized.includes("too large")) return "Storage rejected the learner photo because it is too large. Choose an image up to 5 MB.";
+  if (normalized.includes("mime") || normalized.includes("content type") || normalized.includes("media type")) return "Storage rejected this learner photo type. Use JPG, PNG or WebP.";
+  return `The learner photo upload did not complete: ${message}`;
+}
+
 export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPhoto }: { learnerId: string; schoolId: string; preferredName: string | null; hasPhoto: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -66,6 +74,7 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
     if (hasSelectedPhoto) {
       const ticket = await prepareLearnerPhotoUpload(learnerId, schoolId, photo.type);
       if (!ticket.success || !ticket.path || !ticket.token) {
+        console.error("Learner photo upload ticket rejected", { learnerId, schoolId, message: ticket.message });
         const result: LearnerProfileState = {
           success: false,
           message: ticket.message ?? "Profile information was saved, but the learner photo upload could not be prepared. Try again.",
@@ -83,10 +92,10 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
       );
 
       if (uploadError) {
-        console.error("Learner photo signed upload failed", { statusCode: uploadError.statusCode, error: uploadError.message });
+        console.error("Learner photo signed upload failed", { learnerId, schoolId, statusCode: uploadError.statusCode, error: uploadError.message });
         const result: LearnerProfileState = {
           success: false,
-          message: "Profile information was saved, but the learner photo upload did not complete. The editor is staying open so you can retry.",
+          message: `Profile information was saved, but ${learnerPhotoUploadMessage(uploadError.message)}`,
         };
         toast.error(result.message);
         return result;
@@ -94,7 +103,8 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
 
       const photoResult = await saveUploadedLearnerPhoto(learnerId, schoolId, ticket.path);
       if (!photoResult.success) {
-        await supabase.storage.from("learner-photos").remove([ticket.path]);
+        const { error: cleanupError } = await supabase.storage.from("learner-photos").remove([ticket.path]);
+        if (cleanupError) console.warn("Unlinked learner photo cleanup failed", { learnerId, schoolId, error: cleanupError.message });
         const result: LearnerProfileState = { success: false, message: photoResult.message ?? "The learner photo could not be linked." };
         toast.error(result.message ?? "The learner photo could not be linked.");
         return result;
@@ -171,14 +181,19 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
             <div className="rounded-[var(--radius-sm)] bg-surface-muted p-3">
               <div className="flex items-center gap-2"><Camera className="size-4 text-muted-foreground" aria-hidden="true" /><p className="text-xs font-semibold">Profile photo</p></div>
               <div className="mt-3 flex flex-wrap items-center gap-3">
-                {selectedPhotoUrl ? <div className="size-14 shrink-0 overflow-hidden rounded-full border border-border-subtle bg-surface"><img src={selectedPhotoUrl} alt="Selected learner preview" className="size-full object-cover" /></div> : null}
+                {selectedPhotoUrl ? (
+                  <div className="relative size-14 shrink-0 overflow-hidden rounded-full border border-border-subtle bg-surface">
+                    <img src={selectedPhotoUrl} alt="Selected learner preview" className="size-full object-cover" />
+                    {pending ? <div className="absolute inset-0 grid place-items-center bg-black/35" aria-label="Saving learner photo"><Spinner className="size-4 text-white" /></div> : null}
+                  </div>
+                ) : null}
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium transition hover:border-border hover:bg-surface-elevated">
+                  <label className={`inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium transition ${pending ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:border-border hover:bg-surface-elevated"}`}>
                     <ImagePlus className="size-3.5" aria-hidden="true" />
                     {hasPhoto ? "Choose new photo" : "Add photo"}
-                    <input ref={fileRef} type="file" name="photo" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => handlePhotoSelection(event.target.files?.[0])} />
+                    <input ref={fileRef} type="file" name="photo" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={pending} onChange={(event) => handlePhotoSelection(event.target.files?.[0])} />
                   </label>
-                  {hasPhoto ? <button type="button" onClick={() => { setRemovePhoto((value) => !value); clearSelectedPhoto(); }} className={`inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] px-3 text-xs font-medium transition ${removePhoto ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]" : "text-muted-foreground hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]"}`}><Trash2 className="size-3.5" aria-hidden="true" />{removePhoto ? "Photo will be removed" : "Remove photo"}</button> : null}
+                  {hasPhoto ? <button type="button" disabled={pending} onClick={() => { setRemovePhoto((value) => !value); clearSelectedPhoto(); }} className={`inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] px-3 text-xs font-medium transition disabled:opacity-60 ${removePhoto ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]" : "text-muted-foreground hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]"}`}><Trash2 className="size-3.5" aria-hidden="true" />{removePhoto ? "Photo will be removed" : "Remove photo"}</button> : null}
                 </div>
               </div>
               {selectedPhoto ? <p className="mt-2 truncate text-[0.68rem] text-brand-strong">Selected: {selectedPhoto}</p> : null}

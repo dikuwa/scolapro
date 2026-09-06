@@ -9,27 +9,40 @@ const avatarPathPattern = /^([0-9a-f-]{36})\/avatar-[0-9]+-[0-9a-f-]{36}\.(jpg|p
 
 export async function saveUploadedAvatar(path: string): Promise<ProfileActionState> {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, message: "Sign in again before changing your avatar." };
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    if (userError) console.error("Avatar save authorization failed", { error: userError.message });
+    return { success: false, message: "Sign in again before changing your avatar." };
+  }
 
   const match = avatarPathPattern.exec(path);
-  if (!match || match[1] !== user.id) return { success: false, message: "The uploaded avatar path is invalid." };
+  if (!match || match[1] !== user.id) {
+    console.error("Avatar save rejected invalid path", { userId: user.id, path });
+    return { success: false, message: "The uploaded avatar path is invalid." };
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("avatar_path")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profileError) return { success: false, message: "Your profile could not be loaded." };
+  if (profileError) {
+    console.error("Avatar profile lookup failed", { userId: user.id, error: profileError.message, code: profileError.code });
+    return { success: false, message: "Your profile could not be loaded." };
+  }
 
   const { error: updateError } = await supabase
     .from("user_profiles")
     .update({ avatar_path: path, updated_at: new Date().toISOString() })
     .eq("user_id", user.id);
-  if (updateError) return { success: false, message: "The avatar could not be saved to your profile." };
+  if (updateError) {
+    console.error("Avatar profile link failed", { userId: user.id, path, error: updateError.message, code: updateError.code });
+    return { success: false, message: "The photo was uploaded, but it could not be linked to your profile." };
+  }
 
   if (profile?.avatar_path && profile.avatar_path !== path) {
-    await supabase.storage.from("avatars").remove([profile.avatar_path]);
+    const { error: cleanupError } = await supabase.storage.from("avatars").remove([profile.avatar_path]);
+    if (cleanupError) console.warn("Previous avatar cleanup failed", { userId: user.id, path: profile.avatar_path, error: cleanupError.message });
   }
 
   revalidatePath("/", "layout");
@@ -38,26 +51,38 @@ export async function saveUploadedAvatar(path: string): Promise<ProfileActionSta
 
 export async function deleteAvatar(): Promise<ProfileActionState> {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { success: false, message: "Sign in again before changing your avatar." };
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    if (userError) console.error("Avatar delete authorization failed", { error: userError.message });
+    return { success: false, message: "Sign in again before changing your avatar." };
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("avatar_path")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profileError) return { success: false, message: "Your profile could not be loaded." };
+  if (profileError) {
+    console.error("Avatar delete profile lookup failed", { userId: user.id, error: profileError.message, code: profileError.code });
+    return { success: false, message: "Your profile could not be loaded." };
+  }
 
   if (profile?.avatar_path) {
     const { error: removeError } = await supabase.storage.from("avatars").remove([profile.avatar_path]);
-    if (removeError) return { success: false, message: "The profile photo could not be removed from storage." };
+    if (removeError) {
+      console.error("Avatar storage delete failed", { userId: user.id, path: profile.avatar_path, error: removeError.message });
+      return { success: false, message: `The profile photo could not be removed from storage: ${removeError.message}` };
+    }
   }
 
   const { error: updateError } = await supabase
     .from("user_profiles")
     .update({ avatar_path: null, updated_at: new Date().toISOString() })
     .eq("user_id", user.id);
-  if (updateError) return { success: false, message: "The profile photo could not be cleared from your account." };
+  if (updateError) {
+    console.error("Avatar profile clear failed", { userId: user.id, error: updateError.message, code: updateError.code });
+    return { success: false, message: "The profile photo was removed from storage, but your account could not be updated." };
+  }
 
   revalidatePath("/", "layout");
   return { success: true, message: "Profile photo removed." };
