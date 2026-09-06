@@ -2,6 +2,10 @@ import "server-only";
 
 import { Buffer } from "node:buffer";
 import { applyOfficialDocumentHtmlChrome } from "@/features/documents/server/official-document-chrome";
+import {
+  escapeOfficialDocumentHtml,
+  renderOfficialDocumentHtmlHeader,
+} from "@/features/documents/server/official-document-html-header";
 import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import { loadOldEnglishFontBytes } from "@/features/reporting/server/report-card-fonts";
@@ -10,15 +14,6 @@ import {
   buildReportCardTemplateModel,
   type ReportCardRenderInput,
 } from "@/features/reporting/server/report-card-template-model";
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
 
 export async function renderReportCardHtmlWithSchoolFont(
   input: ReportCardRenderInput,
@@ -39,24 +34,12 @@ export async function renderReportCardHtmlWithSchoolFont(
       );
   }
 
-  const contactMarkup = header.contactLines
-    .map((line) => `<div><span>${escapeHtml(line.label)}:</span> ${escapeHtml(line.value)}</div>`)
-    .join("");
-  const sharedContactBlock = contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : "";
-  html = html.replace(
-    /<div class="school-contact">(?:<div>[\s\S]*?<\/div>)*<\/div>/,
-    sharedContactBlock,
-  );
-
-  const postalMarkup = header.postalLines.map((line) => `<div>${escapeHtml(line)}</div>`).join("");
-  const withSharedPostal = html.replace(
-    /<div class="postal">(?:<div>[\s\S]*?<\/div>)*<\/div>/,
-    `<div class="postal">${postalMarkup}</div>`,
-  );
-  if (withSharedPostal === html && postalMarkup) {
-    throw new Error("Report-card HTML renderer did not expose the expected school postal header block.");
+  const sharedHeader = renderOfficialDocumentHtmlHeader(header, input.logoBytes);
+  const withSharedHeader = html.replace(/<header class="school-header">[\s\S]*?<\/header>/, sharedHeader);
+  if (withSharedHeader === html) {
+    throw new Error("Report-card HTML renderer did not expose the expected school header block.");
   }
-  html = withSharedPostal;
+  html = withSharedHeader;
 
   const metadata = buildOfficialDocumentMetadata({
     snapshotVersion: model.snapshotVersion,
@@ -64,8 +47,8 @@ export async function renderReportCardHtmlWithSchoolFont(
     provenanceText: "Historical marks and report rules are frozen at generation.",
   });
   const footer = `<footer class="document-meta">
-    <span>${escapeHtml(metadata.snapshotLine)}</span>
-    <span>${escapeHtml(metadata.certificationLine)}</span>
+    <span>${escapeOfficialDocumentHtml(metadata.snapshotLine)}</span>
+    <span>${escapeOfficialDocumentHtml(metadata.certificationLine)}</span>
   </footer>`;
   const withSharedFooter = html.replace(/<footer class="document-meta">[\s\S]*?<\/footer>/, footer);
   if (withSharedFooter === html) {
