@@ -2,10 +2,8 @@ import "server-only";
 
 import { Buffer } from "node:buffer";
 import { applyOfficialDocumentHtmlChrome } from "@/features/documents/server/official-document-chrome";
-import {
-  escapeOfficialDocumentHtml,
-  renderOfficialDocumentHtmlHeader,
-} from "@/features/documents/server/official-document-html-header";
+import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
+import { renderOfficialDocumentHtmlHeader } from "@/features/documents/server/official-document-html-header";
 import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import { loadOldEnglishFontBytes } from "@/features/reporting/server/report-card-fonts";
@@ -46,10 +44,10 @@ export async function renderReportCardHtmlWithSchoolFont(
     certifiedAt: model.certifiedAt,
     provenanceText: "Historical marks and report rules are frozen at generation.",
   });
-  const footer = `<footer class="document-meta">
-    <span>${escapeOfficialDocumentHtml(metadata.snapshotLine)}</span>
-    <span>${escapeOfficialDocumentHtml(metadata.certificationLine)}</span>
-  </footer>`;
+  const footer = renderOfficialDocumentHtmlFooter({
+    left: metadata.snapshotLine,
+    right: metadata.certificationLine,
+  });
   const withSharedFooter = html.replace(/<footer class="document-meta">[\s\S]*?<\/footer>/, footer);
   if (withSharedFooter === html) {
     throw new Error("Report-card HTML renderer did not expose the expected document metadata footer.");
