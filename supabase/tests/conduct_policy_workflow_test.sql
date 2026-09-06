@@ -57,7 +57,6 @@ select lives_ok($$select public.retire_conduct_policy_category('cc400000-0000-40
 select throws_ok($$select public.create_conduct_event_group('cc200000-0000-4000-8000-000000000001','cc400000-0000-4000-8000-000000000001',null,'Archived',null,current_date,array['cc300000-0000-4000-8000-000000000001']::uuid[])$$,'Category is not active in this school and domain','archived category cannot receive new events');
 select is(jsonb_array_length(public.list_conduct_history('cc200000-0000-4000-8000-000000000001','conduct')->'events'),4,'legacy and archived events remain readable');
 select is(jsonb_array_length(public.list_conduct_history('cc200000-0000-4000-8000-000000000001','conduct','cc300000-0000-4000-8000-000000000002')->'events'),1,'learner filter does not expose other group members');
-select ok(not has_table_privilege('authenticated','public.conduct_events','INSERT'),'clients cannot bypass recording RPC');
 select ok(not has_table_privilege('authenticated','public.conduct_policy_categories','INSERT,UPDATE,DELETE'),'clients cannot bypass policy management RPCs');
 select ok(not has_function_privilege('anon','public.create_conduct_event_group(uuid,uuid,text,text,text,date,uuid[])','EXECUTE'),'anonymous cannot execute recorder');
 select ok(not has_function_privilege('authenticated','app_private.record_conduct_group(uuid,uuid,text,date,text,text,text,text,uuid[])','EXECUTE'),'shared implementation is private');

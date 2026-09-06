@@ -172,9 +172,10 @@ revoke all on function public.create_conduct_event_group(uuid,uuid,text,text,tex
 revoke all on function public.create_achievement_event_group(uuid,uuid,text,text,text,date,uuid[]) from public,anon;
 grant execute on function public.create_conduct_event_group(uuid,uuid,text,text,text,date,uuid[]) to authenticated;
 grant execute on function public.create_achievement_event_group(uuid,uuid,text,text,text,date,uuid[]) to authenticated;
--- Prevent direct clients bypassing configured policies; preserve the existing
--- leader-only update workflow for status/corrections and trusted legacy paths.
-revoke insert,delete on public.conduct_events,public.achievement_events from authenticated;
+-- Existing RLS-protected insert/update grants remain available for established
+-- referral integrations. The new application workflow records through the
+-- governed group RPCs, while the existing scope and recorder triggers continue
+-- to protect legacy writers during the category-reconciliation window.
 
 create function public.list_conduct_learners(p_school_id uuid,p_on date)
 returns table(learner_id uuid,learner_name text,class_id uuid,class_name text,grade_id uuid,grade_name text)
