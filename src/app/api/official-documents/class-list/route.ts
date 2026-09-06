@@ -75,6 +75,7 @@ export async function GET(request: Request) {
         academicYear,
         grade: roster.grade,
         registerClass: roster.registerClass,
+        registerTeacherName: roster.registerTeacherName,
         rows,
         generatedAt,
         logoBytes,
@@ -96,6 +97,7 @@ export async function GET(request: Request) {
       academicYear,
       grade: roster.grade,
       registerClass: roster.registerClass,
+      registerTeacherName: roster.registerTeacherName,
       rows,
       generatedAt,
     });
