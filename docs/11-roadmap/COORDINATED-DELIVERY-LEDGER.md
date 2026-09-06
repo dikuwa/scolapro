@@ -5,6 +5,11 @@ Baseline: `f4f2fdc1` (main, PR #331), inspected 6 September 2026.
 Ownership: Codex owns Conduct and bell/calendar work. Remote GPT owns report cards, official document contracts/renderers and artifacts (handoff: PR #332, head `8f2125b`). That PR's database failure is reported by its owner, not independently cleared here. Preserve school identity snapshots and unrelated local work. Separate worktrees/branches; integrate tested slices sequentially. Shared database deployment has one integration owner and is not part of this local implementation.
 
 Statuses distinguish code from verified delivery. No live-data or production-browser acceptance is implied by source inspection. Phase 1 is the executable slice; later phases require their own implementation specifications and source checks.
+Statuses distinguish code from verified delivery. No live-data or production-browser acceptance is implied by source inspection. Phase 1 is the executable slice; later phases require their own implementation specifications and source checks.
+
+## Integration log
+
+- **6 Sep 2026 — Conduct merged.** PR #340 (`codex/conduct`, head `99c1d762`, additive migration `20260906120000_conduct_policy_workflow.sql`) merged into `main` at `535cdfab426d9fd9930b63daea81addc3f22528c`. Application CI (`quality`) and Database CI (`validate`) were green at head; head unchanged at merge; migration timestamp unique vs `main` (`20260906063000_timetable_rotating_calendar_anchor.sql` was newest prior). No overlapping open PRs. Referral-write table grants preserved (the regression was reverted; revocation confined to the new group RPCs). Use merge SHA `535cdfa` as the baseline for the bell/calendar phase below.
 
 | ID | Attachment requirement | Existing evidence / remaining work | Owner / phase | Acceptance |
 |---|---|---|---|---|
@@ -48,9 +53,9 @@ Statuses distinguish code from verified delivery. No live-data or production-bro
 | N14 | Staff qualifications, specialization, attrition | Progressive extension with restricted particulars | Codex / phase 4 | Authorized capture and safe aggregates |
 | N15 | Lean hostel and feeding | Not found in baseline | Codex / phase 5 | Minimum operational records generate aggregates |
 | N16 | Inclusion/SEN aggregate classification | Restricted cases exist; approved aggregate layer missing | Codex / phases 4–5 | No case-note exposure through aggregate access |
-| N17 | Ministry calendar + school overlay and teaching impact | Existing school calendar/expected days; source/impact extension needed | Codex / phase 2 | Explicit no-teaching/partial/altered/exam semantics; preserve attendance history |
-| N18 | Seasonal/day-specific bell schedules | New versioned layer alongside existing periods | Codex / phase 2 | Date/weekday resolution; unchanged lesson identity/history |
-| N19 | Visual bell references | Four examples: summer/winter × Mon–Thu/Friday, 8 lessons, first bell, assembly/register/break | Codex / phase 2 | Reproduce examples as test fixtures, never universal seeded policy |
+| N17 | Ministry calendar + school overlay and teaching impact | Existing school calendar/expected days; source/impact extension needed | Codex / ACTIVE (next, post-Conduct `535cdfa`) | Explicit no-teaching/partial/altered/exam semantics; preserve attendance history |
+| N18 | Seasonal/day-specific bell schedules | New versioned layer alongside existing periods; the current `20260906063000_timetable_rotating_calendar_anchor.sql` and cycle modes are the foundation, not to be rebuilt | Codex / ACTIVE (next, post-Conduct `535cdfa`) | Date/weekday resolution; unchanged lesson identity/history |
+| N19 | Visual bell references | Four examples: summer/winter × Mon–Thu/Friday, 8 lessons, first bell, assembly/register/break | Codex / ACTIVE — fixtures for N18 | Reproduce examples as test fixtures, never universal seeded policy |
 | N20 | Control templates/cycles | New departmental/prep/class/written-work control workflows | Codex / phase 5 | Configurable checklist; authoritative sources reused |
 | N21 | Symbol distribution and series/year comparisons | Aggregate canonical official results used by report cards | Codex / phase 5 | Version-aware comparisons; no mark re-entry |
 | N22 | Shared school identity header and print chrome | GPT owns active #332 and later A4 framework | GPT / active | Renderer/artifact checks green before integration |
