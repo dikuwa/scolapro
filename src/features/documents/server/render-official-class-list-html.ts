@@ -7,6 +7,10 @@ import {
   OFFICIAL_DOCUMENT_METADATA_RULE,
   OFFICIAL_DOCUMENT_PRINT_RULE,
 } from "@/features/documents/server/official-document-chrome";
+import {
+  escapeOfficialDocumentHtml,
+  renderOfficialDocumentHtmlHeader,
+} from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 
 export type OfficialClassListRow = {
@@ -26,44 +30,27 @@ export type OfficialClassListDocumentInput = {
   registerTeacherName?: string | null;
 };
 
-function escapeHtml(value: string | number | null | undefined): string {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
 export function renderOfficialClassListHtml(input: OfficialClassListDocumentInput): string {
   const { header } = input;
-  const contactMarkup = header.contactLines
-    .map((line) => `<div><span>${escapeHtml(line.label)}:</span> ${escapeHtml(line.value)}</div>`)
-    .join("");
-  const postalMarkup = header.postalLines.map((line) => `<div>${escapeHtml(line)}</div>`).join("");
-  const logoMarkup = header.logoUrl
-    ? `<div class="logo-wrap"><img class="school-logo" src="${escapeHtml(header.logoUrl)}" alt="${escapeHtml(header.schoolName)} logo" /></div>`
-    : `<div class="logo-wrap logo-placeholder"></div>`;
-  const nameClass = header.schoolNameFont === "old_english" ? " old-english" : "";
   const rowMarkup = input.rows
     .map(
       (row, index) => `<tr>
         <td class="number-cell">${index + 1}</td>
-        <td>${escapeHtml(row.learnerName)}</td>
-        <td>${escapeHtml(row.admissionNumber || "—")}</td>
-        <td>${escapeHtml(row.sex || "—")}</td>
-        <td>${escapeHtml(row.status || "—")}</td>
+        <td>${escapeOfficialDocumentHtml(row.learnerName)}</td>
+        <td>${escapeOfficialDocumentHtml(row.admissionNumber || "—")}</td>
+        <td>${escapeOfficialDocumentHtml(row.sex || "—")}</td>
+        <td>${escapeOfficialDocumentHtml(row.status || "—")}</td>
       </tr>`,
     )
     .join("");
-  const generatedLine = input.generatedAt ? `Generated ${escapeHtml(input.generatedAt)}` : "Official school document";
+  const generatedLine = input.generatedAt ? `Generated ${escapeOfficialDocumentHtml(input.generatedAt)}` : "Official school document";
 
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>${escapeHtml(header.schoolName)} - ${escapeHtml(input.registerClass)} Class List</title>
+<title>${escapeOfficialDocumentHtml(header.schoolName)} - ${escapeOfficialDocumentHtml(input.registerClass)} Class List</title>
 <style>
   ${OFFICIAL_DOCUMENT_A4_PAGE_RULE}
   * { box-sizing: border-box; }
@@ -107,24 +94,15 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
 </head>
 <body>
 <main class="report">
-  <header class="school-header">
-    ${logoMarkup}
-    <div class="school-identity">
-      <h1 class="school-name${nameClass}">${escapeHtml(header.schoolName)}</h1>
-      ${header.formerName ? `<div class="former-name">(${escapeHtml(header.formerName)})</div>` : ""}
-      ${contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : ""}
-      ${header.schoolEmisNumber ? `<div class="emis">EMIS: ${escapeHtml(header.schoolEmisNumber)}</div>` : ""}
-    </div>
-    <div class="postal">${postalMarkup}</div>
-  </header>
+  ${renderOfficialDocumentHtmlHeader(header)}
 
   <section class="document-title">
     <h2>Class List</h2>
     <div class="context">
-      <span><strong>Academic Year:</strong> ${escapeHtml(input.academicYear)}</span>
-      <span><strong>Grade:</strong> ${escapeHtml(input.grade || "—")}</span>
-      <span><strong>Class:</strong> ${escapeHtml(input.registerClass || "—")}</span>
-      ${input.registerTeacherName ? `<span><strong>Register Teacher:</strong> ${escapeHtml(input.registerTeacherName)}</span>` : ""}
+      <span><strong>Academic Year:</strong> ${escapeOfficialDocumentHtml(input.academicYear)}</span>
+      <span><strong>Grade:</strong> ${escapeOfficialDocumentHtml(input.grade || "—")}</span>
+      <span><strong>Class:</strong> ${escapeOfficialDocumentHtml(input.registerClass || "—")}</span>
+      ${input.registerTeacherName ? `<span><strong>Register Teacher:</strong> ${escapeOfficialDocumentHtml(input.registerTeacherName)}</span>` : ""}
     </div>
   </section>
 
@@ -144,7 +122,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
 
   <footer class="document-meta">
     <span>ScolaPro official class list</span>
-    <span>${escapeHtml(input.registerClass)} · ${escapeHtml(input.academicYear)}</span>
+    <span>${escapeOfficialDocumentHtml(input.registerClass)} · ${escapeOfficialDocumentHtml(input.academicYear)}</span>
   </footer>
 </main>
 </body>
