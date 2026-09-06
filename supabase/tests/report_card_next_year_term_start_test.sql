@@ -8,6 +8,9 @@ values('fc000000-0000-4000-8000-000000000001','next-term-admin@example.test','au
 insert into public.schools(id,tenant_id,name,emis_number,status)
 values('fc100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Year Boundary School','TST-NEXT-001','active');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values('11111111-1111-4111-8111-111111111111','fc100000-0000-4000-8000-000000000001','fc000000-0000-4000-8000-000000000001','school_admin',current_date-1);
+
 insert into public.learners(id,tenant_id,first_names,surname)
 values('fc200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Future','Term');
 
