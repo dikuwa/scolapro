@@ -1,10 +1,11 @@
 import "server-only";
 
-import { PDFDocument, rgb, type PDFFont } from "pdf-lib";
+import { PDFDocument, rgb } from "pdf-lib";
 import {
   OFFICIAL_DOCUMENT_PDF_GEOMETRY,
   officialDocumentPdfContentWidth,
 } from "@/features/documents/server/official-document-chrome";
+import { drawOfficialDocumentPdfFooter } from "@/features/documents/server/official-document-pdf-footer";
 import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import {
@@ -22,20 +23,8 @@ const {
   pageWidth: PAGE_WIDTH,
   pageHeight: PAGE_HEIGHT,
   margin: MARGIN,
-  metadataClearanceY: META_CLEAR_Y,
-  metadataClearanceHeight: META_CLEAR_HEIGHT,
-  metadataPrimaryBaselineY: META_PRIMARY_Y,
-  metadataSecondaryBaselineY: META_SECONDARY_Y,
 } = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
 const CONTENT_WIDTH = officialDocumentPdfContentWidth();
-const MUTED = rgb(0.38, 0.38, 0.38);
-
-function fitText(font: PDFFont, value: string, size: number, maxWidth: number): string {
-  if (font.widthOfTextAtSize(value, size) <= maxWidth) return value;
-  let output = value;
-  while (output.length > 1 && font.widthOfTextAtSize(`${output}...`, size) > maxWidth) output = output.slice(0, -1);
-  return `${output}...`;
-}
 
 export async function renderReportCardPdfWithSchoolFont(
   input: ReportCardRenderInput,
@@ -60,35 +49,18 @@ export async function renderReportCardPdfWithSchoolFont(
       throw new Error("Report-card PDF renderer did not expose the expected official A4 page geometry.");
     }
 
-    page.drawRectangle({
-      x: 0,
-      y: META_CLEAR_Y,
-      width: PAGE_WIDTH,
-      height: META_CLEAR_HEIGHT,
-      color: rgb(1, 1, 1),
-    });
-    page.drawText(fitText(regular, metadata.snapshotLine, 5.2, 350), {
-      x: MARGIN,
-      y: META_PRIMARY_Y,
-      size: 5.2,
+    drawOfficialDocumentPdfFooter({
+      page,
       font: regular,
-      color: MUTED,
-    });
-    const pageText = metadata.pageLabel(index + 1, pages.length);
-    page.drawText(pageText, {
-      x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(pageText, 5.2),
-      y: META_PRIMARY_Y,
-      size: 5.2,
-      font: regular,
-      color: MUTED,
-    });
-    const certification = fitText(regular, metadata.certificationLine, 5.2, 180);
-    page.drawText(certification, {
-      x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(certification, 5.2),
-      y: META_SECONDARY_Y,
-      size: 5.2,
-      font: regular,
-      color: MUTED,
+      pageNumber: index + 1,
+      pageCount: pages.length,
+      primaryLeft: metadata.snapshotLine,
+      secondaryRight: metadata.certificationLine,
+      clearArea: true,
+      primaryFontSize: 5.2,
+      secondaryFontSize: 5.2,
+      primaryLeftMaxWidth: 350,
+      secondaryRightMaxWidth: 180,
     });
   });
 
