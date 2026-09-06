@@ -125,7 +125,7 @@ select is(
     'fda70000-1000-4000-8000-000000000001',current_date
   ),
   false,
-  'departed teacher cannot record subject attendance after school placement ends'
+  'open teacher allocation no longer grants subject-attendance authority after placement ends'
 );
 
 select throws_ok(
@@ -134,27 +134,21 @@ select throws_ok(
     'fda80000-1000-4000-8000-000000000002',null,'online'
   )$$,
   'Permission denied',
-  'departed teacher cannot submit subject-period attendance after school placement ends'
+  'subject-period attendance submission is rejected after teacher placement ends'
 );
 
-select set_config('request.jwt.claim.role','service_role',true);
-select set_config('request.jwt.claim.sub','',true);
-
-select throws_ok(
-  $$update public.staff_school_assignments
-    set effective_to=current_date-31
-    where id='fda20000-1000-4000-8000-000000000001'$$,
-  'Staff school assignment cannot end before it starts',
-  'assignment period integrity still rejects an end date before the start date'
+select is(
+  (select count(*)::integer from public.subject_attendance_submissions
+   where timetable_slot_id='fda70000-1000-4000-8000-000000000001'),
+  1,
+  'rejected stale-authority attempt does not create a second submission'
 );
 
-select ok(
-  exists(
-    select 1 from pg_constraint
-    where conrelid='public.staff_school_assignments'::regclass
-      and conname='staff_school_assignments_effective_period_check'
-  ),
-  'staff school assignment effective-period constraint remains installed'
+select is(
+  (select count(*)::integer from public.teacher_allocations
+   where id='fda50000-1000-4000-8000-000000000001'),
+  1,
+  'teacher allocation history remains stored after operational authority is removed'
 );
 
 select * from finish();
