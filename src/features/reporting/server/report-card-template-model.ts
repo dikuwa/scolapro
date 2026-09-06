@@ -63,6 +63,7 @@ export type ReportCardTemplateModel = {
   academicYear: string;
   currentTermNumber: number;
   currentTermName: string;
+  learnerAverage: string;
   terms: ReportCardTerm[];
   subjectRows: ReportCardSubjectRow[];
   showPercentages: boolean;
@@ -213,6 +214,22 @@ function subjectRowsFromTerms(terms: ReportCardTerm[], showNonPromotionalSubject
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function calculateLearnerAverage(
+  snapshot: JsonRecord,
+  subjectRows: ReportCardSubjectRow[],
+  currentTermNumber: number,
+): string {
+  const explicit = number(snapshot.learner_average ?? snapshot.average);
+  if (explicit !== null) return Number.isInteger(explicit) ? String(explicit) : explicit.toFixed(1);
+
+  const values = subjectRows
+    .map((row) => row.termResults.get(currentTermNumber)?.numericValue ?? null)
+    .filter((value): value is number => value !== null);
+  if (!values.length) return "";
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return Number.isInteger(average) ? String(average) : average.toFixed(1);
+}
+
 export function buildReportCardTemplateModel(input: ReportCardRenderInput): ReportCardTemplateModel {
   const snapshot = record(input.dataSnapshot);
   const settings = record(snapshot.report_card_settings);
@@ -234,6 +251,7 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
   const currentTermNumber = number(currentTerm.number) ?? terms.at(-1)?.number ?? 1;
   const currentTermName = text(currentTerm.name) || terms.find((term) => term.number === currentTermNumber)?.name || `Term ${currentTermNumber}`;
   const showNonPromotionalSubjects = boolean(settings.show_non_promotional_subjects, true);
+  const subjectRows = subjectRowsFromTerms(terms, showNonPromotionalSubjects);
 
   return {
     schoolName: documentProfile.schoolName,
@@ -255,8 +273,9 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
     academicYear: text(enrolment.academic_year),
     currentTermNumber,
     currentTermName,
+    learnerAverage: calculateLearnerAverage(snapshot, subjectRows, currentTermNumber),
     terms,
-    subjectRows: subjectRowsFromTerms(terms, showNonPromotionalSubjects),
+    subjectRows,
     showPercentages: boolean(settings.show_percentages, false),
     showNonPromotionalSubjects,
     showPassMarkLegend: boolean(settings.show_pass_mark_legend, true),
