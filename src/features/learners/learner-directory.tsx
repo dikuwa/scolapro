@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Search, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Printer, Search, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -80,6 +80,10 @@ export function LearnerDirectory({
   const hasFilters = Boolean(initialFilters.query || initialFilters.status !== "current" || initialFilters.grade !== "all" || initialFilters.registerClass !== "all" || initialFilters.sex !== "all" || initialFilters.sortOrder !== "asc");
   const firstShown = total ? (page - 1) * pageSize + 1 : 0;
   const lastShown = Math.min(page * pageSize, total);
+  const canExportClassList = initialFilters.grade !== "all" && initialFilters.registerClass !== "all";
+  const classListHref = canExportClassList
+    ? `/api/official-documents/class-list?grade=${encodeURIComponent(initialFilters.grade)}&class=${encodeURIComponent(initialFilters.registerClass)}`
+    : "";
 
   return (
     <>
@@ -96,7 +100,10 @@ export function LearnerDirectory({
           <Picker ariaLabel="Filter by gender" name="learner-sex-filter" value={initialFilters.sex} onChange={(value) => replaceParams({ sex: value })} placeholder="All genders" options={[{ value: "all", label: "All genders" }, { value: "female", label: "Girls" }, { value: "male", label: "Boys" }, { value: "other", label: "Other" }, { value: "unspecified", label: "Unspecified" }]} />
           <Picker ariaLabel="Sort learners" name="learner-sort" value={initialFilters.sortOrder} onChange={(value) => replaceParams({ sort: value === "desc" ? "desc" : "asc" })} placeholder="A–Z" options={[{ value: "asc", label: "A–Z" }, { value: "desc", label: "Z–A" }]} />
         </div>
-        {hasFilters ? <button type="button" onClick={() => { setQuery(""); startFiltering(() => router.replace(pathname, { scroll: false })); }} className="min-h-8 justify-self-start rounded-[var(--radius-xs)] px-2 text-[0.7rem] font-medium text-muted-foreground hover:bg-surface hover:text-foreground xl:col-start-2 xl:justify-self-end">Clear filters</button> : null}
+        <div className="flex flex-wrap items-center gap-2 xl:col-start-2 xl:justify-self-end">
+          {canExportClassList ? <Link href={classListHref} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface px-2.5 text-[0.7rem] font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted"><Printer aria-hidden="true" className="size-3.5" />Print class list</Link> : null}
+          {hasFilters ? <button type="button" onClick={() => { setQuery(""); startFiltering(() => router.replace(pathname, { scroll: false })); }} className="min-h-8 rounded-[var(--radius-xs)] px-2 text-[0.7rem] font-medium text-muted-foreground hover:bg-surface hover:text-foreground">Clear filters</button> : null}
+        </div>
       </div>
 
       <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]" aria-busy={isFiltering}>
@@ -109,7 +116,7 @@ export function LearnerDirectory({
           <div className="divide-y divide-border-subtle">{learners.map((learner, index) => { const displayName = formatPersonName(learner.name); const rowNumber = (page - 1) * pageSize + index + 1; return <Link id={`learner-row-${rowNumber}`} key={learner.id} href={`/learners/${learner.id}`} onClick={() => setNavigatingId(learner.id)} className="grid gap-2 px-4 py-3.5 transition hover:bg-surface-muted/70 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5 md:grid-cols-[3rem_minmax(14rem,1.4fr)_8rem_8rem_9rem_7rem_2rem] md:items-center md:gap-3"><span className="hidden text-center text-xs tabular-nums text-muted-foreground md:block">{rowNumber}</span><div className="flex min-w-0 items-center gap-3"><span className="text-xs tabular-nums text-muted-foreground md:hidden">{rowNumber}.</span><span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-brand-soft text-xs font-semibold text-brand-strong">{displayName.split(" ").map((part) => part[0]).join("").slice(0,2)}</span><div className="min-w-0"><p className="scolapro-record-title truncate">{displayName}</p><p className="mt-0.5 text-xs text-muted-foreground md:hidden">{learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}</p></div></div><span className="hidden text-xs text-muted-foreground md:block">{learner.admissionNumber ?? "—"}</span><span className="hidden text-xs text-foreground md:block">{learner.grade}</span><span className="hidden text-xs text-foreground md:block">{learner.registerClass}</span><span className="hidden w-fit rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 text-[0.7rem] font-medium capitalize text-[color:var(--success)] md:inline-flex">{learner.status}</span>{navigatingId === learner.id ? <Spinner className="hidden size-4 text-brand md:block" /> : <ChevronRight aria-hidden="true" className="hidden size-4 text-muted-foreground md:block" />}</Link>; })}</div>
         </div> : <div className="px-5 py-12 text-center"><span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><Users aria-hidden="true" className="size-5" /></span><h3 className="mt-3 text-sm font-semibold">No learners match these filters</h3><p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">Try a shorter search or clear the filters.</p></div>}
 
-        {total > pageSize ? <div className="flex flex-col gap-2 border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5"><span>Page {page} of {pageCount}</span><div className="flex gap-2"><button type="button" disabled={page <= 1 || isFiltering} onClick={() => replaceParams({ page: String(page - 1) }, false)} className="inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 font-medium text-foreground disabled:opacity-40"><ChevronLeft className="size-3.5" />Previous</button><button type="button" disabled={page >= pageCount || isFiltering} onClick={() => replaceParams({ page: String(page + 1) }, false)} className="inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 font-medium text-foreground disabled:opacity-40">Next<ChevronRight className="size-3.5" /></button></div></div> : null}
+        {total > pageSize ? <div className="flex flex-col gap-2 border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-5"><span>Page {page} of {pageCount}</span><div className="flex gap-2"><button type="button" disabled={page <= 1 || isFiltering} onClick={() => replaceParams({ page: String(page - 1) }, false)} className="inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 font-medium text-foreground disabled:opacity-40"><ChevronLeft className="size-3.5" />Previous</button><button type="button" disabled={page >= pageCount || isFiltering} onClick={() => replaceParams({ page: String(page + 1) }, false)} className="inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 font-medium text-foreground disabled:opacity-40">Next<ChevronRight aria-hidden="true" className="size-3.5" /></button></div></div> : null}
       </section>
     </>
   );
