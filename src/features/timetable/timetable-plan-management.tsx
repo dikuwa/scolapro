@@ -5,12 +5,12 @@ import { CalendarClock, PencilLine, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { Spinner } from "@/components/ui/spinner";
+import { getTimetableDayLabel } from "@/features/timetable/day-labels";
 import { cancelTimetableSlot, updatePlannedAllocation } from "@/features/timetable/server/plan-actions";
 import type { TimetableActionState } from "@/features/timetable/server/actions";
 import type { TimetableWorkspace } from "@/features/timetable/server/workspace";
 
 const initialState: TimetableActionState = {};
-const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function localTodayIso() {
   const today = new Date();
@@ -43,6 +43,7 @@ export function TimetablePlanManagement({ workspace }: { workspace: TimetableWor
   const [editEnd, setEditEnd] = useState("");
   const [confirmCancelSlotId, setConfirmCancelSlotId] = useState<string | null>(null);
   const editingAllocation = upcomingAllocations.find((item) => item.id === editingAllocationId) ?? null;
+  const dayLabel = (dayIndex: number) => getTimetableDayLabel(workspace.cycleMode, workspace.cycleLength, dayIndex);
 
   const startEditing = (allocation: TimetableWorkspace["allocations"][number]) => {
     setEditingAllocationId(allocation.id);
@@ -98,7 +99,7 @@ export function TimetablePlanManagement({ workspace }: { workspace: TimetableWor
               return (
                 <div key={slot.id} className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0"><p className="truncate text-xs font-semibold">{weekdays[slot.weekday - 1] ?? `Day ${slot.weekday}`} · {slot.periodName} · {slot.subjectName}</p><p className="mt-1 truncate text-[0.68rem] text-muted-foreground">{slot.className} · {slot.staffName} · from {formatIsoDate(slot.activeFrom)}{slot.roomLabel ? ` · ${slot.roomLabel}` : ""}</p></div>
+                    <div className="min-w-0"><p className="truncate text-xs font-semibold">{dayLabel(slot.weekday)} · {slot.periodName} · {slot.subjectName}</p><p className="mt-1 truncate text-[0.68rem] text-muted-foreground">{slot.className} · {slot.staffName} · from {formatIsoDate(slot.activeFrom)}{slot.roomLabel ? ` · ${slot.roomLabel}` : ""}</p></div>
                     {!confirming ? <button type="button" onClick={() => setConfirmCancelSlotId(slot.id)} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem] font-semibold text-[color:var(--danger)] transition hover:bg-[color:var(--danger-soft)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--danger-soft)]"><XCircle className="size-3.5" aria-hidden="true" />Cancel slot</button> : null}
                   </div>
                   {confirming ? (

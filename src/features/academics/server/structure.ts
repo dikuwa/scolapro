@@ -2,7 +2,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function getSchoolStructure(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
-  const [{ data: grades, error: gradeError }, { data: classes, error: classError }] = await Promise.all([
+  const [{ data: school, error: schoolError }, { data: grades, error: gradeError }, { data: classes, error: classError }] = await Promise.all([
+    supabase
+      .from("schools")
+      .select("timetable_cycle_mode,timetable_cycle_length")
+      .eq("id", schoolId)
+      .single(),
     supabase
       .from("grades")
       .select("id,grade_code,display_name")
@@ -17,9 +22,11 @@ export async function getSchoolStructure(schoolId: string, academicYear: number)
       .order("class_code"),
   ]);
 
-  if (gradeError || classError) throw new Error("Unable to load school academic structure.");
+  if (schoolError || gradeError || classError) throw new Error("Unable to load school academic structure.");
 
   return {
+    timetableCycleMode: school?.timetable_cycle_mode === "rotating" ? "rotating" as const : "weekday" as const,
+    timetableCycleLength: school?.timetable_cycle_length ?? 5,
     grades: (grades ?? []).map((grade) => ({
       id: grade.id,
       code: grade.grade_code,

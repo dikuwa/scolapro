@@ -3,6 +3,13 @@ begin;
 
 select plan(7);
 
+-- This regression intentionally uses today's ISO weekday, which may be Saturday or
+-- Sunday in CI. Configure the fixture school for the full seven-day weekday range
+-- rather than relying on the product default of Monday-Friday.
+update public.schools
+set timetable_cycle_mode='weekday', timetable_cycle_length=7
+where id='22222222-2222-4222-8222-222222222222';
+
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fda00000-1000-4000-8000-000000000001','subject-placement-teacher@example.test','authenticated','authenticated',now(),now());
 

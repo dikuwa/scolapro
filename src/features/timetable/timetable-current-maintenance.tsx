@@ -5,12 +5,12 @@ import { DoorOpen, PencilLine, ShieldCheck, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
+import { getTimetableDayLabel } from "@/features/timetable/day-labels";
 import { cancelTimetableSlot, updateTimetableSlotRoom } from "@/features/timetable/server/plan-actions";
 import type { TimetableActionState } from "@/features/timetable/server/actions";
 import type { TimetableWorkspace } from "@/features/timetable/server/workspace";
 
 const initialState: TimetableActionState = {};
-const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 function useToastState(state: TimetableActionState) {
   useEffect(() => {
@@ -31,6 +31,7 @@ export function TimetableCurrentMaintenance({ workspace }: { workspace: Timetabl
   const [confirmCancel, setConfirmCancel] = useState(false);
 
   const selectedSlot = useMemo(() => workspace.slots.find((slot) => slot.id === slotId) ?? null, [slotId, workspace.slots]);
+  const dayLabel = (dayIndex: number) => getTimetableDayLabel(workspace.cycleMode, workspace.cycleLength, dayIndex);
 
   const selectSlot = (value: string) => {
     setSlotId(value);
@@ -41,7 +42,7 @@ export function TimetableCurrentMaintenance({ workspace }: { workspace: Timetabl
 
   const slotOptions = workspace.slots.map((slot) => ({
     value: slot.id,
-    label: `${weekdays[slot.weekday - 1] ?? `Day ${slot.weekday}`} · ${slot.periodName} · ${slot.className}`,
+    label: `${dayLabel(slot.weekday)} · ${slot.periodName} · ${slot.className}`,
     helper: `${slot.subjectName} · ${slot.staffName}`,
   }));
   const roomOptions = [
@@ -69,7 +70,7 @@ export function TimetableCurrentMaintenance({ workspace }: { workspace: Timetabl
             <Picker label="Current timetable slot" name="currentSlotPicker" value={slotId} onChange={selectSlot} placeholder="Choose a live lesson" options={slotOptions} searchable searchPlaceholder="Search class, subject or teacher" />
             {selectedSlot ? (
               <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold">{selectedSlot.subjectName} · {selectedSlot.className}</p><span className="text-[0.64rem] font-medium text-[color:var(--accent-sky)]">{weekdays[selectedSlot.weekday - 1] ?? `Day ${selectedSlot.weekday}`} · {selectedSlot.periodName}</span></div>
+                <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold">{selectedSlot.subjectName} · {selectedSlot.className}</p><span className="text-[0.64rem] font-medium text-[color:var(--accent-sky)]">{dayLabel(selectedSlot.weekday)} · {selectedSlot.periodName}</span></div>
                 <p className="mt-1 text-[0.68rem] text-muted-foreground">{selectedSlot.staffName}{selectedSlot.staffCode ? ` · ${selectedSlot.staffCode}` : ""}</p>
                 <p className="mt-1.5 inline-flex items-center gap-1.5 text-[0.68rem] text-muted-foreground"><DoorOpen className="size-3.5" aria-hidden="true" />{selectedSlot.roomLabel ?? "No room assigned"}</p>
               </div>
