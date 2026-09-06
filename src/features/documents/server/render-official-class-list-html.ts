@@ -7,6 +7,7 @@ import {
   OFFICIAL_DOCUMENT_METADATA_RULE,
   OFFICIAL_DOCUMENT_PRINT_RULE,
 } from "@/features/documents/server/official-document-chrome";
+import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
 import {
   escapeOfficialDocumentHtml,
   renderOfficialDocumentHtmlHeader,
@@ -44,6 +45,10 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
     )
     .join("");
   const generatedLine = input.generatedAt ? `Generated ${escapeOfficialDocumentHtml(input.generatedAt)}` : "Official school document";
+  const metadataFooter = renderOfficialDocumentHtmlFooter({
+    left: "ScolaPro official class list",
+    right: `${input.registerClass} · ${input.academicYear}`,
+  });
 
   return `<!doctype html>
 <html lang="en">
@@ -120,10 +125,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
     <span>${generatedLine}</span>
   </section>
 
-  <footer class="document-meta">
-    <span>ScolaPro official class list</span>
-    <span>${escapeOfficialDocumentHtml(input.registerClass)} · ${escapeOfficialDocumentHtml(input.academicYear)}</span>
-  </footer>
+  ${metadataFooter}
 </main>
 </body>
 </html>`;
