@@ -1,5 +1,5 @@
 import { ShieldCheck } from "lucide-react";
-import { ScolaProMark, ScolaProWordmark } from "@/components/brand/scolapro-brand";
+import { ScolaProWordmark } from "@/components/brand/scolapro-brand";
 import { LoginForm } from "@/features/auth/login-form";
 
 export default async function LoginPage({
@@ -17,9 +17,8 @@ export default async function LoginPage({
     <main className="min-h-screen bg-background lg:grid lg:grid-cols-2">
       <section className="bg-surface-muted px-4 py-8 sm:px-6 lg:min-h-screen lg:px-8 lg:py-10">
         <div className="mx-auto flex min-h-full w-full max-w-[41rem] flex-col justify-between lg:ml-auto lg:mr-0 lg:min-h-[calc(100vh-5rem)] lg:pr-8">
-          <div className="flex min-h-11 items-center gap-3">
-            <ScolaProMark className="size-10 shrink-0" />
-            <ScolaProWordmark compact />
+          <div className="flex min-h-11 items-center">
+            <ScolaProWordmark />
           </div>
 
           <div className="my-12 max-w-2xl lg:my-auto">
