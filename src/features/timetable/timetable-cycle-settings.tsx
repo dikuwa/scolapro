@@ -55,6 +55,7 @@ export function TimetableCycleSettings({
           name="cycleMode"
           value={mode}
           onChange={changeMode}
+          placeholder="Choose timetable day system"
           options={[
             { value: "weekday", label: "Standard week", helper: "Monday, Tuesday, Wednesday…" },
             { value: "rotating", label: "Rotating cycle", helper: "Day 1, Day 2… up to Day 10" },
