@@ -15,6 +15,15 @@ values
   ('aa110000-0000-4000-8000-000000000001','aa100000-0000-4000-8000-000000000001','Attendance Scope School A','ATT-SCOPE-A','Khomas','Windhoek'),
   ('aa110000-0000-4000-8000-000000000002','aa100000-0000-4000-8000-000000000002','Attendance Scope School B','ATT-SCOPE-B','Khomas','Windhoek');
 
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values(
+  'aa100000-0000-4000-8000-000000000001',
+  'aa110000-0000-4000-8000-000000000001',
+  'aa000000-0000-4000-8000-000000000001',
+  'school_admin',
+  '2026-01-01'
+);
+
 insert into public.grades(id,tenant_id,school_id,academic_year,grade_code,display_name)
 values
   ('aa120000-0000-4000-8000-000000000001','aa100000-0000-4000-8000-000000000001','aa110000-0000-4000-8000-000000000001',2026,'8','Grade 8'),
@@ -40,10 +49,10 @@ values
   ('aa160000-0000-4000-8000-000000000001','aa100000-0000-4000-8000-000000000001','aa110000-0000-4000-8000-000000000001',2026,'aa150000-0000-4000-8000-000000000001','aa120000-0000-4000-8000-000000000001'),
   ('aa160000-0000-4000-8000-000000000002','aa100000-0000-4000-8000-000000000002','aa110000-0000-4000-8000-000000000002',2026,'aa150000-0000-4000-8000-000000000002','aa120000-0000-4000-8000-000000000002');
 
-insert into public.teacher_allocations(id,tenant_id,school_id,academic_year,subject_offering_id,register_class_id,staff_member_id)
+insert into public.teacher_allocations(id,tenant_id,school_id,academic_year,subject_offering_id,register_class_id,staff_member_id,active_from)
 values
-  ('aa170000-0000-4000-8000-000000000001','aa100000-0000-4000-8000-000000000001','aa110000-0000-4000-8000-000000000001',2026,'aa160000-0000-4000-8000-000000000001','aa130000-0000-4000-8000-000000000001','aa140000-0000-4000-8000-000000000001'),
-  ('aa170000-0000-4000-8000-000000000002','aa100000-0000-4000-8000-000000000002','aa110000-0000-4000-8000-000000000002',2026,'aa160000-0000-4000-8000-000000000002','aa130000-0000-4000-8000-000000000002','aa140000-0000-4000-8000-000000000002');
+  ('aa170000-0000-4000-8000-000000000001','aa100000-0000-4000-8000-000000000001','aa110000-0000-4000-8000-000000000001',2026,'aa160000-0000-4000-8000-000000000001','aa130000-0000-4000-8000-000000000001','aa140000-0000-4000-8000-000000000001','2026-01-01'),
+  ('aa170000-0000-4000-8000-000000000002','aa100000-0000-4000-8000-000000000002','aa110000-0000-4000-8000-000000000002',2026,'aa160000-0000-4000-8000-000000000002','aa130000-0000-4000-8000-000000000002','aa140000-0000-4000-8000-000000000002','2026-01-01');
 
 insert into public.timetable_periods(id,tenant_id,school_id,academic_year,period_number,display_name)
 values
@@ -133,7 +142,7 @@ select ok(
   and not has_function_privilege('anon','app_private.enforce_daily_attendance_submission_scope_integrity()','EXECUTE')
   and not has_function_privilege('authenticated','app_private.enforce_subject_attendance_submission_scope_integrity()','EXECUTE')
   and not has_function_privilege('anon','app_private.enforce_subject_attendance_submission_scope_integrity()','EXECUTE'),
-  'attendance submission integrity helpers are private from client roles'
+  'attendance submission integrity helpers remain private from clients'
 );
 
 select * from finish();
