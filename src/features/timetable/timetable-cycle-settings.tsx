@@ -31,9 +31,12 @@ export function TimetableCycleSettings({
     else toast.error(state.message);
   }, [state]);
 
-  useEffect(() => {
-    if (length > maxLength) setLength(maxLength);
-  }, [length, maxLength]);
+  const changeMode = (value: string) => {
+    const nextMode: TimetableCycleMode = value === "rotating" ? "rotating" : "weekday";
+    setMode(nextMode);
+    const nextMax = nextMode === "weekday" ? 7 : 10;
+    setLength((current) => Math.min(current, nextMax));
+  };
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -51,7 +54,7 @@ export function TimetableCycleSettings({
           label="Day system"
           name="cycleMode"
           value={mode}
-          onChange={(value) => setMode(value === "rotating" ? "rotating" : "weekday")}
+          onChange={changeMode}
           options={[
             { value: "weekday", label: "Standard week", helper: "Monday, Tuesday, Wednesday…" },
             { value: "rotating", label: "Rotating cycle", helper: "Day 1, Day 2… up to Day 10" },
