@@ -6,6 +6,19 @@ These instructions are mandatory for any AI assistant, coding agent, contributor
 
 Before proposing new implementation work, read `docs/11-roadmap/IMPLEMENTATION-STATUS.md` and inspect the repository. Do not recreate a completed feature, schema, token system or workflow because your context is incomplete. Continue from the first relevant **IN PROGRESS**, **VERIFY** or **NEXT** item.
 
+### 0.1 Parallel-development coordination is mandatory
+
+If more than one thread/agent/contributor is active, also read these files before changing code:
+
+1. `docs/11-roadmap/CONTROL-ROOM.md`
+2. `docs/11-roadmap/COORDINATED-DELIVERY-LEDGER.md`
+
+The control-room documents define workstream ownership, merge order, branch rules, current sequencing and the mandatory DONE/IN PROGRESS/BLOCKED handback format.
+
+Do not assume a private chat is authoritative. Current `main` plus the repository coordination documents are authoritative.
+
+Do not modify another active stream's owned files merely because you can see them. If your task requires a shared high-conflict file, report that dependency and let the control room coordinate ownership unless you were explicitly assigned the shared file.
+
 ## 1. Read before changing UI
 
 Before creating or materially changing frontend UI, read:
@@ -125,6 +138,8 @@ Before completion verify:
 - auditability where applicable;
 - tests appropriate to risk.
 
+For permission-sensitive aggregate/read-model work, also verify non-leakage: broader aggregate visibility must not imply access to underlying sensitive learner/staff records.
+
 ## 7. Do not silently override architecture
 
 If an implementation request conflicts with an approved architecture/design document, do not silently improvise. Preserve the approved system and surface the conflict or create/update an ADR when a deliberate architectural change is required.
@@ -134,3 +149,13 @@ If an implementation request conflicts with an approved architecture/design docu
 **Capture once → use everywhere.**
 
 Do not create duplicate sources of truth when existing authoritative school data can generate the required view, document, report, workflow or statistic.
+
+## 9. Thread handback requirement
+
+Every parallel workstream must end each meaningful slice with the handback template in `docs/11-roadmap/CONTROL-ROOM.md` and must use one of the explicit statuses:
+
+- `STATUS: DONE`
+- `STATUS: IN PROGRESS`
+- `STATUS: BLOCKED`
+
+`DONE` means the required acceptance checks for the slice are actually complete and required CI has finished successfully. Do not call a branch done while CI is running, required tests are failing, or a dependency is still unmerged.

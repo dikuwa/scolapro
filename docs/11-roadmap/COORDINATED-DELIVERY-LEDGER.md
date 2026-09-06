@@ -1,74 +1,101 @@
 # Coordinated delivery ledger
 
-Baseline: `f4f2fdc1` (main, PR #331), inspected 6 September 2026.
+Baseline: `3bce93817d4d827e7403df960a92aca474a9ae1d` (`main`, 7 September 2026).
 
-Ownership: Codex owns Conduct and bell/calendar work. Remote GPT owns report cards, official document contracts/renderers and artifacts (handoff: PR #332, head `8f2125b`). That PR's database failure is reported by its owner, not independently cleared here. Preserve school identity snapshots and unrelated local work. Separate worktrees/branches; integrate tested slices sequentially. Shared database deployment has one integration owner and is not part of this local implementation.
+This ledger is governed together with `docs/11-roadmap/CONTROL-ROOM.md`. The control-room document defines parallel-thread ownership, branch discipline, merge order and the mandatory completion handback. Current `main` plus repository documents are authoritative over stale chat context.
 
-Statuses distinguish code from verified delivery. No live-data or production-browser acceptance is implied by source inspection. Phase 1 is the executable slice; later phases require their own implementation specifications and source checks.
-Statuses distinguish code from verified delivery. No live-data or production-browser acceptance is implied by source inspection. Phase 1 is the executable slice; later phases require their own implementation specifications and source checks.
+Statuses distinguish source implementation from verified delivery. No live-data or production-browser acceptance is implied by source inspection alone.
+
+## Current ownership and merge order
+
+- **Control Room / Integration** — roadmap, ownership, shared-file coordination, PR review, merge order, ledger updates and integrated `main`.
+- **Stream A — Bell/calendar foundation** — N17/N18/N19 + T04/T05. This is the first active foundation merge.
+- **Stream B — Education network foundation** — N02/N03/N04. May develop in parallel, but follows the bell/calendar foundation in coordinated merge order.
+- **Stream C — Runtime stability** — broken-page/runtime/database-drift root causes outside another stream's owned files.
+- **Stream D — Governance/QA docs** — ledger, dependencies, acceptance evidence and handbacks.
+- **Paused document lane** — report cards, official documents, renderers/artifacts and branding. Preserve completed work; do not modify from unrelated streams without reassignment.
 
 ## Integration log
 
-- **6 Sep 2026 — Conduct merged.** PR #340 (`codex/conduct`, head `99c1d762`, additive migration `20260906120000_conduct_policy_workflow.sql`) merged into `main` at `535cdfab426d9fd9930b63daea81addc3f22528c`. Application CI (`quality`) and Database CI (`validate`) were green at head; head unchanged at merge; migration timestamp unique vs `main` (`20260906063000_timetable_rotating_calendar_anchor.sql` was newest prior). No overlapping open PRs. Referral-write table grants preserved (the regression was reverted; revocation confined to the new group RPCs). Use merge SHA `535cdfa` as the baseline for the bell/calendar phase below.
+- **6 Sep 2026 — Conduct merged.** PR #340 merged into `main` at `535cdfab426d9fd9930b63daea81addc3f22528c`. Application and Database CI were green at exact head. Conduct remains complete except explicitly listed follow-up verification/reconciliation items.
+- **6–7 Sep 2026 — Official document framework advanced.** PRs #341–346 landed shared class-list/report document header/footer/print infrastructure. N22 is no longer an active-framework gap.
+- **6 Sep 2026 — Official brand assets landed.** PR #347 added official ScolaPro assets and Namib High crest/full logo, wired to shell/login/manifest and document HTML support. N23's prior “real asset missing” wording is obsolete.
+- **6 Sep 2026 — Report-card fidelity advanced.** PRs #348–349 aligned HTML and native PDF layout with the approved progress-report reference and advanced the renderer revision.
+- **6–7 Sep 2026 — Report-card export hardening merged.** PR #350 merged into `main` at `3bce93817d4d827e7403df960a92aca474a9ae1d`, synchronizing renderer V9 combined-export readiness and preserving explicit failed-export retry semantics.
+- **6 Sep 2026 — Shell/login branding corrected.** Official ScolaPro branding is now used in the application shell/login path; do not reintroduce the legacy constructed wordmark.
+- **7 Sep 2026 — Roadmap sequencing reconciled.** Bell/calendar remains first. Education-network hierarchy and role tier move ahead of DNEA/statutory UI so regional review is implemented against real scope rather than fake platform-admin stand-ins. N26 is closed because the previously missing K/M/N/O/Q/R/S/T/U directive content has now been supplied and reconciled.
 
-| ID | Attachment requirement | Existing evidence / remaining work | Owner / phase | Acceptance |
+| ID | Requirement | Existing evidence / remaining work | Owner / phase | Acceptance |
 |---|---|---|---|---|
-| T01 | Per-school weekday / rotating cycles, lengths 1–10 (weekday ≤7) | Existing cycle settings, day-labels and `20260906043000_timetable_cycle_modes.sql`; verify rather than recreate | Codex / verify | Defaults unchanged; invalid length and shrinking past used days rejected |
-| T02 | Dynamic day picker/grid and maintenance labels | Existing timetable workspace, current maintenance and plan management use cycle labels | Codex / verify | 10-day display and weekday labels agree throughout |
-| T03 | Calendar resolution for rotating days | Existing anchor/resolver migrations and Namibia-time today fix (#330/#331) | Codex / phase 2 | Closure days and anchors resolve consistently |
-| T04 | Numbered steps 1/2/3; periods marked Anytime | No StepBadge/Anytime implementation found in workspace on baseline | Codex / phase 2 | Clear setup sequence without numbering independent periods |
-| T05 | Configured subjects collapsed by default | Existing maintenance list needs requested collapse check/update | Codex / phase 2 | Closed initially; edit/archive work after expansion |
-| T06 | Continuous expanded guardian background | Guardian directory exists; visually verify seam | Codex / verification backlog | Expanded row/panel share surface in both themes |
-| T07 | Avatar error diagnosis and JPG/WebP upload | Profile server actions contain error-specific diagnostics; live original failure and upload success not reproduced | Codex / verification backlog | Record actual sanitized failure evidence and authenticated successful uploads |
-| T08 | Learner photo immediate preview and pending overlay | Learner profile editor has local preview; verify pending/format handling | Codex / verification backlog | Preview before save; failed upload retains input; JPG/WebP succeed |
-| T09 | Learner photo link/upload diagnostics | Existing learner/profile server diagnostics; review privacy before adding logs | Codex / verification backlog | Identify failure stage without sensitive payloads |
-| T10 | Cumulative-record route error boundary and query diagnostics | Route error.tsx already exists; inspect server failure-stage diagnostics | Codex / verification backlog | Recoverable route error and sanitized failing-query identity |
-| T11 | Official identity fields read-only | Existing correction-request flow and restricted profile editor | Codex / verify | No direct identity write path introduced |
-| T12 | Optional administrator correction auto-approval | Conditional suggestion, not required feature; preserve existing governed requests | Codex / deferred decision | If later adopted, retain request/approval audit |
-| C01 | School policy categories, direction, optional severity/points/order | Added additive category migration with school-root integrity and read RLS | Codex / phase 1 | Cross-school writes denied; policy values validated |
-| C02 | Event category references and grouping | Added nullable legacy-compatible FK, snapshots and group IDs | Codex / phase 1 | All new UI/RPC events require category; old codes remain readable |
-| C03 | Non-null category references after reconciliation | Deferred constraint tightening: legacy direction/label policy must be reviewed, never inferred | Codex / rollout follow-up | Zero unreconciled rows before NOT NULL; no historical recategorization |
-| C04 | Manage/edit/archive categories | Governed RPCs and Academic setup section | Codex / phase 1 | Admin/principal only; no deletion; configured list initially collapsed |
-| C05 | Atomic single/group recording | Shared private implementation; scoped public incident/achievement RPCs | Codex / phase 1 | Deduplication, rollback, date, tenant and recorder tests |
-| C06 | Combined Conduct page and sidebar | `/conduct`, two record types, role-aware navigation | Codex / phase 1 | Both types accessible to appropriate roles |
-| C07 | Grade/class filters and grouped recent history | Scoped roster RPC; RLS history RPC pages whole visible groups | Codex / phase 1 | Filters, pagination, no unauthorized group-member disclosure |
-| C08 | Incident modal fields and category-driven direction | Shared controls and modal; editable negative severity | Codex / phase 1 | Single/group, positive/negative and validation behavior |
-| C09 | Achievement fields and allowed levels | Shared form uses existing schema levels | Codex / phase 1 | Valid levels accepted; counsellor creation denied |
-| C10 | Archived category readable in history | Frozen event snapshot with legacy-code fallback | Codex / phase 1 | Archive/rename does not change prior meaning |
-| C11 | Learner longitudinal history link | Profile link to learner-filtered Conduct | Codex / phase 1 | Cross-class history within authorized school; no support notes |
-| C12 | Migration/route/diff evidence and quality checks | Migration, new feature files and regression suite committed per phase | Codex / phase 1 | Tests plus role/device acceptance recorded honestly |
-| N01 | Capture once; existing backend reuse | Reuse conduct, statutory, DNEA, promotion and operational snapshots | Both / all | No parallel authoritative records |
-| N02 | Normalized region/circuit/optional cluster hierarchy | Not found in baseline migrations | Codex / phase 4 | Effective school relationships, nullable official codes |
-| N03 | Versioned external school identifiers / official registries | Existing bare school EMIS; preserve compatibility with frozen document identity | Codex + GPT contract / phase 4 | No invented codes; source/version recorded |
-| N04 | Circuit/regional permission tier | New scoped access required; avoid blanket school-role widening | Codex / phase 4 | Assigned network scope, sensitive-data isolation tests |
-| N05 | Statutory cycle/readiness/snapshot/certify UI | Foundation/generator exist; UI absent | Codex / phase 3 | Lifecycle uses canonical engine; certified history immutable |
-| N06 | Fifteenth School Day form then AEC | Official definitions/mappings not supplied | Codex / source-gated phase 3 | Current official source reviewed before mappings published |
-| N07 | Extend operational snapshot field coverage | Extend existing generator only as authoritative staff/programme data exists | Codex / phases 3–5 | Counts derive from effective operational records |
-| N08 | DNEA candidate readiness UI | Existing cycles/candidates/subjects/readiness RPCs | Codex / phase 3 | Missing identity/subjects/codes shown as exceptions |
-| N09 | Examination centre separate from school | Genuine structural gap | Codex / phase 4 | Candidates can attend designated external centre |
-| N10 | Access arrangements/special considerations | Restricted evidence/recommendation/status workflow needed | Codex / phase 4 | Restricted access; approved aggregate excludes notes |
-| N11 | Coursework/moderation evidence | Requirement-dependent future feature | Codex / backlog | Verify actual requirements before schema/UI |
-| N12 | Frozen exam registration export/submission, results import | Missing; official export depends on GPT document contract | Codex + GPT / backlog | Immutable submitted version; source-preserving import |
-| N13 | Staffing establishment and vacancies | Staff identity/placements exist; establishment gap | Codex / phase 4 | Approved/filled/vacant counts reconcile without duplicated staff |
-| N14 | Staff qualifications, specialization, attrition | Progressive extension with restricted particulars | Codex / phase 4 | Authorized capture and safe aggregates |
-| N15 | Lean hostel and feeding | Not found in baseline | Codex / phase 5 | Minimum operational records generate aggregates |
-| N16 | Inclusion/SEN aggregate classification | Restricted cases exist; approved aggregate layer missing | Codex / phases 4–5 | No case-note exposure through aggregate access |
-| N17 | Ministry calendar + school overlay and teaching impact | Existing school calendar/expected days; source/impact extension needed | Codex / ACTIVE (next, post-Conduct `535cdfa`) | Explicit no-teaching/partial/altered/exam semantics; preserve attendance history |
-| N18 | Seasonal/day-specific bell schedules | New versioned layer alongside existing periods; the current `20260906063000_timetable_rotating_calendar_anchor.sql` and cycle modes are the foundation, not to be rebuilt | Codex / ACTIVE (next, post-Conduct `535cdfa`) | Date/weekday resolution; unchanged lesson identity/history |
-| N19 | Visual bell references | Four examples: summer/winter × Mon–Thu/Friday, 8 lessons, first bell, assembly/register/break | Codex / ACTIVE — fixtures for N18 | Reproduce examples as test fixtures, never universal seeded policy |
-| N20 | Control templates/cycles | New departmental/prep/class/written-work control workflows | Codex / phase 5 | Configurable checklist; authoritative sources reused |
-| N21 | Symbol distribution and series/year comparisons | Aggregate canonical official results used by report cards | Codex / phase 5 | Version-aware comparisons; no mark re-entry |
-| N22 | Shared school identity header and print chrome | GPT owns active #332 and later A4 framework | GPT / active | Renderer/artifact checks green before integration |
-| N23 | Watermark/logo artwork | Real asset missing per GPT; do not fabricate replacement | GPT / source-gated | Supplied approved artwork used |
-| N24 | Canonical metric registry and restrained charts | Mentioned in unavailable original sections | Codex / later specification | Define metrics from authoritative data before charts |
-| N25 | Circuit/regional portals | Purpose-built aggregate views after school truth and scoped hierarchy | Codex / phase 5 | Scope/isolation and sensitivity tests |
-| N26 | Referenced original K/M/N/O/Q/R/S/T/U, citations, non-goals/checklist | Full original directive is not supplied; cannot treat missing details as implemented specifications | Unresolved source | Obtain original sections or explicit replacement requirements before closing |
+| T01 | Per-school weekday / rotating cycles, lengths 1–10 (weekday ≤7) | Existing cycle settings/day labels/migrations; verify rather than recreate | Stream A / verify | Defaults unchanged; invalid length/shrinking past used days rejected |
+| T02 | Dynamic day picker/grid and maintenance labels | Existing timetable workspace uses cycle labels | Stream A / verify | 10-day display and weekday labels agree throughout |
+| T03 | Calendar resolution for rotating days | Existing anchor/resolver and Namibia-time fixes are foundations | Stream A / verify | Closure days and anchors resolve consistently |
+| T04 | Numbered setup steps 1/2/3; Teaching periods marked “Anytime” | Not yet completed | Stream A / ACTIVE | Setup sequence clear without numbering independent periods |
+| T05 | Configured subjects collapsed by default | Not yet completed | Stream A / ACTIVE | Closed initially; edit/archive after expansion |
+| T06 | Continuous expanded guardian background | Existing directory; visual verification remains | Backlog / verify | Expanded row/panel share surface in both themes |
+| T07 | Avatar error diagnosis and JPG/WebP upload | Diagnostics exist; live original failure/success not fully reproduced | Backlog / verify | Sanitized failure evidence + authenticated successful uploads |
+| T08 | Learner photo immediate preview and pending overlay | Local preview exists; pending/format verification remains | Backlog / verify | Preview before save; failed upload retains input; JPG/WebP succeed |
+| T09 | Learner photo link/upload diagnostics | Existing diagnostics; privacy review before more logging | Backlog / verify | Failure stage identified without sensitive payloads |
+| T10 | Cumulative-record route error/query diagnostics | Route error boundary exists; server failure-stage verification remains | Backlog / verify | Recoverable error + sanitized failing-query identity |
+| T11 | Official identity fields read-only | Existing correction-request flow | Backlog / verify | No direct identity write path |
+| T12 | Optional administrator correction auto-approval | Conditional idea, not required | Deferred | Preserve audit if adopted |
+| C01 | School conduct policy categories | Implemented via additive Conduct schema/workflow | DONE / verify | Cross-school writes denied; policy validation |
+| C02 | Event category references/grouping | Implemented with legacy compatibility | DONE / verify | New events require governed category; history readable |
+| C03 | Non-null category after reconciliation | Deliberately deferred | Follow-up | Zero unreconciled legacy rows before tightening |
+| C04 | Manage/edit/archive categories | Implemented | DONE / verify | Admin/principal governed; no destructive delete |
+| C05 | Atomic single/group conduct recording | Implemented | DONE / verify | Dedup/rollback/date/tenant/recorder tests |
+| C06 | Combined Conduct page/sidebar | Implemented | DONE / verify | Appropriate roles access both record types |
+| C07 | Conduct roster/history filters | Implemented | DONE / verify | No unauthorized group-member disclosure |
+| C08 | Incident modal/category-driven direction | Implemented | DONE / verify | Single/group + validation behavior |
+| C09 | Achievement fields/levels | Implemented | DONE / verify | Allowed levels/roles enforced |
+| C10 | Archived category remains readable historically | Implemented | DONE / verify | Rename/archive does not rewrite history |
+| C11 | Learner longitudinal Conduct history | Implemented | DONE / verify | Authorized cross-class history; no support-note leakage |
+| C12 | Conduct migration/route/diff evidence | Implemented and merged | DONE / verify | Role/device acceptance remains honest |
+| N01 | Capture once; reuse authoritative backend | Standing architecture rule | All streams | No parallel authoritative records |
+| N02 | Normalized authority/region/circuit/optional cluster hierarchy | Ready draft supplied; requires hardening/CI | Stream B / NEXT after A | Valid nested relationships; nullable official codes |
+| N03 | Versioned external school identifiers/official registries | Ready draft supplied; preserve bare EMIS compatibility | Stream B / NEXT after A | Source/version/effective dating; no invented identifiers |
+| N04 | Circuit/regional permission tier | Ready draft supplied; requires scoping/non-leakage hardening | Stream B / NEXT after A | Assigned network scope without automatic sensitive learner access |
+| N05 | Statutory cycle/readiness/snapshot/certify UI | Backend foundation exists; UI incomplete | Later wave after B | Canonical lifecycle; immutable certified history; real network review |
+| N06 | Fifteenth School Day form then AEC | Authoritative mappings still source-gated | Later wave after B | Current official source reviewed before publishing mappings |
+| N07 | Extend operational statutory snapshot coverage | Extend existing generator only as authoritative domains exist | Later waves | Counts derive from effective operational records |
+| N08 | DNEA candidate readiness UI | Existing backend foundation; UI incomplete | Later wave after B | Exceptions visible; real network scoping available |
+| N09 | Examination centre separate from school | Structural gap | DNEA wave | External/designated centre supported |
+| N10 | Access arrangements/special considerations | Restricted workflow gap | DNEA wave | School → regional → DNEA workflow; aggregate excludes notes |
+| N11 | Coursework/moderation evidence | Requirement-dependent future feature | Backlog | Verify official subject requirements first |
+| N12 | Frozen exam registration export/submission + results import | Missing | Backlog / document coordination | Immutable submitted version; source-preserving import |
+| N13 | Staffing establishment/vacancies | Structural gap | Structural wave | Approved/filled/vacant reconcile without duplicate staff |
+| N14 | Staff qualifications/specialisation/attrition | Progressive restricted extension | Structural wave | Authorized capture + safe aggregates |
+| N15 | Lean hostel/feeding | Missing | Structural wave | Minimum operational records generate aggregates |
+| N16 | Inclusion/SEN aggregate classification | Restricted support cases exist; aggregate layer missing | Structural wave | Aggregate never exposes case notes |
+| N17 | Calendar teaching-impact semantics | Existing school calendar foundation; add NORMAL/NO_TEACHING/PARTIAL_DAY/ALTERED_TIMETABLE/EXAM_TIMETABLE and schedule override semantics | Stream A / ACTIVE | Attendance history preserved; altered/exam day resolves deliberately |
+| N18 | Seasonal/day-specific bell schedules | Ready SQL draft supplied; harden/CI/UI integration required | Stream A / ACTIVE | Date/day resolution; unchanged lesson/period identity |
+| N19 | Visual bell references/test fixtures | Summer/winter × Mon–Thu/Friday examples supplied | Stream A / ACTIVE | Fixtures only; never seeded as universal school policy |
+| N20 | Control templates/cycles | Missing | Structural wave | Configurable checklist; authoritative sources reused |
+| N21 | Symbol distribution and exam-series comparisons | Missing UI/read models | Structural wave | Canonical official results; no mark re-entry |
+| N22 | Shared school identity header and print chrome | Shared HTML/PDF header/footer and official document framework landed through PRs #341–346; report cards migrated to it | Paused document lane / DONE FOUNDATION | Continue renderer/artifact checks only when lane resumes |
+| N23 | Official logo/watermark artwork | Official ScolaPro SVG family and Namib High crest/logo-full are committed and wired; large Namib High A4 backdrop is still not committed and must not be referenced as if present | Paused document lane / DONE ASSET BASELINE | Use approved committed assets; do not fabricate missing backdrop |
+| N24 | Canonical metric registry/restrained charts | Requirement now fully supplied; intentionally deferred until structural data exists | Later analytics specification | One authoritative definition per metric before charts |
+| N25 | Circuit/regional/Ministry read models | Purpose-built aggregates required, not enlarged school dashboards | Final analytics/network wave | Scope isolation; learner-level drill-down separately permissioned |
+| N26 | Previously missing original K/M/N/O/Q/R/S/T/U directive content | Content now supplied in master handback and reconciled into roadmap/control-room rules | CLOSED | Requirements available; no longer source-blocked |
+
+## Immediate dependency gates
+
+### Gate A — Bell/calendar foundation
+Must complete N17/N18/N19 + T04/T05 with application/database CI and explicit acceptance evidence before being called DONE.
+
+### Gate B — Education network foundation
+May be implemented in parallel, but must be hardened for hierarchy integrity, effective dating, network-role scoping and sensitive-data non-leakage. No circuit/region dashboards in this phase.
+
+### Gate C — DNEA/statutory UI
+Do not start regional-review UI on fake role semantics. Build after the network role/scoping foundation is real and merge-ready/integrated.
 
 ## Integration checklist
 
-- Preserve original worktree changes to dependencies, Trigger.dev and branding.
-- No edits to GPT-owned report-card rendering, shared document contracts or school identity semantics.
-- Review migration timestamps against current main before each merge; never rename a deployed migration.
-- Require database CI green; local PostgreSQL checks alone are not a substitute for Supabase CI.
-- Shared environment migrations are applied only by the designated integration/deployment workflow.
-- Keep each phase's commit, tests, unverified scenarios and remaining work in implementation status.
+- Read `AGENTS.md` and `CONTROL-ROOM.md` before starting a branch.
+- Preserve another active stream's owned files.
+- Review migration timestamps against latest `main`; never rename a deployed migration.
+- Require Database CI green for migration-owning PRs.
+- Require exact-head required CI before declaring merge-ready.
+- Apply shared-environment migrations only through the designated integration/deployment workflow.
+- Record tests, unverified scenarios, dependencies and merge SHA honestly.
+- Use the mandatory DONE / IN PROGRESS / BLOCKED handback template from `CONTROL-ROOM.md`.
