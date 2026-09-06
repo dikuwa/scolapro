@@ -18,8 +18,8 @@ export const metadata: Metadata = {
   applicationName: SCOLAPRO_BRAND.name,
   description: SCOLAPRO_BRAND.productDescription,
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    shortcut: "/icon.svg",
+    icon: [{ url: "/brand/scolapro/icon-blue.svg", type: "image/svg+xml" }],
+    shortcut: "/brand/scolapro/icon-blue.svg",
   },
   manifest: "/manifest.webmanifest",
 };
