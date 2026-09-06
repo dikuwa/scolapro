@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ScolaProMark } from "@/components/brand/scolapro-brand";
+import { ScolaProMark, ScolaProWordmark } from "@/components/brand/scolapro-brand";
 import { AccountMenu } from "@/components/shell/account-menu";
 import { MobileNavigation } from "@/components/shell/navigation";
 import { ShellFrame } from "@/components/shell/shell-frame";
@@ -20,15 +20,6 @@ function Avatar({ url, name, size = "size-8" }: { url: string | null; name: stri
   return (
     <span className={`grid ${size} shrink-0 place-items-center overflow-hidden rounded-full bg-surface-subtle text-[0.68rem] font-semibold text-foreground`}>
       {url ? <img src={url} alt="" className="size-full object-cover" /> : initials(name)}
-    </span>
-  );
-}
-
-function BrandName() {
-  return (
-    <span className="font-bold tracking-[-0.04em]">
-      <span className="text-[#06112e] dark:text-white">Scola</span>
-      <span className="text-[#009b87]">Pro</span>
     </span>
   );
 }
@@ -76,9 +67,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const avatar = <Avatar url={avatarUrl} name={displayName} />;
 
   const brand = (
-    <Link href="/" className="mb-5 flex min-h-11 items-center gap-3 rounded-[var(--radius-sm)] px-2 py-2 text-[0.95rem] font-semibold tracking-[-0.02em] transition-colors duration-[var(--motion-fast)] hover:bg-surface-muted group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:px-1">
-      <ScolaProMark className="size-9 shrink-0" />
-      <span className="min-w-0 group-data-[collapsed=true]/sidebar:hidden"><span className="block"><BrandName /></span><span className="mt-0.5 block truncate text-[0.68rem] font-normal tracking-normal text-muted-foreground">{schoolName}</span></span>
+    <Link href="/" className="mb-5 flex min-h-11 items-center rounded-[var(--radius-sm)] px-2 py-2 transition-colors duration-[var(--motion-fast)] hover:bg-surface-muted group-data-[collapsed=true]/sidebar:justify-center group-data-[collapsed=true]/sidebar:px-1">
+      <span className="hidden group-data-[collapsed=true]/sidebar:inline-flex">
+        <ScolaProMark className="size-9 shrink-0" />
+      </span>
+      <span className="min-w-0 group-data-[collapsed=true]/sidebar:hidden">
+        <ScolaProWordmark compact />
+        <span className="mt-0.5 block truncate text-[0.68rem] font-normal tracking-normal text-muted-foreground">{schoolName}</span>
+      </span>
     </Link>
   );
 
@@ -87,9 +83,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const header = (
     <header className="sticky top-0 z-30 border-b border-border-subtle bg-[color:var(--surface)]/92 backdrop-blur-xl">
       <div className="mx-auto flex min-h-16 w-full max-w-[var(--content-max)] items-center gap-3 px-4 sm:px-6 lg:px-8">
-        <div className="flex min-w-0 items-center gap-3 lg:hidden">
-          <ScolaProMark className="size-9 shrink-0" />
-          <span className="min-w-0"><span className="block truncate text-sm"><BrandName /></span><span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span></span>
+        <div className="min-w-0 lg:hidden">
+          <ScolaProWordmark compact />
+          <span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span>
         </div>
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
           <NotificationCenter unreadCount={unreadCount} notifications={notifications} />
