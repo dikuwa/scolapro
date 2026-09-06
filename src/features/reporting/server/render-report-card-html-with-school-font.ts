@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Buffer } from "node:buffer";
+import { applyOfficialDocumentHtmlChrome } from "@/features/documents/server/official-document-chrome";
 import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import { loadOldEnglishFontBytes } from "@/features/reporting/server/report-card-fonts";
@@ -22,7 +23,7 @@ function escapeHtml(value: string): string {
 export async function renderReportCardHtmlWithSchoolFont(
   input: ReportCardRenderInput,
 ): Promise<string> {
-  let html = renderReportCardHtml(input);
+  let html = applyOfficialDocumentHtmlChrome(renderReportCardHtml(input));
   const model = buildReportCardTemplateModel(input);
   const header = buildOfficialDocumentHeaderModel(model);
 
