@@ -44,12 +44,12 @@ function GuardianRow({ guardian, expanded, onToggle }: { guardian: GuardianDirec
   const hasEmergencyLearner = guardian.learners.some((learner) => learner.isEmergencyContact);
 
   return (
-    <div className="border-b border-border-subtle last:border-b-0">
+    <div className={`border-b border-border-subtle last:border-b-0 ${expanded ? "bg-surface-muted/45" : ""}`}>
       <button
         type="button"
         onClick={onToggle}
         className={`flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5 ${
-          expanded ? "bg-surface-muted/45" : "bg-transparent hover:bg-surface-muted/70"
+          expanded ? "bg-transparent" : "bg-transparent hover:bg-surface-muted/70"
         }`}
         aria-expanded={expanded}
         aria-controls={`guardian-details-${guardian.guardianId}`}
@@ -66,7 +66,7 @@ function GuardianRow({ guardian, expanded, onToggle }: { guardian: GuardianDirec
       </button>
 
       {expanded ? (
-        <div id={`guardian-details-${guardian.guardianId}`} className="border-t border-border-subtle bg-surface-muted/45 px-4 py-4 sm:px-5">
+        <div id={`guardian-details-${guardian.guardianId}`} className="bg-transparent px-4 pb-4 pt-1 sm:px-5">
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <h3 className="mb-2 text-xs font-semibold text-foreground">Linked learners</h3>
