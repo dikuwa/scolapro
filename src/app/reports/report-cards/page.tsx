@@ -5,6 +5,7 @@ import { ReportCardManualRemarkEditor } from "@/features/reporting/report-card-m
 import { PagedReportCardManagement } from "@/features/reporting/paged-report-card-management";
 import { ReportBatchWorkerPulse } from "@/features/reporting/report-batch-worker-pulse";
 import { ReportCardStatusReadonly } from "@/features/reporting/report-card-status-readonly";
+import { getReportCardAcademicTerm } from "@/features/reporting/server/report-card-academic-term";
 import { getReportCardAcademicYear } from "@/features/reporting/server/report-card-academic-year";
 import { getIndividualReportCardLearnerOptions } from "@/features/reporting/server/individual-report-card-learners";
 import {
@@ -38,14 +39,14 @@ function validUuid(value: string | undefined) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : "";
 }
 
-function parseCommonParams(params: Record<string, string | string[] | undefined>) {
+function parseCommonParams(params: Record<string, string | string[] | undefined>, defaultTermNumber: number) {
   const query = (firstParam(params.q) ?? "").trim().slice(0, 120);
   const rawStatus = firstParam(params.status) ?? "all";
   const status: ReportCardStatusFilter = reportStatuses.has(rawStatus as ReportCardStatusFilter)
     ? rawStatus as ReportCardStatusFilter
     : "all";
-  const rawTerm = Number(firstParam(params.term) ?? 1);
-  const termNumber = Number.isInteger(rawTerm) && rawTerm >= 1 && rawTerm <= 3 ? rawTerm : 1;
+  const rawTerm = Number(firstParam(params.term) ?? defaultTermNumber);
+  const termNumber = Number.isInteger(rawTerm) && rawTerm >= 1 && rawTerm <= 3 ? rawTerm : defaultTermNumber;
   const rawPage = Number(firstParam(params.page) ?? 1);
   const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
   return { query, status, termNumber, page };
@@ -71,8 +72,9 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
 
   const canManageReports = managerRoles.has(membership.roleKey);
   const academicYear = await getReportCardAcademicYear(membership.schoolId);
+  const defaultTermNumber = await getReportCardAcademicTerm(membership.schoolId, academicYear);
   const params = await searchParams;
-  const common = parseCommonParams(params);
+  const common = parseCommonParams(params, defaultTermNumber);
 
   if (!canManageReports) {
     const statusPage = await getReportCardStatusPage({
