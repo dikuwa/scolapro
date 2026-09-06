@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getNamibiaDateKey } from "@/lib/namibia-date";
 import type { TimetableCycleMode } from "@/features/timetable/day-labels";
 
 type TimetableSlotView = {
@@ -22,6 +23,8 @@ type TimetableSlotView = {
 export type TimetableWorkspace = {
   cycleMode: TimetableCycleMode;
   cycleLength: number;
+  todayDate: string;
+  todayDay: number | null;
   grades: { id: string; name: string }[];
   classes: { id: string; name: string; gradeId: string; gradeName: string }[];
   staff: { id: string; name: string; employeeNumber: string | null }[];
@@ -44,8 +47,10 @@ function isCurrentOrFuture(date: string, endsOn: string | null): boolean {
 
 export async function getTimetableWorkspace(schoolId: string, academicYear: number): Promise<TimetableWorkspace> {
   const supabase = await createSupabaseServerClient();
-  const [schoolResult, gradesResult, classesResult, membershipsResult, staffAssignmentsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult] = await Promise.all([
+  const today = getNamibiaDateKey();
+  const [schoolResult, todayDayResult, gradesResult, classesResult, membershipsResult, staffAssignmentsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult] = await Promise.all([
     supabase.from("schools").select("timetable_cycle_mode,timetable_cycle_length").eq("id", schoolId).single(),
+    supabase.rpc("resolve_timetable_day", { p_school_id: schoolId, p_academic_year: academicYear, p_target_date: today }),
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("grade_code"),
     supabase.from("register_classes").select("id,display_name,grade_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("school_memberships").select("staff_member_id,active_from,active_to,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
@@ -58,10 +63,9 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.from("timetable_slots").select("id,cycle_code,weekday,period_id,register_class_id,teacher_allocation_id,room_id,room_label,timetable_periods(display_name,period_number),register_classes(display_name),teacher_allocations(staff_member_id,active_from,active_to,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("weekday").order("period_id"),
   ]);
 
-  const error = schoolResult.error || gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error;
+  const error = schoolResult.error || todayDayResult.error || gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error;
   if (error) throw new Error(`Unable to load timetable workspace: ${error.message}`);
 
-  const today = new Date().toISOString().slice(0, 10);
   const eligibleStaffMap = new Map<string, { id: string; name: string; employeeNumber: string | null }>();
   const currentStaffIds = new Set<string>();
   const staffCodeMap = new Map<string, string>();
@@ -134,6 +138,8 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
   return {
     cycleMode: (schoolResult.data?.timetable_cycle_mode === "rotating" ? "rotating" : "weekday") as TimetableCycleMode,
     cycleLength: schoolResult.data?.timetable_cycle_length ?? 5,
+    todayDate: today,
+    todayDay: typeof todayDayResult.data === "number" ? todayDayResult.data : null,
     grades: (gradesResult.data ?? []).map((grade) => ({ id: grade.id, name: grade.display_name })),
     classes: (classesResult.data ?? []).map((item) => ({ id: item.id, name: item.display_name, gradeId: item.grade_id, gradeName: one(item.grades)?.display_name ?? "Grade" })),
     staff: Array.from(eligibleStaffMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
