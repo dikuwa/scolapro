@@ -43,6 +43,17 @@ reset role;
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
 values('fcc10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','CYCLE-001','Cycle','Teacher','active');
 
+insert into public.staff_school_assignments(
+  id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id
+) values(
+  'fcc11000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'fcc10000-0000-4000-8000-000000000001',
+  'teacher',current_date-1,null,
+  'fcc00000-0000-4000-8000-000000000001'
+);
+
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status)
 values('fcc20000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','CYCLE','Cycle Subject','active');
 
