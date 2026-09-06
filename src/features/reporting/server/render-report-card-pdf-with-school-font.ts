@@ -2,6 +2,10 @@ import "server-only";
 
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
+import {
+  OFFICIAL_DOCUMENT_PDF_GEOMETRY,
+  officialDocumentPdfContentWidth,
+} from "@/features/documents/server/official-document-chrome";
 import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import { loadOldEnglishFontBytes } from "@/features/reporting/server/report-card-fonts";
@@ -11,17 +15,25 @@ import {
   type ReportCardRenderInput,
 } from "@/features/reporting/server/report-card-template-model";
 
-const PAGE_WIDTH = 595.28;
-const PAGE_HEIGHT = 841.89;
-const MARGIN = 34;
-const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
-const LOGO_WIDTH = 82;
-const POSTAL_WIDTH = 116;
+const {
+  pageWidth: PAGE_WIDTH,
+  pageHeight: PAGE_HEIGHT,
+  margin: MARGIN,
+  logoColumnWidth: LOGO_WIDTH,
+  postalColumnWidth: POSTAL_WIDTH,
+  metadataClearanceY: META_CLEAR_Y,
+  metadataClearanceHeight: META_CLEAR_HEIGHT,
+  metadataPrimaryBaselineY: META_PRIMARY_Y,
+  metadataSecondaryBaselineY: META_SECONDARY_Y,
+  titleBaselineOffset: TITLE_BASELINE_OFFSET,
+  titleClearOffset: TITLE_CLEAR_OFFSET,
+  titleClearHeight: TITLE_CLEAR_HEIGHT,
+} = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
+const CONTENT_WIDTH = officialDocumentPdfContentWidth();
 const TITLE_X = MARGIN + LOGO_WIDTH;
 const TITLE_WIDTH = CONTENT_WIDTH - LOGO_WIDTH - POSTAL_WIDTH;
-const TITLE_BASELINE_Y = PAGE_HEIGHT - MARGIN - 22;
-const TITLE_CLEAR_Y = TITLE_BASELINE_Y - 3;
-const TITLE_CLEAR_HEIGHT = 23;
+const TITLE_BASELINE_Y = PAGE_HEIGHT - MARGIN - TITLE_BASELINE_OFFSET;
+const TITLE_CLEAR_Y = TITLE_BASELINE_Y - TITLE_CLEAR_OFFSET;
 const INK = rgb(0.08, 0.08, 0.08);
 const MUTED = rgb(0.38, 0.38, 0.38);
 
@@ -49,10 +61,21 @@ export async function renderReportCardPdfWithSchoolFont(
   const pages = pdf.getPages();
 
   pages.forEach((page, index) => {
-    page.drawRectangle({ x: 0, y: 5, width: PAGE_WIDTH, height: 24, color: rgb(1, 1, 1) });
+    const { width, height } = page.getSize();
+    if (Math.abs(width - PAGE_WIDTH) > 0.02 || Math.abs(height - PAGE_HEIGHT) > 0.02) {
+      throw new Error("Report-card PDF renderer did not expose the expected official A4 page geometry.");
+    }
+
+    page.drawRectangle({
+      x: 0,
+      y: META_CLEAR_Y,
+      width: PAGE_WIDTH,
+      height: META_CLEAR_HEIGHT,
+      color: rgb(1, 1, 1),
+    });
     page.drawText(fitText(regular, metadata.snapshotLine, 5.2, 350), {
       x: MARGIN,
-      y: 19,
+      y: META_PRIMARY_Y,
       size: 5.2,
       font: regular,
       color: MUTED,
@@ -60,7 +83,7 @@ export async function renderReportCardPdfWithSchoolFont(
     const pageText = metadata.pageLabel(index + 1, pages.length);
     page.drawText(pageText, {
       x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(pageText, 5.2),
-      y: 19,
+      y: META_PRIMARY_Y,
       size: 5.2,
       font: regular,
       color: MUTED,
@@ -68,7 +91,7 @@ export async function renderReportCardPdfWithSchoolFont(
     const certification = fitText(regular, metadata.certificationLine, 5.2, 180);
     page.drawText(certification, {
       x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(certification, 5.2),
-      y: 10,
+      y: META_SECONDARY_Y,
       size: 5.2,
       font: regular,
       color: MUTED,
