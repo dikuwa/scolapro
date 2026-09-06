@@ -1,27 +1,12 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { loadOfficialOldEnglishFontBytes } from "@/features/documents/server/official-document-fonts";
 
-const oldEnglishFontRelativePath = [
-  "node_modules",
-  "@fontsource",
-  "unifrakturcook",
-  "files",
-  "unifrakturcook-latin-700-normal.woff",
-];
-let oldEnglishFontBytesPromise: Promise<Uint8Array> | null = null;
-
+/**
+ * Backward-compatible report-card alias. The runtime asset now belongs to the
+ * shared official-document layer so report cards and future document families
+ * cannot drift to different school-name font sources.
+ */
 export function loadOldEnglishFontBytes(): Promise<Uint8Array> {
-  if (!oldEnglishFontBytesPromise) {
-    oldEnglishFontBytesPromise = (async () => {
-      // This is a runtime asset read, not a module import. Treating the WOFF as a
-      // module makes Turbopack reject it as an unknown module type. The matching
-      // next.config output-file tracing rule keeps the font in server deployments.
-      const fontPath = join(process.cwd(), ...oldEnglishFontRelativePath);
-      const bytes = await readFile(fontPath);
-      return new Uint8Array(bytes);
-    })();
-  }
-  return oldEnglishFontBytesPromise;
+  return loadOfficialOldEnglishFontBytes();
 }
