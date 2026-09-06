@@ -64,11 +64,32 @@ export async function getLearnerCumulativeRecord(learnerId: string, schoolId: st
     supabase.from("learner_cumulative_notes").select("id, note_date, note_type, note, sensitivity").eq("learner_id", learnerId).eq("school_id", schoolId).order("note_date", { ascending: false }),
   ]);
 
+  const results = [
+    ["priorSchools", priorSchoolsResult],
+    ["healthHistory", healthResult],
+    ["psychometricRecords", psychometricResult],
+    ["developmentObservations", developmentResult],
+    ["notes", notesResult],
+  ] as const;
+
   // RLS intentionally makes restricted collections look empty to unauthorized roles.
   // A genuine database/query failure should still be surfaced rather than silently
   // presenting an incomplete record to an authorized user.
-  const failure = [priorSchoolsResult, healthResult, psychometricResult, developmentResult, notesResult].find((result) => result.error);
-  if (failure?.error) throw new Error("Unable to load the cumulative learner record.");
+  const failedQueries = results.filter(([, result]) => result.error);
+  if (failedQueries.length) {
+    for (const [query, result] of failedQueries) {
+      console.error("Learner cumulative record query failed", {
+        query,
+        learnerId,
+        schoolId,
+        error: result.error?.message,
+        code: result.error?.code,
+        details: result.error?.details,
+        hint: result.error?.hint,
+      });
+    }
+    throw new Error("Unable to load the cumulative learner record.");
+  }
 
   return {
     priorSchools: (priorSchoolsResult.data ?? []).map((row) => ({
