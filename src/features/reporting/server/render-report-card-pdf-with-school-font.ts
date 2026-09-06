@@ -2,6 +2,7 @@ import "server-only";
 
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
+import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import { loadOldEnglishFontBytes } from "@/features/reporting/server/report-card-fonts";
 import { renderReportCardPdf } from "@/features/reporting/server/render-report-card-pdf";
@@ -36,6 +37,7 @@ export async function renderReportCardPdfWithSchoolFont(
 ): Promise<{ bytes: Uint8Array; pageCount: number }> {
   const rendered = await renderReportCardPdf(input);
   const model = buildReportCardTemplateModel(input);
+  const header = buildOfficialDocumentHeaderModel(model);
   const metadata = buildOfficialDocumentMetadata({
     snapshotVersion: model.snapshotVersion,
     certifiedAt: model.certifiedAt,
@@ -73,7 +75,7 @@ export async function renderReportCardPdfWithSchoolFont(
     });
   });
 
-  if (model.schoolNameFont === "old_english") {
+  if (header.schoolNameFont === "old_english") {
     pdf.registerFontkit(fontkit);
     const oldEnglish = await pdf.embedFont(await loadOldEnglishFontBytes(), { subset: true });
     const page = pdf.getPage(0);
@@ -88,11 +90,11 @@ export async function renderReportCardPdfWithSchoolFont(
 
     let fontSize = 19;
     const maxWidth = TITLE_WIDTH - 6;
-    while (fontSize > 12 && oldEnglish.widthOfTextAtSize(model.schoolName, fontSize) > maxWidth) {
+    while (fontSize > 12 && oldEnglish.widthOfTextAtSize(header.schoolName, fontSize) > maxWidth) {
       fontSize -= 0.5;
     }
-    const textWidth = oldEnglish.widthOfTextAtSize(model.schoolName, fontSize);
-    page.drawText(model.schoolName, {
+    const textWidth = oldEnglish.widthOfTextAtSize(header.schoolName, fontSize);
+    page.drawText(header.schoolName, {
       x: TITLE_X + Math.max(3, (TITLE_WIDTH - textWidth) / 2),
       y: TITLE_BASELINE_Y,
       size: fontSize,
