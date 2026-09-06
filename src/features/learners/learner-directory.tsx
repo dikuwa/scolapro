@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, ChevronRight, Printer, Search, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Printer, Search, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -84,6 +84,7 @@ export function LearnerDirectory({
   const classListHref = canExportClassList
     ? `/api/official-documents/class-list?grade=${encodeURIComponent(initialFilters.grade)}&class=${encodeURIComponent(initialFilters.registerClass)}`
     : "";
+  const classListPdfHref = classListHref ? `${classListHref}&format=pdf` : "";
 
   return (
     <>
@@ -101,7 +102,10 @@ export function LearnerDirectory({
           <Picker ariaLabel="Sort learners" name="learner-sort" value={initialFilters.sortOrder} onChange={(value) => replaceParams({ sort: value === "desc" ? "desc" : "asc" })} placeholder="A–Z" options={[{ value: "asc", label: "A–Z" }, { value: "desc", label: "Z–A" }]} />
         </div>
         <div className="flex flex-wrap items-center gap-2 xl:col-start-2 xl:justify-self-end">
-          {canExportClassList ? <Link href={classListHref} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface px-2.5 text-[0.7rem] font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted"><Printer aria-hidden="true" className="size-3.5" />Print class list</Link> : null}
+          {canExportClassList ? <>
+            <Link href={classListHref} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface px-2.5 text-[0.7rem] font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted"><Printer aria-hidden="true" className="size-3.5" />Print class list</Link>
+            <a href={classListPdfHref} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface px-2.5 text-[0.7rem] font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted"><Download aria-hidden="true" className="size-3.5" />Download PDF</a>
+          </> : null}
           {hasFilters ? <button type="button" onClick={() => { setQuery(""); startFiltering(() => router.replace(pathname, { scroll: false })); }} className="min-h-8 rounded-[var(--radius-xs)] px-2 text-[0.7rem] font-medium text-muted-foreground hover:bg-surface hover:text-foreground">Clear filters</button> : null}
         </div>
       </div>
