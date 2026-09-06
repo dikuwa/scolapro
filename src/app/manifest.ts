@@ -9,10 +9,10 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     background_color: "#f5f7fb",
-    theme_color: "#06112e",
+    theme_color: "#303ecf",
     icons: [
       {
-        src: "/icon.svg",
+        src: "/brand/scolapro/icon-blue.svg",
         sizes: "any",
         type: "image/svg+xml",
         purpose: "any",
