@@ -2,12 +2,23 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function getSchoolStructure(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
-  const [{ data: school, error: schoolError }, { data: grades, error: gradeError }, { data: classes, error: classError }] = await Promise.all([
+  const [
+    { data: school, error: schoolError },
+    { data: anchor, error: anchorError },
+    { data: grades, error: gradeError },
+    { data: classes, error: classError },
+  ] = await Promise.all([
     supabase
       .from("schools")
       .select("timetable_cycle_mode,timetable_cycle_length")
       .eq("id", schoolId)
       .single(),
+    supabase
+      .from("timetable_cycle_anchors")
+      .select("anchor_date,anchor_day")
+      .eq("school_id", schoolId)
+      .eq("academic_year", academicYear)
+      .maybeSingle(),
     supabase
       .from("grades")
       .select("id,grade_code,display_name")
@@ -22,11 +33,13 @@ export async function getSchoolStructure(schoolId: string, academicYear: number)
       .order("class_code"),
   ]);
 
-  if (schoolError || gradeError || classError) throw new Error("Unable to load school academic structure.");
+  if (schoolError || anchorError || gradeError || classError) throw new Error("Unable to load school academic structure.");
 
   return {
     timetableCycleMode: school?.timetable_cycle_mode === "rotating" ? "rotating" as const : "weekday" as const,
     timetableCycleLength: school?.timetable_cycle_length ?? 5,
+    timetableCycleAnchorDate: anchor?.anchor_date ?? null,
+    timetableCycleAnchorDay: anchor?.anchor_day ?? null,
     grades: (grades ?? []).map((grade) => ({
       id: grade.id,
       code: grade.grade_code,

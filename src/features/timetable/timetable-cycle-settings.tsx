@@ -1,10 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CalendarRange, LoaderCircle } from "lucide-react";
+import { CalendarDays, CalendarRange, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
-import { saveTimetableCycleSettings } from "@/features/timetable/server/cycle-actions";
+import { saveTimetableCycleAnchor, saveTimetableCycleSettings } from "@/features/timetable/server/cycle-actions";
 import type { TimetableActionState } from "@/features/timetable/server/actions";
 import type { TimetableCycleMode } from "@/features/timetable/day-labels";
 
@@ -13,16 +13,24 @@ const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-bor
 
 export function TimetableCycleSettings({
   schoolId,
+  academicYear,
   initialMode,
   initialLength,
+  initialAnchorDate,
+  initialAnchorDay,
 }: {
   schoolId: string;
+  academicYear: number;
   initialMode: TimetableCycleMode;
   initialLength: number;
+  initialAnchorDate: string | null;
+  initialAnchorDay: number | null;
 }) {
   const [state, action, pending] = useActionState(saveTimetableCycleSettings, initialState);
+  const [anchorState, anchorAction, anchorPending] = useActionState(saveTimetableCycleAnchor, initialState);
   const [mode, setMode] = useState<TimetableCycleMode>(initialMode);
   const [length, setLength] = useState(initialLength);
+  const [anchorDay, setAnchorDay] = useState(initialAnchorDay ?? 1);
   const maxLength = mode === "weekday" ? 7 : 10;
 
   useEffect(() => {
@@ -31,11 +39,23 @@ export function TimetableCycleSettings({
     else toast.error(state.message);
   }, [state]);
 
+  useEffect(() => {
+    if (!anchorState.message) return;
+    if (anchorState.success) toast.success(anchorState.message);
+    else toast.error(anchorState.message);
+  }, [anchorState]);
+
   const changeMode = (value: string) => {
     const nextMode: TimetableCycleMode = value === "rotating" ? "rotating" : "weekday";
     setMode(nextMode);
     const nextMax = nextMode === "weekday" ? 7 : 10;
     setLength((current) => Math.min(current, nextMax));
+  };
+
+  const changeLength = (value: number) => {
+    const nextLength = Math.max(1, Math.min(maxLength, value || 1));
+    setLength(nextLength);
+    setAnchorDay((current) => Math.min(current, nextLength));
   };
 
   return (
@@ -70,7 +90,7 @@ export function TimetableCycleSettings({
             min="1"
             max={maxLength}
             value={length}
-            onChange={(event) => setLength(Math.max(1, Math.min(maxLength, Number(event.target.value) || 1)))}
+            onChange={(event) => changeLength(Number(event.target.value))}
             className={`${fieldClass} mt-1.5`}
           />
           <p className="mt-1 text-[0.68rem] text-muted-foreground">Maximum {maxLength} {mode === "weekday" ? "weekdays" : "cycle days"}.</p>
@@ -84,9 +104,63 @@ export function TimetableCycleSettings({
 
       <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-[0.68rem] leading-relaxed text-muted-foreground">
         {mode === "rotating"
-          ? `This timetable will use Day 1 through Day ${length}. Calendar-date-to-cycle-day resolution remains a separate governed calendar feature so holidays and closures can be handled correctly.`
-          : `This timetable will use real weekday labels from Monday through ${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][length - 1]}.`}
+          ? `This timetable uses Day 1 through Day ${length}. Set one real school date below as the cycle anchor; closures and holidays will then be skipped when resolving later dates.`
+          : `This timetable uses real weekday labels from Monday through ${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][length - 1]}.`}
       </div>
+
+      {mode === "rotating" ? (
+        <div className="mt-5 border-t border-border-subtle pt-5">
+          <div className="flex items-start gap-2.5">
+            <span className="scolapro-tone-mint grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" aria-hidden="true" /></span>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Calendar anchor</h3>
+              <p className="mt-0.5 max-w-2xl text-xs leading-5 text-muted-foreground">For {academicYear}, choose a known school date and the rotating day printed on the timetable for that date. ScolaPro uses this anchor plus school-day overrides to resolve other calendar dates.</p>
+            </div>
+          </div>
+
+          <form action={anchorAction} className="mt-4 grid gap-4 sm:grid-cols-[minmax(12rem,0.65fr)_minmax(9rem,0.35fr)_auto] sm:items-end">
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <input type="hidden" name="academicYear" value={academicYear} />
+            <div>
+              <label htmlFor="timetable-cycle-anchor-date" className="text-xs font-medium">Known school date</label>
+              <input
+                id="timetable-cycle-anchor-date"
+                name="anchorDate"
+                type="date"
+                defaultValue={initialAnchorDate ?? ""}
+                required
+                className={`${fieldClass} mt-1.5`}
+              />
+              {anchorState.fieldErrors?.anchorDate?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{anchorState.fieldErrors.anchorDate[0]}</p> : null}
+            </div>
+            <div>
+              <label htmlFor="timetable-cycle-anchor-day" className="text-xs font-medium">Cycle day</label>
+              <input
+                id="timetable-cycle-anchor-day"
+                name="anchorDay"
+                type="number"
+                min="1"
+                max={length}
+                value={anchorDay}
+                onChange={(event) => setAnchorDay(Math.max(1, Math.min(length, Number(event.target.value) || 1)))}
+                className={`${fieldClass} mt-1.5`}
+              />
+              <p className="mt-1 text-[0.68rem] text-muted-foreground">Day 1 to Day {length}.</p>
+              {anchorState.fieldErrors?.anchorDay?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{anchorState.fieldErrors.anchorDay[0]}</p> : null}
+            </div>
+            <button type="submit" disabled={anchorPending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60">
+              {anchorPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarDays className="size-4" aria-hidden="true" />}
+              {anchorPending ? "Saving…" : initialAnchorDate ? "Update anchor" : "Save anchor"}
+            </button>
+          </form>
+
+          {initialAnchorDate && initialAnchorDay ? (
+            <p className="mt-3 text-xs text-muted-foreground">Current {academicYear} anchor: <span className="font-medium text-foreground">{initialAnchorDate} = Day {initialAnchorDay}</span>.</p>
+          ) : (
+            <p className="mt-3 text-xs text-[color:var(--accent-amber)]">No {academicYear} calendar anchor is configured yet. The numbered timetable can still be built, but date-to-Day-N resolution remains unavailable until this is set.</p>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -53,11 +53,50 @@ export async function saveTimetableCycleSettings(_state: TimetableActionState, f
   });
 
   if (error) {
-    if (error.message.includes("cannot be shortened below Day")) return { message: error.message };
+    if (error.message.includes("cannot be shortened below Day") || error.message.includes("cannot be shortened below configured anchor Day")) return { message: error.message };
     if (error.message.includes("cannot exceed 7 days")) return { message: "A standard weekday timetable cannot exceed 7 days." };
     return { message: "The timetable workflow could not be updated. Review the cycle mode and length, then try again." };
   }
   return finish(parsed.data.cycleMode === "rotating" ? `Rotating ${parsed.data.cycleLength}-day timetable cycle saved.` : `Standard ${parsed.data.cycleLength}-day timetable week saved.`);
+}
+
+const anchorSchema = z.object({
+  schoolId: z.string().uuid(),
+  academicYear: z.coerce.number().int().min(2000).max(2200),
+  anchorDate: z.string().date(),
+  anchorDay: z.coerce.number().int().min(1).max(10),
+});
+
+export async function saveTimetableCycleAnchor(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
+  const parsed = anchorSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    academicYear: formData.get("academicYear"),
+    anchorDate: formData.get("anchorDate"),
+    anchorDay: formData.get("anchorDay"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!(await hasTimetableConfigurationRole(parsed.data.schoolId))) return { message: "You do not have permission to configure this school's rotating timetable calendar." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("configure_timetable_cycle_anchor", {
+    p_school_id: parsed.data.schoolId,
+    p_academic_year: parsed.data.academicYear,
+    p_anchor_date: parsed.data.anchorDate,
+    p_anchor_day: parsed.data.anchorDay,
+  });
+
+  if (error) {
+    if (
+      error.message.includes("Anchor day must be inside") ||
+      error.message.includes("Anchor date must be") ||
+      error.message.includes("Anchor date cannot be") ||
+      error.message.includes("Configure the academic year") ||
+      error.message.includes("Calendar anchors apply only")
+    ) return { message: error.message };
+    return { message: "The rotating timetable calendar anchor could not be saved." };
+  }
+
+  return finish(`Calendar anchor saved: ${parsed.data.anchorDate} is Day ${parsed.data.anchorDay}.`);
 }
 
 const slotSchema = z.object({

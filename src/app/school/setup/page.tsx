@@ -42,7 +42,14 @@ export default async function SchoolSetupPage() {
         </div>
 
         <div className="mt-5">
-          <TimetableCycleSettings schoolId={membership.schoolId} initialMode={structure.timetableCycleMode} initialLength={structure.timetableCycleLength} />
+          <TimetableCycleSettings
+            schoolId={membership.schoolId}
+            academicYear={academicYear}
+            initialMode={structure.timetableCycleMode}
+            initialLength={structure.timetableCycleLength}
+            initialAnchorDate={structure.timetableCycleAnchorDate}
+            initialAnchorDay={structure.timetableCycleAnchorDay}
+          />
         </div>
 
         {canManageAcademicStructure ? (

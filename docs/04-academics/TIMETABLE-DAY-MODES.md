@@ -1,6 +1,6 @@
 # Timetable day modes
 
-ScolaPro supports two timetable day models per school. The configuration belongs to the school, not to an individual timetable or user.
+ScolaPro supports two timetable day models per school. The day vocabulary belongs to the school, while a rotating calendar anchor belongs to one academic year.
 
 ## Standard week
 
@@ -32,6 +32,31 @@ The main timetable grid, slot picker, current-schedule maintenance and future-pl
 
 ## Calendar-date resolution
 
-This setting defines the timetable's day vocabulary and permitted day range. It does **not** yet infer which rotating `Day N` corresponds to an arbitrary calendar date. That later capability needs a governed cycle anchor plus school-day/holiday rules so weekends, closures and holidays are advanced or skipped correctly rather than using a naive date difference.
+A numbered cycle needs one known real date before ScolaPro can safely answer questions such as “which timetable day is 18 January?”. The calendar anchor is configured per academic year in Academic Setup.
 
-Attendance and late-arrival weekly calendar logic remain independent from timetable day mode.
+Example:
+
+- cycle length: 10;
+- anchor: `11 January 2027 = Day 1`;
+- `12 January = Day 2`;
+- if `13 January` is configured as a school closure, it consumes no cycle day;
+- `14 January = Day 3`;
+- a Saturday explicitly configured as a school day does advance the cycle.
+
+The governed `configure_timetable_cycle_anchor(...)` RPC validates that:
+
+- the school is in rotating mode;
+- the academic year exists;
+- the anchor lies inside configured academic-year dates when boundaries are present;
+- the anchor date is an expected school day;
+- the anchor Day N is inside the school's configured cycle length.
+
+`resolve_timetable_day(school, academic year, date)` is the canonical date-to-timetable-day resolver. It uses `school_day_overrides` rather than naive date modulo arithmetic, so holidays, emergency closures and approved weekend school days are treated correctly. Dates outside the academic year or dates that are not school days resolve to no timetable day.
+
+A rotating anchor remains historical if the school later switches temporarily to weekday mode. Weekday resolution ignores the anchor and uses real ISO weekday numbers within the configured weekday length.
+
+The school cycle cannot be shortened below an active timetable slot day or below an existing rotating anchor day. Schools must first correct those records rather than silently changing their meaning.
+
+## Separation from attendance
+
+Attendance and late-arrival weekly calendar logic remain independent from timetable day mode. The rotating resolver does not rewrite the Monday-Friday weekly register contract. `school_day_overrides` is shared only as the authoritative source for whether a specific date is an expected school day.
