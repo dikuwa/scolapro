@@ -21,6 +21,25 @@ export const OFFICIAL_DOCUMENT_METADATA_RULE =
 
 export const OFFICIAL_DOCUMENT_PRINT_RULE = ".report { break-inside: avoid; }";
 
+export const OFFICIAL_DOCUMENT_PDF_GEOMETRY = Object.freeze({
+  pageWidth: 595.28,
+  pageHeight: 841.89,
+  margin: 34,
+  logoColumnWidth: 82,
+  postalColumnWidth: 116,
+  metadataClearanceY: 5,
+  metadataClearanceHeight: 24,
+  metadataPrimaryBaselineY: 19,
+  metadataSecondaryBaselineY: 10,
+  titleBaselineOffset: 22,
+  titleClearOffset: 3,
+  titleClearHeight: 23,
+});
+
+export function officialDocumentPdfContentWidth(): number {
+  return OFFICIAL_DOCUMENT_PDF_GEOMETRY.pageWidth - OFFICIAL_DOCUMENT_PDF_GEOMETRY.margin * 2;
+}
+
 type ChromeReplacement = {
   name: string;
   legacy: string;
