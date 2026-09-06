@@ -7,12 +7,13 @@ import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { Picker, TimePicker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
-import { saveAllocation, saveOffering, savePeriod, saveSlot, saveSubject, type TimetableActionState } from "@/features/timetable/server/actions";
+import { getTimetableDayNames } from "@/features/timetable/day-labels";
+import { saveAllocation, saveOffering, savePeriod, saveSubject, type TimetableActionState } from "@/features/timetable/server/actions";
+import { saveCycleAwareSlot } from "@/features/timetable/server/cycle-actions";
 import { SubjectMaintenanceList } from "@/features/timetable/subject-maintenance-list";
 import type { TimetableWorkspace } from "@/features/timetable/server/workspace";
 
 const initialState: TimetableActionState = {};
-const weekdayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 function localTodayIso() {
   const today = new Date();
@@ -42,7 +43,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
   const [offeringState, offeringAction, offeringPending] = useActionState(saveOffering, initialState);
   const [allocationState, allocationAction, allocationPending] = useActionState(saveAllocation, initialState);
   const [periodState, periodAction, periodPending] = useActionState(savePeriod, initialState);
-  const [slotState, slotAction, slotPending] = useActionState(saveSlot, initialState);
+  const [slotState, slotAction, slotPending] = useActionState(saveCycleAwareSlot, initialState);
   useToastState(subjectState); useToastState(offeringState); useToastState(allocationState); useToastState(periodState); useToastState(slotState);
 
   const [offeringSubjectId, setOfferingSubjectId] = useState("");
@@ -61,6 +62,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
   const [periodEnd, setPeriodEnd] = useState("");
 
   const todayIso = localTodayIso();
+  const dayNames = useMemo(() => getTimetableDayNames(workspace.cycleMode, workspace.cycleLength), [workspace.cycleMode, workspace.cycleLength]);
   const allocationOffering = workspace.offerings.find((item) => item.id === allocationOfferingId);
   const allocationClassOptions = workspace.classes.filter((item) => !allocationOffering || item.gradeId === allocationOffering.gradeId);
   const slotAllocationOptions = workspace.allocations.filter((item) => !slotClassId || item.classId === slotClassId);
@@ -68,7 +70,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
   const visibleSlots = viewerStaffId && !canManage ? workspace.slots.filter((slot) => slot.staffId === viewerStaffId) : workspace.slots;
   const isFutureAllocation = allocationStart > todayIso;
 
-  const scheduleGroups = useMemo(() => weekdayNames.map((day, index) => ({ day, weekday: index + 1, slots: visibleSlots.filter((slot) => slot.weekday === index + 1).sort((a, b) => a.periodNumber - b.periodNumber) })), [visibleSlots]);
+  const scheduleGroups = useMemo(() => dayNames.map((day, index) => ({ day, weekday: index + 1, slots: visibleSlots.filter((slot) => slot.weekday === index + 1).sort((a, b) => a.periodNumber - b.periodNumber) })), [dayNames, visibleSlots]);
   const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
 
   return (
@@ -141,7 +143,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
             <form action={slotAction} className="grid gap-3 sm:grid-cols-2 sm:items-end">
               <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
               <div><label htmlFor="cycle" className="text-xs font-medium">Cycle</label><input id="cycle" name="cycle" defaultValue="A" className={`${fieldClass} mt-1.5 uppercase`} /></div>
-              <Picker label="Day" name="weekday" value={slotDay} onChange={setSlotDay} placeholder="Choose day" options={weekdayNames.map((day, index) => ({ value: String(index + 1), label: day }))} />
+              <Picker label="Day" name="weekday" value={slotDay} onChange={setSlotDay} placeholder="Choose day" options={dayNames.map((day, index) => ({ value: String(index + 1), label: day }))} />
               <Picker label="Period" name="periodId" value={slotPeriodId} onChange={setSlotPeriodId} placeholder="Choose period" options={workspace.periods.filter((item) => item.isTeaching).map((item) => ({ value: item.id, label: item.name, helper: item.startsAt && item.endsAt ? `${item.startsAt.slice(0,5)}–${item.endsAt.slice(0,5)}` : undefined }))} />
               <Picker label="Class" name="classId" value={slotClassId} onChange={(value) => { setSlotClassId(value); setSlotAllocationId(""); }} placeholder="Choose class" options={workspace.classes.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }))} searchable searchPlaceholder="Search class or grade" />
               <Picker label="Teacher allocation" name="allocationId" value={slotAllocationId} onChange={setSlotAllocationId} placeholder="Choose subject and teacher" options={slotAllocationOptions.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.staffName}`, helper: item.activeFrom > todayIso ? `${item.className} · starts ${formatIsoDate(item.activeFrom)}` : item.className }))} searchable searchPlaceholder="Search subject, teacher or class" />
@@ -155,27 +157,29 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-2 border-b border-border-subtle pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><h2 className="scolapro-section-title">{viewerStaffId && !canManage ? "My timetable" : "Current timetable"}</h2><p className="scolapro-section-description">Cycle A · {academicYear}. Open a teaching slot to record lesson attendance without changing the official morning register.</p></div>
+          <div><h2 className="scolapro-section-title">{viewerStaffId && !canManage ? "My timetable" : "Current timetable"}</h2><p className="scolapro-section-description">Cycle A · {academicYear} · {workspace.cycleMode === "rotating" ? `${workspace.cycleLength}-day rotation` : `${workspace.cycleLength}-day standard week`}. Open a teaching slot to record lesson attendance without changing the official morning register.</p></div>
           <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2.5 py-1.5 text-xs font-medium text-[color:var(--accent-sky)]">{visibleSlots.length} scheduled</span>
         </div>
 
         {visibleSlots.length ? (
-          <div className="grid gap-3 lg:grid-cols-5">
-            {scheduleGroups.map((group) => (
-              <div key={group.day} className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted p-3">
-                <p className="text-xs font-semibold text-[color:var(--accent-sky)]">{group.day}</p>
-                <div className="mt-2 space-y-2">
-                  {group.slots.length ? group.slots.map((slot) => (
-                    <article key={slot.id} className="rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]">
-                      <div className="flex items-center justify-between gap-2"><span className="text-[0.68rem] font-medium text-brand-strong">{slot.periodName}</span>{slot.roomLabel ? <span className="text-[0.64rem] text-muted-foreground">{slot.roomLabel}</span> : null}</div>
-                      <p className="mt-1 scolapro-record-title">{slot.subjectName}</p>
-                      <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{slot.staffCode ? `${slot.staffCode} · ` : ""}{slot.className}</p>
-                      <Link href={`/attendance/lesson/${slot.id}`} className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1.5 text-[0.68rem] font-semibold text-brand-strong transition hover:bg-brand-soft/70"><ClipboardCheck className="size-3.5" aria-hidden="true" />Take attendance</Link>
-                    </article>
-                  )) : <p className="py-4 text-center text-[0.68rem] text-muted-foreground">No lessons</p>}
+          <div className="overflow-x-auto pb-1">
+            <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${dayNames.length}, minmax(11rem, 1fr))`, minWidth: `${Math.max(dayNames.length, 1) * 11}rem` }}>
+              {scheduleGroups.map((group) => (
+                <div key={group.day} className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted p-3">
+                  <p className="text-xs font-semibold text-[color:var(--accent-sky)]">{group.day}</p>
+                  <div className="mt-2 space-y-2">
+                    {group.slots.length ? group.slots.map((slot) => (
+                      <article key={slot.id} className="rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]">
+                        <div className="flex items-center justify-between gap-2"><span className="text-[0.68rem] font-medium text-brand-strong">{slot.periodName}</span>{slot.roomLabel ? <span className="text-[0.64rem] text-muted-foreground">{slot.roomLabel}</span> : null}</div>
+                        <p className="mt-1 scolapro-record-title">{slot.subjectName}</p>
+                        <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{slot.staffCode ? `${slot.staffCode} · ` : ""}{slot.className}</p>
+                        <Link href={`/attendance/lesson/${slot.id}`} className="mt-2 inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1.5 text-[0.68rem] font-semibold text-brand-strong transition hover:bg-brand-soft/70"><ClipboardCheck className="size-3.5" aria-hidden="true" />Take attendance</Link>
+                      </article>
+                    )) : <p className="py-4 text-center text-[0.68rem] text-muted-foreground">No lessons</p>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         ) : (
           <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-10 text-center"><p className="text-sm font-medium">No timetable slots yet</p><p className="mt-1 text-xs text-muted-foreground">{canManage ? "Configure subjects, teacher allocations and periods, then add the first slot." : "Your scheduled lessons will appear here once the timetable is configured."}</p></div>
