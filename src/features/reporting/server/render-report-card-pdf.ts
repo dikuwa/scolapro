@@ -16,9 +16,15 @@ const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const INK = rgb(0.08, 0.08, 0.08);
 const LINE = rgb(0.28, 0.28, 0.28);
 const MUTED = rgb(0.38, 0.38, 0.38);
+const PANEL = rgb(0.93, 0.95, 0.96);
 
 function fontSafeText(font: PDFFont, value: unknown): string {
-  const source = text(value).replaceAll("—", "-").replaceAll("–", "-").replaceAll("’", "'").replaceAll("“", '"').replaceAll("”", '"');
+  const source = text(value)
+    .replaceAll("—", "-")
+    .replaceAll("–", "-")
+    .replaceAll("’", "'")
+    .replaceAll("“", '"')
+    .replaceAll("”", '"');
   let result = "";
   for (const char of source) {
     try {
@@ -42,58 +48,25 @@ function fitText(font: PDFFont, value: unknown, size: number, maxWidth: number):
 function wrapText(font: PDFFont, value: unknown, size: number, maxWidth: number, maxLines: number): string[] {
   const source = fontSafeText(font, value).trim();
   if (!source || maxLines <= 0) return [];
-
+  const words = source.split(/\s+/);
   const lines: string[] = [];
-  let truncated = false;
-  const paragraphs = source.split(/\r?\n/);
-
-  for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
-    const paragraph = paragraphs[paragraphIndex].trim();
-    if (!paragraph) {
-      if (lines.length < maxLines) lines.push("");
-      else truncated = true;
+  let current = "";
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      current = candidate;
       continue;
     }
-
-    const words = paragraph.split(/\s+/);
-    let current = "";
-    for (const word of words) {
-      const candidate = current ? `${current} ${word}` : word;
-      if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
-        current = candidate;
-        continue;
-      }
-
-      if (current) {
-        lines.push(current);
-        if (lines.length >= maxLines) {
-          truncated = true;
-          current = "";
-          break;
-        }
-      }
-      current = word;
-      if (font.widthOfTextAtSize(current, size) > maxWidth) current = fitText(font, current, size, maxWidth);
-    }
-
-    if (truncated) break;
-    if (current) {
-      lines.push(current);
-      if (lines.length >= maxLines && paragraphIndex < paragraphs.length - 1) truncated = true;
-    }
-    if (lines.length >= maxLines) {
-      if (paragraphIndex < paragraphs.length - 1) truncated = true;
-      break;
-    }
+    if (current) lines.push(current);
+    current = word;
+    if (lines.length >= maxLines) break;
   }
-
-  if (truncated && lines.length) {
-    const last = lines.length > maxLines ? lines[maxLines - 1] : lines.at(-1) ?? "";
-    lines.splice(maxLines);
-    lines[lines.length - 1] = fitText(font, `${last}...`, size, maxWidth);
+  if (lines.length < maxLines && current) lines.push(current);
+  if (lines.length > maxLines) lines.splice(maxLines);
+  if (lines.length === maxLines && words.length > lines.join(" ").split(/\s+/).length) {
+    lines[lines.length - 1] = fitText(font, `${lines.at(-1) ?? ""}...`, size, maxWidth);
   }
-
-  return lines.slice(0, maxLines);
+  return lines;
 }
 
 function drawCentered(page: PDFPage, font: PDFFont, value: unknown, size: number, x: number, width: number, y: number) {
@@ -102,21 +75,74 @@ function drawCentered(page: PDFPage, font: PDFFont, value: unknown, size: number
   page.drawText(safe, { x: x + Math.max(3, (width - textWidth) / 2), y, size, font, color: INK });
 }
 
-function drawCellBorder(page: PDFPage, x: number, y: number, width: number, height: number) {
-  page.drawRectangle({ x, y: y - height, width, height, borderWidth: 0.55, borderColor: LINE });
+function drawBox(page: PDFPage, x: number, y: number, width: number, height: number, fill = false) {
+  page.drawRectangle({
+    x,
+    y: y - height,
+    width,
+    height,
+    borderWidth: 0.55,
+    borderColor: LINE,
+    ...(fill ? { color: PANEL } : {}),
+  });
 }
 
-function drawSignatureBox(page: PDFPage, regular: PDFFont, bold: PDFFont, x: number, y: number, width: number, label: string, name: string) {
-  page.drawLine({ start: { x: x + 8, y: y - 27 }, end: { x: x + width - 8, y: y - 27 }, thickness: 0.6, color: LINE });
-  page.drawText(label, { x: x + 8, y: y - 38, size: 6.4, font: regular, color: MUTED });
-  page.drawText(fitText(bold, `${label}: ${name || "________________"}`, 6.8, width - 16), { x: x + 8, y: y - 50, size: 6.8, font: bold, color: INK });
+function drawLabelValue(
+  page: PDFPage,
+  regular: PDFFont,
+  bold: PDFFont,
+  x: number,
+  y: number,
+  width: number,
+  label: string,
+  value: string,
+) {
+  const labelText = `${label}:`;
+  page.drawText(labelText, { x: x + 7, y: y - 16, size: 6.8, font: bold, color: INK });
+  const labelWidth = bold.widthOfTextAtSize(labelText, 6.8);
+  page.drawText(fitText(regular, value || "-", 6.8, width - labelWidth - 18), {
+    x: x + 11 + labelWidth,
+    y: y - 16,
+    size: 6.8,
+    font: regular,
+    color: INK,
+  });
+}
+
+function drawSignatureBox(
+  page: PDFPage,
+  regular: PDFFont,
+  bold: PDFFont,
+  x: number,
+  y: number,
+  width: number,
+  label: string,
+  name: string,
+) {
+  page.drawLine({ start: { x: x + 8, y: y - 26 }, end: { x: x + width - 8, y: y - 26 }, thickness: 0.6, color: LINE });
+  page.drawText(label, { x: x + 8, y: y - 37, size: 6.2, font: regular, color: MUTED });
+  page.drawText(fitText(bold, `${label}: ${name || "________________"}`, 6.6, width - 16), {
+    x: x + 8,
+    y: y - 49,
+    size: 6.6,
+    font: bold,
+    color: INK,
+  });
 }
 
 function rowSubjectLabel(row: ReportCardSubjectRow): string {
   return `${row.promotional ? "" : "* "}${row.name}`;
 }
 
-async function drawSchoolLogo(pdf: PDFDocument, page: PDFPage, bytes: Uint8Array | null | undefined, x: number, y: number, width: number, height: number) {
+async function drawSchoolLogo(
+  pdf: PDFDocument,
+  page: PDFPage,
+  bytes: Uint8Array | null | undefined,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
   if (!bytes?.length) return false;
   let image;
   try {
@@ -159,53 +185,55 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
 
+  // Base header: render-report-card-pdf-with-school-font replaces this entire
+  // region with the canonical shared official header, but keeping a complete
+  // fallback makes direct renderer use deterministic and self-contained.
   const headerHeight = 84;
-  page.drawRectangle({ x: MARGIN, y: y - headerHeight, width: CONTENT_WIDTH, height: headerHeight, borderWidth: 0.85, borderColor: LINE });
+  drawBox(page, MARGIN, y, CONTENT_WIDTH, headerHeight);
   const logoWidth = 82;
   const postalWidth = 116;
   const centreX = MARGIN + logoWidth;
   const centreWidth = CONTENT_WIDTH - logoWidth - postalWidth;
   const logoX = MARGIN + 8;
   const logoY = y - 72;
-  page.drawRectangle({ x: logoX, y: logoY, width: 66, height: 64, borderWidth: 0.4, borderColor: rgb(0.75, 0.75, 0.75) });
   const logoDrawn = await drawSchoolLogo(pdf, page, input.logoBytes, logoX + 4, logoY + 4, 58, 56);
-  if (!logoDrawn) drawCentered(page, regular, model.logoStoragePath || model.logoUrl ? "School logo unavailable" : "Logo", 5.7, logoX, 66, y - 43);
-
-  const titleSize = model.schoolNameFont === "old_english" ? 19 : 16;
-  drawCentered(page, schoolDisplayFont, model.schoolName, titleSize, centreX, centreWidth, y - 22);
-  if (model.formerName) drawCentered(page, regular, `(${model.formerName})`, 6.8, centreX, centreWidth, y - 34);
+  if (!logoDrawn) drawCentered(page, regular, model.logoStoragePath || model.logoUrl ? "School logo" : "Logo", 5.5, logoX, 66, y - 43);
+  drawCentered(page, schoolDisplayFont, model.schoolName, model.schoolNameFont === "old_english" ? 19 : 16, centreX, centreWidth, y - 22);
+  if (model.formerName) drawCentered(page, regular, `(${model.formerName})`, 6.5, centreX, centreWidth, y - 34);
   const contacts = [
     model.physicalAddress,
     model.telephone ? `Tel. ${model.telephone}` : "",
     model.fax ? `Fax ${model.fax}` : "",
     model.email ? `E-mail: ${model.email}` : "",
   ].filter(Boolean);
-  contacts.slice(0, 4).forEach((line, index) => {
-    drawCentered(page, regular, line, 5.8, centreX, centreWidth, y - 47 - index * 8);
-  });
-  if (model.schoolEmisNumber) drawCentered(page, regular, `EMIS: ${model.schoolEmisNumber}`, 5.4, centreX, centreWidth, y - 78);
-
+  contacts.slice(0, 4).forEach((line, index) => drawCentered(page, regular, line, 5.7, centreX, centreWidth, y - 47 - index * 8));
+  if (model.schoolEmisNumber) drawCentered(page, regular, `EMIS: ${model.schoolEmisNumber}`, 5.3, centreX, centreWidth, y - 78);
   const postalX = PAGE_WIDTH - MARGIN - postalWidth + 8;
-  const postalLines = [model.postalAddress, model.town].filter(Boolean);
-  postalLines.forEach((line, index) => {
-    page.drawText(fitText(regular, line, 6.2, postalWidth - 16), { x: postalX, y: y - 48 - index * 9, size: 6.2, font: regular, color: INK });
+  [model.postalAddress, model.town].filter(Boolean).forEach((line, index) => {
+    page.drawText(fitText(regular, line, 6.1, postalWidth - 16), { x: postalX, y: y - 48 - index * 9, size: 6.1, font: regular, color: INK });
   });
   y -= headerHeight;
 
-  const learnerHeight = 22;
-  page.drawRectangle({ x: MARGIN, y: y - learnerHeight, width: CONTENT_WIDTH, height: learnerHeight, borderWidth: 0.55, borderColor: LINE });
-  const learnerText = `Learner: ${model.learnerName || "-"}${model.admissionNumber ? ` (${model.admissionNumber})` : ""}`;
-  page.drawText(fitText(bold, learnerText, 7.2, CONTENT_WIDTH * 0.58), { x: MARGIN + 6, y: y - 14, size: 7.2, font: bold, color: INK });
-  const reportText = `Progress Report: ${model.currentTermName} ${model.academicYear}`;
-  const reportSafe = fitText(bold, reportText, 7.2, CONTENT_WIDTH * 0.4 - 8);
-  page.drawText(reportSafe, { x: PAGE_WIDTH - MARGIN - bold.widthOfTextAtSize(reportSafe, 7.2) - 6, y: y - 14, size: 7.2, font: bold, color: INK });
-  y -= learnerHeight;
+  const titleHeight = 30;
+  drawBox(page, MARGIN, y, CONTENT_WIDTH, titleHeight, true);
+  drawCentered(page, bold, "PROGRESS REPORT", 10.5, MARGIN, CONTENT_WIDTH, y - 12);
+  drawCentered(page, bold, `${model.currentTermName}${model.academicYear ? ` - ${model.academicYear}` : ""}`, 6.4, MARGIN, CONTENT_WIDTH, y - 23);
+  y -= titleHeight;
 
-  const classHeight = 18;
-  page.drawRectangle({ x: MARGIN, y: y - classHeight, width: CONTENT_WIDTH, height: classHeight, borderWidth: 0.55, borderColor: LINE });
-  page.drawText(`Grade: ${fontSafeText(bold, model.grade || "-")}`, { x: MARGIN + 6, y: y - 12, size: 6.8, font: bold, color: INK });
-  page.drawText(`Class: ${fontSafeText(bold, model.registerClass || "-")}`, { x: MARGIN + 150, y: y - 12, size: 6.8, font: bold, color: INK });
-  y -= classHeight;
+  const detailHeight = 24;
+  const half = CONTENT_WIDTH / 2;
+  for (let row = 0; row < 2; row += 1) {
+    drawBox(page, MARGIN, y, half, detailHeight);
+    drawBox(page, MARGIN + half, y, half, detailHeight);
+    if (row === 0) {
+      drawLabelValue(page, regular, bold, MARGIN, y, half, "Learner", `${model.learnerName || "-"}${model.admissionNumber ? ` (${model.admissionNumber})` : ""}`);
+      drawLabelValue(page, regular, bold, MARGIN + half, y, half, "Academic Year", model.academicYear || "-");
+    } else {
+      drawLabelValue(page, regular, bold, MARGIN, y, half, "Grade", model.grade || "-");
+      drawLabelValue(page, regular, bold, MARGIN + half, y, half, "Class", model.registerClass || "-");
+    }
+    y -= detailHeight;
+  }
 
   const detailColumns = model.showPercentages ? 3 : 2;
   const termCount = Math.max(1, model.terms.length);
@@ -216,39 +244,46 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   const header1Height = 17;
   const header2Height = 15;
 
-  drawCellBorder(page, MARGIN, y, subjectWidth, header1Height + header2Height);
+  drawBox(page, MARGIN, y, subjectWidth, header1Height + header2Height, true);
   page.drawText("Subject", { x: MARGIN + 5, y: y - 20, size: 6.8, font: bold, color: INK });
   model.terms.forEach((term, termIndex) => {
     const x = MARGIN + subjectWidth + termIndex * termWidth;
-    drawCellBorder(page, x, y, termWidth, header1Height);
+    drawBox(page, x, y, termWidth, header1Height, true);
     drawCentered(page, bold, term.name, 6.5, x, termWidth, y - 11);
     const subY = y - header1Height;
-    const labels = model.showPercentages ? ["Mark", "%", "Symbol"] : ["Mark", "Symbol"];
+    const labels = model.showPercentages ? ["Mark", "%", "Grade"] : ["Mark", "Grade"];
     labels.forEach((label, detailIndex) => {
       const detailX = x + detailIndex * detailWidth;
-      drawCellBorder(page, detailX, subY, detailWidth, header2Height);
+      drawBox(page, detailX, subY, detailWidth, header2Height, true);
       drawCentered(page, bold, label, 5.7, detailX, detailWidth, subY - 10);
     });
   });
   y -= header1Height + header2Height;
 
   const rows = model.subjectRows;
-  const reservedBottom = 44 + 76 + 22 + 38;
+  const reservedBottom = 18 + 48 + 70 + 68 + 35;
   const availableForRows = Math.max(0, y - MARGIN - reservedBottom);
-  const minimumRowHeight = 9.5;
+  const minimumRowHeight = 9.2;
   const naturalRowHeight = rows.length ? availableForRows / rows.length : 18;
   if (rows.length && naturalRowHeight < minimumRowHeight) {
     throw new Error(`Report card has ${rows.length} visible subjects, which cannot fit safely on the configured single-page PDF template.`);
   }
   const rowHeight = Math.min(18, Math.max(minimumRowHeight, naturalRowHeight));
+
   if (!rows.length) {
-    drawCellBorder(page, MARGIN, y, CONTENT_WIDTH, 25);
+    drawBox(page, MARGIN, y, CONTENT_WIDTH, 25);
     drawCentered(page, regular, "No approved results in this snapshot.", 7, MARGIN, CONTENT_WIDTH, y - 16);
     y -= 25;
   } else {
     for (const row of rows) {
-      drawCellBorder(page, MARGIN, y, subjectWidth, rowHeight);
-      page.drawText(fitText(regular, rowSubjectLabel(row), 6.2, subjectWidth - 8), { x: MARGIN + 4, y: y - rowHeight + 4.4, size: 6.2, font: regular, color: INK });
+      drawBox(page, MARGIN, y, subjectWidth, rowHeight);
+      page.drawText(fitText(regular, rowSubjectLabel(row), 6.2, subjectWidth - 8), {
+        x: MARGIN + 4,
+        y: y - rowHeight + 4.4,
+        size: 6.2,
+        font: regular,
+        color: INK,
+      });
       model.terms.forEach((term, termIndex) => {
         const result = row.termResults.get(term.number);
         const x = MARGIN + subjectWidth + termIndex * termWidth;
@@ -257,14 +292,19 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
           : [result?.resultValue || "-", result?.symbol || "-"];
         values.forEach((value, detailIndex) => {
           const detailX = x + detailIndex * detailWidth;
-          drawCellBorder(page, detailX, y, detailWidth, rowHeight);
+          drawBox(page, detailX, y, detailWidth, rowHeight);
           const valueFont = detailIndex === values.length - 1 ? bold : regular;
           drawCentered(page, valueFont, value, 6.2, detailX, detailWidth, y - rowHeight + 4.4);
           if (detailIndex === 0 && isFailingResult(result, row.minimumPassMark)) {
             const safe = fitText(valueFont, value, 6.2, detailWidth - 6);
             const width = valueFont.widthOfTextAtSize(safe, 6.2);
-            const starX = detailX + (detailWidth + width) / 2 + 1;
-            page.drawText("*", { x: Math.min(detailX + detailWidth - 5, starX), y: y - 5.5, size: 4.2, font: bold, color: INK });
+            page.drawText("*", {
+              x: Math.min(detailX + detailWidth - 5, detailX + (detailWidth + width) / 2 + 1),
+              y: y - 5.5,
+              size: 4.2,
+              font: bold,
+              color: INK,
+            });
           }
         });
       });
@@ -272,41 +312,68 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
     }
   }
 
-  const remarksHeight = 44;
-  page.drawRectangle({ x: MARGIN, y: y - remarksHeight, width: CONTENT_WIDTH, height: remarksHeight, borderWidth: 0.55, borderColor: LINE });
-  page.drawText("Remarks:", { x: MARGIN + 5, y: y - 11, size: 6.5, font: bold, color: INK });
-  const remarkLines = wrapText(regular, model.remarks || "", 6.6, CONTENT_WIDTH - 12, 3);
-  remarkLines.forEach((line, index) => {
-    page.drawText(line, { x: MARGIN + 5, y: y - 23 - index * 8, size: 6.6, font: regular, color: INK });
+  const averageHeight = 18;
+  drawBox(page, MARGIN, y, CONTENT_WIDTH, averageHeight);
+  const averageText = `Learner Average: ${model.learnerAverage || "-"}`;
+  const averageWidth = bold.widthOfTextAtSize(fontSafeText(bold, averageText), 7);
+  page.drawText(fontSafeText(bold, averageText), {
+    x: PAGE_WIDTH - MARGIN - averageWidth - 7,
+    y: y - 12,
+    size: 7,
+    font: bold,
+    color: INK,
   });
+  y -= averageHeight;
+
+  const remarksHeight = 48;
+  drawBox(page, MARGIN, y, CONTENT_WIDTH, remarksHeight);
+  page.drawRectangle({ x: MARGIN, y: y - 14, width: CONTENT_WIDTH, height: 14, color: PANEL, borderWidth: 0.55, borderColor: LINE });
+  page.drawText("Remarks", { x: MARGIN + 6, y: y - 10, size: 6.5, font: bold, color: INK });
+  const remarkLines = wrapText(regular, model.remarks || "", 6.5, CONTENT_WIDTH - 12, 3);
+  remarkLines.forEach((line, index) => page.drawText(line, { x: MARGIN + 6, y: y - 27 - index * 8, size: 6.5, font: regular, color: INK }));
   y -= remarksHeight;
 
-  const signoffHeight = 76;
+  const signoffHeight = 70;
   const teacherWidth = CONTENT_WIDTH * 0.4;
   const centreWidth2 = CONTENT_WIDTH * 0.25;
-  const principalWidth = CONTENT_WIDTH - teacherWidth - centreWidth2;
-  page.drawRectangle({ x: MARGIN, y: y - signoffHeight, width: CONTENT_WIDTH, height: signoffHeight, borderWidth: 0.55, borderColor: LINE });
-  page.drawLine({ start: { x: MARGIN + teacherWidth, y }, end: { x: MARGIN + teacherWidth, y: y - signoffHeight }, thickness: 0.55, color: LINE });
-  page.drawLine({ start: { x: MARGIN + teacherWidth + centreWidth2, y }, end: { x: MARGIN + teacherWidth + centreWidth2, y: y - signoffHeight }, thickness: 0.55, color: LINE });
+  const stampWidth = CONTENT_WIDTH - teacherWidth - centreWidth2;
+  drawBox(page, MARGIN, y, teacherWidth, signoffHeight);
+  drawBox(page, MARGIN + teacherWidth, y, centreWidth2, signoffHeight);
+  drawBox(page, MARGIN + teacherWidth + centreWidth2, y, stampWidth, signoffHeight);
   drawSignatureBox(page, regular, bold, MARGIN, y, teacherWidth, "Register Teacher", model.registerTeacherName);
   const centreX2 = MARGIN + teacherWidth;
-  drawCentered(page, regular, "Days Absent", 6, centreX2, centreWidth2, y - 17);
+  drawCentered(page, regular, "Days Absent", 6, centreX2, centreWidth2, y - 16);
   drawCentered(page, bold, model.absentDays || "0", 9, centreX2, centreWidth2, y - 31);
   if (model.nextTermStartsOn) {
-    drawCentered(page, regular, "School re-opens / next term", 5.5, centreX2, centreWidth2, y - 49);
-    drawCentered(page, bold, model.nextTermStartsOn, 6.3, centreX2, centreWidth2, y - 61);
+    drawCentered(page, regular, "School Re-Opens Next Term", 5.4, centreX2, centreWidth2, y - 48);
+    drawCentered(page, bold, model.nextTermStartsOn, 6.2, centreX2, centreWidth2, y - 60);
   }
-  const principalX = centreX2 + centreWidth2;
-  drawSignatureBox(page, regular, bold, principalX, y, principalWidth, "Principal", model.principalName);
-  drawCentered(page, regular, "School Stamp", 5.8, principalX, principalWidth, y - 69);
+  drawCentered(page, regular, "School Stamp", 6, centreX2 + centreWidth2, stampWidth, y - 38);
   y -= signoffHeight;
 
-  const legendHeight = 22;
-  page.drawRectangle({ x: MARGIN, y: y - legendHeight, width: CONTENT_WIDTH, height: legendHeight, borderWidth: 0.55, borderColor: LINE });
+  const principalLegendHeight = 68;
+  const principalWidth = CONTENT_WIDTH * 0.4;
+  const legendWidth = CONTENT_WIDTH - principalWidth;
+  drawBox(page, MARGIN, y, principalWidth, principalLegendHeight);
+  drawBox(page, MARGIN + principalWidth, y, legendWidth, principalLegendHeight);
+  drawSignatureBox(page, regular, bold, MARGIN, y, principalWidth, "Principal", model.principalName);
+  page.drawRectangle({ x: MARGIN + principalWidth, y: y - 14, width: legendWidth, height: 14, color: PANEL, borderWidth: 0.55, borderColor: LINE });
+  page.drawText("Symbols", { x: MARGIN + principalWidth + 6, y: y - 10, size: 6.5, font: bold, color: INK });
   const legendParts: string[] = [];
-  if (model.subjectRows.some((row) => !row.promotional)) legendParts.push("* Non-promotional subject");
-  if (model.showPassMarkLegend && model.subjectRows.some((row) => row.minimumPassMark !== null)) legendParts.push("Raised * beside a mark = below configured subject pass mark");
-  page.drawText(fitText(regular, legendParts.join("     ") || " ", 5.6, CONTENT_WIDTH - 10), { x: MARGIN + 5, y: y - 14, size: 5.6, font: regular, color: MUTED });
+  if (model.subjectRows.some((row) => !row.promotional)) legendParts.push("* Subject name = Non-promotional subject");
+  if (model.showPassMarkLegend && model.subjectRows.some((row) => row.minimumPassMark !== null)) {
+    legendParts.push("Mark* = Learner mark below configured subject minimum");
+  }
+  if (!legendParts.length) legendParts.push("No additional symbol notes for this report.");
+  legendParts.slice(0, 3).forEach((line, index) => {
+    page.drawText(fitText(regular, line, 5.7, legendWidth - 12), {
+      x: MARGIN + principalWidth + 6,
+      y: y - 27 - index * 10,
+      size: 5.7,
+      font: regular,
+      color: MUTED,
+    });
+  });
 
   const pages = pdf.getPages();
   pages.forEach((currentPage, index) => {
