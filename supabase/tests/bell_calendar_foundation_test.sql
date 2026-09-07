@@ -150,15 +150,6 @@ select lives_ok(
 
 select lives_ok(
   $$select public.configure_school_teaching_day(
-      'bd110000-0000-4000-8000-000000000001','2197-04-09','PARTIAL_DAY','Assembly','school'::uuid,'school'
-    )$$,
-  'placeholder'
-);
-
--- Use a valid null bell schedule for the audited partial-day mutation. The prior
--- lives_ok deliberately cannot be used because UUID coercion would obscure the RPC contract.
-select lives_ok(
-  $$select public.configure_school_teaching_day(
       'bd110000-0000-4000-8000-000000000001','2197-04-09','PARTIAL_DAY','Assembly',null,'school'
     )$$,
   'governed calendar teaching-impact mutation succeeds for an authorized school admin'
