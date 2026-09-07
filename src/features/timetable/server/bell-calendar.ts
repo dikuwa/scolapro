@@ -9,6 +9,16 @@ export type BellScheduleSummary = {
   weekdays: number[];
 };
 
+type ResolvedBellPeriodRow = {
+  period_id: string;
+  period_number: number;
+  display_name: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  bell_schedule_id: string | null;
+  bell_schedule_name: string | null;
+};
+
 export type TodayTimetableContext = {
   date: string;
   teachingImpact: "NORMAL" | "NO_TEACHING" | "PARTIAL_DAY" | "ALTERED_TIMETABLE" | "EXAM_TIMETABLE";
@@ -45,7 +55,7 @@ export async function getTodayTimetableContext(schoolId: string, academicYear: n
     supabase.rpc("resolve_timetable_bell_periods", { p_school_id: schoolId, p_academic_year: academicYear, p_target_date: date }),
   ]);
   if (impactResult.error || dayResult.error || periodResult.error) throw new Error("Unable to resolve today's timetable context.");
-  const rows = periodResult.data ?? [];
+  const rows = (periodResult.data ?? []) as ResolvedBellPeriodRow[];
   const first = rows[0] ?? null;
   return {
     date,
@@ -53,6 +63,6 @@ export async function getTodayTimetableContext(schoolId: string, academicYear: n
     timetableDay: dayResult.data ?? null,
     bellScheduleId: first?.bell_schedule_id ?? null,
     bellScheduleName: first?.bell_schedule_name ?? null,
-    periods: rows.map((item) => ({ id: item.period_id, number: item.period_number, name: item.display_name, startsAt: item.starts_at, endsAt: item.ends_at })),
+    periods: rows.map((item: ResolvedBellPeriodRow) => ({ id: item.period_id, number: item.period_number, name: item.display_name, startsAt: item.starts_at, endsAt: item.ends_at })),
   };
 }
