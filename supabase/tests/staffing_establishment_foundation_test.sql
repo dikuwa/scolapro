@@ -76,7 +76,7 @@ select throws_ok(
 
 select lives_ok(
   $$select public.end_staffing_post_occupancy(
-      (select id from public.staffing_post_occupancies o join public.staffing_establishment_posts p on p.id=o.post_id where p.title='Filled Science Post'),
+      (select o.id from public.staffing_post_occupancies o join public.staffing_establishment_posts p on p.id=o.post_id where p.title='Filled Science Post'),
       '2026-06-30'
     )$$,
   'occupancy can be ended without deleting its history'
