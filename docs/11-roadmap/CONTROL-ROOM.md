@@ -26,12 +26,12 @@ Every implementation decision must preserve **capture once → use everywhere**.
 
 The active roadmap order is:
 
-1. **Bell schedules + calendar teaching-impact foundation** — N17/N18/N19 plus T04/T05.
-2. **Education network foundation** — N02/N03/N04: authorities, regions, circuits, optional clusters, external school identifiers, network memberships, scoped network access.
-3. **DNEA UI/workflow completion** — build against the real network-role tier; never fake regional review with platform-admin permissions.
-4. **Statutory reporting UI/workflow completion** — build against the real network-role tier; load authoritative Ministry mappings only from verified source material.
-5. **Structural domains** — staffing establishment/vacancies, control forms, symbol distribution/exam comparisons, lean hostel/feeding, inclusion/SEN aggregate reporting.
-6. **Canonical metric registry and network read models** — only after the underlying authoritative domains exist.
+1. **DNEA UI/workflow completion** — build against the integrated network-role tier; never fake regional review with platform-admin permissions.
+2. **Statutory reporting UI/workflow completion** — build against the integrated network-role tier; load authoritative Ministry mappings only from verified source material.
+3. **Structural domains** — staffing establishment/vacancies, control forms, symbol distribution/exam comparisons, lean hostel/feeding, inclusion/SEN aggregate reporting.
+4. **Canonical metric registry and network read models** — only after the underlying authoritative domains exist.
+
+The bell/calendar foundation (N17/N18/N19 + T04/T05) and education-network foundation (N02/N03/N04) are integrated. Runtime audit findings remain deployment/verification inputs, not a reason to bypass source-controlled migrations.
 
 Circuit/region/Ministry dashboards are deliberately deferred until there is real data worth aggregating.
 
@@ -39,30 +39,44 @@ Circuit/region/Ministry dashboards are deliberately deferred until there is real
 
 This repository may be developed by multiple concurrent threads. Each thread owns one bounded branch and one bounded area. The integration/control-room thread coordinates merge order and shared files.
 
-### Active workstreams
+### Integrated workstreams
 
 #### Stream A — Bell schedule + calendar foundation
-- Suggested branch: `chatgpt/bell-calendar-foundation`
-- Owns: N17/N18/N19, T04/T05, bell/calendar migrations, bell schedule UI, current timetable date-aware resolution, fixtures/tests.
-- Must reuse: `resolve_timetable_day()`, `timetable_cycle_anchors`, existing cycle-mode/length columns.
-- Must not rebuild timetable cycle foundations.
+- Merged via PR #354.
+- Integrated scope: N17/N18/N19, T04/T05, bell/calendar migration, bell schedule UI, date-aware current timetable resolution, fixtures/tests.
+- Follow-up work is verification only unless the control room explicitly reopens this area.
 
 #### Stream B — Education network foundation
-- Suggested branch: `chatgpt/education-network-foundation`
-- Owns: N02/N03/N04, education authorities/regions/circuits/clusters, school links, external identifiers, network memberships, `can_view_school_via_network()`-style scoping and non-leakage tests.
-- May prepare in parallel with Stream A, but merge order is controlled by the integration thread.
-- Must not build circuit/region dashboards yet.
+- Merged via PR #355.
+- Integrated scope: N02/N03/N04, education authorities/regions/circuits/clusters, school links, external identifiers, network memberships, network-scoped school visibility and non-leakage tests.
+- Network scope does not imply unrestricted learner/staff-sensitive access.
 
 #### Stream C — Runtime stability / broken-page audit
-- Suggested branch: `chatgpt/runtime-stability-audit`
-- Owns: shared runtime/database drift and broken-page causes affecting School Settings, Academic Setup, OCR Custody, Data Correction and other non-owned routes.
-- May diagnose any route, but must not modify files owned by another active stream without explicit coordination.
-- Must prefer shared root-cause fixes over page-by-page patches.
+- Merged via PR #353.
+- Integrated code fix: deterministic authorized membership selection for Data Corrections.
+- Production drift findings for School Settings, CRC Custody and Academic Setup must be resolved by coordinated migration/deployment verification rather than page-specific UI fallbacks.
+
+### Active workstreams
 
 #### Stream D — Documentation / governance / QA
 - Suggested branch: `chatgpt/project-governance-ledger`
 - Owns: roadmap/ledger updates, branch ownership, dependency matrix, acceptance status, test evidence and handback consistency.
 - Must not claim production verification from source inspection alone.
+
+#### Stream E — DNEA UI / workflow completion
+- Suggested branch: `chatgpt/dnea-workflow-ui`
+- Owns: N08 and the first bounded DNEA operational UI/workflow slice that can be built on the real network-role foundation, including readiness/exception visibility and school-to-network review routing where supported by existing backend facts.
+- May extend N09/N10 only when the bounded slice requires it and after inspecting existing DNEA schema/workflows.
+- Must not use platform-admin permissions as a substitute for regional/circuit scope.
+- Must not broaden learner-level or restricted support/examination evidence visibility merely because a network role exists.
+- Must preserve official-code provenance and never invent DNEA/examination-centre identifiers.
+
+### Next workstream
+
+#### Stream F — Statutory reporting UI / workflow completion
+- Starts after the first DNEA slice is integrated or when the control room determines it is conflict-free.
+- Owns: N05/N06/N07 UI/workflow completion against real network scope.
+- Authoritative Ministry mappings remain source-gated; do not publish guessed form definitions.
 
 ### Paused bounded lane — report cards/documents
 
@@ -78,8 +92,8 @@ Do not touch these files from unrelated streams unless the control room explicit
 ## 5. One-owner rule for high-conflict files
 
 At any moment, only one workstream may own a high-conflict area. Examples:
-- timetable/calendar UI while Stream A is active;
-- education-network schema while Stream B is active;
+- DNEA UI/workflow files while Stream E is active;
+- statutory UI/workflow files while Stream F is active;
 - report-card/document server/rendering files while the document lane is active;
 - central navigation, generated DB types, global middleware and shared role registries when more than one stream needs them.
 
