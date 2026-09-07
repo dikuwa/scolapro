@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 select has_table('public', 'timetable_bell_schedules', 'bell schedule table exists');
 select has_table('public', 'timetable_bell_schedule_periods', 'bell schedule period table exists');
