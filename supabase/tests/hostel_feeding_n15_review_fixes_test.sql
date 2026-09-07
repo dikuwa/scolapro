@@ -26,7 +26,7 @@ insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,gr
 -- Fixed open residency used for denial tests so RLS on the table cannot hide the
 -- target id before the governed RPC performs its own authorization check.
 insert into public.school_hostels(id,tenant_id,school_id,hostel_type,capacity,active_from,created_by_user_id)
-values('fe500000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','other',5,'2026-01-01','fe000000-0000-4000-8000-000000000001');
+values('fe500000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','other',5,'2026-01-02','fe000000-0000-4000-8000-000000000001');
 insert into public.hostel_residencies(id,tenant_id,school_id,hostel_id,enrolment_id,resident_from,created_by_user_id)
 values('fe600000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fe500000-0000-4000-8000-000000000001','fe400000-0000-4000-8000-000000000002','2026-01-10','fe000000-0000-4000-8000-000000000001');
 
