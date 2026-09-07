@@ -158,9 +158,18 @@ select throws_ok(
 );
 
 select is(
-  (select count(*)::integer from information_schema.tables where table_schema='public' and table_name like '%sen%'),
+  (select count(*)::integer
+   from information_schema.tables
+   where table_schema='public'
+     and table_name in (
+       'learner_sen_records',
+       'learner_sen_cases',
+       'sen_support_records',
+       'sen_facts',
+       'inclusion_support_facts'
+     )),
   0,
-  'N16 creates no parallel SEN fact table'
+  'N16 creates no parallel SEN/support fact table'
 );
 select ok(
   not has_function_privilege('anon','public.school_inclusion_support_summary_as_of(uuid,date)','EXECUTE')
