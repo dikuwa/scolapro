@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(19);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -88,10 +88,10 @@ select throws_like(
 insert into public.education_network_memberships(id,user_id,role_key,circuit_id,active_from)
 values('eb500000-0000-4000-8000-000000000001','eb000000-0000-4000-8000-000000000001','circuit_officer','eb220000-0000-4000-8000-000000000001','2026-01-01');
 
-insert into public.education_network_memberships(id,user_id,role_key,region_id,active_from)
+insert into public.education_network_memberships(id,user_id,role_key,region_id,active_from,active_to)
 values
-  ('eb500000-0000-4000-8000-000000000002','eb000000-0000-4000-8000-000000000002','regional_officer','eb210000-0000-4000-8000-000000000001','2026-01-01'),
-  ('eb500000-0000-4000-8000-000000000003','eb000000-0000-4000-8000-000000000003','regional_officer','eb210000-0000-4000-8000-000000000002','2026-01-01'),
+  ('eb500000-0000-4000-8000-000000000002','eb000000-0000-4000-8000-000000000002','regional_officer','eb210000-0000-4000-8000-000000000001','2026-01-01',null),
+  ('eb500000-0000-4000-8000-000000000003','eb000000-0000-4000-8000-000000000003','regional_officer','eb210000-0000-4000-8000-000000000002','2026-01-01',null),
   ('eb500000-0000-4000-8000-000000000004','eb000000-0000-4000-8000-000000000004','regional_officer','eb210000-0000-4000-8000-000000000001','2025-01-01','2025-12-31');
 
 select throws_like(
