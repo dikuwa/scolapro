@@ -1,9 +1,13 @@
 import { BookOpenCheck, CalendarDays, Clock3, UserRoundCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { BellScheduleManager } from "@/features/timetable/bell-schedule-manager";
 import { TimetableMaintenanceHub } from "@/features/timetable/timetable-maintenance-hub";
+import { TimetableSetupGuide } from "@/features/timetable/timetable-setup-guide";
 import { TimetableWorkspaceView } from "@/features/timetable/timetable-workspace";
+import { TodayTimetableContextCard } from "@/features/timetable/today-timetable-context";
 import { getTimetableDayNames } from "@/features/timetable/day-labels";
+import { getBellSchedules, getTodayTimetableContext } from "@/features/timetable/server/bell-calendar";
 import { getTimetableWorkspace } from "@/features/timetable/server/workspace";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { getNamibiaCalendarYear } from "@/lib/namibia-date";
@@ -16,7 +20,11 @@ export default async function TimetablePage() {
   if (!membership) redirect("/");
 
   const academicYear = getNamibiaCalendarYear();
-  const workspace = await getTimetableWorkspace(membership.schoolId, academicYear);
+  const [workspace, todayContext, bellSchedules] = await Promise.all([
+    getTimetableWorkspace(membership.schoolId, academicYear),
+    getTodayTimetableContext(membership.schoolId, academicYear),
+    getBellSchedules(membership.schoolId, academicYear),
+  ]);
   const canManage = membership.roleKey === "school_admin";
   const scheduledSlotCount = workspace.slots.length + workspace.plannedSlots.length;
   const dayNames = getTimetableDayNames(workspace.cycleMode, workspace.cycleLength);
@@ -27,21 +35,21 @@ export default async function TimetablePage() {
       <section>
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Timetable</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{canManage ? "Configure subjects, teacher allocations, school periods and conflict-safe timetable slots from one connected workspace." : "View the current school timetable generated from governed subject and teacher allocations."}</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{canManage ? "Configure subjects, teacher allocations, teaching periods, bell schedules and conflict-safe timetable slots from one connected workspace." : "View the current school timetable generated from governed subject and teacher allocations."}</p>
           <div className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs text-muted-foreground">
-            <CalendarDays className="size-3.5" aria-hidden="true" />
-            <span>Today · {workspace.todayDate}</span>
-            <span aria-hidden="true">·</span>
-            <span className="font-medium text-foreground">{todayLabel ?? "No timetable day"}</span>
+            <CalendarDays className="size-3.5" aria-hidden="true" /><span>Today · {workspace.todayDate}</span><span aria-hidden="true">·</span><span className="font-medium text-foreground">{todayLabel ?? "No timetable day"}</span>
           </div>
         </div>
+        <TodayTimetableContextCard context={todayContext} cycleMode={workspace.cycleMode} cycleLength={workspace.cycleLength} />
         <div className="mb-5 grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-4">
           <div className="flex items-center justify-between gap-3 px-4 py-4"><div><p className="text-xs font-medium text-muted-foreground">Subjects</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-indigo)]">{workspace.subjects.length}</p></div><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><BookOpenCheck className="size-4" /></span></div>
           <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Allocations</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-mint)]">{workspace.allocations.length}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span></div>
           <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Periods</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-amber)]">{workspace.periods.length}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span></div>
           <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Scheduled slots</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-sky)]">{scheduledSlotCount}</p></div><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span></div>
         </div>
+        {canManage ? <TimetableSetupGuide /> : null}
         <TimetableWorkspaceView schoolId={membership.schoolId} academicYear={academicYear} canManage={canManage} viewerStaffId={membership.staffMemberId} workspace={workspace} />
+        {canManage ? <div className="mt-5"><BellScheduleManager schoolId={membership.schoolId} academicYear={academicYear} schedules={bellSchedules} periods={workspace.periods} /></div> : null}
         {canManage ? <TimetableMaintenanceHub schoolId={membership.schoolId} academicYear={academicYear} workspace={workspace} /> : null}
       </section>
     </AppShell>
