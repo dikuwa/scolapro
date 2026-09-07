@@ -4,7 +4,7 @@ import { ProfileChangeReviewList } from "@/features/profile-changes/profile-chan
 import { getSchoolProfileChangeRequests } from "@/features/profile-changes/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
-const reviewRoles = new Set(["school_admin", "principal", "deputy_principal", "counsellor"]);
+const reviewRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 
 export default async function DataCorrectionsPage() {
   const context = await getUserContext();
