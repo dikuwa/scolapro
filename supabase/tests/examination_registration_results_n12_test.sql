@@ -1,6 +1,6 @@
 begin;
 
-select plan(34);
+select no_plan();
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('b1200000-0000-4000-8000-000000000001','n12-manager@example.test','authenticated','authenticated',now(),now()),
@@ -241,7 +241,7 @@ select is(
 select lives_ok(
   $$select public.stage_examination_result_import(
       (select id from public.examination_result_import_batches where examination_cycle_id='b12b0000-0000-4000-8000-000000000002'),
-      'b12c0000-0000-4000-8000-000000000002','b12d0000-0000-4000-8000-000000000002',2,78,null,'B',
+      'b12c0000-0000-4000-8000-000000000002'::uuid,'b12d0000-0000-4000-8000-000000000002'::uuid,2::smallint,78::numeric,null,'B',
       'EXTERNAL-EXAM','v1',null,null,'ROW-1',null)$$,
   'valid source-provenanced external result row can enter non-authoritative staging'
 );
@@ -249,7 +249,7 @@ select lives_ok(
 select lives_ok(
   $$select public.stage_examination_result_import(
       (select id from public.examination_result_import_batches where examination_cycle_id='b12b0000-0000-4000-8000-000000000002'),
-      'b12c0000-0000-4000-8000-000000000002','b12d0000-0000-4000-8000-000000000002',2,81,null,'A',
+      'b12c0000-0000-4000-8000-000000000002'::uuid,'b12d0000-0000-4000-8000-000000000002'::uuid,2::smallint,81::numeric,null,'A',
       'EXTERNAL-EXAM','v1',null,null,'ROW-1-CORRECTED',
       (select id from public.examination_result_import_staging where source_row_reference='ROW-1'))$$,
   'result correction appends a new source-provenanced staging row'
@@ -264,7 +264,7 @@ select ok(
 select throws_ok(
   $$select public.stage_examination_result_import(
       (select id from public.examination_result_import_batches where examination_cycle_id='b12b0000-0000-4000-8000-000000000002'),
-      'b12c0000-0000-4000-8000-000000000001','b12d0000-0000-4000-8000-000000000001',2,70,null,'B',
+      'b12c0000-0000-4000-8000-000000000001'::uuid,'b12d0000-0000-4000-8000-000000000001'::uuid,2::smallint,70::numeric,null,'B',
       'EXTERNAL-EXAM','v1',null,null,'BAD-CYCLE',null)$$,
   'Result import scope mismatch: candidate does not match batch tenant, school, and cycle',
   'candidate/cycle mismatch is rejected before staging'
@@ -273,7 +273,7 @@ select throws_ok(
 select throws_ok(
   $$select public.stage_examination_result_import(
       (select id from public.examination_result_import_batches where examination_cycle_id='b12b0000-0000-4000-8000-000000000002'),
-      'b12c0000-0000-4000-8000-000000000002','b12d0000-0000-4000-8000-000000000001',2,70,null,'B',
+      'b12c0000-0000-4000-8000-000000000002'::uuid,'b12d0000-0000-4000-8000-000000000001'::uuid,2::smallint,70::numeric,null,'B',
       'EXTERNAL-EXAM','v1',null,null,'BAD-SUBJECT',null)$$,
   'Result import scope mismatch: subject registration does not match candidate and school',
   'candidate/subject-registration mismatch is rejected before staging'
