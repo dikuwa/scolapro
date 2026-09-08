@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(12);
 
 insert into public.tenants(id,name,slug) values
   ('b1000000-0000-4000-8000-000000000001','Onboarding QA Tenant','onboarding-qa');
