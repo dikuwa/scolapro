@@ -9,8 +9,8 @@ import { conductRoles, type ConductDomain } from "@/features/conduct/types";
 export default async function ConductPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/conduct");
-  const membership = context.memberships[0];
-  if (!membership || !conductRoles.includes(membership.roleKey)) redirect("/");
+  const membership = context.memberships.find((candidate) => conductRoles.includes(candidate.roleKey));
+  if (!membership) redirect("/");
   const params = await searchParams;
   const uuid = (value: unknown) => { const parsed = z.string().uuid().safeParse(value); return parsed.success ? parsed.data : ""; };
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());

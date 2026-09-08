@@ -16,7 +16,12 @@ function single(value: string | string[] | undefined) {
 export default async function DetentionHistoryPage({ searchParams }: { searchParams: Promise<DetentionHistorySearchParams> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
-  const membership = context.memberships[0];
+  // Any active school membership grants read access to the detention history surface.
+  // Prefer leadership membership deterministically when a user belongs to multiple schools.
+  const membership =
+    context.memberships.find((candidate) =>
+      ["school_admin", "principal", "deputy_principal"].includes(candidate.roleKey),
+    ) ?? context.memberships[0];
   if (!membership) redirect("/");
 
   const params = await searchParams;

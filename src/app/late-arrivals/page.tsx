@@ -4,24 +4,45 @@ import { DetentionPlanner } from "@/features/late-arrivals/detention-planner";
 import { LateArrivalWorkspace } from "@/features/late-arrivals/late-arrival-workspace";
 import { getDetentionPlanning } from "@/features/late-arrivals/server/planning-queries";
 import { getLateArrivalWorkspace } from "@/features/late-arrivals/server/queries";
-import { getUserContext } from "@/lib/auth/get-user-context";
+import { getUserContext, type SchoolMembershipContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const leadershipRoles = ["school_admin", "principal", "deputy_principal"];
 
 export default async function LateArrivalsPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
-  const membership = context.memberships[0];
-  if (!membership) redirect("/");
 
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const leadership = ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey);
+  const leadershipMembership = context.memberships.find((candidate) => leadershipRoles.includes(candidate.roleKey));
+
+  let membership: SchoolMembershipContext | undefined = leadershipMembership;
   let delegated = false;
-  if (!leadership) {
+
+  if (!membership) {
+    // Delegated path: a staff member holds the late_arrival_recorder duty in one of
+    // their schools. Resolve the duty across all active memberships so multi-school
+    // users get the school they are actually delegated for, not an arbitrary first row.
+    const schoolIds = [...new Set(context.memberships.map((candidate) => candidate.schoolId))];
+    if (schoolIds.length === 0) redirect("/");
     const supabase = await createSupabaseServerClient();
-    const { data } = await supabase.from("school_duty_assignments").select("id").eq("school_id", membership.schoolId).eq("duty_key", "late_arrival_recorder").lte("active_from", today).or(`active_to.is.null,active_to.gte.${today}`).limit(1);
-    delegated = Boolean(data?.length);
+    const { data } = await supabase
+      .from("school_duty_assignments")
+      .select("school_id")
+      .in("school_id", schoolIds)
+      .eq("duty_key", "late_arrival_recorder")
+      .lte("active_from", today)
+      .or(`active_to.is.null,active_to.gte.${today}`)
+      .limit(1);
+    const delegatedSchoolId = data?.[0]?.school_id;
+    if (delegatedSchoolId) {
+      delegated = true;
+      membership = context.memberships.find((candidate) => candidate.schoolId === delegatedSchoolId);
+    }
   }
-  if (!leadership && !delegated) redirect("/");
+
+  if (!membership) redirect("/");
+  const leadership = Boolean(leadershipMembership);
 
   const year = Number(today.slice(0, 4));
   const [workspace, planning] = await Promise.all([
