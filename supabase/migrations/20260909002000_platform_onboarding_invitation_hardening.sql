@@ -10,13 +10,14 @@ security definer
 set search_path = pg_catalog, public
 as $$
 begin
+  -- The established actor-integrity trigger remains the authority for accepted
+  -- status / accepted-user provenance and preserves its stable exception contract.
+  -- This additive guard freezes the remaining accepted grant identity fields.
   if old.status = 'accepted' and (
     new.tenant_id is distinct from old.tenant_id
     or new.school_id is distinct from old.school_id
     or new.email is distinct from old.email
     or new.role_key is distinct from old.role_key
-    or new.accepted_user_id is distinct from old.accepted_user_id
-    or new.status is distinct from old.status
   ) then
     raise exception 'Accepted school invitation identity and role are immutable';
   end if;
@@ -31,7 +32,7 @@ revoke all on function app_private.enforce_consumed_school_invitation_finality()
 drop trigger if exists consumed_school_invitation_finality_trg
   on public.school_invitations;
 create trigger consumed_school_invitation_finality_trg
-before update of tenant_id, school_id, email, role_key, accepted_user_id, status
+before update of tenant_id, school_id, email, role_key
 on public.school_invitations
 for each row execute function app_private.enforce_consumed_school_invitation_finality();
 
