@@ -13,6 +13,12 @@ values('fa100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111
 insert into public.guardian_contacts(id,tenant_id,guardian_id,contact_type,contact_value,is_primary,effective_from)
 values('fa200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','fa100000-0000-4000-8000-000000000001','email',' Parent.Claim@Example.Test ',true,current_date-5);
 
+insert into public.learners(id,tenant_id,first_names,surname)
+values('fa300000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Claim','Child');
+
+insert into public.learner_guardians(tenant_id,learner_id,guardian_id,relationship_type,effective_from)
+values('11111111-1111-4111-8111-111111111111','fa300000-0000-4000-8000-000000000001','fa100000-0000-4000-8000-000000000001','guardian',current_date-5);
+
 select set_config('request.jwt.claim.sub','fa000000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 
@@ -33,7 +39,7 @@ select set_config('request.jwt.claim.sub','fa000000-0000-4000-8000-000000000001'
 select is(
   public.claim_guardian_profile('fa100000-0000-4000-8000-000000000001'),
   true,
-  'matching authenticated email claims guardian profile case-insensitively and after trimming contact value'
+  'matching authenticated email with a current guardian relationship claims profile case-insensitively'
 );
 
 select is(
