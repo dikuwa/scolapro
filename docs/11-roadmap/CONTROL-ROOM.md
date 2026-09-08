@@ -14,7 +14,7 @@ Before changing code, every workstream must read:
 
 The repository is authoritative. A chat transcript is not a source of truth when it conflicts with current `main` or these documents.
 
-Current reconciled `main` baseline: `2de793a6ef901b48d67a5cacc197d5393deb90e7` (8 September 2026).
+Current reconciled `main` baseline: `5d6958dce25f160b0a6b58567386521066d713a7` (8 September 2026).
 
 ## 2. Core product principle
 
@@ -34,11 +34,19 @@ The following roadmap foundations are integrated in current `main` and must not 
 - **N08/N09/N10/N12** — DNEA readiness, examination-centre model, restricted examination-access arrangements, frozen examination-registration submissions and governed results ingest.
 - **N13/N14/N15/N16/N20/N21** — staffing establishment/reconciliation, lean hostel/feeding, privacy-preserving inclusion aggregates, versioned control forms and official-result symbol/comparison read models.
 - **N17/N18/N19 + T04/T05** — calendar teaching-impact semantics, seasonal/day-specific bell schedules, fixtures and timetable setup UI refinements.
-- **Canonical metric registry / network-safe aggregate foundation** — integrated via PR #370; new network analytics must reuse this registry/read-model architecture rather than create parallel metric stores.
+- **N24 canonical metric registry** — PR #370 established the registry/network-safe aggregate boundary; PR #373 expanded it across authoritative staffing, hostel/feeding and examination-centre metrics without creating a second fact store.
+- **N25 bounded circuit/regional read models** — PR #374 integrated aggregate-only operational summaries over current authorized network scope; PR #376 then hardened the shared historical network-authority boundary so historical `p_as_of` reads cannot revive expired circuit/regional memberships.
 
-N21 is integrated via PR #361. Canonical metric registry/network-safe aggregate foundation is integrated via PR #370.
+N21 is integrated via PR #361. N24 is integrated through PRs #370/#373. The current N25 source foundation is integrated through PR #374 with network-authority hardening in PR #376.
 
-## 4. Remaining roadmap gates
+## 4. Verification state and remaining gates
+
+### Verification terminology
+
+- **SOURCE-INTEGRATED** — merged in `main`; this does not imply production deployment or browser/live-data acceptance.
+- **SOURCE-VERIFIED** — repository tests/CI or bounded source audit verified the claimed behavior.
+- **LIVE/DEPLOYMENT VERIFIED** — exercised in a connected deployed environment against deployed schema/runtime/provider configuration.
+- **UNVERIFIED** — an acceptance dimension has not actually been exercised and must not be inferred from source completion.
 
 ### N06 — source-gated statutory mappings
 Authoritative Fifteenth School Day/AEC/Ministry form mappings remain **SOURCE-GATED**. Do not invent Ministry field names, codes, validation rules or form definitions. Implementation resumes only from verified current official source material.
@@ -47,20 +55,28 @@ Authoritative Fifteenth School Day/AEC/Ministry form mappings remain **SOURCE-GA
 N11 remains **REQUIREMENTS-GATED**. Do not infer universal subject/coursework/moderation requirements. Implementation resumes only when authoritative requirements are confirmed.
 
 ### Production/shared database migration drift
-Production/shared-environment migration drift remains **UNRESOLVED DEPLOYMENT WORK**. Source-controlled implementations may already exist while deployed environments are missing required RPCs/tables/columns. Resolve this through ordered migration application and environment verification; do not reimplement source features or hide drift with route-specific fallbacks.
+Production/shared-environment migration drift remains a **DEPLOYMENT RECONCILIATION** concern. Source-controlled implementations can be newer than a connected environment. A connected ScolaPro Supabase inspection on 8 September 2026 confirmed an active project and a substantial deployed migration history, but the deployed migration list observed during communications-readiness QA did not include the later 7–8 September network/roadmap migrations now present in `main`. Treat those newer slices as source-integrated/source-verified until their deployment is explicitly confirmed. Do not reimplement source features or hide drift with route-specific fallbacks.
+
+### Operational QA waves completed
+Completed source/operational QA has already established, among other boundaries:
+- canonical/network aggregate reconciliation and non-leakage for the N24/N25 slices;
+- current-membership authorization and expired-membership denial for historical network reads, including the PR #376 correction;
+- recipient-specific notification RLS, authoritative communication-recipient scope, retry/attempt/receipt state semantics and secret-free provider-routing source boundaries.
+
+Communications provider delivery remains **not live-verified**: the connected ScolaPro DB inspection found no configured provider routes and no communication outbox/receipt history to exercise end-to-end. No real provider delivery success is claimed.
 
 ### UI/runtime consistency
-UI/runtime consistency work is a separate bounded lane. At this reconciliation point, branch `fix/ui-consistency-avatar-and-pickers` exists but no matching open PR was found. If an external UI/runtime consistency PR is opened, treat it as bounded verification/fix work and do not let it reopen integrated N-roadmap foundations.
+PR #375 is the separate active draft UI/runtime consistency lane: `chatgpt/ui-runtime-consistency-fixes`. It covers shell/shared Button/Conduct/late-arrival-detention/absence/calendar consistency work. Do not absorb, duplicate or reopen that scope from roadmap/domain streams.
 
 ## 5. Current coordinated sequence
 
-1. **Deployment reconciliation** — apply and verify source-controlled migrations in production/shared environments; close confirmed runtime drift.
-2. **Bounded UI/runtime consistency QA** — responsive/picker/avatar/route consistency fixes may proceed on isolated branches/PRs without reopening integrated domain architecture.
-3. **N06 statutory mappings** — only when verified Ministry source material is available.
-4. **N11 coursework/moderation evidence** — only when official requirements are confirmed.
-5. **Network analytics expansion** — extend the integrated canonical metric registry/network-safe aggregate architecture only for metrics backed by authoritative domains and explicit disclosure policy.
-6. **Operational QA** — role/device/live-data verification for completed domains, including statutory, DNEA, staffing, hostel/feeding, inclusion, controls, exam comparisons, communications and report workflows.
-7. **Consolidated UI/IA polish** after deployment consistency and bounded operational QA stabilize.
+1. **Finish deployment reconciliation** — apply/confirm later source-controlled migrations and retest affected deployed routes/RPCs; keep source completion distinct from deployed verification.
+2. **Complete PR #375 bounded UI/runtime consistency lane** — review/rebase/verify independently; do not fold its UI scope into domain roadmap work.
+3. **Targeted operational/live QA for still-unverified surfaces** — especially real communication provider onboarding/send/webhook receipt handling, production data/device/browser acceptance, and any environment-specific workflows not yet exercised.
+4. **N24/N25 extension only when justified** — add canonical metrics or safe network read models only from authoritative source facts and explicit disclosure policy; no dashboard-local semantics or parallel metric stores.
+5. **N06 statutory mappings** — only when verified Ministry source material is available.
+6. **N11 coursework/moderation evidence** — only when authoritative requirements are confirmed.
+7. **Consolidated UI/IA and document-lane polish** after deployment and bounded QA stabilize.
 
 ## 6. Parallel workstream model
 
@@ -70,7 +86,7 @@ Each thread owns one bounded branch and one bounded area. The Control Room owns 
 
 - **Bell/calendar foundation** — PR #354.
 - **Education-network foundation** — PR #355.
-- **Runtime-stability audit/fix** — PR #353; deployment drift findings remain unresolved environment work.
+- **Runtime-stability audit/fix** — PR #353; deployment findings must be verified per environment rather than treated as missing source work.
 - **Statutory N05** — PR #357.
 - **DNEA N08** — PR #358, with readiness hardening in PR #367.
 - **N13 staffing establishment** — PR #359.
@@ -83,7 +99,14 @@ Each thread owns one bounded branch and one bounded area. The Control Room owns 
 - **N10 examination access arrangements** — PR #366.
 - **N12 frozen registration/results ingest** — PR #368.
 - **N07 statutory operational extensions** — PR #369.
-- **Canonical metric registry/network-safe aggregate slice** — PR #370.
+- **N24 canonical metric registry/network-safe aggregate foundation** — PR #370.
+- **N24 canonical metric expansion** — PR #373.
+- **N25 bounded network operational analytics read model** — PR #374.
+- **Historical network-authority hardening** — PR #376.
+
+### Active bounded lane — UI/runtime consistency
+
+- **PR #375** — draft; separate UI/runtime consistency scope. Its files and unfinished runtime/UI acceptance remain owned by that lane until Control Room disposition.
 
 ### Governance lane
 
@@ -125,6 +148,7 @@ When two streams need the same shared file, the Control Room owns the final shar
 - School operational scope, education-network scope and platform scope are distinct concepts.
 - A circuit or regional role must not imply unrestricted learner-level access.
 - Aggregation must never become a permission bypass.
+- Historical `p_as_of` selection controls the fact date, not authorization date: expired current network membership must not regain access merely by requesting a historical date.
 - Sensitive learner support, health/welfare, examination-access evidence, counselling and HR-sensitive staff data require stronger access than aggregate operational data.
 - Official codes and identifiers are authoritative external facts. Never invent region, circuit, DNEA centre, DNEA candidate, EMIS or similar official codes.
 - Versioned/effective-dated facts must remain historically reproducible.
@@ -167,7 +191,7 @@ The Control Room:
 - requires exact-head CI before merge where appropriate;
 - merges in dependency order;
 - records merge SHAs and newly unlocked work;
-- distinguishes source completion from production/shared-environment deployment verification;
+- distinguishes source completion, source verification, and production/shared-environment verification;
 - tells the user when local `main` is safe to sync.
 
 The Control Room does not silently merge a blocked or stale branch merely because implementation looks complete.
