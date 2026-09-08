@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { AttendanceClassOption, AttendanceReasonOption, AttendanceSortDirection } from "@/features/attendance/server/register";
+import { resolveAttendanceTeachingImpact, type AttendanceClassOption, type AttendanceReasonOption, type AttendanceSortDirection } from "@/features/attendance/server/register";
 
 export type WeeklyCell = {
   date: string;
@@ -69,7 +69,20 @@ export async function getWeeklyRegisterWorkspace(
   const reasonsList: AttendanceReasonOption[] = (reasons ?? []).map((item) => ({ id: item.id, code: item.reason_code, name: item.display_name, sensitive: item.sensitive }));
   const classId = selectedClassId && classOptions.some((item) => item.id === selectedClassId) ? selectedClassId : classOptions[0]?.id ?? null;
 
-  if (!classId) return { classes: classOptions, reasons: reasonsList, selectedClassId: null, dates, learners: [] as WeeklyLearnerRow[], submissionIds: {} as Record<string, string> };
+  // A week column is excluded from capture when the shared calendar marks that
+  // school date NO_TEACHING, so an accidental register is never submitted for a
+  // clearly non-teaching day.
+  const resolvedDays = await Promise.all(dates.map(async (attendanceDate) => ({ attendanceDate, ...(await resolveAttendanceTeachingImpact(schoolId, attendanceDate)) })));
+  const nonTeachingDates: string[] = [];
+  const nonTeachingReasons: Record<string, string> = {};
+  for (const day of resolvedDays) {
+    if (day.impact === "NO_TEACHING") {
+      nonTeachingDates.push(day.attendanceDate);
+      if (day.reason) nonTeachingReasons[day.attendanceDate] = day.reason;
+    }
+  }
+
+  if (!classId) return { classes: classOptions, reasons: reasonsList, selectedClassId: null, dates, nonTeachingDates, nonTeachingReasons, learners: [] as WeeklyLearnerRow[], submissionIds: {} as Record<string, string> };
 
   const [{ data: enrolments, error: enrolmentError }, { data: currentRows, error: currentError }, { data: submissions, error: submissionError }] = await Promise.all([
     supabase.from("enrolments").select("id,admission_number,learner_id,enrolled_from,enrolled_to,learners!inner(id,first_names,surname,sex)").eq("school_id", schoolId).eq("register_class_id", classId).eq("academic_year", academicYear).lte("enrolled_from", friday).or(`enrolled_to.is.null,enrolled_to.gte.${monday}`).order("admission_number"),
@@ -104,5 +117,5 @@ export async function getWeeklyRegisterWorkspace(
 
   sortLearners(learners, sortDirection);
 
-  return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, dates, learners, submissionIds };
+  return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, dates, nonTeachingDates, nonTeachingReasons, learners, submissionIds };
 }

@@ -49,7 +49,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
         <section className="attendance-page">
           <AttendanceHeader date={date} requestedClass={requestedClass} view="week" sort={sort} />
           <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
-          <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} />
+          <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
         </section>
       </AppShell>
     );
@@ -63,7 +63,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
       <section className="attendance-page">
         <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-        <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} />
+        <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} />
       </section>
     </AppShell>
   );

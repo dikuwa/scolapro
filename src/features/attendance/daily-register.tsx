@@ -2,12 +2,12 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronLeft, ChevronRight, Clock3, MoreHorizontal, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
+import { CalendarOff, Check, ChevronLeft, ChevronRight, Clock3, MoreHorizontal, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { submitDailyRegister, type DailyRegisterState } from "@/features/attendance/server/actions";
-import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOption } from "@/features/attendance/server/register";
+import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOption, AttendanceTeachingDay } from "@/features/attendance/server/register";
 
 const initialState: DailyRegisterState = {};
 type AttendanceStatus = AttendanceLearnerRow["status"];
@@ -34,13 +34,14 @@ function schoolDayShift(date: string, direction: -1 | 1) {
   return current.toISOString().slice(0, 10);
 }
 
-export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId }: {
+export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   attendanceDate: string;
   learners: AttendanceLearnerRow[];
   reasons: AttendanceReasonOption[];
   currentSubmissionId: string | null;
+  teachingDay: AttendanceTeachingDay;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(submitDailyRegister, initialState);
@@ -116,6 +117,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
         </div>
       </section>
 
+      {teachingDay.impact === "NO_TEACHING" ? <NoTeachingDayCard attendanceDate={attendanceDate} reason={teachingDay.reason ?? null} /> : (
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle bg-surface-muted/55 px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -169,7 +171,26 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
           </form>
         )}
       </section>
+      )}
     </div>
+  );
+}
+
+function NoTeachingDayCard({ attendanceDate, reason }: { attendanceDate: string; reason: string | null }) {
+  return (
+    <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-6 shadow-[var(--shadow-xs)] sm:p-7">
+      <div className="flex items-start gap-3">
+        <span className="scolapro-tone-amber grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarOff className="size-5" aria-hidden="true" /></span>
+        <div className="min-w-0">
+          <h2 className="scolapro-section-title">No school on this day</h2>
+          <p className="scolapro-section-description">
+            {new Intl.DateTimeFormat("en-NA", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))} is marked as a non-teaching day in the school calendar, so an official attendance register can&apos;t be captured here.
+          </p>
+          {reason ? <p className="mt-3 inline-flex items-center gap-2 rounded-[var(--radius-xs)] bg-surface-muted px-3 py-1.5 text-xs font-medium text-muted-foreground"><span className="size-1.5 rounded-full bg-[color:var(--warning)]" aria-hidden="true" />Calendar note: {reason}</p> : null}
+          <p className="mt-3 text-xs text-muted-foreground">Use the date controls above to move to the next teaching day, or update the calendar entry in School calendar if this day should be open.</p>
+        </div>
+      </div>
+    </section>
   );
 }
 

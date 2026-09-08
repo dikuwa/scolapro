@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -68,6 +69,21 @@ export async function submitDailyRegister(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  const { data: registerSchool } = await supabase
+    .from("register_classes")
+    .select("school_id")
+    .eq("id", parsed.data.registerClassId)
+    .maybeSingle();
+  if (!registerSchool) return { message: "The register class could not be found. Refresh and try again." };
+
+  // Defence in depth: the calendar may mark the date NO_TEACHING. Capture is
+  // blocked server-side so an accidental official register is never submitted
+  // for a clearly non-teaching day, even if the UI gate were bypassed.
+  const teachingDay = await resolveAttendanceTeachingImpact(registerSchool.school_id, parsed.data.attendanceDate);
+  if (teachingDay.impact === "NO_TEACHING") {
+    return { message: "This date is marked as a non-teaching day in the school calendar, so attendance can't be recorded." };
+  }
   const { data: submissionId, error } = await supabase.rpc("submit_daily_register", {
     p_register_class_id: parsed.data.registerClassId,
     p_attendance_date: parsed.data.attendanceDate,
