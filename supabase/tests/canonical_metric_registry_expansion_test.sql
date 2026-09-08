@@ -1,6 +1,6 @@
 begin;
 
-select plan(20);
+select plan(19);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('c1000000-0000-4000-8000-000000000001','metric-circuit-a@example.test','authenticated','authenticated',now(),now()),
@@ -43,7 +43,6 @@ insert into public.education_network_memberships(id,user_id,role_key,circuit_id,
   ('c1360000-0000-4000-8000-000000000002','c1000000-0000-4000-8000-000000000002','circuit_officer','c1320000-0000-4000-8000-000000000002','2026-01-01',null),
   ('c1360000-0000-4000-8000-000000000003','c1000000-0000-4000-8000-000000000003','circuit_officer','c1320000-0000-4000-8000-000000000001','2025-01-01','2025-12-31');
 
--- Staffing facts: three effective posts in circuit A, one occupied; five posts in circuit B.
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status) values
   ('c1400000-0000-4000-8000-000000000001','c1100000-0000-4000-8000-000000000001','METRIC-S1','Metric','Staff','active');
 insert into public.staff_school_assignments(id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id)
@@ -61,7 +60,6 @@ insert into public.staffing_establishment_posts(id,tenant_id,school_id,title,eff
 insert into public.staffing_post_occupancies(id,tenant_id,school_id,post_id,staff_school_assignment_id,effective_from,created_by_user_id)
 values('c1430000-0000-4000-8000-000000000001','c1100000-0000-4000-8000-000000000001','c1200000-0000-4000-8000-000000000001','c1420000-0000-4000-8000-000000000001','c1410000-0000-4000-8000-000000000001','2020-01-01','c1000000-0000-4000-8000-000000000005');
 
--- Hostel/feeding facts.
 insert into public.learners(id,tenant_id,first_names,surname) values
   ('c1500000-0000-4000-8000-000000000001','c1100000-0000-4000-8000-000000000001','Metric','Learner A1'),
   ('c1500000-0000-4000-8000-000000000002','c1100000-0000-4000-8000-000000000001','Metric','Learner A2'),
@@ -87,7 +85,6 @@ insert into public.feeding_service_days(id,tenant_id,school_id,programme_id,serv
   ('c1550000-0000-4000-8000-000000000002','c1100000-0000-4000-8000-000000000001','c1200000-0000-4000-8000-000000000002','c1540000-0000-4000-8000-000000000002','2026-04-01',20,25,'c1000000-0000-4000-8000-000000000005'),
   ('c1550000-0000-4000-8000-000000000003','c1100000-0000-4000-8000-000000000001','c1200000-0000-4000-8000-000000000003','c1540000-0000-4000-8000-000000000003','2026-04-01',999,999,'c1000000-0000-4000-8000-000000000005');
 
--- Examination-centre facts: two distinct centres serve circuit A; a third is circuit B only.
 insert into public.examination_centres(id,display_name) values
   ('c1600000-0000-4000-8000-000000000001','Metric Centre 1'),
   ('c1600000-0000-4000-8000-000000000002','Metric Centre 2'),
