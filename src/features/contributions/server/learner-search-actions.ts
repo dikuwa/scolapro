@@ -34,8 +34,10 @@ export async function searchContributionLearners(
 
   const context = await getUserContext();
   if (!context.user) return [];
-  const membership = context.memberships[0];
-  if (!membership || !["school_admin", "principal", "deputy_principal", "class_teacher"].includes(membership.roleKey)) return [];
+  const membership = context.memberships.find((candidate) =>
+    ["school_admin", "principal", "deputy_principal", "class_teacher"].includes(candidate.roleKey),
+  );
+  if (!membership) return [];
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.rpc("search_contribution_eligible_learners", {

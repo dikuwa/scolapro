@@ -58,7 +58,13 @@ export const getUserContext = cache(async () => {
       .select("id, tenant_id, school_id, role_key, staff_member_id, schools!inner(name)")
       .eq("user_id", user.id)
       .lte("active_from", today)
-      .or(`active_to.is.null,active_to.gte.${today}`),
+      .or(`active_to.is.null,active_to.gte.${today}`)
+      .order("active_from", { ascending: false })
+      .order("id")
+      // Deterministic selection order: newest membership first, then membership id
+      // as a stable tie-breaker, so memberships[0] is well-defined for multi-school
+      // users instead of depending on arbitrary database row order.
+      .order("schools.name", { referencedTable: "schools", ascending: true }),
     supabase
       .from("platform_memberships")
       .select("id, role_key")

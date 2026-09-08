@@ -11,8 +11,8 @@ export async function stageAcademicStructureCsv(formData: FormData) {
   if (!validTabularFile(file)) redirect("/school/imports?error=Choose+a+CSV+or+Excel+file+up+to+5MB");
 
   const context = await getUserContext();
-  const membership = context.memberships[0];
-  if (!context.user || !membership || membership.roleKey !== "school_admin") redirect("/school/imports?error=School+administrator+access+is+required");
+  const membership = context.memberships.find((candidate) => candidate.roleKey === "school_admin");
+  if (!context.user || !membership) redirect("/school/imports?error=School+administrator+access+is+required");
 
   const parsedRows = await tabularFileToRows(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+academic+structure+rows+were+found.+Use+the+structure+template+or+check+the+header+row");

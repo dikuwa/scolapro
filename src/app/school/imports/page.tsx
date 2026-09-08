@@ -15,8 +15,8 @@ const interactiveButton = "cursor-pointer transition-colors duration-[var(--moti
 export default async function SchoolImportsPage({ searchParams }: { searchParams: Promise<{ batch?: string; error?: string; success?: string; history?: string; rowPage?: string }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
-  const membership = context.memberships[0];
-  if (!membership || membership.roleKey !== "school_admin") redirect("/");
+  const membership = context.memberships.find((candidate) => candidate.roleKey === "school_admin");
+  if (!membership) redirect("/");
 
   const search = await searchParams;
   const showHistory = search.history === "1";

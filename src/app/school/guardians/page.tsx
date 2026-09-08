@@ -9,8 +9,8 @@ const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "
 export default async function GuardianDirectoryPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
-  const membership = context.memberships[0];
-  if (!membership || !allowedRoles.has(membership.roleKey)) redirect("/");
+  const membership = context.memberships.find((candidate) => allowedRoles.has(candidate.roleKey));
+  if (!membership) redirect("/");
 
   const guardians = await getGuardianDirectory(membership.schoolId);
 

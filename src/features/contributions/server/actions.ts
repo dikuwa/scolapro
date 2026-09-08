@@ -11,12 +11,16 @@ const recordContributionSchema = z.object({
   clientOperationId: z.string().uuid(), campaignId: z.string().uuid(), itemId: z.string().uuid(), learnerId: z.string().uuid(), quantity: z.string().optional(), amount: z.string().optional(), note: z.string().optional(), contributionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
 const campaignSchema = z.object({ schoolId: z.string().uuid(), academicYear: z.coerce.number().int().min(2000).max(2200), title: z.string().trim().min(2).max(160), description: z.string().trim().max(1000).optional(), startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), endsOn: z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/), z.literal("")]).optional() });
-const itemSchema = z.object({ campaignId: z.string().uuid(), itemType: z.enum(["goods","money","raffle","service","other"]), label: z.string().trim().min(2).max(160), description: z.string().trim().max(1000).optional(), unitLabel: z.string().trim().max(60).optional(), suggestedQuantity: z.string().optional(), suggestedAmount: z.string().optional() });
-
-async function currentMembership() {
+const itemSchema = z.object({ campaignId: z.string().uuid(), itemType: z.enum(["goods","money","raffle","service","other"]), label: z.string().trim().min(2).max(160), description: z.string().trim().max(1000).optional(), unitLabel: z.string().trim().max(60).optional(), suggestedQuantity: z.string().optional(), suggestedAmount: z.string().optional() });async function currentMembership() {
   const context = await getUserContext();
   if (!context.user) return null;
-  return context.memberships[0] ?? null;
+  // Prefer the school_admin membership deterministically; fall back to the first
+  // ordered membership so the ownership check below still binds correctly.
+  return (
+    context.memberships.find((candidate) => candidate.roleKey === "school_admin") ??
+    context.memberships[0] ??
+    null
+  );
 }
 
 export async function createContributionCampaign(_state: ContributionActionState, formData: FormData): Promise<ContributionActionState> {
