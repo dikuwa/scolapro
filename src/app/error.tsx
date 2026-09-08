@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, RotateCcw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
@@ -13,14 +14,10 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           Your work has not been intentionally discarded. Try loading this view again. If the problem continues, the incident can be reviewed from application monitoring.
         </p>
-        <button
-          type="button"
-          onClick={reset}
-          className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-medium text-white transition duration-200 hover:bg-brand-strong"
-        >
+        <Button type="button" onClick={reset} className="mt-5">
           <RotateCcw aria-hidden="true" className="size-4" />
           Try again
-        </button>
+        </Button>
       </section>
     </main>
   );
