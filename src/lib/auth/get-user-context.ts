@@ -59,12 +59,13 @@ export const getUserContext = cache(async () => {
       .eq("user_id", user.id)
       .lte("active_from", today)
       .or(`active_to.is.null,active_to.gte.${today}`)
-      .order("active_from", { ascending: false })
-      .order("id")
       // Deterministic selection order: newest membership first, then membership id
       // as a stable tie-breaker, so memberships[0] is well-defined for multi-school
-      // users instead of depending on arbitrary database row order.
-      .order("schools.name", { referencedTable: "schools", ascending: true }),
+      // users instead of depending on arbitrary database row order. Top-level
+      // columns only — embedded/referenced-table order keys are passed through
+      // verbatim by the installed supabase-js build and PostgREST rejects them.
+      .order("active_from", { ascending: false })
+      .order("id"),
     supabase
       .from("platform_memberships")
       .select("id, role_key")
@@ -74,7 +75,10 @@ export const getUserContext = cache(async () => {
     supabase.rpc("get_my_guardian_links"),
   ]);
 
-  if (membershipResult.error) throw new Error("Unable to resolve the current school context.");
+  if (membershipResult.error) {
+    console.error("school_memberships query failed:", membershipResult.error.message, membershipResult.error.details, membershipResult.error.hint);
+    throw new Error("Unable to resolve the current school context.");
+  }
   if (platformResult.error) throw new Error("Unable to resolve the current platform context.");
 
   // Guardian context is additive and must never take down staff/platform workspaces.
