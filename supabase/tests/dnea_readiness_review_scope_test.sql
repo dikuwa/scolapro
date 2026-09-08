@@ -24,10 +24,10 @@ values('da310000-0000-4000-8000-000000000001','da000000-0000-4000-8000-000000000
 
 insert into public.examination_cycles(id,tenant_id,school_id,academic_year,cycle_key,display_name)
 values('da400000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'N08-TEST','N08 readiness test');
-insert into public.examination_candidates(id,tenant_id,school_id,examination_cycle_id,learner_id,enrolment_id,created_by_user_id)
-values('da410000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','da400000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','da000000-0000-4000-8000-000000000002');
-insert into public.examination_readiness_issues(id,tenant_id,school_id,examination_cycle_id,candidate_id,issue_code,severity,message)
-values('da420000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','da400000-0000-4000-8000-000000000001','da410000-0000-4000-8000-000000000001','candidate_number_missing','blocking','Official Candidate Number has not been assigned.');
+insert into public.examination_candidates(id,tenant_id,school_id,examination_cycle_id,learner_id,enrolment_id,identity_verified,created_by_user_id)
+values('da410000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','da400000-0000-4000-8000-000000000001','50000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',true,'da000000-0000-4000-8000-000000000002');
+insert into public.examination_subject_registrations(id,tenant_id,school_id,candidate_id,subject_code,subject_name)
+values('da420000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','da410000-0000-4000-8000-000000000001','N08-SUBJECT','N08 fixture subject');
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','da000000-0000-4000-8000-000000000001',true);
