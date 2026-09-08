@@ -33,7 +33,7 @@ insert into public.education_circuit_region_history(id,circuit_id,region_id,effe
 
 insert into public.school_network_assignments(id,school_id,authority_id,region_id,circuit_id,effective_from) values
   ('b2350000-0000-4000-8000-000000000001','b2200000-0000-4000-8000-000000000001','b2300000-0000-4000-8000-000000000001','b2310000-0000-4000-8000-000000000001','b2320000-0000-4000-8000-000000000001','2020-01-01'),
-  ('b2350000-0000-4000-8000-000000000002','b2200000-0000-4000-8000-000000000002','b2300000-0000-4000-8000-000000000001','b2310000-0000-4000-8000-000000000001','b2320000-0000-4000-8000-000000000002','2020-01-01');
+  ('b2350000-0000-4000-8000-000000000002','b2200000-0000-4000-8000-000000000001','b2300000-0000-4000-8000-000000000001','b2310000-0000-4000-8000-000000000001','b2320000-0000-4000-8000-000000000002','2020-01-01');
 
 insert into public.education_network_memberships(id,user_id,role_key,circuit_id,active_from,active_to) values
   ('b2360000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001','circuit_officer','b2320000-0000-4000-8000-000000000001','2026-01-01',null),
@@ -80,7 +80,8 @@ select is(
 
 select throws_ok(
   $$insert into public.canonical_metric_registry(metric_key,display_name,description,unit,value_type,aggregation_method,source_domain,network_safe,effective_from) values('network.injected','Injected','Must fail','rows','integer','count','education_network',true,current_date)$$,
-  'permission denied for table canonical_metric_registry',
+  '42501',
+  'new row violates row-level security policy for table "canonical_metric_registry"',
   'authenticated callers cannot mutate canonical metric definitions'
 );
 
