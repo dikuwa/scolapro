@@ -33,7 +33,7 @@ export function ShellFrame({
     >
       <aside
         data-collapsed={collapsed}
-        className="group/sidebar relative hidden border-r border-border-subtle bg-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-between lg:overflow-y-auto lg:p-3"
+        className="scolapro-scrollbar group/sidebar relative hidden border-r border-border-subtle bg-surface lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col lg:justify-between lg:overflow-y-auto lg:p-3"
       >
         <div className="min-w-0">
           {brand}

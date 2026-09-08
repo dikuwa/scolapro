@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { AttendanceSortControl } from "@/features/attendance/attendance-sort-control";
 import { AttendanceViewTabs } from "@/features/attendance/attendance-view-tabs";
+import { AbsenceOverview } from "@/features/attendance/absence-overview";
 import { DailyRegister } from "@/features/attendance/daily-register";
 import { WeeklyRegister } from "@/features/attendance/weekly-register";
+import { getAbsenceOverviewWorkspace } from "@/features/attendance/server/absence-overview";
 import { getDailyRegisterWorkspace, type AttendanceSortDirection } from "@/features/attendance/server/register";
 import { getWeeklyRegisterWorkspace, mondayFor } from "@/features/attendance/server/week";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -35,10 +37,24 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedDate = Array.isArray(params.date) ? params.date[0] : params.date;
   const requestedView = Array.isArray(params.view) ? params.view[0] : params.view;
   const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
-  const view = requestedView === "week" ? "week" : "day";
+  const view = requestedView === "week" ? "week" : requestedView === "absences" ? "absences" : "day";
   const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
   const date = safeSchoolDate(requestedDate);
   const academicYear = Number(date.slice(0, 4));
+
+  if (view === "absences") {
+    const workspace = await getAbsenceOverviewWorkspace(membership.schoolId, academicYear, date, requestedClass ?? null);
+    const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
+    return (
+      <AppShell>
+        <section className="attendance-page">
+          <AttendanceHeader date={date} requestedClass={requestedClass} view="absences" sort={sort} />
+          <p className="mb-5 text-sm leading-6 text-muted-foreground">A read-only absence view. It combines official daily-register absences, lesson absences and parent/guardian notices for {selectedClass ? `${selectedClass.grade} ${selectedClass.name}` : "your school"} — it never changes the records it reads.</p>
+          <AbsenceOverview classes={workspace.classes} selectedClassId={workspace.selectedClassId} rows={workspace.rows} attendanceDate={date} />
+        </section>
+      </AppShell>
+    );
+  }
 
   if (view === "week") {
     const workspace = await getWeeklyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort);
@@ -49,7 +65,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
         <section className="attendance-page">
           <AttendanceHeader date={date} requestedClass={requestedClass} view="week" sort={sort} />
           <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
-          <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} />
+          <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
         </section>
       </AppShell>
     );
@@ -63,18 +79,18 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
       <section className="attendance-page">
         <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-        <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} />
+        <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} />
       </section>
     </AppShell>
   );
 }
 
-function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; requestedClass?: string; view: "day" | "week"; sort: AttendanceSortDirection }) {
+function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; requestedClass?: string; view: "day" | "week" | "absences"; sort: AttendanceSortDirection }) {
   return (
     <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-      <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first registers. Capture daily, or reconcile a physical register later with a Monday–Friday weekly view.</p></div>
+      <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first registers. Capture daily, reconcile a physical register later with a Monday–Friday weekly view, or review all absences for a day.</p></div>
       <div className="flex flex-wrap items-center gap-2">
-        <AttendanceSortControl sort={sort} />
+        {view !== "absences" ? <AttendanceSortControl sort={sort} /> : null}
         <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} />
       </div>
     </div>

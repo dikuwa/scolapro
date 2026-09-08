@@ -39,6 +39,37 @@ function sortLearners<T extends { name: string; admissionNumber: string | null }
   });
 }
 
+export type AttendanceTeachingDay = {
+  /** Calendar teaching-impact semantics from the shared N17 foundation. */
+  impact: string;
+  reason: string | null;
+};
+
+/**
+ * Resolves the shared calendar teaching-impact state for one school date.
+ * Falls back to NORMAL when the resolver is unavailable so absence of an
+ * override (or a drift between source migrations and the running database)
+ * never crashes the register page. Capture gating only activates on an
+ * explicit NO_TEACHING override.
+ */
+export async function resolveAttendanceTeachingImpact(schoolId: string, attendanceDate: string): Promise<AttendanceTeachingDay> {
+  const supabase = await createSupabaseServerClient();
+  const [impactResult, overrideResult] = await Promise.all([
+    supabase.rpc("resolve_school_teaching_impact", { p_school_id: schoolId, p_target_date: attendanceDate }),
+    supabase
+      .from("school_day_overrides")
+      .select("reason")
+      .eq("school_id", schoolId)
+      .eq("school_date", attendanceDate)
+      .maybeSingle(),
+  ]);
+  if (impactResult.error) return { impact: "NORMAL", reason: null };
+  return {
+    impact: typeof impactResult.data === "string" ? impactResult.data : "NORMAL",
+    reason: overrideResult.error ? null : (overrideResult.data?.reason ?? null),
+  };
+}
+
 export async function getDailyRegisterWorkspace(
   schoolId: string,
   academicYear: number,
@@ -58,7 +89,12 @@ export async function getDailyRegisterWorkspace(
   const reasonsList: AttendanceReasonOption[] = (reasons ?? []).map((item) => ({ id: item.id, code: item.reason_code, name: item.display_name, sensitive: item.sensitive }));
   const classId = selectedClassId && classOptions.some((item) => item.id === selectedClassId) ? selectedClassId : classOptions[0]?.id ?? null;
 
-  if (!classId) return { classes: classOptions, reasons: reasonsList, selectedClassId: null, learners: [] as AttendanceLearnerRow[], currentSubmissionId: null };
+  // The shared calendar teaching-impact state for the selected date. When the
+  // date is explicitly NO_TEACHING the register is presented read-only so an
+  // accidental official register is never submitted for a non-teaching day.
+  const teachingDay = await resolveAttendanceTeachingImpact(schoolId, attendanceDate);
+
+  if (!classId) return { classes: classOptions, reasons: reasonsList, selectedClassId: null, teachingDay, learners: [] as AttendanceLearnerRow[], currentSubmissionId: null };
 
   const [{ data: enrolments, error: enrolmentError }, { data: currentRows, error: currentError }, { data: submission, error: submissionError }] = await Promise.all([
     supabase.from("enrolments").select("id,admission_number,learner_id,learners!inner(id,first_names,surname,sex)").eq("school_id", schoolId).eq("register_class_id", classId).eq("academic_year", academicYear).lte("enrolled_from", attendanceDate).or(`enrolled_to.is.null,enrolled_to.gte.${attendanceDate}`).order("admission_number"),
@@ -85,5 +121,5 @@ export async function getDailyRegisterWorkspace(
 
   sortLearners(learners, sortDirection);
 
-  return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, learners, currentSubmissionId: submission?.id ?? null };
+  return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, teachingDay, learners, currentSubmissionId: submission?.id ?? null };
 }

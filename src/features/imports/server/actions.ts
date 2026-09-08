@@ -10,8 +10,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 async function requireSchoolAdmin() {
   const context = await getUserContext();
-  const membership = context.memberships[0];
-  if (!context.user || !membership || membership.roleKey !== "school_admin") redirect("/school/imports?error=School+administrator+access+is+required");
+  const membership = context.memberships.find((candidate) => candidate.roleKey === "school_admin");
+  if (!context.user || !membership) redirect("/school/imports?error=School+administrator+access+is+required");
   return membership;
 }
 

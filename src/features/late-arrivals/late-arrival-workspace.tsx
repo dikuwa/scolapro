@@ -1,18 +1,18 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { CalendarDays, ChevronDown, Clock3, History, RotateCcw, ShieldCheck, Users } from "lucide-react";
+import { CalendarDays, Clock3, History, RotateCcw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Spinner } from "@/components/ui/spinner";
 import {
   recordLateArrival,
   reassignDetentionSupervisor,
   resolveDetention,
-  setDetentionSupervisionEligibility,
   undoLatestLateArrival,
   type LateArrivalActionState,
 } from "@/features/late-arrivals/server/actions";
@@ -43,18 +43,35 @@ function isStaffAvailableOn(staff: DetentionStaffOption, date: string) {
   );
 }
 
+function SubmitSupervisorSave({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="neutral" disabled={disabled} loading={pending}>
+      {pending ? "Saving…" : "Save"}
+    </Button>
+  );
+}
+
+function SubmitResolveDetention() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="success" loading={pending} className="w-full lg:w-auto">
+      <ShieldCheck className="size-3.5" aria-hidden="true" />
+      Completed
+    </Button>
+  );
+}
+
 export function LateArrivalWorkspace({
   learners,
   detention,
   staffOptions,
-  schoolId,
   canManage,
   today,
 }: {
   learners: LateArrivalLearner[];
   detention: LateDetentionItem[];
   staffOptions: DetentionStaffOption[];
-  schoolId: string;
   canManage: boolean;
   today: string;
 }) {
@@ -63,7 +80,6 @@ export function LateArrivalWorkspace({
   const [enrolmentId, setEnrolmentId] = useState("");
   const [arrivalDate, setArrivalDate] = useState(today);
   const [classFilter, setClassFilter] = useState("");
-  const [staffRotationOpen, setStaffRotationOpen] = useState(false);
   const [supervisors, setSupervisors] = useState<Record<string, string>>(
     () => Object.fromEntries(detention.map((item) => [item.id, item.assignedStaffMemberId ?? ""])),
   );
@@ -76,15 +92,9 @@ export function LateArrivalWorkspace({
   );
   const filteredLearners = classFilter ? learners.filter((learner) => learner.registerClass === classFilter) : learners;
   const selectableSupervisors = useMemo(
-    () => [...staffOptions].sort((left, right) => Number(right.eligible) - Number(left.eligible) || left.name.localeCompare(right.name)),
+    () => [...staffOptions].sort((left, right) => left.name.localeCompare(right.name)),
     [staffOptions],
   );
-  const currentStaffOptions = useMemo(
-    () => selectableSupervisors.filter((staff) => isStaffAvailableOn(staff, today)),
-    [selectableSupervisors, today],
-  );
-  const preferredStaffCount = currentStaffOptions.filter((staff) => staff.eligible).length;
-  const generalStaffCount = currentStaffOptions.length - preferredStaffCount;
 
   useEffect(() => {
     if (!state.message) return;
@@ -176,10 +186,10 @@ export function LateArrivalWorkspace({
                   {canManage && selectedLearner.lastLateDate ? (
                     <form action={undoAction}>
                       <input type="hidden" name="enrolmentId" value={selectedLearner.enrolmentId} />
-                      <button type="submit" disabled={undoPending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-danger-soft px-2.5 text-[0.68rem] font-semibold text-[color:var(--danger)] disabled:opacity-50">
-                        {undoPending ? <Spinner className="size-3.5" /> : <RotateCcw className="size-3.5" aria-hidden="true" />}
+                      <Button type="submit" variant="danger" size="sm" loading={undoPending}>
+                        <RotateCcw className="size-3.5" aria-hidden="true" />
                         {undoPending ? "Undoing…" : `Undo last entry · ${formatDate(selectedLearner.lastLateDate)}`}
-                      </button>
+                      </Button>
                     </form>
                   ) : null}
                 </div>
@@ -194,7 +204,10 @@ export function LateArrivalWorkspace({
             {selectedLearner ? <div className="mt-3 rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]"><p className="text-xs font-semibold">{selectedLearner.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">Progress: {selectedLearner.triggerProgress} of {selectedLearner.triggerThreshold}{selectedLearner.lastLateDate ? ` · last late ${formatDate(selectedLearner.lastLateDate)}` : ""}</p></div> : <div className="mt-3 rounded-[var(--radius-sm)] border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">Select a learner first.</div>}
             <DateField label="Late-arrival date" name="arrivalDate" value={arrivalDate} onChange={setArrivalDate} max={today} required className="mt-4" />
             <label className="mt-4 block text-xs font-medium">Note<textarea name="note" rows={3} placeholder="Optional context" className="mt-1.5 w-full resize-none rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3 text-xs outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
-            <button type="submit" disabled={!enrolmentId || !arrivalDate || pending} className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:opacity-50">{pending ? <Spinner className="size-4 text-white" /> : <Clock3 className="size-4" />}{pending ? "Recording…" : "Record late arrival"}</button>
+            <Button type="submit" disabled={!enrolmentId || !arrivalDate} loading={pending} className="mt-4 w-full">
+              {pending ? "Recording…" : <Clock3 className="size-4" aria-hidden="true" />}
+              {pending ? null : "Record late arrival"}
+            </Button>
           </form>
         </div>
       </section>
@@ -202,13 +215,14 @@ export function LateArrivalWorkspace({
       <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div><h2 className="scolapro-section-title">Detention queue</h2><p className="scolapro-section-description">Every three cumulative late arrivals creates a separate obligation. Uncompleted obligations roll to the next Friday and remain independent.</p></div>
+            <div><h2 className="scolapro-section-title">Detention queue</h2><p className="scolapro-section-description">Every three cumulative late arrivals creates a separate obligation. Uncompleted obligations roll to the next Friday and remain independent. Assign learners to a planned detention session from the planning panel below.</p></div>
             <div className="flex items-center gap-2"><Link href="/late-arrivals/history" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><History className="size-3.5" />History</Link><span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{detention.length} open</span></div>
           </div>
         </div>
         {detention.length ? <div className="divide-y divide-border-subtle">{detention.map((item) => {
           const supervisorsForDueDate = selectableSupervisors.filter((staff) => isStaffAvailableOn(staff, item.dueOn));
           const assignedDateValid = !item.assignedStaffMemberId || supervisorsForDueDate.some((staff) => staff.id === item.assignedStaffMemberId);
+          const supervisorDirty = Boolean(supervisors[item.id]) && supervisors[item.id] !== item.assignedStaffMemberId && supervisorsForDueDate.some((staff) => staff.id === supervisors[item.id]);
           return (
             <div key={item.id} className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.55fr)_auto] lg:items-end sm:px-5">
               <div>
@@ -227,58 +241,26 @@ export function LateArrivalWorkspace({
                     value={supervisors[item.id] ?? ""}
                     onChange={(value) => setSupervisors((current) => ({ ...current, [item.id]: value }))}
                     placeholder={supervisorsForDueDate.length ? "Choose supervisor" : "No staff available on due date"}
-                    searchPlaceholder="Search staff available that Friday…"
+                    searchPlaceholder="Search staff placed on the due date"
                     options={supervisorsForDueDate.map((staff) => ({
                       value: staff.id,
                       label: staff.name,
-                      helper: `${staff.eligible ? "Preferred" : "General staff"} · ${staff.employeeNumber ?? "No employee number"}`,
+                      helper: staff.employeeNumber ?? "No employee number",
                       searchText: staff.employeeNumber ?? "",
                     }))}
                   />
-                  <button type="submit" disabled={!supervisors[item.id] || supervisors[item.id] === item.assignedStaffMemberId || !supervisorsForDueDate.some((staff) => staff.id === supervisors[item.id])} className="min-h-10 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-45">Save</button>
+                  <SubmitSupervisorSave disabled={!supervisorDirty} />
                 </form>
               ) : <div className="text-xs text-muted-foreground">Assigned supervision is managed by school leadership.</div>}
 
               <form action={resolveDetention}>
                 <input type="hidden" name="obligationId" value={item.id} />
-                <button type="submit" className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-success-soft px-3 text-xs font-semibold text-[color:var(--success)] lg:w-auto"><ShieldCheck className="size-3.5" />Completed</button>
+                <SubmitResolveDetention />
               </form>
             </div>
           );
         })}</div> : <div className="px-5 py-9 text-center text-xs text-muted-foreground">No open detention obligations.</div>}
       </section>
-
-      {canManage ? (
-        <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
-          <button type="button" onClick={() => setStaffRotationOpen((open) => !open)} aria-expanded={staffRotationOpen} className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted/45 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5">
-            <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Users className="size-4" /></span>
-            <div className="min-w-0 flex-1">
-              <h2 className="scolapro-section-title">Detention staff preference</h2>
-              <p className="scolapro-section-description">Low-frequency setup · {preferredStaffCount} preferred · {generalStaffCount} general staff. General staff remain available when extra supervision is needed.</p>
-            </div>
-            <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)] ${staffRotationOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-          </button>
-          {staffRotationOpen ? (
-            <div className="border-t border-border-subtle px-4 pb-4 sm:px-5 sm:pb-5">
-              <p className="mt-4 text-[0.68rem] text-muted-foreground">Mark regular detention supervisors as preferred so they appear first. This does not block other active school staff from being assigned when needed.</p>
-              <div className="mt-3 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
-                {currentStaffOptions.map((staff) => (
-                  <div key={staff.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                    <div className="min-w-0"><p className="truncate text-xs font-semibold">{staff.name}</p><p className="text-[0.65rem] text-muted-foreground">{staff.employeeNumber ?? "No employee number"}</p></div>
-                    <form action={setDetentionSupervisionEligibility}>
-                      <input type="hidden" name="schoolId" value={schoolId} />
-                      <input type="hidden" name="staffMemberId" value={staff.id} />
-                      <input type="hidden" name="eligible" value={String(!staff.eligible)} />
-                      <button type="submit" aria-pressed={staff.eligible} className={`min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem] font-semibold ${staff.eligible ? "bg-success-soft text-[color:var(--success)]" : "bg-surface-muted text-muted-foreground"}`}>{staff.eligible ? "Preferred" : "General staff"}</button>
-                    </form>
-                  </div>
-                ))}
-                {!currentStaffOptions.length ? <p className="px-3 py-4 text-center text-xs text-muted-foreground">No active staff placements are available today.</p> : null}
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
 
       <div className="flex items-center gap-2 rounded-[var(--radius-sm)] bg-info-soft px-3 py-2 text-[0.68rem] text-[color:var(--info)]"><CalendarDays className="size-3.5 shrink-0" />Late-arrival discipline remains operational school data and does not alter the official Ministry attendance register.</div>
     </div>
