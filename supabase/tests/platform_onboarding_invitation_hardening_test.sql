@@ -16,7 +16,8 @@ insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('b3000000-0000-4000-8000-000000000003','school-admin-onboarding@example.test','authenticated','authenticated',now(),now()),
   ('b3000000-0000-4000-8000-000000000004','teacher-onboarding@example.test','authenticated','authenticated',now(),now()),
   ('b3000000-0000-4000-8000-000000000005','invitee-onboarding@example.test','authenticated','authenticated',now(),now()),
-  ('b3000000-0000-4000-8000-000000000006','expired-onboarding@example.test','authenticated','authenticated',now(),now());
+  ('b3000000-0000-4000-8000-000000000006','expired-onboarding@example.test','authenticated','authenticated',now(),now()),
+  ('b3000000-0000-4000-8000-000000000007','revoked-onboarding@example.test','authenticated','authenticated',now(),now());
 
 insert into public.platform_memberships(user_id,role_key) values
   ('b3000000-0000-4000-8000-000000000001','platform_support'),
@@ -29,7 +30,6 @@ insert into public.school_memberships(tenant_id,school_id,user_id,role_key) valu
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','b3000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"b3000000-0000-4000-8000-000000000001","role":"authenticated","email":"support-onboarding@example.test"}',true);
-
 select is(app_private.has_school_access('b2000000-0000-4000-8000-000000000001'), false,'platform support does not inherit generic school operational access');
 select is(app_private.has_tenant_access('b1000000-0000-4000-8000-000000000001'), false,'platform support does not inherit generic tenant operational access');
 
@@ -38,7 +38,7 @@ select set_config('request.jwt.claims','{"sub":"b3000000-0000-4000-8000-00000000
 select is(app_private.has_school_access('b2000000-0000-4000-8000-000000000001'), true,'platform administrator retains explicit platform school scope');
 
 insert into public.school_invitations(id,tenant_id,school_id,email,role_key,token_hash,invited_by_user_id,expires_at) values
-  ('b4000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001','invitee-onboarding@example.test','teacher',encode(digest('revoked-token','sha256'),'hex'),'b3000000-0000-4000-8000-000000000003',now()+interval '1 day'),
+  ('b4000000-0000-4000-8000-000000000001','b1000000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001','revoked-onboarding@example.test','teacher',encode(digest('revoked-token','sha256'),'hex'),'b3000000-0000-4000-8000-000000000003',now()+interval '1 day'),
   ('b4000000-0000-4000-8000-000000000002','b1000000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001','expired-onboarding@example.test','teacher',encode(digest('expired-token','sha256'),'hex'),'b3000000-0000-4000-8000-000000000003',now()-interval '1 minute'),
   ('b4000000-0000-4000-8000-000000000003','b1000000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000001','invitee-onboarding@example.test','teacher',encode(digest('accept-token','sha256'),'hex'),'b3000000-0000-4000-8000-000000000003',now()+interval '1 day');
 
@@ -54,8 +54,8 @@ select ok(exists (select 1 from public.school_invitations where id='b4000000-000
 select lives_ok($$select * from public.create_school_invitation('b2000000-0000-4000-8000-000000000001','admin-created@example.test','Admin','Created',null,'teacher')$$,'school administrator can create a scoped invitation');
 select ok(exists (select 1 from public.audit_events ae join public.school_invitations si on si.id=ae.entity_id where si.email='admin-created@example.test' and si.tenant_id='b1000000-0000-4000-8000-000000000001' and si.school_id='b2000000-0000-4000-8000-000000000001' and ae.event_type='school_invitation.created' and ae.actor_user_id='b3000000-0000-4000-8000-000000000003'),'invitation creation derives tenant from school and records actor provenance');
 
-select set_config('request.jwt.claim.sub','b3000000-0000-4000-8000-000000000005',true);
-select set_config('request.jwt.claims','{"sub":"b3000000-0000-4000-8000-000000000005","role":"authenticated","email":"invitee-onboarding@example.test"}',true);
+select set_config('request.jwt.claim.sub','b3000000-0000-4000-8000-000000000007',true);
+select set_config('request.jwt.claims','{"sub":"b3000000-0000-4000-8000-000000000007","role":"authenticated","email":"revoked-onboarding@example.test"}',true);
 select throws_ok($$select * from public.accept_school_invitation('revoked-token')$$,'Invitation has been revoked','revoked invitation cannot be accepted');
 
 select set_config('request.jwt.claim.sub','b3000000-0000-4000-8000-000000000006',true);
