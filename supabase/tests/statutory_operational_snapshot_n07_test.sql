@@ -1,6 +1,6 @@
 begin;
 
-select plan(20);
+select plan(21);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('d0700000-0000-4000-8000-000000000001','n07-manager@example.test','authenticated','authenticated',now(),now()),
@@ -83,7 +83,7 @@ insert into public.statutory_form_versions(
   id,form_definition_id,version_key,effective_from,field_schema,mapping_schema,validation_schema,status
 ) values(
   'd0820000-0000-4000-8000-000000000001','d0810000-0000-4000-8000-000000000001','v1','2026-01-01','{}'::jsonb,
-  '{"fields":[{"source_path":["staffing_establishment","vacant_posts"],"target_path":["test","vacancies"],"expected_type":"number","required":true}]}'::jsonb,
+  '{"fields":[{"source_path":["staffing_establishment","vacant_posts"],"target_path":["vacancies"],"expected_type":"number","required":true}]}'::jsonb,
   '{}'::jsonb,'published'
 );
 insert into public.statutory_reporting_cycles(
@@ -162,7 +162,7 @@ select lives_ok(
   'existing generic statutory compiler consumes the new operational source path without Ministry-specific code changes'
 );
 select is(
-  ((select mapped_values from public.statutory_mapping_runs where snapshot_id=(select id from public.statutory_snapshots where reporting_cycle_id='d0830000-0000-4000-8000-000000000001' and snapshot_number=1) order by compiled_at desc limit 1)#>>'{test,vacancies}')::integer,
+  ((select mapped_values from public.statutory_mapping_runs where snapshot_id=(select id from public.statutory_snapshots where reporting_cycle_id='d0830000-0000-4000-8000-000000000001' and snapshot_number=1) order by compiled_at desc limit 1)#>>'{vacancies}')::integer,
   1,
   'mapping compiler reconciles declarative form mapping to N07 operational value'
 );
@@ -194,8 +194,8 @@ select is(
 );
 select is(
   (select source_summary->>'generator' from public.statutory_snapshots where reporting_cycle_id='d0830000-0000-4000-8000-000000000001' and snapshot_number=2),
-  'school-operational-n07-v1'::text,
-  'snapshot records deterministic N07 generator provenance'
+  'school-operational-v3'::text,
+  'N07 extension preserves the existing statutory source generator contract'
 );
 reset role;
 
