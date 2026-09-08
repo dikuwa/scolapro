@@ -22,65 +22,73 @@ The repository is authoritative. A chat transcript is not a source of truth when
 
 Every implementation decision must preserve **capture once → use everywhere**.
 
-## 3. Current coordinated sequence
+## 3. Current coordinated state
 
-The active roadmap order is:
+The integrated foundation on current `main` includes:
 
-1. **DNEA UI/workflow completion** — build against the integrated network-role tier; never fake regional review with platform-admin permissions.
-2. **Statutory reporting UI/workflow completion** — build against the integrated network-role tier; load authoritative Ministry mappings only from verified source material.
-3. **Structural domains** — staffing establishment/vacancies, control forms, symbol distribution/exam comparisons, lean hostel/feeding, inclusion/SEN aggregate reporting.
-4. **Canonical metric registry and network read models** — only after the underlying authoritative domains exist.
+- N02/N03/N04 education-network hierarchy, external school identifiers and network-role scope.
+- N05 statutory lifecycle/network review foundation.
+- N07 operational statutory snapshot extensions.
+- N08/N09/N10 DNEA readiness, examination-centre and examination-access foundations.
+- N12 frozen examination-registration submission and governed official-results ingest foundation.
+- N13/N14 staffing establishment and operational reconciliation.
+- N15 hostel/feeding foundation.
+- N16 privacy-preserving inclusion/support aggregate reporting.
+- N17/N18/N19 bell/calendar teaching-impact, seasonal/day-specific schedules and fixtures.
+- N20 governed control-form templates/cycles.
+- T04/T05 timetable setup/collapsed-subject UX from the bell/calendar delivery.
 
-The bell/calendar foundation (N17/N18/N19 + T04/T05) and education-network foundation (N02/N03/N04) are integrated. Runtime audit findings remain deployment/verification inputs, not a reason to bypass source-controlled migrations.
+The following remain open gates:
 
-Circuit/region/Ministry dashboards are deliberately deferred until there is real data worth aggregating.
+1. **N06 statutory/AEC mappings** — source-gated. Do not invent Ministry fields, codes, mappings or definitions.
+2. **N11 coursework/moderation evidence** — requirements-gated. Do not infer official subject requirements.
+3. **N21 symbol distribution/exam-series comparisons** — pending until its implementation PR is merged into `main`.
+4. **Canonical metric registry** — pending until its implementation PR is merged into `main`; dashboards must not create competing metric definitions beforehand.
+5. **Production migration drift** — unresolved. Source-controlled migrations may be integrated while production/shared environments still lack required database objects. Do not call production routes fixed until deployment/migration verification is complete.
+
+Circuit/region/Ministry dashboards remain downstream consumers of governed read models; they must not bypass source-domain authorization or duplicate authoritative facts.
 
 ## 4. Parallel workstream model
 
 This repository may be developed by multiple concurrent threads. Each thread owns one bounded branch and one bounded area. The integration/control-room thread coordinates merge order and shared files.
 
-### Integrated workstreams
+### Integrated foundations
 
-#### Stream A — Bell schedule + calendar foundation
-- Merged via PR #354.
-- Integrated scope: N17/N18/N19, T04/T05, bell/calendar migration, bell schedule UI, date-aware current timetable resolution, fixtures/tests.
-- Follow-up work is verification only unless the control room explicitly reopens this area.
+#### Bell schedule + calendar
+- N17/N18/N19 and T04/T05 are integrated.
+- Follow-up is verification only unless Control Room explicitly reopens the area.
 
-#### Stream B — Education network foundation
-- Merged via PR #355.
-- Integrated scope: N02/N03/N04, education authorities/regions/circuits/clusters, school links, external identifiers, network memberships, network-scoped school visibility and non-leakage tests.
+#### Education network
+- N02/N03/N04 are integrated.
 - Network scope does not imply unrestricted learner/staff-sensitive access.
 
-#### Stream C — Runtime stability / broken-page audit
-- Merged via PR #353.
-- Integrated code fix: deterministic authorized membership selection for Data Corrections.
-- Production drift findings for School Settings, CRC Custody and Academic Setup must be resolved by coordinated migration/deployment verification rather than page-specific UI fallbacks.
+#### Statutory / EMIS
+- N05 and N07 are integrated.
+- N06 remains source-gated.
+- Certified/frozen snapshot reproducibility and reference-date semantics remain mandatory.
 
-### Active workstreams
+#### DNEA / examinations
+- N08/N09/N10/N12 are integrated.
+- N11 remains requirements-gated.
+- Examination-access evidence remains more restricted than generic school/network access.
 
-#### Stream D — Documentation / governance / QA
-- Suggested branch: `chatgpt/project-governance-ledger`
-- Owns: roadmap/ledger updates, branch ownership, dependency matrix, acceptance status, test evidence and handback consistency.
-- Must not claim production verification from source inspection alone.
+#### Structural operational domains
+- N13/N14 staffing establishment/reconciliation, N15 hostel/feeding, N16 inclusion aggregates and N20 control forms are integrated.
+- Inclusion/support identity and case detail must never leak through aggregate or statutory surfaces.
 
-#### Stream E — DNEA UI / workflow completion
-- Suggested branch: `chatgpt/dnea-workflow-ui`
-- Owns: N08 and the first bounded DNEA operational UI/workflow slice that can be built on the real network-role foundation, including readiness/exception visibility and school-to-network review routing where supported by existing backend facts.
-- May extend N09/N10 only when the bounded slice requires it and after inspecting existing DNEA schema/workflows.
-- Must not use platform-admin permissions as a substitute for regional/circuit scope.
-- Must not broaden learner-level or restricted support/examination evidence visibility merely because a network role exists.
-- Must preserve official-code provenance and never invent DNEA/examination-centre identifiers.
+### Pending lanes
 
-### Next workstream
+#### N21 — result analytics/comparison
+- Pending until merged.
+- Must reuse authoritative `official_results` and existing academic authorization; no result re-entry or SECURITY DEFINER permission bypass.
 
-#### Stream F — Statutory reporting UI / workflow completion
-- Starts after the first DNEA slice is integrated or when the control room determines it is conflict-free.
-- Owns: N05/N06/N07 UI/workflow completion against real network scope.
-- Authoritative Ministry mappings remain source-gated; do not publish guessed form definitions.
+#### Canonical metric registry
+- Pending until merged.
+- No dashboard may introduce a competing metric definition while this remains unintegrated.
 
 ### Paused bounded lane — report cards/documents
 
-Report-card/document work is preserved but is not the main roadmap lane while the foundations above are being landed. When resumed, it remains isolated around:
+Report-card/document work remains isolated around:
 - `src/features/reporting/server/*`
 - `src/features/documents/server/*`
 - renderer version files
@@ -92,10 +100,12 @@ Do not touch these files from unrelated streams unless the control room explicit
 ## 5. One-owner rule for high-conflict files
 
 At any moment, only one workstream may own a high-conflict area. Examples:
-- DNEA UI/workflow files while Stream E is active;
-- statutory UI/workflow files while Stream F is active;
-- report-card/document server/rendering files while the document lane is active;
-- central navigation, generated DB types, global middleware and shared role registries when more than one stream needs them.
+- statutory UI/workflow files;
+- DNEA UI/workflow files;
+- result analytics/comparison read models;
+- canonical metric registry/read models;
+- report-card/document server/rendering files;
+- central navigation, generated DB types, global middleware and shared role registries.
 
 When two streams need the same shared file, the integration/control-room thread owns the final shared-file edit unless one stream is explicitly delegated ownership.
 
@@ -109,6 +119,7 @@ When two streams need the same shared file, the integration/control-room thread 
 - Do not rewrite another stream's migration. Add a follow-up migration if correction is required.
 - Database CI must be green before a migration-owning PR is merge-ready.
 - Production/shared-environment migration execution is an integration/deployment action, not an automatic consequence of source changes.
+- A source-integrated migration is not proof that production has applied it.
 
 ## 7. Security and data rules across all streams
 
@@ -120,6 +131,8 @@ When two streams need the same shared file, the integration/control-room thread 
 - Versioned/effective-dated facts must remain historically reproducible.
 - Every governed mutation domain needs an audit story before merge.
 - Permission-sensitive read models need explicit non-leakage tests, not only successful-access tests.
+- Statutory snapshots must reuse canonical operational facts; they are frozen evidence, not a second editable fact store.
+- Network roles may inspect only the statutory/read-model surface explicitly authorized for them; they must not bypass school-sensitive source RLS.
 
 ## 8. Completion contract for every thread
 
@@ -156,6 +169,7 @@ The control room:
 - requires exact-head CI before merge where appropriate;
 - merges in dependency order;
 - records merge SHAs and newly unlocked work;
+- records production/shared-environment migration drift separately from source integration;
 - tells the user when local `main` is safe to sync.
 
 The control room does not silently merge a blocked or stale branch merely because implementation looks complete.
@@ -171,7 +185,19 @@ git pull --ff-only origin main
 
 The user does not need a separate local clone for every ChatGPT thread. The remote GitHub branches are the coordination surface. Local branch/worktree management is only needed if the user personally wants to inspect or run an individual workstream before merge.
 
-## 11. Current non-goals / guardrails
+## 11. Production migration drift
+
+Production/shared-environment drift is currently **unresolved**. The repository contains source-controlled migrations and runtime dependencies that may not yet be applied everywhere production is expected to serve them.
+
+Rules until drift is closed:
+
+- do not add UI fallbacks that hide missing RPC/table/function deployment;
+- do not treat generated TypeScript DB types as the migration authority;
+- verify migrations in repository order through the designated deployment path;
+- verify affected production routes against the deployed database after migration application;
+- keep School Settings, CRC Custody, Academic Setup and any other drift-affected runtime paths in VERIFY state until live checks pass.
+
+## 12. Current non-goals / guardrails
 
 - Do not restart or replace the architecture merely to rename/reorganize features.
 - Do not model circuit/region/Ministry as ordinary unrestricted school tenants.
@@ -185,5 +211,8 @@ The user does not need a separate local clone for every ChatGPT thread. The remo
 - Do not assume every calendar event is a normal teaching day.
 - Do not turn staffing establishment into a payroll/HR system.
 - Do not overbuild hostel/feeding before core operations are stable.
+- Do not expose inclusion/support identities or notes through aggregate reporting.
+- Do not implement N06 without verified source material or N11 without confirmed requirements.
+- Do not treat N21 or the canonical metric registry as integrated until their PRs are merged.
 - Do not overuse charts/animation.
 - Do not remove print/PDF workflows in favour of digital-only.
