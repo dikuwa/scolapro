@@ -109,8 +109,9 @@ begin
   feeding_to_reference as (
     select d.id, d.beneficiary_count, d.meal_count
     from public.feeding_service_days d
-    join active_feeding_programmes p on p.id = d.programme_id
+    join public.school_feeding_programmes p on p.id = d.programme_id
     where d.school_id = p_school_id
+      and p.school_id = p_school_id
       and d.service_date between make_date(p_academic_year, 1, 1) and p_reference_date
   )
   select jsonb_build_object(
@@ -181,11 +182,14 @@ revoke all on function app_private.build_n07_statutory_operational_extensions(uu
 comment on function app_private.build_n07_statutory_operational_extensions(uuid, integer, date) is
 'N07 private statutory extension builder. Derives non-identity staffing-establishment, hostel/feeding and education-network facts at the reporting reference date from canonical operational sources. It deliberately excludes per-school inclusion/support aggregates because N16 applies a stricter network-safe disclosure model than N05 statutory snapshot reads.';
 
+-- Preserve the current school-operational-v3 statutory contract and its existing
+-- register-class-teacher and subject-registration readiness sources. N07 only merges
+-- additional canonical operational aggregates into that current payload.
 create or replace function public.generate_statutory_snapshot(p_reporting_cycle_id uuid)
 returns uuid
 language plpgsql
 security definer
-set search_path = pg_catalog, public, app_private
+set search_path=public,app_private
 as $$
 declare
   v_cycle public.statutory_reporting_cycles%rowtype;
@@ -193,111 +197,78 @@ declare
   v_number integer;
   v_id uuid;
 begin
-  if auth.uid() is null then
-    raise exception 'Authentication required';
-  end if;
-
-  select * into v_cycle
-  from public.statutory_reporting_cycles
-  where id = p_reporting_cycle_id
-  for update;
-
-  if not found then
-    raise exception 'Reporting cycle not found';
-  end if;
-  if not app_private.can_manage_statutory(v_cycle.school_id) then
-    raise exception 'Permission denied';
-  end if;
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  select * into v_cycle from public.statutory_reporting_cycles where id=p_reporting_cycle_id for update;
+  if not found then raise exception 'Reporting cycle not found'; end if;
+  if not app_private.can_manage_statutory(v_cycle.school_id) then raise exception 'Permission denied'; end if;
   if v_cycle.status in ('certified','locked','submitted','archived') then
     raise exception 'Reporting cycle is no longer open for a new provisional snapshot';
   end if;
 
-  v_values := public.build_school_operational_snapshot(
-    v_cycle.school_id,
-    v_cycle.academic_year,
-    v_cycle.reference_date
-  ) || app_private.build_n07_statutory_operational_extensions(
-    v_cycle.school_id,
-    v_cycle.academic_year,
-    v_cycle.reference_date
+  v_values:=public.build_school_operational_snapshot(v_cycle.school_id,v_cycle.academic_year,v_cycle.reference_date);
+  v_values:=jsonb_set(
+    v_values,
+    '{structure,register_class_teacher_source}',
+    app_private.build_register_class_teacher_statutory_source(v_cycle.school_id,v_cycle.academic_year),
+    true
+  );
+  v_values:=jsonb_set(
+    v_values,
+    '{structure,subject_registration_source}',
+    app_private.build_subject_registration_readiness_source(v_cycle.school_id,v_cycle.academic_year,v_cycle.reference_date),
+    true
+  );
+  v_values:=v_values || app_private.build_n07_statutory_operational_extensions(
+    v_cycle.school_id,v_cycle.academic_year,v_cycle.reference_date
   );
 
-  select coalesce(max(snapshot_number), 0) + 1
-  into v_number
+  select coalesce(max(snapshot_number),0)+1 into v_number
   from public.statutory_snapshots
-  where reporting_cycle_id = v_cycle.id;
+  where reporting_cycle_id=v_cycle.id;
 
   insert into public.statutory_snapshots(
-    tenant_id,
-    school_id,
-    reporting_cycle_id,
-    snapshot_number,
-    values,
-    source_summary,
-    generated_by_user_id,
-    status
-  ) values (
-    v_cycle.tenant_id,
-    v_cycle.school_id,
-    v_cycle.id,
-    v_number,
-    v_values,
+    tenant_id,school_id,reporting_cycle_id,snapshot_number,values,source_summary,generated_by_user_id,status
+  ) values(
+    v_cycle.tenant_id,v_cycle.school_id,v_cycle.id,v_number,v_values,
     jsonb_build_object(
-      'generator', 'school-operational-n07-v1',
-      'generated_from', jsonb_build_array(
-        'existing_school_operational_snapshot',
-        'staffing_establishment_posts',
-        'staffing_post_occupancies',
-        'staff_school_assignments',
-        'school_hostels',
-        'hostel_residencies',
-        'school_feeding_programmes',
-        'feeding_service_days',
-        'school_network_assignments',
+      'generator','school-operational-v3',
+      'generated_from','live_operational_tables',
+      'reference_date',v_cycle.reference_date,
+      'includes',jsonb_build_array(
+        'register_class_teacher_source',
+        'subject_registration_source',
+        'staffing_establishment',
+        'hostel_feeding',
+        'education_network',
         'school_external_identifiers'
       ),
-      'reference_date', v_cycle.reference_date,
-      'academic_year', v_cycle.academic_year,
-      'excludes', jsonb_build_array('per_school_inclusion_support_aggregate')
+      'n07_extension','operational-statutory-v1',
+      'n07_excludes',jsonb_build_array('per_school_inclusion_support_aggregate')
     ),
-    auth.uid(),
-    'provisional'
-  )
-  returning id into v_id;
+    auth.uid(),'provisional'
+  ) returning id into v_id;
 
   update public.statutory_reporting_cycles
-  set status = 'review', updated_at = now()
-  where id = v_cycle.id and status = 'open';
+  set status='review',updated_at=now()
+  where id=v_cycle.id and status='open';
 
-  insert into public.audit_events(
-    tenant_id,
-    school_id,
-    actor_user_id,
-    event_type,
-    entity_type,
-    entity_id,
-    metadata
-  ) values (
-    v_cycle.tenant_id,
-    v_cycle.school_id,
-    auth.uid(),
-    'statutory.snapshot.generated',
-    'statutory_snapshot',
-    v_id,
+  insert into public.audit_events(tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
+  values(
+    v_cycle.tenant_id,v_cycle.school_id,auth.uid(),'statutory.snapshot.generated','statutory_snapshot',v_id,
     jsonb_build_object(
-      'reporting_cycle_id', v_cycle.id,
-      'snapshot_number', v_number,
-      'reference_date', v_cycle.reference_date,
-      'generator', 'school-operational-n07-v1'
+      'reporting_cycle_id',v_cycle.id,
+      'snapshot_number',v_number,
+      'reference_date',v_cycle.reference_date,
+      'source_generator','school-operational-v3',
+      'n07_extension','operational-statutory-v1'
     )
   );
-
   return v_id;
 end;
 $$;
 
-revoke all on function public.generate_statutory_snapshot(uuid) from public, anon;
+revoke all on function public.generate_statutory_snapshot(uuid) from public,anon;
 grant execute on function public.generate_statutory_snapshot(uuid) to authenticated;
 
 comment on function public.generate_statutory_snapshot(uuid) is
-'N07 statutory snapshot generator. Preserves the existing frozen snapshot model while adding authoritative non-identity staffing establishment, hostel/feeding, education-network and external-school-identifier facts evaluated at the cycle reference date.';
+'N07 extends the current school-operational-v3 statutory snapshot with authoritative non-identity staffing establishment, hostel/feeding, education-network and external-school-identifier facts while preserving existing reference-date sources and frozen snapshot semantics.';
