@@ -22,6 +22,14 @@ insert into public.guardian_contacts(
   'fdf10000-0000-4000-8000-000000000002','email','current.guardian@example.test',true,current_date-5,current_date+5
 );
 
+insert into public.learners(id,tenant_id,first_names,surname) values
+('fdf30000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Future Email','Child'),
+('fdf30000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','Current Email','Child');
+
+insert into public.learner_guardians(tenant_id,learner_id,guardian_id,relationship_type,effective_from) values
+('11111111-1111-4111-8111-111111111111','fdf30000-0000-4000-8000-000000000001','fdf10000-0000-4000-8000-000000000001','guardian',current_date-5),
+('11111111-1111-4111-8111-111111111111','fdf30000-0000-4000-8000-000000000002','fdf10000-0000-4000-8000-000000000002','guardian',current_date-5);
+
 select set_config('request.jwt.claim.role','authenticated',true);
 
 select set_config('request.jwt.claim.sub','fdf00000-0000-4000-8000-000000000001',true);
@@ -50,12 +58,12 @@ select is(
   (select count(*)::integer from public.find_claimable_guardian_profiles()
    where guardian_id='fdf10000-0000-4000-8000-000000000002'::uuid),
   1,
-  'currently effective guardian email remains claimable even with a scheduled future end date'
+  'currently effective guardian email and relationship remain claimable with a scheduled future contact end date'
 );
 select is(
   public.claim_guardian_profile('fdf10000-0000-4000-8000-000000000002'::uuid),
   true,
-  'currently effective finite-period guardian email can bind the matching account'
+  'currently effective finite-period guardian email with a current relationship can bind the matching account'
 );
 reset role;
 select is(
