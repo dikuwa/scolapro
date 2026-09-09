@@ -4,7 +4,7 @@
 
 Last updated: **9 September 2026**
 
-Current reconciled `main`: `186fd1cde778ff3ab872361b4a83cb42d03221bf` (through PR #381).
+Current reconciled `main`: `05f55fefffce2648634dcc85824aeb02164c01a8` (through PR #386).
 
 ## Status meanings
 
@@ -18,11 +18,13 @@ Current reconciled `main`: `186fd1cde778ff3ab872361b4a83cb42d03221bf` (through P
 
 ## Current implementation mode
 
-The major backend/domain foundation pass is integrated through PR #381. Current source includes N02–N05, N07–N10, N12–N25 bounded foundations plus post-roadmap security/integrity hardening for guardian claims, LTSM/library, finance/contributions and platform onboarding.
+The major backend/domain foundation pass remains integrated. Current source includes N02–N05, N07–N10, N12–N25 bounded foundations plus post-roadmap security/integrity hardening for guardian claims, LTSM/library, finance/contributions and platform onboarding.
 
-The connected `scolapro` Supabase migration ledger was re-read on 9 September 2026 and contains the late integrated source slices through `20260909002000 platform_onboarding_invitation_hardening`. No current-main migration through PR #381 is presently classified DEPLOYMENT-GATED solely from migration parity.
+UI/runtime reconciliation has advanced through merged PR #382, T06 via merged PR #385, and T07 via merged PR #384. T08/T09 learner-photo preview/pending and upload/link diagnostic behavior was already integrated before those PRs and is source-evidenced in the ancestry of current `main`, including commit `5e006ed7a8488ac3510c2eacefc8ab720e0ccc12`.
 
-The remaining ungated source gaps on current `main` are UI/runtime roadmap items T06–T09. Draft PR #382 is additional active unmerged UI work but does not cover T06–T09. Other remaining work is LIVE-QA-GATED, SOURCE-GATED, REQUIREMENTS-GATED, or explicit bounded extension work.
+N22/N23 document QA advanced through merged PR #386, which corrected shared browser-print pagination and continuation table headers. That PR source/visually exercised a representative 70-row paged-media class-list fixture, but did not exercise live Chromium print, dark-theme print, app-generated PDF bytes, browser print page-number/header parity or optional backdrop rendering.
+
+**No confirmed ungated roadmap ACTUAL IMPLEMENTATION GAP remains on current `main` through PR #386.** Remaining work is LIVE-QA-GATED, SOURCE-GATED, REQUIREMENTS-GATED, or explicit bounded extension/QA work.
 
 ## T/C roadmap status
 
@@ -33,16 +35,14 @@ The remaining ungated source gaps on current `main` are UI/runtime roadmap items
 | T03 | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Calendar resolution/anchors integrated. |
 | T04 | COMPLETE / INTEGRATED | Numbered setup steps and “Anytime” teaching periods via PR #354. |
 | T05 | COMPLETE / INTEGRATED | Configured subjects collapsed by default via PR #354. |
-| T06 | ACTUAL IMPLEMENTATION GAP | Continuous expanded guardian-background visual requirement remains uncovered on current `main`. |
-| T07 | ACTUAL IMPLEMENTATION GAP | Avatar error diagnosis plus JPG/WebP upload requirement remains uncovered; neither merged PR #375 nor draft PR #382 touches avatar/profile upload scope. |
-| T08 | ACTUAL IMPLEMENTATION GAP | Learner-photo immediate preview/pending overlay remains uncovered on current `main`. |
-| T09 | ACTUAL IMPLEMENTATION GAP | Privacy-safe learner-photo link/upload diagnostics remain uncovered on current `main`. |
+| T06 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | PR #385 integrates the continuous expanded guardian-background visual correction. Source responsive/accessibility review exists; live browser/device visual acceptance was not claimed. |
+| T07 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | PR #384 integrates avatar JPG/JPEG/PNG/WebP handling and actionable diagnostics within the existing storage/authorization contract; live provider/browser upload acceptance may remain. |
+| T08 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | Existing current-main ancestry source-evidences immediate learner-photo preview plus pending overlay/disabled photo actions; browser/device acceptance remains where not exercised. |
+| T09 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | Existing current-main ancestry source-evidences actionable learner-photo upload/link diagnostics and failure handling; provider/real-data/browser failure scenarios remain where not exercised. |
 | T10 | LIVE-QA-GATED | CRC source migrations are present in the connected ledger; route/browser acceptance remains. |
 | T11 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Official identity write boundaries exist; scenario acceptance may remain. |
 | T12 | REQUIREMENTS-GATED | Optional administrator correction auto-approval is a deferred product decision until explicitly adopted. |
-| C01–C12 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Conduct source/workflow integrated; PR #375 is merged. |
-
-Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card settings, bell-schedule/timetable settings and route loading. It does not close T06–T09.
+| C01–C12 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Conduct source/workflow integrated; PRs #375/#382 are merged. |
 
 ## N-roadmap status
 
@@ -69,8 +69,8 @@ Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card se
 | N19 | COMPLETE / SOURCE-VERIFIED | Bell fixtures/tests. |
 | N20 | COMPLETE / INTEGRATED | Versioned control templates/cycles/evidence/audit. |
 | N21 | COMPLETE / SOURCE-VERIFIED | Official-result symbol distribution and compatible comparison read models. |
-| N22 | COMPLETE FOUNDATION; LIVE-QA-GATED | Shared school identity/document print chrome exists; bounded document QA/polish remains. |
-| N23 | COMPLETE ASSET BASELINE; LIVE-QA-GATED | Official committed ScolaPro/school assets exist; no fabricated replacements. |
+| N22 | COMPLETE FOUNDATION; SOURCE-VERIFIED; LIVE-QA-GATED | PR #386 corrects shared browser-print pagination and continuation table headers. Representative 70-row A4 class-list pagination was exercised; live Chromium/dark-theme print, app-generated PDF bytes and browser page-number/header parity were not. |
+| N23 | COMPLETE ASSET BASELINE; SOURCE-VERIFIED; LIVE-QA-GATED | Official committed assets remain authoritative. PR #386 confirmed Namib High crest/full-logo assets but no committed/configured large A4 backdrop; optional backdrop rendering remains unverified and no artwork is to be fabricated. |
 | N24 | COMPLETE / SOURCE-VERIFIED | Canonical metric registry/network-safe aggregate foundation and bounded expansion. |
 | N25 | COMPLETE BOUNDED FOUNDATION / SOURCE-VERIFIED | Circuit/regional aggregate read model integrated; further expansion requires explicit purpose/disclosure requirements. |
 | N26 | COMPLETE / CLOSED | Previously missing directive content reconciled. |
@@ -94,12 +94,12 @@ Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card se
 | Area | Classification | Notes |
 |---|---|---|
 | Learner identity/enrolment | COMPLETE FOUNDATION; LIVE-QA-GATED | Long-lived identity/effective enrolment. |
-| Learner operational profile | COMPLETE; LIVE-QA-GATED | Governed identity correction separated from profile editing. |
-| Academic structure | COMPLETE FOUNDATION; LIVE-QA-GATED | Grades/classes/subjects and correction-safe semantics. |
+| Learner operational profile | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Governed identity correction remains separate from profile editing; T08/T09 learner-photo behavior is integrated/source-evidenced. |
+| Academic structure | COMPLETE FOUNDATION; LIVE-QA-GATED | Grades/classes/subjects and correction-safe semantics; PR #382 UI consistency is merged. |
 | Staff identity/placements | COMPLETE FOUNDATION | Tenant-wide identity plus effective school placements. |
 | Staffing establishment | COMPLETE / INTEGRATED | N13/N14. |
-| Timetable | COMPLETE FOUNDATION; LIVE-QA-GATED | Offerings, allocations, rooms, conflicts and cycle/calendar architecture. |
-| Bell/calendar integration | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | N17–N19 + T04/T05; PR #375 runtime consistency is merged. |
+| Timetable | COMPLETE FOUNDATION; LIVE-QA-GATED | Offerings, allocations, rooms, conflicts and cycle/calendar architecture; PR #382 consistency changes are integrated. |
+| Bell/calendar integration | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | N17–N19 + T04/T05; PRs #375/#382 runtime/UI consistency are merged. |
 | Daily/weekly/subject attendance | COMPLETE FOUNDATION; LIVE-QA-GATED | Separate official daily and subject-period semantics retained. |
 
 ## Guardians, parents and communications
@@ -107,6 +107,7 @@ Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card se
 | Area | Classification | Notes |
 |---|---|---|
 | Guardian identities/relationships | COMPLETE FOUNDATION | Reusable identities/effective relationships. |
+| Guardian directory presentation | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | PR #385 closes T06 source visual gap; live browser/device visual acceptance remains where not exercised. |
 | Parent account claim | SOURCE-VERIFIED | PR #378 requires a current effective matching guardian email and learner relationship. |
 | Parent portal | COMPLETE FOUNDATION; LIVE-QA-GATED | Published results/reports/finance/direct messages. |
 | Communication recipient resolution | SOURCE-VERIFIED | Parent/app recipients resolve through authoritative guardian-user and current enrolment relationships. |
@@ -116,7 +117,7 @@ Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card se
 
 | Area | Classification | Notes |
 |---|---|---|
-| Conduct/achievement | COMPLETE / INTEGRATED; LIVE-QA-GATED | Governed incident/achievement workflow; PR #375 consistency fixes merged. |
+| Conduct/achievement | COMPLETE / INTEGRATED; LIVE-QA-GATED | Governed incident/achievement workflow; PRs #375/#382 consistency fixes merged. |
 | Learner support | COMPLETE FOUNDATION; LIVE-QA-GATED | Restricted/highly restricted support data remains separate from aggregates. |
 | Inclusion/SEN aggregates | COMPLETE / SOURCE-VERIFIED | N16 aggregate-only/non-leakage model. |
 | LTSM resource catalog/loans | SOURCE-VERIFIED | PR #379 binds subject-linked titles to canonical subjects and makes completed return/lost lifecycle final/idempotent. |
@@ -144,7 +145,7 @@ Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card se
 | Report-card snapshots | COMPLETE FOUNDATION; LIVE-QA-GATED | Immutable approved-result/attendance/rule/template provenance. |
 | Certification/publication | COMPLETE FOUNDATION; LIVE-QA-GATED | Exact snapshot versions certified/published. |
 | Durable bulk reports/artifacts | COMPLETE FOUNDATION; LIVE-QA-GATED | Durable generation/certify/publish/PDF/HTML artifact pipeline exists. |
-| N22/N23 document identity/assets | COMPLETE FOUNDATION / ASSET BASELINE; LIVE-QA-GATED | Further visual/print/browser QA belongs to bounded document lane. |
+| N22/N23 document identity/assets | COMPLETE FOUNDATION / ASSET BASELINE; SOURCE-VERIFIED; LIVE-QA-GATED | PR #386 closes the confirmed shared browser-print pagination source defect. Remaining visual/print/browser/PDF/device scenarios are bounded QA, not a missing document foundation. |
 
 ## Statutory / EMIS / structural operations
 
@@ -161,16 +162,16 @@ Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card se
 
 ## Deployment and live-QA state
 
-Connected `scolapro` Supabase migration evidence on 9 September 2026 includes late roadmap/security migrations through PR #381. Earlier governance text claiming the later 7–8 September roadmap slices were absent is stale.
+The prior connected `scolapro` Supabase reconciliation confirmed migration parity through PR #381. PRs #382, #385, #384 and #386 add no database migrations, so this reconciliation introduces no new deployment-ledger migration requirement.
 
-**DEPLOYMENT-GATED ITEMS: none confirmed through current main migration parity.**
+**DEPLOYMENT-GATED ITEMS: none newly confirmed by this docs reconciliation.**
 
 This does not make every workflow live-verified. Remaining LIVE-QA-GATED areas include:
 
 - real communications provider onboarding/send/webhook receipt;
-- browser/device/real-data acceptance for parent/guardian, timetable/calendar, attendance, statutory/DNEA and report/document workflows where not already exercised;
+- browser/device/real-data acceptance for parent/guardian, timetable/calendar, attendance, statutory/DNEA and learner-photo/avatar workflows where not already exercised;
 - external Ministry/DNEA production-interface acceptance where no production contract has been tested;
-- document/report visual/print/browser acceptance when the document lane resumes;
+- N22/N23 live Chromium/browser print, dark-theme print, actual app-generated report-card/class-list PDF bytes, browser print page numbering/repeated-header parity, and optional backdrop rendering when an authoritative configured asset exists;
 - CRC route/browser verification now that its source migrations are present.
 
 ## N06 decision
@@ -183,29 +184,16 @@ This does not make every workflow live-verified. Remaining LIVE-QA-GATED areas i
 
 ## Remaining-source conclusion
 
-Confirmed current-main ACTUAL IMPLEMENTATION GAPS:
+**Confirmed current-main ACTUAL IMPLEMENTATION GAPS: NONE.**
 
-1. T06 continuous expanded guardian-background visual consistency.
-2. T07 avatar diagnosis + JPG/WebP upload.
-3. T08 learner-photo immediate preview/pending overlay.
-4. T09 privacy-safe learner-photo upload/link diagnostics.
+T06 is integrated via PR #385. T07 is integrated via PR #384. T08/T09 were already integrated and are source-evidenced in current-main ancestry. PR #382 is merged. N22/N23 have an integrated bounded pagination correction via PR #386 with remaining unexercised scenarios correctly classified LIVE-QA-GATED.
 
-Additional active unmerged implementation work: draft PR #382.
-
-Next five implementation work items:
-
-1. complete/review PR #382;
-2. implement T06;
-3. implement T07;
-4. implement T08;
-5. implement T09.
-
-All other remaining roadmap work is integrated, SOURCE-GATED, REQUIREMENTS-GATED or LIVE-QA-GATED rather than an ungated source gap.
+Do not create replacement T06–T09 or N22/N23 foundation work solely because live browser/device/provider/PDF/data acceptance remains outstanding.
 
 ## Active parallel work
 
-PR #375 is merged. The current separate UI package is draft PR #382 (`chatgpt/ui-consistency-package-c`). Do not absorb that UI scope into roadmap/domain governance work.
+PRs #375 and #382 are merged. T06/T07 source work is merged via #385/#384. The document pagination correction is merged via #386. Remaining lanes must be explicitly assigned from the gated/bounded work described above rather than inferred from stale implementation-gap text.
 
 ## Takeover rule
 
-Before starting implementation, inspect current `main` and these governance documents. Do not recreate integrated N02–N05, N07–N10, N12–N25 foundations; do not duplicate authoritative learner/staff/support/exam/statutory facts; do not infer N06 mappings or N11 coursework requirements; and do not confuse live/deployment verification with missing source implementation.
+Before starting implementation, inspect current `main` and these governance documents. Do not recreate integrated N02–N05, N07–N10, N12–N25 foundations or T06–T09 source behavior; do not duplicate authoritative learner/staff/support/exam/statutory facts; do not infer N06 mappings or N11 coursework requirements; and do not confuse live/deployment verification with missing source implementation.
