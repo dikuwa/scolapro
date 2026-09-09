@@ -19,7 +19,8 @@ export const OFFICIAL_DOCUMENT_HEADER_RULE =
 export const OFFICIAL_DOCUMENT_METADATA_RULE =
   ".document-meta { display: flex; justify-content: space-between; gap: 12px; padding: 5px 2px 0; color: #666; font-size: 6px; }";
 
-export const OFFICIAL_DOCUMENT_PRINT_RULE = ".report { break-inside: avoid; }";
+export const OFFICIAL_DOCUMENT_PRINT_RULE =
+  ".report { break-inside: auto; } thead { display: table-header-group; } tr, .school-header, .document-title, .report-title, .learner-details, .remarks, .signoff-grid, .principal-symbol-grid, .class-summary, .document-meta { break-inside: avoid; page-break-inside: avoid; }";
 
 export const OFFICIAL_DOCUMENT_PDF_GEOMETRY = Object.freeze({
   pageWidth: 595.28,
