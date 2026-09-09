@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { CalendarDays, CalendarRange, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
+import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { saveTimetableCycleAnchor, saveTimetableCycleSettings } from "@/features/timetable/server/cycle-actions";
 import type { TimetableActionState } from "@/features/timetable/server/actions";
@@ -10,6 +11,7 @@ import type { TimetableCycleMode } from "@/features/timetable/day-labels";
 
 const initialState: TimetableActionState = {};
 const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
+const actionSpacerClass = "hidden h-[1.1rem] sm:block";
 
 export function TimetableCycleSettings({
   schoolId,
@@ -30,6 +32,7 @@ export function TimetableCycleSettings({
   const [anchorState, anchorAction, anchorPending] = useActionState(saveTimetableCycleAnchor, initialState);
   const [mode, setMode] = useState<TimetableCycleMode>(initialMode);
   const [length, setLength] = useState(initialLength);
+  const [anchorDate, setAnchorDate] = useState(initialAnchorDate ?? "");
   const [anchorDay, setAnchorDay] = useState(initialAnchorDay ?? 1);
   const maxLength = mode === "weekday" ? 7 : 10;
 
@@ -68,7 +71,7 @@ export function TimetableCycleSettings({
         </div>
       </div>
 
-      <form action={action} className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.35fr)_auto] sm:items-end">
+      <form action={action} className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.35fr)_auto] sm:items-start">
         <input type="hidden" name="schoolId" value={schoolId} />
         <Picker
           label="Day system"
@@ -96,10 +99,13 @@ export function TimetableCycleSettings({
           <p className="mt-1 text-[0.68rem] text-muted-foreground">Maximum {maxLength} {mode === "weekday" ? "weekdays" : "cycle days"}.</p>
           {state.fieldErrors?.cycleLength?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{state.fieldErrors.cycleLength[0]}</p> : null}
         </div>
-        <button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60">
-          {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarRange className="size-4" aria-hidden="true" />}
-          {pending ? "Saving…" : "Save workflow"}
-        </button>
+        <div className="sm:min-w-max">
+          <span aria-hidden="true" className={actionSpacerClass} />
+          <button type="submit" disabled={pending} className="mt-1.5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60 sm:w-auto">
+            {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarRange className="size-4" aria-hidden="true" />}
+            {pending ? "Saving…" : "Save workflow"}
+          </button>
+        </div>
       </form>
 
       <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-[0.68rem] leading-relaxed text-muted-foreground">
@@ -118,21 +124,17 @@ export function TimetableCycleSettings({
             </div>
           </div>
 
-          <form action={anchorAction} className="mt-4 grid gap-4 sm:grid-cols-[minmax(12rem,0.65fr)_minmax(9rem,0.35fr)_auto] sm:items-end">
+          <form action={anchorAction} className="mt-4 grid gap-4 sm:grid-cols-[minmax(12rem,0.65fr)_minmax(9rem,0.35fr)_auto] sm:items-start">
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="academicYear" value={academicYear} />
-            <div>
-              <label htmlFor="timetable-cycle-anchor-date" className="text-xs font-medium">Known school date</label>
-              <input
-                id="timetable-cycle-anchor-date"
-                name="anchorDate"
-                type="date"
-                defaultValue={initialAnchorDate ?? ""}
-                required
-                className={`${fieldClass} mt-1.5`}
-              />
-              {anchorState.fieldErrors?.anchorDate?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{anchorState.fieldErrors.anchorDate[0]}</p> : null}
-            </div>
+            <DateField
+              label="Known school date"
+              name="anchorDate"
+              value={anchorDate}
+              onChange={setAnchorDate}
+              required
+              error={anchorState.fieldErrors?.anchorDate?.[0]}
+            />
             <div>
               <label htmlFor="timetable-cycle-anchor-day" className="text-xs font-medium">Cycle day</label>
               <input
@@ -148,10 +150,13 @@ export function TimetableCycleSettings({
               <p className="mt-1 text-[0.68rem] text-muted-foreground">Day 1 to Day {length}.</p>
               {anchorState.fieldErrors?.anchorDay?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{anchorState.fieldErrors.anchorDay[0]}</p> : null}
             </div>
-            <button type="submit" disabled={anchorPending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60">
-              {anchorPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarDays className="size-4" aria-hidden="true" />}
-              {anchorPending ? "Saving…" : initialAnchorDate ? "Update anchor" : "Save anchor"}
-            </button>
+            <div className="sm:min-w-max">
+              <span aria-hidden="true" className={actionSpacerClass} />
+              <button type="submit" disabled={anchorPending} className="mt-1.5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60 sm:w-auto">
+                {anchorPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarDays className="size-4" aria-hidden="true" />}
+                {anchorPending ? "Saving…" : initialAnchorDate ? "Update anchor" : "Save anchor"}
+              </button>
+            </div>
           </form>
 
           {initialAnchorDate && initialAnchorDay ? (

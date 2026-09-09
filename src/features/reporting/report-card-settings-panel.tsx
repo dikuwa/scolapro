@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState, useTransition } from "reac
 import { useRouter } from "next/navigation";
 import { FileText, ImagePlus, LoaderCircle, Save, School, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Picker } from "@/components/ui/picker";
 import {
   saveReportCardSchoolSettings,
@@ -43,10 +44,16 @@ function SubjectRule({ schoolId, subject }: { schoolId: string; subject: ReportC
     <form action={action} className="grid gap-3 border-t border-border-subtle py-3 first:border-t-0 sm:grid-cols-[minmax(0,1.5fr)_110px_140px_150px_auto] sm:items-center">
       <input type="hidden" name="schoolId" value={schoolId} />
       <input type="hidden" name="subjectId" value={subject.subjectId} />
-      <div className="min-w-0"><p className="truncate text-sm font-medium">{subject.subjectName}</p><p className="mt-0.5 text-xs text-muted-foreground">{subject.subjectCode}</p></div>
-      <div><label className="text-[0.68rem] font-medium text-muted-foreground">Pass mark %</label><input type="number" name="minimumPassMark" min="0" max="100" step="0.01" defaultValue={subject.minimumPassMark ?? ""} className={`${fieldClass} mt-1`} placeholder="40" /></div>
-      <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="promotional" defaultChecked={subject.promotional} className="size-4 accent-[color:var(--brand)]" /> Promotional</label>
-      <label className="flex items-center gap-2 text-xs"><input type="checkbox" name="showOnReportCard" defaultChecked={subject.showOnReportCard} className="size-4 accent-[color:var(--brand)]" /> Show on report</label>
+      <div className="min-w-0">
+        <p className="truncate text-sm font-medium">{subject.subjectName}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{subject.subjectCode}</p>
+      </div>
+      <div>
+        <label className="sr-only sm:hidden" htmlFor={`minimum-pass-mark-${subject.subjectId}`}>Pass mark % for {subject.subjectName}</label>
+        <input id={`minimum-pass-mark-${subject.subjectId}`} type="number" name="minimumPassMark" min="0" max="100" step="0.01" defaultValue={subject.minimumPassMark ?? ""} className={fieldClass} placeholder="40" aria-label={`Pass mark % for ${subject.subjectName}`} />
+      </div>
+      <Checkbox name="promotional" defaultChecked={subject.promotional} label="Promotional" />
+      <Checkbox name="showOnReportCard" defaultChecked={subject.showOnReportCard} label="Show on report" />
       <button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-9 items-center justify-center gap-2 bg-surface-muted px-3 text-xs font-medium hover:bg-surface-elevated disabled:opacity-60">{pending ? <LoaderCircle className="size-3.5 animate-spin" /> : <Save className="size-3.5" />} Save</button>
     </form>
   );
@@ -194,7 +201,18 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
 
       <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex items-start gap-3 border-b border-border-subtle pb-4"><span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span><div><h2 className="scolapro-section-title">Subject report rules</h2><p className="scolapro-section-description">Set each subject&apos;s minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark.</p></div></div>
-        <div className="mt-2">{settings.subjects.length ? settings.subjects.map((subject) => <SubjectRule key={subject.subjectId} schoolId={schoolId} subject={subject} />) : <p className="py-6 text-sm text-muted-foreground">Configure active subjects first; their report-card rules will appear here.</p>}</div>
+        {settings.subjects.length ? (
+          <div className="mt-2">
+            <div className="hidden grid-cols-[minmax(0,1.5fr)_110px_140px_150px_auto] items-center gap-3 border-b border-border-subtle px-0 py-2 text-[0.68rem] font-medium text-muted-foreground sm:grid" aria-hidden="true">
+              <span>Subject</span>
+              <span>Pass mark %</span>
+              <span>Promotional</span>
+              <span>Show on report</span>
+              <span className="sr-only">Actions</span>
+            </div>
+            {settings.subjects.map((subject) => <SubjectRule key={subject.subjectId} schoolId={schoolId} subject={subject} />)}
+          </div>
+        ) : <p className="py-6 text-sm text-muted-foreground">Configure active subjects first; their report-card rules will appear here.</p>}
       </div>
     </section>
   );
