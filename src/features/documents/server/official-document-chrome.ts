@@ -19,6 +19,8 @@ export const OFFICIAL_DOCUMENT_HEADER_RULE =
 export const OFFICIAL_DOCUMENT_METADATA_RULE =
   ".document-meta { display: flex; justify-content: space-between; gap: 12px; padding: 5px 2px 0; color: #666; font-size: 6px; }";
 
+const LEGACY_OFFICIAL_DOCUMENT_PRINT_RULE = ".report { break-inside: avoid; }";
+
 export const OFFICIAL_DOCUMENT_PRINT_RULE =
   ".report { break-inside: auto; } thead { display: table-header-group; } tr, .school-header, .document-title, .report-title, .learner-details, .remarks, .signoff-grid, .principal-symbol-grid, .class-summary, .document-meta { break-inside: avoid; page-break-inside: avoid; }";
 
@@ -56,8 +58,8 @@ const CHROME_REPLACEMENTS: ChromeReplacement[] = [
 
 /**
  * Verifies that a renderer exposes the shared chrome integration points.
- * Replacement is deliberately output-preserving for the first extraction so
- * renderer revision V6 remains stable while ownership moves into Documents.
+ * Renderer-owned legacy CSS is upgraded here so renderer revision/versioning
+ * semantics remain untouched while shared document print behavior can evolve.
  */
 export function applyOfficialDocumentHtmlChrome(html: string): string {
   let output = html;
@@ -69,10 +71,11 @@ export function applyOfficialDocumentHtmlChrome(html: string): string {
     output = output.replace(replacement.legacy, replacement.shared);
   }
 
-  const printBlock = `@media print {\n    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }\n    ${OFFICIAL_DOCUMENT_PRINT_RULE}\n  }`;
-  if (!output.includes(printBlock)) {
+  const legacyPrintBlock = `@media print {\n    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }\n    ${LEGACY_OFFICIAL_DOCUMENT_PRINT_RULE}\n  }`;
+  if (!output.includes(legacyPrintBlock)) {
     throw new Error("Official document renderer did not expose the expected print chrome.");
   }
 
-  return output;
+  const sharedPrintBlock = `@media print {\n    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }\n    ${OFFICIAL_DOCUMENT_PRINT_RULE}\n  }`;
+  return output.replace(legacyPrintBlock, sharedPrintBlock);
 }
