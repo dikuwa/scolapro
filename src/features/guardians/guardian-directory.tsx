@@ -22,7 +22,7 @@ function learnerPreview(learners: GuardianDirectoryLearner[]) {
 
 function LearnerDetail({ learner }: { learner: GuardianDirectoryLearner }) {
   return (
-    <div className="rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]">
+    <div className="rounded-[var(--radius-sm)] border border-border-subtle bg-transparent px-3 py-2.5">
       <p className="text-sm font-medium">{learner.name}</p>
       <p className="mt-0.5 text-[0.68rem] text-muted-foreground">
         {learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}
@@ -31,7 +31,7 @@ function LearnerDetail({ learner }: { learner: GuardianDirectoryLearner }) {
         {learner.isLegalGuardian ? <span className="rounded-[var(--radius-xs)] bg-success-soft px-2 py-0.5 text-[0.6rem] font-medium text-[color:var(--success)]">Legal</span> : null}
         {learner.isEmergencyContact ? <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2 py-0.5 text-[0.6rem] font-medium text-[color:var(--warning)]">Emergency</span> : null}
         {learner.isPickupAuthorized ? <span className="rounded-[var(--radius-xs)] bg-info-soft px-2 py-0.5 text-[0.6rem] font-medium text-[color:var(--info)]">Pickup</span> : null}
-        <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-0.5 text-[0.6rem] font-medium capitalize text-muted-foreground">{learner.relationshipType}</span>
+        <span className="rounded-[var(--radius-xs)] bg-surface px-2 py-0.5 text-[0.6rem] font-medium capitalize text-muted-foreground">{learner.relationshipType}</span>
       </div>
     </div>
   );
@@ -44,7 +44,7 @@ function GuardianRow({ guardian, expanded, onToggle }: { guardian: GuardianDirec
   const hasEmergencyLearner = guardian.learners.some((learner) => learner.isEmergencyContact);
 
   return (
-    <div className={`border-b border-border-subtle last:border-b-0 ${expanded ? "bg-surface-muted/45" : ""}`}>
+    <div className={`border-b border-border-subtle transition-colors duration-[var(--motion-fast)] last:border-b-0 ${expanded ? "bg-surface-muted/35" : "bg-transparent"}`}>
       <button
         type="button"
         onClick={onToggle}
