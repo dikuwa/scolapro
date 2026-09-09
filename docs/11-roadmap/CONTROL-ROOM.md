@@ -12,7 +12,7 @@ Before changing code, read:
 4. `docs/11-roadmap/IMPLEMENTATION-STATUS.md`
 5. relevant domain/architecture/design documents referenced by `AGENTS.md`
 
-Current reconciled `main`: `186fd1cde778ff3ab872361b4a83cb42d03221bf` (9 September 2026), including PR #381.
+Current reconciled `main`: `05f55fefffce2648634dcc85824aeb02164c01a8` (9 September 2026), including PR #386.
 
 ## 2. Product principle
 
@@ -33,14 +33,17 @@ The following foundations are integrated in current `main` and must not be reope
 - N17/N18/N19 + T04/T05 — calendar teaching impact, effective-dated bell schedules, fixtures and timetable setup refinements.
 - N20 — versioned control forms.
 - N21 — official-result distributions/comparisons.
-- N22/N23 — shared document identity/print foundation and committed brand assets; further work remains a bounded document QA/polish lane, not a missing backend foundation.
+- N22/N23 — shared document identity/print foundation and committed brand assets; PR #386 corrects shared browser-print pagination and repeats table headers for continuation pages. Live browser, app-generated PDF, dark-theme print and device acceptance remain LIVE-QA-GATED where not exercised.
 - N24 — canonical metric registry/network-safe aggregate foundation and bounded expansion through PRs #370/#373.
 - N25 — bounded circuit/regional operational aggregate read models via PR #374, with historical authorization hardening via PR #376.
 - Guardian/parent claim hardening — PR #378 requires a current effective matching guardian relationship.
 - LTSM/library operational integrity — PR #379 binds subject-linked resources to canonical subjects and makes completed loan returns idempotent/final.
 - Finance/contributions lifecycle hardening — PR #380 governs learner-linked invoice enrolment scope and terminal invoice transitions.
 - Platform tenant/school onboarding and invitations — PR #381 hardens consumed invitation finality/idempotence while preserving canonical staff placement and platform/school boundaries.
-- UI/runtime consistency package #375 is merged; it is no longer an active lane.
+- UI consistency package — PR #382 is merged; its form/loading/report-settings/conduct/timetable consistency work is no longer an active lane.
+- T06 — PR #385 integrates the continuous expanded guardian-background visual correction; browser/device visual acceptance remains LIVE-QA-GATED.
+- T07 — PR #384 integrates avatar JPG/JPEG/PNG/WebP upload handling and actionable diagnostics while preserving the existing storage/authorization boundary; live provider/browser acceptance remains LIVE-QA-GATED.
+- T08/T09 — learner-photo immediate preview/pending overlay and upload/link diagnostics were already integrated before this reconciliation. Commit `5e006ed7a8488ac3510c2eacefc8ab720e0ccc12` is an ancestor of current `main` and source-evidences the preview/pending behavior and actionable upload diagnostics; related learner-photo storage/link failure handling is also integrated. Do not create duplicate T08/T09 work merely because live browser/provider scenarios remain unexercised.
 
 ## 4. Verification classifications
 
@@ -52,7 +55,7 @@ The following foundations are integrated in current `main` and must not be reope
 - **LIVE-QA-GATED** — source exists but browser/device/provider/real-data acceptance remains.
 - **ACTUAL IMPLEMENTATION GAP** — documented required behavior is absent from source and is not blocked by source/requirements/deployment/live-QA gates.
 
-Do not label a source-integrated feature as an implementation gap merely because a deployed environment is behind.
+Do not label a source-integrated feature as an implementation gap merely because a deployed environment is behind or live acceptance was not exercised.
 
 ## 5. Remaining hard gates
 
@@ -70,28 +73,22 @@ Recommendation: **KEEP REQUIREMENTS-GATED**.
 
 ## 6. Remaining coordinated work
 
-Connected migration parity through PR #381 is confirmed. Remaining work is:
+No confirmed ungated roadmap source implementation gap remains after reconciling current `main` through PR #386. Remaining work is gated or bounded verification/extension work:
 
-1. Complete/review draft PR #382 as its own bounded UI package.
-2. Implement the still-uncovered T06 continuous guardian-background visual requirement.
-3. Implement T07 avatar diagnosis plus JPG/WebP upload behavior.
-4. Implement T08 learner-photo immediate preview/pending overlay.
-5. Implement T09 privacy-safe learner-photo link/upload diagnostics.
-6. Run targeted live/provider/device/real-data QA for integrated features whose remaining acceptance is environmental.
-7. Resume bounded document/reporting visual/print QA only under explicit ownership; preserve N22/N23 foundations.
-8. Extend N24/N25 only from authoritative source facts and explicit disclosure semantics.
-9. Implement N06 only after verified Ministry source material becomes available.
-10. Implement N11 only after authoritative coursework/moderation requirements are confirmed.
+1. Run targeted live/provider/device/real-data QA for integrated features whose remaining acceptance is environmental, including T06–T09 where relevant.
+2. Continue bounded N22/N23 document QA only under explicit ownership. PR #386 source-exercised a representative 70-row paged-media class-list fixture and source-reviewed the PDF/report-card paths, but did not exercise live Chromium print, dark-theme print, app-generated PDF bytes, browser page-number/header parity, or optional backdrop rendering.
+3. Extend N24/N25 only from authoritative source facts and explicit disclosure semantics.
+4. Implement N06 only after verified Ministry source material becomes available.
+5. Implement N11 only after authoritative coursework/moderation requirements are confirmed.
 
-T06–T09 are the confirmed ungated roadmap UI/runtime implementation gaps left on current `main`. PR #382 is additional active unmerged implementation work but does not cover T06–T09.
+T06–T09 are integrated/source-evidenced and are not current implementation gaps. PR #382 is merged and is not active implementation work.
 
 ## 7. Active ownership
 
 - **Control Room / Integration** — merge order, roadmap, shared-file coordination and integrated-main status.
 - **Governance reconciliation** — this docs-only lane owns the three files under `docs/11-roadmap/` named above.
-- **Deployment reconciliation** — connected-environment migration/runtime parity only; current migration parity is confirmed through PR #381.
-- **UI consistency package** — draft PR #382 (`chatgpt/ui-consistency-package-c`), separate from this governance lane.
-- **Paused document lane** — report-card/document renderers, artifacts and `public/brand/*`; change only under explicit assignment.
+- **Deployment reconciliation** — connected-environment migration/runtime parity only; environment-specific route/browser/provider acceptance remains distinct from source completeness.
+- **Document QA** — N22/N23 remains a bounded visual/print QA lane only when explicitly assigned; preserve the integrated document foundation and PR #386 correction.
 
 High-conflict files such as central navigation, generated DB types, global middleware, global role registries, renderers and governance documents require explicit ownership.
 
