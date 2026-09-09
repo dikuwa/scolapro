@@ -44,7 +44,7 @@ function GuardianRow({ guardian, expanded, onToggle }: { guardian: GuardianDirec
   const hasEmergencyLearner = guardian.learners.some((learner) => learner.isEmergencyContact);
 
   return (
-    <div className={`border-b border-border-subtle transition-colors duration-[var(--motion-fast)] last:border-b-0 ${expanded ? "bg-surface-muted" : "bg-transparent"}`}>
+    <div className={`border-b border-border-subtle transition-colors duration-[var(--motion-fast)] last:border-b-0 ${expanded ? "bg-surface-muted/35" : "bg-transparent"}`}>
       <button
         type="button"
         onClick={onToggle}
