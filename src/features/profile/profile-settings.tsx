@@ -13,12 +13,36 @@ const initialState: ProfileActionState = {};
 const allowedAvatarTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxAvatarBytes = 3 * 1024 * 1024;
 
-function avatarUploadMessage(message: string) {
-  const normalized = message.toLowerCase();
-  if (normalized.includes("expired") || normalized.includes("token")) return "The photo upload authorization expired. Choose the image again and retry.";
-  if (normalized.includes("payload") || normalized.includes("size") || normalized.includes("too large")) return "The photo is too large for storage. Choose an image up to 3 MB.";
-  if (normalized.includes("mime") || normalized.includes("content type") || normalized.includes("media type")) return "Storage rejected this image type. Use JPG, PNG or WebP.";
-  return `The photo upload did not complete: ${message}`;
+function normalizeAvatarContentType(contentType: string) {
+  const normalized = contentType.trim().toLowerCase();
+  return normalized === "image/jpg" ? "image/jpeg" : normalized;
+}
+
+function avatarUploadMessage(error: unknown) {
+  const statusCode = typeof error === "object" && error !== null && "statusCode" in error
+    ? Number(error.statusCode)
+    : undefined;
+  const detail = error instanceof Error
+    ? error.message.toLowerCase()
+    : typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
+      ? error.message.toLowerCase()
+      : typeof error === "string"
+        ? error.toLowerCase()
+        : "";
+
+  if (statusCode === 401 || statusCode === 403 || detail.includes("expired") || detail.includes("token") || detail.includes("unauthorized") || detail.includes("forbidden")) {
+    return "The photo upload authorization expired or was rejected. Choose the image again, sign in if needed, and retry.";
+  }
+  if (statusCode === 413 || detail.includes("payload") || detail.includes("too large") || detail.includes("size limit")) {
+    return "The photo is too large for storage. Choose an image up to 3 MB.";
+  }
+  if (statusCode === 415 || detail.includes("mime") || detail.includes("content type") || detail.includes("media type")) {
+    return "Storage rejected this image type. Use JPG, PNG or WebP.";
+  }
+  if ((statusCode !== undefined && statusCode >= 500) || detail.includes("timeout") || detail.includes("network") || detail.includes("fetch")) {
+    return "The photo upload service is temporarily unavailable. Try again.";
+  }
+  return "Storage rejected the photo upload. Check the selected image and try again.";
 }
 
 export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { avatarUrl: string | null; userId: string; mustChangePassword: boolean }) {
@@ -42,8 +66,13 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
 
   function choosePreview(file?: File) {
     if (!file) return;
-    if (!allowedAvatarTypes.has(file.type)) {
+    if (!allowedAvatarTypes.has(normalizeAvatarContentType(file.type))) {
       toast.error("Choose a JPG, PNG or WebP image.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size <= 0) {
+      toast.error("The selected image is empty or unreadable. Choose another image.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -67,8 +96,13 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
       toast.error("Choose an image first.");
       return;
     }
-    if (!allowedAvatarTypes.has(file.type)) {
+    const contentType = normalizeAvatarContentType(file.type);
+    if (!allowedAvatarTypes.has(contentType)) {
       toast.error("Use a JPG, PNG or WebP image.");
+      return;
+    }
+    if (file.size <= 0) {
+      toast.error("The selected image is empty or unreadable. Choose another image.");
       return;
     }
     if (file.size > maxAvatarBytes) {
@@ -80,9 +114,9 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
     const supabase = createSupabaseBrowserClient();
 
     try {
-      const ticket = await prepareAvatarUpload(file.type);
-      if (!ticket.success || !ticket.path || !ticket.token) {
-        console.error("Avatar signed upload ticket failed", { userId, message: ticket.message });
+      const ticket = await prepareAvatarUpload(contentType);
+      if (!ticket.success || !ticket.path || !ticket.token || !ticket.contentType) {
+        console.error("Avatar signed upload ticket failed", { userId });
         toast.error(ticket.message ?? "The photo upload could not be prepared. Try again.");
         return;
       }
@@ -91,20 +125,20 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
         ticket.path,
         ticket.token,
         file,
-        { contentType: file.type, cacheControl: "3600" },
+        { contentType: ticket.contentType, cacheControl: "3600" },
       );
 
       if (uploadError) {
-        console.error("Avatar signed upload failed", { userId, statusCode: uploadError.statusCode, error: uploadError.message });
-        toast.error(avatarUploadMessage(uploadError.message));
+        console.error("Avatar signed upload failed", { userId, statusCode: uploadError.statusCode });
+        toast.error(avatarUploadMessage(uploadError));
         return;
       }
 
       const result = await saveUploadedAvatar(ticket.path);
       if (!result.success) {
         const { error: cleanupError } = await supabase.storage.from("avatars").remove([ticket.path]);
-        if (cleanupError) console.warn("Unlinked avatar cleanup failed", { userId, error: cleanupError.message });
-        toast.error(result.message ?? "The avatar could not be saved to your profile.");
+        if (cleanupError) console.warn("Unlinked avatar cleanup failed", { userId, statusCode: cleanupError.statusCode });
+        toast.error(result.message ?? "The avatar could not be saved to your profile. Try again.");
         return;
       }
 
@@ -117,9 +151,9 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
       if (fileInputRef.current) fileInputRef.current.value = "";
       toast.success(result.message ?? "Profile photo updated.");
       router.refresh();
-    } catch (error) {
-      console.error("Avatar upload failed unexpectedly", { userId, error });
-      toast.error("The avatar upload could not be completed. Check your connection and try again.");
+    } catch {
+      console.error("Avatar upload failed unexpectedly", { userId });
+      toast.error("The photo upload service is temporarily unavailable. Check your connection and try again.");
     } finally {
       setAvatarUploading(false);
     }
@@ -137,7 +171,7 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <input ref={fileInputRef} id="avatar" name="avatar" type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => choosePreview(event.target.files?.[0])} />
+              <input ref={fileInputRef} id="avatar" name="avatar" type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="sr-only" onChange={(event) => choosePreview(event.target.files?.[0])} />
               <button type="button" disabled={avatarUploading} onClick={() => fileInputRef.current?.click()} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-foreground transition hover:bg-surface-subtle disabled:opacity-60"><ImagePlus className="size-3.5" aria-hidden="true" /> Choose photo</button>
               <span className="max-w-48 truncate text-xs text-muted-foreground">{fileName || (avatarUrl ? "Current photo" : "No photo selected")}</span>
               <button type="button" onClick={uploadSelectedAvatar} disabled={avatarUploading || !fileName} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50">{avatarUploading ? <Spinner className="size-3.5 text-white" /> : <Camera className="size-3.5" />} {avatarUploading ? "Uploading…" : "Update"}</button>
