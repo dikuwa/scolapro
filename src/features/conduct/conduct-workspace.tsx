@@ -115,7 +115,7 @@ export function ConductWorkspace({ schoolId, categories, learners, history, filt
       ) : null}
 
       <div className="grid gap-4 rounded-[var(--radius-sm)] bg-surface-muted p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DateField label="Roster / event date" name="rosterDate" value={filters.on} onChange={on => { if (on) change({ on, gradeId: "", classId: "" }); }} max={today} />
+        <DateField label="Event date" name="rosterDate" value={filters.on} onChange={on => { if (on) change({ on, gradeId: "", classId: "" }); }} max={today} />
         <Picker label="Grade" value={filters.gradeId} onChange={gradeId => change({ gradeId, classId: "", learnerId: "" })} options={[{ value: "", label: "All grades" }, ...unique("grade_id", "grade_name", learners)]} placeholder="All grades" disabled={pending} />
         <Picker label="Class" value={filters.classId} onChange={classId => change({ classId, learnerId: "" })} options={[{ value: "", label: "All classes" }, ...unique("class_id", "class_name", learners.filter(l => !filters.gradeId || l.grade_id === filters.gradeId))]} placeholder="All classes" disabled={pending} />
         <Picker label="Learner history" value={filters.learnerId} onChange={learnerId => change({ learnerId, classId: "", gradeId: "" })} searchable options={[{ value: "", label: "All learners" }, ...learners.map(l => ({ value: l.learner_id, label: l.learner_name, helper: l.grade_name ?? "No grade" }))]} placeholder={filters.learnerId ? "Selected learner history" : "All learners"} disabled={pending} />

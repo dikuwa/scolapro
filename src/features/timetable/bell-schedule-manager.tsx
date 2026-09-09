@@ -56,7 +56,7 @@ export function BellScheduleManager({ schoolId, academicYear, schedules, periods
           aria-invalid={Boolean(scheduleErrors?.name?.length)}
           aria-describedby={scheduleErrors?.name?.length ? "bell-name-error" : undefined}
         />
-        <FieldErrors id="bell-name-error" errors={scheduleErrors?.name} />
+        <p id="bell-name-error" role={scheduleErrors?.name?.length ? "alert" : undefined} className="mt-1.5 min-h-4 text-xs text-[color:var(--danger)]">{scheduleErrors?.name?.[0] ?? ""}</p>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <DateField label="Effective from" name="effectiveFrom" value={from} onChange={setFrom} required />
