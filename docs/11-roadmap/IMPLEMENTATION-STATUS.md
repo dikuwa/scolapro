@@ -22,9 +22,29 @@ The major backend/domain foundation pass is integrated through PR #381. Current 
 
 The connected `scolapro` Supabase migration ledger was re-read on 9 September 2026 and contains the late integrated source slices through `20260909002000 platform_onboarding_invitation_hardening`. No current-main migration through PR #381 is presently classified DEPLOYMENT-GATED solely from migration parity.
 
-Remaining work is primarily LIVE-QA-GATED, SOURCE-GATED, REQUIREMENTS-GATED, or explicit bounded extension work. No ungated roadmap-domain ACTUAL IMPLEMENTATION GAP was confirmed in this reconciliation.
+The remaining ungated source gaps on current `main` are UI/runtime roadmap items T06–T09. Draft PR #382 is additional active unmerged UI work but does not cover T06–T09. Other remaining work is LIVE-QA-GATED, SOURCE-GATED, REQUIREMENTS-GATED, or explicit bounded extension work.
 
-## Roadmap status
+## T/C roadmap status
+
+| ID | Classification | Evidence / remaining constraint |
+|---|---|---|
+| T01 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Weekday/rotating-cycle foundation exists; runtime/device acceptance may remain. |
+| T02 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Dynamic day/grid/maintenance-label behavior exists; UI acceptance remains. |
+| T03 | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Calendar resolution/anchors integrated. |
+| T04 | COMPLETE / INTEGRATED | Numbered setup steps and “Anytime” teaching periods via PR #354. |
+| T05 | COMPLETE / INTEGRATED | Configured subjects collapsed by default via PR #354. |
+| T06 | ACTUAL IMPLEMENTATION GAP | Continuous expanded guardian-background visual requirement remains uncovered on current `main`. |
+| T07 | ACTUAL IMPLEMENTATION GAP | Avatar error diagnosis plus JPG/WebP upload requirement remains uncovered; neither merged PR #375 nor draft PR #382 touches avatar/profile upload scope. |
+| T08 | ACTUAL IMPLEMENTATION GAP | Learner-photo immediate preview/pending overlay remains uncovered on current `main`. |
+| T09 | ACTUAL IMPLEMENTATION GAP | Privacy-safe learner-photo link/upload diagnostics remain uncovered on current `main`. |
+| T10 | LIVE-QA-GATED | CRC source migrations are present in the connected ledger; route/browser acceptance remains. |
+| T11 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Official identity write boundaries exist; scenario acceptance may remain. |
+| T12 | REQUIREMENTS-GATED | Optional administrator correction auto-approval is a deferred product decision until explicitly adopted. |
+| C01–C12 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Conduct source/workflow integrated; PR #375 is merged. |
+
+Draft PR #382 changes Conduct loading/workspace, shared checkbox, report-card settings, bell-schedule/timetable settings and route loading. It does not close T06–T09.
+
+## N-roadmap status
 
 | ID | Classification | Evidence / remaining constraint |
 |---|---|---|
@@ -150,7 +170,8 @@ This does not make every workflow live-verified. Remaining LIVE-QA-GATED areas i
 - real communications provider onboarding/send/webhook receipt;
 - browser/device/real-data acceptance for parent/guardian, timetable/calendar, attendance, statutory/DNEA and report/document workflows where not already exercised;
 - external Ministry/DNEA production-interface acceptance where no production contract has been tested;
-- document/report visual/print/browser acceptance when the document lane resumes.
+- document/report visual/print/browser acceptance when the document lane resumes;
+- CRC route/browser verification now that its source migrations are present.
 
 ## N06 decision
 
@@ -162,15 +183,24 @@ This does not make every workflow live-verified. Remaining LIVE-QA-GATED areas i
 
 ## Remaining-source conclusion
 
-No ungated roadmap-domain ACTUAL IMPLEMENTATION GAP was found after re-enumerating source through PR #381.
+Confirmed current-main ACTUAL IMPLEMENTATION GAPS:
 
-Priority remaining work:
+1. T06 continuous expanded guardian-background visual consistency.
+2. T07 avatar diagnosis + JPG/WebP upload.
+3. T08 learner-photo immediate preview/pending overlay.
+4. T09 privacy-safe learner-photo upload/link diagnostics.
 
-1. LIVE-QA-GATED communications provider E2E verification.
-2. LIVE-QA-GATED browser/device/real-data verification for integrated workflows.
-3. Bounded document/report visual/print QA under explicit ownership.
-4. N24/N25 extension only when an authoritative metric/read-model need and disclosure policy are defined.
-5. N06/N11 implementation only after their respective external gates are satisfied.
+Additional active unmerged implementation work: draft PR #382.
+
+Next five implementation work items:
+
+1. complete/review PR #382;
+2. implement T06;
+3. implement T07;
+4. implement T08;
+5. implement T09.
+
+All other remaining roadmap work is integrated, SOURCE-GATED, REQUIREMENTS-GATED or LIVE-QA-GATED rather than an ungated source gap.
 
 ## Active parallel work
 
