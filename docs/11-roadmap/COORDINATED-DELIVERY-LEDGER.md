@@ -77,7 +77,27 @@ Some deployed ledger versions/names reflect deployment reconciliation identity r
 
 Environment-specific route/browser/provider acceptance remains LIVE-QA-GATED where not exercised.
 
-## Roadmap classification
+## T/C roadmap reconciliation
+
+| ID | Classification | Remaining constraint |
+|---|---|---|
+| T01 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Per-school weekday/rotating cycle foundation exists; device/runtime acceptance may remain. |
+| T02 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Dynamic day/grid/maintenance-label behavior exists; UI acceptance remains. |
+| T03 | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Calendar resolution/anchors integrated; operational acceptance remains. |
+| T04 | COMPLETE / INTEGRATED | Numbered setup steps and “Anytime” teaching periods via PR #354. |
+| T05 | COMPLETE / INTEGRATED | Configured subjects collapsed by default via PR #354. |
+| T06 | ACTUAL IMPLEMENTATION GAP | Continuous expanded guardian-background visual requirement remains uncovered on current `main`; PR #375 and draft #382 do not implement it. |
+| T07 | ACTUAL IMPLEMENTATION GAP | Avatar error diagnosis plus JPG/WebP upload requirement remains uncovered; PR #375 and draft #382 do not touch avatar/profile upload scope. |
+| T08 | ACTUAL IMPLEMENTATION GAP | Learner-photo immediate preview/pending overlay remains uncovered on current `main`. |
+| T09 | ACTUAL IMPLEMENTATION GAP | Privacy-safe learner-photo link/upload diagnostics remain uncovered on current `main`. |
+| T10 | LIVE-QA-GATED | CRC route/source migrations are present in the connected ledger; route/browser/runtime acceptance remains rather than deployment parity. |
+| T11 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Official identity write boundaries are integrated; scenario acceptance may remain. |
+| T12 | REQUIREMENTS-GATED | Optional administrator correction auto-approval remains a deferred product decision; no implementation should be inferred until explicitly adopted. |
+| C01–C12 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Conduct domain/workflow is integrated and PR #375 is merged; remaining acceptance is UI/browser/device oriented. |
+
+Draft PR #382 is separate active implementation work for form/loading/report-settings/conduct/timetable consistency. It does not cover T06–T09.
+
+## N-roadmap classification
 
 | ID | Classification | Remaining constraint |
 |---|---|---|
@@ -136,13 +156,17 @@ Environment-specific route/browser/provider acceptance remains LIVE-QA-GATED whe
 
 ## Remaining source-gap conclusion
 
-No ungated roadmap-domain **ACTUAL IMPLEMENTATION GAP** was confirmed by the post-#381 repository reconciliation. The remaining work is gated or acceptance-oriented:
+Confirmed ungated current-main implementation gaps are the four T-series UI/runtime items T06–T09. In addition, draft PR #382 is active unmerged implementation work.
 
-1. configured communications provider end-to-end live QA;
-2. targeted browser/device/real-data QA for integrated workflows;
-3. bounded document/reporting visual/print QA when that lane resumes;
-4. N24/N25 extensions only when an authoritative metric/read-model need is defined;
-5. N06/N11 only when their external gates are satisfied.
+Next five implementation gaps/work items:
+
+1. complete/review PR #382;
+2. T06 continuous expanded guardian-background visual consistency;
+3. T07 avatar diagnosis + JPG/WebP upload;
+4. T08 learner-photo immediate preview/pending overlay;
+5. T09 privacy-safe learner-photo upload/link diagnostics.
+
+All other remaining roadmap work is integrated, SOURCE-GATED, REQUIREMENTS-GATED or LIVE-QA-GATED rather than an ungated source gap.
 
 ## Integration checklist
 
