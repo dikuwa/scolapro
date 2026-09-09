@@ -24,6 +24,15 @@ function logoExtension(type: string) {
   return type === "image/png" ? "png" : "jpg";
 }
 
+function logoUploadFailureMessage(error: unknown) {
+  const detail = error instanceof Error
+    ? error.message
+    : typeof error === "object" && error !== null && "message" in error && typeof error.message === "string"
+      ? error.message
+      : "";
+  return detail.trim() ? `School logo upload failed: ${detail.trim()}` : "School logo upload failed.";
+}
+
 function Toggle({ name, defaultChecked, label, description }: { name: string; defaultChecked: boolean; label: string; description: string }) {
   return (
     <label className="flex cursor-pointer items-start gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-3">
@@ -100,7 +109,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
         upsert: false,
       });
       if (error) {
-        toast.error(error.message.toLowerCase().includes("row-level security") ? "Your account is not allowed to change this school logo." : "The school logo upload failed.");
+        toast.error(logoUploadFailureMessage(error));
         return;
       }
 
@@ -117,6 +126,8 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
       setLogoUrl(signedPreview?.signedUrl ?? URL.createObjectURL(file));
       toast.success(result.message ?? "School document logo updated.");
       router.refresh();
+    } catch (error) {
+      toast.error(logoUploadFailureMessage(error));
     } finally {
       setLogoUploading(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
