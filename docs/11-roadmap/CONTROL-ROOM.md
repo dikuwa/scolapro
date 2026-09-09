@@ -70,21 +70,26 @@ Recommendation: **KEEP REQUIREMENTS-GATED**.
 
 ## 6. Remaining coordinated work
 
-1. Deployment reconciliation through current source migrations and affected runtime/RPC verification.
-2. Review/merge the separate current UI package PR #382 without absorbing roadmap/domain scope.
-3. Targeted live/provider/device QA for integrated features whose remaining acceptance is environmental.
-4. Resume the bounded document/reporting lane when explicitly assigned; preserve N22/N23 foundations.
-5. Extend N24/N25 only from authoritative source facts and explicit disclosure semantics.
-6. Implement N06 only after verified Ministry source material becomes available.
-7. Implement N11 only after authoritative coursework/moderation requirements are confirmed.
+Connected migration parity through PR #381 is confirmed. Remaining work is:
 
-No ungated roadmap-domain source implementation gap was confirmed in the post-#381 reconciliation.
+1. Complete/review draft PR #382 as its own bounded UI package.
+2. Implement the still-uncovered T06 continuous guardian-background visual requirement.
+3. Implement T07 avatar diagnosis plus JPG/WebP upload behavior.
+4. Implement T08 learner-photo immediate preview/pending overlay.
+5. Implement T09 privacy-safe learner-photo link/upload diagnostics.
+6. Run targeted live/provider/device/real-data QA for integrated features whose remaining acceptance is environmental.
+7. Resume bounded document/reporting visual/print QA only under explicit ownership; preserve N22/N23 foundations.
+8. Extend N24/N25 only from authoritative source facts and explicit disclosure semantics.
+9. Implement N06 only after verified Ministry source material becomes available.
+10. Implement N11 only after authoritative coursework/moderation requirements are confirmed.
+
+T06–T09 are the confirmed ungated roadmap UI/runtime implementation gaps left on current `main`. PR #382 is additional active unmerged implementation work but does not cover T06–T09.
 
 ## 7. Active ownership
 
 - **Control Room / Integration** — merge order, roadmap, shared-file coordination and integrated-main status.
 - **Governance reconciliation** — this docs-only lane owns the three files under `docs/11-roadmap/` named above.
-- **Deployment reconciliation** — connected-environment migration/runtime parity only.
+- **Deployment reconciliation** — connected-environment migration/runtime parity only; current migration parity is confirmed through PR #381.
 - **UI consistency package** — draft PR #382 (`chatgpt/ui-consistency-package-c`), separate from this governance lane.
 - **Paused document lane** — report-card/document renderers, artifacts and `public/brand/*`; change only under explicit assignment.
 
