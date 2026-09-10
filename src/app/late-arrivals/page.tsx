@@ -20,24 +20,25 @@ export default async function LateArrivalsPage() {
   let delegated = false;
 
   if (!membership) {
-    // Delegated path: a staff member holds the late_arrival_recorder duty in one of
-    // their schools. Resolve the duty across all active memberships so multi-school
-    // users get the school they are actually delegated for, not an arbitrary first row.
-    const schoolIds = [...new Set(context.memberships.map((candidate) => candidate.schoolId))];
-    if (schoolIds.length === 0) redirect("/");
+    const delegatedCandidates = context.memberships.filter((candidate) => candidate.staffMemberId);
+    if (delegatedCandidates.length === 0) redirect("/");
     const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("school_duty_assignments")
-      .select("school_id")
-      .in("school_id", schoolIds)
-      .eq("duty_key", "late_arrival_recorder")
-      .lte("active_from", today)
-      .or(`active_to.is.null,active_to.gte.${today}`)
-      .limit(1);
-    const delegatedSchoolId = data?.[0]?.school_id;
-    if (delegatedSchoolId) {
+    const dutyChecks = await Promise.all(delegatedCandidates.map(async (candidate) => {
+      const { data } = await supabase
+        .from("school_duty_assignments")
+        .select("id")
+        .eq("school_id", candidate.schoolId)
+        .eq("staff_member_id", candidate.staffMemberId!)
+        .eq("duty_key", "late_arrival_recorder")
+        .lte("active_from", today)
+        .or(`active_to.is.null,active_to.gte.${today}`)
+        .limit(1);
+      return data?.length ? candidate : undefined;
+    }));
+    const delegatedMembership = dutyChecks.find(Boolean);
+    if (delegatedMembership) {
       delegated = true;
-      membership = context.memberships.find((candidate) => candidate.schoolId === delegatedSchoolId);
+      membership = delegatedMembership;
     }
   }
 
