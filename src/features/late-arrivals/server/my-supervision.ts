@@ -114,7 +114,7 @@ export async function completeMyDetentionAssignment(
     p_note: parsed.data.note || null,
   });
 
-  if (error) return { message: error.message };
+  if (error) return { message: "This detention assignment could not be completed. Refresh the page and check that it is still open." };
   revalidatePath("/my-detention-supervision");
   return { success: true, message: "Detention marked as completed." };
 }
