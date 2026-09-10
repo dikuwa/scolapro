@@ -24,6 +24,7 @@ $$;
 
 revoke all on function app_private.has_school_local_role(uuid,text[])
 from public,anon,authenticated;
+grant execute on function app_private.has_school_local_role(uuid,text[]) to authenticated;
 
 create or replace function app_private.can_manage_enrolment_workflow(target_school_id uuid)
 returns boolean
@@ -66,6 +67,7 @@ $$;
 
 revoke all on function app_private.can_manage_enrolment_workflow(uuid)
 from public,anon,authenticated;
+grant execute on function app_private.can_manage_enrolment_workflow(uuid) to authenticated;
 revoke all on function app_private.user_can_manage_enrolment_workflow(uuid,uuid)
 from public,anon,authenticated;
 
