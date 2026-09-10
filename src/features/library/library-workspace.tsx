@@ -31,7 +31,8 @@ function formatDate(value: string | null) {
 
 function copyLabel(copy: LibraryCopy, title?: LibraryTitle) {
   const identity = copy.barcode || copy.assetNumber || `Copy ${copy.id.slice(0, 8)}`;
-  return title ? `${title.title} · ${identity}` : identity;
+  const location = copy.locationLabel ? ` · ${copy.locationLabel}` : "";
+  return `${title ? `${title.title} · ` : ""}${identity}${location}`;
 }
 
 function ReturnLoanForm({ loan, title, copy }: { loan: LibraryLoan; title?: LibraryTitle; copy?: LibraryCopy }) {

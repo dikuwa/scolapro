@@ -52,7 +52,7 @@ type LearnerRow = {
   learners: { first_names: string; surname: string } | { first_names: string; surname: string }[];
 };
 
-type MembershipRow = {
+type StaffLinkRow = {
   staff_member_id: string | null;
   staff_members: { first_name: string; last_name: string; employee_number: string | null } | { first_name: string; last_name: string; employee_number: string | null }[] | null;
 };
@@ -63,7 +63,7 @@ function first<T>(value: T | T[] | null | undefined): T | null {
 
 export async function getLibraryWorkspace(schoolId: string, today: string) {
   const supabase = await createSupabaseServerClient();
-  const [titlesResult, copiesResult, loansResult, learnersResult, staffResult] = await Promise.all([
+  const [titlesResult, copiesResult, loansResult, learnersResult, membershipStaffResult, placementStaffResult] = await Promise.all([
     supabase
       .from("learning_resource_titles")
       .select("id,resource_type,title,author,publisher,isbn,subject_id,subject_code,grade_code,edition,category,status")
@@ -88,14 +88,27 @@ export async function getLibraryWorkspace(schoolId: string, today: string) {
       .or(`enrolled_to.is.null,enrolled_to.gte.${today}`),
     supabase
       .from("school_memberships")
-      .select("staff_member_id,staff_members(first_name,last_name,employee_number)")
+      .select("staff_member_id,staff_members!inner(first_name,last_name,employee_number,status)")
       .eq("school_id", schoolId)
       .not("staff_member_id", "is", null)
+      .eq("staff_members.status", "active")
       .lte("active_from", today)
       .or(`active_to.is.null,active_to.gte.${today}`),
+    supabase
+      .from("staff_school_assignments")
+      .select("staff_member_id,staff_members!inner(first_name,last_name,employee_number,status)")
+      .eq("school_id", schoolId)
+      .eq("staff_members.status", "active")
+      .lte("effective_from", today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`),
   ]);
 
-  const error = titlesResult.error ?? copiesResult.error ?? loansResult.error ?? learnersResult.error ?? staffResult.error;
+  const error = titlesResult.error
+    ?? copiesResult.error
+    ?? loansResult.error
+    ?? learnersResult.error
+    ?? membershipStaffResult.error
+    ?? placementStaffResult.error;
   if (error) throw new Error(`Unable to load Library / Textbooks: ${error.message}`);
 
   const titles: LibraryTitle[] = (titlesResult.data ?? []).map((row) => ({
@@ -134,7 +147,11 @@ export async function getLibraryWorkspace(schoolId: string, today: string) {
   const staffMap = new Map<string, string>();
   const staffBorrowers: LibraryBorrower[] = [];
   const seenStaff = new Set<string>();
-  for (const row of (staffResult.data ?? []) as unknown as MembershipRow[]) {
+  const staffRows = [
+    ...((membershipStaffResult.data ?? []) as unknown as StaffLinkRow[]),
+    ...((placementStaffResult.data ?? []) as unknown as StaffLinkRow[]),
+  ];
+  for (const row of staffRows) {
     if (!row.staff_member_id || seenStaff.has(row.staff_member_id)) continue;
     const staff = first(row.staff_members);
     if (!staff) continue;
