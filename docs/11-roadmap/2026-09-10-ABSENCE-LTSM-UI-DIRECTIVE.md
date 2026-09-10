@@ -60,6 +60,12 @@ Merged PR #402 preserves these boundaries:
 
 The workspace supports practical filtering by date/range, grade, class, learner, daily/subject-period view, subject where applicable, and explanation/review state. Daily and subject-period counts remain labelled separately.
 
+### Deployment reconciliation
+
+Connected-production parity for PR #402 is **COMPLETE / RECONCILED** on project `jhgumnvhoxmapmgotchu`. Migration `20260910123000_absence_review_scope_authorization` is present in the live ledger and `public.resolve_absence_review_scope(uuid,date,date)` is present with EXECUTE granted to `authenticated` and denied to `anon` and `public`.
+
+This deployment evidence confirms source/live migration parity only. It does not constitute browser/device/populated-data acceptance.
+
 ## 3. LTSM / Library operational UI — integrated via PRs #401 and #404
 
 The canonical LTSM/library database/domain foundation and loan lifecycle remain authoritative, including the #379 and #394 hardening for canonical subject linkage, return finality, school-local circulation authorization and Namibia-local lifecycle/effective-date semantics.
@@ -85,10 +91,10 @@ Live browser/device visual acceptance remains **LIVE-QA-GATED** where not re-tes
 
 - **Absence Reviews expansion:** COMPLETE / INTEGRATED via PR #402; SOURCE-VERIFIED by merged authorization/runtime tests.
 - **Subject-period absenteeism visibility inside Absence Reviews:** COMPLETE / INTEGRATED via PR #402; daily/register and subject-period attendance remain separate authoritative datasets with separate counts/views.
-- **Absence Reviews authorization resolver migration:** `20260910123000_absence_review_scope_authorization.sql` is DEPLOYMENT-GATED until the deployment worker confirms live parity.
+- **Absence Reviews authorization resolver migration:** `20260910123000_absence_review_scope_authorization.sql` is PARITY RECONCILED in connected production; no #402 deployment gate remains.
 - **LTSM/Library operational route:** COMPLETE / INTEGRATED via PR #401 with #404 source corrections for copy-location rendering and assignment-only staff borrower discovery; no migration added by either PR. Remaining issue/return/lost/damaged and non-admin browser-role acceptance is LIVE-QA-GATED under current connected-data/test-role constraints.
 - **Academic Setup / Conduct alignment + transparent primary-colour loader:** COMPLETE / INTEGRATED via PR #400; live browser/device visual acceptance remains separate where not re-tested.
-- **Production migration parity through PR #394:** RECONCILED and remains authoritative. The later PR #402 migration gate does not revert that parity.
+- **Production migration parity through PR #402:** COMPLETE / RECONCILED. This supersedes the earlier through-#394 boundary without invalidating that prior evidence.
 - **Browser/device/live-data acceptance for PR #402:** NOT CLAIMED; remains LIVE-QA-GATED where unexercised.
 
 Do not reinterpret this directive as permission to collapse attendance domains, widen learner-sensitive authorization, couple guardian-review authority to attendance visibility, broaden evidence/correction authority, duplicate the LTSM/library model or add duplicate library routes.
