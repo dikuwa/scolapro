@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { ConductActionState } from "./types";
 
-export const fieldClass = "mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-brand";
+export const fieldClass = "mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition-colors duration-[var(--motion-fast)] placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus-visible:ring-4 focus-visible:ring-brand-soft disabled:cursor-not-allowed disabled:opacity-55";
 
 const PendingContext = createContext(false);
 
@@ -34,7 +34,7 @@ export function ConductForm({ action, children, onSaved }: { action: (state: Con
     <PendingContext.Provider value={pending}>
       <form onSubmit={submit} className="space-y-4">
         <fieldset disabled={pending} className="min-w-0 space-y-4">{children}</fieldset>
-        {message ? <p role="status" className="text-sm text-muted-foreground">{message}</p> : null}
+        {message ? <p role="status" className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-sm leading-5 text-muted-foreground">{message}</p> : null}
       </form>
     </PendingContext.Provider>
   );
@@ -54,9 +54,9 @@ export function ConductDialog({ title, children, onClose }: { title: string; chi
       ref={ref}
       onCancel={event => { event.preventDefault(); close(); }}
       aria-labelledby="conduct-dialog-title"
-      className="fixed inset-0 m-auto max-h-[85dvh] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-[var(--radius-md)] border border-border-subtle bg-surface p-5 text-foreground shadow-[var(--shadow-sm)] backdrop:bg-background/80"
+      className="fixed inset-0 m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-xl overflow-y-auto rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 text-foreground shadow-[var(--shadow-sm)] backdrop:bg-background/80 sm:max-h-[85dvh] sm:p-5"
     >
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-border-subtle pb-3">
         <h2 id="conduct-dialog-title" className="scolapro-section-title">{title}</h2>
         <Button type="button" variant="ghost" size="sm" onClick={close} aria-label="Close form">Close</Button>
       </div>
