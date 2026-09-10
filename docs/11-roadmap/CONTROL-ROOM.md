@@ -13,7 +13,7 @@ Before changing code, read:
 5. relevant domain/architecture/design documents referenced by `AGENTS.md`
 6. `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md` when working on absenteeism or LTSM/library operational UI.
 
-Current reconciled source baseline: `01dec838a0dfc3cb93dd5a4b3a3720203e8cded0` (10 September 2026), including merged PRs #400 and #401.
+Current reconciled source baseline: `41b4ad634c0a8f91a2e1d110aa3ecca73728d86f` (10 September 2026), including merged PRs #402 and #404.
 
 ## 2. Product principle
 
@@ -38,7 +38,7 @@ The following foundations are integrated and must not be reopened as missing wit
 - N24/N25 — canonical metric registry and bounded circuit/regional operational aggregate read models.
 - Guardian/parent claim hardening — PR #378 requires a current effective matching guardian relationship.
 - LTSM/library backend integrity — PR #379 binds subject-linked resources to canonical subjects and makes completed loan returns idempotent/final; PR #394 adds school-local circulation authority and Namibia-local lifecycle/effective-date semantics.
-- Library / Textbooks operational UI — PR #401 is source-merged at `01dec838a0dfc3cb93dd5a4b3a3720203e8cded0`; `/library` is the canonical operational route over the existing LTSM backend/domain. No duplicate `/ltsm` or `/textbooks` route is required. PR #401 added no migration. Live browser/device/populated-real-data acceptance remains LIVE-QA-GATED where not exercised.
+- Library / Textbooks operational UI — PR #401 is source-merged; `/library` is the canonical operational route over the existing LTSM backend/domain. PR #404 subsequently corrected two source defects found by live QA: copy `location_label` is now rendered, and active assignment-only staff are included in borrower search alongside membership-linked staff. Neither #401 nor #404 added a migration. Live issue/return/lost/damaged acceptance remains LIVE-QA-GATED because connected production currently has no learning-resource titles/copies/loans; principal/deputy/librarian/ltsm browser-role acceptance also remains unverified where no test memberships/credentials were available.
 - Finance/contributions lifecycle hardening — PR #380.
 - Platform tenant/school onboarding and invitation finality — PR #381.
 - T06–T09 — integrated/source-evidenced; remaining provider/browser/device acceptance stays LIVE-QA-GATED where not exercised.
@@ -46,29 +46,35 @@ The following foundations are integrated and must not be reopened as missing wit
 - Examination comparison contract — PR #391 retires only the obsolete six-argument RPC.
 - Conduct/late-arrival effective enrolment — PR #392.
 - Admissions/transfers/progression school-local authority — PR #393.
-- Live UI alignment/loader correction — PR #400 is source-merged at `870a4ef8d4830ebe8ffdf923102f48ae2a90cca2`; Academic Setup and Conduct filter alignment plus the transparent brand-colour route loader are source-integrated. Live browser/device acceptance remains separate where not re-tested.
+- Live UI alignment/loader correction — PR #400 source-integrates Academic Setup and Conduct alignment plus the transparent brand-colour route loader. Live browser/device acceptance remains separate where not re-tested.
+- Absence Reviews operational workspace — PR #402 is **COMPLETE / INTEGRATED** in source. `/school/absence-reviews` shows daily/register and subject-period absences as separate views with separate counts; subject-period absence does not become statutory daily absence; guardian explanations do not silently rewrite attendance; late-arrival/detention remains a separate third domain. Authorization is bounded by existing authority: school_admin/principal/deputy_principal retain school-wide attendance awareness; class_teacher receives assigned register-class daily scope; teacher receives explicit subject/timetable allocation scope only; HOD receives explicit teaching allocation scope only with no invented school-wide/department-wide authority; counsellor guardian-notice review authority does not imply attendance scope; cross-school scope is denied; evidence/correction authority remains separate.
 
-The production migration reconciliation for the runtime/security wave through PR #394 has already been completed and confirmed connected-production migration parity. Do not continue to classify PRs #388/#391/#392/#393/#394 as DEPLOYMENT-GATED merely because older governance text predates that reconciliation. This does not prove browser/device/real-data acceptance.
+Connected-production migration parity is now confirmed through PR #402 on project `jhgumnvhoxmapmgotchu`. The earlier runtime/security reconciliation through PR #394 remains valid, and `20260910123000_absence_review_scope_authorization` is present in the live ledger. `public.resolve_absence_review_scope(uuid,date,date)` is present with EXECUTE granted to `authenticated` and denied to `anon` and `public`. Source/live migration parity is therefore **COMPLETE / RECONCILED through PR #402**. This does not prove browser/device/real-data acceptance.
 
-## 4. Confirmed active implementation gap
+## 4. Absence Reviews source classification
 
-### Absence Reviews operational expansion — PR #402
+`/school/absence-reviews` is the canonical school absenteeism operational workspace and is **COMPLETE / INTEGRATED** in source via PR #402, with its authorization resolver migration **PARITY RECONCILED** in connected production.
 
-`/school/absence-reviews` is the canonical school absenteeism operational workspace. PR #402 is the active implementation lane.
+Source behavior:
 
-Required behavior is defined in `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md`:
+- official daily/register absences are visible independently;
+- subject-period absences are visible independently;
+- daily/register and subject-period counts remain separate;
+- subject-period absence never inflates official daily/statutory absence;
+- guardian explanations provide governed context and do not silently rewrite attendance;
+- late-arrival/detention remains a separate third operational domain.
 
-- official daily/register absences are visible even when no guardian notice exists;
-- subject-period absences are also visible, but in a separately labelled/countable view;
-- daily/register attendance and subject-period attendance remain separate authoritative datasets;
-- subject-period absence must never inflate official daily/statutory absence;
-- guardian notices primarily contextualize official daily/register absences and never silently rewrite attendance;
-- subject-period records remain lesson-level evidence;
-- late-arrival/detention remains a third separate operational domain.
+Authorization:
 
-Authorization must preserve existing boundaries: school leadership/review roles may manage guardian notice reviews according to existing authority; teachers/class teachers receive only appropriate absenteeism awareness; subject teachers see subject-period records only inside existing subject/timetable authority; no new school-wide learner access may be inferred from this workspace.
+- `school_admin`, `principal`, `deputy_principal`: school-wide attendance awareness according to existing authority;
+- `class_teacher`: assigned register-class daily scope;
+- `teacher`: explicit subject/timetable allocation scope only;
+- `hod`: explicit teaching allocation scope only; no invented school-wide or department-wide authority;
+- counsellor guardian-notice review authority does not imply attendance scope;
+- cross-school attendance scope is denied;
+- attendance evidence and correction authority remain governed separately.
 
-Classification: **ACTUAL IMPLEMENTATION GAP — ACTIVE PR #402** until merged source implements this directive.
+Do not reopen this implementation unless new source evidence proves a defect.
 
 ## 5. Verification classifications
 
@@ -104,21 +110,19 @@ Recommendation: **KEEP REQUIREMENTS-GATED**.
 
 ## 7. Remaining coordinated work
 
-Confirmed ungated source work now exists and must be sequenced explicitly:
+Confirmed remaining work must be sequenced explicitly:
 
-1. PR #402 — Absence Reviews operational expansion and subject-period absenteeism visibility per the 10 September directive, preserving the three authoritative attendance/late-arrival domains and existing authorization boundaries.
-2. Targeted live browser/device/real-data QA for source-integrated features where acceptance was not explicitly re-tested, including PR #400 UI changes and PR #401 Library / Textbooks operational UI.
-3. N22/N23 bounded document QA only under explicit ownership.
-4. N24/N25 extensions only from authoritative source facts and explicit disclosure semantics.
-5. N06 only after verified Ministry source material exists.
-6. N11 only after authoritative coursework/moderation requirements are confirmed.
+1. Targeted live browser/device/real-data QA for source-integrated features where acceptance was not explicitly completed, including PR #400, PR #402, and Library / Textbooks after PR #404. Library circulation mutation QA remains blocked by the absence of connected-production learning-resource titles/copies/loans; principal/deputy/librarian/ltsm browser-role acceptance remains unverified where test memberships/credentials are unavailable.
+2. N22/N23 bounded document QA only under explicit ownership.
+3. N24/N25 extensions only from authoritative source facts and explicit disclosure semantics.
+4. N06 only after verified Ministry source material exists.
+5. N11 only after authoritative coursework/moderation requirements are confirmed.
+6. T12 only after the deferred correction auto-approval product decision is resolved.
 
 ## 8. Active ownership
 
 - **Control Room / Integration** — merge order, roadmap, shared-file coordination and integrated-main status.
-- **PR #399 governance reconciliation** — directive plus the three canonical roadmap files; docs only.
-- **PR #402 Absence Reviews** — active implementation owner for the approved absenteeism workspace gap.
-- **Deployment reconciliation** — parity through PR #394 is confirmed complete; only later migrations require a new deployment reconciliation assignment. PR #401 added no migration.
+- **Deployment reconciliation** — production migration parity is confirmed through PR #402; no current #402 deployment gate remains.
 - **Document QA** — N22/N23 bounded visual/print QA only when explicitly assigned.
 
 High-conflict files such as central navigation, generated DB types, global middleware, global role registries, renderers and governance documents require explicit ownership.
@@ -171,4 +175,4 @@ git pull --ff-only origin main
 
 ## 12. Standing guardrails
 
-Do not rebuild integrated architecture, collapse daily/register and subject-period attendance into one authoritative record, convert lesson-level absences into statutory absence, let guardian notices silently rewrite attendance, model late-arrival/detention as attendance, infer school-wide learner access from Absence Reviews, duplicate the canonical library model or operational route, model circuits/regions as unrestricted school tenants, expose learner-level national data by default, hardcode administrative names/codes, duplicate canonical learner/staff/subject facts in forms, hardcode pass/promotion rules, assume one bell schedule for a year, assume examination centre equals school, create a second metric registry, or remove print/PDF workflows in favour of digital-only.
+Do not rebuild integrated architecture, reopen PR #402 Absence Reviews without new source evidence, collapse daily/register and subject-period attendance into one authoritative record, convert lesson-level absences into statutory absence, let guardian notices silently rewrite attendance, model late-arrival/detention as attendance, infer school-wide learner access from Absence Reviews, duplicate the canonical library model or operational route, model circuits/regions as unrestricted school tenants, expose learner-level national data by default, hardcode administrative names/codes, duplicate canonical learner/staff/subject facts in forms, hardcode pass/promotion rules, assume one bell schedule for a year, assume examination centre equals school, create a second metric registry, or remove print/PDF workflows in favour of digital-only.
