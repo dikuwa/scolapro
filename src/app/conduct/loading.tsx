@@ -1,7 +1,9 @@
+import { RouteLoadingIndicator } from "@/components/ui/route-loading-indicator";
+
 export default function Loading() {
   return (
     <main className="bg-background px-4 py-6 sm:px-6 lg:px-8" aria-busy="true" aria-label="Loading Conduct">
-      <div className="scolapro-content-width animate-pulse space-y-6">
+      <div className="scolapro-content-width animate-pulse space-y-6" aria-hidden="true">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <div className="h-7 w-36 rounded-[var(--radius-sm)] bg-surface-subtle" />
@@ -26,6 +28,7 @@ export default function Loading() {
           </div>
         </div>
       </div>
+      <RouteLoadingIndicator />
     </main>
   );
 }
