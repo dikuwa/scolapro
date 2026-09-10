@@ -81,16 +81,16 @@ export function CatalogManager({ schoolId, titles, subjects, grades }: { schoolI
         {editing ? <Button type="button" variant="ghost" size="sm" onClick={resetTitle}>New title</Button> : null}
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <Picker label="Resource type" name="resourceType" value={resourceType} onChange={setResourceType} options={resourceTypes} />
-        <Picker label="Status" name="status" value={status} onChange={setStatus} options={titleStatuses} />
+        <Picker label="Resource type" name="resourceType" value={resourceType} onChange={setResourceType} options={resourceTypes} placeholder="Choose resource type" />
+        <Picker label="Status" name="status" value={status} onChange={setStatus} options={titleStatuses} placeholder="Choose status" />
         <div className="sm:col-span-2"><TextField label="Title" name="title" defaultValue={editing?.title} placeholder="Resource title" required /></div>
         <TextField label="Author" name="author" defaultValue={editing?.author} />
         <TextField label="Publisher" name="publisher" defaultValue={editing?.publisher} />
         <TextField label="ISBN" name="isbn" defaultValue={editing?.isbn} />
         <TextField label="Edition" name="edition" defaultValue={editing?.edition} />
         <TextField label="Category" name="category" defaultValue={editing?.category} />
-        <Picker label="Subject" name="subjectId" value={subjectId} onChange={setSubjectId} searchable options={subjectOptions} />
-        <Picker label="Grade" name="gradeId" value={gradeId} onChange={setGradeId} searchable options={gradeOptions} />
+        <Picker label="Subject" name="subjectId" value={subjectId} onChange={setSubjectId} searchable options={subjectOptions} placeholder="No subject / general resource" />
+        <Picker label="Grade" name="gradeId" value={gradeId} onChange={setGradeId} searchable options={gradeOptions} placeholder="No grade / general resource" />
       </div>
       {status === "archived" ? <p className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]"><Archive className="mr-1.5 inline size-3.5" aria-hidden="true" />Archiving is blocked while any copy of this title has an active loan.</p> : null}
       <div className="mt-4 flex justify-start sm:justify-end"><Button type="submit" loading={titlePending} disabled={titlePending}>{editing ? <><Pencil className="size-4" aria-hidden="true" />Save title</> : <><Plus className="size-4" aria-hidden="true" />Create title</>}</Button></div>
@@ -105,8 +105,8 @@ export function CatalogManager({ schoolId, titles, subjects, grades }: { schoolI
         <TextField label="Location" name="locationLabel" placeholder="Shelf / room / store" />
         <TextField label="Barcode or batch prefix" name="barcodePrefix" placeholder="Optional" />
         <TextField label="Asset number or batch prefix" name="assetPrefix" placeholder="Optional" />
-        <Picker label="Condition" name="condition" value={condition} onChange={setCondition} options={conditions} />
-        <Picker label="Availability" name="availability" value={availability} onChange={setAvailability} options={availabilityOptions} />
+        <Picker label="Condition" name="condition" value={condition} onChange={setCondition} options={conditions} placeholder="Choose condition" />
+        <Picker label="Availability" name="availability" value={availability} onChange={setAvailability} options={availabilityOptions} placeholder="Choose availability" />
         <div className="sm:col-span-2"><TextField label="Stock note" name="notes" placeholder="Optional acquisition or inventory note" /></div>
       </div>
       <p className="mt-3 text-xs leading-5 text-muted-foreground">For batches, entered barcode/asset values are treated as prefixes and receive <code>-001</code>, <code>-002</code>… suffixes. Leave them blank for unlabelled stock.</p>
