@@ -49,13 +49,11 @@ The following foundations are integrated and must not be reopened as missing wit
 - Live UI alignment/loader correction — PR #400 source-integrates Academic Setup and Conduct alignment plus the transparent brand-colour route loader. Live browser/device acceptance remains separate where not re-tested.
 - Absence Reviews operational workspace — PR #402 is **COMPLETE / INTEGRATED** in source. `/school/absence-reviews` shows daily/register and subject-period absences as separate views with separate counts; subject-period absence does not become statutory daily absence; guardian explanations do not silently rewrite attendance; late-arrival/detention remains a separate third domain. Authorization is bounded by existing authority: school_admin/principal/deputy_principal retain school-wide attendance awareness; class_teacher receives assigned register-class daily scope; teacher receives explicit subject/timetable allocation scope only; HOD receives explicit teaching allocation scope only with no invented school-wide/department-wide authority; counsellor guardian-notice review authority does not imply attendance scope; cross-school scope is denied; evidence/correction authority remains separate.
 
-The production migration reconciliation for the runtime/security wave through PR #394 has already been completed and confirmed connected-production migration parity. Do not continue to classify PRs #388/#391/#392/#393/#394 as DEPLOYMENT-GATED merely because older governance text predates that reconciliation. This does not prove browser/device/real-data acceptance.
-
-PR #402 added `supabase/migrations/20260910123000_absence_review_scope_authorization.sql`. The new absence-review resolver is **DEPLOYMENT-GATED** until the deployment worker confirms live parity. This new gate does not revert the already confirmed parity through PR #394 and does not prove browser/device/live-data acceptance.
+Connected-production migration parity is now confirmed through PR #402 on project `jhgumnvhoxmapmgotchu`. The earlier runtime/security reconciliation through PR #394 remains valid, and `20260910123000_absence_review_scope_authorization` is present in the live ledger. `public.resolve_absence_review_scope(uuid,date,date)` is present with EXECUTE granted to `authenticated` and denied to `anon` and `public`. Source/live migration parity is therefore **COMPLETE / RECONCILED through PR #402**. This does not prove browser/device/real-data acceptance.
 
 ## 4. Absence Reviews source classification
 
-`/school/absence-reviews` is the canonical school absenteeism operational workspace and is **COMPLETE / INTEGRATED** in source via PR #402.
+`/school/absence-reviews` is the canonical school absenteeism operational workspace and is **COMPLETE / INTEGRATED** in source via PR #402, with its authorization resolver migration **PARITY RECONCILED** in connected production.
 
 Source behavior:
 
@@ -114,18 +112,17 @@ Recommendation: **KEEP REQUIREMENTS-GATED**.
 
 Confirmed remaining work must be sequenced explicitly:
 
-1. Deployment reconciliation for `20260910123000_absence_review_scope_authorization.sql`; do not replay already-applied migrations or disturb confirmed production parity through PR #394.
-2. Targeted live browser/device/real-data QA for source-integrated features where acceptance was not explicitly completed, including PR #400, PR #402, and Library / Textbooks after PR #404. Library circulation mutation QA remains blocked by the absence of connected-production learning-resource titles/copies/loans; principal/deputy/librarian/ltsm browser-role acceptance remains unverified where test memberships/credentials are unavailable.
-3. N22/N23 bounded document QA only under explicit ownership.
-4. N24/N25 extensions only from authoritative source facts and explicit disclosure semantics.
-5. N06 only after verified Ministry source material exists.
-6. N11 only after authoritative coursework/moderation requirements are confirmed.
-7. T12 only after the deferred correction auto-approval product decision is resolved.
+1. Targeted live browser/device/real-data QA for source-integrated features where acceptance was not explicitly completed, including PR #400, PR #402, and Library / Textbooks after PR #404. Library circulation mutation QA remains blocked by the absence of connected-production learning-resource titles/copies/loans; principal/deputy/librarian/ltsm browser-role acceptance remains unverified where test memberships/credentials are unavailable.
+2. N22/N23 bounded document QA only under explicit ownership.
+3. N24/N25 extensions only from authoritative source facts and explicit disclosure semantics.
+4. N06 only after verified Ministry source material exists.
+5. N11 only after authoritative coursework/moderation requirements are confirmed.
+6. T12 only after the deferred correction auto-approval product decision is resolved.
 
 ## 8. Active ownership
 
 - **Control Room / Integration** — merge order, roadmap, shared-file coordination and integrated-main status.
-- **Deployment reconciliation** — production parity is confirmed through PR #394; `20260910123000_absence_review_scope_authorization.sql` from PR #402 is the next deployment-gated migration pending explicit deployment-worker confirmation.
+- **Deployment reconciliation** — production migration parity is confirmed through PR #402; no current #402 deployment gate remains.
 - **Document QA** — N22/N23 bounded visual/print QA only when explicitly assigned.
 
 High-conflict files such as central navigation, generated DB types, global middleware, global role registries, renderers and governance documents require explicit ownership.
