@@ -29,7 +29,7 @@ export async function recordLateArrival(_state: LateArrivalActionState, formData
     p_arrived_at: parsed.data.arrivedAt || null,
     p_note: parsed.data.note || null,
   });
-  if (error) return { message: error.message };
+  if (error) return { message: "Late arrival could not be recorded. Check the learner, date and your school access, then try again." };
   revalidatePath("/late-arrivals");
   return { success: true, message: "Late arrival recorded." };
 }
@@ -43,7 +43,7 @@ export async function undoLatestLateArrival(_state: LateArrivalActionState, form
     p_enrolment_id: enrolmentId,
     p_reason: "Corrected accidental latest late-arrival entry",
   });
-  if (error) return { message: error.message };
+  if (error) return { message: "The latest late-arrival entry could not be undone." };
   revalidatePath("/late-arrivals");
   revalidatePath("/late-arrivals/history");
   return { success: true, message: "Latest late-arrival entry undone." };

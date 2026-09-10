@@ -72,7 +72,7 @@ export async function getDetentionHistoryPage(
     p_page: safePage,
     p_page_size: safePageSize,
   });
-  if (error) throw new Error(error.message || "Unable to load detention history.");
+  if (error) throw new Error("Unable to load detention history.");
 
   const rows = (data ?? []) as DetentionHistoryRpcRow[];
   return {

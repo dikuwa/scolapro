@@ -38,7 +38,7 @@ export async function createPlannedDetentionSession(
     p_notes: "Planned from the late-arrival detention duty roster",
     p_staff_member_ids: staffIds,
   });
-  if (error || !sessionId) return { message: error?.message ?? "Unable to create the detention session." };
+  if (error || !sessionId) return { message: "Unable to create the detention session. Check the date, duty team and your school access." };
 
   revalidatePath("/late-arrivals");
   return { success: true, message: "Detention duty session scheduled. Account-linked supervisors were notified." };
@@ -58,7 +58,7 @@ export async function updateDetentionDutyTeam(
     p_session_id: sessionId,
     p_staff_member_ids: staffIds,
   });
-  if (error) return { message: error.message };
+  if (error) return { message: "The detention duty team could not be updated." };
 
   revalidatePath("/late-arrivals");
   return { success: true, message: "Detention duty team updated." };
@@ -83,7 +83,7 @@ export async function allocateDetentionLearners(
     p_obligation_ids: obligationIds,
     p_supervisor_staff_member_id: supervisorStaffMemberId,
   });
-  if (error) return { message: error.message };
+  if (error) return { message: "Learners could not be allocated to that detention supervisor." };
 
   const learnerCount = Number(count ?? obligationIds.length);
   revalidatePath("/late-arrivals");
@@ -120,8 +120,8 @@ export async function balanceDetentionLearners(
       revalidatePath("/late-arrivals");
       return {
         message: allocated
-          ? `${allocated} learner${allocated === 1 ? " was" : "s were"} allocated before balancing stopped: ${error.message}`
-          : error.message,
+          ? `${allocated} learner${allocated === 1 ? " was" : "s were"} allocated before balancing stopped. Review the remaining selections and try again.`
+          : "Detention learners could not be balanced across the selected duty team.",
       };
     }
     allocated += Number(count ?? groupedObligations.length);
