@@ -11,6 +11,7 @@ export function ShellFrame({
   footer,
   header,
   roleKey,
+  extraNavigationKeys = [],
   attentionCounts = {},
 }: {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export function ShellFrame({
   footer: React.ReactNode;
   header: React.ReactNode;
   roleKey?: string;
+  extraNavigationKeys?: readonly string[];
   attentionCounts?: NavigationAttentionCounts;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -37,7 +39,7 @@ export function ShellFrame({
       >
         <div className="min-w-0">
           {brand}
-          <DesktopNavigation roleKey={roleKey} collapsed={collapsed} attentionCounts={attentionCounts} />
+          <DesktopNavigation roleKey={roleKey} extraKeys={extraNavigationKeys} collapsed={collapsed} attentionCounts={attentionCounts} />
         </div>
 
         <div className="border-t border-border-subtle bg-surface pt-3">{footer}</div>

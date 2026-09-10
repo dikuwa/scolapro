@@ -52,6 +52,8 @@ const navigation = [
   { key: "teaching", label: "Teaching", href: "/teaching", icon: BookOpenText },
   { key: "assessment", label: "Assessment", href: "/assessment", icon: ClipboardCheck },
   { key: "report_cards", label: "Report cards", href: "/reports/report-cards", icon: FileCheck2 },
+  { key: "dnea_readiness", label: "DNEA readiness", href: "/dnea/readiness", icon: ShieldCheck },
+  { key: "statutory", label: "Statutory reporting", href: "/statutory", icon: FileCheck2 },
   { key: "contributions", label: "Contributions", href: "/school/contributions", icon: Coins },
   { key: "absence_reviews", label: "Absence reviews", href: "/school/absence-reviews", icon: FileText },
   { key: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays },
@@ -60,24 +62,29 @@ const navigation = [
 const enabledKeysByRole: Record<string, readonly string[]> = {
   platform_admin: ["today", "tenants", "invitations"],
   platform_support: ["today", "tenants"],
-  school_admin: ["today", "conduct", "school_invitations", "school_settings", "crc_custody", "setup", "imports", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "contributions", "absence_reviews", "calendar"],
-  principal: ["today", "conduct", "setup", "school_settings", "crc_custody", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
-  deputy_principal: ["today", "conduct", "school_settings", "crc_custody", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
+  school_admin: ["today", "conduct", "school_invitations", "school_settings", "crc_custody", "setup", "imports", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "statutory", "contributions", "absence_reviews", "calendar"],
+  principal: ["today", "conduct", "setup", "school_settings", "crc_custody", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "statutory", "contributions", "absence_reviews", "calendar"],
+  deputy_principal: ["today", "conduct", "school_settings", "crc_custody", "staff", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "statutory", "contributions", "absence_reviews", "calendar"],
+  emis_officer: ["today", "statutory"],
+  exam_officer: ["today", "dnea_readiness"],
+  circuit_officer: ["today", "dnea_readiness", "statutory"],
+  regional_officer: ["today", "statutory"],
   hod: ["today", "conduct", "staff", "learners", "guardians", "timetable", "attendance", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
   teacher: ["today", "conduct", "learners", "timetable", "attendance", "my_detention", "teaching", "assessment", "report_cards", "calendar"],
-  class_teacher: ["today", "conduct", "learners", "guardians", "timetable", "attendance", "my_detention", "teaching", "assessment", "report_cards", "contributions", "calendar"],
-  counsellor: ["today", "conduct", "crc_custody", "learners", "guardians", "data_corrections", "my_detention", "calendar"],
+  class_teacher: ["today", "conduct", "learners", "guardians", "timetable", "attendance", "my_detention", "teaching", "assessment", "report_cards", "contributions", "absence_reviews", "calendar"],
+  counsellor: ["today", "conduct", "crc_custody", "learners", "guardians", "absence_reviews", "my_detention", "calendar"],
   learner_support: ["today", "crc_custody", "learners", "calendar"],
   social_worker: ["today", "crc_custody", "learners", "calendar"],
   librarian: ["today", "learners", "my_detention"],
-  learner: ["today", "teaching", "assessment", "calendar"],
+  learner: ["today", "calendar"],
   parent: ["family"],
   board_member: ["today"],
 };
 
-function itemsForRole(roleKey?: string) {
-  const allowed = roleKey ? enabledKeysByRole[roleKey] ?? ["today"] : ["today"];
-  return navigation.filter((item) => allowed.includes(item.key));
+function itemsForRole(roleKey?: string, extraKeys: readonly string[] = []) {
+  const roleKeys = roleKey ? enabledKeysByRole[roleKey] ?? ["today"] : ["today"];
+  const allowed = new Set([...roleKeys, ...extraKeys]);
+  return navigation.filter((item) => allowed.has(item.key));
 }
 
 function isActive(pathname: string, href: string) {
@@ -90,9 +97,9 @@ function AttentionBadge({ count, compact = false }: { count: number; compact?: b
   return <span aria-label={`${count} item${count === 1 ? "" : "s"} need attention`} className={compact ? "absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-[color:var(--danger)] px-1 text-[0.56rem] font-bold leading-4 text-white shadow-[var(--shadow-xs)]" : "ml-auto inline-grid min-w-5 place-items-center rounded-full bg-[color:var(--danger)] px-1.5 text-[0.6rem] font-bold leading-5 text-white"}>{label}</span>;
 }
 
-export function DesktopNavigation({ roleKey, collapsed = false, attentionCounts = {} }: { roleKey?: string; collapsed?: boolean; attentionCounts?: NavigationAttentionCounts }) {
+export function DesktopNavigation({ roleKey, extraKeys = [], collapsed = false, attentionCounts = {} }: { roleKey?: string; extraKeys?: readonly string[]; collapsed?: boolean; attentionCounts?: NavigationAttentionCounts }) {
   const pathname = usePathname();
-  const items = itemsForRole(roleKey);
+  const items = itemsForRole(roleKey, extraKeys);
   return <nav aria-label="Primary" className="space-y-1">{items.map((item) => {
     const Icon = item.icon;
     const active = isActive(pathname, item.href);
@@ -102,10 +109,10 @@ export function DesktopNavigation({ roleKey, collapsed = false, attentionCounts 
   })}</nav>;
 }
 
-export function MobileNavigation({ roleKey, attentionCounts = {} }: { roleKey?: string; attentionCounts?: NavigationAttentionCounts }) {
+export function MobileNavigation({ roleKey, extraKeys = [], attentionCounts = {} }: { roleKey?: string; extraKeys?: readonly string[]; attentionCounts?: NavigationAttentionCounts }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const allItems = itemsForRole(roleKey);
+  const allItems = itemsForRole(roleKey, extraKeys);
   const primaryItems = allItems.slice(0, 4);
   const overflowItems = allItems.slice(4);
   const showMore = overflowItems.length > 0;

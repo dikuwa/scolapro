@@ -43,5 +43,8 @@ jobs:
       - name: Validate report-card font runtime
         run: pnpm validate:report-font
 
+      - name: Validate navigation role visibility
+        run: pnpm validate:navigation
+
       - name: Build
         run: pnpm build

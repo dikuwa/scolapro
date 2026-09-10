@@ -15,6 +15,11 @@ export type PlatformMembershipContext = {
   roleKey: string;
 };
 
+export type NetworkMembershipContext = {
+  membershipId: string;
+  roleKey: string;
+};
+
 export type GuardianLinkContext = {
   linkId: string;
   tenantId: string;
@@ -42,12 +47,13 @@ export const getUserContext = cache(async () => {
       mustChangePassword: false,
       memberships: [] as SchoolMembershipContext[],
       platformMemberships: [] as PlatformMembershipContext[],
+      networkMemberships: [] as NetworkMembershipContext[],
       guardianLinks: [] as GuardianLinkContext[],
     };
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const [profileResult, membershipResult, platformResult, guardianResult] = await Promise.all([
+  const [profileResult, membershipResult, platformResult, networkResult, guardianResult] = await Promise.all([
     supabase
       .from("user_profiles")
       .select("display_name, preferred_name, avatar_path, must_change_password")
@@ -59,11 +65,6 @@ export const getUserContext = cache(async () => {
       .eq("user_id", user.id)
       .lte("active_from", today)
       .or(`active_to.is.null,active_to.gte.${today}`)
-      // Deterministic selection order: newest membership first, then membership id
-      // as a stable tie-breaker, so memberships[0] is well-defined for multi-school
-      // users instead of depending on arbitrary database row order. Top-level
-      // columns only — embedded/referenced-table order keys are passed through
-      // verbatim by the installed supabase-js build and PostgREST rejects them.
       .order("active_from", { ascending: false })
       .order("id"),
     supabase
@@ -72,6 +73,14 @@ export const getUserContext = cache(async () => {
       .eq("user_id", user.id)
       .lte("active_from", today)
       .or(`active_to.is.null,active_to.gte.${today}`),
+    supabase
+      .from("education_network_memberships")
+      .select("id, role_key")
+      .eq("user_id", user.id)
+      .lte("active_from", today)
+      .or(`active_to.is.null,active_to.gte.${today}`)
+      .order("active_from", { ascending: false })
+      .order("id"),
     supabase.rpc("get_my_guardian_links"),
   ]);
 
@@ -80,10 +89,8 @@ export const getUserContext = cache(async () => {
     throw new Error("Unable to resolve the current school context.");
   }
   if (platformResult.error) throw new Error("Unable to resolve the current platform context.");
+  if (networkResult.error) throw new Error("Unable to resolve the current education-network context.");
 
-  // Guardian context is additive and must never take down staff/platform workspaces.
-  // The RPC self-scopes to auth.uid(); if unavailable during a partial migration,
-  // keep the primary authenticated context usable and expose no guardian links.
   const guardianRows = (guardianResult.data ?? []) as GuardianLinkRpcRow[];
   const guardianLinks: GuardianLinkContext[] = guardianResult.error
     ? []
@@ -110,6 +117,11 @@ export const getUserContext = cache(async () => {
     roleKey: membership.role_key,
   }));
 
+  const networkMemberships: NetworkMembershipContext[] = (networkResult.data ?? []).map((membership) => ({
+    membershipId: membership.id,
+    roleKey: membership.role_key,
+  }));
+
   const profile = profileResult.data;
   const displayName =
     profile?.preferred_name ||
@@ -126,6 +138,7 @@ export const getUserContext = cache(async () => {
     mustChangePassword: profile?.must_change_password ?? false,
     memberships,
     platformMemberships,
+    networkMemberships,
     guardianLinks,
   };
 });
