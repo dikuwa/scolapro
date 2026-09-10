@@ -4,6 +4,11 @@ import { useActionState, useEffect, useState } from "react";
 import { CalendarDays, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
+import {
+  FormActionSlot,
+  FormFieldFeedback,
+  formFieldLabelClass,
+} from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { saveTimetableCycleAnchor, saveTimetableCycleSettings } from "@/features/timetable/server/cycle-actions";
@@ -12,8 +17,6 @@ import type { TimetableCycleMode } from "@/features/timetable/day-labels";
 
 const initialState: TimetableActionState = {};
 const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
-const actionSpacerClass = "hidden h-4 sm:block";
-const fieldLabelClass = "block text-xs font-medium leading-4";
 
 export function TimetableCycleSettings({
   schoolId,
@@ -73,7 +76,7 @@ export function TimetableCycleSettings({
         </div>
       </div>
 
-      <form action={action} className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.35fr)_auto] sm:items-start">
+      <form action={action} className="mt-4 grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.35fr)_auto]">
         <input type="hidden" name="schoolId" value={schoolId} />
         <Picker
           label="Day system"
@@ -87,7 +90,7 @@ export function TimetableCycleSettings({
           ]}
         />
         <div>
-          <label htmlFor="timetable-cycle-length" className={fieldLabelClass}>Cycle length</label>
+          <label htmlFor="timetable-cycle-length" className={formFieldLabelClass}>Cycle length</label>
           <input
             id="timetable-cycle-length"
             name="cycleLength"
@@ -98,16 +101,17 @@ export function TimetableCycleSettings({
             onChange={(event) => changeLength(Number(event.target.value))}
             className={`${fieldClass} mt-1.5`}
           />
-          <p className="mt-1 text-[0.68rem] text-muted-foreground">Maximum {maxLength} {mode === "weekday" ? "weekdays" : "cycle days"}.</p>
-          {state.fieldErrors?.cycleLength?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{state.fieldErrors.cycleLength[0]}</p> : null}
+          <FormFieldFeedback
+            helper={`Maximum ${maxLength} ${mode === "weekday" ? "weekdays" : "cycle days"}.`}
+            error={state.fieldErrors?.cycleLength?.[0]}
+          />
         </div>
-        <div className="sm:min-w-max">
-          <span aria-hidden="true" className={actionSpacerClass} />
-          <button type="submit" disabled={pending} className="mt-1.5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60 sm:w-auto">
+        <FormActionSlot>
+          <button type="submit" disabled={pending} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60">
             {pending ? <Spinner className="size-4 text-white" /> : <CalendarRange className="size-4" aria-hidden="true" />}
             {pending ? "Saving…" : "Save workflow"}
           </button>
-        </div>
+        </FormActionSlot>
       </form>
 
       <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-[0.68rem] leading-relaxed text-muted-foreground">
@@ -126,7 +130,7 @@ export function TimetableCycleSettings({
             </div>
           </div>
 
-          <form action={anchorAction} className="mt-4 grid gap-4 sm:grid-cols-[minmax(12rem,0.65fr)_minmax(9rem,0.35fr)_auto] sm:items-start">
+          <form action={anchorAction} className="mt-4 grid items-start gap-4 sm:grid-cols-[minmax(12rem,0.65fr)_minmax(9rem,0.35fr)_auto]">
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="academicYear" value={academicYear} />
             <DateField
@@ -138,7 +142,7 @@ export function TimetableCycleSettings({
               error={anchorState.fieldErrors?.anchorDate?.[0]}
             />
             <div>
-              <label htmlFor="timetable-cycle-anchor-day" className={fieldLabelClass}>Cycle day</label>
+              <label htmlFor="timetable-cycle-anchor-day" className={formFieldLabelClass}>Cycle day</label>
               <input
                 id="timetable-cycle-anchor-day"
                 name="anchorDay"
@@ -149,16 +153,17 @@ export function TimetableCycleSettings({
                 onChange={(event) => setAnchorDay(Math.max(1, Math.min(length, Number(event.target.value) || 1)))}
                 className={`${fieldClass} mt-1.5`}
               />
-              <p className="mt-1 text-[0.68rem] text-muted-foreground">Day 1 to Day {length}.</p>
-              {anchorState.fieldErrors?.anchorDay?.[0] ? <p className="mt-1 text-xs text-[color:var(--danger)]">{anchorState.fieldErrors.anchorDay[0]}</p> : null}
+              <FormFieldFeedback
+                helper={`Day 1 to Day ${length}.`}
+                error={anchorState.fieldErrors?.anchorDay?.[0]}
+              />
             </div>
-            <div className="sm:min-w-max">
-              <span aria-hidden="true" className={actionSpacerClass} />
-              <button type="submit" disabled={anchorPending} className="mt-1.5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60 sm:w-auto">
+            <FormActionSlot>
+              <button type="submit" disabled={anchorPending} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60">
                 {anchorPending ? <Spinner className="size-4 text-white" /> : <CalendarDays className="size-4" aria-hidden="true" />}
                 {anchorPending ? "Saving…" : initialAnchorDate ? "Update anchor" : "Save anchor"}
               </button>
-            </div>
+            </FormActionSlot>
           </form>
 
           {initialAnchorDate && initialAnchorDay ? (

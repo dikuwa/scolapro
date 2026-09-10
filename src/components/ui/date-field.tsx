@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { FormFieldFeedback, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { cn } from "@/lib/utils";
 
 function parseIso(value: string) {
@@ -141,7 +142,7 @@ export function DateField({ label, name, value, onChange, required = false, erro
 
   return (
     <div ref={rootRef} className={cn("min-w-0", className)}>
-      <label className="text-xs font-medium leading-4" htmlFor={`${name}-typed`}>{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label>
+      <label className={formFieldLabelClass} htmlFor={`${name}-typed`}>{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label>
       <input type="hidden" name={name} value={value} />
       <div className="relative mt-1.5">
         <div className={cn("scolapro-control-surface flex min-h-10 w-full items-center overflow-hidden rounded-[var(--radius-sm)]", visibleError ? "border-[color:var(--danger)]/45 focus-within:border-[color:var(--danger)]/55 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--danger)_10%,transparent),var(--shadow-sm)]" : "hover:border-border")}>
@@ -150,8 +151,11 @@ export function DateField({ label, name, value, onChange, required = false, erro
         </div>
         {open ? <CalendarPanel value={value} min={min} max={max} onSelect={(next) => { onChange(next); setDraft(null); setLocalError(null); }} onClose={() => setOpen(false)} /> : null}
       </div>
-      <p className="mt-1 text-[0.65rem] text-muted-foreground">Type DD/MM/YYYY or use the calendar button.</p>
-      {visibleError ? <p id={errorId} className="mt-1 text-xs text-[color:var(--danger)]">{visibleError}</p> : null}
+      <FormFieldFeedback
+        helper="Type DD/MM/YYYY or use the calendar button."
+        error={visibleError}
+        errorId={errorId}
+      />
     </div>
   );
 }
