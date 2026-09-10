@@ -77,6 +77,7 @@ select is((select count(*)::int from public.resolve_absence_review_scope('222222
 select set_config('request.jwt.claim.sub','ab500000-0000-4000-8000-000000000003',true);
 select ok(exists(select 1 from public.resolve_absence_review_scope('22222222-2222-4222-8222-222222222222','2026-09-01','2026-09-30') where scope_kind='subject_slot' and scope_id='ab580000-0000-4000-8000-000000000001'),'subject teacher sees allocated subject-period slot');
 select ok(not exists(select 1 from public.resolve_absence_review_scope('22222222-2222-4222-8222-222222222222','2026-09-01','2026-09-30') where scope_kind='subject_slot' and scope_id='ab580000-0000-4000-8000-000000000003'),'subject teacher cannot see another teacher subject-period slot');
+select is((select count(*)::int from public.resolve_absence_review_scope('22222222-2222-4222-8222-222222222222','2026-09-01','2026-09-30') where scope_kind='subject_slot'),1,'subject teacher receives only the explicitly allocated subject-period scope');
 select is((select count(*)::int from public.resolve_absence_review_scope('22222222-2222-4222-8222-222222222222','2026-09-01','2026-09-30') where scope_kind='daily_class'),0,'teaching a subject in a class does not grant its daily absence list');
 
 -- HOD: no inferred school/department authority; only explicit own teaching allocation.
