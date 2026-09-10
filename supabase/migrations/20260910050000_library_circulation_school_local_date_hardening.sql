@@ -13,7 +13,7 @@ $$;
 
 grant execute on function app_private.can_manage_ltsm(uuid) to authenticated;
 
-create or replace function app_private.user_can_manage_ltsm(target_user_id uuid, target_school_id uuid)
+create or replace function app_private.user_can_manage_ltsm(p_user_id uuid, p_school_id uuid)
 returns boolean
 language sql
 stable
@@ -21,8 +21,8 @@ security definer
 set search_path = pg_catalog, public, app_private
 as $$
   select app_private.user_has_school_role(
-    target_user_id,
-    target_school_id,
+    p_user_id,
+    p_school_id,
     array['school_admin','principal','deputy_principal','librarian','ltsm']
   );
 $$;
