@@ -17,7 +17,6 @@ This ledger is governed with `docs/11-roadmap/CONTROL-ROOM.md`. Current source, 
 ## Current ownership
 
 - Control Room / Integration — roadmap, merge order and shared-file coordination.
-- Deployment worker — reconcile `20260910123000_absence_review_scope_authorization.sql` from PR #402 without disturbing confirmed production parity through PR #394.
 - N06 — SOURCE-GATED.
 - N11 — REQUIREMENTS-GATED.
 - T12 — REQUIREMENTS-GATED.
@@ -51,7 +50,9 @@ T08/T09 learner-photo behavior predates this reconciliation and remains integrat
 
 ## Runtime/security deployment reconciliation
 
-The production reconciliation completed after PR #394 confirmed connected-production migration parity through the runtime/security wave:
+Connected-production migration parity is **COMPLETE / RECONCILED through PR #402** on project `jhgumnvhoxmapmgotchu`.
+
+Previously reconciled runtime/security migrations through PR #394 remain confirmed:
 
 - `20260909153000_subject_attendance_cycle_day_resolution.sql`
 - `20260909170000_retire_legacy_official_result_comparison.sql`
@@ -59,9 +60,7 @@ The production reconciliation completed after PR #394 confirmed connected-produc
 - `20260910032000_enrolment_progression_school_local_authority.sql`
 - `20260910050000_library_circulation_school_local_date_hardening.sql`
 
-These migrations are **no longer DEPLOYMENT-GATED solely for parity through #394**. The completed reconciliation proves migration parity, not live browser/device/real-data acceptance. Do not replay already-applied DDL because historical ledger timestamps/names differ. PRs #401 and #404 added no migration.
-
-PR #402 added `20260910123000_absence_review_scope_authorization.sql`. Its resolver is **DEPLOYMENT-GATED** until the deployment worker confirms connected-production parity. This later deployment gate does not invalidate or reopen the confirmed parity through PR #394.
+PR #402 added `20260910123000_absence_review_scope_authorization.sql`. The migration is present in the live ledger; `public.resolve_absence_review_scope(uuid,date,date)` is present; EXECUTE is granted to `authenticated` and denied to `anon` and `public`. The resolver is therefore no longer DEPLOYMENT-GATED. This proves migration/source parity, not browser/device/real-data acceptance. Do not replay already-applied DDL because historical ledger timestamps/names differ. PRs #401 and #404 added no migration.
 
 | PR | Area | Source state | Production migration state | Live acceptance state |
 |---|---|---|---|---|
@@ -71,7 +70,7 @@ PR #402 added `20260910123000_absence_review_scope_authorization.sql`. Its resol
 | #393 | Admissions/transfers/progression | COMPLETE / SOURCE-VERIFIED | PARITY RECONCILED | LIVE-QA-GATED where browser/device/real-data workflow scenarios remain unexercised |
 | #394 | Library circulation backend | COMPLETE / SOURCE-VERIFIED | PARITY RECONCILED | LIVE-QA-GATED where populated browser/device/real-data circulation scenarios remain unexercised |
 | #401 | Library / Textbooks operational UI | COMPLETE / INTEGRATED | NO MIGRATION | LIVE-QA-GATED where browser/device/populated-real-data scenarios remain unexercised |
-| #402 | Absence Reviews operational workspace | COMPLETE / INTEGRATED; SOURCE-VERIFIED | DEPLOYMENT-GATED — `20260910123000_absence_review_scope_authorization.sql` | LIVE-QA-GATED; no browser/device/live-data acceptance claimed |
+| #402 | Absence Reviews operational workspace | COMPLETE / INTEGRATED; SOURCE-VERIFIED | PARITY RECONCILED | LIVE-QA-GATED; no browser/device/live-data acceptance claimed |
 | #404 | Library live-QA source corrections | COMPLETE / INTEGRATED; SOURCE-VERIFIED | NO MIGRATION | LIVE-QA-GATED — connected production has no learning-resource titles/copies/loans; issue/return/lost/damaged and non-admin LTSM-role browser acceptance remain unverified |
 
 ## 10 September product directive
@@ -80,7 +79,7 @@ Canonical directive: `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md`.
 
 ### Absence Reviews
 
-`/school/absence-reviews` is **COMPLETE / INTEGRATED** in source via PR #402.
+`/school/absence-reviews` is **COMPLETE / INTEGRATED** in source via PR #402, and its resolver migration is **PARITY RECONCILED** in connected production.
 
 - Official daily/register absences are visible with or without a parent notice.
 - Subject-period absences are visible in a separate view.
@@ -148,7 +147,7 @@ PR #400 is merged. Academic Setup form alignment, Conduct filter-row alignment a
 | Area | Classification | Evidence / remaining work |
 |---|---|---|
 | Subject attendance | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | #388 source and production parity complete; live browser/device/real-data acceptance remains where unexercised. |
-| Absence Reviews | COMPLETE / INTEGRATED; SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | #402 merged source; resolver migration pending live parity; browser/device/live-data acceptance not claimed. |
+| Absence Reviews | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | #402 source and production migration parity complete; browser/device/live-data acceptance not claimed. |
 | Conduct/late arrival | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | #392 source and production parity complete; live acceptance remains where unexercised. |
 | Admissions/transfers/progression | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | #393 source and production parity complete; live workflow acceptance remains. |
 | LTSM/library backend | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | #379/#394 backend/domain integrity integrated and #394 migration parity reconciled. |
@@ -171,13 +170,13 @@ PR #400 is merged. Academic Setup form alignment, Conduct filter-row alignment a
 
 ## Remaining source-gap conclusion
 
-No Absence Reviews source implementation gap remains after merged PR #402. Reopen only if new source evidence proves a defect.
+No Absence Reviews source implementation or deployment-parity gap remains after merged PR #402 and the confirmed connected-production reconciliation. Reopen only if new source evidence proves a defect.
 
 Library / Textbooks is also not an implementation gap. PR #401 is merged and PR #404 has corrected the two subsequent live-QA source defects without a migration. Current remaining Library work is live acceptance constrained by connected-production data and available role credentials, not a known source gap.
 
 N06 remains SOURCE-GATED. N11 and T12 remain REQUIREMENTS-GATED.
 
-The immediate operational gate is deployment reconciliation for `20260910123000_absence_review_scope_authorization.sql`, followed separately by explicitly assigned live browser/device/real-data QA.
+Remaining work is explicitly assigned live browser/device/real-data QA and gated roadmap work; migration parity is reconciled through PR #402.
 
 ## Integration checklist
 
