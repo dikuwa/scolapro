@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import { ArrowUpRight } from "lucide-react";
 import { z } from "zod";
 import { AppShell } from "@/components/shell/app-shell";
+import { CompactActionLink } from "@/components/ui/compact-action";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { ConductWorkspace } from "@/features/conduct/conduct-workspace";
 import { getConductWorkspace } from "@/features/conduct/server/queries";
@@ -20,5 +22,25 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
   const page = Math.max(0, Math.min(10000, Math.floor(Number(params.page) || 0)));
   const filters = { domain, learnerId: uuid(params.learner), classId: uuid(params.class), gradeId: uuid(params.grade), on, page };
   const workspace = await getConductWorkspace(membership.schoolId, on, domain, filters.learnerId || null, filters.classId || null, filters.gradeId || null, page);
-  return <AppShell><div className="space-y-5"><header><h1 className="scolapro-page-title">Conduct</h1><p className="mt-1 text-sm text-muted-foreground">Record incidents and celebrate achievements using your school’s policy.</p></header><ConductWorkspace {...workspace} schoolId={membership.schoolId} filters={filters} today={today} canRecord={domain === "conduct" || membership.roleKey !== "counsellor"} canManage={["school_admin", "principal"].includes(membership.roleKey)} /></div></AppShell>;
+  const canManage = ["school_admin", "principal"].includes(membership.roleKey);
+
+  return (
+    <AppShell>
+      <section>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Conduct</h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Record incidents and celebrate achievements using your school’s policy.</p>
+          </div>
+          {canManage ? (
+            <CompactActionLink href="/school/setup#conduct-categories" tone="brand" className="self-start sm:self-auto">
+              Configure conduct policy
+              <ArrowUpRight aria-hidden="true" className="size-3.5" />
+            </CompactActionLink>
+          ) : null}
+        </div>
+        <ConductWorkspace {...workspace} schoolId={membership.schoolId} filters={filters} today={today} canRecord={domain === "conduct" || membership.roleKey !== "counsellor"} canManage={canManage} />
+      </section>
+    </AppShell>
+  );
 }
