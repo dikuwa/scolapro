@@ -1,17 +1,19 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CalendarDays, CalendarRange, LoaderCircle } from "lucide-react";
+import { CalendarDays, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
+import { Spinner } from "@/components/ui/spinner";
 import { saveTimetableCycleAnchor, saveTimetableCycleSettings } from "@/features/timetable/server/cycle-actions";
 import type { TimetableActionState } from "@/features/timetable/server/actions";
 import type { TimetableCycleMode } from "@/features/timetable/day-labels";
 
 const initialState: TimetableActionState = {};
 const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
-const actionSpacerClass = "hidden h-[1.1rem] sm:block";
+const actionSpacerClass = "hidden h-4 sm:block";
+const fieldLabelClass = "block text-xs font-medium leading-4";
 
 export function TimetableCycleSettings({
   schoolId,
@@ -85,7 +87,7 @@ export function TimetableCycleSettings({
           ]}
         />
         <div>
-          <label htmlFor="timetable-cycle-length" className="text-xs font-medium">Cycle length</label>
+          <label htmlFor="timetable-cycle-length" className={fieldLabelClass}>Cycle length</label>
           <input
             id="timetable-cycle-length"
             name="cycleLength"
@@ -102,7 +104,7 @@ export function TimetableCycleSettings({
         <div className="sm:min-w-max">
           <span aria-hidden="true" className={actionSpacerClass} />
           <button type="submit" disabled={pending} className="mt-1.5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60 sm:w-auto">
-            {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarRange className="size-4" aria-hidden="true" />}
+            {pending ? <Spinner className="size-4 text-white" /> : <CalendarRange className="size-4" aria-hidden="true" />}
             {pending ? "Saving…" : "Save workflow"}
           </button>
         </div>
@@ -136,7 +138,7 @@ export function TimetableCycleSettings({
               error={anchorState.fieldErrors?.anchorDate?.[0]}
             />
             <div>
-              <label htmlFor="timetable-cycle-anchor-day" className="text-xs font-medium">Cycle day</label>
+              <label htmlFor="timetable-cycle-anchor-day" className={fieldLabelClass}>Cycle day</label>
               <input
                 id="timetable-cycle-anchor-day"
                 name="anchorDay"
@@ -153,7 +155,7 @@ export function TimetableCycleSettings({
             <div className="sm:min-w-max">
               <span aria-hidden="true" className={actionSpacerClass} />
               <button type="submit" disabled={anchorPending} className="mt-1.5 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white hover:bg-brand-strong disabled:opacity-60 sm:w-auto">
-                {anchorPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <CalendarDays className="size-4" aria-hidden="true" />}
+                {anchorPending ? <Spinner className="size-4 text-white" /> : <CalendarDays className="size-4" aria-hidden="true" />}
                 {anchorPending ? "Saving…" : initialAnchorDate ? "Update anchor" : "Save anchor"}
               </button>
             </div>
