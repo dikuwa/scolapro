@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, Search } from "lucide-react";
+import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { cn } from "@/lib/utils";
 
 export type PickerOption = { value: string; label: string; helper?: string };
@@ -84,7 +85,7 @@ export function Picker({
 
   return (
     <div ref={rootRef} className={cn("relative min-w-0", className)}>
-      {label ? <label className="block text-xs font-medium leading-4">{label}</label> : null}
+      {label ? <label className={formFieldLabelClass}>{label}</label> : null}
       {name ? <input type="hidden" name={name} value={value} /> : null}
       <button
         type="button"
