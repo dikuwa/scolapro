@@ -1,17 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Camera, Check, LoaderCircle, UserRound, X } from "lucide-react";
 import { DateField } from "@/components/ui/date-field";
-import { registerLearner, type LearnerRegistrationState } from "@/features/learners/server/actions";
+import { registerLearnerRetrySafe, type LearnerRegistrationState } from "@/features/learners/server/register-learner";
 import type { GradeOption } from "@/features/learners/server/registration-options";
 
 const initialState: LearnerRegistrationState = {};
 const fieldClassName = "mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
 
 export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaultAdmissionDate }: { schoolId: string; academicYear: number; grades: GradeOption[]; defaultAdmissionDate: string }) {
-  const [state, action, pending] = useActionState(registerLearner, initialState);
+  const router = useRouter();
+  const [state, action, pending] = useActionState(registerLearnerRetrySafe, initialState);
+  const operationStorageKey = `scolapro:learner-registration:${schoolId}`;
+  const [clientOperationId, setClientOperationId] = useState("");
   const [gradeId, setGradeId] = useState(grades[0]?.id ?? "");
   const selectedGrade = useMemo(() => grades.find((grade) => grade.id === gradeId) ?? grades[0], [gradeId, grades]);
   const [classId, setClassId] = useState(selectedGrade?.classes[0]?.id ?? "");
@@ -20,6 +24,20 @@ export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaul
   const [photoName, setPhotoName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [admissionDate, setAdmissionDate] = useState(defaultAdmissionDate);
+
+  useEffect(() => {
+    const existing = window.sessionStorage.getItem(operationStorageKey);
+    const operationId = existing || crypto.randomUUID();
+    if (!existing) window.sessionStorage.setItem(operationStorageKey, operationId);
+    const timer = window.setTimeout(() => setClientOperationId(operationId), 0);
+    return () => window.clearTimeout(timer);
+  }, [operationStorageKey]);
+
+  useEffect(() => {
+    if (!state.learnerId) return;
+    window.sessionStorage.removeItem(operationStorageKey);
+    router.push(`/learners/${state.learnerId}`);
+  }, [operationStorageKey, router, state.learnerId]);
 
   useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
 
@@ -38,7 +56,7 @@ export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaul
 
   return (
     <form action={action} className="space-y-6" noValidate>
-      <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} /><input type="hidden" name="gradeId" value={gradeId} /><input type="hidden" name="registerClassId" value={classId} /><input type="hidden" name="sex" value={sex} />
+      <input type="hidden" name="clientOperationId" value={clientOperationId} /><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} /><input type="hidden" name="gradeId" value={gradeId} /><input type="hidden" name="registerClassId" value={classId} /><input type="hidden" name="sex" value={sex} />
 
       <section>
         <div className="mb-4"><h2 className="scolapro-section-title">Learner identity</h2><p className="scolapro-section-description">Capture the learner once. Yearly placement and guardians remain separate linked records.</p></div>
@@ -73,7 +91,7 @@ export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaul
       </section>
 
       {state.message ? <div role="alert" className="rounded-[var(--radius-sm)] bg-danger-soft px-3.5 py-3 text-sm text-[color:var(--danger)]">{state.message}</div> : null}
-      <div className="flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-end"><Link href="/learners" className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-sm)] px-4 text-sm font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground">Cancel</Link><button type="submit" disabled={pending || !gradeId || !classId || !admissionDate} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">{pending ? <LoaderCircle className="size-4 animate-spin" /> : null}{pending ? "Registering…" : "Register learner"}{!pending ? <ArrowRight className="scolapro-cta-icon size-4" /> : null}</button></div>
+      <div className="flex flex-col-reverse gap-2 border-t border-border-subtle pt-4 sm:flex-row sm:items-center sm:justify-end"><Link href="/learners" className="inline-flex min-h-10 items-center justify-center rounded-[var(--radius-sm)] px-4 text-sm font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground">Cancel</Link><button type="submit" disabled={pending || !clientOperationId || !gradeId || !classId || !admissionDate} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">{pending ? <LoaderCircle className="size-4 animate-spin" /> : null}{pending ? "Registering…" : "Register learner"}{!pending ? <ArrowRight className="scolapro-cta-icon size-4" /> : null}</button></div>
     </form>
   );
 }

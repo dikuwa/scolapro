@@ -1,3 +1,4 @@
+import { getNamibiaDateKey } from "@/lib/namibia-date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type LearnerListItem = {
@@ -134,17 +135,26 @@ export async function listLearnerDirectoryPage(
 
 export async function getLearnerOverview(learnerId: string, schoolId: string): Promise<LearnerOverview | null> {
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+  const { data: enrolments, error } = await supabase
     .from("enrolments")
-    .select("admission_number, status, academic_year, enrolled_from, learners!inner(id, first_names, surname, preferred_name, date_of_birth, photo_path, sex), grades(display_name), register_classes(display_name), schools!inner(name)")
+    .select("id, admission_number, status, academic_year, enrolled_from, enrolled_to, learners!inner(id, first_names, surname, preferred_name, date_of_birth, photo_path, sex), grades(display_name), register_classes(display_name), schools!inner(name)")
     .eq("learner_id", learnerId)
     .eq("school_id", schoolId)
+    .order("enrolled_from", { ascending: false })
     .order("academic_year", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("id", { ascending: false });
 
   if (error) throw new Error("Unable to load this learner.");
-  if (!data) return null;
+  if (!enrolments?.length) return null;
+
+  const today = getNamibiaDateKey();
+  const effectiveCurrent = enrolments.find((row) =>
+    row.status === "current"
+    && row.enrolled_from <= today
+    && (!row.enrolled_to || row.enrolled_to >= today),
+  );
+  const latestStarted = enrolments.find((row) => row.enrolled_from <= today);
+  const data = effectiveCurrent ?? latestStarted ?? enrolments[0];
 
   const learner = Array.isArray(data.learners) ? data.learners[0] : data.learners;
   const grade = Array.isArray(data.grades) ? data.grades[0] : data.grades;
