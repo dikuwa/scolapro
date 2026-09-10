@@ -4,7 +4,9 @@
 
 Last updated: **10 September 2026**
 
-Current reconciled `main`: `0bf7ca5169153e611d3c28eabf7c89e61116ffa6` (through merged PR #394).
+Current reconciled source baseline: `01dec838a0dfc3cb93dd5a4b3a3720203e8cded0` (through merged PR #401).
+
+Canonical 10 September product directive: `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md`.
 
 ## Status meanings
 
@@ -14,76 +16,76 @@ Current reconciled `main`: `0bf7ca5169153e611d3c28eabf7c89e61116ffa6` (through m
 - **SOURCE-GATED** — implementation waits for verified authoritative source material.
 - **REQUIREMENTS-GATED** — implementation waits for authoritative functional requirements.
 - **LIVE-QA-GATED** — source/deployment exist; provider/browser/device/real-data acceptance remains.
-- **ACTUAL IMPLEMENTATION GAP** — required documented behavior is absent from source and not blocked by another gate.
+- **ACTUAL IMPLEMENTATION GAP** — required documented behavior is absent from merged source and not blocked by another gate.
 
 ## Current implementation mode
 
-The major backend/domain foundation pass remains integrated. Current source includes N02–N05, N07–N10, N12–N25 bounded foundations plus post-roadmap security/integrity hardening for guardian claims, LTSM/library, finance/contributions and platform onboarding.
+The major backend/domain foundation remains integrated, including N02–N05, N07–N10 and N12–N25 bounded foundations plus later guardian, LTSM/library, finance and platform-onboarding integrity hardening.
 
-UI/runtime reconciliation has advanced through merged PR #382, T06 via merged PR #385, and T07 via merged PR #384. T08/T09 learner-photo preview/pending and upload/link diagnostic behavior was already integrated before those PRs and is source-evidenced in the ancestry of current `main`, including commit `5e006ed7a8488ac3510c2eacefc8ab720e0ccc12`.
+The post-runtime/security wave through PR #394 is source-complete/source-verified, and the subsequent connected-production reconciliation confirmed migration parity through #394. The five runtime/security migrations are therefore no longer deployment-gated solely for parity. That reconciliation does **not** constitute browser/device/real-data acceptance.
 
-N22/N23 document QA advanced through merged PR #386, which corrected shared browser-print pagination and continuation table headers. That PR source/visually exercised a representative 70-row paged-media class-list fixture, but did not exercise live Chromium print, dark-theme print, app-generated PDF bytes, browser print page-number/header parity or optional backdrop rendering.
+PR #400 is merged at `870a4ef8d4830ebe8ffdf923102f48ae2a90cca2`. Its Academic Setup alignment, Conduct filter alignment and transparent ScolaPro brand-colour route loader are **COMPLETE / INTEGRATED** in source. Live browser/device visual acceptance remains LIVE-QA-GATED where not re-tested.
 
-The post-runtime/security wave is now source-merged through PR #394:
+PR #401 is merged at `01dec838a0dfc3cb93dd5a4b3a3720203e8cded0`. `/library` is now the canonical **COMPLETE / INTEGRATED** Library / Textbooks operational UI over the existing canonical LTSM backend/domain. No duplicate `/ltsm` or `/textbooks` route is required. PR #401 added no migration. Existing #379/#394 lifecycle and school-local authorization remain authoritative. Live browser/device/populated-real-data acceptance remains LIVE-QA-GATED where not exercised.
 
-- PR #388 — subject-attendance timetable-day/date/schema/error correction; merged as `de4ee010aea34276e9e4df478e9debb5cf3dc2cc`.
-- PR #391 — obsolete six-argument official-result comparison RPC retirement; merged as `cf8739ed0a5d1e6d6824f9dbeee3bc3478ddbc0e`.
-- PR #392 — conduct/late-arrival effective-enrolment hardening; merged as `4e3c6306fc5ba4551ca7fd5fbaf1da884de88a10`.
-- PR #393 — admissions/transfers/progression school-local learner-operational authority hardening; merged as `718be9ac86d3dbf385f205840ef62366e98eab3a`.
-- PR #394 — library circulation school-local authority and Namibia-date hardening; merged as `0bf7ca5169153e611d3c28eabf7c89e61116ffa6`.
+One approved ungated source gap remains:
 
-All five corrections passed exact-head Application CI and Database CI before merge. **Their production migration status has not yet been reconciled after merge.** CI/source merge must not be treated as production deployment evidence. Live browser/device/real-data acceptance remains unverified where not explicitly exercised.
+1. **Absence Reviews operational expansion**, active in PR #402 and defined by the 10 September directive.
 
-**No confirmed ungated roadmap ACTUAL IMPLEMENTATION GAP remains on current `main` through PR #394.** Remaining work is LIVE-QA-GATED, DEPLOYMENT-GATED, SOURCE-GATED, REQUIREMENTS-GATED, or explicit bounded extension/QA work.
+## Attendance / Absence Reviews decision
+
+`/school/absence-reviews` is the canonical school absenteeism operational workspace. PR #402 owns the active source implementation.
+
+Required source behavior:
+
+- official daily/register absences are viewable even when no guardian absence notice exists;
+- subject-period absences are also viewable;
+- daily/register and subject-period absences use separate counts/views;
+- official daily/register attendance and subject-period attendance remain separate authoritative datasets;
+- subject-period absence never inflates official daily/statutory absence;
+- guardian absence notices primarily contextualize official daily/register absences;
+- accepting/reviewing a guardian notice must not silently rewrite attendance;
+- subject-period records remain lesson-level evidence;
+- late-arrival/detention remains a third separate operational domain.
+
+Authorization constraints:
+
+- existing school leadership/review roles may manage guardian notice reviews according to current authority;
+- teachers/class teachers receive only appropriate absenteeism awareness within their existing learner/class authority;
+- subject teachers receive subject-period visibility only within existing subject/timetable authorization;
+- the Absence Reviews workspace must not infer school-wide learner access, attendance-correction authority or guardian-review authority for roles that do not already have it.
+
+Classification: **ACTUAL IMPLEMENTATION GAP — ACTIVE PR #402** until this workspace is implemented and merged.
 
 ## T/C roadmap status
 
 | ID | Classification | Evidence / remaining constraint |
 |---|---|---|
 | T01 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Weekday/rotating-cycle foundation exists; runtime/device acceptance may remain. |
-| T02 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Dynamic day/grid/maintenance-label behavior exists; UI acceptance remains. |
+| T02 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Dynamic timetable day/grid behavior exists; UI acceptance may remain. |
 | T03 | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Calendar resolution/anchors integrated. |
-| T04 | COMPLETE / INTEGRATED | Numbered setup steps and “Anytime” teaching periods via PR #354. |
-| T05 | COMPLETE / INTEGRATED | Configured subjects collapsed by default via PR #354. |
-| T06 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | PR #385 integrates the continuous expanded guardian-background visual correction. Source responsive/accessibility review exists; live browser/device visual acceptance was not claimed. |
-| T07 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | PR #384 integrates avatar JPG/JPEG/PNG/WebP handling and actionable diagnostics within the existing storage/authorization contract; live provider/browser upload acceptance may remain. |
-| T08 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | Existing current-main ancestry source-evidences immediate learner-photo preview plus pending overlay/disabled photo actions; browser/device acceptance remains where not exercised. |
-| T09 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | Existing current-main ancestry source-evidences actionable learner-photo upload/link diagnostics and failure handling; provider/real-data/browser failure scenarios remain where not exercised. |
-| T10 | LIVE-QA-GATED | CRC source migrations are present in the connected ledger; route/browser acceptance remains. |
-| T11 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Official identity write boundaries exist; scenario acceptance may remain. |
-| T12 | REQUIREMENTS-GATED | Optional administrator correction auto-approval is a deferred product decision until explicitly adopted. |
-| C01–C12 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | Conduct source/workflow is integrated; PR #392 adds late-arrival enrolment-period hardening. Its production migration parity is not yet reconciled and browser/device/real-data acceptance remains separate. |
+| T04 | COMPLETE / INTEGRATED | Numbered setup steps and “Anytime” teaching periods integrated. |
+| T05 | COMPLETE / INTEGRATED | Configured subjects collapsed by default. |
+| T06–T09 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | Source-integrated/evidenced; browser/provider/device acceptance remains where not exercised. |
+| T10 | LIVE-QA-GATED | CRC source/deployment exists; route/browser acceptance remains. |
+| T11 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Official identity write boundaries integrated. |
+| T12 | REQUIREMENTS-GATED | Optional administrator correction auto-approval remains a deferred product decision. |
+| C01–C12 | COMPLETE / INTEGRATED; SOURCE-VERIFIED; LIVE-QA-GATED | Conduct workflow integrated; PR #392 production migration parity is reconciled. Remaining browser/device/real-data acceptance stays separate. |
 
 ## N-roadmap status
 
 | ID | Classification | Evidence / remaining constraint |
 |---|---|---|
 | N01 | COMPLETE / STANDING ARCHITECTURE | Capture once; derive everywhere. |
-| N02 | COMPLETE / INTEGRATED | Education authority/region/circuit/cluster hierarchy. |
-| N03 | COMPLETE / INTEGRATED | Versioned/effective-dated external school identifiers. |
-| N04 | COMPLETE / SOURCE-VERIFIED | Network membership/scope integrated; historical authorization hardened by PR #376. |
-| N05 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Statutory lifecycle/readiness/snapshot/certification/network review. |
-| N06 | SOURCE-GATED | Verified current Fifteenth School Day/AEC/Ministry form mappings/rules are still absent. |
-| N07 | COMPLETE / INTEGRATED | Operational statutory snapshots reuse canonical facts. |
-| N08 | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | DNEA readiness/review/hardening integrated. |
-| N09 | COMPLETE / INTEGRATED | Examination-centre model independent from school. |
-| N10 | COMPLETE / INTEGRATED | Restricted examination-access arrangements. |
+| N02–N05 | COMPLETE / INTEGRATED | Network hierarchy/identifiers/roles/statutory lifecycle foundations integrated. |
+| N06 | SOURCE-GATED | Verified current Fifteenth School Day/AEC/Ministry field mappings, codes, rules and official layouts remain absent. |
+| N07–N10 | COMPLETE / INTEGRATED | Statutory snapshots, DNEA readiness, examination centres and restricted examination-access foundations integrated. |
 | N11 | REQUIREMENTS-GATED | Authoritative subject/coursework/moderation requirements remain absent. |
-| N12 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Frozen exam registration/results ingest integrated; external production contract not claimed. |
-| N13 | COMPLETE / INTEGRATED | Staffing establishment/vacancy. |
-| N14 | COMPLETE / INTEGRATED | Staffing reconciliation/aggregates. |
-| N15 | COMPLETE / INTEGRATED | Lean hostel/feeding foundation. |
-| N16 | COMPLETE / SOURCE-VERIFIED | Inclusion/SEN aggregate reporting with non-leakage. |
-| N17 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Calendar teaching-impact semantics. |
-| N18 | COMPLETE / INTEGRATED; LIVE-QA-GATED | Effective-dated seasonal/day-specific bell schedules. |
-| N19 | COMPLETE / SOURCE-VERIFIED | Bell fixtures/tests. |
-| N20 | COMPLETE / INTEGRATED | Versioned control templates/cycles/evidence/audit. |
-| N21 | COMPLETE / SOURCE-VERIFIED; DEPLOYMENT-GATED | Official-result symbol distribution/comparison source remains canonical; PR #391 retires the obsolete six-argument comparison RPC in source. Production parity for that migration is not yet reconciled. |
-| N22 | COMPLETE FOUNDATION; SOURCE-VERIFIED; LIVE-QA-GATED | PR #386 corrects shared browser-print pagination and continuation table headers. Representative 70-row A4 class-list pagination was exercised; live Chromium/dark-theme print, app-generated PDF bytes and browser page-number/header parity were not. |
-| N23 | COMPLETE ASSET BASELINE; SOURCE-VERIFIED; LIVE-QA-GATED | Official committed assets remain authoritative. PR #386 confirmed Namib High crest/full-logo assets but no committed/configured large A4 backdrop; optional backdrop rendering remains unverified and no artwork is to be fabricated. |
-| N24 | COMPLETE / SOURCE-VERIFIED | Canonical metric registry/network-safe aggregate foundation and bounded expansion. |
-| N25 | COMPLETE BOUNDED FOUNDATION / SOURCE-VERIFIED | Circuit/regional aggregate read model integrated; further expansion requires explicit purpose/disclosure requirements. |
-| N26 | COMPLETE / CLOSED | Previously missing directive content reconciled. |
+| N12–N20 | COMPLETE / INTEGRATED | Frozen exam registration/results, staffing, hostel/feeding, inclusion, calendar/bell and control-form foundations integrated. |
+| N21 | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Official-result comparison source and PR #391 cleanup integrated; production migration parity reconciled. Unexercised external/live acceptance remains separate. |
+| N22/N23 | COMPLETE FOUNDATION / ASSET BASELINE; SOURCE-VERIFIED; LIVE-QA-GATED | Shared document identity/assets and PR #386 pagination correction integrated; bounded live print/PDF/device QA remains. |
+| N24/N25 | COMPLETE / SOURCE-VERIFIED | Canonical metric registry and bounded network operational analytics integrated. |
+| N26 | COMPLETE / CLOSED | Requirement reconciliation complete. |
 
 ## Foundation / tenancy / onboarding
 
@@ -92,70 +94,72 @@ All five corrections passed exact-head Application CI and Database CI before mer
 | PostgreSQL/Supabase baseline | COMPLETE / INTEGRATED | Source-controlled migrations/RLS/RPC architecture established. |
 | Tenant isolation | SOURCE-VERIFIED; LIVE-QA-GATED | RLS/integrity boundaries exist; scenario-specific live acceptance may remain. |
 | Platform tenant/school onboarding | SOURCE-VERIFIED | PR #381 preserves platform/school admin boundaries and canonical provisioning semantics. |
-| School invitations | SOURCE-VERIFIED | PR #381 makes consumed same-user replay idempotent and freezes accepted grant identity/role; revoked/expired/cross-identity paths remain denied. |
-| Education network | COMPLETE / SOURCE-VERIFIED | N02–N04 plus PR #376. |
-| Canonical metric registry | COMPLETE / SOURCE-VERIFIED | N24 via PRs #370/#373. |
-| Network operational analytics | COMPLETE BOUNDED FOUNDATION / SOURCE-VERIFIED | N25 via PR #374 plus PR #376. |
+| School invitations | SOURCE-VERIFIED | PR #381 preserves invitation finality/idempotence and grant identity/role integrity. |
+| Education network | COMPLETE / SOURCE-VERIFIED | N02–N04 plus historical authorization hardening. |
+| Canonical metric registry | COMPLETE / SOURCE-VERIFIED | N24 integrated. |
+| Network operational analytics | COMPLETE BOUNDED FOUNDATION / SOURCE-VERIFIED | N25 integrated. |
 | Notifications | SOURCE-VERIFIED | Recipient-specific authorization and relationship integrity. |
-| Communications delivery | SOURCE-VERIFIED; LIVE-QA-GATED | Durable outbox/retry/attempt/receipt and secret-free route metadata; real provider path not yet claimed. |
+| Communications delivery | SOURCE-VERIFIED; LIVE-QA-GATED | Durable delivery architecture exists; real configured-provider acceptance remains. |
 
 ## Learner, staff, timetable and attendance
 
 | Area | Classification | Notes |
 |---|---|---|
 | Learner identity/enrolment | COMPLETE FOUNDATION; LIVE-QA-GATED | Long-lived identity/effective enrolment. |
-| Learner operational profile | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Governed identity correction remains separate from profile editing; T08/T09 learner-photo behavior is integrated/source-evidenced. |
-| Academic structure | COMPLETE FOUNDATION; LIVE-QA-GATED | Grades/classes/subjects and correction-safe semantics; PR #382 UI consistency is merged. |
+| Learner operational profile | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Governed identity correction and learner-photo behavior integrated. |
+| Academic structure | COMPLETE FOUNDATION; LIVE-QA-GATED | Grades/classes/subjects and correction-safe semantics integrated. |
 | Staff identity/placements | COMPLETE FOUNDATION | Tenant-wide identity plus effective school placements. |
-| Staffing establishment | COMPLETE / INTEGRATED | N13/N14. |
-| Timetable | COMPLETE FOUNDATION; LIVE-QA-GATED | Offerings, allocations, rooms, conflicts and cycle/calendar architecture; PR #382 consistency changes are integrated. |
-| Bell/calendar integration | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | N17–N19 + T04/T05; PRs #375/#382 runtime/UI consistency are merged. |
-| Daily/weekly/subject attendance | COMPLETE / SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | Existing daily/weekly semantics remain; PR #388 closes subject-period schema/date/timetable-day/error-handling source defects. Its production migration parity and live browser/device/real-data acceptance remain unverified. |
+| Timetable | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Offerings/allocations/conflicts/cycle/calendar foundation integrated; PR #400 alignment correction is merged. |
+| Bell/calendar integration | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | N17–N19 integrated. |
+| Daily/weekly attendance | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Official register remains authoritative daily/statutory attendance. |
+| Subject-period attendance | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Lesson-level attendance remains separately authoritative inside subject/timetable authorization. PR #388 migration parity is reconciled. |
+| Absence Reviews operational workspace | ACTUAL IMPLEMENTATION GAP — ACTIVE PR #402 | Must expose official daily/register absences with or without notices plus a separately counted/viewed subject-period absence surface without collapsing datasets or widening authorization. |
 
 ## Guardians, parents and communications
 
 | Area | Classification | Notes |
 |---|---|---|
 | Guardian identities/relationships | COMPLETE FOUNDATION | Reusable identities/effective relationships. |
-| Guardian directory presentation | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | PR #385 closes T06 source visual gap; live browser/device visual acceptance remains where not exercised. |
-| Parent account claim | SOURCE-VERIFIED | PR #378 requires a current effective matching guardian email and learner relationship. |
-| Parent portal | COMPLETE FOUNDATION; LIVE-QA-GATED | Published results/reports/finance/direct messages. |
-| Communication recipient resolution | SOURCE-VERIFIED | Parent/app recipients resolve through authoritative guardian-user and current enrolment relationships. |
-| Guardian/import reconciliation | COMPLETE FOUNDATION; LIVE-QA-GATED | Source-preserving staging/reconciliation architecture. |
+| Guardian directory presentation | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Integrated; live browser/device acceptance remains where unexercised. |
+| Parent account claim | SOURCE-VERIFIED | Current effective guardian relationship required. |
+| Parent absence notices | COMPLETE FOUNDATION; LIVE-QA-GATED | Governed explanation/evidence workflow remains; notices contextualize official daily/register absences and do not silently rewrite attendance. |
+| Parent portal | COMPLETE FOUNDATION; LIVE-QA-GATED | Published results/reports/finance/messages foundations integrated. |
 
 ## Learner conduct, support, inclusion and LTSM
 
 | Area | Classification | Notes |
 |---|---|---|
-| Conduct/achievement | COMPLETE / SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | Governed incident/achievement workflow remains integrated; PR #392 closes the late-arrival enrolment-period source defect. Production migration parity and live browser/device/real-data acceptance remain separate. |
+| Conduct/achievement | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | PR #392 source and production parity complete; PR #400 filter-row alignment source-integrated. Live acceptance remains separate where not re-tested. |
+| Late-arrival/detention | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Separate operational domain; must not be merged into official or subject-period absence counts. |
 | Learner support | COMPLETE FOUNDATION; LIVE-QA-GATED | Restricted/highly restricted support data remains separate from aggregates. |
-| Inclusion/SEN aggregates | COMPLETE / SOURCE-VERIFIED | N16 aggregate-only/non-leakage model. |
-| LTSM resource catalog/loans | COMPLETE / SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | PR #379 provides canonical subject/return finality. PR #394 enforces school-local circulation authority, platform-only denial and Namibia-local lifecycle/effective-date semantics. PR #394 production migration parity and populated live circulation/browser/device acceptance remain unverified. |
+| Inclusion/SEN aggregates | COMPLETE / SOURCE-VERIFIED | Aggregate-only/non-leakage model integrated. |
+| LTSM/library backend/domain | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | PR #379 canonical subject/return finality plus PR #394 school-local circulation authority/Namibia dates integrated; production migration parity through #394 reconciled. |
+| Library / Textbooks operational UI | COMPLETE / INTEGRATED; LIVE-QA-GATED | PR #401 merged `/library` over the canonical backend/domain. No duplicate `/ltsm` or `/textbooks` route is required; no migration added. Live browser/device/populated-real-data acceptance remains where unexercised. |
 
 ## Admissions, examinations, finance and progression
 
 | Area | Classification | Notes |
 |---|---|---|
-| Admissions/transfers | COMPLETE / SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | PR #393 closes platform-inclusive learner-operational authority and preserves transfer school boundaries, effective dating and actor provenance. Production migration parity and live workflow acceptance remain unverified. |
-| Promotion/progression | COMPLETE / SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | PR #393 preserves versioned rule provenance, approval/lock distinctions, override/audit semantics, publication idempotency and source-enrolment validation while enforcing school-local authority. Production migration parity and live workflow acceptance remain unverified. |
-| DNEA readiness | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | N08 integrated/hardened. |
-| Examination centres | COMPLETE / SOURCE-VERIFIED | N09 integrated; centre is not assumed to equal school. |
-| Examination access arrangements | COMPLETE / INTEGRATED; LIVE-QA-GATED | N10 restricted individual-data scope. |
-| Exam registration/results ingest | COMPLETE / INTEGRATED; LIVE-QA-GATED | N12 frozen submission + governed canonical result ingest. |
-| Official result comparisons | COMPLETE / SOURCE-VERIFIED; DEPLOYMENT-GATED; LIVE-QA-GATED | N21 remains authoritative; PR #391 source-retires the obsolete six-argument comparison RPC. Production migration parity and any unexercised live application/external-interface scenarios remain separate. |
-| Finance/contributions | SOURCE-VERIFIED | PR #380 hardens enrolment validity, issued-invoice identity and governed terminal transitions; existing payment/allocation/reversal remains authoritative. |
+| Admissions/transfers | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | PR #393 source and production parity complete; live workflow acceptance remains where unexercised. |
+| Promotion/progression | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Versioned provenance/finality/source-enrolment safeguards integrated; production parity reconciled. |
+| DNEA readiness | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | Integrated/hardened. |
+| Examination centres | COMPLETE / SOURCE-VERIFIED | Centre remains independent from school. |
+| Examination access arrangements | COMPLETE / INTEGRATED; LIVE-QA-GATED | Restricted individual-data scope integrated. |
+| Exam registration/results ingest | COMPLETE / INTEGRATED; LIVE-QA-GATED | Frozen registration and governed result ingest integrated. |
+| Official result comparisons | COMPLETE / SOURCE-VERIFIED; LIVE-QA-GATED | PR #391 cleanup source and production parity complete; external/live acceptance remains where unexercised. |
+| Finance/contributions | SOURCE-VERIFIED | Existing payment/allocation/reversal and invoice lifecycle hardening remain authoritative. |
 
 ## Academic assessment and report cards
 
 | Area | Classification | Notes |
 |---|---|---|
 | Assessment schemes/components | COMPLETE FOUNDATION; LIVE-QA-GATED | Versioned scheme architecture. |
-| Working marks/moderation engine | COMPLETE FOUNDATION; LIVE-QA-GATED | Append-only revisions and governed moderation/lock lifecycle. This does not satisfy N11's missing authoritative coursework/moderation requirements. |
+| Working marks/moderation engine | COMPLETE FOUNDATION; LIVE-QA-GATED | Generic mechanics integrated; this does not satisfy N11's missing authoritative coursework/moderation requirements. |
 | Official results | COMPLETE FOUNDATION | Approved immutable provenance. |
 | Report-card snapshots | COMPLETE FOUNDATION; LIVE-QA-GATED | Immutable approved-result/attendance/rule/template provenance. |
 | Certification/publication | COMPLETE FOUNDATION; LIVE-QA-GATED | Exact snapshot versions certified/published. |
-| Durable bulk reports/artifacts | COMPLETE FOUNDATION; LIVE-QA-GATED | Durable generation/certify/publish/PDF/HTML artifact pipeline exists. |
-| N22/N23 document identity/assets | COMPLETE FOUNDATION / ASSET BASELINE; SOURCE-VERIFIED; LIVE-QA-GATED | PR #386 closes the confirmed shared browser-print pagination source defect. Remaining visual/print/browser/PDF/device scenarios are bounded QA, not a missing document foundation. |
+| Durable bulk reports/artifacts | COMPLETE FOUNDATION; LIVE-QA-GATED | Durable generation/certify/publish/PDF/HTML pipeline exists. |
+| N22/N23 document identity/assets | COMPLETE FOUNDATION / ASSET BASELINE; SOURCE-VERIFIED; LIVE-QA-GATED | PR #386 correction integrated; remaining visual/print/browser/PDF/device scenarios are bounded QA. |
 
 ## Statutory / EMIS / structural operations
 
@@ -172,7 +176,7 @@ All five corrections passed exact-head Application CI and Database CI before mer
 
 ## Deployment and live-QA state
 
-The last confirmed connected `scolapro` Supabase reconciliation predates the post-runtime/security wave. Source migrations merged in PRs #388/#391/#392/#393/#394 have **not yet been reconciled against production after merge**:
+Connected-production migration parity has been reconciled through PR #394, including:
 
 - `20260909153000_subject_attendance_cycle_day_resolution.sql`
 - `20260909170000_retire_legacy_official_result_comparison.sql`
@@ -180,42 +184,37 @@ The last confirmed connected `scolapro` Supabase reconciliation predates the pos
 - `20260910032000_enrolment_progression_school_local_authority.sql`
 - `20260910050000_library_circulation_school_local_date_hardening.sql`
 
-These items are **DEPLOYMENT-GATED pending explicit migration-ledger/runtime reconciliation**. Their successful Database CI proves source migrations apply cleanly in CI; it does not prove production application.
+Do not continue to mark those five migrations DEPLOYMENT-GATED solely from stale pre-reconciliation text. Do not replay applied DDL because ledger timestamps/names differ. PR #401 added no migration.
 
-This does not make every workflow live-verified. Remaining LIVE-QA-GATED areas include:
-
-- real communications provider onboarding/send/webhook receipt;
-- browser/device/real-data acceptance for parent/guardian, timetable/calendar, attendance, conduct/late-arrival, admissions/transfers/progression, library circulation, statutory/DNEA and learner-photo/avatar workflows where not already exercised;
-- external Ministry/DNEA production-interface acceptance where no production contract has been tested;
-- N22/N23 live Chromium/browser print, dark-theme print, actual app-generated report-card/class-list PDF bytes, browser print page numbering/repeated-header parity, and optional backdrop rendering when an authoritative configured asset exists;
-- CRC route/browser verification where not already exercised.
+Migration parity does not make every workflow live-verified. Remaining LIVE-QA-GATED areas include browser/device/real-data/provider scenarios not explicitly exercised, including PR #400 visual acceptance, PR #401 Library / Textbooks browser/device/populated-real-data acceptance, Absence Reviews after PR #402 source integration, communications provider acceptance, statutory/DNEA external interfaces, learner photo/avatar provider cases and bounded N22/N23 print/PDF/device cases.
 
 ## N06 decision
 
-**KEEP SOURCE-GATED.** Later source work supplies canonical operational facts, fixed-date snapshots and a generic mapping compiler but not verified current Ministry form field definitions, codes, validation rules or official export layout. That external source gate remains unsatisfied.
+**KEEP SOURCE-GATED.** Current source still lacks verified Ministry form field definitions, codes, mappings, validation rules and official export layouts.
 
 ## N11 decision
 
-**KEEP REQUIREMENTS-GATED.** The repository has generic assessment and moderation mechanics, but no authoritative subject/coursework requirement matrix, evidence obligations, moderation stages/thresholds or official output contract from which N11 can be implemented without inference.
+**KEEP REQUIREMENTS-GATED.** Generic assessment/moderation mechanics do not provide the authoritative subject/coursework requirement matrix, evidence obligations, moderation stages/thresholds or official output contract.
 
 ## T12 decision
 
-**KEEP REQUIREMENTS-GATED.** Optional administrator correction auto-approval remains a deferred product decision. No implementation should be inferred from adjacent correction or approval workflows until explicitly adopted.
+**KEEP REQUIREMENTS-GATED.** Optional administrator correction auto-approval remains a deferred product decision.
 
 ## Remaining-source conclusion
 
-**Confirmed current-main ACTUAL IMPLEMENTATION GAPS: NONE.**
+**Confirmed current ACTUAL IMPLEMENTATION GAP:**
 
-The #388/#391/#392/#393/#394 runtime/security wave is source-complete and source-verified. Its remaining production migration reconciliation and unexercised live browser/device/real-data scenarios are correctly classified as DEPLOYMENT-GATED or LIVE-QA-GATED, not reopened implementation work.
+1. **Absence Reviews operational expansion — active PR #402**: official daily/register absences with or without guardian notices plus separately counted/viewed subject-period absenteeism, preserving separate authoritative datasets, lesson-level evidence, guardian-notice non-rewrite semantics, late-arrival/detention separation and existing authorization boundaries.
 
-T06 is integrated via PR #385. T07 is integrated via PR #384. T08/T09 were already integrated and are source-evidenced in current-main ancestry. PR #382 is merged. N22/N23 have an integrated bounded pagination correction via PR #386 with remaining unexercised scenarios correctly classified LIVE-QA-GATED.
-
-Do not create replacement T06–T09, N22/N23, subject-attendance, conduct, admissions/transfers/progression, examination-comparison or library-circulation implementation solely because production deployment or live acceptance remains outstanding.
+Library / Textbooks is no longer an implementation gap. PR #401 is merged and `/library` is COMPLETE / INTEGRATED over the canonical #379/#394 backend/domain. PR #400 is also source-integrated and not an implementation gap. Their remaining unexercised browser/device/real-data acceptance is LIVE-QA-GATED.
 
 ## Active parallel work
 
-The current source wave through PR #394 is merged. Remaining lanes must be explicitly assigned from deployment reconciliation, live QA, source-gated N06, requirements-gated N11/T12, or other bounded work documented by current repository evidence rather than inferred from stale implementation-gap text.
+- PR #399 — docs-only canonical reconciliation of the 10 September directive and current governance state.
+- PR #402 — active Absence Reviews implementation.
+- N06 remains SOURCE-GATED.
+- N11 and T12 remain REQUIREMENTS-GATED.
 
 ## Takeover rule
 
-Before starting implementation, inspect current `main` and these governance documents. Do not recreate integrated N02–N05, N07–N10, N12–N25 foundations or T06–T09 source behavior; do not duplicate authoritative learner/staff/support/exam/statutory facts; do not infer N06 mappings, N11 coursework requirements or T12 auto-approval behavior; and do not confuse live/deployment verification with missing source implementation.
+Before starting implementation, inspect current `main`, this status file, `CONTROL-ROOM.md`, the coordinated ledger and the 10 September directive when relevant. Do not recreate integrated backend/domain or `/library` operational UI work, do not collapse daily/register and subject-period attendance, do not let guardian notices rewrite attendance, do not infer school-wide learner access from the Absence Reviews workspace, do not duplicate the canonical LTSM/library model or route, and do not confuse production parity or CI success with live browser/device/real-data acceptance.
