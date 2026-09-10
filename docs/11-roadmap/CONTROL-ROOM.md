@@ -12,7 +12,7 @@ Before changing code, read:
 4. `docs/11-roadmap/IMPLEMENTATION-STATUS.md`
 5. relevant domain/architecture/design documents referenced by `AGENTS.md`
 
-Current reconciled `main`: `05f55fefffce2648634dcc85824aeb02164c01a8` (9 September 2026), including PR #386.
+Current reconciled `main`: `0bf7ca5169153e611d3c28eabf7c89e61116ffa6` (10 September 2026), including merged PR #394.
 
 ## 2. Product principle
 
@@ -44,6 +44,13 @@ The following foundations are integrated in current `main` and must not be reope
 - T06 — PR #385 integrates the continuous expanded guardian-background visual correction; browser/device visual acceptance remains LIVE-QA-GATED.
 - T07 — PR #384 integrates avatar JPG/JPEG/PNG/WebP upload handling and actionable diagnostics while preserving the existing storage/authorization boundary; live provider/browser acceptance remains LIVE-QA-GATED.
 - T08/T09 — learner-photo immediate preview/pending overlay and upload/link diagnostics were already integrated before this reconciliation. Commit `5e006ed7a8488ac3510c2eacefc8ab720e0ccc12` is an ancestor of current `main` and source-evidences the preview/pending behavior and actionable upload diagnostics; related learner-photo storage/link failure handling is also integrated. Do not create duplicate T08/T09 work merely because live browser/provider scenarios remain unexercised.
+- Academic subject-attendance runtime — PR #388 is source-merged at merge commit `de4ee010aea34276e9e4df478e9debb5cf3dc2cc`; it corrects timetable-day resolution, Namibia-date handling, current schema assumptions and surfaced loader errors while retaining attendance actor/effective-placement protections.
+- Examination comparison contract — PR #391 is source-merged at merge commit `cf8739ed0a5d1e6d6824f9dbeee3bc3478ddbc0e`; it retires only the obsolete six-argument official-result comparison RPC and preserves the governed seven-argument contract.
+- Conduct/late-arrival effective enrolment — PR #392 is source-merged at merge commit `4e3c6306fc5ba4551ca7fd5fbaf1da884de88a10`; late-arrival recording now requires enrolment effective on the asserted arrival date while preserving existing conduct/detention authority and provenance semantics.
+- Admissions/transfers/progression school-local authority — PR #393 is source-merged at merge commit `718be9ac86d3dbf385f205840ef62366e98eab3a`; platform-only learner-operational authority is denied while school-local workflow authority, transfer boundaries, progression approval/lock distinctions, publication idempotency, source-enrolment validation, effective dating and audit/provenance remain intact.
+- Library circulation school-local authority/date hardening — PR #394 is source-merged at merge commit `0bf7ca5169153e611d3c28eabf7c89e61116ffa6`; current-user circulation authority is school-local, platform-only issue/return is denied, and Namibia-local lifecycle/effective-date semantics are enforced while circulation finality and provenance remain intact.
+
+The five runtime/security-wave corrections above are **source-complete and source-verified by their exact-head CI/database tests**. Their production migration status has **not yet been reconciled after merge**. Do not infer connected-environment deployment from source merge or CI success. Live browser/device/real-data acceptance also remains unverified where those scenarios were not explicitly exercised.
 
 ## 4. Verification classifications
 
@@ -71,17 +78,25 @@ Coursework/moderation evidence still lacks authoritative subject/coursework/mode
 
 Recommendation: **KEEP REQUIREMENTS-GATED**.
 
+### T12 — REQUIREMENTS-GATED
+
+Optional administrator correction auto-approval remains a deferred product decision. Do not infer or implement it until explicitly adopted.
+
+Recommendation: **KEEP REQUIREMENTS-GATED**.
+
 ## 6. Remaining coordinated work
 
-No confirmed ungated roadmap source implementation gap remains after reconciling current `main` through PR #386. Remaining work is gated or bounded verification/extension work:
+No confirmed ungated roadmap source **ACTUAL IMPLEMENTATION GAP** remains after reconciling current `main` through PR #394. Remaining work is gated or bounded verification/extension work:
 
-1. Run targeted live/provider/device/real-data QA for integrated features whose remaining acceptance is environmental, including T06–T09 where relevant.
-2. Continue bounded N22/N23 document QA only under explicit ownership. PR #386 source-exercised a representative 70-row paged-media class-list fixture and source-reviewed the PDF/report-card paths, but did not exercise live Chromium print, dark-theme print, app-generated PDF bytes, browser page-number/header parity, or optional backdrop rendering.
-3. Extend N24/N25 only from authoritative source facts and explicit disclosure semantics.
-4. Implement N06 only after verified Ministry source material becomes available.
-5. Implement N11 only after authoritative coursework/moderation requirements are confirmed.
+1. Reconcile connected-production migration parity for source migrations merged in PRs #388/#391/#392/#393/#394; do not replay DDL merely because deployed ledger timestamps differ.
+2. Run targeted live/browser/device/real-data QA for integrated features whose remaining acceptance is environmental, including subject attendance, conduct/late-arrival, admissions/transfers/progression and library circulation where applicable.
+3. Run targeted live/provider/device/real-data QA for other integrated features including T06–T09 where relevant.
+4. Continue bounded N22/N23 document QA only under explicit ownership. PR #386 source-exercised a representative 70-row paged-media class-list fixture and source-reviewed the PDF/report-card paths, but did not exercise live Chromium print, dark-theme print, app-generated PDF bytes, browser page-number/header parity, or optional backdrop rendering.
+5. Extend N24/N25 only from authoritative source facts and explicit disclosure semantics.
+6. Implement N06 only after verified Ministry source material becomes available.
+7. Implement N11 only after authoritative coursework/moderation requirements are confirmed.
 
-T06–T09 are integrated/source-evidenced and are not current implementation gaps. PR #382 is merged and is not active implementation work.
+T06–T09 are integrated/source-evidenced and are not current implementation gaps. PR #382 is merged and is not active implementation work. N06, N11 and T12 remain gated and must not be invented.
 
 ## 7. Active ownership
 
