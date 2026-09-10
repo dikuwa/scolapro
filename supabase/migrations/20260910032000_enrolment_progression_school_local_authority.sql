@@ -44,32 +44,12 @@ as $$
   );
 $$;
 
-create or replace function app_private.user_can_manage_enrolment_workflow(
-  p_user_id uuid,
-  p_school_id uuid
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path=pg_catalog,public
-as $$
-  select exists(
-    select 1
-    from public.school_memberships sm
-    where sm.school_id=p_school_id
-      and sm.user_id=p_user_id
-      and sm.role_key in ('school_admin','principal','deputy_principal')
-      and sm.active_from<=current_date
-      and (sm.active_to is null or sm.active_to>=current_date)
-  );
-$$;
-
+-- Keep the existing user_can_manage_enrolment_workflow(user, school) helper unchanged.
+-- It is also used by historical/provenance integrity guards outside the live
+-- admissions/transfers/progression authorization entry points.
 revoke all on function app_private.can_manage_enrolment_workflow(uuid)
 from public,anon,authenticated;
 grant execute on function app_private.can_manage_enrolment_workflow(uuid) to authenticated;
-revoke all on function app_private.user_can_manage_enrolment_workflow(uuid,uuid)
-from public,anon,authenticated;
 
 create or replace function app_private.enforce_admission_school_local_actor()
 returns trigger
