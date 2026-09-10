@@ -18,12 +18,16 @@ returns boolean
 language sql
 stable
 security definer
-set search_path = pg_catalog, public, app_private
+set search_path = pg_catalog, public
 as $$
-  select app_private.user_has_school_role(
-    p_user_id,
-    p_school_id,
-    array['school_admin','principal','deputy_principal','librarian','ltsm']
+  select exists(
+    select 1
+    from public.school_memberships sm
+    where sm.school_id = p_school_id
+      and sm.user_id = p_user_id
+      and sm.role_key in ('school_admin','principal','deputy_principal','librarian','ltsm')
+      and sm.active_from <= (now() at time zone 'Africa/Windhoek')::date
+      and (sm.active_to is null or sm.active_to >= (now() at time zone 'Africa/Windhoek')::date)
   );
 $$;
 
