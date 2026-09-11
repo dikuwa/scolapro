@@ -28,6 +28,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let displayName = `${SCOLAPRO_BRAND.name} User`;
   let schoolName = isSupabaseConfigured() ? "No school selected" : `${SCOLAPRO_BRAND.name} Demonstration School`;
   let roleKey: string | undefined;
+  let roleKeys: string[] = [];
   let extraNavigationKeys: string[] = [];
   let avatarUrl: string | null = null;
   let unreadCount = 0;
@@ -47,6 +48,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         ? `${SCOLAPRO_BRAND.name} Platform`
         : membership?.schoolName ?? (networkMembership ? "Education network" : guardianOnly ? "Family portal" : "No school selected");
       roleKey = platformMembership?.roleKey ?? membership?.roleKey ?? networkMembership?.roleKey ?? (guardianOnly ? "parent" : undefined);
+      roleKeys = platformMembership
+        ? [platformMembership.roleKey]
+        : membership
+          ? [...new Set(context.memberships.map((item) => item.roleKey))]
+          : networkMembership
+            ? [...new Set(context.networkMemberships.map((item) => item.roleKey))]
+            : guardianOnly
+              ? ["parent"]
+              : [];
 
       if (!membership) {
         const networkRoles = new Set(context.networkMemberships.map((item) => item.roleKey));
@@ -120,9 +130,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey} extraNavigationKeys={extraNavigationKeys} attentionCounts={attentionCounts}>
+    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey} roleKeys={roleKeys} extraNavigationKeys={extraNavigationKeys} attentionCounts={attentionCounts}>
       {children}
-      <MobileNavigation roleKey={roleKey} extraKeys={extraNavigationKeys} attentionCounts={attentionCounts} />
+      <MobileNavigation roleKey={roleKey} roleKeys={roleKeys} extraKeys={extraNavigationKeys} attentionCounts={attentionCounts} />
       <DestructiveActionGuard />
     </ShellFrame>
   );
