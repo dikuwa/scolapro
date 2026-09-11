@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(7);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values ('ee700000-0000-4000-8000-000000000001','report-current-school-admin@example.test','authenticated','authenticated',now(),now());
@@ -20,11 +20,27 @@ values ('ee730000-0000-4000-8000-000000000001','11111111-1111-4111-8111-11111111
 
 insert into public.report_card_snapshots(
   id,tenant_id,school_id,learner_id,enrolment_id,academic_year,term_number,
-  template_version,snapshot_version,data_snapshot,status,generated_by_user_id
+  template_version,snapshot_version,data_snapshot,status,generated_by_user_id,
+  certified_by_user_id,certified_at
+) values
+  (
+    'ee740000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','ee710000-0000-4000-8000-000000000001',
+    'ee720000-0000-4000-8000-000000000001','ee730000-0000-4000-8000-000000000001',2026,1,
+    'CURRENT_SCHOOL_QA_V1',9701,'{}'::jsonb,'draft','ee700000-0000-4000-8000-000000000001',null,null
+  ),
+  (
+    'ee740000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','ee710000-0000-4000-8000-000000000001',
+    'ee720000-0000-4000-8000-000000000001','ee730000-0000-4000-8000-000000000001',2026,2,
+    'CURRENT_SCHOOL_QA_V1',9702,'{}'::jsonb,'certified','ee700000-0000-4000-8000-000000000001','ee700000-0000-4000-8000-000000000001',now()
+  );
+
+insert into public.report_card_documents(
+  id,tenant_id,school_id,snapshot_id,template_key,template_version,document_format,
+  storage_bucket,storage_path,status,generated_by_user_id
 ) values (
-  'ee740000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','ee710000-0000-4000-8000-000000000001',
-  'ee720000-0000-4000-8000-000000000001','ee730000-0000-4000-8000-000000000001',2026,1,
-  'CURRENT_SCHOOL_QA_V1',9701,'{}'::jsonb,'draft','ee700000-0000-4000-8000-000000000001'
+  'ee750000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','ee710000-0000-4000-8000-000000000001',
+  'ee740000-0000-4000-8000-000000000002','TERM_REPORT','CURRENT_SCHOOL_QA_V1','pdf',
+  'report-card-artifacts','current-school-qa/school-a.pdf','ready','ee700000-0000-4000-8000-000000000001'
 );
 
 select ok(
@@ -50,6 +66,17 @@ select is(
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','ee700000-0000-4000-8000-000000000001',true);
 set local role authenticated;
+
+select is(
+  (select count(*)::integer from public.report_card_snapshots where school_id='ee710000-0000-4000-8000-000000000001'),
+  0,
+  'multi-school administrator cannot read report snapshots from the non-current school'
+);
+select is(
+  (select count(*)::integer from public.report_card_documents where school_id='ee710000-0000-4000-8000-000000000001'),
+  0,
+  'multi-school administrator cannot read report documents from the non-current school'
+);
 select throws_ok(
   $$select public.certify_report_card_snapshot('ee740000-0000-4000-8000-000000000001')$$,
   'Report-card snapshot certifier is not authorized for school',
