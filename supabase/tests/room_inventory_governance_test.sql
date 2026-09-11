@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(26);
 
 select ok(to_regclass('public.room_inventory_custodians') is not null,'room inventory custodian table exists');
 select ok(to_regclass('public.room_inventory_items') is not null,'room inventory item table exists');
@@ -31,6 +31,9 @@ select ok(not has_table_privilege('authenticated','public.room_inventory_custodi
 select ok(not has_table_privilege('authenticated','public.room_inventory_items','INSERT,UPDATE,DELETE'),'authenticated users cannot directly mutate inventory items');
 select ok(not has_table_privilege('authenticated','public.room_inventory_events','INSERT,UPDATE,DELETE'),'authenticated users cannot directly mutate inventory events');
 select ok(not has_table_privilege('authenticated','public.room_inventory_verifications','INSERT,UPDATE,DELETE'),'authenticated users cannot directly mutate inventory verifications');
+
+select ok(position('staff_school_assignments' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian access checks current staff-school assignment');
+select ok(position('school_memberships' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian access checks current school membership fallback');
 
 select * from finish();
 rollback;
