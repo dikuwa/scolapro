@@ -78,6 +78,23 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           .limit(1);
         if (data?.length) extraNavigationKeys.push("late_arrivals");
       }
+
+      if (membership && !roleKeys.some((role) => ["school_admin", "principal", "deputy_principal"].includes(role))) {
+        const staffMemberIds = [...new Set(context.memberships.map((item) => item.staffMemberId).filter((staffMemberId): staffMemberId is string => Boolean(staffMemberId)))];
+        if (staffMemberIds.length) {
+          const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+          const supabase = await createSupabaseServerClient();
+          const { data } = await supabase
+            .from("room_inventory_custodians")
+            .select("id")
+            .eq("school_id", membership.schoolId)
+            .in("staff_member_id", staffMemberIds)
+            .lte("effective_from", today)
+            .or(`effective_to.is.null,effective_to.gte.${today}`)
+            .limit(1);
+          if (data?.length) extraNavigationKeys.push("room_inventory");
+        }
+      }
       extraNavigationKeys = [...new Set(extraNavigationKeys)];
 
       if (context.avatarPath) {
