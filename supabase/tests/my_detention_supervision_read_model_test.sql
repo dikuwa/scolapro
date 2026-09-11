@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(17);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -8,11 +8,22 @@ values
   ('fcd00000-0000-4000-8000-000000000002','my-detention-supervisor@example.test','authenticated','authenticated',now(),now()),
   ('fcd00000-0000-4000-8000-000000000003','my-detention-peer@example.test','authenticated','authenticated',now(),now());
 
-insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values(
-  '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-  'fcd00000-0000-4000-8000-000000000001','school_admin','2026-01-01'
+  'fcd90000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  'My Detention Other School',
+  'MYDET002',
+  'Erongo',
+  'Walvis Bay'
 );
+
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd00000-0000-4000-8000-000000000001','school_admin','2026-01-01'),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd00000-0000-4000-8000-000000000002','teacher','2026-02-01'),
+  ('11111111-1111-4111-8111-111111111111','fcd90000-0000-4000-8000-000000000001','fcd00000-0000-4000-8000-000000000002','teacher','2026-01-01'),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd00000-0000-4000-8000-000000000003','teacher','2026-01-01');
 
 insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status)
 values
@@ -23,17 +34,20 @@ insert into public.staff_school_assignments(
   id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id
 ) values
   ('fcd20000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd10000-0000-4000-8000-000000000001','teacher','2026-01-01',null,'fcd00000-0000-4000-8000-000000000001'),
-  ('fcd20000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd10000-0000-4000-8000-000000000002','teacher','2026-01-01',null,'fcd00000-0000-4000-8000-000000000001');
+  ('fcd20000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd10000-0000-4000-8000-000000000002','teacher','2026-01-01',null,'fcd00000-0000-4000-8000-000000000001'),
+  ('fcd20000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','fcd90000-0000-4000-8000-000000000001','fcd10000-0000-4000-8000-000000000001','teacher','2026-01-01',null,'fcd00000-0000-4000-8000-000000000001');
 
 insert into public.learners(id,tenant_id,first_names,surname)
 values
   ('fcd30000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Alpha','Learner'),
-  ('fcd30000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','Beta','Learner');
+  ('fcd30000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','Beta','Learner'),
+  ('fcd30000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','Gamma','OtherSchool');
 
 insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,enrolled_from,status)
 values
   ('fcd40000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000001',2026,'2026-01-01','current'),
-  ('fcd40000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000002',2026,'2026-01-01','current');
+  ('fcd40000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000002',2026,'2026-01-01','current'),
+  ('fcd40000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','fcd90000-0000-4000-8000-000000000001','fcd30000-0000-4000-8000-000000000003',2026,'2026-01-01','current');
 
 insert into public.late_detention_obligations(
   id,tenant_id,school_id,learner_id,qualifying_late_count,due_on,status,academic_year,triggered_on,original_due_on,assigned_staff_member_id,rollover_count
@@ -41,7 +55,8 @@ insert into public.late_detention_obligations(
   ('fcd50000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000001',3,'2026-03-06','pending',2026,'2026-03-02','2026-03-06','fcd10000-0000-4000-8000-000000000001',0),
   ('fcd50000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000002',3,'2026-03-13','carried_forward',2026,'2026-03-05','2026-03-06','fcd10000-0000-4000-8000-000000000001',1),
   ('fcd50000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000001',3,'2026-02-20','pending',2026,'2026-02-16','2026-02-20','fcd10000-0000-4000-8000-000000000001',0),
-  ('fcd50000-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000002',3,'2026-03-20','pending',2026,'2026-03-16','2026-03-20','fcd10000-0000-4000-8000-000000000002',0);
+  ('fcd50000-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fcd30000-0000-4000-8000-000000000002',3,'2026-03-20','pending',2026,'2026-03-16','2026-03-20','fcd10000-0000-4000-8000-000000000002',0),
+  ('fcd50000-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','fcd90000-0000-4000-8000-000000000001','fcd30000-0000-4000-8000-000000000003',3,'2026-03-27','pending',2026,'2026-03-23','2026-03-27','fcd10000-0000-4000-8000-000000000001',0);
 
 update public.late_detention_obligations
 set status='completed',
@@ -66,27 +81,37 @@ set local role authenticated;
 select is(
   (select count(*)::integer from public.list_my_detention_supervision()),
   2,
-  'default read returns only unresolved obligations assigned to the signed-in staff member'
+  'default read returns only unresolved obligations assigned to the signed-in staff member in the current school'
 );
 select is(
   (select min(total_count)::integer from public.list_my_detention_supervision()),
   2,
-  'default total count reflects only the caller scoped unresolved set'
+  'default total count reflects only the caller current-school unresolved set'
+);
+select is(
+  (select count(*)::integer from public.list_my_detention_supervision(true,1,25) where school_id='fcd90000-0000-4000-8000-000000000001'),
+  0,
+  'another-school detention assignment is denied even when the same staff identity has placement there'
+);
+select is(
+  (select count(*)::integer from public.list_my_detention_supervision(true,1,25) where obligation_id='fcd50000-0000-4000-8000-000000000005'),
+  0,
+  'self scope cannot leak an obligation from a non-current school'
 );
 select is(
   (select learner_first_names from public.list_my_detention_supervision() order by due_on limit 1),
   'Alpha',
-  'assigned supervisor receives minimal learner identity required for supervision'
+  'assigned supervisor receives minimal learner identity required for current-school supervision'
 );
 select is(
   (select count(*)::integer from public.list_my_detention_supervision() where can_complete),
   2,
-  'due-date-valid active placement marks both unresolved assignments completable'
+  'due-date-valid active placement marks both current-school unresolved assignments completable'
 );
 select is(
   (select count(*)::integer from public.list_my_detention_supervision(true,1,25)),
   3,
-  'resolved history is included only when explicitly requested'
+  'resolved history is included only when explicitly requested and stays current-school scoped'
 );
 select is(
   (select count(*)::integer from public.list_my_detention_supervision(true,1,1)),
@@ -96,7 +121,7 @@ select is(
 select is(
   (select total_count::integer from public.list_my_detention_supervision(true,1,1) limit 1),
   3,
-  'paged rows preserve total caller-scoped result count'
+  'paged rows preserve total current-school caller-scoped result count'
 );
 select is(
   (select count(*)::integer from public.list_my_detention_supervision(true,2,1)),
@@ -133,7 +158,7 @@ set local role authenticated;
 select is(
   (select count(*)::integer from public.list_my_detention_supervision()),
   1,
-  'peer staff sees only their own unresolved assignment'
+  'peer staff sees only their own unresolved current-school assignment'
 );
 select is(
   (select learner_first_names from public.list_my_detention_supervision() limit 1),
