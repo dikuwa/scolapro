@@ -6,6 +6,8 @@ import { getLearnerCumulativeRecord } from "@/features/learners/server/cumulativ
 import { getLearnerOverview } from "@/features/learners/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
+const learnerOperationalRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"]);
+
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
   const parsed = new Date(`${value}T00:00:00`);
@@ -21,7 +23,7 @@ export default async function LearnerCumulativeRecordPage({ params }: { params: 
   const { id } = await params;
   const context = await getUserContext();
   if (!context.user) redirect("/login");
-  const membership = context.memberships[0];
+  const membership = context.memberships.find((candidate) => learnerOperationalRoles.has(candidate.roleKey));
   if (!membership) redirect("/");
 
   const learner = await getLearnerOverview(id, membership.schoolId);
