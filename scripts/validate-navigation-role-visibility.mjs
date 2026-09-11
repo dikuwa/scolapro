@@ -7,6 +7,7 @@ const shellFramePath = path.join(process.cwd(), "src/components/shell/shell-fram
 const contextPath = path.join(process.cwd(), "src/lib/auth/get-user-context.ts");
 const lateArrivalsPagePath = path.join(process.cwd(), "src/app/late-arrivals/page.tsx");
 const libraryPagePath = path.join(process.cwd(), "src/app/library/page.tsx");
+const roomInventoryPagePath = path.join(process.cwd(), "src/app/school/room-inventory/page.tsx");
 const learnersPagePath = path.join(process.cwd(), "src/app/learners/page.tsx");
 const learnerDetailPagePath = path.join(process.cwd(), "src/app/learners/[id]/page.tsx");
 const learnerCrcPagePath = path.join(process.cwd(), "src/app/learners/[id]/cumulative-record/page.tsx");
@@ -17,6 +18,7 @@ const shellFrameSource = fs.readFileSync(shellFramePath, "utf8");
 const contextSource = fs.readFileSync(contextPath, "utf8");
 const lateArrivalsPageSource = fs.readFileSync(lateArrivalsPagePath, "utf8");
 const libraryPageSource = fs.readFileSync(libraryPagePath, "utf8");
+const roomInventoryPageSource = fs.readFileSync(roomInventoryPagePath, "utf8");
 const learnersPageSource = fs.readFileSync(learnersPagePath, "utf8");
 const learnerDetailPageSource = fs.readFileSync(learnerDetailPagePath, "utf8");
 const learnerCrcPageSource = fs.readFileSync(learnerCrcPagePath, "utf8");
@@ -44,6 +46,7 @@ for (const role of ["school_admin", "principal", "deputy_principal", "class_teac
 for (const role of ["school_admin", "principal", "deputy_principal"]) expectVisible(role, "data_corrections");
 for (const role of ["school_admin", "principal", "deputy_principal", "emis_officer"]) expectVisible(role, "statutory");
 for (const role of ["school_admin", "principal", "deputy_principal", "librarian", "ltsm"]) expectVisible(role, "library");
+for (const role of ["school_admin", "principal", "deputy_principal"]) expectVisible(role, "room_inventory");
 for (const role of ["school_admin", "principal", "deputy_principal", "hod"]) expectVisible(role, "staff");
 for (const role of ["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"]) expectVisible(role, "learners");
 expectVisible("exam_officer", "dnea_readiness");
@@ -60,6 +63,9 @@ expectHidden("librarian", "dnea_readiness");
 expectHidden("librarian", "statutory");
 for (const role of ["platform_admin", "platform_support", "circuit_officer", "regional_officer", "emis_officer", "exam_officer", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "learner", "parent", "board_member"]) {
   expectHidden(role, "library");
+}
+for (const role of ["platform_admin", "platform_support", "circuit_officer", "regional_officer", "emis_officer", "exam_officer", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian", "ltsm", "learner", "parent", "board_member"]) {
+  expectHidden(role, "room_inventory");
 }
 for (const role of ["hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian", "learner", "board_member"]) {
   expectHidden(role, "late_arrivals");
@@ -148,6 +154,27 @@ if (!shellSource.includes('extraNavigationKeys.push("late_arrivals")')) {
 }
 if (shellSource.includes('.in("school_id", schoolIds)') || lateArrivalsPageSource.includes('.in("school_id", schoolIds)')) {
   throw new Error("Late-arrival delegation must not use school-only duty lookup that can match another staff member");
+}
+
+if (!roomInventoryPageSource.includes('const managerRoles = new Set(["school_admin", "principal", "deputy_principal"])')) {
+  throw new Error("Room Inventory manager authorization must remain leadership-only");
+}
+for (const target of [shellSource, roomInventoryPageSource]) {
+  if (!target.includes('.from("room_inventory_custodians")')) {
+    throw new Error("Room Inventory custodian capability must resolve from the governed custodian relation");
+  }
+  if (!target.includes('.eq("school_id",') || !target.includes('.in("staff_member_id", staffMemberIds)')) {
+    throw new Error("Room Inventory custodian capability must bind current school and actor staff identities");
+  }
+  if (!target.includes('.lte("effective_from", today)') || !target.includes('.or(`effective_to.is.null,effective_to.gte.${today}`)')) {
+    throw new Error("Room Inventory custodian capability must require an effective current assignment");
+  }
+}
+if (!roomInventoryPageSource.includes("context.currentSchoolMembership?.schoolId") || !roomInventoryPageSource.includes("context.memberships.find((membership) => managerRoles.has(membership.roleKey))")) {
+  throw new Error("Room Inventory route must use the #411 current-school membership boundary and same-school composed manager roles");
+}
+if (!shellSource.includes('extraNavigationKeys.push("room_inventory")')) {
+  throw new Error("Effective current Room Inventory custodians must receive route visibility");
 }
 
 console.log("Navigation role, current-school, and capability visibility validation passed.");
