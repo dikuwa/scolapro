@@ -8,6 +8,8 @@ import { getRegistrationOptions, type GradeOption } from "@/features/learners/se
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
+const learnerDirectoryRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"]);
+
 const demoDirectory: LearnerDirectoryPage = {
   learners: [
     { id: "demo-001", name: "Amara Demo", preferredName: "Amara", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current" },
@@ -46,28 +48,29 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
   let directory = demoDirectory;
   let academicOptions: GradeOption[] = [];
   let schoolName = "ScolaPro Demonstration School";
+  let canRegisterLearner = true;
   const academicYear = new Date().getFullYear();
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
-    const membership = context.memberships[0];
-    if (membership) {
-      schoolName = membership.schoolName;
-      [directory, academicOptions] = await Promise.all([
-        listLearnerDirectoryPage(membership.schoolId, academicYear, {
-          query,
-          status,
-          grade,
-          registerClass,
-          sex,
-          sortOrder,
-          page: requestedPage,
-          pageSize: 50,
-        }),
-        getRegistrationOptions(membership.schoolId, academicYear),
-      ]);
-    } else directory = { learners: [], total: 0, page: 1, pageSize: 50, pageCount: 1 };
+    const membership = context.memberships.find((candidate) => learnerDirectoryRoles.has(candidate.roleKey));
+    if (!membership) redirect("/");
+    schoolName = membership.schoolName;
+    canRegisterLearner = membership.roleKey === "school_admin";
+    [directory, academicOptions] = await Promise.all([
+      listLearnerDirectoryPage(membership.schoolId, academicYear, {
+        query,
+        status,
+        grade,
+        registerClass,
+        sex,
+        sortOrder,
+        page: requestedPage,
+        pageSize: 50,
+      }),
+      getRegistrationOptions(membership.schoolId, academicYear),
+    ]);
   }
 
   return (
@@ -78,9 +81,9 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
             <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Learners</h1>
             <p className="mt-1 text-sm text-muted-foreground">{schoolName} · Current learner identities and enrolments.</p>
           </div>
-          <Link href="/learners/register" className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto">
+          {canRegisterLearner ? <Link href="/learners/register" className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto">
             <Plus aria-hidden="true" className="size-4" /> Register learner
-          </Link>
+          </Link> : null}
         </div>
 
         <LearnerDirectory

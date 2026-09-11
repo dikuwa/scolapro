@@ -28,6 +28,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let displayName = `${SCOLAPRO_BRAND.name} User`;
   let schoolName = isSupabaseConfigured() ? "No school selected" : `${SCOLAPRO_BRAND.name} Demonstration School`;
   let roleKey: string | undefined;
+  let roleKeys: string[] = [];
   let extraNavigationKeys: string[] = [];
   let avatarUrl: string | null = null;
   let unreadCount = 0;
@@ -39,37 +40,43 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     if (context.user) {
       displayName = context.displayName ?? displayName;
       const platformMembership = context.platformMemberships[0];
-      const membership = platformMembership ? undefined : context.memberships[0];
-      const networkMembership = platformMembership ? undefined : context.networkMemberships[0];
+      const membership = platformMembership ? undefined : context.currentSchoolMembership ?? undefined;
+      const networkMembership = platformMembership || membership ? undefined : context.networkMemberships[0];
       const guardianOnly = !membership && !platformMembership && !networkMembership && context.guardianLinks.length > 0;
 
       schoolName = platformMembership
         ? `${SCOLAPRO_BRAND.name} Platform`
         : membership?.schoolName ?? (networkMembership ? "Education network" : guardianOnly ? "Family portal" : "No school selected");
       roleKey = platformMembership?.roleKey ?? membership?.roleKey ?? networkMembership?.roleKey ?? (guardianOnly ? "parent" : undefined);
+      roleKeys = platformMembership
+        ? [platformMembership.roleKey]
+        : membership
+          ? [...new Set(context.memberships.map((item) => item.roleKey))]
+          : networkMembership
+            ? [...new Set(context.networkMemberships.map((item) => item.roleKey))]
+            : guardianOnly
+              ? ["parent"]
+              : [];
 
-      const networkRoles = new Set(context.networkMemberships.map((item) => item.roleKey));
-      if (networkRoles.has("circuit_officer")) extraNavigationKeys.push("dnea_readiness", "statutory");
-      if (networkRoles.has("regional_officer")) extraNavigationKeys.push("statutory");
+      if (!membership) {
+        const networkRoles = new Set(context.networkMemberships.map((item) => item.roleKey));
+        if (networkRoles.has("circuit_officer")) extraNavigationKeys.push("dnea_readiness", "statutory");
+        if (networkRoles.has("regional_officer")) extraNavigationKeys.push("statutory");
+      }
 
-      if (membership && !["school_admin", "principal", "deputy_principal"].includes(membership.roleKey)) {
+      if (membership && !["school_admin", "principal", "deputy_principal"].includes(membership.roleKey) && membership.staffMemberId) {
         const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-        const delegatedCandidates = context.memberships.filter((candidate) => candidate.staffMemberId);
-        if (delegatedCandidates.length) {
-          const supabase = await createSupabaseServerClient();
-          const dutyChecks = await Promise.all(delegatedCandidates.map((candidate) =>
-            supabase
-              .from("school_duty_assignments")
-              .select("id")
-              .eq("school_id", candidate.schoolId)
-              .eq("staff_member_id", candidate.staffMemberId!)
-              .eq("duty_key", "late_arrival_recorder")
-              .lte("active_from", today)
-              .or(`active_to.is.null,active_to.gte.${today}`)
-              .limit(1)
-          ));
-          if (dutyChecks.some(({ data }) => Boolean(data?.length))) extraNavigationKeys.push("late_arrivals");
-        }
+        const supabase = await createSupabaseServerClient();
+        const { data } = await supabase
+          .from("school_duty_assignments")
+          .select("id")
+          .eq("school_id", membership.schoolId)
+          .eq("staff_member_id", membership.staffMemberId)
+          .eq("duty_key", "late_arrival_recorder")
+          .lte("active_from", today)
+          .or(`active_to.is.null,active_to.gte.${today}`)
+          .limit(1);
+        if (data?.length) extraNavigationKeys.push("late_arrivals");
       }
       extraNavigationKeys = [...new Set(extraNavigationKeys)];
 
@@ -123,9 +130,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey} extraNavigationKeys={extraNavigationKeys} attentionCounts={attentionCounts}>
+    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey} roleKeys={roleKeys} extraNavigationKeys={extraNavigationKeys} attentionCounts={attentionCounts}>
       {children}
-      <MobileNavigation roleKey={roleKey} extraKeys={extraNavigationKeys} attentionCounts={attentionCounts} />
+      <MobileNavigation roleKey={roleKey} roleKeys={roleKeys} extraKeys={extraNavigationKeys} attentionCounts={attentionCounts} />
       <DestructiveActionGuard />
     </ShellFrame>
   );

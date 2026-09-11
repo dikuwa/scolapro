@@ -15,6 +15,7 @@ const demoLearners: Record<string, LearnerOverview> = {
   "demo-002": { id: "demo-002", name: "Tomas Sample", preferredName: "Tomas", firstNames: "Tomas K.", surname: "Sample", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current", dateOfBirth: "2010-02-03", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
 };
 
+const learnerOperationalRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"]);
 const correctionRequestRoles = new Set(["school_admin","principal","deputy_principal","hod","teacher","class_teacher","counsellor"]);
 
 function formatDate(value: string | null) {
@@ -37,13 +38,14 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
-    const membership = context.memberships[0];
-    learner = membership ? await getLearnerOverview(id, membership.schoolId) : null;
-    canViewConduct = Boolean(membership && correctionRequestRoles.has(membership.roleKey));
-    canRequestCorrection = Boolean(learner && membership && correctionRequestRoles.has(membership.roleKey));
-    canManageLearner = Boolean(learner && membership?.roleKey === "school_admin");
-    managementSchoolId = canManageLearner && membership ? membership.schoolId : null;
-    if (learner && membership) {
+    const membership = context.memberships.find((candidate) => learnerOperationalRoles.has(candidate.roleKey));
+    if (!membership) redirect("/");
+    learner = await getLearnerOverview(id, membership.schoolId);
+    canViewConduct = correctionRequestRoles.has(membership.roleKey);
+    canRequestCorrection = Boolean(learner && correctionRequestRoles.has(membership.roleKey));
+    canManageLearner = Boolean(learner && membership.roleKey === "school_admin");
+    managementSchoolId = canManageLearner ? membership.schoolId : null;
+    if (learner) {
       [guardians, reusableGuardians] = await Promise.all([getLearnerGuardians(id), getReusableGuardians(id, membership.schoolId)]);
     }
   }
