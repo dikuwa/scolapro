@@ -46,6 +46,7 @@ export const getUserContext = cache(async () => {
       avatarPath: null,
       mustChangePassword: false,
       memberships: [] as SchoolMembershipContext[],
+      currentSchoolMembership: null as SchoolMembershipContext | null,
       platformMemberships: [] as PlatformMembershipContext[],
       networkMemberships: [] as NetworkMembershipContext[],
       guardianLinks: [] as GuardianLinkContext[],
@@ -111,6 +112,7 @@ export const getUserContext = cache(async () => {
       staffMemberId: membership.staff_member_id,
     };
   });
+  const currentSchoolMembership = memberships[0] ?? null;
 
   const platformMemberships: PlatformMembershipContext[] = (platformResult.data ?? []).map((membership) => ({
     membershipId: membership.id,
@@ -137,6 +139,7 @@ export const getUserContext = cache(async () => {
     avatarPath: profile?.avatar_path ?? null,
     mustChangePassword: profile?.must_change_password ?? false,
     memberships,
+    currentSchoolMembership,
     platformMemberships,
     networkMemberships,
     guardianLinks,
