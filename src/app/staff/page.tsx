@@ -6,6 +6,8 @@ import { SingleStaffForm } from "@/features/staff/single-staff-form";
 import { getSchoolStaffDirectory } from "@/features/staff/server/directory";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
+const staffDirectoryRoles = new Set(["school_admin", "principal", "deputy_principal", "hod"]);
+
 function humanRole(value: string) { return value.replaceAll("_", " "); }
 
 function roleStyle(value: string) {
@@ -27,7 +29,7 @@ function pageHref(query: string, page: number) {
 export default async function StaffPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/staff");
-  const membership = context.memberships[0];
+  const membership = context.memberships.find((candidate) => staffDirectoryRoles.has(candidate.roleKey));
   if (!membership) redirect("/");
 
   const params = await searchParams;
