@@ -1,12 +1,15 @@
 import { Building2, FileText, MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { PaymentSettingsForm } from "@/features/finance/finance-workspace";
+import { getSchoolPaymentSettings } from "@/features/finance/server/queries";
 import { ReportCardSettingsPanel } from "@/features/reporting/report-card-settings-panel";
 import { getReportCardSchoolSettings } from "@/features/reporting/server/settings";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const settingsRoles = new Set(["school_admin", "principal", "deputy_principal"]);
+const financeSettingsRoles = new Set(["school_admin", "principal"]);
 
 export default async function SchoolSettingsPage() {
   const context = await getUserContext();
@@ -15,8 +18,9 @@ export default async function SchoolSettingsPage() {
   const membership = context.memberships.find((item) => settingsRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
-  const [reportCardSettings, schoolRow] = await Promise.all([
+  const [reportCardSettings, paymentSettings, schoolRow] = await Promise.all([
     getReportCardSchoolSettings(membership.schoolId),
+    financeSettingsRoles.has(membership.roleKey) ? getSchoolPaymentSettings(membership.schoolId) : Promise.resolve(null),
     (async () => {
       const supabase = await createSupabaseServerClient();
       const { data } = await supabase
@@ -36,7 +40,7 @@ export default async function SchoolSettingsPage() {
       <section>
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">School settings</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">The school identity, official document details and report-card presentation rules used by documents and school-facing pages for {membership.schoolName}.</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">The school identity, payer instructions, official document details and report-card presentation rules used by school-facing pages for {membership.schoolName}.</p>
         </div>
 
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
@@ -45,6 +49,7 @@ export default async function SchoolSettingsPage() {
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">EMIS number</p><p className="mt-1.5 text-sm font-semibold text-[color:var(--accent-amber)]">{emis || "Not set"}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span></div>
         </div>
 
+        {financeSettingsRoles.has(membership.roleKey) ? <div className="mt-6"><PaymentSettingsForm schoolId={membership.schoolId} settings={paymentSettings} /></div> : null}
         <ReportCardSettingsPanel schoolId={membership.schoolId} schoolName={membership.schoolName} settings={reportCardSettings} />
       </section>
     </AppShell>
