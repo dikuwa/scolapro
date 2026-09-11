@@ -83,13 +83,9 @@ const enabledKeysByRole: Record<string, readonly string[]> = {
   board_member: ["today"],
 };
 
-function itemsForRoles(roleKey?: string, roleKeys: readonly string[] = [], extraKeys: readonly string[] = []) {
-  const resolvedRoles = roleKeys.length ? roleKeys : roleKey ? [roleKey] : [];
-  const allowed = new Set(extraKeys);
-  if (!resolvedRoles.length) allowed.add("today");
-  for (const candidateRole of resolvedRoles) {
-    for (const key of enabledKeysByRole[candidateRole] ?? ["today"]) allowed.add(key);
-  }
+function itemsForRole(roleKey?: string, extraKeys: readonly string[] = []) {
+  const roleKeys = roleKey ? enabledKeysByRole[roleKey] ?? ["today"] : ["today"];
+  const allowed = new Set([...roleKeys, ...extraKeys]);
   return navigation.filter((item) => allowed.has(item.key));
 }
 
@@ -103,9 +99,9 @@ function AttentionBadge({ count, compact = false }: { count: number; compact?: b
   return <span aria-label={`${count} item${count === 1 ? "" : "s"} need attention`} className={compact ? "absolute -right-1 -top-1 grid min-w-4 place-items-center rounded-full bg-[color:var(--danger)] px-1 text-[0.56rem] font-bold leading-4 text-white shadow-[var(--shadow-xs)]" : "ml-auto inline-grid min-w-5 place-items-center rounded-full bg-[color:var(--danger)] px-1.5 text-[0.6rem] font-bold leading-5 text-white"}>{label}</span>;
 }
 
-export function DesktopNavigation({ roleKey, roleKeys = [], extraKeys = [], collapsed = false, attentionCounts = {} }: { roleKey?: string; roleKeys?: readonly string[]; extraKeys?: readonly string[]; collapsed?: boolean; attentionCounts?: NavigationAttentionCounts }) {
+export function DesktopNavigation({ roleKey, extraKeys = [], collapsed = false, attentionCounts = {} }: { roleKey?: string; extraKeys?: readonly string[]; collapsed?: boolean; attentionCounts?: NavigationAttentionCounts }) {
   const pathname = usePathname();
-  const items = itemsForRoles(roleKey, roleKeys, extraKeys);
+  const items = itemsForRole(roleKey, extraKeys);
   return <nav aria-label="Primary" className="space-y-1">{items.map((item) => {
     const Icon = item.icon;
     const active = isActive(pathname, item.href);
@@ -115,10 +111,10 @@ export function DesktopNavigation({ roleKey, roleKeys = [], extraKeys = [], coll
   })}</nav>;
 }
 
-export function MobileNavigation({ roleKey, roleKeys = [], extraKeys = [], attentionCounts = {} }: { roleKey?: string; roleKeys?: readonly string[]; extraKeys?: readonly string[]; attentionCounts?: NavigationAttentionCounts }) {
+export function MobileNavigation({ roleKey, extraKeys = [], attentionCounts = {} }: { roleKey?: string; extraKeys?: readonly string[]; attentionCounts?: NavigationAttentionCounts }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const allItems = itemsForRoles(roleKey, roleKeys, extraKeys);
+  const allItems = itemsForRole(roleKey, extraKeys);
   const primaryItems = allItems.slice(0, 4);
   const overflowItems = allItems.slice(4);
   const showMore = overflowItems.length > 0;
