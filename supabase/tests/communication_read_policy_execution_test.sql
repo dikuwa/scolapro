@@ -68,28 +68,28 @@ select ok(
   'authenticated role can execute only the narrow communication RLS wrapper'
 );
 select ok(
-  has_function_privilege('authenticated','app_private.can_read_communication_delivery_job_for_rls(uuid)','EXECUTE'),
-  'authenticated role can execute the narrow delivery diagnostic RLS wrapper'
+  has_function_privilege('authenticated','public.list_communication_delivery_diagnostics(uuid,integer)','EXECUTE'),
+  'authenticated role can execute the governed delivery diagnostics API'
 );
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
 
--- Owning school leadership can inspect the full governed ledger and provider route.
+-- Owning school leadership can inspect the governed communication records and a sanitized delivery summary.
 select set_config('request.jwt.claim.sub','fc700000-0000-4000-8000-000000000001',true);
 select is((select count(*)::integer from public.communication_messages where id='fc720000-0000-4000-8000-000000000001'),1,'owning school administrator reads governed communication message');
 select is((select count(*)::integer from public.communication_recipients where id='fc730000-0000-4000-8000-000000000001'),1,'owning school administrator reads governed recipient');
-select is((select count(*)::integer from public.communication_delivery_jobs where id='fc740000-0000-4000-8000-000000000001'),1,'owning school administrator reads governed delivery job');
-select is((select count(*)::integer from public.communication_delivery_attempts where id='fc750000-0000-4000-8000-000000000001'),1,'owning school administrator reads governed provider attempt');
+select is((select count(*)::integer from public.list_communication_delivery_diagnostics('22222222-2222-4222-8222-222222222222',100) where delivery_job_id='fc740000-0000-4000-8000-000000000001'),1,'owning school administrator reads sanitized delivery job summary');
+select is((select latest_outcome from public.list_communication_delivery_diagnostics('22222222-2222-4222-8222-222222222222',100) where delivery_job_id='fc740000-0000-4000-8000-000000000001'),'delivered','owning school administrator reads sanitized latest delivery outcome');
 select is((select count(*)::integer from public.communication_delivery_receipts where id='fc760000-0000-4000-8000-000000000001'),1,'owning school administrator reads governed final receipt');
 select is((select count(*)::integer from public.communication_provider_routes where id='fc770000-0000-4000-8000-000000000001'),1,'owning school administrator reads school provider route');
 
--- The message author can inspect their own message delivery chain, but not provider routing configuration.
+-- The message author can inspect their message-facing records but cannot enter leadership diagnostics or provider routing configuration.
 select set_config('request.jwt.claim.sub','fc700000-0000-4000-8000-000000000002',true);
 select is((select count(*)::integer from public.communication_messages where id='fc720000-0000-4000-8000-000000000001'),1,'message author reads own sensitive message');
 select is((select count(*)::integer from public.communication_recipients where id='fc730000-0000-4000-8000-000000000001'),1,'message author reads own recipient');
-select is((select count(*)::integer from public.communication_delivery_jobs where id='fc740000-0000-4000-8000-000000000001'),1,'message author reads own delivery job');
-select is((select count(*)::integer from public.communication_delivery_attempts where id='fc750000-0000-4000-8000-000000000001'),1,'message author reads own provider attempt');
+select throws_ok($$select * from public.list_communication_delivery_diagnostics('22222222-2222-4222-8222-222222222222',100)$$,'Permission denied','ordinary message author cannot inspect leadership delivery diagnostics');
+select ok(not has_table_privilege('authenticated','public.communication_delivery_attempts','SELECT'),'raw provider attempt table is not an authenticated API');
 select is((select count(*)::integer from public.communication_delivery_receipts where id='fc760000-0000-4000-8000-000000000001'),1,'message author reads own final receipt');
 select is((select count(*)::integer from public.communication_provider_routes where id='fc770000-0000-4000-8000-000000000001'),0,'ordinary author cannot inspect provider routing configuration');
 
@@ -97,17 +97,17 @@ select is((select count(*)::integer from public.communication_provider_routes wh
 select set_config('request.jwt.claim.sub','fc700000-0000-4000-8000-000000000003',true);
 select is((select count(*)::integer from public.communication_messages where id='fc720000-0000-4000-8000-000000000001'),0,'peer teacher cannot read another author sensitive message');
 select is((select count(*)::integer from public.communication_recipients where id='fc730000-0000-4000-8000-000000000001'),0,'peer teacher cannot read another author recipient destination');
-select is((select count(*)::integer from public.communication_delivery_jobs where id='fc740000-0000-4000-8000-000000000001'),0,'peer teacher cannot read another author delivery job');
-select is((select count(*)::integer from public.communication_delivery_attempts where id='fc750000-0000-4000-8000-000000000001'),0,'peer teacher cannot read another author provider attempt');
+select throws_ok($$select * from public.list_communication_delivery_diagnostics('22222222-2222-4222-8222-222222222222',100)$$,'Permission denied','peer teacher cannot inspect leadership delivery diagnostics');
+select ok(not has_table_privilege('authenticated','public.communication_delivery_jobs','SELECT'),'raw delivery job table is not an authenticated API');
 select is((select count(*)::integer from public.communication_delivery_receipts where id='fc760000-0000-4000-8000-000000000001'),0,'peer teacher cannot read another author final receipt');
 select is((select count(*)::integer from public.communication_provider_routes where id='fc770000-0000-4000-8000-000000000001'),0,'peer teacher cannot read provider route');
 
--- A legitimate administrator in School B receives empty results, never School A data.
+-- A legitimate administrator in School B receives only School B diagnostics, never School A data.
 select set_config('request.jwt.claim.sub','fc700000-0000-4000-8000-000000000004',true);
 select is((select count(*)::integer from public.communication_messages where id='fc720000-0000-4000-8000-000000000001'),0,'other-school administrator cannot read School A message');
 select is((select count(*)::integer from public.communication_recipients where id='fc730000-0000-4000-8000-000000000001'),0,'other-school administrator cannot read School A recipient');
-select is((select count(*)::integer from public.communication_delivery_jobs where id='fc740000-0000-4000-8000-000000000001'),0,'other-school administrator cannot read School A delivery job');
-select is((select count(*)::integer from public.communication_delivery_attempts where id='fc750000-0000-4000-8000-000000000001'),0,'other-school administrator cannot read School A provider attempt');
+select throws_ok($$select * from public.list_communication_delivery_diagnostics('22222222-2222-4222-8222-222222222222',100)$$,'Permission denied','other-school administrator cannot request School A delivery diagnostics');
+select is((select count(*)::integer from public.list_communication_delivery_diagnostics('fc710000-0000-4000-8000-000000000001',100)),0,'other-school administrator receives only empty School B diagnostics');
 select is((select count(*)::integer from public.communication_delivery_receipts where id='fc760000-0000-4000-8000-000000000001'),0,'other-school administrator cannot read School A final receipt');
 select is((select count(*)::integer from public.communication_provider_routes where id='fc770000-0000-4000-8000-000000000001'),0,'other-school administrator cannot read School A provider route');
 

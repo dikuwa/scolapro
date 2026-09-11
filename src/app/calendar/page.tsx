@@ -15,15 +15,22 @@ function dateLabel(value: string | null) {
 export default async function CalendarPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/calendar");
-  const membership = context.memberships[0];
+  const membership = context.currentSchoolMembership;
   if (!membership) redirect("/");
 
+  const currentSchoolRoleKeys = new Set(
+    context.memberships
+      .filter((item) => item.schoolId === membership.schoolId)
+      .map((item) => item.roleKey),
+  );
   const year = getNamibiaCalendarYear();
   const [calendar, teachingImpact] = await Promise.all([
     getSchoolCalendar(membership.schoolId, year),
     getTeachingImpactWorkspace(membership.schoolId, year),
   ]);
-  const canManageTeachingImpact = ["school_admin","principal","deputy_principal"].includes(membership.roleKey);
+  const canManageTeachingImpact = ["school_admin", "principal", "deputy_principal"].some((roleKey) =>
+    currentSchoolRoleKeys.has(roleKey),
+  );
 
   return (
     <AppShell>
