@@ -9,6 +9,18 @@ drop policy if exists "authorized users read own or governed delivery jobs" on p
 drop policy if exists "communication managers read delivery attempts" on public.communication_delivery_attempts;
 drop policy if exists "authorized users read governed delivery attempts" on public.communication_delivery_attempts;
 
+-- Keep an explicit policy on each RLS table so the public-schema security baseline
+-- remains closed even if table privileges are changed accidentally in the future.
+create policy "authenticated raw delivery job reads denied"
+on public.communication_delivery_jobs
+for select to authenticated
+using (false);
+
+create policy "authenticated raw delivery attempt reads denied"
+on public.communication_delivery_attempts
+for select to authenticated
+using (false);
+
 create or replace function public.list_communication_delivery_diagnostics(
   p_school_id uuid,
   p_limit integer default 100
