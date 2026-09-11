@@ -11,7 +11,6 @@ export function ShellFrame({
   footer,
   header,
   roleKey,
-  roleKeys = [],
   extraNavigationKeys = [],
   attentionCounts = {},
 }: {
@@ -20,7 +19,6 @@ export function ShellFrame({
   footer: React.ReactNode;
   header: React.ReactNode;
   roleKey?: string;
-  roleKeys?: readonly string[];
   extraNavigationKeys?: readonly string[];
   attentionCounts?: NavigationAttentionCounts;
 }) {
@@ -41,7 +39,7 @@ export function ShellFrame({
       >
         <div className="min-w-0">
           {brand}
-          <DesktopNavigation roleKey={roleKey} roleKeys={roleKeys} extraKeys={extraNavigationKeys} collapsed={collapsed} attentionCounts={attentionCounts} />
+          <DesktopNavigation roleKey={roleKey} extraKeys={extraNavigationKeys} collapsed={collapsed} attentionCounts={attentionCounts} />
         </div>
 
         <div className="border-t border-border-subtle bg-surface pt-3">{footer}</div>
