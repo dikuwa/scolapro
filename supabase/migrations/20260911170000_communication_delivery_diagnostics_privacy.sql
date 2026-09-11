@@ -51,7 +51,21 @@ begin
   if auth.uid() is null then
     raise exception 'Authentication required';
   end if;
-  if p_school_id is null or not app_private.can_manage_communications(p_school_id) then
+
+  -- Delivery diagnostics are a leadership/provider-operations surface, not the
+  -- broader authoring surface represented by can_manage_communications().
+  if p_school_id is null or not (
+    app_private.has_platform_role(array['platform_admin'])
+    or exists(
+      select 1
+      from public.school_memberships sm
+      where sm.school_id=p_school_id
+        and sm.user_id=auth.uid()
+        and sm.role_key in ('school_admin','principal','deputy_principal')
+        and sm.active_from<=current_date
+        and (sm.active_to is null or sm.active_to>=current_date)
+    )
+  ) then
     raise exception 'Permission denied';
   end if;
 
@@ -90,4 +104,4 @@ revoke all on function public.list_communication_delivery_diagnostics(uuid,integ
 grant execute on function public.list_communication_delivery_diagnostics(uuid,integer) to authenticated;
 
 comment on function public.list_communication_delivery_diagnostics(uuid,integer) is
-'School-scoped communication delivery summary for authorized communication leaders. Raw last_error, error_detail, provider_message_id and provider_metadata remain service-role only.';
+'School-scoped communication delivery summary for platform admins or current school administrators/principals/deputy principals. Raw last_error, error_detail, provider_message_id and provider_metadata remain service-role only.';
