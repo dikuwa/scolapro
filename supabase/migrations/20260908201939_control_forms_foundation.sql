@@ -1,0 +1,6 @@
+-- ScolaPro staging migration-history bridge.
+-- This migration version was already applied to the long-lived staging database before
+-- repository migration history was consolidated. It is intentionally a no-op here so
+-- Supabase can reconcile the historical version without replaying old DDL.
+-- Canonical schema construction remains in the tracked repository migrations and is
+-- validated from scratch by the Database workflow (`supabase db reset` + pgTAP suite).
