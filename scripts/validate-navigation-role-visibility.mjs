@@ -69,7 +69,7 @@ if (!libraryPageSource.includes('const ltsmRoles = new Set(["school_admin", "pri
   throw new Error("Library route authorization must match existing school-local LTSM roles");
 }
 if (!libraryPageSource.includes('context.memberships.find((candidate) => ltsmRoles.has(candidate.roleKey))')) {
-  throw new Error("Library route must authorize through an effective school membership");
+  throw new Error("Library route must authorize through a current-school membership");
 }
 if (libraryPageSource.includes("platformMemberships") || libraryPageSource.includes("networkMemberships")) {
   throw new Error("Library route must not grant platform or network circulation access");
@@ -77,17 +77,34 @@ if (libraryPageSource.includes("platformMemberships") || libraryPageSource.inclu
 if (!contextSource.includes('.from("education_network_memberships")')) {
   throw new Error("Navigation context must resolve effective education-network memberships");
 }
-if (!shellSource.includes('networkRoles.has("circuit_officer")') || !shellSource.includes('networkRoles.has("regional_officer")')) {
-  throw new Error("Shell must derive restricted network navigation from effective network roles");
+if (!contextSource.includes("const allSchoolMemberships:") || !contextSource.includes("const currentSchoolId = allSchoolMemberships[0]?.schoolId ?? null") || !contextSource.includes("allSchoolMemberships.filter((membership) => membership.schoolId === currentSchoolId)")) {
+  throw new Error("User context must retain all memberships separately and scope operational memberships to one deterministic current school");
 }
-if (!shellSource.includes('context.memberships.map((item) => item.roleKey)') || !shellSource.includes('roleKeys={roleKeys}')) {
-  throw new Error("School navigation must preserve capabilities from all active school memberships");
+if (!contextSource.includes("allSchoolMemberships,") || !contextSource.includes("currentSchoolMembership,")) {
+  throw new Error("User context must expose explicit all-school and current-school membership boundaries");
+}
+
+const simulatedMemberships = [
+  { schoolId: "school-a", roleKey: "teacher" },
+  { schoolId: "school-b", roleKey: "school_admin" },
+];
+const simulatedCurrentSchoolId = simulatedMemberships[0].schoolId;
+const simulatedCurrentMemberships = simulatedMemberships.filter((membership) => membership.schoolId === simulatedCurrentSchoolId);
+if (simulatedCurrentMemberships.some((membership) => membership.schoolId !== "school-a" || membership.roleKey === "school_admin")) {
+  throw new Error("Current-school regression fixture leaked a role from the non-current school");
+}
+
+if (!shellSource.includes("context.currentSchoolMembership") || !shellSource.includes("context.memberships.map((item) => item.roleKey)")) {
+  throw new Error("Shell must derive school identity and composable roles from the current-school-only context");
+}
+if (!shellSource.includes('const networkMembership = platformMembership || membership ? undefined : context.networkMemberships[0]')) {
+  throw new Error("Platform/network contexts must remain separate from current school operational navigation");
 }
 if (!source.includes("function itemsForRoles(") || !source.includes("for (const candidateRole of resolvedRoles)")) {
-  throw new Error("Navigation must union role visibility across active school memberships");
+  throw new Error("Navigation must compose role visibility only from the role set supplied by current school context");
 }
 if (!shellFrameSource.includes("roleKeys={roleKeys}")) {
-  throw new Error("Desktop shell navigation must receive all active role keys");
+  throw new Error("Desktop shell navigation must receive the current-school role set");
 }
 for (const [label, target] of [
   ["learners", learnersPageSource],
@@ -99,7 +116,7 @@ for (const [label, target] of [
     throw new Error(`${label} route must not infer operational school authorization from memberships[0]`);
   }
   if (!target.includes("context.memberships.find(")) {
-    throw new Error(`${label} route must resolve an explicitly authorized school membership`);
+    throw new Error(`${label} route must resolve authorization inside the current-school membership set`);
   }
 }
 if (!learnersPageSource.includes('const learnerDirectoryRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"])')) {
@@ -111,19 +128,20 @@ if (!staffPageSource.includes('const staffDirectoryRoles = new Set(["school_admi
 if (!learnersPageSource.includes('canRegisterLearner = membership.roleKey === "school_admin"')) {
   throw new Error("Learner registration action must stay hidden outside School Admin scope");
 }
+
 for (const target of [shellSource, lateArrivalsPageSource]) {
   if (!target.includes('.eq("duty_key", "late_arrival_recorder")')) {
     throw new Error("Late-arrival delegation must require the late_arrival_recorder duty");
   }
-  if (!target.includes('.eq("staff_member_id", candidate.staffMemberId!)')) {
-    throw new Error("Late-arrival delegation must bind the duty to the authenticated actor's staff membership");
-  }
-  if (!target.includes('.eq("school_id", candidate.schoolId)')) {
-    throw new Error("Late-arrival delegation must bind the duty to the actor's exact school membership");
-  }
   if (!target.includes('.lte("active_from", today)') || !target.includes('.or(`active_to.is.null,active_to.gte.${today}`)')) {
     throw new Error("Late-arrival delegation must require an effective current duty assignment");
   }
+}
+if (!shellSource.includes('.eq("staff_member_id", membership.staffMemberId)') || !shellSource.includes('.eq("school_id", membership.schoolId)')) {
+  throw new Error("Shell late-arrival visibility must bind duty to the current school and actor staff membership");
+}
+if (!lateArrivalsPageSource.includes('.eq("staff_member_id", candidate.staffMemberId!)') || !lateArrivalsPageSource.includes('.eq("school_id", candidate.schoolId)')) {
+  throw new Error("Late-arrival route delegation must preserve exact actor staff/school binding");
 }
 if (!shellSource.includes('extraNavigationKeys.push("late_arrivals")')) {
   throw new Error("Effective delegated late-arrival recorders must receive route visibility");
@@ -132,4 +150,4 @@ if (shellSource.includes('.in("school_id", schoolIds)') || lateArrivalsPageSourc
   throw new Error("Late-arrival delegation must not use school-only duty lookup that can match another staff member");
 }
 
-console.log("Navigation role and capability visibility validation passed.");
+console.log("Navigation role, current-school, and capability visibility validation passed.");
