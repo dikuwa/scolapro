@@ -1,11 +1,14 @@
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const { test } = require('node:test');
-const ts = require('typescript');
-const React = require('react');
-const { renderToStaticMarkup } = require('react-dom/server');
-const root = path.resolve(__dirname, '..');
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+const nodeRequire = createRequire(import.meta.url);
+const assert = nodeRequire('node:assert/strict');
+const fs = nodeRequire('node:fs');
+const path = nodeRequire('node:path');
+const { test } = nodeRequire('node:test');
+const ts = nodeRequire('typescript');
+const React = nodeRequire('react');
+const { renderToStaticMarkup } = nodeRequire('react-dom/server');
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Exercise repository TS/TSX with the installed compiler; no test dependency or
 // production bypass is introduced. Authentication/data doubles stay in this file.
@@ -13,15 +16,15 @@ function loader(mocks = {}) {
   const cache = new Map();
   function load(name, parent = root) {
     if (Object.hasOwn(mocks, name)) return mocks[name];
-    if (!name.startsWith('.') && !name.startsWith('@/') && !path.isAbsolute(name)) return require(name);
+    if (!name.startsWith('.') && !name.startsWith('@/') && !path.isAbsolute(name)) return nodeRequire(name);
     let file = name.startsWith('@/') ? path.join(root, 'src', name.slice(2)) : path.resolve(parent, name);
     file = [file, `${file}.ts`, `${file}.tsx`].find(candidate => fs.existsSync(candidate) && fs.statSync(candidate).isFile());
     if (!file) throw new Error(`Missing module ${name}`);
     if (cache.has(file)) return cache.get(file).exports;
-    const module = { exports: {} }; cache.set(file, module);
+    const compiledModule = { exports: {} }; cache.set(file, compiledModule);
     const code = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
-    new Function('require', 'module', 'exports', code)(dependency => load(dependency, path.dirname(file)), module, module.exports);
-    return module.exports;
+    new Function('require', 'module', 'exports', code)(dependency => load(dependency, path.dirname(file)), compiledModule, compiledModule.exports);
+    return compiledModule.exports;
   }
   return load;
 }
@@ -31,7 +34,7 @@ const labels = { illness: 'Illness', medical_appointment: 'Medical appointment',
 test('absence server-action module exports only functions; reason vocabulary is unchanged', () => {
   const load = loader({ 'next/cache': { revalidatePath() {} }, '@/lib/supabase/server': { createSupabaseServerClient() { throw new Error('not called'); } } });
   const actions = load('@/features/parents/server/absence-actions');
-  const { ensureServerEntryExports } = require('next/dist/build/webpack/loaders/next-flight-loader/action-validate');
+  const { ensureServerEntryExports } = nodeRequire('next/dist/build/webpack/loaders/next-flight-loader/action-validate');
   // This throws "found object" against the authoritative baseline.
   ensureServerEntryExports(Object.values(actions));
   assert.deepEqual(Object.keys(actions).sort(), ['reviewAbsenceNotice', 'submitAbsenceNotice']);

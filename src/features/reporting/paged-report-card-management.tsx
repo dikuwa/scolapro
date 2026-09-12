@@ -214,12 +214,6 @@ export function PagedReportCardManagement(props: Props) {
   const [filterClass, setFilterClass] = useState(props.filterClassId);
   const [filterTerm, setFilterTerm] = useState(String(props.termNumber));
   const [filterStatus, setFilterStatus] = useState<string>(props.status);
-  useEffect(() => {
-    setFilterGrade(props.filterGradeId);
-    setFilterClass(props.filterClassId);
-    setFilterTerm(String(props.termNumber));
-    setFilterStatus(props.status);
-  }, [props.filterGradeId, props.filterClassId, props.termNumber, props.status]);
   const [mode, setMode] = useState<"bulk" | "individual">(props.individualLearnerId ? "individual" : "bulk");
   const [scopeType, setScopeType] = useState<ScopeType>(props.scopeType);
   const [scopeGradeId, setScopeGradeId] = useState(props.scopeGradeId);

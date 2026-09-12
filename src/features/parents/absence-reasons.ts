@@ -8,4 +8,3 @@ export const reasonLabels: Record<string, string> = {
   school_activity: "School activity",
   other: "Other",
 };
-
