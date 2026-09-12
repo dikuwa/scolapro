@@ -3,10 +3,14 @@ begin;
 select plan(8);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
-values('aa700000-0000-4000-8000-000000000001','profile-change-scope@example.test','authenticated','authenticated',now(),now());
+values
+  ('aa700000-0000-4000-8000-000000000001','profile-change-scope@example.test','authenticated','authenticated',now(),now()),
+  ('aa700000-0000-4000-8000-000000000002','profile-change-reviewer@example.test','authenticated','authenticated',now(),now());
 
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
-values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','aa700000-0000-4000-8000-000000000001','school_admin',current_date);
+values
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','aa700000-0000-4000-8000-000000000001','school_admin',current_date),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','aa700000-0000-4000-8000-000000000002','school_admin',current_date);
 
 insert into public.learners(id,tenant_id,first_names,surname)
 values('aa710000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Profile','Learner A');
@@ -51,8 +55,8 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$update public.profile_change_requests set status='approved', reviewed_by_user_id='aa700000-0000-4000-8000-000000000001', reviewed_at=now(), applied_at=now() where id='aa830000-0000-4000-8000-000000000001'$$,
-  'profile change review lifecycle fields remain mutable for an authorized reviewer'
+  $$update public.profile_change_requests set status='approved', reviewed_by_user_id='aa700000-0000-4000-8000-000000000002', reviewed_at=now(), applied_at=now() where id='aa830000-0000-4000-8000-000000000001'$$,
+  'profile change review lifecycle fields remain mutable for a distinct authorized reviewer'
 );
 
 select throws_ok(
