@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { FileSpreadsheet, UploadCloud } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 export function ImportDropField({ inputId, label, helper, accept = ".csv,.xlsx,.xls" }: { inputId: string; label: string; helper: string; accept?: string }) {
@@ -34,7 +35,7 @@ export function ImportDropField({ inputId, label, helper, accept = ".csv,.xlsx,.
       }}
       className={[
         "relative flex min-h-32 flex-col items-center justify-center gap-2 overflow-hidden rounded-[var(--radius-sm)] border border-dashed px-4 text-center transition duration-[var(--motion-fast)]",
-        pending ? "cursor-wait border-brand/40 bg-brand-soft/35" : dragging ? "border-brand bg-brand-soft/55" : "border-border bg-surface-muted hover:bg-brand-soft/40",
+        pending ? "cursor-wait border-brand/40 bg-brand-soft/35" : dragging ? "border-brand bg-brand-soft/55" : "border-border bg-surface-muted hover:bg-brand-soft/40 focus-within:ring-4 focus-within:ring-brand-soft",
       ].join(" ")}
     >
       <input
@@ -62,9 +63,14 @@ export function ImportDropField({ inputId, label, helper, accept = ".csv,.xlsx,.
             : helper}
       </span>
       <span className="text-[0.65rem] font-medium text-brand-strong">
-        {pending ? "Keep this page open until staging finishes" : "Click to browse or drag & drop"}
+        {pending ? "Keep this page open until staging finishes" : ""}
       </span>
       {pending ? <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-1 overflow-hidden bg-brand-soft"><span className="block h-full w-1/3 animate-pulse rounded-full bg-brand" /></span> : null}
     </div>
   );
+}
+
+export function ImportStageButton() {
+  const { pending } = useFormStatus();
+  return <Button type="submit" loading={pending} className="w-full">{pending ? "Staging…" : "Stage file"}</Button>;
 }
