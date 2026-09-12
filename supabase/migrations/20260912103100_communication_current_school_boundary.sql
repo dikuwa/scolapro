@@ -22,7 +22,8 @@ as $$
      );
 $$;
 
-revoke all on function app_private.is_current_school(uuid) from public, anon, authenticated;
+revoke all on function app_private.is_current_school(uuid) from public, anon;
+grant execute on function app_private.is_current_school(uuid) to authenticated;
 
 create or replace function app_private.enforce_communication_current_school_mutation()
 returns trigger
@@ -38,11 +39,13 @@ begin
   -- Trusted worker/service execution has no end-user JWT and remains bounded by
   -- its existing queue claim/update functions and service-role privileges.
   if auth.uid() is null then
-    return case when tg_op = 'DELETE' then old else new end;
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
   end if;
 
   if app_private.has_platform_role(array['platform_admin']) then
-    return case when tg_op = 'DELETE' then old else new end;
+    if tg_op = 'DELETE' then return old; end if;
+    return new;
   end if;
 
   if tg_table_name in ('communication_templates','communication_messages','communication_recipients','communication_delivery_jobs') then
@@ -70,7 +73,8 @@ begin
     raise exception 'Permission denied: communication operation is outside the current school';
   end if;
 
-  return case when tg_op = 'DELETE' then old else new end;
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
 end;
 $$;
 
