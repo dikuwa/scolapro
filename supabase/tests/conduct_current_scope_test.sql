@@ -63,14 +63,14 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','ec000000-0000-4000-8000-000000000001',true);
 
 select is(
-  app_private.user_current_school_matches('ec000000-0000-4000-8000-000000000001','ec100000-0000-4000-8000-000000000002'),
-  true,
-  'newest effective school membership is the deterministic current school'
+  has_function_privilege('authenticated','app_private.user_current_school_matches(uuid,uuid)','EXECUTE'),
+  false,
+  'authenticated callers cannot execute the private deterministic current-school helper directly'
 );
 select is(
-  app_private.user_current_school_matches('ec000000-0000-4000-8000-000000000001','ec100000-0000-4000-8000-000000000001'),
+  has_function_privilege('anon','app_private.user_current_school_matches(uuid,uuid)','EXECUTE'),
   false,
-  'another active school membership is not the current school'
+  'anonymous callers cannot execute the private deterministic current-school helper'
 );
 select is(
   app_private.can_access_learner_observations('ec100000-0000-4000-8000-000000000001','ec150000-0000-4000-8000-000000000001'),
