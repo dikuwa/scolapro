@@ -14,14 +14,16 @@ insert into public.staff_members(
   'OBS-ALLOC-001','Allocated','Teacher','active'
 );
 
+-- The membership establishes deterministic current-school context only. Keep it
+-- unlinked from staff_member_id so the explicit staff_school_assignments row below
+-- remains the sole governed placement source exercised by this regression.
 insert into public.school_memberships(
-  id,tenant_id,school_id,user_id,staff_member_id,role_key,active_from,active_to
+  id,tenant_id,school_id,user_id,role_key,active_from,active_to
 ) values(
   'fd515000-0000-4000-8000-000000000001',
   '11111111-1111-4111-8111-111111111111',
   '22222222-2222-4222-8222-222222222222',
   'fd500000-0000-4000-8000-000000000001',
-  'fd510000-0000-4000-8000-000000000001',
   'teacher',current_date-30,null
 );
 
