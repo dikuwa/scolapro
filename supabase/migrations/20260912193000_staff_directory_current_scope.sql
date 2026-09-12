@@ -21,7 +21,9 @@ as $$
 $$;
 
 revoke all on function app_private.can_access_current_school_staff_directory(uuid)
-from public,anon,authenticated;
+from public,anon;
+grant execute on function app_private.can_access_current_school_staff_directory(uuid)
+to authenticated;
 
 create or replace function app_private.can_read_staff_identity(p_staff_member_id uuid)
 returns boolean
@@ -65,6 +67,7 @@ grant execute on function app_private.can_read_staff_identity(uuid) to authentic
 -- School membership/placement ledgers retain historical provenance in the current school,
 -- but a second active non-current school must not become an identity-enumeration surface.
 drop policy if exists "school members read staff assignments" on public.staff_school_assignments;
+drop policy if exists "current school members read staff assignments" on public.staff_school_assignments;
 create policy "current school members read staff assignments"
 on public.staff_school_assignments for select to authenticated
 using (
@@ -73,6 +76,7 @@ using (
 );
 
 drop policy if exists "school members read scoped memberships" on public.school_memberships;
+drop policy if exists "current school members read scoped memberships" on public.school_memberships;
 create policy "current school members read scoped memberships"
 on public.school_memberships for select to authenticated
 using (
@@ -116,13 +120,23 @@ begin
   end if;
 
   return query
-  with latest_assignment as (
+  with preferred_assignment as (
     select distinct on (ssa.staff_member_id)
       ssa.id,ssa.staff_member_id,ssa.assignment_type,ssa.position_title,
       ssa.effective_from,ssa.effective_to,ssa.staff_code,ssa.default_room_id
     from public.staff_school_assignments ssa
     where ssa.school_id=p_school_id
-    order by ssa.staff_member_id,ssa.effective_from desc,ssa.created_at desc,ssa.id
+    order by
+      ssa.staff_member_id,
+      case when ssa.effective_from<=current_date and (ssa.effective_to is null or ssa.effective_to>=current_date) then 0 else 1 end,
+      ssa.effective_from desc,
+      ssa.created_at desc,
+      ssa.id
+  ),
+  assignment_history as (
+    select distinct ssa.staff_member_id
+    from public.staff_school_assignments ssa
+    where ssa.school_id=p_school_id
   ),
   membership_rollup as (
     select
@@ -137,30 +151,31 @@ begin
     group by sm.staff_member_id
   ),
   linked_staff_ids as (
-    select staff_member_id from latest_assignment
+    select staff_member_id from assignment_history
     union
     select staff_member_id from membership_rollup
   ),
   linked_rows as (
     select
-      coalesce(la.id,mr.first_membership_id) as row_id,
+      coalesce(pa.id,mr.first_membership_id) as row_id,
       ids.staff_member_id as staff_id,
       concat_ws(' ',staff.first_name,staff.last_name) as staff_name,
       staff.employee_number,
-      la.staff_code,
+      pa.staff_code,
       room.display_name as default_room_name,
       array_remove(array_cat(
-        case when la.id is null then array[]::text[] else array[coalesce(nullif(btrim(la.position_title),''),la.assignment_type::text)] end,
+        case when pa.id is null then array[]::text[] else array[coalesce(nullif(btrim(pa.position_title),''),pa.assignment_type::text)] end,
         coalesce(mr.role_labels,array[]::text[])
       ),null) as labels,
-      case when la.id is not null then la.effective_from else mr.first_active_from end as active_from,
-      case when la.id is not null then la.effective_to else mr.last_active_to end as active_to,
+      case when ah.staff_member_id is not null then pa.effective_from else mr.first_active_from end as active_from,
+      case when ah.staff_member_id is not null then pa.effective_to else mr.last_active_to end as active_to,
       coalesce(mr.has_account,false) as has_account
     from linked_staff_ids ids
     join public.staff_members staff on staff.id=ids.staff_member_id
-    left join latest_assignment la on la.staff_member_id=ids.staff_member_id
+    left join assignment_history ah on ah.staff_member_id=ids.staff_member_id
+    left join preferred_assignment pa on pa.staff_member_id=ids.staff_member_id
     left join membership_rollup mr on mr.staff_member_id=ids.staff_member_id
-    left join public.school_rooms room on room.id=la.default_room_id
+    left join public.school_rooms room on room.id=pa.default_room_id
   ),
   unlinked_memberships as (
     select
@@ -219,40 +234,55 @@ begin
   end if;
 
   return query
-  with latest_assignment as (
-    select distinct on (ssa.staff_member_id)
-      ssa.staff_member_id,ssa.effective_from,ssa.effective_to
+  with assignment_staff as (
+    select distinct ssa.staff_member_id
     from public.staff_school_assignments ssa
     where ssa.school_id=p_school_id
-    order by ssa.staff_member_id,ssa.effective_from desc,ssa.created_at desc,ssa.id
   ),
   membership_rollup as (
     select
       sm.staff_member_id,
-      min(sm.active_from) as first_active_from,
-      case when bool_or(sm.active_to is null) then null else max(sm.active_to) end as last_active_to,
       bool_or(sm.user_id is not null) as has_account
     from public.school_memberships sm
     where sm.school_id=p_school_id and sm.staff_member_id is not null
     group by sm.staff_member_id
   ),
   linked_staff_ids as (
-    select staff_member_id from latest_assignment
+    select staff_member_id from assignment_staff
     union
     select staff_member_id from membership_rollup
   ),
   linked as (
     select
       ids.staff_member_id,
-      case when la.staff_member_id is not null then la.effective_from else mr.first_active_from end as active_from,
-      case when la.staff_member_id is not null then la.effective_to else mr.last_active_to end as active_to,
-      coalesce(mr.has_account,false) as has_account
+      coalesce(mr.has_account,false) as has_account,
+      case
+        when astaff.staff_member_id is not null then exists(
+          select 1
+          from public.staff_school_assignments ssa
+          where ssa.school_id=p_school_id
+            and ssa.staff_member_id=ids.staff_member_id
+            and ssa.effective_from<=p_on_date
+            and (ssa.effective_to is null or ssa.effective_to>=p_on_date)
+        )
+        else exists(
+          select 1
+          from public.school_memberships sm
+          where sm.school_id=p_school_id
+            and sm.staff_member_id=ids.staff_member_id
+            and sm.active_from<=p_on_date
+            and (sm.active_to is null or sm.active_to>=p_on_date)
+        )
+      end as is_active
     from linked_staff_ids ids
-    left join latest_assignment la on la.staff_member_id=ids.staff_member_id
+    left join assignment_staff astaff on astaff.staff_member_id=ids.staff_member_id
     left join membership_rollup mr on mr.staff_member_id=ids.staff_member_id
   ),
   unlinked as (
-    select null::uuid as staff_member_id,sm.active_from,sm.active_to,(sm.user_id is not null) as has_account
+    select
+      null::uuid as staff_member_id,
+      (sm.user_id is not null) as has_account,
+      (sm.active_from<=p_on_date and (sm.active_to is null or sm.active_to>=p_on_date)) as is_active
     from public.school_memberships sm
     where sm.school_id=p_school_id and sm.staff_member_id is null
   ),
@@ -270,7 +300,7 @@ begin
   )
   select
     count(*)::bigint,
-    count(*) filter(where d.active_from<=p_on_date and (d.active_to is null or d.active_to>=p_on_date))::bigint,
+    count(*) filter(where d.is_active)::bigint,
     count(*) filter(where d.has_account)::bigint,
     'EMP-' || lpad((coalesce((select highest from employee_numbers),0)+1)::text,3,'0')
   from directory d;
@@ -283,8 +313,8 @@ revoke all on function public.get_staff_directory_summary(uuid,date) from public
 grant execute on function public.get_staff_directory_summary(uuid,date) to authenticated;
 
 comment on function app_private.can_access_current_school_staff_directory(uuid) is
-'Internal staff identity/directory scope: Platform Admin or an authenticated member targeting the deterministic current school. Platform Support does not inherit school identity access.';
+'RLS and RPC wrapper for staff identity/directory scope: Platform Admin or an authenticated member targeting the deterministic current school. Platform Support does not inherit school identity access.';
 comment on function app_private.can_read_staff_identity(uuid) is
 'Raw staff identity visibility: Platform Admin, self-read, or current-school visibility backed by governed current placement. Authoritative staff_school_assignments history takes precedence over legacy membership fallback.';
 comment on function public.list_staff_directory_page(uuid,text,integer,integer) is
-'Paged current-school staff directory. Historical rows remain represented, while authoritative assignment periods control operational active dates when placement history exists.';
+'Paged current-school staff directory. Historical rows remain represented, while an assignment effective today is preferred for displayed operational dates; legacy membership dates apply only without authoritative assignment history.';
