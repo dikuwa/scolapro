@@ -1,6 +1,6 @@
 begin;
 
-select plan(26);
+select plan(33);
 
 select ok(to_regclass('public.room_inventory_custodians') is not null,'room inventory custodian table exists');
 select ok(to_regclass('public.room_inventory_items') is not null,'room inventory item table exists');
@@ -34,6 +34,63 @@ select ok(not has_table_privilege('authenticated','public.room_inventory_verific
 
 select ok(position('staff_school_assignments' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian access checks current staff-school assignment');
 select ok(position('school_memberships' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian access checks current school membership fallback');
+select ok(to_regprocedure('app_private.room_inventory_current_school_id()') is not null,'room inventory current-school resolver exists');
+select ok(not has_function_privilege('authenticated','app_private.room_inventory_current_school_id()','EXECUTE'),'authenticated users cannot invoke the internal current-school resolver directly');
+select ok(position('room_inventory_current_school_id' in pg_get_functiondef('app_private.can_manage_room_inventory(uuid)'::regprocedure)) > 0,'manager authorization binds to deterministic current school');
+select ok(position('room_inventory_current_school_id' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian authorization binds to deterministic current school');
+
+insert into auth.users(id,email,aud,role,created_at,updated_at)
+values ('ca700000-0000-4000-8000-000000000001','inventory-current-school@example.test','authenticated','authenticated',now(),now());
+
+insert into public.school_memberships(
+  id,tenant_id,school_id,user_id,staff_member_id,role_key,active_from
+) values (
+  'ca710000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'ca700000-0000-4000-8000-000000000001',
+  null,
+  'school_admin',
+  current_date - 10
+);
+
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','ca700000-0000-4000-8000-000000000001',true);
+
+select ok(
+  app_private.can_manage_room_inventory('22222222-2222-4222-8222-222222222222'),
+  'single-school administrator retains room inventory authority in that school'
+);
+
+insert into public.schools(id,tenant_id,name,emis_number,status) values (
+  'ca720000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  'Inventory Current School B',
+  'TST-INV-CURRENT-B',
+  'active'
+);
+
+insert into public.school_memberships(
+  id,tenant_id,school_id,user_id,staff_member_id,role_key,active_from
+) values (
+  'ca710000-0000-4000-8000-000000000002',
+  '11111111-1111-4111-8111-111111111111',
+  'ca720000-0000-4000-8000-000000000001',
+  'ca700000-0000-4000-8000-000000000001',
+  null,
+  'school_admin',
+  current_date
+);
+
+select ok(
+  not app_private.can_manage_room_inventory('22222222-2222-4222-8222-222222222222'),
+  'another active non-current school membership cannot retain room inventory management authority'
+);
+
+select ok(
+  app_private.can_manage_room_inventory('ca720000-0000-4000-8000-000000000001'),
+  'room inventory management follows the deterministic current school'
+);
 
 select * from finish();
 rollback;
