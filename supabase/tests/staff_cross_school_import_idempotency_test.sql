@@ -13,6 +13,11 @@ values
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','ff000000-0000-4000-8000-000000000001','school_admin',current_date),
   ('11111111-1111-4111-8111-111111111111','ff100000-0000-4000-8000-000000000001','ff000000-0000-4000-8000-000000000001','school_admin',current_date);
 
+-- Cross-school identity reuse is a governed platform operation. Ordinary multi-school
+-- school admins are current-school bound by the staffing mutation authority hardening.
+insert into public.platform_memberships(user_id,role_key,active_from)
+values('ff000000-0000-4000-8000-000000000001','platform_admin',current_date);
+
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
 values('ff200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','EMP-CROSS-001','Cross','Teacher','active');
 
@@ -45,14 +50,14 @@ select public.reconcile_staff_import_batch('ff300000-0000-4000-8000-000000000001
 select is(
   (select resolution from public.import_rows where id='ff400000-0000-4000-8000-000000000001'),
   'link',
-  'same tenant employee number at another managed school resolves to the existing staff identity plus a new school link'
+  'same tenant employee number at another governed school resolves to the existing staff identity plus a new school link'
 );
 
 select is(public.mark_import_batch_ready('ff300000-0000-4000-8000-000000000001'),true,'cross-school link batch can be marked ready');
 
 select lives_ok(
   $$select public.commit_staff_import_batch('ff300000-0000-4000-8000-000000000001')$$,
-  'cross-school staff link commits successfully'
+  'governed cross-school staff link commits successfully'
 );
 
 select is(
@@ -100,14 +105,14 @@ select public.reconcile_staff_import_batch('ff300000-0000-4000-8000-000000000002
 select is(
   (select resolution from public.import_rows where id='ff400000-0000-4000-8000-000000000002'),
   'skip',
-  'repeating the import at the second school becomes an idempotent skip'
+  'repeating the governed import at the second school becomes an idempotent skip'
 );
 
 select is(public.mark_import_batch_ready('ff300000-0000-4000-8000-000000000002'),true,'repeat cross-school batch can be marked ready');
 
 select lives_ok(
   $$select public.commit_staff_import_batch('ff300000-0000-4000-8000-000000000002')$$,
-  'repeat cross-school import commits as a no-duplicate operation'
+  'repeat governed cross-school import commits as a no-duplicate operation'
 );
 
 select is(
