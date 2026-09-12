@@ -1,6 +1,62 @@
 -- Teaching execution authority must remain attached to the actor's deterministic
 -- current school and current governed staff placement. Historical schedule/allocation
--- rows remain intact; only present author/recorder authority is narrowed.
+-- rows remain intact; only present read/author/recorder authority is narrowed.
+
+-- This helper is the existing RLS boundary for pacing plans, pacing items, teaching
+-- schedules, lesson-preparation reads and teaching-actual reads/writes. Unlike the
+-- private current-school selector it must remain executable by authenticated because
+-- it is named directly by RLS policies. SECURITY DEFINER lets it consume the private
+-- deterministic selector without granting callers direct access to that helper.
+create or replace function app_private.can_access_teaching_plan(
+  target_school_id uuid,
+  target_teacher_allocation_id uuid default null
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, app_private
+as $$
+  select app_private.has_platform_role(array['platform_admin'])
+    or (
+      app_private.user_current_school_matches((select auth.uid()), target_school_id)
+      and (
+        app_private.has_school_role(
+          target_school_id,
+          array['school_admin','principal','deputy_principal','hod']
+        )
+        or exists (
+          select 1
+          from public.teacher_allocations ta
+          join public.staff_members staff
+            on staff.id = ta.staff_member_id
+           and staff.user_id = (select auth.uid())
+           and staff.status = 'active'
+          join public.school_memberships sm
+            on sm.school_id = ta.school_id
+           and sm.staff_member_id = ta.staff_member_id
+           and sm.user_id = (select auth.uid())
+          where ta.id = target_teacher_allocation_id
+            and ta.school_id = target_school_id
+            and sm.role_key in ('teacher','class_teacher')
+            and sm.active_from <= current_date
+            and (sm.active_to is null or sm.active_to >= current_date)
+            and ta.active_from <= current_date
+            and (ta.active_to is null or ta.active_to >= current_date)
+            and app_private.staff_member_has_school_assignment(
+              ta.staff_member_id,
+              target_school_id,
+              current_date
+            )
+        )
+      )
+    );
+$$;
+
+revoke all on function app_private.can_access_teaching_plan(uuid,uuid)
+from public,anon;
+grant execute on function app_private.can_access_teaching_plan(uuid,uuid)
+to authenticated;
 
 create or replace function app_private.enforce_lesson_preparation_scope_integrity()
 returns trigger
@@ -214,6 +270,9 @@ $$;
 
 revoke all on function app_private.enforce_teaching_actual_scope_integrity()
 from public,anon,authenticated;
+
+comment on function app_private.can_access_teaching_plan(uuid,uuid) is
+'RLS teaching-plan boundary: Platform Admin or current-school academic leadership/active allocated teacher with current governed placement; Platform Support remains excluded.';
 
 comment on function app_private.enforce_lesson_preparation_scope_integrity() is
 'Preserves lesson-preparation root provenance and requires current-school authority; allocated teachers must also have a date-valid allocation and current governed placement.';
