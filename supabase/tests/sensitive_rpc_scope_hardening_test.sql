@@ -7,7 +7,8 @@ values
   ('fa100000-0000-4000-8000-000000000001','scope-admin@example.test','authenticated','authenticated',now(),now()),
   ('fa100000-0000-4000-8000-000000000002','scope-teacher@example.test','authenticated','authenticated',now(),now()),
   ('fa100000-0000-4000-8000-000000000003','scope-counsellor@example.test','authenticated','authenticated',now(),now()),
-  ('fa100000-0000-4000-8000-000000000004','scope-other-staff@example.test','authenticated','authenticated',now(),now());
+  ('fa100000-0000-4000-8000-000000000004','scope-other-staff@example.test','authenticated','authenticated',now(),now()),
+  ('fa100000-0000-4000-8000-000000000005','scope-profile-requester@example.test','authenticated','authenticated',now(),now());
 
 insert into public.schools(id,tenant_id,name,emis_number,region,town)
 values('fa110000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Second Scope School','SCOPE002','Erongo','Walvis Bay');
@@ -24,7 +25,8 @@ values
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fa100000-0000-4000-8000-000000000001','fa120000-0000-4000-8000-000000000001','school_admin',current_date-10),
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fa100000-0000-4000-8000-000000000002','fa120000-0000-4000-8000-000000000002','teacher',current_date-10),
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fa100000-0000-4000-8000-000000000003','fa120000-0000-4000-8000-000000000003','counsellor',current_date-10),
-  ('11111111-1111-4111-8111-111111111111','fa110000-0000-4000-8000-000000000001','fa100000-0000-4000-8000-000000000004','fa120000-0000-4000-8000-000000000004','teacher',current_date-10);
+  ('11111111-1111-4111-8111-111111111111','fa110000-0000-4000-8000-000000000001','fa100000-0000-4000-8000-000000000004','fa120000-0000-4000-8000-000000000004','teacher',current_date-10),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fa100000-0000-4000-8000-000000000005',null,'school_admin',current_date-10);
 
 insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id)
 values
@@ -56,14 +58,15 @@ select throws_ok(
 select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000001',true);
 select is(app_private.can_calculate_subject_result('fa150000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000002'),true,'school administrator retains school-wide result oversight');
 
-select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000005',true);
 insert into public.profile_change_requests(
   id,tenant_id,school_id,learner_id,target_type,target_id,field_key,current_value,proposed_value,requested_by_user_id
 ) values(
   'fa170000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-  '50000000-0000-4000-8000-000000000001','learner','50000000-0000-4000-8000-000000000001','preferred_name','Amara','Ami','fa100000-0000-4000-8000-000000000003'
+  '50000000-0000-4000-8000-000000000001','learner','50000000-0000-4000-8000-000000000001','preferred_name','Amara','Ami','fa100000-0000-4000-8000-000000000005'
 );
 
+select set_config('request.jwt.claim.sub','fa100000-0000-4000-8000-000000000003',true);
 select throws_ok(
   $$select public.review_profile_change_request('fa170000-0000-4000-8000-000000000001','approved',null)$$,
   'P0001','Permission denied','counsellor may manage learner support relationships but cannot approve authoritative profile corrections'
