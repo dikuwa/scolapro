@@ -37,7 +37,7 @@ select throws_ok(
   'P0001','Permission denied',
   'direct review RPC denies an older active non-current school'
 );
-select is((select status from public.profile_change_requests where id='fdd200000-0000-4000-8000-000000000001'),'pending','non-current-school denial leaves request pending');
+select is((select status from public.profile_change_requests where id='fdd20000-0000-4000-8000-000000000001'),'pending','non-current-school denial leaves request pending');
 
 select set_config('request.jwt.claim.sub','fdd00000-0000-4000-8000-000000000004',true);
 select throws_ok(
