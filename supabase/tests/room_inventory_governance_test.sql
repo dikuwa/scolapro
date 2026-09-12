@@ -32,8 +32,12 @@ select ok(not has_table_privilege('authenticated','public.room_inventory_items',
 select ok(not has_table_privilege('authenticated','public.room_inventory_events','INSERT,UPDATE,DELETE'),'authenticated users cannot directly mutate inventory events');
 select ok(not has_table_privilege('authenticated','public.room_inventory_verifications','INSERT,UPDATE,DELETE'),'authenticated users cannot directly mutate inventory verifications');
 
-select ok(position('staff_school_assignments' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian access checks current staff-school assignment');
-select ok(position('school_memberships' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian access checks current school membership fallback');
+select ok(position('staff_member_covers_school_period' in pg_get_functiondef('app_private.is_current_room_inventory_custodian(uuid)'::regprocedure)) > 0,'custodian access uses governed staff placement coverage helper');
+select ok(
+  position('staff_school_assignments' in pg_get_functiondef('app_private.staff_member_covers_school_period(uuid,uuid,date,date)'::regprocedure)) > 0
+  and position('school_memberships' in pg_get_functiondef('app_private.staff_member_covers_school_period(uuid,uuid,date,date)'::regprocedure)) > 0,
+  'governed placement helper preserves authoritative assignment history with legacy membership fallback'
+);
 select ok(to_regprocedure('app_private.room_inventory_current_school_id()') is not null,'room inventory current-school resolver exists');
 select ok(not has_function_privilege('authenticated','app_private.room_inventory_current_school_id()','EXECUTE'),'authenticated users cannot invoke the internal current-school resolver directly');
 select ok(position('room_inventory_current_school_id' in pg_get_functiondef('app_private.can_manage_room_inventory(uuid)'::regprocedure)) > 0,'manager authorization binds to deterministic current school');
