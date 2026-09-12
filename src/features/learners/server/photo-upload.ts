@@ -39,6 +39,18 @@ export async function prepareLearnerPhotoUpload(
   }
 
   const supabase = await createSupabaseServerClient();
+  const { data: canPrepare, error: authorizationError } = await supabase.rpc(
+    "can_prepare_learner_photo_upload",
+    {
+      p_school_id: parsed.data.schoolId,
+      p_learner_id: parsed.data.learnerId,
+    },
+  );
+
+  if (authorizationError || !canPrepare) {
+    return { success: false, message: "You do not have permission to update this learner photo." };
+  }
+
   const { data: identifier, error: identifierError } = await supabase
     .from("school_learner_identifiers")
     .select("learner_id")
