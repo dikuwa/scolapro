@@ -121,6 +121,9 @@ select throws_ok(
 
 reset role;
 
+delete from public.timetable_slots
+where id='fdb70000-1000-4000-8000-000000000001';
+
 insert into public.academic_years(tenant_id,school_id,year,status,starts_on,ends_on)
 values(
   '11111111-1111-4111-8111-111111111111',
