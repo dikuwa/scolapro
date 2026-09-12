@@ -179,6 +179,10 @@ select ok(
   ),
   'acceptance links tenant staff identity to the target school and preserves placement creator provenance'
 );
+
+-- Invitation history is admin-only by design, so inspect immutable acceptance/audit
+-- provenance through the trusted regression context after exercising the recipient path.
+reset role;
 select ok(
   exists(
     select 1 from public.school_invitations si
@@ -196,7 +200,6 @@ select ok(
 );
 
 -- Accepted target identity remains immutable, preventing any post-acceptance retargeting.
-reset role;
 select set_config('request.jwt.claim.sub','ac000000-0000-4000-8000-000000000004',true);
 select set_config('request.jwt.claims','{"sub":"ac000000-0000-4000-8000-000000000004","role":"authenticated","email":"invite-lifecycle-platform@example.test"}',true);
 select throws_ok(
