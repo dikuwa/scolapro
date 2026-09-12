@@ -125,12 +125,21 @@ select is(
   false,
   'ended class-teacher placement removes learner observation authority'
 );
-select is(
-  app_private.user_can_access_learner_observations('ec000000-0000-4000-8000-000000000002','ec100000-0000-4000-8000-000000000002','ec150000-0000-4000-8000-000000000004'),
-  false,
-  'physical recorder provenance guard also rejects stale class-teacher placement'
+
+reset role;
+select throws_ok(
+  $$insert into public.conduct_events(
+      id,tenant_id,school_id,learner_id,enrolment_id,occurred_on,direction,category_code,severity,summary,status,recorded_by_user_id
+    ) values (
+      'ec180000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','ec100000-0000-4000-8000-000000000002',
+      'ec150000-0000-4000-8000-000000000004','ec160000-0000-4000-8000-000000000004',current_date,'negative','CURRENT','routine','Stale recorder incident','recorded','ec000000-0000-4000-8000-000000000002'
+    )$$,
+  'Learner observation recorder mismatch: user is not authorized for learner',
+  'physical recorder provenance guard rejects stale class-teacher placement without exposing its private helper'
 );
 
+set local role authenticated;
+select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','ec000000-0000-4000-8000-000000000003',true);
 select is(
   (select count(*)::integer from public.conduct_events),
