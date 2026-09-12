@@ -121,6 +121,9 @@ select throws_ok(
 
 reset role;
 
+delete from public.subject_attendance_submissions
+where timetable_slot_id='fdb70000-1000-4000-8000-000000000001';
+
 delete from public.timetable_slots
 where id='fdb70000-1000-4000-8000-000000000001';
 
