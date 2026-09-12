@@ -8,10 +8,11 @@ values('fc000000-0000-4000-8000-000000000001','promotion-attendance-admin@exampl
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
 values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc000000-0000-4000-8000-000000000001','school_admin','2026-01-01');
 
--- Narrow the seeded enrolment to prove a rule configuration cannot widen the
--- attendance evaluation beyond the learner's actual school membership period.
+-- Keep the seeded learner current/effective for the hardened promotion boundary,
+-- while preserving a narrow historical attendance window. The rule starts before
+-- the learner enrolment so the evaluator must still clamp the start to enrolled_from.
 update public.enrolments
-set enrolled_from='2026-02-02',enrolled_to='2026-02-03'
+set enrolled_from='2026-02-02',enrolled_to='2026-12-31',status='current'
 where id='60000000-0000-4000-8000-000000000001';
 
 -- Promotion conditions are immutable once their rule version becomes active.
@@ -30,14 +31,14 @@ insert into public.promotion_rule_conditions(
 ) values(
   'fc200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
   'fc100000-0000-4000-8000-000000000001','ATTENDANCE','minimum_attendance_rate',80,true,
-  '{"starts_on":"2026-01-01","ends_on":"2026-12-31"}',1
+  '{"starts_on":"2026-01-01","ends_on":"2026-02-03"}',1
 );
 
 update public.promotion_rule_sets
 set status='active'
 where id='fc100000-0000-4000-8000-000000000001';
 
--- Only one of the two expected enrolment days has a submitted register. The
+-- Only one of the two expected evaluation days has a submitted register. The
 -- missing day must not be treated as present.
 insert into public.attendance_register_submissions(
   id,tenant_id,school_id,academic_year,register_class_id,attendance_date,default_status,recorded_by_user_id,recorded_at,source
@@ -56,9 +57,9 @@ select public.evaluate_promotion_recommendation(
   'fc100000-0000-4000-8000-000000000001'
 );
 
-select is((select result#>>'{checks,0,evaluation_starts_on}' from promotion_attendance_result),'2026-02-02','attendance evaluation starts at the learner enrolment boundary, not the wider rule date');
-select is((select result#>>'{checks,0,evaluation_ends_on}' from promotion_attendance_result),'2026-02-03','attendance evaluation ends at the learner enrolment boundary, not the wider rule date');
-select is((select (result#>>'{checks,0,expected_school_days}')::integer from promotion_attendance_result),2,'promotion attendance expects both school days inside the clamped enrolment interval');
+select is((select result#>>'{checks,0,evaluation_starts_on}' from promotion_attendance_result),'2026-02-02','attendance evaluation starts at the learner enrolment boundary, not the wider rule start date');
+select is((select result#>>'{checks,0,evaluation_ends_on}' from promotion_attendance_result),'2026-02-03','attendance evaluation respects the configured historical window while the learner enrolment remains current/effective');
+select is((select (result#>>'{checks,0,expected_school_days}')::integer from promotion_attendance_result),2,'promotion attendance expects both school days inside the clamped evaluation interval');
 select is((select (result#>>'{checks,0,recorded_school_days}')::integer from promotion_attendance_result),1,'promotion attendance counts only actually submitted daily registers');
 select is((select (result#>>'{checks,0,missing_register_days}')::integer from promotion_attendance_result),1,'promotion attendance exposes missing register coverage explicitly');
 select is((select (result#>>'{checks,0,register_coverage_complete}')::boolean from promotion_attendance_result),false,'incomplete daily-register coverage is never marked complete');
