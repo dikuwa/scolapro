@@ -10,7 +10,7 @@ values(
   '11111111-1111-4111-8111-111111111111',
   '22222222-2222-4222-8222-222222222222',
   'fdb00000-1000-4000-8000-000000000001',
-  'teacher',current_date-1
+  'teacher',current_date-30
 );
 
 insert into public.staff_members(
@@ -85,7 +85,7 @@ insert into public.timetable_slots(
   'fdb70000-1000-4000-8000-000000000001',
   '11111111-1111-4111-8111-111111111111',
   '22222222-2222-4222-8222-222222222222',
-  2026,'CYCLE-DAY',extract(isodow from current_date)::smallint,
+  2026,'CYCLE-DAY',1::smallint,
   'fdb60000-1000-4000-8000-000000000001',
   '40000000-0000-4000-8000-00000000001a',
   'fdb50000-1000-4000-8000-000000000001','active'
@@ -104,7 +104,9 @@ select has_function(
 
 select lives_ok(
   $$select public.submit_subject_period_attendance(
-    'fdb70000-1000-4000-8000-000000000001',current_date,'[]'::jsonb,'valid weekday',
+    'fdb70000-1000-4000-8000-000000000001',
+    current_date-(extract(isodow from current_date)::integer-1),
+    '[]'::jsonb,'valid weekday',
     'fdb80000-1000-4000-8000-000000000001',null,'online'
   )$$,
   'valid configured weekday submission succeeds'
@@ -112,7 +114,9 @@ select lives_ok(
 
 select throws_ok(
   $$select public.submit_subject_period_attendance(
-    'fdb70000-1000-4000-8000-000000000001',current_date+1,'[]'::jsonb,'wrong day',
+    'fdb70000-1000-4000-8000-000000000001',
+    current_date-(extract(isodow from current_date)::integer-1)+1,
+    '[]'::jsonb,'wrong day',
     'fdb80000-1000-4000-8000-000000000002',null,'online'
   )$$,
   'Attendance date does not match timetable day',
