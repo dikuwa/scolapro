@@ -14,25 +14,42 @@ stable
 security definer
 set search_path=pg_catalog,public,app_private
 as $$
+  with current_membership as (
+    select sm.school_id, sm.staff_member_id
+    from public.school_memberships sm
+    where sm.user_id=(select auth.uid())
+      and sm.active_from <= (now() at time zone 'Africa/Windhoek')::date
+      and (sm.active_to is null or sm.active_to >= (now() at time zone 'Africa/Windhoek')::date)
+    order by sm.active_from desc, sm.id asc
+    limit 1
+  )
   select app_private.has_platform_role(array['platform_admin'])
     or exists (
       select 1
-      from (
-        select sm.school_id, sm.staff_member_id
-        from public.school_memberships sm
-        where sm.user_id=(select auth.uid())
-          and sm.active_from <= (now() at time zone 'Africa/Windhoek')::date
-          and (sm.active_to is null or sm.active_to >= (now() at time zone 'Africa/Windhoek')::date)
-        order by sm.active_from desc, sm.id asc
-        limit 1
-      ) current_membership
-      where current_membership.school_id=p_school_id
+      from current_membership cm
+      where cm.school_id=p_school_id
         and (
-          current_membership.staff_member_id is null
-          or app_private.staff_member_has_school_assignment(
-            current_membership.staff_member_id,
-            p_school_id,
-            (now() at time zone 'Africa/Windhoek')::date
+          -- Non-staff memberships keep their existing directory semantics. If the
+          -- account is a staff identity, however, an effective placement is required
+          -- even when legacy membership data does not carry staff_member_id.
+          (
+            cm.staff_member_id is null
+            and not exists (
+              select 1
+              from public.staff_members s
+              where s.user_id=(select auth.uid())
+            )
+          )
+          or exists (
+            select 1
+            from public.staff_members s
+            join public.staff_school_assignments ssa
+              on ssa.staff_member_id=s.id
+             and ssa.school_id=cm.school_id
+             and ssa.effective_from <= (now() at time zone 'Africa/Windhoek')::date
+             and (ssa.effective_to is null or ssa.effective_to >= (now() at time zone 'Africa/Windhoek')::date)
+            where s.user_id=(select auth.uid())
+              and (cm.staff_member_id is null or s.id=cm.staff_member_id)
           )
         )
     );
@@ -250,7 +267,7 @@ grant execute on function public.search_operational_learner_directory(uuid,text,
 to authenticated;
 
 comment on function app_private.can_access_current_school_learner_directory(uuid) is
-'Learner identity-directory boundary: Platform Admin or the authenticated actor deterministic current school, with effective staff placement required for staff-linked membership. Platform Support has no override.';
+'Learner identity-directory boundary: Platform Admin or the authenticated actor deterministic current school; staff accounts require an effective placement in that school even when legacy membership linkage is absent. Platform Support has no override.';
 comment on function app_private.can_read_learner_identity(uuid,uuid) is
 'Raw learner identity scope: Platform Admin, or effective current-enrolment access in the actor deterministic current school under the existing role/assignment rules.';
 comment on function public.list_learner_directory_page(uuid,integer,text,text,text,text,text,boolean,integer,integer) is
