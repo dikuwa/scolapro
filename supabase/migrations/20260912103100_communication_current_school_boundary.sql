@@ -104,15 +104,56 @@ begin
 end;
 $$;
 
--- School-template reads must follow current-school context too; provider binding
--- visibility remains leadership-only and does not become a generic authoring grant.
+-- Keep private authorization helpers private. RLS calls only narrow SECURITY
+-- DEFINER wrappers, matching the established communication policy-wrapper contract.
+create or replace function app_private.can_read_communication_template_school(p_school_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=public,app_private
+as $$
+  select app_private.has_platform_role(array['platform_admin'])
+    or (
+      app_private.is_current_school(p_school_id)
+      and app_private.can_author_communications(p_school_id)
+    );
+$$;
+
+revoke all on function app_private.can_read_communication_template_school(uuid) from public,anon;
+grant execute on function app_private.can_read_communication_template_school(uuid) to authenticated;
+
+create or replace function app_private.can_read_communication_provider_template_binding(p_template_version_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=public,app_private
+as $$
+  select exists(
+    select 1
+    from public.communication_template_versions v
+    join public.communication_templates t on t.id=v.template_id
+    where v.id=p_template_version_id
+      and (
+        app_private.has_platform_role(array['platform_admin'])
+        or (
+          app_private.is_current_school(t.school_id)
+          and app_private.has_school_role(t.school_id,array['school_admin','principal','deputy_principal'])
+        )
+      )
+  );
+$$;
+
+revoke all on function app_private.can_read_communication_provider_template_binding(uuid) from public,anon;
+grant execute on function app_private.can_read_communication_provider_template_binding(uuid) to authenticated;
+
+-- School-template reads follow current-school context while retaining the private
+-- helper execution boundary. Provider binding visibility remains leadership-only.
 drop policy if exists "communication authors read school templates" on public.communication_templates;
 create policy "communication authors read current school templates"
 on public.communication_templates for select to authenticated
-using (
-  app_private.has_platform_role(array['platform_admin'])
-  or (app_private.is_current_school(school_id) and app_private.can_author_communications(school_id))
-);
+using (app_private.can_read_communication_template_school(school_id));
 
 drop policy if exists "communication authors read school template versions" on public.communication_template_versions;
 create policy "communication authors read current school template versions"
@@ -120,28 +161,13 @@ on public.communication_template_versions for select to authenticated
 using (exists(
   select 1 from public.communication_templates t
   where t.id = communication_template_versions.template_id
-    and (
-      app_private.has_platform_role(array['platform_admin'])
-      or (app_private.is_current_school(t.school_id) and app_private.can_author_communications(t.school_id))
-    )
+    and app_private.can_read_communication_template_school(t.school_id)
 ));
 
 drop policy if exists "communication leaders read provider template bindings" on public.communication_provider_template_bindings;
 create policy "communication leaders read current school provider template bindings"
 on public.communication_provider_template_bindings for select to authenticated
-using (exists(
-  select 1
-  from public.communication_template_versions v
-  join public.communication_templates t on t.id = v.template_id
-  where v.id = communication_provider_template_bindings.template_version_id
-    and (
-      app_private.has_platform_role(array['platform_admin'])
-      or (
-        app_private.is_current_school(t.school_id)
-        and app_private.has_school_role(t.school_id,array['school_admin','principal','deputy_principal'])
-      )
-    )
-));
+using (app_private.can_read_communication_provider_template_binding(template_version_id));
 
 -- Preserve PR #414's privacy shape exactly; only tighten its school authorization.
 create or replace function public.list_communication_delivery_diagnostics(
@@ -217,5 +243,9 @@ grant execute on function public.list_communication_delivery_diagnostics(uuid,in
 
 comment on function app_private.is_current_school(uuid) is
 'Checks the deterministic active school membership selected by active_from DESC, id ASC for the authenticated user.';
+comment on function app_private.can_read_communication_template_school(uuid) is
+'RLS-only wrapper around private communication author authorization, additionally bound to the authenticated user deterministic current school. Platform admin retains its explicit override.';
+comment on function app_private.can_read_communication_provider_template_binding(uuid) is
+'RLS-only wrapper for provider-template binding reads by platform administration or current-school leadership.';
 comment on function public.list_communication_delivery_diagnostics(uuid,integer) is
 'School-scoped communication delivery summary for platform admins or current-school administrators/principals/deputy principals. Raw last_error, error_detail, provider_message_id and provider_metadata remain service-role only.';
