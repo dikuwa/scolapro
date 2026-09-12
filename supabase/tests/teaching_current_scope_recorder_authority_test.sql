@@ -95,9 +95,15 @@ select throws_ok(
 update public.staff_school_assignments
 set effective_to=null
 where id='ee130000-0000-4000-8000-000000000002';
+
+-- This fixture deliberately omits a real curriculum offering/class graph; isolate the
+-- allocation end-date mutation from the existing allocation integrity trigger. The
+-- authority under test is the teaching guard's consumption of the stale allocation.
+set local session_replication_role = replica;
 update public.teacher_allocations
 set active_to=current_date-1
 where id='ee140000-0000-4000-8000-000000000002';
+set local session_replication_role = origin;
 
 select throws_ok(
   $$insert into public.lesson_preparations(id,tenant_id,school_id,teaching_schedule_item_id,planned_on,prepared_by_user_id)
