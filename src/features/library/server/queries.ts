@@ -70,7 +70,8 @@ type LearnerRow = {
   admission_number: string | null;
   grade_id: string | null;
   register_class_id: string | null;
-  learners: { first_names: string; surname: string } | { first_names: string; surname: string }[];
+  first_names: string;
+  surname: string;
 };
 
 type StaffBorrowerRow = {
@@ -79,10 +80,6 @@ type StaffBorrowerRow = {
   last_name: string;
   employee_number: string | null;
 };
-
-function first<T>(value: T | T[] | null | undefined): T | null {
-  return Array.isArray(value) ? value[0] ?? null : value ?? null;
-}
 
 export async function getLibraryWorkspace(schoolId: string, today: string) {
   const supabase = await createSupabaseServerClient();
@@ -102,13 +99,7 @@ export async function getLibraryWorkspace(schoolId: string, today: string) {
       .select("id,copy_id,learner_id,staff_member_id,issued_on,due_on,returned_on,returned_condition,status,notes")
       .eq("school_id", schoolId)
       .order("issued_on", { ascending: false }),
-    supabase
-      .from("enrolments")
-      .select("learner_id,admission_number,grade_id,register_class_id,learners!inner(first_names,surname)")
-      .eq("school_id", schoolId)
-      .eq("status", "current")
-      .lte("enrolled_from", today)
-      .or(`enrolled_to.is.null,enrolled_to.gte.${today}`),
+    supabase.rpc("list_learning_resource_learner_borrowers", { p_school_id: schoolId }),
     supabase.rpc("list_learning_resource_staff_borrowers", { p_school_id: schoolId }),
     supabase
       .from("subjects")
@@ -190,11 +181,9 @@ export async function getLibraryWorkspace(schoolId: string, today: string) {
 
   const learnerMap = new Map<string, LibraryLearner>();
   const learners: LibraryLearner[] = [];
-  for (const row of (learnersResult.data ?? []) as unknown as LearnerRow[]) {
+  for (const row of (learnersResult.data ?? []) as LearnerRow[]) {
     if (learnerMap.has(row.learner_id)) continue;
-    const learner = first(row.learners);
-    if (!learner) continue;
-    const name = `${learner.first_names} ${learner.surname}`.trim();
+    const name = `${row.first_names} ${row.surname}`.trim();
     const grade = row.grade_id ? gradeMap.get(row.grade_id) : null;
     const registerClass = row.register_class_id ? classMap.get(row.register_class_id) : null;
     const item: LibraryLearner = {
