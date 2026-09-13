@@ -69,6 +69,9 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
   const eligibleStaffMap = new Map<string, { id: string; name: string; employeeNumber: string | null }>();
   const currentStaffIds = new Set<string>();
   const staffCodeMap = new Map<string, string>();
+  const authoritativeStaffIds = new Set(
+    (staffAssignmentsResult.data ?? []).map((assignment) => assignment.staff_member_id).filter(Boolean),
+  );
   const addEligibleStaff = (staff: { id: string; first_name: string; last_name: string; employee_number: string | null; status: string } | null) => {
     if (!staff || staff.status !== "active") return;
     eligibleStaffMap.set(staff.id, { id: staff.id, name: [staff.first_name, staff.last_name].filter(Boolean).join(" "), employeeNumber: staff.employee_number });
@@ -76,8 +79,9 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
 
   for (const membership of membershipsResult.data ?? []) {
     const staff = one(membership.staff_members);
+    if (!staff || authoritativeStaffIds.has(staff.id)) continue;
     if (isCurrentOrFuture(today, membership.active_to)) addEligibleStaff(staff);
-    if (staff?.status === "active" && isEffectiveOn(today, membership.active_from, membership.active_to)) currentStaffIds.add(staff.id);
+    if (staff.status === "active" && isEffectiveOn(today, membership.active_from, membership.active_to)) currentStaffIds.add(staff.id);
   }
   for (const assignment of staffAssignmentsResult.data ?? []) {
     const staff = one(assignment.staff_members);
