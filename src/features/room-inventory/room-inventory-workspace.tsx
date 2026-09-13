@@ -1,9 +1,10 @@
 "use client";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { NumberStepper } from "@/components/ui/number-stepper";
 import { Picker } from "@/components/ui/picker";
 import { DateField } from "@/components/ui/date-field";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 
@@ -236,12 +237,11 @@ export function RoomInventoryWorkspace({
                   { value: "personal", label: "Personal" },
                 ]}
               />
-              <input
-                className={f}
+              <NumberStepper
                 name="quantity"
-                type="number"
-                min="0"
-                defaultValue="1"
+                min={0}
+                defaultValue={1}
+                aria-label="Quantity"
               />
               <Picker
                 label="Condition"
