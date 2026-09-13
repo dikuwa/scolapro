@@ -139,7 +139,7 @@ select ok(
       and status='returned'
       and issued_by_user_id='fc820000-0000-4000-8000-000000000001'
       and returned_by_user_id='fc820000-0000-4000-8000-000000000004'
-      and returned_on=app_private.learning_resource_today()
+      and returned_on=(now() at time zone 'Africa/Windhoek')::date
   ),
   'completed return preserves immutable issuer and authenticated return provenance'
 );
