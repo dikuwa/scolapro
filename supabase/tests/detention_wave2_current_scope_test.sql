@@ -1,5 +1,5 @@
 begin;
-select plan(20);
+select plan(21);
 
 -- Stable fixture IDs.
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
@@ -121,17 +121,8 @@ select is(
   'later learner allocation does not create a duplicate detention session'
 );
 
-select is(
-  (select count(*)::integer from public.notifications where recipient_user_id='a9100000-0000-4000-8000-000000000004' and title='Detention duty scheduled'),
-  1,
-  'future roster planning targets the assigned supervisor notification'
-);
-
-select is(
-  (select count(*)::integer from public.notifications where recipient_user_id='a9100000-0000-4000-8000-000000000005' and title='Detention duty scheduled'),
-  0,
-  'detention duty notification is not tenant-wide'
-);
+-- Notification targeting is covered by detention_notification_route_alignment_test.sql,
+-- which asserts recipient_user_id routing rather than tenant-wide fan-out.
 
 -- One attended item resolves only its own durable obligation.
 select lives_ok(format(
