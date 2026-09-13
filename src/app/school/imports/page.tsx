@@ -3,7 +3,7 @@ import { AlertTriangle, BookOpenCheck, CheckCircle2, ChevronLeft, ChevronRight, 
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CompactActionButton, CompactActionLink } from "@/components/ui/compact-action";
-import { ImportDropField } from "@/features/imports/import-drop-field";
+import { ImportDropField, ImportStageButton } from "@/features/imports/import-drop-field";
 import { commitAcademicStructureImport, stageAcademicStructureCsv } from "@/features/imports/server/academic-actions";
 import { archiveImportBatch, commitLearnerImport, commitStaffImport, discardImportBatch, markLearnerImportReady, skipMatchedImportRow, stageLearnerCsv, stageStaffCsv } from "@/features/imports/server/actions";
 import { commitGuardianImport, confirmMatchedGuardianImportRow, stageGuardianCsv } from "@/features/imports/server/guardian-actions";
@@ -39,39 +39,43 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
       <div className="space-y-5">
         <div>
           <h1 className="scolapro-page-title text-xl">Bulk import</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Use a ScolaPro template or bring an existing CSV/Excel file. Files are staged first, checked against stable identifiers and school setup, then committed only after review.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Upload your CSV or Excel files. Files are staged and checked against your school setup before they are committed.</p>
         </div>
 
         {search.error ? <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] bg-danger-soft p-3 text-xs font-medium text-[color:var(--danger)] sm:flex-row sm:items-center sm:justify-between"><span>{search.error}</span><a href="/school/imports" className="inline-flex min-h-8 items-center gap-1.5 self-start rounded-[var(--radius-xs)] bg-surface px-2.5 text-foreground shadow-[var(--shadow-xs)] transition-colors hover:bg-surface-muted sm:self-auto"><RotateCcw className="size-3.5" />Start over</a></div> : null}
         {search.success ? <div className="rounded-[var(--radius-sm)] bg-success-soft p-3 text-xs font-medium text-[color:var(--success)]">{search.success}</div> : null}
 
         <section className="grid items-stretch gap-5 xl:grid-cols-2 2xl:grid-cols-4">
-          <ImportCard icon={<Upload className="size-4" />} tone="scolapro-tone-mint" title="Stage learner file" description="Required: first_names, surname, grade_code, class_code. Optional identity fields include initials and preferred_name; keep initials out of first_names." inputId="learner-csv" label="Choose learner CSV or Excel" helper="CSV, XLSX or XLS up to 5 MB. Drag and drop or click to browse." button="Stage and reconcile learners" action={stageLearnerCsv} templateHref="/templates/learner-import-template.csv" />
-          <ImportCard icon={<UsersRound className="size-4" />} tone="scolapro-tone-sky" title="Stage staff file" description="Required: employee_number, first_name, last_name. Optional: initials, assignment_type, position_title and effective_from." inputId="staff-csv" label="Choose staff CSV or Excel" helper="CSV, XLSX or XLS up to 5 MB. Staff are staged before any account invitation is created." button="Stage and reconcile staff" action={stageStaffCsv} templateHref="/templates/staff-import-template.csv" />
-          <ImportCard icon={<HeartHandshake className="size-4" />} tone="scolapro-tone-mint" title="Stage guardian file" description="Required: learner_admission_number, identity_number, first_names, surname. Optional initials, contacts and relationship flags are supported. Repeat a learner for multiple guardians or a guardian for multiple learners." inputId="guardian-csv" label="Choose guardian CSV or Excel" helper="CSV, XLSX or XLS up to 5 MB. Matching uses guardian identity and learner admission numbers." button="Stage and reconcile guardians" action={stageGuardianCsv} templateHref="/templates/guardian-import-template.csv" />
-          <ImportCard icon={<BookOpenCheck className="size-4" />} tone="scolapro-tone-brand" title="Stage academic structure" description="Rows use record_type grade/class/subject, code and display_name. Class rows also require grade_code." inputId="academic-csv" label="Choose structure CSV or Excel" helper="CSV, XLSX or XLS up to 5 MB. Grades are committed before classes in the same batch." button="Stage and reconcile structure" action={stageAcademicStructureCsv} templateHref="/templates/academic-structure-import-template.csv" />
+          <ImportCard icon={<Upload className="size-4" />} tone="scolapro-tone-mint" title="Learners" description="Learner identities and class placement." inputId="learner-csv" action={stageLearnerCsv} templateHref="/templates/learner-import-template.csv" />
+          <ImportCard icon={<UsersRound className="size-4" />} tone="scolapro-tone-sky" title="Staff" description="Staff identities and school assignments." inputId="staff-csv" action={stageStaffCsv} templateHref="/templates/staff-import-template.csv" />
+          <ImportCard icon={<HeartHandshake className="size-4" />} tone="scolapro-tone-mint" title="Guardians" description="Guardian identities and learner relationships." inputId="guardian-csv" action={stageGuardianCsv} templateHref="/templates/guardian-import-template.csv" />
+          <ImportCard icon={<BookOpenCheck className="size-4" />} tone="scolapro-tone-brand" title="Academic structure" description="Grades, classes and subjects." inputId="academic-csv" action={stageAcademicStructureCsv} templateHref="/templates/academic-structure-import-template.csv" />
         </section>
 
         <section className="bg-surface shadow-[var(--shadow-xs)]">
           <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
-            <div><h2 className="scolapro-section-title">{showHistory ? "Import history" : "Recent import batches"}</h2><p className="scolapro-section-description">Open batches can be cancelled. Completed, cancelled or failed batches can be archived to reduce clutter without deleting their audit history.</p></div>
+            <div><h2 className="scolapro-section-title">{showHistory ? "Import history" : "Recent batches"}</h2><p className="scolapro-section-description">Open batches can be cancelled. Completed, cancelled or failed batches can be archived to reduce clutter without deleting their audit history.</p></div>
             <CompactActionLink href={showHistory ? "/school/imports" : "/school/imports?history=1"} className="shrink-0">{showHistory ? "Show recent only" : "Show archived history"}</CompactActionLink>
           </div>
-          {workspace.batches.length ? <div className="divide-y divide-border-subtle">{workspace.batches.map((item) => {
+          {workspace.batches.length ? <div><div className="hidden gap-3 border-b border-border-subtle bg-surface-muted px-5 py-2 text-xs font-medium text-muted-foreground lg:grid lg:grid-cols-[minmax(0,2fr)_1fr_4rem_1fr_1fr_minmax(10rem,auto)]"><span>File name</span><span>Type</span><span>Rows</span><span>Status</span><span>Imported on</span><span>Actions</span></div><div className="divide-y divide-border-subtle">{workspace.batches.map((item) => {
             const terminal = ["completed", "cancelled", "failed"].includes(item.status);
             const canCancel = !["completed", "committing", "cancelled", "failed"].includes(item.status);
             const archived = Boolean(item.archived_at);
             const detailHref = `/school/imports?batch=${item.id}${showHistory ? "&history=1" : ""}`;
             const statusTone = archived ? "neutral" : item.status === "completed" ? "success" : item.status === "cancelled" || item.status === "failed" ? "danger" : "brand";
-            return <div key={item.id} className={`flex flex-col gap-3 px-4 py-3 transition-colors sm:flex-row sm:items-center sm:justify-between sm:px-5 ${batch?.id === item.id ? "bg-brand-soft/45" : "hover:bg-surface-muted/60"}`}>
-              <a href={detailHref} className="min-w-0 flex-1 rounded-[var(--radius-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><span className="scolapro-record-title block truncate">{item.source_file_name}</span><span className="text-[0.68rem] capitalize text-muted-foreground">{item.import_type.replaceAll("_", " ")} · {item.total_rows} rows · {item.valid_rows} resolved · {item.error_rows} errors</span></a>
+            return <div key={item.id} className={`flex flex-col gap-3 px-4 py-3 transition-colors lg:grid lg:grid-cols-[minmax(0,2fr)_1fr_4rem_1fr_1fr_minmax(10rem,auto)] lg:items-center sm:px-5 ${batch?.id === item.id ? "bg-brand-soft/45" : "hover:bg-surface-muted/60"}`}>
+              <a href={detailHref} className="min-w-0 flex-1 rounded-[var(--radius-xs)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><span className="scolapro-record-title block truncate">{item.source_file_name}</span></a>
+              <span className="text-xs capitalize text-muted-foreground"><span className="lg:hidden">Type: </span>{item.import_type.replaceAll("_", " ")}</span>
+              <span className="text-xs text-muted-foreground"><span className="lg:hidden">Rows: </span>{item.total_rows}</span>
+              <span className="text-xs capitalize"><span className="lg:hidden">Status: </span>{archived ? `Archived · ${item.status}` : item.status}</span>
+              <span className="text-xs text-muted-foreground"><span className="lg:hidden">Imported on: </span>{item.committed_at ? new Intl.DateTimeFormat("en-GB", {timeZone:"Africa/Windhoek",dateStyle:"medium"}).format(new Date(item.committed_at)) : "—"}</span>
               <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                <CompactActionLink href={detailHref} tone={statusTone} className="capitalize">{archived ? `Archived · ${item.status}` : item.status}</CompactActionLink>
+                <CompactActionLink href={detailHref} tone={statusTone} >Review</CompactActionLink>
                 {!archived && canCancel ? <form action={discardImportBatch}><input type="hidden" name="batchId" value={item.id} /><CompactActionButton type="submit" tone="danger">Cancel</CompactActionButton></form> : null}
                 {!archived && terminal ? <form action={archiveImportBatch}><input type="hidden" name="batchId" value={item.id} /><CompactActionButton type="submit" tone="warning">Archive</CompactActionButton></form> : null}
               </div>
             </div>;
-          })}</div> : <div className="p-8 text-center text-xs text-muted-foreground">{showHistory ? "No import history found." : "No active or recent imports."}</div>}
+          })}</div></div> : <div className="p-8 text-center text-xs text-muted-foreground">{showHistory ? "No import history found." : "No active or recent imports."}</div>}
         </section>
 
         {batch ? <section className="bg-surface shadow-[var(--shadow-xs)]">
@@ -97,10 +101,10 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
   );
 }
 
-function ImportCard({ icon, tone, title, description, inputId, label, helper, button, action, templateHref }: { icon: ReactNode; tone: string; title: string; description: string; inputId: string; label: string; helper: string; button: string; action: (formData: FormData) => void | Promise<void>; templateHref: string }) {
+function ImportCard({ icon, tone, title, description, inputId, action, templateHref }: { icon: ReactNode; tone: string; title: string; description: string; inputId: string; action: (formData: FormData) => void | Promise<void>; templateHref: string }) {
   return <div className="flex h-full flex-col bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
     <div className="flex items-start gap-3"><span className={`${tone} grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]`}>{icon}</span><div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-2"><h2 className="scolapro-section-title">{title}</h2><a href={templateHref} download className="inline-flex shrink-0 items-center gap-1 text-[0.68rem] font-semibold text-brand-strong transition-colors hover:text-brand hover:underline"><Download className="size-3.5" />Template</a></div><p className="scolapro-section-description">{description}</p></div></div>
-    <form action={action} className="mt-4 flex flex-1 flex-col"><ImportDropField inputId={inputId} label={label} helper={helper} /><div className="mt-auto pt-3"><button type="submit" className={`${interactiveButton} inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white hover:brightness-95`}>{button}</button></div></form>
+    <form action={action} className="mt-4 flex flex-1 flex-col"><ImportDropField inputId={inputId} label="Choose CSV or Excel" helper="or drag & drop" /><div className="mt-auto pt-3"><ImportStageButton /></div></form>
   </div>;
 }
 

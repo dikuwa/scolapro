@@ -5,8 +5,9 @@ import { FileText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
+import { reasonLabels } from "@/features/parents/absence-reasons";
 import { Spinner } from "@/components/ui/spinner";
-import { submitAbsenceNotice, reasonLabels, type AbsenceActionState } from "@/features/parents/server/absence-actions";
+import { submitAbsenceNotice, type AbsenceActionState } from "@/features/parents/server/absence-actions";
 
 const initialState: AbsenceActionState = {};
 const categories = Object.entries(reasonLabels).map(([value, label]) => ({ value, label }));

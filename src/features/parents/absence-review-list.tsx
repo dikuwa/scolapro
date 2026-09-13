@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, FileText, RotateCcw, Search, X } from "lucide-react";
+import { CheckCircle2, FileText, RotateCcw, Search, X } from "lucide-react";
 import { toast } from "sonner";
+import { reasonLabels } from "@/features/parents/absence-reasons";
 import { Spinner } from "@/components/ui/spinner";
-import { reviewAbsenceNotice, reasonLabels, type AbsenceActionState } from "@/features/parents/server/absence-actions";
+import { reviewAbsenceNotice, type AbsenceActionState } from "@/features/parents/server/absence-actions";
 import type { AbsenceNoticeSummary } from "@/features/parents/server/absence-queries";
 
 const initialState: AbsenceActionState = {};
@@ -75,13 +76,13 @@ export function AbsenceReviewList({ notices }: { notices: AbsenceNoticeSummary[]
   return (
     <div className="space-y-4">
       <div className="grid gap-2 rounded-[var(--radius-md)] bg-surface-muted/55 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <label className="scolapro-control-surface flex min-h-10 items-center gap-2 rounded-[var(--radius-sm)] px-3">
+        <label className="scolapro-control-surface flex min-h-10 min-w-0 items-center gap-2 rounded-[var(--radius-sm)] px-3">
           <Search className="size-4 text-muted-foreground" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by learner, reason…"
             className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
           {query ? <button type="button" onClick={() => setQuery("")} className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}
         </label>
-        <div className="flex gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">
+        <div className="flex flex-wrap gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">
           {["all", "submitted", "under_review", "accepted", "returned"].map((s) => (
             <button key={s} type="button" onClick={() => setStatusFilter(s)}
               className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium transition ${statusFilter === s ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>
