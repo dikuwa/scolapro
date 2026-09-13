@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(12);
 
 insert into public.tenants(id,name,slug)
 values('cb110000-0000-4000-8000-000000000001','Notification Actor Tenant','notification-actor-tenant');
