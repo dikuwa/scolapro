@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
-import { CalendarDays, Clock3, History, RotateCcw, ShieldCheck } from "lucide-react";
+import { CalendarDays, Check, Clock3, History, RotateCcw, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -11,6 +11,7 @@ import { Picker } from "@/components/ui/picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   recordLateArrival,
+  recordBulkLateArrivals,
   reassignDetentionSupervisor,
   resolveDetention,
   undoLatestLateArrival,
@@ -113,103 +114,251 @@ export function LateArrivalWorkspace({
     if (value && selectedLearner?.registerClass !== value) setEnrolmentId("");
   };
 
+  const [bulkState, bulkAction, bulkPending] = useActionState(recordBulkLateArrivals, initialState);
+  const [captureMode, setCaptureMode] = useState<"single" | "bulk">("single");
+  const [selectedBulkIds, setSelectedBulkIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!bulkState.message) return;
+    if (bulkState.success) {
+      toast.success(bulkState.message);
+      queueMicrotask(() => setSelectedBulkIds([]));
+    } else toast.error(bulkState.message);
+  }, [bulkState]);
+
+  const toggleBulkId = (id: string) => {
+    setSelectedBulkIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const toggleSelectAllBulk = () => {
+    const classLearnerIds = filteredLearners.map((l) => l.enrolmentId);
+    const allSelected = classLearnerIds.length > 0 && classLearnerIds.every((id) => selectedBulkIds.includes(id));
+    if (allSelected) {
+      setSelectedBulkIds((prev) => prev.filter((id) => !classLearnerIds.includes(id)));
+    } else {
+      setSelectedBulkIds((prev) => [...new Set([...prev, ...classLearnerIds])]);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
           <div>
             <h2 className="scolapro-section-title">Record morning late arrival</h2>
-            <p className="scolapro-section-description">Detention is triggered by every 3 cumulative late arrivals across the academic year. The weekly strip is only a quick visibility aid.</p>
+            <p className="scolapro-section-description">
+              Detention is triggered by every 3 cumulative late arrivals across the academic year.
+            </p>
+          </div>
+          <div className="inline-flex rounded-[var(--radius-sm)] bg-surface-muted p-1" role="group" aria-label="Late arrival capture mode">
+            <button
+              type="button"
+              onClick={() => setCaptureMode("single")}
+              className={`inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] px-3 text-xs font-semibold transition ${captureMode === "single" ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Clock3 className="size-3.5" aria-hidden="true" /> Single learner
+            </button>
+            <button
+              type="button"
+              onClick={() => setCaptureMode("bulk")}
+              className={`inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] px-3 text-xs font-semibold transition ${captureMode === "bulk" ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Users className="size-3.5" aria-hidden="true" /> Bulk class capture
+            </button>
+          </div>
+        </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)]">
+        {captureMode === "single" ? (
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(20rem,0.8fr)]">
+            <div>
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)]">
+                <Picker
+                  label="Class"
+                  ariaLabel="Filter late-arrival learners by class"
+                  value={classFilter}
+                  onChange={changeClassFilter}
+                  placeholder="All classes"
+                  searchable
+                  searchPlaceholder="Search classes"
+                  options={[{ value: "", label: "All classes" }, ...classOptions.map((registerClass) => ({ value: registerClass, label: registerClass }))]}
+                />
+                <SearchableSelect
+                  label="Learner"
+                  name="late-arrival-learner-ui"
+                  value={enrolmentId}
+                  onChange={setEnrolmentId}
+                  placeholder={classFilter ? `Choose learner in ${classFilter}` : "Choose learner"}
+                  searchPlaceholder="Search by learner name or admission number…"
+                  emptyMessage={(query) => `No learner found for '${query}' — check the spelling or change the class filter.`}
+                  options={filteredLearners.map((learner) => ({
+                    value: learner.enrolmentId,
+                    label: learner.name,
+                    helper: `${learner.registerClass} · ${learner.admissionNumber ?? "No admission number"} · ${learner.triggerProgress} of ${learner.triggerThreshold}`,
+                    group: learner.registerClass,
+                    searchText: learner.admissionNumber ?? "",
+                  }))}
+                />
+              </div>
+              <p className="mt-1.5 text-[0.65rem] text-muted-foreground">Filter by class first when the learner list is long.</p>
+
+              {selectedLearner ? (
+                <div className="mt-3 rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted/45 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="scolapro-record-title">{selectedLearner.name}</p>
+                      <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{selectedLearner.registerClass} · {selectedLearner.totalLateCount} late arrival{selectedLearner.totalLateCount === 1 ? "" : "s"} recorded this year</p>
+                    </div>
+                    <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{selectedLearner.triggerProgress} of {selectedLearner.triggerThreshold}</span>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-5 gap-1.5" aria-label="Late arrivals this week">
+                    {days.map((day) => {
+                      const late = selectedLearner.weekLateDates.includes(day.date);
+                      const future = day.date > today;
+                      const selected = arrivalDate === day.date;
+                      return (
+                        <button
+                          key={day.date}
+                          type="button"
+                          disabled={future}
+                          onClick={() => setArrivalDate(day.date)}
+                          className={`min-h-12 rounded-[var(--radius-xs)] border px-1 text-center transition ${future ? "cursor-not-allowed border-border-subtle bg-surface-muted/45 text-muted-foreground/45" : late ? "border-[color:var(--warning)]/35 bg-warning-soft text-[color:var(--warning)]" : selected ? "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface text-muted-foreground hover:border-border hover:text-foreground"}`}
+                          aria-label={`${day.label} ${formatDate(day.date)}${late ? ", late recorded" : ""}`}
+                        >
+                          <span className="block text-[0.62rem] font-semibold">{day.label}</span>
+                          <span className="mt-0.5 block text-[0.62rem]">{late ? "Late" : future ? "—" : "Clear"}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[0.65rem] text-muted-foreground">Select a filled day to edit that date, or select an available day before recording. Future dates remain blocked.</p>
+                    {canManage && selectedLearner.lastLateDate ? (
+                      <form action={undoAction}>
+                        <input type="hidden" name="enrolmentId" value={selectedLearner.enrolmentId} />
+                        <Button type="submit" variant="danger" size="sm" loading={undoPending}>
+                          <RotateCcw className="size-3.5" aria-hidden="true" />
+                          {undoPending ? "Undoing…" : `Undo last entry · ${formatDate(selectedLearner.lastLateDate)}`}
+                        </Button>
+                      </form>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <form action={action} className="rounded-[var(--radius-md)] bg-surface-muted/55 p-4">
+              <input type="hidden" name="enrolmentId" value={enrolmentId} />
+              <h3 className="scolapro-section-title">Arrival details</h3>
+              <p className="scolapro-section-description">Choose the actual date the learner arrived late. Recording the same learner/date again updates that existing record instead of increasing the counter twice.</p>
+              {selectedLearner ? <div className="mt-3 rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]"><p className="text-xs font-semibold">{selectedLearner.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">Progress: {selectedLearner.triggerProgress} of {selectedLearner.triggerThreshold}{selectedLearner.lastLateDate ? ` · last late ${formatDate(selectedLearner.lastLateDate)}` : ""}</p></div> : <div className="mt-3 rounded-[var(--radius-sm)] border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">Select a learner first.</div>}
+              <DateField label="Late-arrival date" name="arrivalDate" value={arrivalDate} onChange={setArrivalDate} max={today} required className="mt-4" />
+              <label className="mt-4 block text-xs font-medium">Note<textarea name="note" rows={3} placeholder="Optional context" className="mt-1.5 w-full resize-none rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3 text-xs outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
+              <Button type="submit" disabled={!enrolmentId || !arrivalDate} loading={pending} className="mt-4 w-full">
+                {pending ? "Recording…" : <Clock3 className="size-4" aria-hidden="true" />}
+                {pending ? null : "Record late arrival"}
+              </Button>
+            </form>
+          </div>
+        ) : (
+          <form action={bulkAction} className="space-y-4">
+            {selectedBulkIds.map((id) => (
+              <input key={id} type="hidden" name="enrolmentIds" value={id} />
+            ))}
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <Picker
-                label="Class"
-                ariaLabel="Filter late-arrival learners by class"
+                label="Class scope"
                 value={classFilter}
                 onChange={changeClassFilter}
-                placeholder="All classes"
+                placeholder="Choose class"
                 searchable
-                searchPlaceholder="Search classes"
-                options={[{ value: "", label: "All classes" }, ...classOptions.map((registerClass) => ({ value: registerClass, label: registerClass }))]}
+                options={classOptions.map((registerClass) => ({ value: registerClass, label: registerClass }))}
               />
-              <SearchableSelect
-                label="Learner"
-                name="late-arrival-learner-ui"
-                value={enrolmentId}
-                onChange={setEnrolmentId}
-                placeholder={classFilter ? `Choose learner in ${classFilter}` : "Choose learner"}
-                searchPlaceholder="Search by learner name or admission number…"
-                emptyMessage={(query) => `No learner found for '${query}' — check the spelling or change the class filter.`}
-                options={filteredLearners.map((learner) => ({
-                  value: learner.enrolmentId,
-                  label: learner.name,
-                  helper: `${learner.registerClass} · ${learner.admissionNumber ?? "No admission number"} · ${learner.triggerProgress} of ${learner.triggerThreshold}`,
-                  group: learner.registerClass,
-                  searchText: learner.admissionNumber ?? "",
-                }))}
+              <DateField
+                label="Arrival date"
+                name="arrivalDate"
+                value={arrivalDate}
+                onChange={setArrivalDate}
+                max={today}
+                required
               />
+              <label className="block text-xs font-medium">
+                Note <span className="font-normal text-muted-foreground">(optional)</span>
+                <input
+                  name="note"
+                  placeholder="Batch note e.g. Bus delay"
+                  className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+                />
+              </label>
             </div>
-            <p className="mt-1.5 text-[0.65rem] text-muted-foreground">Filter by class first when the learner list is long. Grade filtering will be added when grade metadata is exposed by the roster read model rather than guessed from class names.</p>
 
-            {selectedLearner ? (
-              <div className="mt-3 rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted/45 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+            {classFilter ? (
+              <div className="rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted/45 p-3 sm:p-4">
+                <div className="flex items-center justify-between gap-3 border-b border-border-subtle pb-3">
                   <div>
-                    <p className="scolapro-record-title">{selectedLearner.name}</p>
-                    <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{selectedLearner.registerClass} · {selectedLearner.totalLateCount} late arrival{selectedLearner.totalLateCount === 1 ? "" : "s"} recorded this year</p>
+                    <h3 className="scolapro-section-title">Eligible learners in {classFilter}</h3>
+                    <p className="scolapro-section-description">
+                      Select multiple learners who arrived late together on {formatDate(arrivalDate)}.
+                    </p>
                   </div>
-                  <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{selectedLearner.triggerProgress} of {selectedLearner.triggerThreshold}</span>
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllBulk}
+                    className="inline-flex min-h-8 items-center gap-1 rounded-[var(--radius-xs)] border border-border-subtle bg-surface px-2.5 text-xs font-semibold text-foreground hover:bg-surface-muted"
+                  >
+                    {filteredLearners.length > 0 && filteredLearners.every((l) => selectedBulkIds.includes(l.enrolmentId))
+                      ? "Clear all"
+                      : `Select all ${filteredLearners.length}`}
+                  </button>
                 </div>
 
-                <div className="mt-3 grid grid-cols-5 gap-1.5" aria-label="Late arrivals this week">
-                  {days.map((day) => {
-                    const late = selectedLearner.weekLateDates.includes(day.date);
-                    const future = day.date > today;
-                    const selected = arrivalDate === day.date;
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredLearners.map((learner) => {
+                    const checked = selectedBulkIds.includes(learner.enrolmentId);
                     return (
                       <button
-                        key={day.date}
+                        key={learner.enrolmentId}
                         type="button"
-                        disabled={future}
-                        onClick={() => setArrivalDate(day.date)}
-                        className={`min-h-12 rounded-[var(--radius-xs)] border px-1 text-center transition ${future ? "cursor-not-allowed border-border-subtle bg-surface-muted/45 text-muted-foreground/45" : late ? "border-[color:var(--warning)]/35 bg-warning-soft text-[color:var(--warning)]" : selected ? "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface text-muted-foreground hover:border-border hover:text-foreground"}`}
-                        aria-label={`${day.label} ${formatDate(day.date)}${late ? ", late recorded" : ""}`}
+                        onClick={() => toggleBulkId(learner.enrolmentId)}
+                        className={`flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-sm)] border p-2.5 text-left transition ${checked ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-border-subtle bg-surface hover:border-border"}`}
                       >
-                        <span className="block text-[0.62rem] font-semibold">{day.label}</span>
-                        <span className="mt-0.5 block text-[0.62rem]">{late ? "Late" : future ? "—" : "Clear"}</span>
+                        <span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>
+                          {checked ? <Check className="size-3" aria-hidden="true" /> : null}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-semibold text-foreground">{learner.name}</p>
+                          <p className="truncate text-[0.65rem] text-muted-foreground">
+                            {learner.admissionNumber ?? "No admission no."} · {learner.triggerProgress} of {learner.triggerThreshold} late
+                          </p>
+                        </div>
                       </button>
                     );
                   })}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[0.65rem] text-muted-foreground">Select a filled day to edit that date, or select an available day before recording. Future dates remain blocked.</p>
-                  {canManage && selectedLearner.lastLateDate ? (
-                    <form action={undoAction}>
-                      <input type="hidden" name="enrolmentId" value={selectedLearner.enrolmentId} />
-                      <Button type="submit" variant="danger" size="sm" loading={undoPending}>
-                        <RotateCcw className="size-3.5" aria-hidden="true" />
-                        {undoPending ? "Undoing…" : `Undo last entry · ${formatDate(selectedLearner.lastLateDate)}`}
-                      </Button>
-                    </form>
+                  {!filteredLearners.length ? (
+                    <p className="col-span-full py-4 text-center text-xs text-muted-foreground">
+                      No active learners found in class {classFilter}.
+                    </p>
                   ) : null}
                 </div>
               </div>
-            ) : null}
-          </div>
+            ) : (
+              <div className="rounded-[var(--radius-md)] border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+                Select a class above to load eligible learners for bulk recording.
+              </div>
+            )}
 
-          <form action={action} className="rounded-[var(--radius-md)] bg-surface-muted/55 p-4">
-            <input type="hidden" name="enrolmentId" value={enrolmentId} />
-            <h3 className="scolapro-section-title">Arrival details</h3>
-            <p className="scolapro-section-description">Choose the actual date the learner arrived late. Recording the same learner/date again updates that existing record instead of increasing the counter twice.</p>
-            {selectedLearner ? <div className="mt-3 rounded-[var(--radius-sm)] bg-surface px-3 py-2.5 shadow-[var(--shadow-xs)]"><p className="text-xs font-semibold">{selectedLearner.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">Progress: {selectedLearner.triggerProgress} of {selectedLearner.triggerThreshold}{selectedLearner.lastLateDate ? ` · last late ${formatDate(selectedLearner.lastLateDate)}` : ""}</p></div> : <div className="mt-3 rounded-[var(--radius-sm)] border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">Select a learner first.</div>}
-            <DateField label="Late-arrival date" name="arrivalDate" value={arrivalDate} onChange={setArrivalDate} max={today} required className="mt-4" />
-            <label className="mt-4 block text-xs font-medium">Note<textarea name="note" rows={3} placeholder="Optional context" className="mt-1.5 w-full resize-none rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3 text-xs outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
-            <Button type="submit" disabled={!enrolmentId || !arrivalDate} loading={pending} className="mt-4 w-full">
-              {pending ? "Recording…" : <Clock3 className="size-4" aria-hidden="true" />}
-              {pending ? null : "Record late arrival"}
-            </Button>
+            <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-3">
+              <p className="text-xs text-muted-foreground">
+                {selectedBulkIds.length} learner{selectedBulkIds.length === 1 ? "" : "s"} selected for bulk submission
+              </p>
+              <Button type="submit" loading={bulkPending} disabled={!selectedBulkIds.length || !arrivalDate}>
+                <Users className="size-4" aria-hidden="true" />
+                {bulkPending ? "Recording batch…" : `Record bulk late arrival (${selectedBulkIds.length})`}
+              </Button>
+            </div>
           </form>
-        </div>
+        )}
       </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
