@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { CalendarDays, Check, ChevronDown, Users } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, Check, ChevronDown, Printer, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -179,10 +180,15 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
               {selectedSession ? (
                 <div className="space-y-4">
                   <div className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle">
-                    <button type="button" onClick={() => setExistingTeamOpen((open) => !open)} aria-expanded={existingTeamOpen} className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-muted/45">
-                      <div><StepBadge number={2} label="Supervisors" /><p className="mt-1 text-sm font-semibold">{formatDate(selectedSession.sessionDate)}</p><p className="text-xs text-muted-foreground">{selectedSession.supervisorIds.length} supervisors rostered. Expand only when the team needs changing.</p></div>
-                      <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${existingTeamOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-                    </button>
+                    <div className="flex items-center justify-between gap-3 border-b border-border-subtle bg-surface-muted/30 px-4 py-3">
+                      <button type="button" onClick={() => setExistingTeamOpen((open) => !open)} aria-expanded={existingTeamOpen} className="flex min-h-10 flex-1 items-center justify-between gap-3 text-left transition-colors hover:bg-surface-muted/45">
+                        <div><StepBadge number={2} label="Supervisors" /><p className="mt-1 text-sm font-semibold">{formatDate(selectedSession.sessionDate)}</p><p className="text-xs text-muted-foreground">{selectedSession.supervisorIds.length} supervisors rostered. Expand only when the team needs changing.</p></div>
+                        <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${existingTeamOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                      </button>
+                      <Link href={`/late-arrivals/print-roster?session=${selectedSession.id}`} target="_blank" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-xs)] border border-border-subtle bg-surface px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted">
+                        <Printer className="size-3.5" aria-hidden="true" /> Print roster
+                      </Link>
+                    </div>
                     {existingTeamOpen ? <form action={teamAction} className="border-t border-border-subtle p-4"><input type="hidden" name="sessionId" value={selectedSession.id} />{editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{staffForSelectedSession.map((member) => <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-2 text-[0.65rem] text-muted-foreground">Only active staff placed at the school on {formatDate(selectedSession.sessionDate)} are available.</p><Button type="submit" variant="neutral" size="sm" className="mt-3" disabled={!editingTeam.length} loading={teamPending}>{teamPending ? "Saving team…" : "Save supervisors"}</Button></form> : null}
                   </div>
 

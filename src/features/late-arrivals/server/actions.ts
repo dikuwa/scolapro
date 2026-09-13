@@ -34,6 +34,39 @@ export async function recordLateArrival(_state: LateArrivalActionState, formData
   return { success: true, message: "Late arrival recorded." };
 }
 
+const bulkRecordSchema = z.object({
+  enrolmentIds: z.array(z.string().uuid()).min(1),
+  arrivalDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  arrivedAt: z.string().optional(),
+  note: z.string().trim().optional(),
+});
+
+export async function recordBulkLateArrivals(_state: LateArrivalActionState, formData: FormData): Promise<LateArrivalActionState> {
+  const enrolmentIds = [...new Set(formData.getAll("enrolmentIds").map(String).filter((id) => z.string().uuid().safeParse(id).success))];
+  const parsed = bulkRecordSchema.safeParse({
+    enrolmentIds,
+    arrivalDate: String(formData.get("arrivalDate") ?? ""),
+    arrivedAt: String(formData.get("arrivedAt") ?? ""),
+    note: String(formData.get("note") ?? ""),
+  });
+
+  if (!parsed.success) return { message: "Select at least one learner and a valid arrival date." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data: count, error } = await supabase.rpc("bulk_record_school_late_arrivals", {
+    p_enrolment_ids: parsed.data.enrolmentIds,
+    p_arrival_date: parsed.data.arrivalDate,
+    p_arrived_at: parsed.data.arrivedAt || null,
+    p_note: parsed.data.note || null,
+  });
+
+  if (error) return { message: "Bulk late arrivals could not be recorded. Check selected learners, arrival date, and your school access." };
+
+  const recordedCount = Number(count ?? parsed.data.enrolmentIds.length);
+  revalidatePath("/late-arrivals");
+  return { success: true, message: `Recorded morning late arrival for ${recordedCount} learner${recordedCount === 1 ? "" : "s"}.` };
+}
+
 export async function undoLatestLateArrival(_state: LateArrivalActionState, formData: FormData): Promise<LateArrivalActionState> {
   const enrolmentId = String(formData.get("enrolmentId") ?? "");
   if (!z.string().uuid().safeParse(enrolmentId).success) return { message: "Choose a learner before undoing a late-arrival entry." };
