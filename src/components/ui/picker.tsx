@@ -107,9 +107,9 @@ export function Picker({
         {searchable ? <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} aria-hidden="true" />}
       </button>
       {open ? (
-        <div className="absolute inset-x-0 top-full z-50 mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-sm)]">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1 shadow-[var(--shadow-sm)]">
           {searchable ? (
-            <div className="relative mb-1.5">
+            <div className="relative mb-1">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
               <input
                 ref={searchInputRef}
