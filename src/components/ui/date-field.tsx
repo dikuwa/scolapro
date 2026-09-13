@@ -152,7 +152,6 @@ export function DateField({ label, name, value, onChange, required = false, erro
         {open ? <CalendarPanel value={value} min={min} max={max} onSelect={(next) => { onChange(next); setDraft(null); setLocalError(null); }} onClose={() => setOpen(false)} /> : null}
       </div>
       <FormFieldFeedback
-        helper="Type DD/MM/YYYY or use the calendar button."
         error={visibleError}
         errorId={errorId}
       />

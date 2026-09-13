@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Picker } from "@/components/ui/picker";
 import { DateField } from "@/components/ui/date-field";
 import { Spinner } from "@/components/ui/spinner";
+import { formFieldLabelClass } from "@/components/ui/form-field-layout";
+
 import { ConductDialog, ConductForm, useConductFormPending, fieldClass } from "./controls";
 import { recordConductEvent } from "./server/actions";
 import type { ConductCategory, ConductDomain, ConductEvent, ConductHistory, ConductLearner } from "./types";
@@ -116,7 +118,7 @@ export function ConductWorkspace({ schoolId, categories, learners, history, filt
       ) : null}
 
       <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5" aria-label="Conduct filters">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <DateField label="Event date" name="rosterDate" value={filters.on} onChange={on => { if (on) change({ on, gradeId: "", classId: "" }); }} max={today} />
           <Picker label="Grade" value={filters.gradeId} onChange={gradeId => change({ gradeId, classId: "", learnerId: "" })} options={[{ value: "", label: "All grades" }, ...unique("grade_id", "grade_name", learners)]} placeholder="All grades" disabled={pending} />
           <Picker label="Class" value={filters.classId} onChange={classId => change({ classId, learnerId: "" })} options={[{ value: "", label: "All classes" }, ...unique("class_id", "class_name", learners.filter(l => !filters.gradeId || l.grade_id === filters.gradeId))]} placeholder="All classes" disabled={pending} />

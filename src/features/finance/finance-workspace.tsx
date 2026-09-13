@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { recordPayment, savePaymentSettings, type FinanceActionState } from "@/features/finance/server/actions";
 import type { FinanceLearner, FinancePayment, SchoolPaymentSettings } from "@/features/finance/server/queries";
 
@@ -24,7 +25,7 @@ export function PaymentSettingsForm({ schoolId, settings }: { schoolId: string; 
       <label><Label>Branch code</Label><input className={field} name="branchCode" defaultValue={settings?.branchCode ?? ""}/></label>
       <label className="sm:col-span-2"><Label>Payment reference instructions</Label><textarea className={`${field} min-h-20 py-2`} name="referenceInstructions" defaultValue={settings?.referenceInstructions ?? ""} placeholder="Example: use the learner admission number or invoice number."/></label>
       <label className="sm:col-span-2"><Label>Payment instructions</Label><textarea className={`${field} min-h-20 py-2`} name="paymentInstructions" defaultValue={settings?.paymentInstructions ?? ""}/></label>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="active" defaultChecked={settings?.active ?? true}/> Show these instructions to eligible payers</label>
+      <Checkbox name="active" defaultChecked={settings?.active ?? true} label="Show these instructions to eligible payers" />
     </div><div className="mt-4 flex justify-start sm:justify-end"><Button type="submit" loading={pending} disabled={pending}>Save banking details</Button></div>
   </form>;
 }

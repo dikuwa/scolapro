@@ -4,6 +4,9 @@ import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { DateField } from "@/components/ui/date-field";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { formFieldLabelClass } from "@/components/ui/form-field-layout";
+
 import {
   assignCustodian,
   changeItem,
@@ -112,11 +115,11 @@ export function RoomInventoryWorkspace({
             options={[{ value: "", label: "All" }, ...conditions]}
           />
           <label className="lg:col-span-2">
-            <span className="text-xs text-muted-foreground">
+            <span className={formFieldLabelClass}>
               Search item / asset no.
             </span>
             <input
-              className={f}
+              className={cn("mt-1.5", f)}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search inventory"
@@ -366,10 +369,8 @@ function InventoryChangeForm({
           { value: "ownership_correction", label: "Ownership correction" },
         ]}
       />
-      <label>
-        <span className="text-xs font-medium">Quantity change</span>
-        <input className={f} name="delta" type="number" defaultValue="0" />
-      </label>
+      <div className="block text-xs font-medium">Quantity change</div>
+      <input className={cn("mt-1.5", f)} name="delta" type="number" defaultValue="0" />
       <Picker
         label="Condition"
         name="condition"
