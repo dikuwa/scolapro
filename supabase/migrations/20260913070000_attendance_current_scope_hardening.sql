@@ -2,6 +2,59 @@
 -- model and role set while binding live read/write authority to the deterministic
 -- current school, effective linked staff placement, and Platform Support denial.
 
+-- Once governed staff_school_assignments history exists, it is authoritative for
+-- current placement. Legacy membership fallback is allowed only for staff identities
+-- that have never acquired assignment history.
+create or replace function app_private.attendance_staff_has_current_placement(
+  p_staff_member_id uuid,
+  p_school_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, app_private
+as $$
+  select p_staff_member_id is not null
+    and exists (
+      select 1
+      from public.staff_members staff
+      where staff.id = p_staff_member_id
+        and staff.status = 'active'
+    )
+    and (
+      exists (
+        select 1
+        from public.staff_school_assignments ssa
+        where ssa.staff_member_id = p_staff_member_id
+          and ssa.school_id = p_school_id
+          and ssa.effective_from <= current_date
+          and (ssa.effective_to is null or ssa.effective_to >= current_date)
+      )
+      or (
+        not exists (
+          select 1
+          from public.staff_school_assignments history
+          where history.staff_member_id = p_staff_member_id
+        )
+        and exists (
+          select 1
+          from public.school_memberships legacy
+          where legacy.staff_member_id = p_staff_member_id
+            and legacy.school_id = p_school_id
+            and legacy.active_from <= current_date
+            and (legacy.active_to is null or legacy.active_to >= current_date)
+        )
+      )
+    );
+$$;
+
+revoke all on function app_private.attendance_staff_has_current_placement(uuid,uuid)
+from public, anon, authenticated;
+
+comment on function app_private.attendance_staff_has_current_placement(uuid,uuid) is
+'Attendance-specific current staff placement using authoritative staff assignment history with legacy membership fallback only when no assignment history exists.';
+
 create or replace function app_private.user_can_record_daily_attendance(
   p_user_id uuid,
   p_school_id uuid
@@ -49,10 +102,9 @@ as $$
           and (sm.active_to is null or sm.active_to >= current_date)
           and (
             sm.staff_member_id is null
-            or app_private.staff_member_has_school_assignment(
+            or app_private.attendance_staff_has_current_placement(
               sm.staff_member_id,
-              p_school_id,
-              current_date
+              p_school_id
             )
           )
       )
@@ -110,10 +162,9 @@ as $$
         and (sm.active_to is null or sm.active_to >= current_date)
         and (
           sm.staff_member_id is null
-          or app_private.staff_member_has_school_assignment(
+          or app_private.attendance_staff_has_current_placement(
             sm.staff_member_id,
-            p_school_id,
-            current_date
+            p_school_id
           )
         )
     );
@@ -123,7 +174,7 @@ revoke all on function app_private.can_read_current_attendance(uuid) from public
 grant execute on function app_private.can_read_current_attendance(uuid) to authenticated;
 
 comment on function app_private.can_read_current_attendance(uuid) is
-'Current daily-attendance read boundary: deterministic current-school membership, effective linked staff placement, and explicit Platform Support denial.';
+'Current daily-attendance read boundary: deterministic current-school membership, effective authoritative linked staff placement, and explicit Platform Support denial.';
 
 -- A register-class authorization check must first satisfy the school-operational
 -- current-scope boundary. Keep the existing class/teacher allocation semantics,
