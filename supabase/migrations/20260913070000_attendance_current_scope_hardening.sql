@@ -125,13 +125,98 @@ grant execute on function app_private.can_read_current_attendance(uuid) to authe
 comment on function app_private.can_read_current_attendance(uuid) is
 'Current daily-attendance read boundary: deterministic current-school membership, effective linked staff placement, and explicit Platform Support denial.';
 
-drop policy if exists "school members can read attendance events" on public.attendance_events;
+-- A register-class authorization check must first satisfy the school-operational
+-- current-scope boundary. Keep the existing class/teacher allocation semantics,
+-- but fail closed before the legacy role helper can authorize a stale or non-current
+-- membership. Raising the public RPC contract error here keeps denial deterministic.
+create or replace function app_private.can_record_register_class(target_register_class_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public, app_private
+as $$
+declare
+  v_school_id uuid;
+begin
+  select rc.school_id
+    into v_school_id
+  from public.register_classes rc
+  where rc.id = target_register_class_id;
+
+  if v_school_id is null then
+    return false;
+  end if;
+
+  if not app_private.can_record_attendance(v_school_id) then
+    raise exception 'Permission denied';
+  end if;
+
+  return exists (
+    select 1
+    from public.register_classes rc
+    where rc.id = target_register_class_id
+      and (
+        app_private.has_platform_role(array['platform_admin'])
+        or app_private.has_school_role(rc.school_id, array['school_admin','principal','deputy_principal','hod'])
+        or exists (
+          select 1
+          from public.school_memberships sm
+          where sm.school_id = rc.school_id
+            and sm.user_id = (select auth.uid())
+            and sm.staff_member_id is not null
+            and sm.role_key in ('teacher','class_teacher')
+            and sm.active_from <= current_date
+            and (sm.active_to is null or sm.active_to >= current_date)
+            and (
+              rc.register_teacher_staff_id = sm.staff_member_id
+              or exists (
+                select 1
+                from public.teacher_allocations ta
+                where ta.school_id = rc.school_id
+                  and ta.register_class_id = rc.id
+                  and ta.academic_year = rc.academic_year
+                  and ta.staff_member_id = sm.staff_member_id
+                  and ta.active_from <= current_date
+                  and (ta.active_to is null or ta.active_to >= current_date)
+              )
+            )
+        )
+      )
+  );
+end;
+$$;
+
+grant execute on function app_private.can_record_register_class(uuid) to authenticated;
+
+comment on function app_private.can_record_register_class(uuid) is
+'Class-scoped attendance authorization after deterministic current-school, effective-placement and Platform Support denial.';
+
+-- Attendance submissions/events are a school-operational surface. Remove every
+-- older permissive SELECT policy on these two tables before installing the single
+-- authoritative current-scope predicate; otherwise PostgreSQL ORs old policies
+-- with the hardened policy and stale/non-current access remains possible.
+do $$
+declare
+  p record;
+begin
+  for p in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('attendance_events','attendance_register_submissions')
+      and cmd = 'SELECT'
+  loop
+    execute format('drop policy if exists %I on %I.%I', p.policyname, p.schemaname, p.tablename);
+  end loop;
+end
+$$;
+
 create policy "school members can read attendance events"
 on public.attendance_events for select
 to authenticated
 using (app_private.can_read_current_attendance(school_id));
 
-drop policy if exists "school members can read register submissions" on public.attendance_register_submissions;
 create policy "school members can read register submissions"
 on public.attendance_register_submissions for select
 to authenticated
