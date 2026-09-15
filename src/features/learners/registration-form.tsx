@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Camera, Check, LoaderCircle, UserRound, X } from "lucide-react";
 import { DateField } from "@/components/ui/date-field";
+import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { registerLearnerRetrySafe, type LearnerRegistrationState } from "@/features/learners/server/register-learner";
 import type { GradeOption } from "@/features/learners/server/registration-options";
 
@@ -98,5 +99,5 @@ export function LearnerRegistrationForm({ schoolId, academicYear, grades, defaul
 
 function Field({ label, name, error, required, ...props }: { label: string; name: string; error?: string; required?: boolean } & React.InputHTMLAttributes<HTMLInputElement>) {
   const errorId = `${name}-error`;
-  return <div><label htmlFor={name} className="text-xs font-medium">{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label><input id={name} name={name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} className={fieldClassName} {...props} />{error ? <p id={errorId} className="mt-1.5 text-xs text-[color:var(--danger)]">{error}</p> : null}</div>;
+  return <div><label htmlFor={name} className={formFieldLabelClass}>{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label><input id={name} name={name} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} className={fieldClassName} {...props} />{error ? <p id={errorId} className="mt-1.5 text-xs text-[color:var(--danger)]">{error}</p> : null}</div>;
 }

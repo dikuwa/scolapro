@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FileText, ImagePlus, LoaderCircle, Save, School, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
 import {
   saveReportCardSchoolSettings,
@@ -160,15 +161,15 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
           <input type="hidden" name="logoStoragePath" value={logoStoragePath} />
           <input type="hidden" name="remarksMode" value="manual" />
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <div><label className="text-xs font-medium">Former / secondary school name</label><input name="formerName" defaultValue={profile.formerName} className={`${fieldClass} mt-1.5`} placeholder="Formerly …" /></div>
-            <div><label className="text-xs font-medium">Physical address</label><input name="physicalAddress" defaultValue={profile.physicalAddress} className={`${fieldClass} mt-1.5`} placeholder="Street / location" /></div>
-            <div><label className="text-xs font-medium">Town / city</label><input name="town" defaultValue={profile.town} className={`${fieldClass} mt-1.5`} /></div>
-            <div><label className="text-xs font-medium">Telephone</label><input name="telephone" defaultValue={profile.telephone} className={`${fieldClass} mt-1.5`} /></div>
-            <div><label className="text-xs font-medium">Fax</label><input name="fax" defaultValue={profile.fax} className={`${fieldClass} mt-1.5`} /></div>
-            <div><label className="text-xs font-medium">School email</label><input type="email" name="email" defaultValue={profile.email} className={`${fieldClass} mt-1.5`} /></div>
-            <div><label className="text-xs font-medium">Postal address</label><input name="postalAddress" defaultValue={profile.postalAddress} className={`${fieldClass} mt-1.5`} placeholder="P O Box …" /></div>
+            <div><label className={formFieldLabelClass}>Former / secondary school name</label><input name="formerName" defaultValue={profile.formerName} className={`${fieldClass} mt-1.5`} placeholder="Formerly …" /></div>
+            <div><label className={formFieldLabelClass}>Physical address</label><input name="physicalAddress" defaultValue={profile.physicalAddress} className={`${fieldClass} mt-1.5`} placeholder="Street / location" /></div>
+            <div><label className={formFieldLabelClass}>Town / city</label><input name="town" defaultValue={profile.town} className={`${fieldClass} mt-1.5`} /></div>
+            <div><label className={formFieldLabelClass}>Telephone</label><input name="telephone" defaultValue={profile.telephone} className={`${fieldClass} mt-1.5`} /></div>
+            <div><label className={formFieldLabelClass}>Fax</label><input name="fax" defaultValue={profile.fax} className={`${fieldClass} mt-1.5`} /></div>
+            <div><label className={formFieldLabelClass}>School email</label><input type="email" name="email" defaultValue={profile.email} className={`${fieldClass} mt-1.5`} /></div>
+            <div><label className={formFieldLabelClass}>Postal address</label><input name="postalAddress" defaultValue={profile.postalAddress} className={`${fieldClass} mt-1.5`} placeholder="P O Box …" /></div>
             <div className="md:col-span-2 xl:col-span-1">
-              <p className="text-xs font-medium">Official school logo</p>
+              <p className={formFieldLabelClass}>Official school logo</p>
               <div className="mt-1.5 flex items-center gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3">
                 <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-white">
                   {logoUrl ? <img src={logoUrl} alt={`${schoolName} logo`} className="max-h-14 max-w-14 object-contain" /> : <School className="size-6 text-muted-foreground" aria-hidden="true" />}
@@ -185,7 +186,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
                 </div>
               </div>
             </div>
-            {isNamibHigh ? <Picker label="Namib High document school-name font" name="schoolNameFont" value={schoolNameFont} onChange={(value) => setSchoolNameFont(value as "default" | "old_english")} placeholder="Choose document font" options={[{ value: "default", label: "Default ScolaPro font" }, { value: "old_english", label: "Old English / blackletter", helper: "Namib High School only" }]} /> : <div><input type="hidden" name="schoolNameFont" value="default" /><p className="text-xs font-medium">Official document font</p><div className="mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 py-2.5 text-sm">Default ScolaPro font</div><p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Old English is reserved for Namib High School&apos;s established document identity and is not available to other schools.</p></div>}
+            {isNamibHigh ? <Picker label="Namib High document school-name font" name="schoolNameFont" value={schoolNameFont} onChange={(value) => setSchoolNameFont(value as "default" | "old_english")} placeholder="Choose document font" options={[{ value: "default", label: "Default ScolaPro font" }, { value: "old_english", label: "Old English / blackletter", helper: "Namib High School only" }]} /> : <div><input type="hidden" name="schoolNameFont" value="default" /><p className={formFieldLabelClass}>Official document font</p><div className="mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 py-2.5 text-sm">Default ScolaPro font</div><p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Old English is reserved for Namib High School&apos;s established document identity and is not available to other schools.</p></div>}
           </div>
 
           <div className="rounded-[var(--radius-md)] bg-surface-muted p-4">
@@ -199,11 +200,11 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
 
           <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)] md:items-start">
             <div>
-              <p className="text-xs font-medium">Remarks mode</p>
+              <p className={formFieldLabelClass}>Remarks mode</p>
               <div className="mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 py-2.5 text-sm">Manual / reviewed</div>
               <p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Certified reports currently use a reviewed manual remark or the fallback text. Rules-based and AI-assisted remark generation will only appear here after their governed review workflows are implemented.</p>
             </div>
-            <div><label className="text-xs font-medium">Default / fallback remark</label><textarea name="defaultRemark" defaultValue={report.defaultRemark} rows={3} className={`${fieldClass} mt-1.5 py-2`} placeholder="Optional fallback remark" /><p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Used when a generated snapshot has no reviewed learner-specific remark.</p></div>
+            <div><label className={formFieldLabelClass}>Default / fallback remark</label><textarea name="defaultRemark" defaultValue={report.defaultRemark} rows={3} className={`${fieldClass} mt-1.5 py-2`} placeholder="Optional fallback remark" /><p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Used when a generated snapshot has no reviewed learner-specific remark.</p></div>
           </div>
 
           <div className="flex justify-end border-t border-border-subtle pt-4"><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}{pending ? "Saving…" : "Save document settings"}</button></div>

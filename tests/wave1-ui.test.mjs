@@ -130,6 +130,49 @@ test('shared field geometry keeps labelled Pickers level with DateField controls
   assert.doesNotMatch(dateField, /min-h-10 min-w-0|py-2/);
 });
 
+test('raw-labelled fields adopt the shared 1rem label box so mixed rows stay level', () => {
+  const load = loader({
+    'next/navigation': navigation,
+    '@/features/learners/server/register-learner': { registerLearnerRetrySafe: () => ({}) },
+  });
+  const { LearnerRegistrationForm } = load('@/features/learners/registration-form');
+  const html = renderToStaticMarkup(React.createElement(LearnerRegistrationForm, {
+    schoolId: 'school',
+    academicYear: 2026,
+    grades: [{ id: 'grade-8', label: 'Grade 8', classes: [{ id: 'class-8a', label: '8A' }] }],
+    defaultAdmissionDate: '2026-09-15',
+  }));
+  // These raw-labelled inputs share a top-aligned grid row with a DateField. An inline text-xs label
+  // builds its own line box, so the paired control lands on a different baseline than the DateField.
+  for (const label of ['First names', 'Surname', 'Preferred name', 'Admission number']) {
+    assert.match(html, new RegExp(`<label[^>]*class="block h-4 text-xs font-medium leading-4"[^>]*>${label}`));
+  }
+  assert.doesNotMatch(html, /class="text-xs font-medium">(First names|Surname|Preferred name|Admission number)/);
+});
+
+test('report-card identity fields drop raw inline labels for the shared label box', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/reporting/report-card-settings-panel.tsx'), 'utf8');
+  assert.match(source, /import \{ formFieldLabelClass \} from "@\/components\/ui\/form-field-layout";/);
+  // Every field label in the identity grid shares a row with a labelled Picker.
+  for (const label of ['Former / secondary school name', 'Physical address', 'Town / city', 'Telephone', 'Fax', 'School email', 'Postal address', 'Official school logo', 'Official document font', 'Remarks mode', 'Default / fallback remark']) {
+    const shared = `<label className={formFieldLabelClass}>${label}</label>`;
+    const sharedParagraph = `<p className={formFieldLabelClass}>${label}</p>`;
+    assert.ok(source.includes(shared) || source.includes(sharedParagraph), `expected the shared label box on "${label}"`);
+  }
+  assert.doesNotMatch(source, /<(label|p) className="text-xs font-medium">/);
+});
+
+test('conduct fieldClass keeps single-line controls at the shared 40px height', () => {
+  const load = loader();
+  const { fieldClass } = load('@/features/conduct/controls');
+  // py-* would grow the bordered box past min-h-10 on the fluid type scale and break row alignment.
+  assert.match(fieldClass, /min-h-10/);
+  assert.doesNotMatch(fieldClass, /(^|\s)py-[0-9.]/);
+  const source = fs.readFileSync(path.join(root, 'src/features/conduct/conduct-workspace.tsx'), 'utf8');
+  // Multi-line controls own their padding at the call site instead of shifting the shared class.
+  assert.ok(source.includes('className={`${fieldClass} py-2`}'), 'expected the textarea call site to own its py-2');
+});
+
 test('bulk import renders four staging forms, original actions, templates and committed dates', async () => {
   const noop = async () => {};
   const actions = new Proxy({}, { get: () => noop });

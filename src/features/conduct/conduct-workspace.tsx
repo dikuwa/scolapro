@@ -31,7 +31,7 @@ function EventForm({ schoolId, domain, categories, learners, on, today, initialL
       <DateField label="Event date" name="date" value={date} onChange={setDate} max={today} required />
       <p className="text-xs leading-5 text-muted-foreground">Learners are listed for roster date {on}. Change the page’s roster date to find learners from an earlier enrolment.</p>
       <div>
-        <p className="text-xs font-medium">Learners</p>
+        <p className={formFieldLabelClass}>Learners</p>
         <div className="mt-2 flex flex-wrap gap-2">
           {selected.map(id => <span key={id} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-1.5 text-sm"><input type="hidden" name="learnerIds" value={id} />{learners.find(l => l.learner_id === id)?.learner_name ?? "Selected learner"}<button type="button" aria-label={`Remove ${learners.find(l => l.learner_id === id)?.learner_name ?? "learner"}`} onClick={() => { setSelected(selected.filter(x => x !== id)); setAdding(true); }} className="grid size-7 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition-colors duration-[var(--motion-fast)] hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft">×</button></span>)}
         </div>
@@ -50,7 +50,7 @@ function EventForm({ schoolId, domain, categories, learners, on, today, initialL
       {domain === "conduct" && category?.direction === "negative" ? <Picker label="Severity" name="severity" value={severity} onChange={setSeverity} options={["routine", "moderate", "serious", "critical"].map(value => ({ value, label: value }))} placeholder="Severity" /> : null}
       {domain === "achievement" ? <Picker label="Level" name="level" value={level} onChange={setLevel} options={["class", "school", "circuit", "regional", "national", "international", "other"].map(value => ({ value, label: value }))} placeholder="Level" /> : null}
       <label className="block text-xs font-medium">{domain === "conduct" ? "Summary" : "Title"}<input name="title" required maxLength={240} className={fieldClass} /></label>
-      <label className="block text-xs font-medium">{domain === "conduct" ? "Details (optional)" : "Description (optional)"}<textarea name="details" maxLength={10000} rows={4} className={fieldClass} /></label>
+      <label className="block text-xs font-medium">{domain === "conduct" ? "Details (optional)" : "Description (optional)"}<textarea name="details" maxLength={10000} rows={4} className={`${fieldClass} py-2`} /></label>
       <p className="text-xs leading-5 text-muted-foreground">Keep restricted counselling or medical details in learner support. Saving requires an internet connection.</p>
       <div className="flex justify-start sm:justify-end">
         <Button type="submit" loading={pending} disabled={!canSubmit}>{domain === "conduct" ? "Record incident" : "Record achievement"}</Button>
