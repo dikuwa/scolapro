@@ -84,61 +84,62 @@ export function Picker({
   }, [open]);
 
   return (
-    <div ref={rootRef} className={cn("relative min-w-0", className)}>
+    <div ref={rootRef} className={cn("min-w-0", className)}>
       {label ? <label className={formFieldLabelClass}>{label}</label> : null}
       {name ? <input type="hidden" name={name} value={value} /> : null}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => {
-          if (open) closePicker();
-          else openPicker();
-        }}
-        onKeyDown={handleTriggerKeyDown}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        aria-label={ariaLabel || label || placeholder}
-        className={cn(
-          "flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55",
-          label && "mt-1.5",
-        )}
-      >
-        <span className={cn("min-w-0 truncate", selected ? "text-foreground" : "text-muted-foreground")}>{selected?.label ?? placeholder}</span>
-        {searchable ? <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} aria-hidden="true" />}
-      </button>
-      {open ? (
-        <div className="absolute inset-x-0 top-full z-50 mt-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1 shadow-[var(--shadow-sm)]">
-          {searchable ? (
-            <div className="relative mb-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={searchPlaceholder}
-                aria-label={searchPlaceholder}
-                className="min-h-9 w-full rounded-[var(--radius-xs)] border border-border-subtle bg-surface-muted pl-8 pr-2.5 text-sm outline-none transition duration-[var(--motion-fast)] placeholder:text-muted-foreground/70 focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
-              />
+      <div className="relative">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={() => {
+            if (open) closePicker();
+            else openPicker();
+          }}
+          onKeyDown={handleTriggerKeyDown}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label={ariaLabel || label || placeholder}
+          className={cn(
+            "flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55",
+          )}
+        >
+          <span className={cn("min-w-0 truncate", selected ? "text-foreground" : "text-muted-foreground")}>{selected?.label ?? placeholder}</span>
+          {searchable ? <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" /> : <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]", open && "rotate-180")} aria-hidden="true" />}
+        </button>
+        {open ? (
+          <div className="absolute inset-x-0 top-full z-50 mt-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1 shadow-[var(--shadow-sm)]">
+            {searchable ? (
+              <div className="relative mb-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={searchPlaceholder}
+                  aria-label={searchPlaceholder}
+                  className="min-h-9 w-full rounded-[var(--radius-xs)] border border-border-subtle bg-surface-muted pl-8 pr-2.5 text-sm outline-none transition duration-[var(--motion-fast)] placeholder:text-muted-foreground/70 focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+                />
+              </div>
+            ) : null}
+            <div role="listbox" className="max-h-60 overflow-auto">
+              {filteredOptions.length ? filteredOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={option.value === value}
+                  onClick={() => { onChange(option.value); closePicker(); }}
+                  className={cn("w-full rounded-[var(--radius-xs)] px-2.5 py-2 text-left transition hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none", option.value === value && "bg-brand-soft text-brand-strong")}
+                >
+                  <span className="block truncate text-sm font-medium">{option.label}</span>
+                  {option.helper ? <span className="mt-0.5 block truncate text-[0.68rem] text-muted-foreground">{option.helper}</span> : null}
+                </button>
+              )) : <p className="px-2.5 py-3 text-xs text-muted-foreground">{options.length ? "No matching options." : "No options available yet."}</p>}
             </div>
-          ) : null}
-          <div role="listbox" className="max-h-60 overflow-auto">
-            {filteredOptions.length ? filteredOptions.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="option"
-                aria-selected={option.value === value}
-                onClick={() => { onChange(option.value); closePicker(); }}
-                className={cn("w-full rounded-[var(--radius-xs)] px-2.5 py-2 text-left transition hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none", option.value === value && "bg-brand-soft text-brand-strong")}
-              >
-                <span className="block truncate text-sm font-medium">{option.label}</span>
-                {option.helper ? <span className="mt-0.5 block truncate text-[0.68rem] text-muted-foreground">{option.helper}</span> : null}
-              </button>
-            )) : <p className="px-2.5 py-3 text-xs text-muted-foreground">{options.length ? "No matching options." : "No options available yet."}</p>}
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }
