@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronDown, Search } from "lucide-react";
-import { formFieldLabelClass } from "@/components/ui/form-field-layout";
+import { formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { cn } from "@/lib/utils";
 
 export type PickerOption = { value: string; label: string; helper?: string };
@@ -87,7 +87,9 @@ export function Picker({
     <div ref={rootRef} className={cn("min-w-0", className)}>
       {label ? <label className={formFieldLabelClass}>{label}</label> : null}
       {name ? <input type="hidden" name={name} value={value} /> : null}
-      <div className="relative">
+      {/* Keeping the trigger inside a positioned wrapper scopes the dropdown to the trigger (#454);
+          the shared control offset keeps a labelled Picker level with DateField/raw inputs. */}
+      <div className={cn("relative", label && formFieldControlOffsetClass)}>
         <button
           type="button"
           disabled={disabled}

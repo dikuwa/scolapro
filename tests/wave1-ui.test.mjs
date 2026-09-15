@@ -110,6 +110,26 @@ test('room controls preserve submitted defaults and actions are submit buttons',
   assert.equal((html.match(/type="submit"/g) || []).length, 4);
 });
 
+test('shared field geometry keeps labelled Pickers level with DateField controls', () => {
+  const load = loader();
+  const { Picker } = load('@/components/ui/picker');
+  const { DateField } = load('@/components/ui/date-field');
+  const labelled = renderToStaticMarkup(React.createElement(Picker, { label: 'Grade', value: '', onChange() {}, options: [], placeholder: 'All grades' }));
+  const unlabelled = renderToStaticMarkup(React.createElement(Picker, { ariaLabel: 'Sort learners', value: '', onChange() {}, options: [], placeholder: 'A\u2013Z' }));
+  const dateField = renderToStaticMarkup(React.createElement(DateField, { label: 'Event date', name: 'rosterDate', value: '2026-09-15', onChange() {} }));
+  // A labelled Picker must offset its trigger from the shared 1rem label box by the same 6px
+  // DateField and SearchableSelect use, otherwise mixed filter rows sit on two baselines.
+  assert.match(labelled, /class="relative mt-1\.5"/);
+  assert.match(dateField, /class="relative mt-1\.5"/);
+  // Unlabelled Pickers have no label box to clear and must stay shift-free.
+  assert.match(unlabelled, /class="relative"/);
+  assert.doesNotMatch(unlabelled, /mt-1\.5/);
+  // The bordered DateField surface owns the 40px control height; repeating min-h-10 or py-2 on the
+  // inner input would grow it past every sibling control in a shared row.
+  assert.match(dateField, /scolapro-control-surface flex min-h-10 /);
+  assert.doesNotMatch(dateField, /min-h-10 min-w-0|py-2/);
+});
+
 test('bulk import renders four staging forms, original actions, templates and committed dates', async () => {
   const noop = async () => {};
   const actions = new Proxy({}, { get: () => noop });

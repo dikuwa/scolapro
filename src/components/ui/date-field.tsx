@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
-import { FormFieldFeedback, formFieldLabelClass } from "@/components/ui/form-field-layout";
+import { FormFieldFeedback, formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { cn } from "@/lib/utils";
 
 function parseIso(value: string) {
@@ -144,9 +144,12 @@ export function DateField({ label, name, value, onChange, required = false, erro
     <div ref={rootRef} className={cn("min-w-0", className)}>
       <label className={formFieldLabelClass} htmlFor={`${name}-typed`}>{label}{required ? <span className="text-[color:var(--danger)]"> *</span> : null}</label>
       <input type="hidden" name={name} value={value} />
-      <div className="relative mt-1.5">
+      <div className={cn("relative", formFieldControlOffsetClass)}>
+        {/* The bordered wrapper owns the control height and centers its content. The inner input must
+            not repeat min-h-10 or py-2: either one makes this control taller than Picker,
+            SearchableSelect and plain inputs, so it stops aligning with them in a shared row. */}
         <div className={cn("scolapro-control-surface flex min-h-10 w-full items-center overflow-hidden rounded-[var(--radius-sm)]", visibleError ? "border-[color:var(--danger)]/45 focus-within:border-[color:var(--danger)]/55 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--danger)_10%,transparent),var(--shadow-sm)]" : "hover:border-border")}>
-          <input id={`${name}-typed`} type="text" inputMode="numeric" autoComplete="off" value={visibleValue} onChange={(event) => { setDraft(event.target.value); setLocalError(null); }} onBlur={() => commitTyped(visibleValue)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitTyped(visibleValue); } }} placeholder="DD/MM/YYYY" aria-invalid={Boolean(visibleError)} aria-describedby={visibleError ? errorId : undefined} className="min-h-10 min-w-0 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground/65 focus:outline-none focus:ring-0 focus-visible:outline-none" />
+          <input id={`${name}-typed`} type="text" inputMode="numeric" autoComplete="off" value={visibleValue} onChange={(event) => { setDraft(event.target.value); setLocalError(null); }} onBlur={() => commitTyped(visibleValue)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitTyped(visibleValue); } }} placeholder="DD/MM/YYYY" aria-invalid={Boolean(visibleError)} aria-describedby={visibleError ? errorId : undefined} className="min-w-0 flex-1 border-0 bg-transparent px-3 text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground/65 focus:outline-none focus:ring-0 focus-visible:outline-none" />
           <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)} aria-label={`Open ${label.toLowerCase()} calendar`} aria-expanded={open} className={cn("mr-1 grid size-8 shrink-0 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45", open && "bg-brand-soft text-brand-strong")}><CalendarDays aria-hidden="true" className="size-4" /></button>
         </div>
         {open ? <CalendarPanel value={value} min={min} max={max} onSelect={(next) => { onChange(next); setDraft(null); setLocalError(null); }} onClose={() => setOpen(false)} /> : null}
