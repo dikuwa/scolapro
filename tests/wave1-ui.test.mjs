@@ -110,6 +110,69 @@ test('room controls preserve submitted defaults and actions are submit buttons',
   assert.equal((html.match(/type="submit"/g) || []).length, 4);
 });
 
+test('shared field geometry keeps labelled Pickers level with DateField controls', () => {
+  const load = loader();
+  const { Picker } = load('@/components/ui/picker');
+  const { DateField } = load('@/components/ui/date-field');
+  const labelled = renderToStaticMarkup(React.createElement(Picker, { label: 'Grade', value: '', onChange() {}, options: [], placeholder: 'All grades' }));
+  const unlabelled = renderToStaticMarkup(React.createElement(Picker, { ariaLabel: 'Sort learners', value: '', onChange() {}, options: [], placeholder: 'A\u2013Z' }));
+  const dateField = renderToStaticMarkup(React.createElement(DateField, { label: 'Event date', name: 'rosterDate', value: '2026-09-15', onChange() {} }));
+  // A labelled Picker must offset its trigger from the shared 1rem label box by the same 6px
+  // DateField and SearchableSelect use, otherwise mixed filter rows sit on two baselines.
+  assert.match(labelled, /class="relative mt-1\.5"/);
+  assert.match(dateField, /class="relative mt-1\.5"/);
+  // Unlabelled Pickers have no label box to clear and must stay shift-free.
+  assert.match(unlabelled, /class="relative"/);
+  assert.doesNotMatch(unlabelled, /mt-1\.5/);
+  // The bordered DateField surface owns the 40px control height; repeating min-h-10 or py-2 on the
+  // inner input would grow it past every sibling control in a shared row.
+  assert.match(dateField, /scolapro-control-surface flex min-h-10 /);
+  assert.doesNotMatch(dateField, /min-h-10 min-w-0|py-2/);
+});
+
+test('raw-labelled fields adopt the shared 1rem label box so mixed rows stay level', () => {
+  const load = loader({
+    'next/navigation': navigation,
+    '@/features/learners/server/register-learner': { registerLearnerRetrySafe: () => ({}) },
+  });
+  const { LearnerRegistrationForm } = load('@/features/learners/registration-form');
+  const html = renderToStaticMarkup(React.createElement(LearnerRegistrationForm, {
+    schoolId: 'school',
+    academicYear: 2026,
+    grades: [{ id: 'grade-8', label: 'Grade 8', classes: [{ id: 'class-8a', label: '8A' }] }],
+    defaultAdmissionDate: '2026-09-15',
+  }));
+  // These raw-labelled inputs share a top-aligned grid row with a DateField. An inline text-xs label
+  // builds its own line box, so the paired control lands on a different baseline than the DateField.
+  for (const label of ['First names', 'Surname', 'Preferred name', 'Admission number']) {
+    assert.match(html, new RegExp(`<label[^>]*class="block h-4 text-xs font-medium leading-4"[^>]*>${label}`));
+  }
+  assert.doesNotMatch(html, /class="text-xs font-medium">(First names|Surname|Preferred name|Admission number)/);
+});
+
+test('report-card identity fields drop raw inline labels for the shared label box', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/reporting/report-card-settings-panel.tsx'), 'utf8');
+  assert.match(source, /import \{ formFieldLabelClass \} from "@\/components\/ui\/form-field-layout";/);
+  // Every field label in the identity grid shares a row with a labelled Picker.
+  for (const label of ['Former / secondary school name', 'Physical address', 'Town / city', 'Telephone', 'Fax', 'School email', 'Postal address', 'Official school logo', 'Official document font', 'Remarks mode', 'Default / fallback remark']) {
+    const shared = `<label className={formFieldLabelClass}>${label}</label>`;
+    const sharedParagraph = `<p className={formFieldLabelClass}>${label}</p>`;
+    assert.ok(source.includes(shared) || source.includes(sharedParagraph), `expected the shared label box on "${label}"`);
+  }
+  assert.doesNotMatch(source, /<(label|p) className="text-xs font-medium">/);
+});
+
+test('conduct fieldClass keeps single-line controls at the shared 40px height', () => {
+  const load = loader();
+  const { fieldClass } = load('@/features/conduct/controls');
+  // py-* would grow the bordered box past min-h-10 on the fluid type scale and break row alignment.
+  assert.match(fieldClass, /min-h-10/);
+  assert.doesNotMatch(fieldClass, /(^|\s)py-[0-9.]/);
+  const source = fs.readFileSync(path.join(root, 'src/features/conduct/conduct-workspace.tsx'), 'utf8');
+  // Multi-line controls own their padding at the call site instead of shifting the shared class.
+  assert.ok(source.includes('className={`${fieldClass} py-2`}'), 'expected the textarea call site to own its py-2');
+});
+
 test('bulk import renders four staging forms, original actions, templates and committed dates', async () => {
   const noop = async () => {};
   const actions = new Proxy({}, { get: () => noop });

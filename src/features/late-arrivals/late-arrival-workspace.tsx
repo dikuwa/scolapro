@@ -7,6 +7,7 @@ import { CalendarDays, Check, Clock3, History, RotateCcw, ShieldCheck, Users } f
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
+import { formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
@@ -283,12 +284,14 @@ export function LateArrivalWorkspace({
                 max={today}
                 required
               />
-              <label className="block text-xs font-medium">
-                Note <span className="font-normal text-muted-foreground">(optional)</span>
+              <label className="block min-w-0">
+                <span className={formFieldLabelClass}>
+                  Note <span className="font-normal text-muted-foreground">(optional)</span>
+                </span>
                 <input
                   name="note"
                   placeholder="Batch note e.g. Bus delay"
-                  className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+                  className={`${formFieldControlOffsetClass} min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]`}
                 />
               </label>
             </div>
