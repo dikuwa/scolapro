@@ -193,3 +193,86 @@ test('bulk import renders four staging forms, original actions, templates and co
   for (const heading of ['Learners','Staff','Guardians','Academic structure','File name','Type','Rows','Status','Imported on','Actions']) assert.ok(html.includes(heading));
   assert.match(html,/1 Sept 2026/); assert.doesNotMatch(html,/View requirements|Required:|Stage and reconcile/);
 });
+
+const linkMock = ({ children, ...rest }) => React.createElement('a', rest, children);
+const toastMock = { success() {}, error() {} };
+
+test('NumberStepper keeps the 40px shared height contract and centered stepper controls', () => {
+  const load = loader();
+  const { NumberStepper } = load('@/components/ui/number-stepper');
+  const html = renderToStaticMarkup(React.createElement(NumberStepper, { label: 'Quantity', name: 'quantity', min: 0, defaultValue: 1 }));
+  // Shared label box established by #456, so a labelled stepper sits level with Picker/DateField.
+  assert.match(html, /<label[^>]*class="block h-4 text-xs font-medium leading-4"[^>]*>Quantity/);
+  // Exact 40px outer height, matching the shared single-line control target.
+  assert.match(html, /scolapro-control-surface flex h-10 /);
+  // Value input fills the remaining region without py-* shifting the shared height.
+  assert.match(html, /min-w-0 flex-1 border-0 bg-transparent px-3 py-0 h-full/);
+  // Minus and plus are full-height, equal-width, centered regions; dividers run through the control.
+  assert.equal((html.match(/h-full w-10 shrink-0 place-items-center/g) || []).length, 2);
+  // Browser-native number spinner stays hidden.
+  assert.match(html, /webkit-outer-spin-button/);
+});
+
+test('NumberStepper without a label stays shift-free like the unlabelled Picker', () => {
+  const load = loader();
+  const { NumberStepper } = load('@/components/ui/number-stepper');
+  const html = renderToStaticMarkup(React.createElement(NumberStepper, { name: 'quantity', min: 0, defaultValue: 1 }));
+  assert.doesNotMatch(html, /mt-1\.5/);
+});
+
+test('room inventory add-item row shares the 1rem label box across all four fields', () => {
+  const load = loader({ '@/features/room-inventory/server/actions': { assignCustodian() {}, changeItem() {}, createItem() {}, verifyInventory() {} } });
+  const { RoomInventoryWorkspace } = load('@/features/room-inventory/room-inventory-workspace');
+  const html = renderToStaticMarkup(React.createElement(RoomInventoryWorkspace, { rooms: [{id:'room',code:'R1',name:'Room',custodianId:'staff',itemCount:1}], items: [{id:'item',roomId:'room',name:'Desk',ownership:'government',condition:'good',quantity:1}], staff:[{id:'staff',name:'Staff'}], verifications:[],today:'2026-09-12',canAssign:true }));
+  // All four add-item fields (Item description, Ownership, Quantity, Condition) sit on one label baseline.
+  for (const label of ['Item description', 'Ownership', 'Quantity', 'Condition']) {
+    assert.match(html, new RegExp(`<(label|span)[^>]*class="block h-4 text-xs font-medium leading-4"[^>]*>${label}`));
+  }
+  // No native time/select leakage in the add-item row.
+  assert.doesNotMatch(html, /type="time"/);
+});
+
+test('detention queue header groups title, History and open-count on one aligned row', () => {
+  const load = loader({
+    'next/link': linkMock,
+    'sonner': { toast: toastMock },
+    '@/features/late-arrivals/server/actions': { recordLateArrival() {}, recordBulkLateArrivals() {}, reassignDetentionSupervisor() {}, resolveDetention() {}, undoLatestLateArrival() {} },
+  });
+  const { LateArrivalWorkspace } = load('@/features/late-arrivals/late-arrival-workspace');
+  const html = renderToStaticMarkup(React.createElement(LateArrivalWorkspace, { learners: [], detention: [], staffOptions: [], canManage: false, today: '2026-09-12' }));
+  // Title, History and open-count share one items-center header row instead of floating detached.
+  const header = html.match(/<div class="flex flex-wrap items-center justify-between gap-2">[\s\S]*?<\/div><p class="scolapro-section-description">/);
+  assert.ok(header, 'expected the title and actions to share one row above the description');
+  assert.match(header[0], /Detention queue/);
+  assert.match(header[0], /\/late-arrivals\/history/);
+  assert.match(header[0], />0 open</);
+  // Description still renders below the header row.
+  assert.match(html, /Every three cumulative late arrivals/);
+});
+
+test('detention roster planning uses the shared TimeField instead of native time inputs', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/late-arrivals/detention-planner.tsx'), 'utf8');
+  assert.match(source, /import \{ TimeField \} from "@\/components\/ui\/time-field";/);
+  assert.doesNotMatch(source, /type="time"/);
+  assert.match(source, /<TimeField label="Starts at"/);
+  assert.match(source, /<TimeField label="Ends at"/);
+});
+
+test('TimeField keeps the shared 40px control geometry and never exposes a native time input', () => {
+  const load = loader();
+  const { TimeField } = load('@/components/ui/time-field');
+  const html = renderToStaticMarkup(React.createElement(TimeField, { label: 'Starts at', name: 'startsAt', value: '14:30', onChange() {} }));
+  // No native browser time popup is exposed to the user.
+  assert.doesNotMatch(html, /type="time"/);
+  // The hidden form input preserves the HH:MM value for the existing server action.
+  assert.match(html, /name="startsAt" value="14:30"/);
+  // Shared label box + control offset established by #456, so labelled TimeField aligns with DateField/Picker.
+  assert.match(html, /<label[^>]*class="block h-4 text-xs font-medium leading-4"[^>]*>Starts at/);
+  assert.match(html, /class="relative mt-1\.5"/);
+  // 40px bordered surface mirroring DateField.
+  assert.match(html, /scolapro-control-surface flex min-h-10 /);
+  // Clock trigger is keyboard-reachable and reports its expanded state.
+  assert.match(html, /aria-label="Open starts at time"/);
+  assert.match(html, /aria-expanded="false"/);
+});
+

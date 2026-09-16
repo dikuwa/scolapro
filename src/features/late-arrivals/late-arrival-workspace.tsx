@@ -366,9 +366,18 @@ export function LateArrivalWorkspace({
 
       <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div><h2 className="scolapro-section-title">Detention queue</h2><p className="scolapro-section-description">Every three cumulative late arrivals creates a separate obligation. Uncompleted obligations roll to the next Friday and remain independent. Assign learners to a planned detention session from the planning panel below.</p></div>
-            <div className="flex items-center gap-2"><Link href="/late-arrivals/history" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground"><History className="size-3.5" />History</Link><span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{detention.length} open</span></div>
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="scolapro-section-title">Detention queue</h2>
+              <div className="flex items-center gap-2">
+                <Link href="/late-arrivals/history" className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:text-foreground">
+                  <History className="size-3.5" aria-hidden="true" />
+                  History
+                </Link>
+                <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{detention.length} open</span>
+              </div>
+            </div>
+            <p className="scolapro-section-description">Every three cumulative late arrivals creates a separate obligation. Uncompleted obligations roll to the next Friday and remain independent. Assign learners to a planned detention session from the planning panel below.</p>
           </div>
         </div>
         {detention.length ? <div className="divide-y divide-border-subtle">{detention.map((item) => {
