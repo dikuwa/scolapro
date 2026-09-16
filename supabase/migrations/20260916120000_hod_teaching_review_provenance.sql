@@ -460,7 +460,7 @@ begin
     nullif(btrim(coalesce(p_term_label,'')),''), p_week_start, p_week_end, 'submitted'
   ) returning id into v_submission_id;
 
-  foreach v_preparation_id in p_lesson_preparation_ids
+  foreach v_preparation_id in array p_lesson_preparation_ids
   loop
     select lp.id, lp.status, lp.school_id, lp.tenant_id, lp.prepared_by_user_id
       into v_preparation
