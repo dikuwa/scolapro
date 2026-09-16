@@ -258,6 +258,95 @@ test('detention roster planning uses the shared TimeField instead of native time
   assert.match(source, /<TimeField label="Ends at"/);
 });
 
+const teachingWorkspace = { terms: [{ id: 'term-1', number: 1, name: 'Term 1', startsOn: '2026-01-14', endsOn: '2026-04-03', status: 'active', isCurrent: true }], currentTerm: { id: 'term-1', number: 1, name: 'Term 1', startsOn: '2026-01-14', endsOn: '2026-04-03', status: 'active' }, allocations: [{ allocationId: 'alloc-1', classId: 'class-8a', className: '8A', gradeName: 'Grade 8', subjectName: 'Mathematics', subjectId: 'subject-1', offeringId: 'offering-1', curriculumVersionId: null, activeFrom: '2026-01-01', activeTo: null }], planByAllocation: {}, planItems: [], scheduleItems: [], preparations: [], actuals: [], objectivesByUnit: {}, competenciesByUnit: {}, dayOverrides: [{ date: '2026-03-21', isSchoolDay: false, reason: 'Independence Day', source: 'national' }], hasLeadershipAuthority: false, isTeacher: true, reviewHref: null };
+
+function teachingPage(context) {
+  return loader({
+    'next/navigation': navigation,
+    '@/components/shell/app-shell': { AppShell: ({ children }) => children },
+    '@/lib/auth/get-user-context': { getUserContext: async () => context },
+    '@/features/teaching/server/queries': { getTeachingWorkspace: async (...args) => { teachingCalls.push(args); return teachingWorkspace; } },
+  })('@/app/teaching/page').default;
+}
+
+const teachingCalls = [];
+
+test('authorized teaching route renders the connected workspace with picker-based subject/class switching', async () => {
+  const page = teachingPage({ user: { id: 'user' }, memberships: [{ roleKey: 'teacher', schoolId: 'school', staffMemberId: 'staff' }], platformMemberships: [] });
+  const html = renderToStaticMarkup(await page({}));
+  assert.match(html, /Teaching/);
+  assert.match(html, /Subject (&amp;|&) class/);
+  assert.match(html, /Mathematics · 8A/);
+  assert.match(html, /Term 1/);
+  assert.match(html, /Year planner/);
+  assert.match(html, /Scheme of work/);
+  assert.match(html, /Lesson preparation/);
+  assert.match(html, /Coverage (&amp;|&) reflection/);
+  assert.match(html, /Teaching files/);
+  // No browser-native select/date leakage in the teaching context bar.
+  assert.doesNotMatch(html, /<select|type="date"/);
+  assert.equal(teachingCalls.length, 1);
+  assert.equal(teachingCalls[0][0].schoolId, 'school');
+});
+
+test('teaching route hides HOD entry from teachers and exposes it through review authority', async () => {
+  const teacherPage = teachingPage({ user: { id: 'user' }, memberships: [{ roleKey: 'teacher', schoolId: 'school', staffMemberId: 'staff' }], platformMemberships: [] });
+  const teacherHtml = renderToStaticMarkup(await teacherPage({}));
+  assert.doesNotMatch(teacherHtml, /HOD review (&amp;|&| )readiness/);
+
+  const hodPage = teachingPage({ user: { id: 'user' }, memberships: [{ roleKey: 'hod', schoolId: 'school', staffMemberId: 'staff' }], platformMemberships: [] });
+  const hodHtml = renderToStaticMarkup(await hodPage({}));
+  assert.match(hodHtml, /HOD review (&amp;|&) readiness/);
+  assert.match(hodHtml, /\/teaching\/reviews/);
+});
+
+test('teaching route denies ineligible roles before loading workspace data', async () => {
+  for (const role of ['parent', 'librarian', 'ltsm', 'platform_admin']) {
+    teachingCalls.length = 0;
+    const page = teachingPage({ user: { id: 'user' }, memberships: [{ roleKey: role, schoolId: 'school', staffMemberId: null }], platformMemberships: role === 'platform_admin' ? [{ membershipId: 'm', roleKey: 'platform_admin' }] : [] });
+    await assert.rejects(page({}), /redirect:\//);
+    assert.equal(teachingCalls.length, 0);
+  }
+});
+
+test('teaching workspace honest empty state when no active allocations exist', async () => {
+  teachingCalls.length = 0;
+  const emptyFixture = { ...teachingWorkspace, allocations: [], planByAllocation: {} };
+  const page = loader({
+    'next/navigation': navigation,
+    '@/components/shell/app-shell': { AppShell: ({ children }) => children },
+    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'user' }, memberships: [{ roleKey: 'teacher', schoolId: 'school', staffMemberId: 'staff' }], platformMemberships: [] }) },
+    '@/features/teaching/server/queries': { getTeachingWorkspace: async () => emptyFixture },
+  })('@/app/teaching/page').default;
+  const html = renderToStaticMarkup(await page({}));
+  assert.match(html, /No active teaching allocations/);
+});
+
+test('teaching workspace keeps official curriculum content visually read-only and separate from teacher content', () => {
+  const load = loader();
+  const { TeachingWorkspace } = load('@/features/teaching/teaching-workspace');
+  const props = {
+    ...teachingWorkspace,
+    today: '2026-09-16',
+    initialView: 'preparation',
+    planByAllocation: { 'offering-1': [{ planId: 'plan-1', planLevel: 'class', status: 'active', curriculumVersionId: 'cv', offeringId: 'offering-1' }] },
+    planItems: [{ itemId: 'item-1', planId: 'plan-1', planLevel: 'class', planStatus: 'active', unitId: 'unit-1', unitCode: 'U1', topic: 'Fractions', theme: 'Numbers', sequenceNumber: 1, plannedStartOn: null, plannedEndOn: null, plannedPeriods: 4, recommendedPeriodsMin: 3, recommendedPeriodsMax: 5, practicalRequired: false, priority: 'essential' }],
+    scheduleItems: [{ itemId: 'sched-1', planItemId: 'item-1', plannedOn: '2026-09-16', plannedPeriodCount: 2, status: 'scheduled', movedTo: null }],
+    objectivesByUnit: { 'unit-1': [{ unitId: 'unit-1', code: 'GO 1.1', text: 'Compare and order fractions.' }] },
+    competenciesByUnit: { 'unit-1': [{ unitId: 'unit-1', code: 'BC 1.2', text: 'Represent fractions on a number line.' }] },
+    reviewHref: '/teaching/reviews',
+  };
+  const html = renderToStaticMarkup(React.createElement(TeachingWorkspace, props));
+  // The preparation view separates official registry content from teacher-authored fields.
+  assert.match(html, /Official curriculum/);
+  assert.match(html, /Read-only/);
+  assert.match(html, /Compare and order fractions\./);
+  assert.match(html, /Basic competencies/);
+  assert.match(html, /Teacher-authored fields/);
+  // Unscheduled/registry null dates degrade instead of throwing.
+  assert.doesNotMatch(html, /Invalid time value/);
+});
+
 test('TimeField keeps the shared 40px control geometry and never exposes a native time input', () => {
   const load = loader();
   const { TimeField } = load('@/components/ui/time-field');
