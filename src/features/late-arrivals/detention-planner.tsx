@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
+import { TimeField } from "@/components/ui/time-field";
 import {
   allocateDetentionLearners,
   createPlannedDetentionSession,
@@ -75,6 +76,8 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   const [newTeamOpen, setNewTeamOpen] = useState(false);
   const [existingTeamOpen, setExistingTeamOpen] = useState(false);
   const [sessionDate, setSessionDate] = useState(nextFriday(today));
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
   const [newTeam, setNewTeam] = useState<string[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState(sessions[0]?.id ?? "");
   const [editingTeam, setEditingTeam] = useState<string[]>(sessions[0]?.supervisorIds ?? []);
@@ -148,8 +151,8 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                 <p className="mt-1 text-xs text-muted-foreground">The coming Friday is preselected. You can also roster detention several weeks ahead.</p>
                 <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={changeSessionDate} min={today} required className="mt-3" />
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <label className="text-xs font-medium">Starts at<input name="startsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
-                  <label className="text-xs font-medium">Ends at<input name="endsAt" type="time" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
+                  <TimeField label="Starts at" name="startsAt" value={startsAt} onChange={setStartsAt} />
+                  <TimeField label="Ends at" name="endsAt" value={endsAt} onChange={setEndsAt} />
                 </div>
                 <label className="mt-3 block text-xs font-medium">Location<input name="location" placeholder="e.g. Room 12" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label>
 

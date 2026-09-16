@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { Picker } from "@/components/ui/picker";
 import { DateField } from "@/components/ui/date-field";
-import { cn } from "@/lib/utils";
-import { formFieldLabelClass } from "@/components/ui/form-field-layout";
+import { formFieldLabelClass, formFieldControlOffsetClass } from "@/components/ui/form-field-layout";
 
 import {
   assignCustodian,
@@ -22,8 +21,10 @@ import type {
   RoomInventoryVerification,
 } from "@/features/room-inventory/server/queries";
 const init: RoomInventoryActionState = {};
+// Raw labelled inputs share the scolapro-control-surface tokens and the shared
+// control offset so they sit level with Picker/DateField/NumberStepper in a row.
 const f =
-  "mt-1 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm";
+  `scolapro-control-surface ${formFieldControlOffsetClass} min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm outline-none`;
 function useNotice(s: RoomInventoryActionState) {
   useEffect(() => {
     if (s.message) {
@@ -120,7 +121,7 @@ export function RoomInventoryWorkspace({
               Search item / asset no.
             </span>
             <input
-              className={cn("mt-1.5", f)}
+              className={f}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search inventory"
@@ -219,12 +220,15 @@ export function RoomInventoryWorkspace({
             <input type="hidden" name="roomId" value={room.id} />
             <h2 className="scolapro-section-title">Add inventory item</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <input
-                className={f}
-                name="name"
-                placeholder="Item description"
-                required
-              />
+              <label className="min-w-0">
+                <span className={formFieldLabelClass}>Item description</span>
+                <input
+                  className={f}
+                  name="name"
+                  placeholder="Item description"
+                  required
+                />
+              </label>
               <Picker
                 label="Ownership"
                 name="ownership"
@@ -238,10 +242,10 @@ export function RoomInventoryWorkspace({
                 ]}
               />
               <NumberStepper
+                label="Quantity"
                 name="quantity"
                 min={0}
                 defaultValue={1}
-                aria-label="Quantity"
               />
               <Picker
                 label="Condition"
@@ -251,16 +255,22 @@ export function RoomInventoryWorkspace({
                 placeholder="Condition"
                 options={conditions}
               />
-              <input
-                className={f}
-                name="assetNumber"
-                placeholder="Asset / GRN no. (optional)"
-              />
-              <input
-                className={`${f} lg:col-span-2`}
-                name="notes"
-                placeholder="Notes / location"
-              />
+              <label className="min-w-0">
+                <span className={formFieldLabelClass}>Asset / GRN no.</span>
+                <input
+                  className={f}
+                  name="assetNumber"
+                  placeholder="Asset / GRN no. (optional)"
+                />
+              </label>
+              <label className="min-w-0 lg:col-span-2">
+                <span className={formFieldLabelClass}>Notes / location</span>
+                <input
+                  className={f}
+                  name="notes"
+                  placeholder="Notes / location"
+                />
+              </label>
             </div>
             <div className="mt-3 flex justify-start sm:justify-end">
               <Button type="submit" loading={p2} disabled={p2}>
@@ -370,7 +380,7 @@ function InventoryChangeForm({
         ]}
       />
       <div className="block text-xs font-medium">Quantity change</div>
-      <input className={cn("mt-1.5", f)} name="delta" type="number" defaultValue="0" />
+      <input className={f} name="delta" type="number" defaultValue="0" />
       <Picker
         label="Condition"
         name="condition"
