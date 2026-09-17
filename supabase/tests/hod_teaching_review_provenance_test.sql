@@ -103,225 +103,130 @@ insert into public.subject_department_responsibilities(tenant_id,school_id,subje
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1500000-0000-4000-8000-000000000001','d1400000-0000-4000-8000-000000000001',current_date-30,'d1000000-0000-4000-8000-000000000004'),
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1500000-0000-4000-8000-000000000002','d1400000-0000-4000-8000-000000000002',current_date-30,'d1000000-0000-4000-8000-000000000004');
 
--- Helper to act as a given user.
-
-
--- 1. Teacher (preparer) submits selected preparations for subject A. -----
-select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000003', true);
+-- RPC signature: (uuid, uuid[], text, text, date, date).
+-- Capture each returned ID: now() is identical throughout this transaction.
 select set_config('request.jwt.claim.role', 'authenticated', true);
-select lives_ok(
-  $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000001'],'selected_preparations',null,null,null)$$,
-  'preparer can submit selected preparations'
-);
 
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000003', true);
 
-select is(
-  (select count(*)::integer from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003'),
-  1,
-  'submission row created for the preparer'
-);
-select is(
-  (select count(*)::integer from public.preparation_review_events where event_kind='submitted'),
-  1,
-  'submitted event preserved in history'
-);
-select is(
-  (select status from public.lesson_preparations where id='d1900000-0000-4000-8000-000000000001'),
-  'submitted',
-  'preparation lifecycle marker advanced to submitted by the preparer'
-);
+select lives_ok($$select set_config('test.stream_d_selected',public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000001']::uuid[],'selected_preparations'::text,null::text,null::date,null::date)::text,true)$$, 'preparer can submit selected preparations');
 
--- 2. Only the preparer may submit (preparation and submission separate). -
+select ok(
+  (select count(*)=1 from public.preparation_submissions where id=current_setting('test.stream_d_selected')::uuid)
+  and (select count(*)=1 from public.preparation_review_events where preparation_submission_id=current_setting('test.stream_d_selected')::uuid and event_kind='submitted')
+  and (select status='submitted' from public.lesson_preparations where id='d1900000-0000-4000-8000-000000000001'),
+  'submission, submitted history and preparation lifecycle are created together');
+
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000002', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select throws_ok(
-  $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000002'],'selected_preparations',null,null,null)$$,
-  'Permission denied: only the preparer may submit preparation d1900000-0000-4000-8000-000000000002',
-  'another HOD cannot submit a preparation they did not author'
-);
 
+select throws_ok($$select public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000001']::uuid[],'selected_preparations'::text,null::text,null::date,null::date)$$, 'P0001', 'Permission denied: only the preparer may submit preparation d1900000-0000-4000-8000-000000000001', 'another HOD cannot submit someone else preparation');
 
--- 3. HOD-A reviews the subject-A submission; HOD-B (not responsible) denied.
+select throws_ok($$select public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000002','d1900000-0000-4000-8000-000000000001']::uuid[],'selected_preparations'::text,null::text,null::date,null::date)$$, 'P0001', 'Permission denied: only the preparer may submit preparation d1900000-0000-4000-8000-000000000001', 'every item is ownership-checked even after a valid first preparation');
+
+select throws_ok($$select public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array[]::uuid[],'selected_preparations'::text,null::text,null::date,null::date)$$, 'P0001', 'At least one lesson preparation is required', 'empty UUID array cannot create a submission');
+
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select lives_ok(
-  $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' limit 1),'reviewed','Looks good')$$,
-  'HOD-A can review a submission for their assigned subject'
-);
 
+select lives_ok($$select public.review_preparation_submission(current_setting('test.stream_d_selected')::uuid,'reviewed'::text,'Review feedback'::text)$$, 'responsible HOD can review subject A');
 
--- Re-create a second submission for subject A to test HOD-B denial.
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000003', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
--- Mark the returned/prepared preparation back to prepared via replica so it
--- can be resubmitted; the prior submission was reviewed, not returned.
+
+-- Fixture reset only; production submit/review triggers remain enabled.
 set local session_replication_role = replica;
 update public.lesson_preparations set status='prepared' where id='d1900000-0000-4000-8000-000000000001';
 set local session_replication_role = origin;
-select lives_ok(
-  $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000001'],'week',null,current_date,current_date+4)$$,
-  'preparer can submit a week-scoped preparation pack'
-);
 
+select lives_ok($$select set_config('test.stream_d_week',public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000001']::uuid[],'week'::text,null::text,current_date::date,(current_date+4)::date)::text,true)$$, 'preparer can submit a week pack with DATE arguments');
 
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000002', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select throws_ok(
-  $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
-  'Permission denied: reviewer is not an authorized HOD/leader for this submission',
-  'HOD-B cannot review a subject-A submission outside their department responsibility'
-);
+set local role authenticated;
 
+select is(array[
+  (select count(*)::integer from public.preparation_submissions where id=current_setting('test.stream_d_week')::uuid),
+  (select count(*)::integer from public.preparation_submission_items where preparation_submission_id=current_setting('test.stream_d_week')::uuid),
+  (select count(*)::integer from public.preparation_review_events where preparation_submission_id=current_setting('test.stream_d_week')::uuid)
+], array[0,0,0], 'wrong-subject HOD cannot enumerate submissions, items or events under RLS');
+reset role;
 
--- 4. HOD without any subject responsibility cannot review. ---------------
+select throws_ok($$select public.review_preparation_submission(current_setting('test.stream_d_week')::uuid,'reviewed'::text,'Review feedback'::text)$$, 'P0001', 'Permission denied: reviewer is not an authorized HOD/leader for this submission', 'wrong-subject HOD cannot review a known submission ID');
+
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000005', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select throws_ok(
-  $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
-  'Permission denied: reviewer is not an authorized HOD/leader for this submission',
-  'unassigned HOD has no oversight authority'
-);
 
+select throws_ok($$select public.review_preparation_submission(current_setting('test.stream_d_week')::uuid,'reviewed'::text,'Review feedback'::text)$$, 'P0001', 'Permission denied: reviewer is not an authorized HOD/leader for this submission', 'unassigned HOD has no review authority');
 
--- 5. Platform Support is denied review and submit. ----------------------
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000006', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select throws_ok(
-  $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
-  'Permission denied: reviewer is not an authorized HOD/leader for this submission',
-  'Platform Support cannot review preparation submissions'
-);
-select throws_ok(
-  $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000001'],'selected_preparations',null,null,null)$$,
-  'Permission denied: submitter is not an active teacher/HOD at this school',
-  'Platform Support cannot submit preparations'
-);
 
+select throws_ok($$select public.review_preparation_submission(current_setting('test.stream_d_week')::uuid,'reviewed'::text,'Review feedback'::text)$$, 'P0001', 'Permission denied: reviewer is not an authorized HOD/leader for this submission', 'Platform Support cannot review');
 
--- 6. Another active non-current school cannot expose teaching plans. ----
--- The non-current teacher's deterministic current school is the other school.
+select throws_ok($$select public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000001']::uuid[],'selected_preparations'::text,null::text,null::date,null::date)$$, 'P0001', 'Permission denied: submitter is not current-school scoped', 'Platform Support cannot submit');
+
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000007', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select throws_ok(
-  $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000001'],'selected_preparations',null,null,null)$$,
-  'Permission denied: submitter is not current-school scoped',
-  'another active non-current school cannot supply submission authority'
-);
 
+select throws_ok($$select public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000001']::uuid[],'selected_preparations'::text,null::text,null::date,null::date)$$, 'P0001', 'Permission denied: submitter is not current-school scoped', 'non-current school cannot supply submission authority');
 
--- 7. Return-for-revision appends history; does not overwrite. -----------
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select lives_ok(
-  $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'returned','Please add assessment section')$$,
-  'HOD-A can return a submission for revision'
-);
+create temp table preparation_before_review as
+  select to_jsonb(lp) as content from public.lesson_preparations lp where id='d1900000-0000-4000-8000-000000000001';
 
+select lives_ok($$select public.review_preparation_submission(current_setting('test.stream_d_week')::uuid,'returned'::text,'Review feedback'::text)$$, 'responsible HOD can return for revision');
+
+select ok(
+  (select status='returned' and review_note='Review feedback' and reviewed_at is not null from public.preparation_submissions where id=current_setting('test.stream_d_week')::uuid)
+  and (select to_jsonb(lp)=(select content from preparation_before_review) from public.lesson_preparations lp where id='d1900000-0000-4000-8000-000000000001'),
+  'return updates oversight feedback without changing any teacher preparation content');
 
 select is(
-  (select status from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),
-  'returned',
-  'returned submission status snapshot reflects return'
-);
-select is(
-  (select count(*)::integer from public.preparation_review_events
-    where preparation_submission_id=(select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1)),
-  1,
-  'review event history is append-only within a single submission lifecycle'
-);
-select is(
-  (select event_kind from public.preparation_review_events
-    where preparation_submission_id=(select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1) order by occurred_at desc limit 1),
-  'returned',
-  'latest event is the return action'
-);
-
--- 8. Ended/stale HOD placement loses current operational authority. -----
--- End HOD-A's placement effective yesterday.
+  (select array_agg(event_kind order by event_kind) from public.preparation_review_events where preparation_submission_id=current_setting('test.stream_d_week')::uuid),
+  array['returned','submitted']::text[], 'return appends to the submitted event instead of replacing it');
 update public.staff_school_assignments set effective_to=current_date-1 where id='d1400000-0000-4000-8000-000000000001';
--- Re-open the latest submission so a review can be attempted.
-set local session_replication_role = replica;
-update public.preparation_submissions set status='submitted' where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1;
-set local session_replication_role = origin;
+-- Select the exact captured submission; UPDATE does not accept ORDER BY/LIMIT.
+update public.preparation_submissions set status='submitted' where id=current_setting('test.stream_d_week')::uuid;
 
-select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select throws_ok(
-  $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
-  'Permission denied: reviewer is not an authorized HOD/leader for this submission',
-  'ended HOD placement loses review authority'
-);
+select throws_ok($$select public.review_preparation_submission(current_setting('test.stream_d_week')::uuid,'reviewed'::text,'Review feedback'::text)$$, 'P0001', 'Permission denied: reviewer is not an authorized HOD/leader for this submission', 'ended HOD placement loses review authority');
 
-
--- 9. Historical review provenance survives the placement change. --------
 select is(
-  (select count(*)::integer from public.preparation_review_events
-    where actor_user_id='d1000000-0000-4000-8000-000000000001'
-      and actor_role_snapshot='hod'
-      and actor_staff_assignment_id='d1400000-0000-4000-8000-000000000001'),
-  2,
-  'prior HOD-A review events retain reviewer placement provenance after placement ended'
-);
-select is(
-  (select actor_staff_assignment_id is not null from public.preparation_review_events
-    where actor_user_id='d1000000-0000-4000-8000-000000000001' order by occurred_at desc limit 1),
-  true,
-  'reviewer placement snapshot preserved on the event'
-);
+  (select count(*)::integer from public.preparation_review_events where actor_user_id='d1000000-0000-4000-8000-000000000001' and actor_role_snapshot='hod' and actor_staff_assignment_id='d1400000-0000-4000-8000-000000000001'),
+  2, 'both historical HOD reviews retain their exact placement after it ends');
 
--- 10. School leadership retains school-wide review authority. ----------
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000004', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
-select lives_ok(
-  $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','leadership reviewed')$$,
-  'school leadership can review school-wide regardless of department responsibility'
-);
 
+select lives_ok($$select public.review_preparation_submission(current_setting('test.stream_d_week')::uuid,'reviewed'::text,'Review feedback'::text)$$, 'governed school leadership retains school-wide review authority');
 
--- 11. Readiness RPC: documented exceptions only, no productivity scoring.
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
--- HOD-A placement was ended above; restore it so readiness is bounded to
--- subject A only.
 update public.staff_school_assignments set effective_to=null where id='d1400000-0000-4000-8000-000000000001';
-select lives_ok(
-  $$select * from public.resolve_hod_teaching_readiness('22222222-2222-4222-8222-222222222222',2026)$$,
-  'HOD-A readiness RPC executes'
-);
 
+select lives_ok($$select * from public.resolve_hod_teaching_readiness('22222222-2222-4222-8222-222222222222'::uuid,2026)$$, 'HOD readiness executes');
 
--- Readiness result columns must be exactly the documented exception set;
--- no score/rank/productivity columns exist.
 select is(
-  (select count(*)::integer from information_schema.columns
-    where table_schema='public' and table_name='resolve_hod_teaching_readiness'
-      and column_name in ('score','rank','productivity','productivity_score','teacher_score')),
-  0,
-  'readiness RPC exposes no productivity score/rank columns'
-);
-select is(
-  (select count(*)::integer from information_schema.columns
-    where table_schema='public' and table_name='resolve_hod_teaching_readiness'),
-  7,
-  'readiness RPC returns exactly seven documented columns'
-);
+  (select array_agg(p.proargnames[a.ordinality] order by a.ordinality)
+   from pg_proc p cross join lateral unnest(p.proargmodes) with ordinality a(mode,ordinality)
+   where p.oid='public.resolve_hod_teaching_readiness(uuid,integer)'::regprocedure and a.mode='t'),
+  array['exception_kind','subject_offering_id','subject_id','register_class_id','teacher_allocation_id','detail','severity']::text[],
+  'readiness has exactly seven documented output columns and no score/rank/productivity model');
 
--- HOD-A readiness must not leak subject B exceptions (department bounding).
-select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
-select set_config('request.jwt.claim.role', 'authenticated', true);
 select is(
-  (select count(*)::integer from public.resolve_hod_teaching_readiness('22222222-2222-4222-8222-222222222222',2026) where subject_id='d1500000-0000-4000-8000-000000000002'),
-  0,
-  'HOD-A readiness does not leak subject-B (other department) exceptions'
-);
+  (select count(*)::integer from public.resolve_hod_teaching_readiness('22222222-2222-4222-8222-222222222222'::uuid,2026) where subject_id='d1500000-0000-4000-8000-000000000002'),
+  0, 'readiness does not leak another department');
+set local role authenticated;
 
+select ok(
+  not has_table_privilege('authenticated','public.preparation_review_events','INSERT')
+  and not has_table_privilege('authenticated','public.preparation_review_events','UPDATE')
+  and not has_table_privilege('authenticated','public.preparation_review_events','DELETE'),
+  'review history is append-only through governed RPCs; clients have no write privileges');
 
--- 12. append-only review events: direct client insert/update denied. ---
-select is(
-  (select count(*)::integer from pg_policies where schemaname='public' and tablename='preparation_review_events' and cmd in ('INSERT','UPDATE','DELETE')),
-  0,
-  'no client insert/update/delete policy on append-only review events'
-);
+select ok(
+  not has_table_privilege('authenticated','public.preparation_submissions','INSERT')
+  and not has_table_privilege('authenticated','public.preparation_submissions','UPDATE')
+  and not has_table_privilege('authenticated','public.preparation_submission_items','INSERT'),
+  'clients cannot bypass empty/per-item validation or rewrite reviewed submission state');
+
+select is(array[
+  (select count(*)::integer from public.preparation_submissions where id=current_setting('test.stream_d_week')::uuid),
+  (select count(*)::integer from public.preparation_submission_items where preparation_submission_id=current_setting('test.stream_d_week')::uuid),
+  (select count(*)::integer from public.preparation_review_events where preparation_submission_id=current_setting('test.stream_d_week')::uuid)
+], array[1,1,3], 'responsible HOD can read the submission, item and complete review history under RLS');
+reset role;
 
 select * from finish();
 rollback;

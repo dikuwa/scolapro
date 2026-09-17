@@ -285,28 +285,18 @@ revoke all on function app_private.can_review_preparation_submission(uuid) from 
 grant execute on function app_private.can_review_preparation_submission(uuid) to authenticated;
 
 -- 6. RLS for submissions / items / events --------------------------------
+-- Read access uses the same subject responsibility boundary as review.
+-- Mutations must use the RPCs: direct writes would bypass per-item ownership,
+-- non-empty submission validation and append-only lifecycle provenance.
 create policy "scoped staff read preparation submissions"
   on public.preparation_submissions for select to authenticated
   using (
-    app_private.has_platform_role(array['platform_admin'])
+    app_private.can_review_preparation_submission(id)
     or (
       app_private.user_current_school_matches((select auth.uid()), school_id)
-      and (
-        app_private.has_school_role(school_id, array['school_admin','principal','deputy_principal','hod'])
-        or submitted_by_user_id = auth.uid()
-      )
+      and app_private.has_school_role(school_id, array['teacher','class_teacher','hod'])
+      and submitted_by_user_id = auth.uid()
     )
-  );
-
-create policy "submitter manages own preparation submissions"
-  on public.preparation_submissions for all to authenticated
-  using (
-    app_private.has_platform_role(array['platform_admin'])
-    or submitted_by_user_id = auth.uid()
-  )
-  with check (
-    app_private.has_platform_role(array['platform_admin'])
-    or submitted_by_user_id = auth.uid()
   );
 
 create policy "scoped staff read submission items"
@@ -315,61 +305,15 @@ create policy "scoped staff read submission items"
     exists (
       select 1 from public.preparation_submissions ps
       where ps.id = preparation_submission_items.preparation_submission_id
-        and (
-          app_private.has_platform_role(array['platform_admin'])
-          or (
-            app_private.user_current_school_matches((select auth.uid()), ps.school_id)
-            and (
-              app_private.has_school_role(ps.school_id, array['school_admin','principal','deputy_principal','hod'])
-              or ps.submitted_by_user_id = auth.uid()
-            )
-          )
-        )
     )
   );
 
-create policy "submitter manages submission items"
-  on public.preparation_submission_items for all to authenticated
-  using (
-    exists (
-      select 1 from public.preparation_submissions ps
-      where ps.id = preparation_submission_items.preparation_submission_id
-        and (
-          app_private.has_platform_role(array['platform_admin'])
-          or ps.submitted_by_user_id = auth.uid()
-        )
-    )
-  )
-  with check (
-    exists (
-      select 1 from public.preparation_submissions ps
-      where ps.id = preparation_submission_items.preparation_submission_id
-        and (
-          app_private.has_platform_role(array['platform_admin'])
-          or ps.submitted_by_user_id = auth.uid()
-        )
-    )
-  );
-
--- Review events are append-only from the client perspective. Reads follow
--- the submission's read boundary; writes happen only through the governed
--- review/submit RPCs, so direct client insert/update/delete is denied.
 create policy "scoped staff read review events"
   on public.preparation_review_events for select to authenticated
   using (
     exists (
       select 1 from public.preparation_submissions ps
       where ps.id = preparation_review_events.preparation_submission_id
-        and (
-          app_private.has_platform_role(array['platform_admin'])
-          or (
-            app_private.user_current_school_matches((select auth.uid()), ps.school_id)
-            and (
-              app_private.has_school_role(ps.school_id, array['school_admin','principal','deputy_principal','hod'])
-              or ps.submitted_by_user_id = auth.uid()
-            )
-          )
-        )
     )
   );
 
@@ -805,10 +749,12 @@ create trigger preparation_review_events_submission_scope_guard
 revoke all on public.subject_department_responsibilities from anon;
 grant select,insert,update,delete on public.subject_department_responsibilities to authenticated;
 revoke all on public.preparation_submissions from anon;
-grant select,insert,update on public.preparation_submissions to authenticated;
+revoke all on public.preparation_submissions from authenticated;
+grant select on public.preparation_submissions to authenticated;
 revoke all on public.preparation_submission_items from anon;
-grant select,insert on public.preparation_submission_items to authenticated;
-revoke all on public.preparation_review_events from anon;
+revoke all on public.preparation_submission_items from authenticated;
+grant select on public.preparation_submission_items to authenticated;
+revoke all on public.preparation_review_events from anon, authenticated;
 grant select on public.preparation_review_events to authenticated;
 
 comment on table public.subject_department_responsibilities is
