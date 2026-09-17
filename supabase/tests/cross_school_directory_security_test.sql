@@ -388,12 +388,15 @@ select is(
 );
 
 -- Existing education network audit trail captured the inspector mutation.
+-- Network mutations route into the canonical audit_events store (RLS is
+-- member-scoped, so verify outside member scope).
+reset role;
 select is(
-  (select count(*)::integer from public.education_network_audit_events
-   where table_name = 'education_circuits'
-     and row_id = 'cd400000-0000-4000-8000-000000000002'
-     and action = 'UPDATE'
-     and new_data ->> 'inspector_name' = 'Jane Inspector'),
+  (select count(*)::integer from public.audit_events
+   where entity_type = 'education_circuits'
+     and entity_id = 'cd400000-0000-4000-8000-000000000002'
+     and event_type = 'education_network.update'
+     and metadata -> 'new' ->> 'inspector_name' = 'Jane Inspector'),
   1,
   'inspector contact edits are captured by the existing network audit trail'
 );
