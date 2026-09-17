@@ -53,8 +53,8 @@ insert into public.school_memberships(id,tenant_id,school_id,user_id,staff_membe
   ('d1300000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1000000-0000-4000-8000-000000000003','d1200000-0000-4000-8000-000000000003','teacher',current_date-30,null),
   ('d1300000-0000-4000-8000-000000000004','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1000000-0000-4000-8000-000000000004',null,'principal',current_date-30,null),
   ('d1300000-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1000000-0000-4000-8000-000000000005',null,'hod',current_date-30,null),
-  ('d1300000-0000-4000-8000-000000000006a','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1000000-0000-4000-8000-000000000007','d1200000-0000-4000-8000-000000000007','teacher',current_date-30,null),
-  ('d1300000-0000-4000-8000-000000000006b','11111111-1111-4111-8111-111111111111','d1100000-0000-4000-8000-000000000001','d1000000-0000-4000-8000-000000000007',null,'teacher',current_date-1,null);
+  ('d1300000-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1000000-0000-4000-8000-000000000007','d1200000-0000-4000-8000-000000000007','teacher',current_date-30,null),
+  ('d1300000-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','d1100000-0000-4000-8000-000000000001','d1000000-0000-4000-8000-000000000007',null,'teacher',current_date-1,null);
 
 insert into public.platform_memberships(user_id,role_key,active_from) values
   ('d1000000-0000-4000-8000-000000000006','platform_support',current_date-10);
@@ -104,20 +104,16 @@ insert into public.subject_department_responsibilities(tenant_id,school_id,subje
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','d1500000-0000-4000-8000-000000000002','d1400000-0000-4000-8000-000000000002',current_date-30,'d1000000-0000-4000-8000-000000000004');
 
 -- Helper to act as a given user.
-create or replace function _as(p_user_id uuid) returns void language plpgsql as $$
-begin
-  perform set_config('request.jwt.claim.sub',p_user_id::text,true);
-  perform set_config('request.jwt.claim.role','authenticated',true);
-end; $$;
+
 
 -- 1. Teacher (preparer) submits selected preparations for subject A. -----
-perform _as('d1000000-0000-4000-8000-000000000003');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000003', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select lives_ok(
   $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000001'],'selected_preparations',null,null,null)$$,
   'preparer can submit selected preparations'
 );
-reset role;
+
 
 select is(
   (select count(*)::integer from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003'),
@@ -136,27 +132,27 @@ select is(
 );
 
 -- 2. Only the preparer may submit (preparation and submission separate). -
-perform _as('d1000000-0000-4000-8000-000000000002');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select throws_ok(
   $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000002'],'selected_preparations',null,null,null)$$,
   'Permission denied: only the preparer may submit preparation d1900000-0000-4000-8000-000000000002',
   'another HOD cannot submit a preparation they did not author'
 );
-reset role;
+
 
 -- 3. HOD-A reviews the subject-A submission; HOD-B (not responsible) denied.
-perform _as('d1000000-0000-4000-8000-000000000001');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select lives_ok(
   $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' limit 1),'reviewed','Looks good')$$,
   'HOD-A can review a submission for their assigned subject'
 );
-reset role;
+
 
 -- Re-create a second submission for subject A to test HOD-B denial.
-perform _as('d1000000-0000-4000-8000-000000000003');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000003', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 -- Mark the returned/prepared preparation back to prepared via replica so it
 -- can be resubmitted; the prior submission was reviewed, not returned.
 set local session_replication_role = replica;
@@ -166,30 +162,30 @@ select lives_ok(
   $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000001'],'week',null,current_date,current_date+4)$$,
   'preparer can submit a week-scoped preparation pack'
 );
-reset role;
 
-perform _as('d1000000-0000-4000-8000-000000000002');
-set local role authenticated;
+
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000002', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select throws_ok(
   $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
   'Permission denied: reviewer is not an authorized HOD/leader for this submission',
   'HOD-B cannot review a subject-A submission outside their department responsibility'
 );
-reset role;
+
 
 -- 4. HOD without any subject responsibility cannot review. ---------------
-perform _as('d1000000-0000-4000-8000-000000000005');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000005', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select throws_ok(
   $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
   'Permission denied: reviewer is not an authorized HOD/leader for this submission',
   'unassigned HOD has no oversight authority'
 );
-reset role;
+
 
 -- 5. Platform Support is denied review and submit. ----------------------
-perform _as('d1000000-0000-4000-8000-000000000006');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000006', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select throws_ok(
   $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
   'Permission denied: reviewer is not an authorized HOD/leader for this submission',
@@ -200,27 +196,27 @@ select throws_ok(
   'Permission denied: submitter is not an active teacher/HOD at this school',
   'Platform Support cannot submit preparations'
 );
-reset role;
+
 
 -- 6. Another active non-current school cannot expose teaching plans. ----
 -- The non-current teacher's deterministic current school is the other school.
-perform _as('d1000000-0000-4000-8000-000000000007');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000007', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select throws_ok(
   $$select public.submit_preparations('22222222-2222-4222-8222-222222222222',array['d1900000-0000-4000-8000-000000000001'],'selected_preparations',null,null,null)$$,
   'Permission denied: submitter is not current-school scoped',
   'another active non-current school cannot supply submission authority'
 );
-reset role;
+
 
 -- 7. Return-for-revision appends history; does not overwrite. -----------
-perform _as('d1000000-0000-4000-8000-000000000001');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select lives_ok(
   $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'returned','Please add assessment section')$$,
   'HOD-A can return a submission for revision'
 );
-reset role;
+
 
 select is(
   (select status from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),
@@ -248,14 +244,14 @@ set local session_replication_role = replica;
 update public.preparation_submissions set status='submitted' where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1;
 set local session_replication_role = origin;
 
-perform _as('d1000000-0000-4000-8000-000000000001');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select throws_ok(
   $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','no')$$,
   'Permission denied: reviewer is not an authorized HOD/leader for this submission',
   'ended HOD placement loses review authority'
 );
-reset role;
+
 
 -- 9. Historical review provenance survives the placement change. --------
 select is(
@@ -274,17 +270,17 @@ select is(
 );
 
 -- 10. School leadership retains school-wide review authority. ----------
-perform _as('d1000000-0000-4000-8000-000000000004');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000004', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select lives_ok(
   $$select public.review_preparation_submission((select id from public.preparation_submissions where submitted_by_user_id='d1000000-0000-4000-8000-000000000003' order by submitted_at desc limit 1),'reviewed','leadership reviewed')$$,
   'school leadership can review school-wide regardless of department responsibility'
 );
-reset role;
+
 
 -- 11. Readiness RPC: documented exceptions only, no productivity scoring.
-perform _as('d1000000-0000-4000-8000-000000000001');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 -- HOD-A placement was ended above; restore it so readiness is bounded to
 -- subject A only.
 update public.staff_school_assignments set effective_to=null where id='d1400000-0000-4000-8000-000000000001';
@@ -292,7 +288,7 @@ select lives_ok(
   $$select * from public.resolve_hod_teaching_readiness('22222222-2222-4222-8222-222222222222',2026)$$,
   'HOD-A readiness RPC executes'
 );
-reset role;
+
 
 -- Readiness result columns must be exactly the documented exception set;
 -- no score/rank/productivity columns exist.
@@ -311,14 +307,14 @@ select is(
 );
 
 -- HOD-A readiness must not leak subject B exceptions (department bounding).
-perform _as('d1000000-0000-4000-8000-000000000001');
-set local role authenticated;
+select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
 select is(
   (select count(*)::integer from public.resolve_hod_teaching_readiness('22222222-2222-4222-8222-222222222222',2026) where subject_id='d1500000-0000-4000-8000-000000000002'),
   0,
   'HOD-A readiness does not leak subject-B (other department) exceptions'
 );
-reset role;
+
 
 -- 12. append-only review events: direct client insert/update denied. ---
 select is(
