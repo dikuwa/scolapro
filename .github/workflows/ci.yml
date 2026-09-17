@@ -37,8 +37,8 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Wave 1 UI regression tests
-        run: node --test tests/wave1-ui.test.mjs
+      - name: UI regression tests
+        run: node --test tests/*.test.mjs
 
       - name: Typecheck
         run: pnpm typecheck
