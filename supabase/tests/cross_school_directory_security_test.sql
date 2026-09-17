@@ -1,6 +1,6 @@
 begin;
 
-select plan(34);
+select plan(35);
 
 -- ==========================================================================
 -- Fixtures: tenant A with two schools, tenant B with one school.
@@ -62,8 +62,8 @@ insert into public.school_network_assignments(
   ('cd100000-0000-4000-8000-000000000002', 'cd400000-0000-4000-8000-000000000009', 'cd400000-0000-4000-8000-000000000001', 'cd400000-0000-4000-8000-000000000003', current_date - 400, current_date - 90);
 
 -- Alpha document_profile: pre-existing keys must survive contact merges.
-insert into public.school_settings(school_id, setting_key, setting_value)
-values ('cd100000-0000-4000-8000-000000000001', 'document_profile', '{"telephone":"+264 64 000 000","fax":"+264 64 000 001","email":"office@alpha.test","physical_address":"1 Main Street","postal_address":"P O Box 1","logo_url":"https://cdn.example.test/logo.png","former_name":"Old Alpha"}'::jsonb);
+insert into public.school_settings(tenant_id, school_id, setting_key, setting_value)
+values ('cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000001', 'document_profile', '{"telephone":"+264 64 000 000","fax":"+264 64 000 001","email":"office@alpha.test","physical_address":"1 Main Street","postal_address":"P O Box 1","logo_url":"https://cdn.example.test/logo.png","former_name":"Old Alpha"}'::jsonb);
 
 insert into public.academic_years(id, tenant_id, school_id, year, status, starts_on, ends_on)
 values ('cd600000-0000-4000-8000-000000000001', 'cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000001', 2026, 'active', current_date - 30, null),
@@ -184,8 +184,7 @@ select is(
 -- R6: anon cannot execute the directory RPC.
 -- ==========================================================================
 reset role;
-select set_config('request.jwt.claim.role', 'anon', true);
-select set_config('request.jwt.claim.sub', '', true);
+set local role anon;
 
 select throws_ok(
   'select * from public.search_school_directory()',

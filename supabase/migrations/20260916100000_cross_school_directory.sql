@@ -17,8 +17,6 @@
 --   5. A guarded trigger preserving `inspector_updated_by_school_id` integrity
 --      against accidental broad mutation paths.
 
-create table if not exists public.school_directory_grants (id uuid primary key);
-
 -- Circuit inspector public contact (preferred simple model: extend circuits).
 alter table public.education_circuits
   add column if not exists inspector_name text null,
@@ -193,14 +191,14 @@ as $$
       s.emis_number,
       s.town,
       s.region,
-      sp.physical_address,
-      sp.postal_address,
-      sp.telephone,
-      sp.fax,
-      sp.email as school_email,
-      nullif(btrim(sp.cellphone), '') as school_cellphone,
+      nullif(btrim(sp.setting_value ->> 'physical_address'), '') as physical_address,
+      nullif(btrim(sp.setting_value ->> 'postal_address'), '') as postal_address,
+      nullif(btrim(sp.setting_value ->> 'telephone'), '') as telephone,
+      nullif(btrim(sp.setting_value ->> 'fax'), '') as fax,
+      nullif(btrim(sp.setting_value ->> 'email'), '') as school_email,
+      nullif(btrim(sp.setting_value ->> 'cellphone'), '') as school_cellphone,
       p.principal_name,
-      nullif(btrim(sp.principal_public_email), '') as principal_public_email,
+      nullif(btrim(sp.setting_value ->> 'principal_public_email'), '') as principal_public_email,
       g.grades_offered_display,
       g.minimum_grade,
       g.maximum_grade,
@@ -364,8 +362,17 @@ set search_path = pg_catalog, public
 as $$
 declare
   v_profile jsonb;
+  v_tenant_id uuid;
 begin
   if not app_private.can_manage_report_card_settings(p_school_id) then
+    raise exception 'Not authorised to manage school settings';
+  end if;
+
+  select s.tenant_id into v_tenant_id
+  from public.schools s
+  where s.id = p_school_id and s.status = 'active';
+
+  if v_tenant_id is null then
     raise exception 'Not authorised to manage school settings';
   end if;
 
@@ -389,8 +396,8 @@ begin
       'principal_public_email', nullif(btrim(p_principal_public_email), '')
     );
 
-  insert into public.school_settings(school_id, setting_key, setting_value)
-  values (p_school_id, 'document_profile', v_profile)
+  insert into public.school_settings(tenant_id, school_id, setting_key, setting_value)
+  values (v_tenant_id, p_school_id, 'document_profile', v_profile)
   on conflict (school_id, setting_key) do update
     set setting_value = excluded.setting_value;
 end;
