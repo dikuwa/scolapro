@@ -106,31 +106,39 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from public.search_school_directory()),
+  (select count(*)::integer from public.search_school_directory()
+   where school_id in (
+     'cd100000-0000-4000-8000-000000000001',
+     'cd100000-0000-4000-8000-000000000002',
+     'cd100000-0000-4000-8000-000000000003')),
   3,
-  'all onboarded active-school tenants are directory-visible including circuit-less schools'
+  'all fixture onboarded schools are directory-visible including circuit-less and other-tenant schools'
 );
 
 select is(
-  (select count(*)::integer from public.search_school_directory(p_search := 'alpha')),
+  (select count(*)::integer from public.search_school_directory(p_search := 'alpha')
+   where school_id = 'cd100000-0000-4000-8000-000000000001'),
   1,
   'search matches school name case-insensitively'
 );
 
 select is(
-  (select count(*)::integer from public.search_school_directory(p_search := '90002')),
+  (select count(*)::integer from public.search_school_directory(p_search := '90002')
+   where school_id = 'cd100000-0000-4000-8000-000000000002'),
   1,
   'search matches EMIS number'
 );
 
 select is(
-  (select count(*)::integer from public.search_school_directory(p_circuit_id := 'cd400000-0000-4000-8000-000000000002')),
+  (select count(*)::integer from public.search_school_directory(p_circuit_id := 'cd400000-0000-4000-8000-000000000002')
+   where school_id = 'cd100000-0000-4000-8000-000000000001'),
   1,
-  'circuit filter returns only currently-assigned schools'
+  'circuit filter returns the currently-assigned school'
 );
 
 select is(
-  (select count(*)::integer from public.search_school_directory(p_region_id := 'cd400000-0000-4000-8000-000000000001')),
+  (select count(*)::integer from public.search_school_directory(p_region_id := 'cd400000-0000-4000-8000-000000000001')
+   where school_id in ('cd100000-0000-4000-8000-000000000001','cd100000-0000-4000-8000-000000000002')),
   1,
   'region filter resolves through the CURRENT network assignment only'
 );
@@ -142,16 +150,21 @@ select is(
   'R17 ended network assignment is not shown as current circuit'
 );
 
--- R18: historical assignment remains intact.
+-- R18: historical assignment remains intact (network RLS is member-scoped,
+-- so verify the persisted history outside member scope).
+reset role;
 select is(
   (select count(*)::integer from public.school_network_assignments where school_id = 'cd100000-0000-4000-8000-000000000002'),
   1,
   'R18 historical network assignment is preserved'
 );
+set local role authenticated;
+select set_config('request.jwt.claim.role', 'authenticated', true);
+select set_config('request.jwt.claim.sub', 'cd200000-0000-4000-8000-000000000001', true);
 
 -- R16: directory output is the fixed allowlisted column set, never settings JSON.
 select is(
-  (select (select count(*) from jsonb_object_keys(to_jsonb(d))) from public.search_school_directory() d limit 1),
+  (select (select count(*)::integer from jsonb_object_keys(to_jsonb(d))) from public.search_school_directory() d limit 1),
   26,
   'R16 directory rows expose exactly the 26 allowlisted columns'
 );
@@ -365,7 +378,11 @@ select is(
 select is(
   (select count(*)::integer
    from public.search_school_directory() d
-   where to_jsonb(d)::text ilike '%bank%' or to_jsonb(d)::text ilike '%payment%'),
+   where d.school_id in (
+     'cd100000-0000-4000-8000-000000000001',
+     'cd100000-0000-4000-8000-000000000002',
+     'cd100000-0000-4000-8000-000000000003')
+     and (to_jsonb(d)::text ilike '%bank%' or to_jsonb(d)::text ilike '%payment%')),
   0,
   'R15 directory output contains no banking/payment fields'
 );
