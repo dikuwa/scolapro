@@ -55,6 +55,16 @@ values
   ('cd400000-0000-4000-8000-000000000002', 'Swakopmund Circuit'),
   ('cd400000-0000-4000-8000-000000000003', 'Walvis Bay Circuit');
 
+-- Hierarchy history must cover the full network-assignment periods (the
+-- network trigger requires region-under-authority and circuit-under-region
+-- for every effective day of an assignment).
+insert into public.education_region_authority_history(region_id, authority_id, effective_from)
+values ('cd400000-0000-4000-8000-000000000001', 'cd400000-0000-4000-8000-000000000009', current_date - 1000);
+insert into public.education_circuit_region_history(circuit_id, region_id, effective_from)
+values
+  ('cd400000-0000-4000-8000-000000000002', 'cd400000-0000-4000-8000-000000000001', current_date - 1000),
+  ('cd400000-0000-4000-8000-000000000003', 'cd400000-0000-4000-8000-000000000001', current_date - 1000);
+
 insert into public.school_network_assignments(
   school_id, authority_id, region_id, circuit_id, effective_from, effective_to
 ) values
