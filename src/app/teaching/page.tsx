@@ -17,6 +17,7 @@ export default async function TeachingPage() {
   const academicYear = new Date().getFullYear();
   const overview = await getTeachingWorkspaceOverview(membership.schoolId, academicYear);
   const canManage = ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey);
+  const canPrepare = ["teacher", "class_teacher"].includes(membership.roleKey);
 
   const metrics = [
     { label: "Teacher allocations", value: overview.allocations, icon: UserRoundCheck },
@@ -30,13 +31,13 @@ export default async function TeachingPage() {
       <section>
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Teaching</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Curriculum pacing, lesson preparation and delivery follow the school&apos;s governed teacher allocations for {academicYear}.</p></div>
-          <Link href="/timetable" className="scolapro-cta inline-flex min-h-10 items-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong">Open timetable<ArrowUpRight className="size-4" /></Link>
+          <div className="flex flex-wrap gap-2">{canPrepare ? <Link href="/teaching/preparation" className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong">Prepare lessons<ClipboardCheck className="size-4" /></Link> : null}<Link href="/timetable" className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-4 text-sm font-medium text-foreground hover:bg-surface-muted">Open timetable<ArrowUpRight className="size-4" /></Link></div>
         </div>
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map(({ label, value, icon: Icon }, index) => <article key={label} className={["flex items-center justify-between gap-4 px-4 py-4", index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""].join(" ")}><div><p className="text-xs font-medium text-muted-foreground">{label}</p><p className="mt-1.5 text-xl font-semibold text-foreground">{value}</p></div><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><Icon className="size-4" /></span></article>)}
         </div>
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          <section className="rounded-[var(--radius-md)] bg-surface-muted p-5"><h2 className="scolapro-section-title">Planning</h2><p className="scolapro-section-description">Use current subject offerings and teacher allocations as the source for pacing and lesson preparation.</p><Link href="/timetable" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong">Review allocations<ArrowUpRight className="size-3.5" /></Link></section>
+          <section className="rounded-[var(--radius-md)] bg-surface-muted p-5"><h2 className="scolapro-section-title">Planning</h2><p className="scolapro-section-description">Use current subject offerings, pacing and teacher allocations as the source for lesson preparation.</p>{canPrepare ? <Link href="/teaching/preparation" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong">Open lesson preparation<ArrowUpRight className="size-3.5" /></Link> : <Link href="/timetable" className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong">Review allocations<ArrowUpRight className="size-3.5" /></Link>}</section>
           <section className="rounded-[var(--radius-md)] bg-surface-muted p-5"><h2 className="scolapro-section-title">Delivery</h2><p className="scolapro-section-description">Scheduled lessons and teaching actuals remain linked so curriculum coverage can be reconciled instead of manually duplicated.</p></section>
           <section className="rounded-[var(--radius-md)] bg-surface-muted p-5"><h2 className="scolapro-section-title">{canManage ? "Academic oversight" : "My teaching scope"}</h2><p className="scolapro-section-description">{canManage ? "Leadership can oversee pacing and preparation while teacher-owned delivery stays allocation scoped." : "Only teaching work connected to your active school allocation is available to you."}</p></section>
         </div>
