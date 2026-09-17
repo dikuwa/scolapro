@@ -158,7 +158,7 @@ select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000006
 
 select throws_ok($$select public.review_preparation_submission(current_setting('test.stream_d_week')::uuid,'reviewed'::text,'Review feedback'::text)$$, 'P0001', 'Permission denied: reviewer is not an authorized HOD/leader for this submission', 'Platform Support cannot review');
 
-select throws_ok($$select public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000001']::uuid[],'selected_preparations'::text,null::text,null::date,null::date)$$, 'P0001', 'Permission denied: submitter is not current-school scoped', 'Platform Support cannot submit');
+select throws_ok($$select public.submit_preparations('22222222-2222-4222-8222-222222222222'::uuid,array['d1900000-0000-4000-8000-000000000001']::uuid[],'selected_preparations'::text,null::text,null::date,null::date)$$, 'P0001', 'Permission denied: submitter is not an active teacher/HOD at this school', 'Platform Support cannot submit');
 
 select set_config('request.jwt.claim.sub', 'd1000000-0000-4000-8000-000000000007', true);
 

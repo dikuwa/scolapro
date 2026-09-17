@@ -288,16 +288,34 @@ grant execute on function app_private.can_review_preparation_submission(uuid) to
 -- Read access uses the same subject responsibility boundary as review.
 -- Mutations must use the RPCs: direct writes would bypass per-item ownership,
 -- non-empty submission validation and append-only lifecycle provenance.
+-- The current-school helper is private to governed functions, so evaluate
+-- the complete read predicate here rather than granting clients that helper.
+create or replace function app_private.can_read_preparation_submission(p_submission_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, app_private
+as $$
+  select exists (
+    select 1 from public.preparation_submissions ps
+    where ps.id = p_submission_id
+      and (
+        app_private.can_review_preparation_submission(ps.id)
+        or (
+          app_private.user_current_school_matches((select auth.uid()), ps.school_id)
+          and app_private.has_school_role(ps.school_id, array['teacher','class_teacher','hod'])
+          and ps.submitted_by_user_id = auth.uid()
+        )
+      )
+  );
+$$;
+revoke all on function app_private.can_read_preparation_submission(uuid) from public, anon;
+grant execute on function app_private.can_read_preparation_submission(uuid) to authenticated;
+
 create policy "scoped staff read preparation submissions"
   on public.preparation_submissions for select to authenticated
-  using (
-    app_private.can_review_preparation_submission(id)
-    or (
-      app_private.user_current_school_matches((select auth.uid()), school_id)
-      and app_private.has_school_role(school_id, array['teacher','class_teacher','hod'])
-      and submitted_by_user_id = auth.uid()
-    )
-  );
+  using (app_private.can_read_preparation_submission(id));
 
 create policy "scoped staff read submission items"
   on public.preparation_submission_items for select to authenticated
