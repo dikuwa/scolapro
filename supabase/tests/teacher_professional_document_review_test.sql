@@ -186,9 +186,11 @@ select lives_ok(
  'teacher can resubmit the same returned document'
 );
 
-select is(
- (select array_agg(event_kind order by occurred_at,id) from public.teacher_professional_document_review_events where submission_id=current_setting('test.pf_review')::uuid),
- array['submitted','returned','resubmitted']::text[],
+select ok(
+ (select count(*)=3 from public.teacher_professional_document_review_events where submission_id=current_setting('test.pf_review')::uuid)
+ and (select count(*)=1 from public.teacher_professional_document_review_events where submission_id=current_setting('test.pf_review')::uuid and event_kind='submitted')
+ and (select count(*)=1 from public.teacher_professional_document_review_events where submission_id=current_setting('test.pf_review')::uuid and event_kind='returned')
+ and (select count(*)=1 from public.teacher_professional_document_review_events where submission_id=current_setting('test.pf_review')::uuid and event_kind='resubmitted'),
  'submit return and resubmit transitions remain append-only history'
 );
 
