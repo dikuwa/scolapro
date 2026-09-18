@@ -119,7 +119,10 @@ export async function submitWeeklyRegister(_state: WeeklyRegisterState, formData
     }
   }
 
+  // Absence reviews read the same authoritative daily register records, so the
+  // dependent route must be invalidated alongside the weekly register itself.
   revalidatePath("/attendance");
+  revalidatePath("/school/absence-reviews");
   revalidatePath("/");
   return evidenceFailures
     ? { success: true, message: `Weekly register saved. ${evidenceFailures} evidence file${evidenceFailures === 1 ? "" : "s"} could not be attached.` }
