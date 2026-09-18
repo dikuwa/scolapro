@@ -66,7 +66,8 @@ function ensure(writer: Writer, height: number) {
 }
 
 function heading(writer: Writer, text: string) {
-  ensure(writer, 22);
+  // Keep the heading with at least the first body line on the same page.
+  ensure(writer, 22 + LINE_HEIGHT + 4);
   writer.page.drawText(text, { x: MARGIN, y: writer.y, size: 9.5, font: writer.bold, color: INK });
   writer.y -= 5;
   writer.page.drawLine({ start: { x: MARGIN, y: writer.y }, end: { x: MARGIN + CONTENT_WIDTH, y: writer.y }, thickness: 0.5, color: LINE });
@@ -76,8 +77,11 @@ function heading(writer: Writer, text: string) {
 function paragraph(writer: Writer, label: string, value: string) {
   const text = label ? `${label}: ${value || "-"}` : value || "-";
   const lines = wrap(writer.regular, text, BODY_SIZE, CONTENT_WIDTH);
-  ensure(writer, lines.length * LINE_HEIGHT + 4);
   lines.forEach((line) => {
+    // Long teacher-entered text can exceed one page. Re-check the footer
+    // reserve for every wrapped line so continuation never writes through the
+    // shared page footer area.
+    ensure(writer, LINE_HEIGHT + 2);
     writer.page.drawText(line, { x: MARGIN, y: writer.y, size: BODY_SIZE, font: writer.regular, color: INK });
     writer.y -= LINE_HEIGHT;
   });
