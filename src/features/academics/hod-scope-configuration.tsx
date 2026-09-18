@@ -17,9 +17,6 @@ import type {
 } from "./server/hod-scope";
 
 const emptyState: HodScopeActionState = {};
-const fieldClass =
-  "mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-fast)] focus:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]";
-
 function ActionMessage({ state }: { state: HodScopeActionState }) {
   if (!state.message) return null;
   return (
@@ -204,14 +201,12 @@ export function HodScopeConfiguration({
                 name="effectiveFrom"
                 value={effectiveFrom}
                 onChange={setEffectiveFrom}
-                disabled={createPending}
               />
               <DateField
                 label="Effective to (optional)"
                 name="effectiveTo"
                 value={effectiveTo}
                 onChange={setEffectiveTo}
-                disabled={createPending}
               />
             </div>
             <div className="flex justify-start sm:justify-end">
@@ -249,7 +244,6 @@ export function HodScopeConfiguration({
               name="effectiveTo"
               value={endDate}
               onChange={setEndDate}
-              disabled={endPending}
             />
             <div className="flex justify-start sm:justify-end">
               <Button
@@ -266,7 +260,7 @@ export function HodScopeConfiguration({
       </div>
 
       {!heads.length ? (
-        <p className={fieldClass}>
+        <p className="mt-4 rounded-[var(--radius-sm)] bg-warning-soft/60 px-3 py-2 text-xs text-[color:var(--warning)]">
           No current HOD placement is available. Assign the HOD role and an effective staff placement first.
         </p>
       ) : null}
