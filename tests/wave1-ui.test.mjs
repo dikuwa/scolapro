@@ -247,7 +247,8 @@ test('detention queue header groups title, History and open-count on one aligned
   assert.match(header[0], /\/late-arrivals\/history/);
   assert.match(header[0], />0 open</);
   // Description still renders below the header row.
-  assert.match(html, /Every three cumulative late arrivals/);
+  assert.match(html, /configured threshold/);
+  assert.match(html, /configured detention cycle/);
 });
 
 test('detention roster planning uses the shared TimeField instead of native time inputs', () => {
