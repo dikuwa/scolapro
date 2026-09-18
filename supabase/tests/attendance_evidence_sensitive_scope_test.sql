@@ -1,6 +1,6 @@
 begin;
 
-select plan(7);
+select plan(9);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -35,6 +35,16 @@ insert into public.attendance_evidence(
   id,tenant_id,school_id,register_submission_id,enrolment_id,attendance_date,storage_path,original_filename,mime_type,file_size,uploaded_by_user_id
 ) values(
   'fc300000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fc200000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001',current_date,'22222222-2222-4222-8222-222222222222/fc000000-0000-4000-8000-000000000001/medical.pdf','medical.pdf','application/pdf',1024,'fc000000-0000-4000-8000-000000000001'
+);
+
+select ok(
+  has_function_privilege('authenticated','app_private.can_read_attendance_evidence(uuid)','EXECUTE'),
+  'authenticated may execute the attendance evidence policy helper'
+);
+
+select ok(
+  not has_function_privilege('anon','app_private.can_read_attendance_evidence(uuid)','EXECUTE'),
+  'anon may not execute the attendance evidence policy helper'
 );
 
 select set_config('request.jwt.claim.role','authenticated',true);
