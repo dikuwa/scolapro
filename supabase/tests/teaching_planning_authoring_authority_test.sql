@@ -234,21 +234,24 @@ reset role;
 select set_config('request.jwt.claim.sub','e1000000-0000-4000-8000-000000000002',true);
 set local role authenticated;
 update public.pacing_plans set status='archived' where id='e2000000-0000-4000-8000-000000000002';
+reset role;
 select is(
   (select status from public.pacing_plans where id='e2000000-0000-4000-8000-000000000002'),
   'draft','HOD cannot update another department plan'
 );
+select set_config('request.jwt.claim.sub','e1000000-0000-4000-8000-000000000002',true);
+set local role authenticated;
 update public.pacing_plan_items set planned_periods=6 where id='e2100000-0000-4000-8000-000000000001';
 select is(
   (select planned_periods from public.pacing_plan_items where id='e2100000-0000-4000-8000-000000000001'),
   6::smallint,'HOD updates an item on their own department plan'
 );
 update public.pacing_plan_items set planned_periods=6 where id='e2100000-0000-4000-8000-000000000002';
+reset role;
 select is(
   (select planned_periods from public.pacing_plan_items where id='e2100000-0000-4000-8000-000000000002'),
   4::smallint,'HOD cannot update another department plan item'
 );
-reset role;
 
 -- Scheduling: allocation window and author boundary --------------------------
 select set_config('request.jwt.claim.sub','e1000000-0000-4000-8000-000000000007',true);
@@ -304,12 +307,12 @@ select throws_ok(
 );
 reset role;
 
--- Read visibility is deliberately unchanged ---------------------------------
+-- HOD read visibility now follows the same explicit subject responsibility. --
 select set_config('request.jwt.claim.sub','e1000000-0000-4000-8000-000000000002',true);
 set local role authenticated;
 select is(
   (select count(*)::integer from public.pacing_plans where id='e2000000-0000-4000-8000-000000000002'),
-  1,'write authority was narrowed without removing legitimate read visibility'
+  0,'HOD cannot read another department plan merely because they hold the HOD role'
 );
 reset role;
 
