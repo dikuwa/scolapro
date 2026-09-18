@@ -328,6 +328,104 @@ using (
   )
 );
 
+-- Defense in depth against permissive-policy composition ---------------------
+--
+-- PostgreSQL ORs permissive policies for the same command. Historical policy
+-- churn on these tables means removing known broad policies is not sufficient
+-- to make the authoring predicate the mandatory write boundary: any surviving
+-- permissive policy can otherwise widen UPDATE/INSERT/DELETE authority. These
+-- command-specific RESTRICTIVE guards make the governed authoring predicate an
+-- AND condition for mutations while leaving SELECT/read visibility untouched.
+
+-- pacing_plans mandatory mutation guard
+ drop policy if exists "planning author boundary insert pacing plans" on public.pacing_plans;
+create policy "planning author boundary insert pacing plans"
+on public.pacing_plans
+as restrictive
+for insert
+to authenticated
+with check (
+  created_by_user_id = (select auth.uid())
+  and app_private.can_author_teaching_plan(school_id, subject_offering_id, plan_level)
+);
+
+ drop policy if exists "planning author boundary update pacing plans" on public.pacing_plans;
+create policy "planning author boundary update pacing plans"
+on public.pacing_plans
+as restrictive
+for update
+to authenticated
+using (app_private.can_author_teaching_plan(school_id, subject_offering_id, plan_level))
+with check (app_private.can_author_teaching_plan(school_id, subject_offering_id, plan_level));
+
+ drop policy if exists "planning author boundary delete pacing plans" on public.pacing_plans;
+create policy "planning author boundary delete pacing plans"
+on public.pacing_plans
+as restrictive
+for delete
+to authenticated
+using (app_private.can_author_teaching_plan(school_id, subject_offering_id, plan_level));
+
+-- pacing_plan_items mandatory mutation guard
+ drop policy if exists "planning author boundary insert pacing items" on public.pacing_plan_items;
+create policy "planning author boundary insert pacing items"
+on public.pacing_plan_items
+as restrictive
+for insert
+to authenticated
+with check (app_private.can_author_pacing_plan_item(pacing_plan_id));
+
+ drop policy if exists "planning author boundary update pacing items" on public.pacing_plan_items;
+create policy "planning author boundary update pacing items"
+on public.pacing_plan_items
+as restrictive
+for update
+to authenticated
+using (app_private.can_author_pacing_plan_item(pacing_plan_id))
+with check (app_private.can_author_pacing_plan_item(pacing_plan_id));
+
+ drop policy if exists "planning author boundary delete pacing items" on public.pacing_plan_items;
+create policy "planning author boundary delete pacing items"
+on public.pacing_plan_items
+as restrictive
+for delete
+to authenticated
+using (app_private.can_author_pacing_plan_item(pacing_plan_id));
+
+-- teaching_schedule_items mandatory mutation guard
+ drop policy if exists "planning author boundary insert teaching schedule" on public.teaching_schedule_items;
+create policy "planning author boundary insert teaching schedule"
+on public.teaching_schedule_items
+as restrictive
+for insert
+to authenticated
+with check (
+  app_private.can_manage_teaching_schedule(school_id, pacing_plan_item_id, teacher_allocation_id)
+);
+
+ drop policy if exists "planning author boundary update teaching schedule" on public.teaching_schedule_items;
+create policy "planning author boundary update teaching schedule"
+on public.teaching_schedule_items
+as restrictive
+for update
+to authenticated
+using (
+  app_private.can_manage_teaching_schedule(school_id, pacing_plan_item_id, teacher_allocation_id)
+)
+with check (
+  app_private.can_manage_teaching_schedule(school_id, pacing_plan_item_id, teacher_allocation_id)
+);
+
+ drop policy if exists "planning author boundary delete teaching schedule" on public.teaching_schedule_items;
+create policy "planning author boundary delete teaching schedule"
+on public.teaching_schedule_items
+as restrictive
+for delete
+to authenticated
+using (
+  app_private.can_manage_teaching_schedule(school_id, pacing_plan_item_id, teacher_allocation_id)
+);
+
 -- 3. Allocation window enforcement for scheduled lessons ---------------------
 --
 -- A lesson may only be scheduled inside the window of the allocation it names.
