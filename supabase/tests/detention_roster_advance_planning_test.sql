@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(11);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fd000000-0000-4000-8000-000000000001','roster-coordinator@example.test','authenticated','authenticated',now(),now()),
@@ -155,8 +155,8 @@ select throws_ok(
     (select id from public.detention_sessions where notes='Issue 486 advance roster'),
     current_date+15,'13:30'::time,'14:30'::time,'Room 23'
   )$$,
-  'Permission denied',
-  'cross-school administrator cannot mutate this detention roster'
+  'Detention session not found',
+  'cross-school administrator cannot read or mutate this detention roster'
 );
 
 reset role;
