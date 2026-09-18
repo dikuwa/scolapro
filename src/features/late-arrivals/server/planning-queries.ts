@@ -79,7 +79,7 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
     }),
     supabase
       .from("school_late_arrival_policies")
-      .select("detention_weekday")
+      .select("detention_weekday,detention_schedule_mode,detention_weekdays")
       .eq("school_id", schoolId)
       .eq("active", true)
       .maybeSingle(),
@@ -178,10 +178,21 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
       })),
   }));
 
+  const legacyWeekday = policyResult.data?.detention_weekday ?? null;
+  const configuredWeekdays = policyResult.data?.detention_weekdays;
+  const detentionWeekdays =
+    Array.isArray(configuredWeekdays) && configuredWeekdays.length
+      ? configuredWeekdays.map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7)
+      : legacyWeekday
+        ? [legacyWeekday]
+        : [];
+
   return {
     sessions: planningSessions,
     queue,
     staff,
-    detentionWeekday: policyResult.data?.detention_weekday ?? null,
+    detentionScheduleMode:
+      policyResult.data?.detention_schedule_mode === "manual" ? "manual" as const : "configured_days" as const,
+    detentionWeekdays,
   };
 }
