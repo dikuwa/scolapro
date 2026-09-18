@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type DetentionPlanningActionState = { success?: boolean; message?: string };
+export type DetentionPlanningActionState = { success?: boolean; message?: string };\n\nexport type DetentionScheduleMode = "configured_days" | "manual";
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -170,4 +170,53 @@ export async function rescheduleDetentionSession(
   revalidatePath("/late-arrivals");
   revalidatePath("/my-detention-supervision");
   return { success: true, message: "Detention duty session rescheduled. Assigned teachers were notified." };
+}
+
+
+export async function updateDetentionCycleConfiguration(
+  _state: DetentionPlanningActionState,
+  formData: FormData,
+): Promise<DetentionPlanningActionState> {
+  const schoolId = String(formData.get("schoolId") ?? "");
+  const scheduleMode = String(formData.get("scheduleMode") ?? "");
+  const weekdays = [...new Set(
+    formData
+      .getAll("weekdays")
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value >= 1 && value <= 7),
+  )].sort((left, right) => left - right);
+
+  if (!z.string().uuid().safeParse(schoolId).success) {
+    return { message: "School detention settings are invalid." };
+  }
+  if (scheduleMode !== "configured_days" && scheduleMode !== "manual") {
+    return { message: "Choose a valid detention scheduling mode." };
+  }
+  if (scheduleMode === "configured_days" && weekdays.length === 0) {
+    return { message: "Choose at least one detention day." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("update_detention_cycle_configuration", {
+    p_school_id: schoolId,
+    p_schedule_mode: scheduleMode,
+    p_weekdays: scheduleMode === "configured_days" ? weekdays : null,
+  });
+
+  if (error) {
+    return {
+      message: error.message.includes("Permission denied")
+        ? "Only current-school leadership can change detention scheduling."
+        : "Unable to update the detention scheduling configuration.",
+    };
+  }
+
+  revalidatePath("/late-arrivals");
+  return {
+    success: true,
+    message:
+      scheduleMode === "manual"
+        ? "Detention scheduling is now manual/ad-hoc."
+        : "Detention cycle days updated.",
+  };
 }

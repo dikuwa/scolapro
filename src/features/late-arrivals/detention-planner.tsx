@@ -13,7 +13,9 @@ import {
   createPlannedDetentionSession,
   updateDetentionDutyTeam,
   rescheduleDetentionSession,
+  updateDetentionCycleConfiguration,
   type DetentionPlanningActionState,
+  type DetentionScheduleMode,
 } from "@/features/late-arrivals/server/planning-actions";
 import type {
   DetentionPlanningLearner,
@@ -34,17 +36,23 @@ function formatDate(value: string) {
 
 const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-function nextConfiguredWeekday(today: string, isoWeekday: number | null) {
-  if (!isoWeekday || isoWeekday < 1 || isoWeekday > 7) return today;
+function nextConfiguredDate(today: string, mode: DetentionScheduleMode, weekdays: number[]) {
+  if (mode === "manual" || !weekdays.length) return today;
   const date = new Date(`${today}T12:00:00`);
   const currentIsoDay = date.getDay() === 0 ? 7 : date.getDay();
-  const delta = (isoWeekday - currentIsoDay + 7) % 7;
-  date.setDate(date.getDate() + delta);
+  const deltas = weekdays
+    .filter((day) => day >= 1 && day <= 7)
+    .map((day) => (day - currentIsoDay + 7) % 7);
+  if (!deltas.length) return today;
+  date.setDate(date.getDate() + Math.min(...deltas));
   return date.toISOString().slice(0, 10);
 }
 
-function configuredWeekdayLabel(isoWeekday: number | null) {
-  return isoWeekday && isoWeekday >= 1 && isoWeekday <= 7 ? WEEKDAY_NAMES[isoWeekday - 1] : null;
+function configuredWeekdayLabel(weekdays: number[]) {
+  return weekdays
+    .filter((day) => day >= 1 && day <= 7)
+    .map((day) => WEEKDAY_NAMES[day - 1])
+    .join(", ");
 }
 
 function toggleValue(values: string[], value: string) {
@@ -128,14 +136,35 @@ function RescheduleSessionForm({
   );
 }
 
-export function DetentionPlanner({ schoolId, today, sessions, queue, staff, detentionWeekday }: { schoolId: string; today: string; sessions: DetentionPlanningSession[]; queue: DetentionPlanningLearner[]; staff: DetentionPlanningStaff[]; detentionWeekday: number | null }) {
+export function DetentionPlanner({
+  schoolId,
+  today,
+  sessions,
+  queue,
+  staff,
+  detentionScheduleMode,
+  detentionWeekdays,
+  canConfigureCycle,
+}: {
+  schoolId: string;
+  today: string;
+  sessions: DetentionPlanningSession[];
+  queue: DetentionPlanningLearner[];
+  staff: DetentionPlanningStaff[];
+  detentionScheduleMode: DetentionScheduleMode;
+  detentionWeekdays: number[];
+  canConfigureCycle: boolean;
+}) {
   const [createState, createAction, createPending] = useActionState(createPlannedDetentionSession, initialState);
   const [teamState, teamAction, teamPending] = useActionState(updateDetentionDutyTeam, initialState);
   const [allocateState, allocateAction, allocatePending] = useActionState(allocateDetentionLearners, initialState);
+  const [cycleState, cycleAction, cyclePending] = useActionState(updateDetentionCycleConfiguration, initialState);
+  const [cycleMode, setCycleMode] = useState<DetentionScheduleMode>(detentionScheduleMode);
+  const [cycleDays, setCycleDays] = useState<number[]>(detentionWeekdays);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [newTeamOpen, setNewTeamOpen] = useState(false);
   const [existingTeamOpen, setExistingTeamOpen] = useState(false);
-  const [sessionDate, setSessionDate] = useState(nextConfiguredWeekday(today, detentionWeekday));
+  const [sessionDate, setSessionDate] = useState(nextConfiguredDate(today, detentionScheduleMode, detentionWeekdays));
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [newTeam, setNewTeam] = useState<string[]>([]);
@@ -145,12 +174,12 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff, dete
   const [allocationSupervisor, setAllocationSupervisor] = useState(sessions[0]?.supervisorIds[0] ?? "");
 
   useEffect(() => {
-    for (const state of [createState, teamState, allocateState]) {
+    for (const state of [createState, teamState, allocateState, cycleState]) {
       if (!state.message) continue;
       if (state.success) toast.success(state.message);
       else toast.error(state.message);
     }
-  }, [createState, teamState, allocateState]);
+  }, [createState, teamState, allocateState, cycleState]);
 
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
   const selectableStaff = sortStaff(staff);
@@ -164,7 +193,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff, dete
   for (const item of eligibleQueue) groups.set(item.registerClass, [...(groups.get(item.registerClass) ?? []), item]);
   const groupedQueue = [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
   const nextSession = sessions[0] ?? null;
-  const configuredDay = configuredWeekdayLabel(detentionWeekday);
+  const configuredDaysLabel = configuredWeekdayLabel(detentionWeekdays);
   const staffById = new Map(staff.map((member) => [member.id, member]));
 
   const changeSessionDate = (date: string) => {
@@ -203,13 +232,60 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff, dete
       {plannerOpen ? (
         <div className="border-t border-border-subtle p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap gap-2" aria-label="Detention planning steps"><StepBadge number={1} label="Session" /><StepBadge number={2} label="Supervisors" /><StepBadge number={3} label="Allocate learners" /></div>
+          <div className="mb-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted/35 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold">Detention cycle</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {detentionScheduleMode === "manual"
+                    ? "Manual/ad-hoc scheduling is active. Authorised coordinators choose each future detention date."
+                    : `Configured days: ${configuredDaysLabel || "none"}. Coordinators may still create an authorised manual future session when needed.`}
+                </p>
+              </div>
+              {canConfigureCycle ? (
+                <form action={cycleAction} className="w-full md:max-w-xl">
+                  <input type="hidden" name="schoolId" value={schoolId} />
+                  <input type="hidden" name="scheduleMode" value={cycleMode} />
+                  {cycleMode === "configured_days" ? cycleDays.map((day) => <input key={day} type="hidden" name="weekdays" value={day} />) : null}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button type="button" onClick={() => setCycleMode("configured_days")} className={`min-h-10 rounded-[var(--radius-sm)] border px-3 text-left text-xs font-semibold transition ${cycleMode === "configured_days" ? "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface"}`}>Configured days</button>
+                    <button type="button" onClick={() => setCycleMode("manual")} className={`min-h-10 rounded-[var(--radius-sm)] border px-3 text-left text-xs font-semibold transition ${cycleMode === "manual" ? "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface"}`}>Manual / ad-hoc</button>
+                  </div>
+                  {cycleMode === "configured_days" ? (
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                      {WEEKDAY_NAMES.map((name, index) => {
+                        const day = index + 1;
+                        const selected = cycleDays.includes(day);
+                        return (
+                          <button key={name} type="button" onClick={() => setCycleDays((current) => selected ? current.filter((value) => value !== day) : [...current, day].sort((a, b) => a - b))} className={`min-h-10 rounded-[var(--radius-xs)] border px-2 text-xs font-medium transition ${selected ? "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface"}`}>
+                            {name.slice(0, 3)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-[0.68rem] text-muted-foreground">No weekday is enforced. Existing and future detention obligations remain on the canonical obligation/session model.</p>
+                  )}
+                  <div className="mt-3 flex justify-start">
+                    <Button type="submit" variant="neutral" size="sm" loading={cyclePending} disabled={cycleMode === "configured_days" && cycleDays.length === 0}>
+                      {cyclePending ? "Saving…" : "Save detention cycle"}
+                    </Button>
+                  </div>
+                </form>
+              ) : null}
+            </div>
+          </div>
           <div className="grid gap-5 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)]">
             <div className="space-y-5">
               <form action={createAction} className="rounded-[var(--radius-md)] bg-surface-muted/55 p-4">
                 <input type="hidden" name="schoolId" value={schoolId} />
                 {newTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}
                 <div className="flex items-center justify-between gap-2"><div><StepBadge number={1} label="Session" /><h3 className="mt-2 text-sm font-semibold">Plan a detention date</h3></div></div>
-                <p className="mt-1 text-xs text-muted-foreground">{configuredDay ? `The school detention cycle is configured for ${configuredDay}. That day is preselected, but you can roster specific future dates as needed.` : "No active detention weekday is configured. Choose a future roster date manually."}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{detentionScheduleMode === "manual"
+  ? "Manual/ad-hoc scheduling is active. Choose any authorised future roster date."
+  : configuredDaysLabel
+    ? `The school detention cycle uses ${configuredDaysLabel}. The next configured day is preselected, but authorised manual future dates remain available.`
+    : "No configured detention day is available. Choose a future roster date manually."}</p>
                 <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={changeSessionDate} min={today} required className="mt-3" />
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <TimeField label="Starts at" name="startsAt" value={startsAt} onChange={setStartsAt} />

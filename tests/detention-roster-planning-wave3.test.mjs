@@ -9,10 +9,11 @@ const planningActions = source("features/late-arrivals/server/planning-actions.t
 const mySupervision = source("features/late-arrivals/server/my-supervision.ts");
 const myWorkspace = source("features/late-arrivals/my-detention-supervision-workspace.tsx");
 
-test("detention planning consumes the school-configured detention weekday instead of hard-coding Friday", () => {
+test("detention planning consumes flexible school cycle configuration instead of hard-coding Friday", () => {
   assert.match(planningQueries, /school_late_arrival_policies/);
-  assert.match(planningQueries, /detention_weekday/);
-  assert.match(planner, /nextConfiguredWeekday/);
+  assert.match(planningQueries, /detention_schedule_mode/);
+  assert.match(planningQueries, /detention_weekdays/);
+  assert.match(planner, /nextConfiguredDate/);
   assert.doesNotMatch(planner, /nextFriday/);
   assert.doesNotMatch(planner, /coming Friday/);
 });
