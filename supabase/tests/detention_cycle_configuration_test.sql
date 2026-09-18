@@ -69,11 +69,13 @@ select is(
   'single-day configuration is stored on the existing school policy row'
 );
 
+reset role;
 select is(
   app_private.next_detention_cycle_date('2026-09-17','configured_days',array[5]::smallint[],5::smallint),
   '2026-09-18'::date,
   'single-day cycle resolves the next configured detention date'
 );
+set local role authenticated;
 
 select lives_ok(
   $$select public.update_detention_cycle_configuration(
@@ -88,11 +90,13 @@ select is(
   'multi-day configuration is normalised and deduplicated'
 );
 
+reset role;
 select is(
   app_private.next_detention_cycle_date('2026-09-18','configured_days',array[2,5]::smallint[],5::smallint),
   '2026-09-22'::date,
   'multi-day cycle selects the nearest later configured day'
 );
+set local role authenticated;
 
 select lives_ok(
   $$select public.update_detention_cycle_configuration(
@@ -107,11 +111,13 @@ select is(
   'manual scheduling mode is persisted'
 );
 
+reset role;
 select is(
   app_private.next_detention_cycle_date('2026-09-18','manual',null,5::smallint),
   '2026-09-18'::date,
   'manual mode makes a new obligation immediately eligible for authorised scheduling'
 );
+set local role authenticated;
 
 select lives_ok(
   $$select public.create_detention_session_plan(
