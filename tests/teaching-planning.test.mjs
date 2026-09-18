@@ -245,7 +245,7 @@ test('a database regression test guards the authority boundary', () => {
   assert.match(dbTest, /HOD cannot schedule lessons on another department plan/);
   assert.match(dbTest, /an HOD who owns the allocation still schedules outside their department responsibility/);
   assert.match(dbTest, /records prepared status exactly as lesson-preparation\.ts does/);
-  assert.match(dbTest, /write authority was narrowed without removing legitimate read visibility/);
+  assert.match(dbTest, /HOD cannot read another department plan merely because they hold the HOD role/);
   assert.match(dbTest, /no longer leak reads to a non-current school membership/);
   assert.match(dbTest, /over-broad legacy planning write policies are gone/);
   assert.match(dbTest, /rollback;/);
