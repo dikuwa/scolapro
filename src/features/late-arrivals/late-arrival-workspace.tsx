@@ -377,7 +377,7 @@ export function LateArrivalWorkspace({
                 <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--warning)]">{detention.length} open</span>
               </div>
             </div>
-            <p className="scolapro-section-description">Every three cumulative late arrivals creates a separate obligation. Uncompleted obligations roll to the next Friday and remain independent. Assign learners to a planned detention session from the planning panel below.</p>
+            <p className="scolapro-section-description">Each configured threshold reached creates a separate obligation. Uncompleted obligations remain independent and follow the school’s configured detention cycle. Assign learners to a planned detention session from the planning panel below.</p>
           </div>
         </div>
         {detention.length ? <div className="divide-y divide-border-subtle">{detention.map((item) => {
