@@ -55,6 +55,13 @@ insert into public.platform_memberships(user_id,role_key,active_from) values
   ('e1000000-0000-4000-8000-000000000005','platform_support',current_date-10),
   ('e1000000-0000-4000-8000-000000000006','platform_admin',current_date-10);
 
+-- Fixtures are built with triggers suspended. The school-membership scope guard
+-- legitimately rejects a staff-linked membership whose staff member has not been
+-- inserted yet, and this graph is deliberately inserted child-before-parent so
+-- it can be built in a single pass. Every authority assertion runs after the
+-- switch back to 'origin', so no assertion is taken with triggers disabled.
+set local session_replication_role = replica;
+
 -- Memberships. HOD-A/HOD-B/teacher-A carry the staff identity their effective
 -- placement and department responsibility chain resolves through. The
 -- cross-school principal holds a genuine principal membership here but a newer
@@ -67,11 +74,6 @@ insert into public.school_memberships(id,tenant_id,school_id,user_id,staff_membe
   ('e1100000-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','e0100000-0000-4000-8000-000000000001','e1000000-0000-4000-8000-000000000004',null,'principal',current_date-1,null),
   ('e1100000-0000-4000-8000-000000000006','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','e1000000-0000-4000-8000-000000000007','e1200000-0000-4000-8000-000000000003','teacher',current_date-30,null),
   ('e1100000-0000-4000-8000-000000000007','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','e1000000-0000-4000-8000-000000000008',null,'hod',current_date-30,null);
-
--- Structural fixtures. Replica mode bypasses the authority-trigger chain while
--- the real curriculum/offering/allocation rows are built; every authority
--- assertion below runs with the triggers fully enabled.
-set local session_replication_role = replica;
 
 insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status) values
   ('e1200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','e1000000-0000-4000-8000-000000000002','HODA','Hod','A','active'),

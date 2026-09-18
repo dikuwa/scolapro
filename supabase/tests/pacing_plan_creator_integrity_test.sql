@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -68,10 +68,29 @@ select throws_ok(
   'authenticated leader cannot claim another manager as creator'
 );
 
-select lives_ok(
+-- 20260918140000_teaching_planning_authoring_authority replaced role-key
+-- authoring authority with a governed one: an HOD now needs an active subject
+-- department responsibility, and this actor holds none. The creator-provenance
+-- guarantee that this test previously asserted through a successful HOD write is
+-- asserted through the current-school principal below, and the loss of the bare
+-- role-key shortcut is asserted here rather than left to regress silently.
+select throws_ok(
   $$insert into public.pacing_plans(tenant_id,school_id,academic_year,subject_offering_id,curriculum_version_id,plan_level,status,created_by_user_id)
     values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'fd050000-0000-4000-8000-000000000001','fd040000-0000-4000-8000-000000000001','department','draft','fd000000-0000-4000-8000-000000000001')$$,
-  'authenticated academic leader can create a self-authored pacing plan'
+  null::char(5),null,
+  'an HOD without a subject department responsibility can no longer self-author a plan'
+);
+
+reset role;
+
+select set_config('request.jwt.claim.sub','fd000000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+set local role authenticated;
+
+select lives_ok(
+  $$insert into public.pacing_plans(tenant_id,school_id,academic_year,subject_offering_id,curriculum_version_id,plan_level,status,created_by_user_id)
+    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'fd050000-0000-4000-8000-000000000001','fd040000-0000-4000-8000-000000000001','department','draft','fd000000-0000-4000-8000-000000000003')$$,
+  'current-school academic leader can create a self-authored pacing plan'
 );
 
 reset role;
@@ -80,7 +99,7 @@ select ok(
   exists(
     select 1 from pg_policies
     where schemaname='public' and tablename='pacing_plans'
-      and policyname='academic leaders can manage pacing plans [insert]'
+      and policyname='planning authors can create pacing plans'
       and with_check like '%created_by_user_id%auth.uid()%'
   ),
   'insert policy binds pacing plan creator to authenticated actor'
