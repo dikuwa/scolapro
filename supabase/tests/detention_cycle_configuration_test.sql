@@ -70,7 +70,7 @@ select is(
 );
 
 select is(
-  app_private.next_detention_cycle_date('2026-09-17','configured_days',array[5]::smallint[],5),
+  app_private.next_detention_cycle_date('2026-09-17','configured_days',array[5]::smallint[],5::smallint),
   '2026-09-18'::date,
   'single-day cycle resolves the next configured detention date'
 );
@@ -89,7 +89,7 @@ select is(
 );
 
 select is(
-  app_private.next_detention_cycle_date('2026-09-18','configured_days',array[2,5]::smallint[],5),
+  app_private.next_detention_cycle_date('2026-09-18','configured_days',array[2,5]::smallint[],5::smallint),
   '2026-09-22'::date,
   'multi-day cycle selects the nearest later configured day'
 );
@@ -108,7 +108,7 @@ select is(
 );
 
 select is(
-  app_private.next_detention_cycle_date('2026-09-18','manual',null,5),
+  app_private.next_detention_cycle_date('2026-09-18','manual',null,5::smallint),
   '2026-09-18'::date,
   'manual mode makes a new obligation immediately eligible for authorised scheduling'
 );

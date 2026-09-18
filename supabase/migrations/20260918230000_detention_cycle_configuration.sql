@@ -157,7 +157,7 @@ to authenticated;
 create or replace function public.record_school_late_arrival_wave2_unscoped(
   p_enrolment_id uuid,
   p_arrival_date date default current_date,
-  p_arrived_at time default null,
+  p_arrived_at time without time zone default null,
   p_note text default null
 )
 returns uuid
@@ -184,8 +184,16 @@ begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if p_arrival_date > current_date then raise exception 'Future late-arrival dates are not allowed'; end if;
 
-  select * into v_enrol from public.enrolments where id=p_enrolment_id;
-  if not found or v_enrol.status<>'current' then raise exception 'Active learner enrolment not found'; end if;
+  select *
+    into v_enrol
+    from public.enrolments
+   where id = p_enrolment_id
+     and status = 'current'
+     and enrolled_from <= p_arrival_date
+     and (enrolled_to is null or enrolled_to >= p_arrival_date);
+
+  if not found then raise exception 'Active learner enrolment not found for arrival date'; end if;
+
   if not (
     app_private.has_school_duty(v_enrol.school_id,'late_arrival_recorder',p_arrival_date)
     or app_private.has_school_role(v_enrol.school_id,array['school_admin','principal','deputy_principal'])
@@ -197,26 +205,20 @@ begin
   values(v_enrol.school_id,v_enrol.tenant_id)
   on conflict(school_id) do nothing;
 
-  select
-    cumulative_threshold,
-    detention_weekday,
-    detention_schedule_mode,
-    detention_weekdays
-  into
-    v_threshold,
-    v_detention_weekday,
-    v_schedule_mode,
-    v_weekdays
-  from public.school_late_arrival_policies
-  where school_id=v_enrol.school_id and active=true;
+  select cumulative_threshold,detention_weekday,detention_schedule_mode,detention_weekdays
+    into v_threshold,v_detention_weekday,v_schedule_mode,v_weekdays
+    from public.school_late_arrival_policies
+   where school_id=v_enrol.school_id and active=true;
 
   if v_threshold is null or v_detention_weekday is null then
     raise exception 'Late arrival policy is not active';
   end if;
 
   select id into v_existing_event_id
-  from public.school_late_arrival_events
-  where school_id=v_enrol.school_id and enrolment_id=v_enrol.id and arrival_date=p_arrival_date;
+    from public.school_late_arrival_events
+   where school_id=v_enrol.school_id
+     and enrolment_id=v_enrol.id
+     and arrival_date=p_arrival_date;
 
   insert into public.school_late_arrival_events(
     tenant_id,school_id,learner_id,enrolment_id,arrival_date,arrived_at,note,recorded_by_user_id
@@ -232,17 +234,17 @@ begin
   returning id into v_event_id;
 
   select count(*) into v_total_count
-  from public.school_late_arrival_events e
-  join public.enrolments en on en.id=e.enrolment_id
-  where e.school_id=v_enrol.school_id
-    and e.learner_id=v_enrol.learner_id
-    and en.academic_year=v_enrol.academic_year;
+    from public.school_late_arrival_events e
+    join public.enrolments en on en.id=e.enrolment_id
+   where e.school_id=v_enrol.school_id
+     and e.learner_id=v_enrol.learner_id
+     and en.academic_year=v_enrol.academic_year;
 
   select count(*) into v_obligation_count
-  from public.late_detention_obligations
-  where school_id=v_enrol.school_id
-    and learner_id=v_enrol.learner_id
-    and academic_year=v_enrol.academic_year;
+    from public.late_detention_obligations
+   where school_id=v_enrol.school_id
+     and learner_id=v_enrol.learner_id
+     and academic_year=v_enrol.academic_year;
 
   if v_existing_event_id is null
      and floor(v_total_count::numeric / v_threshold)::integer > v_obligation_count then
@@ -252,7 +254,7 @@ begin
       v_weekdays,
       v_detention_weekday
     );
-    v_supervisor_id := app_private.pick_detention_supervisor(v_enrol.school_id,p_arrival_date);
+    v_supervisor_id := app_private.pick_detention_supervisor(v_enrol.school_id,v_due_on);
 
     insert into public.late_detention_obligations(
       tenant_id,school_id,learner_id,qualifying_week_start,qualifying_late_count,due_on,status,
@@ -264,8 +266,8 @@ begin
 
     if v_supervisor_id is not null then
       select user_id into v_supervisor_user_id
-      from public.staff_members
-      where id=v_supervisor_id;
+        from public.staff_members
+       where id=v_supervisor_id;
 
       if v_supervisor_user_id is not null then
         insert into public.notifications(
@@ -306,7 +308,7 @@ begin
 end;
 $$;
 
-revoke all on function public.record_school_late_arrival_wave2_unscoped(uuid,date,time,text)
+revoke all on function public.record_school_late_arrival_wave2_unscoped(uuid,date,time without time zone,text)
 from public,anon,authenticated;
 
 create or replace function public.roll_forward_late_detentions_wave2_unscoped(
@@ -319,15 +321,17 @@ security definer
 set search_path = pg_catalog, public, app_private
 as $$
 declare
-  v_count integer;
+  v_count integer := 0;
   v_next_due date;
   v_detention_weekday smallint;
   v_schedule_mode text;
   v_weekdays smallint[];
   v_carry_forward boolean;
+  v_item record;
+  v_supervisor_id uuid;
+  v_supervisor_user_id uuid;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-
   if not (
     app_private.has_school_duty(p_school_id,'late_arrival_recorder',p_reference_date)
     or app_private.has_school_role(p_school_id,array['school_admin','principal','deputy_principal'])
@@ -335,8 +339,8 @@ begin
 
   select detention_weekday,detention_schedule_mode,detention_weekdays,carry_forward
     into v_detention_weekday,v_schedule_mode,v_weekdays,v_carry_forward
-  from public.school_late_arrival_policies
-  where school_id=p_school_id and active=true;
+    from public.school_late_arrival_policies
+   where school_id=p_school_id and active=true;
 
   if v_detention_weekday is null then raise exception 'Late arrival policy is not active'; end if;
   if not v_carry_forward or coalesce(v_schedule_mode,'configured_days')='manual' then
@@ -350,16 +354,66 @@ begin
     v_detention_weekday
   );
 
-  update public.late_detention_obligations
-  set status='carried_forward',
-      due_on=v_next_due,
-      rollover_count=rollover_count+1,
-      updated_at=now()
-  where school_id=p_school_id
-    and status in ('pending','carried_forward')
-    and due_on<p_reference_date;
+  for v_item in
+    select id,tenant_id,school_id,assigned_staff_member_id,due_on
+      from public.late_detention_obligations
+     where school_id=p_school_id
+       and status in ('pending','carried_forward')
+       and due_on<p_reference_date
+     order by due_on,id
+     for update
+  loop
+    v_supervisor_id := v_item.assigned_staff_member_id;
 
-  get diagnostics v_count=row_count;
+    if v_supervisor_id is null
+       or not app_private.staff_member_has_school_assignment(v_supervisor_id,p_school_id,v_next_due) then
+      v_supervisor_id := app_private.pick_detention_supervisor(p_school_id,v_next_due);
+    end if;
+
+    update public.late_detention_obligations
+       set status='carried_forward',
+           due_on=v_next_due,
+           rollover_count=rollover_count+1,
+           assigned_staff_member_id=v_supervisor_id,
+           updated_at=now()
+     where id=v_item.id;
+
+    if v_supervisor_id is distinct from v_item.assigned_staff_member_id then
+      insert into public.audit_events(
+        tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+      ) values(
+        v_item.tenant_id,v_item.school_id,auth.uid(),
+        'late_detention.supervisor_reassigned','late_detention_obligation',v_item.id,
+        jsonb_build_object(
+          'reason','roll_forward',
+          'previous_staff_member_id',v_item.assigned_staff_member_id,
+          'staff_member_id',v_supervisor_id,
+          'previous_due_on',v_item.due_on,
+          'due_on',v_next_due
+        )
+      );
+
+      if v_supervisor_id is not null then
+        select sm.user_id into v_supervisor_user_id
+          from public.staff_members sm
+         where sm.id=v_supervisor_id;
+
+        if v_supervisor_user_id is not null then
+          insert into public.notifications(
+            recipient_user_id,tenant_id,school_id,severity,title,body,href
+          ) values(
+            v_supervisor_user_id,v_item.tenant_id,v_item.school_id,'info',
+            'Detention supervision assigned',
+            'A carried-forward learner detention has been assigned to you for ' || to_char(v_next_due,'DD Mon YYYY') || '.',
+            '/late-arrivals'
+          );
+        end if;
+      end if;
+    end if;
+
+    v_count := v_count + 1;
+  end loop;
+
   return v_count;
 end;
 $$;
