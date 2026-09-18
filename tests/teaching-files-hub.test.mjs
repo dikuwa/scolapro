@@ -172,8 +172,31 @@ const officialA = {
 };
 const recordA = { id: 'prep-a', allocationId: 'alloc-a', plannedOn: '2026-09-14', status: 'submitted', submittedAt: '2026-09-13T08:00:00Z', reviewedAt: null, reviewNote: null };
 
+const professionalA = {
+  id: 'doc-a',
+  originalFilename: 'portfolio.pdf',
+  title: 'Teaching portfolio',
+  categoryLabel: null,
+  mimeType: 'application/pdf',
+  fileSize: 2048,
+  status: 'active',
+  createdAt: '2026-09-18T08:00:00Z',
+  archivedAt: null,
+  viewHref: '/api/teaching/files/doc-a',
+  downloadHref: '/api/teaching/files/doc-a?download=1',
+};
+
 function renderHub(overrides = {}) {
-  const load = loader();
+  const load = loader({
+    'next/navigation': navigation,
+    'sonner': { toast: { success() {}, error() {} } },
+    '@/lib/supabase/client': { createSupabaseBrowserClient() { throw new Error('not called during render'); } },
+    '@/features/teaching/server/professional-documents': {
+      prepareTeacherProfessionalDocumentUpload() {},
+      finalizeTeacherProfessionalDocument() {},
+      archiveTeacherProfessionalDocument() {},
+    },
+  });
   const { TeachingFilesHub } = load('@/features/teaching/components/teaching-files');
   return renderToStaticMarkup(React.createElement(TeachingFilesHub, {
     today: '2026-09-18',
@@ -181,22 +204,28 @@ function renderHub(overrides = {}) {
     allocations: [allocationA],
     officialDocuments: [officialA],
     preparationRecords: [recordA],
+    professionalDocuments: [professionalA],
     taxonomySourced: false,
+    ownerSchoolId: 'school-a',
+    ownerStaffMemberId: 'staff-1',
+    canUploadProfessionalDocuments: true,
     ...overrides,
   }));
 }
 
-test('teaching files hub is honest about the unsourced taxonomy and missing upload authority', () => {
+test('teaching files hub offers governed owner upload without inventing official taxonomy', () => {
   const html = renderHub();
   assert.match(html, /Professional files/);
+  assert.match(html, /My uploaded professional documents/);
   assert.match(html, /Official documents/);
   assert.match(html, /Your teaching records/);
+  assert.match(html, /Taxonomy status/);
+  assert.match(html, /official teacher-file taxonomy is not yet sourced/i);
+  assert.match(html, /no Ministry\/NIED table of contents has been invented/i);
+  assert.match(html, /type="file"/i);
+  assert.match(html, /Optional neutral label/);
+  assert.match(html, /Teaching portfolio/);
   assert.match(html, /Uncategorised/);
-  assert.match(html, /official teacher-file taxonomy is not yet sourced/);
-  assert.match(html, /No Ministry\/NIED table of contents has been invented/);
-  assert.match(html, /Upload is not offered here/);
-  // No invented official table of contents or upload control is rendered.
-  assert.doesNotMatch(html, /<input[^>]*type="file"/i);
   assert.doesNotMatch(html, /type="date"/i);
   assert.doesNotMatch(html, /<select/i);
   assert.doesNotMatch(html, /\bNIED required\b/i);
@@ -204,7 +233,7 @@ test('teaching files hub is honest about the unsourced taxonomy and missing uplo
 
 test('teaching files hub presents lesson preparations as records, not stored files', () => {
   const html = renderHub();
-  assert.match(html, /they are not\s+uploaded files/);
+  assert.match(html, /canonical structured teaching records, not uploaded files/i);
   assert.match(html, /Lesson preparation/);
   assert.match(html, /Submitted/);
 });
@@ -215,7 +244,7 @@ test('teaching files hub only links to existing governed routes', () => {
   assert.ok(hrefs.length > 0);
   for (const href of hrefs) {
     assert.ok(
-      href.startsWith('/api/official-documents/class-list') || href === '/teaching',
+      href.startsWith('/api/official-documents/class-list') || href.startsWith('/api/teaching/files/') || href === '/teaching',
       `unexpected hub link: ${href}`,
     );
   }
@@ -232,10 +261,11 @@ test('teaching files hub cannot surface another teacher allocation or record', (
   assert.doesNotMatch(html, /Lesson preparation/);
 });
 
-test('teaching files hub renders an honest empty state without effective allocations', () => {
+test('teaching files hub keeps teacher-owned uploads available without effective allocations', () => {
   const html = renderHub({ allocations: [], officialDocuments: [], preparationRecords: [] });
   assert.match(html, /No effective teaching allocations/);
-  assert.doesNotMatch(html, /All subjects/);
+  assert.match(html, /Teaching portfolio/);
+  assert.match(html, /type="file"/i);
 });
 
 // ---------------------------------------------------------------------------
@@ -248,6 +278,13 @@ function filesPage(context, calls) {
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
     '@/lib/auth/get-user-context': { getUserContext: async () => context },
     '@/features/calendar/server/calendar': { getGovernedAcademicYear: async () => 2026 },
+    'sonner': { toast: { success() {}, error() {} } },
+    '@/lib/supabase/client': { createSupabaseBrowserClient() { throw new Error('not called during render'); } },
+    '@/features/teaching/server/professional-documents': {
+      prepareTeacherProfessionalDocumentUpload() {},
+      finalizeTeacherProfessionalDocument() {},
+      archiveTeacherProfessionalDocument() {},
+    },
     '@/features/teaching/server/file-queries': {
       getTeachingFilesHub: async (...args) => {
         calls.push(args);
@@ -257,6 +294,7 @@ function filesPage(context, calls) {
           allocations: [allocationA],
           officialDocuments: [officialA],
           preparationRecords: [recordA],
+          professionalDocuments: [professionalA],
         };
       },
       OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED: false,
@@ -276,8 +314,9 @@ test('teaching files route renders the real hub in the membership own staff scop
   assert.equal(calls[0][0].schoolId, 'school-a');
   assert.equal(calls[0][0].staffMemberId, 'staff-1');
   assert.equal(typeof calls[0][0].academicYear, 'number');
-  // No browser-native control leaks into the hub.
-  assert.doesNotMatch(html, /<select|type="date"|type="file"/);
+  // Shared pickers remain browser-select free; governed teacher upload is now expected.
+  assert.doesNotMatch(html, /<select|type="date"/);
+  assert.match(html, /type="file"/);
 });
 
 test('teaching files route denies ineligible roles before loading hub data', async () => {
@@ -305,7 +344,7 @@ test('teaching files route keeps HOD review authority in its own workspace', asy
   const calls = [];
   const page = filesPage({ user: { id: 'hod-user' }, memberships: [{ roleKey: 'hod', schoolId: 'school-a', staffMemberId: 'staff-9' }], platformMemberships: [] }, calls);
   const html = renderToStaticMarkup(await page({}));
-  assert.match(html, /personal files/);
+  assert.match(html, /teacher-owned files/i);
   assert.doesNotMatch(html, /href="\/teaching\/reviews"/);
   assert.equal(calls[0][0].staffMemberId, 'staff-9');
 });

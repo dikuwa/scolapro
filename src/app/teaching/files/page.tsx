@@ -20,6 +20,13 @@ export default async function TeachingFilesPage() {
   const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
+  const ownerMembership = context.memberships.find(
+    (item) =>
+      item.schoolId === membership.schoolId &&
+      item.staffMemberId &&
+      ["teacher", "class_teacher", "hod"].includes(item.roleKey),
+  );
+
   const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const hub = await getTeachingFilesHub({
     schoolId: membership.schoolId,
@@ -37,7 +44,13 @@ export default async function TeachingFilesPage() {
             allocations.
           </p>
         </div>
-        <TeachingFilesHub {...hub} taxonomySourced={OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED} />
+        <TeachingFilesHub
+          {...hub}
+          taxonomySourced={OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED}
+          ownerSchoolId={ownerMembership?.schoolId ?? null}
+          ownerStaffMemberId={ownerMembership?.staffMemberId ?? null}
+          canUploadProfessionalDocuments={Boolean(ownerMembership)}
+        />
       </div>
     </AppShell>
   );
