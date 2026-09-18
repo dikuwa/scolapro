@@ -3,6 +3,10 @@ import { cn } from "@/lib/utils";
 
 export const formFieldLabelClass = "block h-4 text-xs font-medium leading-4";
 export const formFieldControlOffsetClass = "mt-1.5";
+// Mixed field rows (DateField, Pickers, raw inputs, FormActionSlot) must align rows to the
+// START, never the end: DateField always carries a FormFieldFeedback reserve and Pickers do
+// not, so bottom alignment drops every sibling control below the DateField control line.
+export const formRowAlignClass = "items-start";
 
 export function FormFieldFeedback({
   helper,
