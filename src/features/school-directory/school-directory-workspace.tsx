@@ -17,10 +17,8 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
   saveCircuitInspectorContact,
   type CircuitInspectorContactState,
@@ -54,10 +52,10 @@ function formatDate(value: string | null): string {
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function InspectorContactForm({ circuitId, initial }: { circuitId: string; initial: { name: string; phone: string; email: string } }) {
+function InspectorContactForm({ circuitId, initial, onSaved }: { circuitId: string; initial: { name: string; phone: string; email: string }; onSaved: () => void }) {
   const [state, action, pending] = useActionState(saveCircuitInspectorContact, initialState);
   const [open, setOpen] = useState(false);
-  const router = useRouter();
+  const finish = () => { setOpen(false); onSaved(); };
   const hasExisting = Boolean(initial.name || initial.phone || initial.email);
   if (!open) {
     return (
@@ -85,7 +83,7 @@ function InspectorContactForm({ circuitId, initial }: { circuitId: string; initi
         <button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
           {pending ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />} {pending ? "Saving…" : "Save inspector contact"}
         </button>
-        <button type="button" onClick={() => setOpen(false)} disabled={pending} className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 px-3 text-xs font-medium text-muted-foreground hover:bg-surface-muted disabled:opacity-60">
+        <button type="button" onClick={finish} disabled={pending} className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 px-3 text-xs font-medium text-muted-foreground hover:bg-surface-muted disabled:opacity-60">
           <X aria-hidden="true" className="size-3.5" /> Cancel
         </button>
         {state.message ? <span className={state.success ? "text-xs text-[color:var(--success)]" : "text-xs text-[color:var(--danger)]"}>{state.message}</span> : null}
@@ -231,6 +229,7 @@ export function SchoolDirectoryWorkspace({
                     <InspectorContactForm
                       circuitId={first.circuitId}
                       initial={{ name: first.inspectorName, phone: first.inspectorPhone, email: first.inspectorEmail }}
+                      onSaved={() => router.refresh()}
                     />
                   ) : null}
                 </div>
