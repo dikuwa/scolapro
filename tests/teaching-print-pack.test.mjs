@@ -53,3 +53,20 @@ test("lesson preparation UI exposes print view and PDF only after a canonical pr
   assert.match(workspace, /official-documents\/teaching-pack\?preparation=/);
   assert.match(workspace, /format=pdf/);
 });
+
+
+test("browser print keeps teaching headings and bounded provenance blocks with their content", () => {
+  assert.match(html, /class="title document-title"/);
+  assert.match(html, /section-title[^\n]*break-after:avoid;page-break-after:avoid/);
+  assert.match(html, /class="coverage remarks"/);
+  assert.match(html, /<section class="remarks"><h2 class="section-title">Review provenance/);
+  assert.match(html, /thead/);
+  assert.match(html, /OFFICIAL_DOCUMENT_PRINT_RULE/);
+});
+
+test("PDF pagination rechecks the shared footer reserve for every wrapped line", () => {
+  assert.match(pdf, /ensure\(writer, 22 \+ LINE_HEIGHT \+ 4\)/);
+  assert.match(pdf, /lines\.forEach\(\(line\) => \{[\s\S]*ensure\(writer, LINE_HEIGHT \+ 2\)/);
+  assert.doesNotMatch(pdf, /ensure\(writer, lines\.length \* LINE_HEIGHT \+ 4\)/);
+  assert.match(pdf, /drawOfficialDocumentPdfFooter/);
+});
