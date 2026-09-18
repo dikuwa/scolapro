@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CurriculumAccessWorkspace } from "@/features/teaching/curriculum-access-workspace";
 import { getTeacherCurriculumAccess } from "@/features/teaching/server/curriculum-access";
+import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
-import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
 
@@ -19,7 +19,7 @@ export default async function TeachingCurriculumPage() {
   );
   if (!membership?.staffMemberId) redirect("/teaching");
 
-  const academicYear = getNamibiaCalendarYear();
+  const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const data = await getTeacherCurriculumAccess({
     schoolId: membership.schoolId,
     academicYear,
