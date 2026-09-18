@@ -3,12 +3,16 @@ import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 // Read-only aggregation read model for the teacher professional-files hub.
 //
-// This module deliberately reuses existing canonical foundations and adds no
-// new table, bucket, column, RPC or storage backend:
-//   * allocation authority            -> public.teacher_allocations
+// This module deliberately reuses existing canonical foundations and reads the
+// ONE teacher-owned professional-document model introduced by Issue #487:
+//   * allocation authority             -> public.teacher_allocations
 //   * official document identity/print -> existing /api/official-documents/class-list
 //   * teacher-owned planning records   -> public.lesson_preparations reached
-//                                        through public.teaching_schedule_items
+//                                         through public.teaching_schedule_items
+//   * teacher-owned uploads            -> public.teacher_professional_documents
+//
+// Binary upload/download remains outside this read model and uses private signed
+// storage access; the hub never creates a parallel storage subsystem.
 //
 // Teacher ownership is enforced HERE, not merely hidden in the UI: the hub is
 // resolved from the actor's own effective staff allocations, so a teacher can
@@ -93,12 +97,27 @@ export type TeachingFilePreparationRecord = {
   reviewNote: string | null;
 };
 
+export type TeachingFileProfessionalDocument = {
+  id: string;
+  originalFilename: string;
+  title: string | null;
+  categoryLabel: string | null;
+  mimeType: string;
+  fileSize: number;
+  status: "active" | "archived";
+  createdAt: string;
+  archivedAt: string | null;
+  viewHref: string;
+  downloadHref: string;
+};
+
 export type TeachingFilesHub = {
   today: string;
   academicYear: number;
   allocations: TeachingFileAllocation[];
   officialDocuments: TeachingFileOfficialDocument[];
   preparationRecords: TeachingFilePreparationRecord[];
+  professionalDocuments: TeachingFileProfessionalDocument[];
 };
 
 function officialClassListHref(grade: string, registerClass: string, academicYear: number, format: "html" | "pdf"): string {
@@ -122,6 +141,7 @@ export async function getTeachingFilesHub(input: {
     allocations: [],
     officialDocuments: [],
     preparationRecords: [],
+    professionalDocuments: [],
   };
 
   // A membership without a governed staff identity owns no teaching allocation,
@@ -229,6 +249,31 @@ export async function getTeachingFilesHub(input: {
     ];
   });
 
+  const professionalRows = await fetchRows(
+    supabase
+      .from("teacher_professional_documents")
+      .select("id,original_filename,title,category_label,mime_type,file_size,status,created_at,archived_at")
+      .eq("school_id", input.schoolId)
+      .eq("owner_staff_member_id", input.staffMemberId)
+      .order("created_at", { ascending: false })
+      .order("id"),
+    "Unable to load your professional documents.",
+  );
+
+  const professionalDocuments: TeachingFileProfessionalDocument[] = professionalRows.map((row) => ({
+    id: row.id,
+    originalFilename: row.original_filename,
+    title: row.title,
+    categoryLabel: row.category_label,
+    mimeType: row.mime_type,
+    fileSize: row.file_size,
+    status: row.status === "archived" ? "archived" : "active",
+    createdAt: row.created_at,
+    archivedAt: row.archived_at,
+    viewHref: `/api/teaching/files/${row.id}`,
+    downloadHref: `/api/teaching/files/${row.id}?download=1`,
+  }));
+
   return {
     today,
     academicYear: input.academicYear,
@@ -237,5 +282,6 @@ export async function getTeachingFilesHub(input: {
       `${a.grade} ${a.registerClass}`.localeCompare(`${b.grade} ${b.registerClass}`),
     ),
     preparationRecords,
+    professionalDocuments,
   };
 }
