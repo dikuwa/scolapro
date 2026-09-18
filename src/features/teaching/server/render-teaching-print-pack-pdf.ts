@@ -8,8 +8,8 @@ import {
 import { drawOfficialDocumentPdfFooter } from "@/features/documents/server/official-document-pdf-footer";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import {
-  OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
   createOfficialDocumentPdfResources,
+  type OfficialDocumentPdfResources,
   drawOfficialDocumentPdfCentered,
   drawOfficialDocumentPdfHeader,
   officialDocumentPdfSafeText,
@@ -46,7 +46,7 @@ function wrap(font: PDFFont, text: string, size: number, width: number): string[
 type Writer = {
   pdf: PDFDocument;
   header: OfficialDocumentHeaderModel;
-  logoBytes?: Uint8Array | null;
+  resources: OfficialDocumentPdfResources;
   regular: PDFFont;
   bold: PDFFont;
   pages: PDFPage[];
@@ -58,12 +58,7 @@ function newPage(writer: Writer) {
   const page = writer.pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   writer.page = page;
   writer.pages.push(page);
-  writer.y = drawOfficialDocumentPdfHeader(page, writer.header, {
-    regular: writer.regular,
-    bold: writer.bold,
-    oldEnglish: null,
-    logoImage: null,
-  } as never) - 8;
+  writer.y = drawOfficialDocumentPdfHeader(page, writer.header, writer.resources) - 8;
 }
 
 function ensure(writer: Writer, height: number) {
@@ -113,7 +108,7 @@ export async function renderTeachingPrintPackPdf(input: {
   const writer: Writer = {
     pdf,
     header: input.header,
-    logoBytes: input.logoBytes,
+    resources,
     regular: resources.regular,
     bold: resources.bold,
     pages: [first],
