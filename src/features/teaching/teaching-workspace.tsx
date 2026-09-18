@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Picker } from "@/components/ui/picker";
 import { DateField } from "@/components/ui/date-field";
+import { FormFieldFeedback, formFieldControlOffsetClass, formFieldLabelClass, formRowAlignClass } from "@/components/ui/form-field-layout";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 // Teaching workspace views. Year Planner, Scheme of Work and Lesson
@@ -308,7 +309,7 @@ export function TeachingWorkspace(props: TeachingWorkspaceProps) {
     <div className="space-y-5">
       {/* Connected-plan context bar: subject/class switcher + term/week context */}
       <section aria-label="Teaching context" className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-4 ${formRowAlignClass}`}>
           <Picker
             label="Subject & class"
             ariaLabel="Switch teaching subject and class"
@@ -341,15 +342,20 @@ export function TeachingWorkspace(props: TeachingWorkspaceProps) {
             placeholder={terms.length ? "Choose term" : "No terms configured"}
           />
           <DateField label="Week of" name="plannerWeek" value={anchorDate} onChange={setAnchorDate} />
-          <div className="flex flex-col justify-end gap-2">
-            <p className="text-xs leading-4 text-muted-foreground">
-              {selectedTerm
-                ? `${selectedTerm.name}${selectedTerm.startsOn && selectedTerm.endsOn ? ` · ${formatShort(selectedTerm.startsOn)} – ${formatShort(selectedTerm.endsOn)}` : ""}`
-                : "No term context configured yet."}
-            </p>
-            <p className="text-xs font-medium">
-              Week of {formatDate(weekStart)} · {formatShort(weekDays[4])}
-            </p>
+          <div className="min-w-0">
+            <p className={formFieldLabelClass}>Term status</p>
+            <div className={formFieldControlOffsetClass}>
+              <div className="flex min-h-10 min-w-0 items-center rounded-[var(--radius-sm)] bg-surface-muted/55 px-3 text-xs leading-4 text-muted-foreground">
+                <span className="min-w-0">
+                  {selectedTerm
+                    ? `${selectedTerm.name}${selectedTerm.startsOn && selectedTerm.endsOn ? ` · ${formatShort(selectedTerm.startsOn)} – ${formatShort(selectedTerm.endsOn)}` : ""}`
+                    : "No term context configured yet."}
+                </span>
+              </div>
+            </div>
+            <FormFieldFeedback
+              helper={<>Week of {formatDate(weekStart)} · {formatShort(weekDays[4])}</>}
+            />
           </div>
         </div>
       </section>
