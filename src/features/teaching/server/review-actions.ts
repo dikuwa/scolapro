@@ -5,64 +5,79 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
+export type ReviewActionState = {
+  success: boolean;
+  message: string;
+};
+
+/**
+ * Only the two transitions defined by the merged DB governance are supported:
+ * a submitted preparation becomes reviewed, or it is returned for revision.
+ * This application layer never invents any additional oversight state.
+ */
 const reviewSchema = z.object({
   submissionId: z.string().uuid(),
   action: z.enum(["reviewed", "returned"]),
   comment: z.string().trim().max(2000).optional(),
 });
 
-export async function reviewSubmission(formData: FormData) {
+function reviewErrorMessage(message: string | undefined, action: "reviewed" | "returned") {
+  const detail = (message ?? "").toLowerCase();
+  if (detail.includes("permission denied")) return "You do not have current review authority for this submission.";
+  if (detail.includes("only submitted preparations")) return "This submission has already been reviewed or returned.";
+  if (detail.includes("not found")) return "This preparation submission is no longer available.";
+  return action === "reviewed"
+    ? "The submission could not be reviewed. Try again."
+    : "The submission could not be returned for revision. Try again.";
+}
+
+/**
+ * Governed review / return action.
+ *
+ * The merged `public.review_preparation_submission` RPC is the single authority
+ * boundary: it re-checks review authority (HOD subject responsibility, current
+ * school, effective placement, leadership scope), excludes Platform Support,
+ * appends the immutable provenance event and only updates the submission's
+ * oversight snapshot. It never writes teacher preparation content, and this
+ * action performs no direct table mutation.
+ */
+export async function reviewSubmission(
+  _state: ReviewActionState,
+  formData: FormData,
+): Promise<ReviewActionState> {
   const parsed = reviewSchema.safeParse({
     submissionId: formData.get("submissionId"),
     action: formData.get("action"),
-    comment: formData.get("comment") ?? "",
+    comment: String(formData.get("comment") ?? ""),
   });
-
-  if (!parsed.success) return { message: "Invalid submission data.", success: false };
+  if (!parsed.success) {
+    return { success: false, message: "Choose review or return for revision, then try again." };
+  }
 
   const context = await getUserContext();
-  if (!context.user) return { message: "Authentication required.", success: false };
+  if (!context.user) {
+    return { success: false, message: "Your session has ended. Sign in again to continue." };
+  }
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("review_preparation_submission", {
+  const { error } = await supabase.rpc("review_preparation_submission", {
     p_submission_id: parsed.data.submissionId,
     p_action: parsed.data.action,
-    p_comment: parsed.data.comment ?? null,
+    p_comment: parsed.data.comment ? parsed.data.comment : null,
   });
 
-  if (error) return { message: error.message ?? "The review could not be processed.", success: false };
+  if (error) {
+    return { success: false, message: reviewErrorMessage(error.message, parsed.data.action) };
+  }
 
   revalidatePath("/teaching/reviews");
   revalidatePath(`/teaching/reviews/${parsed.data.submissionId}`);
 
-  return { message: parsed.data.action === "reviewed" ? "Submission reviewed." : "Submission returned.", success: true };
-}
-
-export async function submitPreparations(formData: FormData) {
-  const schoolId = formData.get("schoolId") as string;
-  const preparationIds = formData.getAll("preparationIds").map(String);
-  const scopeKind = (formData.get("scopeKind") as string) ?? "selected_preparations";
-  const termLabel = (formData.get("termLabel") as string) ?? null;
-  const weekStart = (formData.get("weekStart") as string) ?? null;
-  const weekEnd = (formData.get("weekEnd") as string) ?? null;
-
-  const context = await getUserContext();
-  if (!context.user) return { message: "Authentication required.", success: false };
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("submit_preparations", {
-    p_school_id: schoolId,
-    p_lesson_preparation_ids: preparationIds,
-    p_scope_kind: scopeKind,
-    p_term_label: termLabel,
-    p_week_start: weekStart,
-    p_week_end: weekEnd,
-  });
-
-  if (error) return { message: error.message ?? "The submission could not be created.", success: false };
-
-  revalidatePath("/teaching/preparation");
-  revalidatePath("/teaching/reviews");
-
-  return { message: "Preparations submitted for HOD review.", success: true, submissionId: data };
+  return {
+    success: true,
+    message:
+      parsed.data.action === "reviewed"
+        ? "Submission reviewed. The preparation content and the review history are unchanged."
+        : "Submission returned for revision. The teacher can update and resubmit it.",
+  };
 }
