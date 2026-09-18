@@ -187,9 +187,9 @@ $$;
 comment on function app_private.owns_current_teacher_allocation(uuid,uuid) is
 'Schedule-write ownership: the caller is an active member of staff at their current school who owns this teacher allocation and whose allocation and governed staff placement are in force today. Bounded by ownership rather than membership role label so an HOD who is also the allocated teacher keeps authority, while the former school-wide HOD shortcut is removed.';
 
--- Schedule authoring: plan author, or the teacher the allocation actually
--- belongs to. The school-wide leadership branch is deliberately not inherited;
--- a HOD therefore cannot schedule outside their department responsibility.
+-- Schedule authoring: current-school school-wide leader, plan author, or
+-- the teacher the allocation actually belongs to. HOD authority remains
+-- subject-bounded unless the HOD personally owns the named allocation.
 create or replace function app_private.can_manage_teaching_schedule(
   p_school_id uuid,
   p_pacing_plan_item_id uuid,
