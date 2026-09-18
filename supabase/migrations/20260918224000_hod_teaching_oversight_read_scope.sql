@@ -29,6 +29,7 @@ as $$
   select app_private.has_platform_role(array['platform_admin'])
     or (
       app_private.user_current_school_matches((select auth.uid()), target_school_id)
+      and not app_private.has_platform_role(array['platform_support'])
       and (
         app_private.has_school_role(
           target_school_id,
@@ -63,7 +64,7 @@ as $$
            and sm.user_id = (select auth.uid())
           where ta.id = target_teacher_allocation_id
             and ta.school_id = target_school_id
-            and sm.role_key in ('teacher','class_teacher')
+            and sm.role_key is not null
             and sm.active_from <= current_date
             and (sm.active_to is null or sm.active_to >= current_date)
             and ta.active_from <= current_date
@@ -84,7 +85,7 @@ grant execute on function app_private.can_access_teaching_plan(uuid,uuid)
 to authenticated;
 
 comment on function app_private.can_access_teaching_plan(uuid,uuid) is
-'Teaching read boundary: Platform Admin; current-school School Admin/Principal/Deputy; current-school HOD only for an explicitly responsible subject; or current effective teacher/class-teacher allocation owner. HOD role alone is not school-wide teaching authority.';
+'Teaching read boundary: Platform Admin; current-school School Admin/Principal/Deputy; current-school HOD only for an explicitly responsible subject; or current effective allocation owner regardless of local role label. This preserves teacher self-scope for an HOD who also teaches while HOD role alone is not school-wide teaching authority. Platform Support is excluded.';
 
 drop policy if exists "scoped academic staff can read pacing plans"
 on public.pacing_plans;
