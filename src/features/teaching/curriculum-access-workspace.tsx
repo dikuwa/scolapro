@@ -181,7 +181,7 @@ function UnitCard({
               {unit.unitCode}
             </span>
             {unit.practicalRequired ? (
-              <span className="rounded-[var(--radius-xs)] bg-accent-amber-soft px-2 py-0.5 text-[0.68rem] font-medium text-[color:var(--accent-amber)]">
+              <span className="scolapro-tone-amber rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.68rem] font-medium">
                 Practical indicated
               </span>
             ) : null}
