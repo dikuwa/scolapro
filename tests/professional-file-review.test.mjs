@@ -9,7 +9,7 @@ const { test } = nodeRequire("node:test");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = (relative) => fs.readFileSync(path.join(root, relative), "utf8");
 
-const migration = source("supabase/migrations/20260918224000_teacher_professional_document_review.sql");
+const migration = source("supabase/migrations/20260918231000_teacher_professional_document_review.sql");
 const ownerActions = source("src/features/teaching/server/professional-documents.ts");
 const filesQuery = source("src/features/teaching/server/file-queries.ts");
 const filesUi = source("src/features/teaching/components/teaching-files.tsx");
