@@ -6,6 +6,8 @@ import { AppShell } from "@/components/shell/app-shell";
 import { AcademicStructureForms } from "@/features/academics/structure-forms";
 import { ClassManagement } from "@/features/academics/class-management";
 import { getSchoolStructure } from "@/features/academics/server/structure";
+import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
+import { HodScopeConfiguration } from "@/features/academics/hod-scope-configuration";
 import { RoomManagement } from "@/features/timetable/room-management";
 import { TimetableCycleSettings } from "@/features/timetable/timetable-cycle-settings";
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
@@ -20,10 +22,11 @@ export default async function SchoolSetupPage() {
 
   const canManageAcademicStructure = membership.roleKey === "school_admin";
   const academicYear = new Date().getFullYear();
-  const [structure, rooms, conductCategories] = await Promise.all([
+  const [structure, rooms, conductCategories, hodScope] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
     getConductCategories(membership.schoolId),
+    getHodScopeConfiguration(membership.schoolId),
   ]);
 
   return (
@@ -56,6 +59,14 @@ export default async function SchoolSetupPage() {
         </div>
 
         <ConductCategorySettings schoolId={membership.schoolId} categories={conductCategories} />
+
+        <HodScopeConfiguration
+          schoolId={membership.schoolId}
+          subjects={hodScope.subjects}
+          heads={hodScope.heads}
+          responsibilities={hodScope.responsibilities}
+          today={hodScope.today}
+        />
 
         {canManageAcademicStructure ? (
           <>
