@@ -199,13 +199,20 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, public, app_private
-as $$
-  select app_private.can_author_pacing_plan_item(p_pacing_plan_item_id)
+as $
+  select (
+        app_private.user_current_school_matches((select auth.uid()), p_school_id)
+        and app_private.has_school_role(
+          p_school_id,
+          array['school_admin','principal','deputy_principal']
+        )
+      )
+      or app_private.can_author_pacing_plan_item(p_pacing_plan_item_id)
       or app_private.owns_current_teacher_allocation(p_school_id, p_teacher_allocation_id);
-$$;
+$;
 
 comment on function app_private.can_manage_teaching_schedule(uuid,uuid,uuid) is
-'Teaching schedule authoring: the plan-item author, or the member of staff who owns that allocation today. No school-wide leadership shortcut: a HOD is limited to plan items in their department responsibility, or to allocations they personally own.';
+'Teaching schedule authoring: current-school School Admin/Principal/Deputy Principal, the plan-item author, or the member of staff who owns that allocation today. HOD authority remains limited to plan items in their department responsibility, or to allocations they personally own.';
 
 revoke all on function app_private.can_author_teaching_plan(uuid,uuid,text) from public, anon;
 revoke all on function app_private.can_author_pacing_plan_item(uuid) from public, anon;
