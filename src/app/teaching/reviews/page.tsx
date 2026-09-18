@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReviewQueue } from "@/features/teaching/components/review-queue";
 import { getReviewQueue, resolveReviewScope } from "@/features/teaching/server/review-queries";
+import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
-import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 const exceptionKindLabels: Record<string, string> = {
   unsubmitted_preparation: "Unsubmitted preparation",
@@ -35,7 +35,7 @@ export default async function ReviewsPage() {
   const scope = await resolveReviewScope();
   if (!scope) redirect("/");
 
-  const academicYear = getNamibiaCalendarYear();
+  const academicYear = await getGovernedAcademicYear(scope.schoolId);
   const { rows, readiness } = await getReviewQueue(academicYear);
   const withoutAuthority = readiness.state === "denied" && rows.length === 0;
 

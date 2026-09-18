@@ -247,6 +247,7 @@ function filesPage(context, calls) {
     'next/navigation': navigation,
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
     '@/lib/auth/get-user-context': { getUserContext: async () => context },
+    '@/features/calendar/server/calendar': { getGovernedAcademicYear: async () => 2026 },
     '@/features/teaching/server/file-queries': {
       getTeachingFilesHub: async (...args) => {
         calls.push(args);

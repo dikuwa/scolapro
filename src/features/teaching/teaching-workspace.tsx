@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   BookOpenCheck,
@@ -91,6 +92,11 @@ export type TeachingWorkspaceProps = {
   dayOverrides: { date: string; isSchoolDay: boolean; reason: string | null; source: string }[];
   hasLeadershipAuthority: boolean;
   isTeacher: boolean;
+  planningHref: string | null;
+  curriculumHref: string | null;
+  preparationHref: string | null;
+  coverageHref: string | null;
+  filesHref: string | null;
   reviewHref: string | null;
   /** Optional deep-link entry view (e.g. "preparation" from HOD readiness prompts). */
   initialView?: ViewKey;
@@ -305,6 +311,14 @@ export function TeachingWorkspace(props: TeachingWorkspaceProps) {
     ...(props.reviewHref ? [{ key: "review" as ViewKey, label: "HOD review", icon: ShieldCheck }] : []),
   ];
 
+  const toolLinks: { href: string; label: string; description: string; icon: typeof CalendarDays }[] = [];
+  if (props.curriculumHref) toolLinks.push({ href: props.curriculumHref, label: "Curriculum", description: "Official registry topics, objectives and competencies", icon: BookOpenText });
+  if (props.planningHref) toolLinks.push({ href: props.planningHref, label: "Teaching plan", description: "Author pacing, scheme and scheduled lessons", icon: CalendarRange });
+  if (props.preparationHref) toolLinks.push({ href: props.preparationHref, label: "Lesson preparation", description: "Author and submit connected lesson preparations", icon: ClipboardCheck });
+  if (props.coverageHref) toolLinks.push({ href: props.coverageHref, label: "Coverage & reflection", description: "Record actual teaching without rewriting the plan", icon: BookOpenCheck });
+  if (props.filesHref) toolLinks.push({ href: props.filesHref, label: "Teaching files", description: "Open your governed professional-file hub", icon: FolderOpen });
+  if (props.reviewHref) toolLinks.push({ href: props.reviewHref, label: "HOD review", description: "Review submissions and readiness exceptions", icon: ShieldCheck });
+
   return (
     <div className="space-y-5">
       {/* Connected-plan context bar: subject/class switcher + term/week context */}
@@ -359,6 +373,29 @@ export function TeachingWorkspace(props: TeachingWorkspaceProps) {
           </div>
         </div>
       </section>
+
+      {toolLinks.length ? (
+        <nav aria-label="Teaching tools" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {toolLinks.map((tool) => {
+            const Icon = tool.icon;
+            return (
+              <Link
+                key={tool.href}
+                href={tool.href}
+                className="scolapro-cta flex min-h-16 items-start gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 py-3 shadow-[var(--shadow-xs)] transition hover:bg-surface-muted"
+              >
+                <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-foreground">{tool.label}</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{tool.description}</span>
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
 
       <nav aria-label="Teaching workspace views" className="flex gap-1 overflow-x-auto rounded-[var(--radius-sm)] bg-surface-muted p-1">
         {tabs.map((tab) => {
@@ -815,7 +852,7 @@ function PreparationView({
                           </span>
                         </div>
                         <p className="mt-1.5 text-[0.68rem] leading-4 text-muted-foreground">
-                          Teacher-authored fields (materials, introduction, lesson structure, activities, consolidation, homework) are prepared here once the governed preparation editor is connected. This view presents the connected plan honestly; it does not invent preparation content.
+                          Teacher-authored fields (materials, introduction, lesson structure, activities, consolidation, homework) are managed in the dedicated Lesson preparation tool above. This view stays a connected read of the same plan and preparation records.
                         </p>
                         {preparation?.reviewNote ? (
                           <p className="mt-1.5 rounded-[var(--radius-xs)] bg-surface px-2 py-1.5 text-[0.68rem] text-muted-foreground">
@@ -862,7 +899,7 @@ function CoverageView({
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <h2 className="scolapro-section-title">Coverage & reflection</h2>
-      <p className="scolapro-section-description">Planned teaching stays intact; actual records show what happened without rewriting history.</p>
+      <p className="scolapro-section-description">Planned teaching stays intact; actual records show what happened without rewriting history. Use the Coverage & reflection tool above to record new actuals.</p>
       <div className="mt-4 divide-y divide-border-subtle">
         {planItems.map((item) => {
           const rows = scheduleByPlanItem.get(item.itemId) ?? [];
@@ -923,9 +960,9 @@ function FilesView() {
       <h2 className="scolapro-section-title">Teaching files</h2>
       <p className="scolapro-section-description">Teaching documents and resource files for your allocated subjects and classes.</p>
       <EmptyState
-        title="Teaching files entry point"
-        description="The shared school document foundation is the authoritative storage for teaching documents. This entry point will connect to it; no separate teaching-file store is created."
-        hint="Official document generation already uses the shared document identity and print foundation."
+        title="Teaching files are available"
+        description="Open Teaching files from the tools above to view your governed professional documents and connected teaching records."
+        hint="The hub reuses existing document and teaching authority; no separate file store is created."
       />
     </section>
   );

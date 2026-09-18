@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { TeachingFilesHub } from "@/features/teaching/components/teaching-files";
 import { getTeachingFilesHub, OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED } from "@/features/teaching/server/file-queries";
+import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 // Same current-school teaching authority boundary as /teaching. This hub adds no
@@ -19,7 +20,7 @@ export default async function TeachingFilesPage() {
   const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
-  const academicYear = new Date().getFullYear();
+  const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const hub = await getTeachingFilesHub({
     schoolId: membership.schoolId,
     academicYear,
