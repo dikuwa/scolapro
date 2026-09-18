@@ -30,6 +30,10 @@ export async function submitSubjectAttendance(_state: SubjectAttendanceState, fo
     p_source: "online",
   });
   if (error) return { message: error.message };
+  // Subject-period attendance is the authoritative source for the subject view
+  // of absence reviews, so that dependent route must be invalidated too — the
+  // lesson route alone leaves absence reviews on its previous payload.
   revalidatePath(`/attendance/lesson/${parsed.data.slotId}`);
+  revalidatePath("/school/absence-reviews");
   return { success: true, message: parsed.data.replacesSubmissionId ? "Lesson attendance revision saved." : "Lesson attendance saved." };
 }

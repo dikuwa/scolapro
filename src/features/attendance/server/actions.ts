@@ -140,7 +140,11 @@ export async function submitDailyRegister(
     }
   }
 
+  // Absence reviews read the same authoritative daily register records, so the
+  // dependent route must be invalidated alongside the register itself. Without
+  // this the saved absences stay behind the previous absence-review payload.
   revalidatePath("/attendance");
+  revalidatePath("/school/absence-reviews");
   revalidatePath("/");
   return evidenceFailures
     ? { success: true, message: `Attendance saved. ${evidenceFailures} evidence file${evidenceFailures === 1 ? "" : "s"} could not be attached.` }
