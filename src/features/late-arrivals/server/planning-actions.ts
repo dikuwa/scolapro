@@ -133,3 +133,41 @@ export async function balanceDetentionLearners(
     message: `${allocated} learner${allocated === 1 ? "" : "s"} balanced across ${supervisorIds.length} duty-team member${supervisorIds.length === 1 ? "" : "s"}.`,
   };
 }
+
+
+export async function rescheduleDetentionSession(
+  _state: DetentionPlanningActionState,
+  formData: FormData,
+): Promise<DetentionPlanningActionState> {
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const sessionDate = String(formData.get("sessionDate") ?? "");
+  const startsAt = String(formData.get("startsAt") ?? "").trim();
+  const endsAt = String(formData.get("endsAt") ?? "").trim();
+  const location = String(formData.get("location") ?? "").trim();
+
+  if (!z.string().uuid().safeParse(sessionId).success || !dateSchema.safeParse(sessionDate).success) {
+    return { message: "Choose a valid detention session and date." };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("reschedule_detention_session_plan", {
+    p_session_id: sessionId,
+    p_session_date: sessionDate,
+    p_starts_at: startsAt || null,
+    p_ends_at: endsAt || null,
+    p_location: location || null,
+  });
+
+  if (error) {
+    return {
+      message:
+        error.message.includes("placement") || error.message.includes("assigned")
+          ? "The roster cannot move to that date because one or more assigned teachers are not placed at this school then."
+          : "The detention session could not be rescheduled. Check the date, learner obligations and your authority.",
+    };
+  }
+
+  revalidatePath("/late-arrivals");
+  revalidatePath("/my-detention-supervision");
+  return { success: true, message: "Detention duty session rescheduled. Assigned teachers were notified." };
+}

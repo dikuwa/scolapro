@@ -56,7 +56,7 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
   const supabase = await createSupabaseServerClient();
   const horizon = addDays(today, 70);
 
-  const [sessionsResult, obligationsResult, staffResult] = await Promise.all([
+  const [sessionsResult, obligationsResult, staffResult, policyResult] = await Promise.all([
     supabase
       .from("detention_sessions")
       .select("id,session_date,starts_at,ends_at,location,status")
@@ -77,9 +77,15 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
       p_from_date: today,
       p_to_date: horizon,
     }),
+    supabase
+      .from("school_late_arrival_policies")
+      .select("detention_weekday")
+      .eq("school_id", schoolId)
+      .eq("active", true)
+      .maybeSingle(),
   ]);
 
-  if (sessionsResult.error || obligationsResult.error || staffResult.error) {
+  if (sessionsResult.error || obligationsResult.error || staffResult.error || policyResult.error) {
     throw new Error("Unable to load detention planning data.");
   }
 
@@ -172,5 +178,10 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
       })),
   }));
 
-  return { sessions: planningSessions, queue, staff };
+  return {
+    sessions: planningSessions,
+    queue,
+    staff,
+    detentionWeekday: policyResult.data?.detention_weekday ?? null,
+  };
 }

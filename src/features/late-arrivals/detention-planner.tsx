@@ -12,6 +12,7 @@ import {
   allocateDetentionLearners,
   createPlannedDetentionSession,
   updateDetentionDutyTeam,
+  rescheduleDetentionSession,
   type DetentionPlanningActionState,
 } from "@/features/late-arrivals/server/planning-actions";
 import type {
@@ -31,11 +32,19 @@ function formatDate(value: string) {
   }).format(new Date(`${value}T12:00:00`));
 }
 
-function nextFriday(today: string) {
+const WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function nextConfiguredWeekday(today: string, isoWeekday: number | null) {
+  if (!isoWeekday || isoWeekday < 1 || isoWeekday > 7) return today;
   const date = new Date(`${today}T12:00:00`);
-  const delta = (5 - date.getDay() + 7) % 7;
+  const currentIsoDay = date.getDay() === 0 ? 7 : date.getDay();
+  const delta = (isoWeekday - currentIsoDay + 7) % 7;
   date.setDate(date.getDate() + delta);
   return date.toISOString().slice(0, 10);
+}
+
+function configuredWeekdayLabel(isoWeekday: number | null) {
+  return isoWeekday && isoWeekday >= 1 && isoWeekday <= 7 ? WEEKDAY_NAMES[isoWeekday - 1] : null;
 }
 
 function toggleValue(values: string[], value: string) {
@@ -68,14 +77,72 @@ function StepBadge({ number, label }: { number: number; label: string }) {
   return <span className="inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.65rem] font-semibold text-brand-strong"><span className="grid size-4 place-items-center rounded-full bg-brand text-[0.6rem] text-white">{number}</span>{label}</span>;
 }
 
-export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { schoolId: string; today: string; sessions: DetentionPlanningSession[]; queue: DetentionPlanningLearner[]; staff: DetentionPlanningStaff[] }) {
+function RescheduleSessionForm({
+  session,
+  today,
+}: {
+  session: DetentionPlanningSession;
+  today: string;
+}) {
+  const [state, action, pending] = useActionState(rescheduleDetentionSession, initialState);
+  const [sessionDate, setSessionDate] = useState(session.sessionDate);
+  const [startsAt, setStartsAt] = useState(session.startsAt?.slice(0, 5) ?? "");
+  const [endsAt, setEndsAt] = useState(session.endsAt?.slice(0, 5) ?? "");
+  const [location, setLocation] = useState(session.location ?? "");
+
+  useEffect(() => {
+    setSessionDate(session.sessionDate);
+    setStartsAt(session.startsAt?.slice(0, 5) ?? "");
+    setEndsAt(session.endsAt?.slice(0, 5) ?? "");
+    setLocation(session.location ?? "");
+  }, [session]);
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [state]);
+
+  return (
+    <form action={action} className="border-t border-border-subtle bg-surface-muted/25 p-4">
+      <input type="hidden" name="sessionId" value={session.id} />
+      <div className="flex flex-col gap-3 md:flex-row md:items-end">
+        <div className="min-w-0 flex-1">
+          <DateField label="Roster date" name="sessionDate" value={sessionDate} onChange={setSessionDate} min={today} required />
+        </div>
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+          <TimeField label="Starts at" name="startsAt" value={startsAt} onChange={setStartsAt} />
+          <TimeField label="Ends at" name="endsAt" value={endsAt} onChange={setEndsAt} />
+        </div>
+        <label className="min-w-0 flex-1 text-xs font-medium">
+          Location
+          <input
+            name="location"
+            value={location}
+            onChange={(event) => setLocation(event.target.value)}
+            placeholder="e.g. Room 12"
+            className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+          />
+        </label>
+        <Button type="submit" variant="neutral" size="sm" loading={pending}>
+          {pending ? "Saving…" : "Reschedule duty"}
+        </Button>
+      </div>
+      <p className="mt-2 text-[0.65rem] text-muted-foreground">
+        Rescheduling keeps the same detention roster and learner links. Completed or cancelled sessions cannot be rewritten.
+      </p>
+    </form>
+  );
+}
+
+export function DetentionPlanner({ schoolId, today, sessions, queue, staff, detentionWeekday }: { schoolId: string; today: string; sessions: DetentionPlanningSession[]; queue: DetentionPlanningLearner[]; staff: DetentionPlanningStaff[]; detentionWeekday: number | null }) {
   const [createState, createAction, createPending] = useActionState(createPlannedDetentionSession, initialState);
   const [teamState, teamAction, teamPending] = useActionState(updateDetentionDutyTeam, initialState);
   const [allocateState, allocateAction, allocatePending] = useActionState(allocateDetentionLearners, initialState);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [newTeamOpen, setNewTeamOpen] = useState(false);
   const [existingTeamOpen, setExistingTeamOpen] = useState(false);
-  const [sessionDate, setSessionDate] = useState(nextFriday(today));
+  const [sessionDate, setSessionDate] = useState(nextConfiguredWeekday(today, detentionWeekday));
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
   const [newTeam, setNewTeam] = useState<string[]>([]);
@@ -104,6 +171,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
   for (const item of eligibleQueue) groups.set(item.registerClass, [...(groups.get(item.registerClass) ?? []), item]);
   const groupedQueue = [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
   const nextSession = sessions[0] ?? null;
+  const configuredDay = configuredWeekdayLabel(detentionWeekday);
   const staffById = new Map(staff.map((member) => [member.id, member]));
 
   const changeSessionDate = (date: string) => {
@@ -148,7 +216,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                 <input type="hidden" name="schoolId" value={schoolId} />
                 {newTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}
                 <div className="flex items-center justify-between gap-2"><div><StepBadge number={1} label="Session" /><h3 className="mt-2 text-sm font-semibold">Plan a detention date</h3></div></div>
-                <p className="mt-1 text-xs text-muted-foreground">The coming Friday is preselected. You can also roster detention several weeks ahead.</p>
+                <p className="mt-1 text-xs text-muted-foreground">{configuredDay ? `The school detention cycle is configured for ${configuredDay}. That day is preselected, but you can roster specific future dates as needed.` : "No active detention weekday is configured. Choose a future roster date manually."}</p>
                 <DateField label="Detention date" name="sessionDate" value={sessionDate} onChange={changeSessionDate} min={today} required className="mt-3" />
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <TimeField label="Starts at" name="startsAt" value={startsAt} onChange={setStartsAt} />
@@ -192,6 +260,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff }: { 
                         <Printer className="size-3.5" aria-hidden="true" /> Print roster
                       </Link>
                     </div>
+                    <RescheduleSessionForm session={selectedSession} today={today} />
                     {existingTeamOpen ? <form action={teamAction} className="border-t border-border-subtle p-4"><input type="hidden" name="sessionId" value={selectedSession.id} />{editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{staffForSelectedSession.map((member) => <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-2 text-[0.65rem] text-muted-foreground">Only active staff placed at the school on {formatDate(selectedSession.sessionDate)} are available.</p><Button type="submit" variant="neutral" size="sm" className="mt-3" disabled={!editingTeam.length} loading={teamPending}>{teamPending ? "Saving team…" : "Save supervisors"}</Button></form> : null}
                   </div>
 

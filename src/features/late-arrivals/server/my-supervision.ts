@@ -21,12 +21,37 @@ export type MyDetentionSupervisionItem = {
   canComplete: boolean;
 };
 
+export type MyDetentionDutySession = {
+  sessionId: string;
+  schoolId: string;
+  sessionDate: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  location: string | null;
+  status: string;
+  learnerCount: number;
+  teamCount: number;
+};
+
 export type MyDetentionSupervisionPage = {
   items: MyDetentionSupervisionItem[];
+  upcomingSessions: MyDetentionDutySession[];
   page: number;
   pageSize: number;
   totalCount: number;
   includeResolved: boolean;
+};
+
+type UpcomingSessionRpcRow = {
+  session_id: string;
+  school_id: string;
+  session_date: string;
+  starts_at: string | null;
+  ends_at: string | null;
+  location: string | null;
+  status: string;
+  learner_count: number;
+  team_count: number;
 };
 
 type RpcRow = {
@@ -57,16 +82,33 @@ export async function getMyDetentionSupervision(input: {
   const page = Math.max(input.page ?? 1, 1);
   const pageSize = Math.min(Math.max(input.pageSize ?? 25, 1), 50);
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.rpc("list_my_detention_supervision", {
-    p_include_resolved: includeResolved,
-    p_page: page,
-    p_page_size: pageSize,
-  });
+  const [assignmentsResult, sessionsResult] = await Promise.all([
+    supabase.rpc("list_my_detention_supervision", {
+      p_include_resolved: includeResolved,
+      p_page: page,
+      p_page_size: pageSize,
+    }),
+    supabase.rpc("list_my_upcoming_detention_sessions"),
+  ]);
 
-  if (error) throw new Error("Unable to load your detention supervision assignments.");
+  if (assignmentsResult.error || sessionsResult.error) {
+    throw new Error("Unable to load your detention supervision assignments.");
+  }
 
-  const rows = (data ?? []) as RpcRow[];
+  const rows = (assignmentsResult.data ?? []) as RpcRow[];
+  const upcomingRows = (sessionsResult.data ?? []) as UpcomingSessionRpcRow[];
   return {
+    upcomingSessions: upcomingRows.map((row) => ({
+      sessionId: row.session_id,
+      schoolId: row.school_id,
+      sessionDate: row.session_date,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+      location: row.location,
+      status: row.status,
+      learnerCount: Number(row.learner_count),
+      teamCount: Number(row.team_count),
+    })),
     items: rows.map((row) => ({
       obligationId: row.obligation_id,
       schoolId: row.school_id,
