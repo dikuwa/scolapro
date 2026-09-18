@@ -9,6 +9,33 @@ export type AcademicTermSummary = {
   status: string;
 };
 
+/**
+ * Resolve the school's governed academic year from the academic_years registry.
+ *
+ * Precedence is deliberate and matches the existing reporting read model:
+ * the single activated year wins, otherwise the most recent configured year,
+ * otherwise the calendar year as a last resort. Academic year is operational
+ * governance (`academic_year_lifecycle_governance` guarantees at most one active
+ * year per school), so it must never be inferred from the wall clock alone.
+ */
+export async function getGovernedAcademicYear(schoolId: string): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("academic_years")
+    .select("year,status")
+    .eq("school_id", schoolId)
+    .order("year", { ascending: false });
+
+  if (error) throw new Error("Unable to resolve the school academic year.");
+
+  const years = data ?? [];
+  const activeYear = years.find((item) => item.status === "active")?.year;
+  if (activeYear) return activeYear;
+
+  const configuredYear = years.find((item) => item.status === "setup")?.year ?? years[0]?.year;
+  return configuredYear ?? new Date().getFullYear();
+}
+
 export async function getSchoolCalendar(schoolId: string, year: number) {
   const supabase = await createSupabaseServerClient();
   const { data: academicYear, error: yearError } = await supabase

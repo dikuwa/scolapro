@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { TeachingWorkspace } from "@/features/teaching/teaching-workspace";
 import { getTeachingWorkspace } from "@/features/teaching/server/queries";
+import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
@@ -17,7 +18,10 @@ export default async function TeachingPage() {
   const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
-  const academicYear = new Date().getFullYear();
+  // The academic year is governed operational state, not the wall clock: a school
+  // can be running a configured or activated year that differs from the calendar
+  // year, and the plan authoring route reads the same resolved year.
+  const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const workspace = await getTeachingWorkspace({
     schoolId: membership.schoolId,
     academicYear,
