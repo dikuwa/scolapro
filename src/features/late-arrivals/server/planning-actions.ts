@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type DetentionPlanningActionState = { success?: boolean; message?: string };\n\nexport type DetentionScheduleMode = "configured_days" | "manual";
+export type DetentionPlanningActionState = { success?: boolean; message?: string };
+
+export type DetentionScheduleMode = "configured_days" | "manual";
 
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
