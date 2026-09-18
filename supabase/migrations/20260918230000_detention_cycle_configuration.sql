@@ -88,6 +88,34 @@ begin
   if not app_private.can_manage_current_detention_school(p_school_id) then
     raise exception 'Permission denied';
   end if;
+
+  -- Configuration is a leadership mutation. For staff-linked leadership,
+  -- require an authoritative current staff-school assignment rather than
+  -- allowing an active membership row alone to preserve operational authority.
+  if not app_private.has_platform_role(array['platform_admin'])
+     and not exists (
+       select 1
+       from public.school_memberships sm
+       where sm.user_id = auth.uid()
+         and sm.school_id = p_school_id
+         and sm.role_key in ('school_admin','principal','deputy_principal')
+         and sm.active_from <= current_date
+         and (sm.active_to is null or sm.active_to >= current_date)
+         and (
+           sm.staff_member_id is null
+           or exists (
+             select 1
+             from public.staff_school_assignments ssa
+             where ssa.staff_member_id = sm.staff_member_id
+               and ssa.school_id = p_school_id
+               and ssa.effective_from <= current_date
+               and (ssa.effective_to is null or ssa.effective_to >= current_date)
+           )
+         )
+     ) then
+    raise exception 'Permission denied';
+  end if;
+
   if p_schedule_mode not in ('configured_days','manual') then
     raise exception 'Invalid detention schedule mode';
   end if;
