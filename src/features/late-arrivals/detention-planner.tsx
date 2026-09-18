@@ -91,13 +91,6 @@ function RescheduleSessionForm({
   const [location, setLocation] = useState(session.location ?? "");
 
   useEffect(() => {
-    setSessionDate(session.sessionDate);
-    setStartsAt(session.startsAt?.slice(0, 5) ?? "");
-    setEndsAt(session.endsAt?.slice(0, 5) ?? "");
-    setLocation(session.location ?? "");
-  }, [session]);
-
-  useEffect(() => {
     if (!state.message) return;
     if (state.success) toast.success(state.message);
     else toast.error(state.message);
@@ -260,7 +253,7 @@ export function DetentionPlanner({ schoolId, today, sessions, queue, staff, dete
                         <Printer className="size-3.5" aria-hidden="true" /> Print roster
                       </Link>
                     </div>
-                    <RescheduleSessionForm session={selectedSession} today={today} />
+                    <RescheduleSessionForm key={selectedSession.id} session={selectedSession} today={today} />
                     {existingTeamOpen ? <form action={teamAction} className="border-t border-border-subtle p-4"><input type="hidden" name="sessionId" value={selectedSession.id} />{editingTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{staffForSelectedSession.map((member) => <StaffChoice key={member.id} member={member} checked={editingTeam.includes(member.id)} onToggle={() => setEditingTeam((current) => toggleValue(current, member.id))} />)}</div><p className="mt-2 text-[0.65rem] text-muted-foreground">Only active staff placed at the school on {formatDate(selectedSession.sessionDate)} are available.</p><Button type="submit" variant="neutral" size="sm" className="mt-3" disabled={!editingTeam.length} loading={teamPending}>{teamPending ? "Saving team…" : "Save supervisors"}</Button></form> : null}
                   </div>
 
