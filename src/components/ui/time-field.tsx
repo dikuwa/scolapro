@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { Clock3 } from "lucide-react";
 import { FormFieldFeedback, formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { cn } from "@/lib/utils";
@@ -23,38 +24,86 @@ function toTyped(value: string) {
   return `${hour || "00"}:${minute || "00"}`;
 }
 
+function visibleViewport() {
+  const viewport = window.visualViewport;
+  return {
+    mobile: window.matchMedia("(max-width: 639px)").matches,
+    width: viewport?.width ?? window.innerWidth,
+    height: viewport?.height ?? window.innerHeight,
+    left: viewport?.offsetLeft ?? 0,
+    top: viewport?.offsetTop ?? 0,
+  };
+}
+
+function centerOption(list: HTMLDivElement | null, selector: string) {
+  const option = list?.querySelector<HTMLElement>(selector);
+  if (!list || !option) return;
+  // Scroll only this column, never the page or an enclosing dialog.
+  list.scrollTop += option.getBoundingClientRect().top - list.getBoundingClientRect().top
+    - (list.clientHeight - option.offsetHeight) / 2;
+}
+
 function TimePanel({
   hour,
   minute,
   onPick,
   onClear,
   onClose,
+  panelRef,
 }: {
   hour: string;
   minute: string;
   onPick: (hour: string, minute: string) => void;
   onClear: () => void;
   onClose: () => void;
+  panelRef: RefObject<HTMLDivElement | null>;
 }) {
+  const [viewport, setViewport] = useState(visibleViewport);
+  useEffect(() => {
+    const update = () => setViewport(visibleViewport());
+    window.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("resize", update);
+    window.visualViewport?.addEventListener("scroll", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("resize", update);
+      window.visualViewport?.removeEventListener("scroll", update);
+    };
+  }, []);
+
   const hourListRef = useRef<HTMLDivElement>(null);
   const minuteListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!hour) return;
-    hourListRef.current?.querySelector<HTMLElement>(`[data-hour="${hour}"]`)?.scrollIntoView({ block: "center" });
+    centerOption(hourListRef.current, `[data-hour="${hour}"]`);
   }, [hour]);
 
   useEffect(() => {
     if (!minute) return;
-    minuteListRef.current?.querySelector<HTMLElement>(`[data-minute="${minute}"]`)?.scrollIntoView({ block: "center" });
+    centerOption(minuteListRef.current, `[data-minute="${minute}"]`);
   }, [minute]);
 
-  return (
-    <div className="absolute right-0 top-full z-[80] mt-1 w-[16rem] max-w-[calc(100vw-2rem)] rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-3 shadow-[var(--shadow-md)]" role="dialog" aria-label="Choose time">
-      <div className="grid grid-cols-2 gap-2">
-        <div>
+  const panel = (
+    <div
+      ref={panelRef}
+      className={cn(
+        "z-[180] flex min-h-0 w-[16rem] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-3 shadow-[var(--shadow-md)]",
+        viewport.mobile ? "fixed -translate-x-1/2 -translate-y-1/2" : "absolute right-0 top-full mt-1",
+      )}
+      style={viewport.mobile ? {
+        left: viewport.left + viewport.width / 2,
+        top: viewport.top + viewport.height / 2,
+        maxWidth: Math.max(0, viewport.width - 32),
+        maxHeight: Math.max(0, viewport.height - 32),
+      } : undefined}
+      role="dialog"
+      aria-label="Choose time"
+    >
+      <div className="grid min-h-0 grid-cols-2 gap-2">
+        <div className="flex min-h-0 flex-col">
           <p className="mb-1 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Hour</p>
-          <div ref={hourListRef} role="listbox" aria-label="Hour" className="max-h-48 overflow-y-auto scolapro-scrollbar rounded-[var(--radius-sm)] bg-surface-muted/55 p-1">
+          <div ref={hourListRef} role="listbox" aria-label="Hour" className="min-h-0 max-h-48 overflow-y-auto overscroll-contain scolapro-scrollbar rounded-[var(--radius-sm)] bg-surface-muted/55 p-1">
             {HOURS.map((item) => (
               <button
                 key={item}
@@ -64,7 +113,7 @@ function TimePanel({
                 aria-selected={item === hour}
                 onClick={() => onPick(item, minute || "00")}
                 className={cn(
-                  "block w-full rounded-[var(--radius-xs)] px-2 py-1.5 text-left text-xs transition hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45",
+                  "block min-h-10 w-full rounded-[var(--radius-xs)] px-2 py-1.5 text-left text-xs transition hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45",
                   item === hour && "bg-brand font-semibold text-white hover:bg-brand",
                 )}
               >
@@ -73,9 +122,9 @@ function TimePanel({
             ))}
           </div>
         </div>
-        <div>
+        <div className="flex min-h-0 flex-col">
           <p className="mb-1 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Minute</p>
-          <div ref={minuteListRef} role="listbox" aria-label="Minute" className="max-h-48 overflow-y-auto scolapro-scrollbar rounded-[var(--radius-sm)] bg-surface-muted/55 p-1">
+          <div ref={minuteListRef} role="listbox" aria-label="Minute" className="min-h-0 max-h-48 overflow-y-auto overscroll-contain scolapro-scrollbar rounded-[var(--radius-sm)] bg-surface-muted/55 p-1">
             {MINUTES.map((item) => (
               <button
                 key={item}
@@ -85,7 +134,7 @@ function TimePanel({
                 aria-selected={item === minute}
                 onClick={() => onPick(hour || "00", item)}
                 className={cn(
-                  "block w-full rounded-[var(--radius-xs)] px-2 py-1.5 text-left text-xs transition hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45",
+                  "block min-h-10 w-full rounded-[var(--radius-xs)] px-2 py-1.5 text-left text-xs transition hover:bg-surface-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45",
                   item === minute && "bg-brand font-semibold text-white hover:bg-brand",
                 )}
               >
@@ -95,16 +144,18 @@ function TimePanel({
           </div>
         </div>
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-border-subtle pt-2">
-        <button type="button" onClick={onClear} className="rounded-[var(--radius-xs)] px-2 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-muted hover:text-foreground">
+      <div className="mt-3 flex shrink-0 items-center justify-between border-t border-border-subtle pt-2">
+        <button type="button" onClick={onClear} className="min-h-10 rounded-[var(--radius-xs)] px-2 py-1.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-muted hover:text-foreground">
           Clear
         </button>
-        <button type="button" onClick={onClose} className="rounded-[var(--radius-xs)] px-2 py-1.5 text-xs font-medium text-brand-strong transition hover:bg-brand-soft">
+        <button type="button" onClick={onClose} className="min-h-10 rounded-[var(--radius-xs)] px-2 py-1.5 text-xs font-medium text-brand-strong transition hover:bg-brand-soft">
           Done
         </button>
       </div>
     </div>
   );
+  // A portal avoids transformed/clipped form ancestors becoming the fixed container.
+  return viewport.mobile ? createPortal(panel, document.body) : panel;
 }
 
 export function TimeField({
@@ -128,6 +179,12 @@ export function TimeField({
   const [localError, setLocalError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  function closePanel() {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+  }
   const visibleValue = draft ?? toTyped(value);
   const errorId = `${name}-error`;
   const visibleError = error ?? localError;
@@ -136,10 +193,10 @@ export function TimeField({
   useEffect(() => {
     if (!open) return;
     const close = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(event.target as Node) && !panelRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") closePanel();
     };
     document.addEventListener("pointerdown", close);
     document.addEventListener("keydown", escape);
@@ -220,6 +277,7 @@ export function TimeField({
             className="min-w-0 flex-1 border-0 bg-transparent px-3 text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground/65 focus:outline-none focus:ring-0 focus-visible:outline-none"
           />
           <button
+            ref={triggerRef}
             type="button"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => setOpen((current) => !current)}
@@ -234,7 +292,7 @@ export function TimeField({
           </button>
         </div>
         {open ? (
-          <TimePanel hour={selectedHour} minute={selectedMinute} onPick={pick} onClear={clear} onClose={() => setOpen(false)} />
+          <TimePanel hour={selectedHour} minute={selectedMinute} onPick={pick} onClear={clear} onClose={closePanel} panelRef={panelRef} />
         ) : null}
       </div>
       <FormFieldFeedback error={visibleError} errorId={errorId} />
