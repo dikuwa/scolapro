@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { CheckCircle2, ChevronLeft, ChevronRight, Clock3, History, UserCheck } from "lucide-react";
+import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, History, UserCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -95,6 +95,40 @@ export function MyDetentionSupervisionWorkspace({ data }: { data: MyDetentionSup
 
   return (
     <div className="space-y-4">
+      {!data.includeResolved && data.upcomingSessions.length ? (
+        <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div className="flex items-start gap-2.5">
+            <span className="scolapro-tone-brand grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]">
+              <CalendarDays className="size-4" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="scolapro-section-title">Upcoming duty roster</h2>
+              <p className="scolapro-section-description">These are your assigned detention sessions, including sessions planned before learners are attached.</p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {data.upcomingSessions.map((session) => (
+              <article key={session.sessionId} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3">
+                <p className="text-sm font-semibold text-foreground">{formatDate(session.sessionDate)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {session.startsAt ? session.startsAt.slice(0, 5) : "Time not set"}
+                  {session.endsAt ? `–${session.endsAt.slice(0, 5)}` : ""}
+                  {session.location ? ` · ${session.location}` : ""}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-[0.68rem] text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1">
+                    <Users className="size-3" aria-hidden="true" /> {session.teamCount} duty teacher{session.teamCount === 1 ? "" : "s"}
+                  </span>
+                  <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1">
+                    {session.learnerCount} learner{session.learnerCount === 1 ? "" : "s"} attached
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <div className="flex flex-col gap-3 rounded-[var(--radius-md)] bg-surface p-3 shadow-[var(--shadow-xs)] sm:flex-row sm:items-center sm:justify-between">
         <div className="grid grid-cols-2 gap-1 rounded-[var(--radius-sm)] bg-surface-muted p-1">
           <Link href="/my-detention-supervision?view=current&page=1" aria-current={!data.includeResolved ? "page" : undefined} className={`inline-flex min-h-9 items-center justify-center gap-2 rounded-[var(--radius-xs)] px-3 text-xs font-semibold transition ${!data.includeResolved ? "bg-surface-elevated text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}><Clock3 className="size-3.5" aria-hidden="true" /> Current</Link>
@@ -109,7 +143,7 @@ export function MyDetentionSupervisionWorkspace({ data }: { data: MyDetentionSup
         <div className="rounded-[var(--radius-md)] border border-dashed border-border bg-surface p-8 text-center shadow-[var(--shadow-xs)]">
           <span className="mx-auto grid size-10 place-items-center rounded-full bg-brand-soft text-brand"><UserCheck className="size-5" aria-hidden="true" /></span>
           <h2 className="mt-3 text-sm font-semibold">{data.includeResolved ? "No detention history yet" : "No current detention assignments"}</h2>
-          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">{data.includeResolved ? "Completed or otherwise resolved assignments will appear here." : "When you are assigned learners for detention, only your own assignments will appear here."}</p>
+          <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">{data.includeResolved ? "Completed or otherwise resolved assignments will appear here." : "Your learner-specific assignments will appear here after learners are attached to one of your duty sessions. Upcoming duty dates are shown above as soon as you are rostered."}</p>
         </div>
       )}
 

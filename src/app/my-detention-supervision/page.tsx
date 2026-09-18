@@ -29,7 +29,7 @@ export default async function MyDetentionSupervisionPage({ searchParams }: { sea
         <div>
           <h1 className="scolapro-page-title text-xl">My detention supervision</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Your own assigned detention learners and completion history. This workspace is self-scoped and does not provide access to the school-wide late-arrival management queue.
+            Your upcoming detention duty roster, assigned learners and completion history. This workspace is self-scoped and does not provide access to the school-wide late-arrival management queue.
           </p>
         </div>
         <MyDetentionSupervisionWorkspace data={data} />
