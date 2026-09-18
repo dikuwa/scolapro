@@ -140,6 +140,8 @@ export async function getDirectoryFilterOptions(): Promise<{ regions: DirectoryR
 export type DirectoryViewerAuthority = {
   /** School-management roles that may mutate School Settings (existing model, not a new role). */
   canManageSchoolSettings: boolean;
+  /** Only School Admin can establish staff account roles such as Principal. */
+  canManageStaffAccess: boolean;
   currentSchoolId: string | null;
   /** Circuits the viewer's current school is currently assigned to. */
   editableCircuitIds: string[];
@@ -148,14 +150,20 @@ export type DirectoryViewerAuthority = {
 export async function getDirectoryViewerAuthority(): Promise<DirectoryViewerAuthority> {
   const context = await getUserContext();
   if (!context.user) {
-    return { canManageSchoolSettings: false, currentSchoolId: null, editableCircuitIds: [] };
+    return { canManageSchoolSettings: false, canManageStaffAccess: false, currentSchoolId: null, editableCircuitIds: [] };
   }
   const canManageSchoolSettings = context.memberships.some((membership) =>
     ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey),
   );
   const currentSchoolId = context.currentSchoolMembership?.schoolId ?? null;
+  const canManageStaffAccess = Boolean(
+    currentSchoolId &&
+    context.memberships.some(
+      (membership) => membership.schoolId === currentSchoolId && membership.roleKey === "school_admin",
+    )
+  );
   if (!canManageSchoolSettings || !currentSchoolId) {
-    return { canManageSchoolSettings: false, currentSchoolId, editableCircuitIds: [] };
+    return { canManageSchoolSettings: false, canManageStaffAccess, currentSchoolId, editableCircuitIds: [] };
   }
   const supabase = await createSupabaseServerClient();
   const today = new Date().toISOString().slice(0, 10);
@@ -167,6 +175,7 @@ export async function getDirectoryViewerAuthority(): Promise<DirectoryViewerAuth
     .or(`effective_to.is.null,effective_to.gte.${today}`);
   return {
     canManageSchoolSettings: true,
+    canManageStaffAccess,
     currentSchoolId,
     editableCircuitIds: [...new Set((data ?? []).map((row) => row.circuit_id).filter(Boolean))] as string[],
   };
