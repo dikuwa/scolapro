@@ -260,11 +260,22 @@ test('detention roster planning uses the shared TimeField instead of native time
 
 const teachingWorkspace = { terms: [{ id: 'term-1', number: 1, name: 'Term 1', startsOn: '2026-01-14', endsOn: '2026-04-03', status: 'active', isCurrent: true }], currentTerm: { id: 'term-1', number: 1, name: 'Term 1', startsOn: '2026-01-14', endsOn: '2026-04-03', status: 'active' }, allocations: [{ allocationId: 'alloc-1', classId: 'class-8a', className: '8A', gradeName: 'Grade 8', subjectName: 'Mathematics', subjectId: 'subject-1', offeringId: 'offering-1', curriculumVersionId: null, activeFrom: '2026-01-01', activeTo: null }], planByAllocation: {}, planItems: [], scheduleItems: [], preparations: [], actuals: [], objectivesByUnit: {}, competenciesByUnit: {}, dayOverrides: [{ date: '2026-03-21', isSchoolDay: false, reason: 'Independence Day', source: 'national' }], hasLeadershipAuthority: false, isTeacher: true, reviewHref: null };
 
+// The teaching route resolves the school's governed academic year rather than the
+// wall clock, so the route now depends on the calendar resolver. The double
+// returns a year that cannot equal the current calendar year, which is what makes
+// the pass-through assertion below meaningful.
+const governedYearCalls = [];
+const GOVERNED_ACADEMIC_YEAR = 2027;
+const calendarMock = {
+  getGovernedAcademicYear: async (schoolId) => { governedYearCalls.push(schoolId); return GOVERNED_ACADEMIC_YEAR; },
+};
+
 function teachingPage(context) {
   return loader({
     'next/navigation': navigation,
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
     '@/lib/auth/get-user-context': { getUserContext: async () => context },
+    '@/features/calendar/server/calendar': calendarMock,
     '@/features/teaching/server/queries': { getTeachingWorkspace: async (...args) => { teachingCalls.push(args); return teachingWorkspace; } },
   })('@/app/teaching/page').default;
 }
@@ -287,6 +298,10 @@ test('authorized teaching route renders the connected workspace with picker-base
   assert.doesNotMatch(html, /<select|type="date"/);
   assert.equal(teachingCalls.length, 1);
   assert.equal(teachingCalls[0][0].schoolId, 'school');
+  // The governed year is resolved for the signed-in school and reaches the
+  // workspace unchanged: a wall-clock fallback would pass 2026 instead of 2027.
+  assert.deepEqual(governedYearCalls, ['school']);
+  assert.equal(teachingCalls[0][0].academicYear, GOVERNED_ACADEMIC_YEAR);
 });
 
 test('teaching route hides HOD entry from teachers and exposes it through review authority', async () => {
@@ -316,6 +331,7 @@ test('teaching workspace honest empty state when no active allocations exist', a
     'next/navigation': navigation,
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
     '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'user' }, memberships: [{ roleKey: 'teacher', schoolId: 'school', staffMemberId: 'staff' }], platformMemberships: [] }) },
+    '@/features/calendar/server/calendar': calendarMock,
     '@/features/teaching/server/queries': { getTeachingWorkspace: async () => emptyFixture },
   })('@/app/teaching/page').default;
   const html = renderToStaticMarkup(await page({}));

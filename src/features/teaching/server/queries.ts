@@ -122,6 +122,52 @@ export type TeachingDayOverride = {
   source: string;
 };
 
+export type TeachingUnitOption = {
+  unitId: string;
+  unitCode: string;
+  topic: string;
+  theme: string | null;
+  curriculumVersionId: string;
+};
+
+export type PlanningClassOption = {
+  classId: string;
+  className: string;
+  gradeName: string;
+};
+
+export type PlanningAllocationOption = {
+  allocationId: string;
+  classId: string | null;
+  className: string;
+  gradeName: string;
+  subjectName: string;
+  offeringId: string;
+  curriculumVersionId: string | null;
+  activeFrom: string;
+  activeTo: string | null;
+};
+
+export type PlanningPlanSummary = {
+  planId: string;
+  planLevel: string;
+  status: string;
+  curriculumVersionId: string;
+  offeringId: string;
+  subjectName: string;
+  gradeName: string;
+  className: string | null;
+  itemCount: number;
+  scheduledCount: number;
+};
+
+export type TeachingPlanningData = TeachingWorkspaceData & {
+  units: TeachingUnitOption[];
+  classes: PlanningClassOption[];
+  planningAllocations: PlanningAllocationOption[];
+  planSummaries: PlanningPlanSummary[];
+};
+
 export type TeachingWorkspaceData = {
   today: string;
   academicYear: number;
@@ -137,6 +183,8 @@ export type TeachingWorkspaceData = {
   objectivesByUnit: Record<string, TeachingObjectiveRow[]>;
   competenciesByUnit: Record<string, TeachingCompetencyRow[]>;
   dayOverrides: TeachingDayOverride[];
+  /** Curriculum versions actually reachable from this actor's allocations and plans. */
+  curriculumVersionIds: string[];
   hasLeadershipAuthority: boolean;
   isTeacher: boolean;
 };
@@ -411,7 +459,131 @@ export async function getTeachingWorkspace(input: {
     objectivesByUnit,
     competenciesByUnit,
     dayOverrides,
+    curriculumVersionIds: [...curriculumVersionIds],
     hasLeadershipAuthority: leadershipRoles.has(input.roleKey),
     isTeacher: input.roleKey === "teacher" || input.roleKey === "class_teacher",
+  };
+}
+
+/**
+ * Authoring-scoped read for the governed /teaching/planning route.
+ *
+ * This is the connected-plan workspace read plus the bounded option sets an
+ * authoring form needs: the official curriculum units of the versions this
+ * actor can actually reach, the register classes behind their active
+ * allocations, and per-plan progress. It introduces no parallel store, and it
+ * stays in this server module (never in the route) so authoring and viewing
+ * share exactly one read model.
+ */
+export async function getTeachingPlanningData(input: {
+  schoolId: string;
+  academicYear: number;
+  roleKey: string;
+}): Promise<TeachingPlanningData> {
+  const workspace = await getTeachingWorkspace(input);
+  const supabase = await createSupabaseServerClient();
+
+  // Official curriculum registry content for the versions in scope. Read-only.
+  const units: TeachingUnitOption[] = [];
+  if (workspace.curriculumVersionIds.length) {
+    const unitRows = await fetchRows(
+      supabase
+        .from("curriculum_units")
+        .select("id,curriculum_version_id,unit_code,topic,theme")
+        .in("curriculum_version_id", workspace.curriculumVersionIds)
+        .order("unit_code"),
+      "Unable to load curriculum units.",
+    );
+    for (const row of unitRows) {
+      units.push({
+        unitId: row.id,
+        unitCode: row.unit_code ?? "",
+        topic: row.topic,
+        theme: row.theme,
+        curriculumVersionId: row.curriculum_version_id,
+      });
+    }
+  }
+
+  // Register classes behind this actor's active allocations, for scheduling.
+  const classes: PlanningClassOption[] = [];
+  const classIds = [
+    ...new Set(
+      workspace.allocations
+        .map((row) => row.classId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  if (classIds.length) {
+    const classRows = await fetchRows(
+      supabase
+        .from("register_classes")
+        .select("id,display_name,grades(display_name)")
+        .eq("school_id", input.schoolId)
+        .in("id", classIds)
+        .order("display_name"),
+      "Unable to load register classes.",
+    );
+    for (const row of classRows) {
+      classes.push({
+        classId: row.id,
+        className: row.display_name ?? "Class",
+        gradeName: one(row.grades)?.display_name ?? "Grade",
+      });
+    }
+  }
+
+  const planningAllocations: PlanningAllocationOption[] = workspace.allocations.map((row) => ({
+    allocationId: row.allocationId,
+    classId: row.classId,
+    className: row.className,
+    gradeName: row.gradeName,
+    subjectName: row.subjectName,
+    offeringId: row.offeringId,
+    curriculumVersionId: row.curriculumVersionId,
+    activeFrom: row.activeFrom,
+    activeTo: row.activeTo,
+  }));
+
+  const itemCountByPlan = new Map<string, number>();
+  const planIdByPlanItem = new Map<string, string>();
+  for (const item of workspace.planItems) {
+    itemCountByPlan.set(item.planId, (itemCountByPlan.get(item.planId) ?? 0) + 1);
+    planIdByPlanItem.set(item.itemId, item.planId);
+  }
+  const scheduledByPlan = new Map<string, number>();
+  for (const schedule of workspace.scheduleItems) {
+    const planId = planIdByPlanItem.get(schedule.planItemId);
+    if (planId) scheduledByPlan.set(planId, (scheduledByPlan.get(planId) ?? 0) + 1);
+  }
+
+  const allocationByOffering = new Map(
+    workspace.allocations.map((row) => [row.offeringId, row] as const),
+  );
+
+  const planSummaries: PlanningPlanSummary[] = Object.values(workspace.planByAllocation)
+    .flat()
+    .map((plan) => {
+      const allocation = allocationByOffering.get(plan.offeringId) ?? null;
+      return {
+        planId: plan.planId,
+        planLevel: plan.planLevel,
+        status: plan.status,
+        curriculumVersionId: plan.curriculumVersionId,
+        offeringId: plan.offeringId,
+        subjectName: allocation?.subjectName ?? "Subject",
+        gradeName: allocation?.gradeName ?? "Grade",
+        className: allocation?.className ?? null,
+        itemCount: itemCountByPlan.get(plan.planId) ?? 0,
+        scheduledCount: scheduledByPlan.get(plan.planId) ?? 0,
+      };
+    });
+
+  return {
+    ...workspace,
+    units,
+    classes,
+    planningAllocations,
+    planSummaries,
   };
 }
