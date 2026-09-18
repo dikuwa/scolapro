@@ -164,7 +164,7 @@ function hubTaxonomyFlag() {
 // Hub component: honest states, existing actions only, no cross-teacher browse.
 // ---------------------------------------------------------------------------
 
-const allocationA = { allocationId: 'alloc-a', className: '8A', gradeName: 'Grade 8', subjectName: 'Mathematics', activeFrom: '2026-01-15', activeTo: null };
+const allocationA = { allocationId: 'alloc-a', subjectId: 'subject-a', className: '8A', gradeName: 'Grade 8', subjectName: 'Mathematics', activeFrom: '2026-01-15', activeTo: null };
 const officialA = {
   id: 'Grade 8::8A', grade: 'Grade 8', registerClass: '8A', academicYear: 2026, subjectNames: ['Mathematics'],
   printHref: '/api/official-documents/class-list?grade=Grade+8&class=8A&year=2026',
@@ -184,6 +184,10 @@ const professionalA = {
   archivedAt: null,
   viewHref: '/api/teaching/files/doc-a',
   downloadHref: '/api/teaching/files/doc-a?download=1',
+  reviewStatus: null,
+  reviewSubjectId: null,
+  reviewSubjectName: null,
+  reviewNote: null,
 };
 
 function renderHub(overrides = {}) {
@@ -195,6 +199,7 @@ function renderHub(overrides = {}) {
       prepareTeacherProfessionalDocumentUpload() {},
       finalizeTeacherProfessionalDocument() {},
       archiveTeacherProfessionalDocument() {},
+      submitTeacherProfessionalDocumentForReview() {},
     },
   });
   const { TeachingFilesHub } = load('@/features/teaching/components/teaching-files');
@@ -225,6 +230,8 @@ test('teaching files hub offers governed owner upload without inventing official
   assert.match(html, /type="file"/i);
   assert.match(html, /Optional neutral label/);
   assert.match(html, /Teaching portfolio/);
+  assert.match(html, /Submit for HOD review/);
+  assert.match(html, /Mathematics/);
   assert.match(html, /Uncategorised/);
   assert.doesNotMatch(html, /type="date"/i);
   assert.doesNotMatch(html, /<select/i);
@@ -284,6 +291,7 @@ function filesPage(context, calls) {
       prepareTeacherProfessionalDocumentUpload() {},
       finalizeTeacherProfessionalDocument() {},
       archiveTeacherProfessionalDocument() {},
+      submitTeacherProfessionalDocumentForReview() {},
     },
     '@/features/teaching/server/file-queries': {
       getTeachingFilesHub: async (...args) => {

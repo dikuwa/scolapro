@@ -59,6 +59,7 @@ function isEffectiveOn(date: string, startsOn: string | null, endsOn: string | n
 
 export type TeachingFileAllocation = {
   allocationId: string;
+  subjectId: string;
   className: string | null;
   gradeName: string;
   subjectName: string;
@@ -109,6 +110,10 @@ export type TeachingFileProfessionalDocument = {
   archivedAt: string | null;
   viewHref: string;
   downloadHref: string;
+  reviewStatus: "submitted" | "returned" | "reviewed" | null;
+  reviewSubjectId: string | null;
+  reviewSubjectName: string | null;
+  reviewNote: string | null;
 };
 
 export type TeachingFilesHub = {
@@ -173,6 +178,7 @@ export async function getTeachingFilesHub(input: {
     const registerClass = one(row.register_classes);
     const allocation: TeachingFileAllocation = {
       allocationId: row.id,
+      subjectId: offering?.subject_id ?? "",
       className: registerClass?.display_name ?? null,
       gradeName: offering ? one(offering.grades)?.display_name ?? "Grade" : "Grade",
       subjectName: offering ? one(offering.subjects)?.display_name ?? "Subject" : "Subject",
@@ -260,19 +266,36 @@ export async function getTeachingFilesHub(input: {
     "Unable to load your professional documents.",
   );
 
-  const professionalDocuments: TeachingFileProfessionalDocument[] = professionalRows.map((row) => ({
-    id: row.id,
-    originalFilename: row.original_filename,
-    title: row.title,
-    categoryLabel: row.category_label,
-    mimeType: row.mime_type,
-    fileSize: row.file_size,
-    status: row.status === "archived" ? "archived" : "active",
-    createdAt: row.created_at,
-    archivedAt: row.archived_at,
-    viewHref: `/api/teaching/files/${row.id}`,
-    downloadHref: `/api/teaching/files/${row.id}?download=1`,
-  }));
+  const reviewRows = await fetchRows(
+    supabase
+      .from("teacher_professional_document_review_submissions")
+      .select("document_id,subject_id,status,review_note,subjects(display_name)")
+      .eq("school_id", input.schoolId)
+      .eq("owner_staff_member_id", input.staffMemberId),
+    "Unable to load professional document review state.",
+  );
+  const reviewByDocument = new Map(reviewRows.map((row) => [row.document_id, row]));
+
+  const professionalDocuments: TeachingFileProfessionalDocument[] = professionalRows.map((row) => {
+    const review = reviewByDocument.get(row.id);
+    return {
+      id: row.id,
+      originalFilename: row.original_filename,
+      title: row.title,
+      categoryLabel: row.category_label,
+      mimeType: row.mime_type,
+      fileSize: row.file_size,
+      status: row.status === "archived" ? "archived" : "active",
+      createdAt: row.created_at,
+      archivedAt: row.archived_at,
+      viewHref: `/api/teaching/files/${row.id}`,
+      downloadHref: `/api/teaching/files/${row.id}?download=1`,
+      reviewStatus: review?.status ?? null,
+      reviewSubjectId: review?.subject_id ?? null,
+      reviewSubjectName: review ? one(review.subjects)?.display_name ?? null : null,
+      reviewNote: review?.review_note ?? null,
+    };
+  });
 
   return {
     today,

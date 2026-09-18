@@ -3,7 +3,9 @@ import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReviewQueue } from "@/features/teaching/components/review-queue";
+import { ProfessionalFileReviewQueue } from "@/features/teaching/components/professional-file-review-queue";
 import { getReviewQueue, resolveReviewScope } from "@/features/teaching/server/review-queries";
+import { getProfessionalFileReviewQueue } from "@/features/teaching/server/professional-file-review";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -36,7 +38,10 @@ export default async function ReviewsPage() {
   if (!scope) redirect("/");
 
   const academicYear = await getGovernedAcademicYear(scope.schoolId);
-  const { rows, readiness } = await getReviewQueue(academicYear);
+  const [{ rows, readiness }, professionalFileRows] = await Promise.all([
+    getReviewQueue(academicYear),
+    getProfessionalFileReviewQueue(),
+  ]);
   const withoutAuthority = readiness.state === "denied" && rows.length === 0;
 
   return (
@@ -111,6 +116,7 @@ export default async function ReviewsPage() {
         ) : (
           <ReviewQueue rows={rows} />
         )}
+        <ProfessionalFileReviewQueue rows={professionalFileRows} />
       </section>
     </AppShell>
   );
