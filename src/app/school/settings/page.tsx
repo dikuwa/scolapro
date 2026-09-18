@@ -1,6 +1,8 @@
 import { Building2, FileText, MapPin } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { DirectoryContactSettingsPanel } from "@/features/school-directory/directory-contact-settings-panel";
+import { getSchoolDirectoryContact } from "@/features/school-directory/server/queries";
 import { PaymentSettingsForm } from "@/features/finance/finance-workspace";
 import { getSchoolPaymentSettings } from "@/features/finance/server/queries";
 import { ReportCardSettingsPanel } from "@/features/reporting/report-card-settings-panel";
@@ -18,7 +20,7 @@ export default async function SchoolSettingsPage() {
   const membership = context.memberships.find((item) => settingsRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
-  const [reportCardSettings, paymentSettings, schoolRow] = await Promise.all([
+  const [reportCardSettings, paymentSettings, schoolRow, directoryContact] = await Promise.all([
     getReportCardSchoolSettings(membership.schoolId),
     financeSettingsRoles.has(membership.roleKey) ? getSchoolPaymentSettings(membership.schoolId) : Promise.resolve(null),
     (async () => {
@@ -30,6 +32,7 @@ export default async function SchoolSettingsPage() {
         .maybeSingle();
       return data;
     })(),
+    getSchoolDirectoryContact(membership.schoolId),
   ]);
 
   const emis = schoolRow?.emis_number ?? null;
@@ -50,6 +53,7 @@ export default async function SchoolSettingsPage() {
         </div>
 
         {financeSettingsRoles.has(membership.roleKey) ? <div className="mt-6"><PaymentSettingsForm schoolId={membership.schoolId} settings={paymentSettings} /></div> : null}
+        <div className="mt-6"><DirectoryContactSettingsPanel schoolId={membership.schoolId} cellphone={directoryContact.cellphone} principalPublicEmail={directoryContact.principalPublicEmail} /></div>
         <ReportCardSettingsPanel schoolId={membership.schoolId} schoolName={membership.schoolName} settings={reportCardSettings} />
       </section>
     </AppShell>

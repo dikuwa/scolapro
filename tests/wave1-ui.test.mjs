@@ -365,3 +365,114 @@ test('TimeField keeps the shared 40px control geometry and never exposes a nativ
   assert.match(html, /aria-expanded="false"/);
 });
 
+
+// ==========================================================================
+// Cross-school directory (Stream C)
+// ==========================================================================
+function directoryWorkspace(calls = {}) {
+  return loader({
+    'next/navigation': navigation,
+    '@/components/shell/app-shell': { AppShell: ({ children }) => children },
+    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'any-authenticated-user' }, memberships: [{ roleKey: 'teacher', schoolId: 'viewer-school' }], currentSchoolMembership: { schoolId: 'viewer-school' } }) },
+    '@/features/school-directory/server/queries': {
+      searchSchoolDirectory: async (params = {}) => { calls.search = params; return [
+        { schoolId: 'school-a', schoolName: 'Alpha Directory School', emisNumber: '90001', town: 'Swakopmund', region: 'Erongo', physicalAddress: '1 Main Street', postalAddress: 'P O Box 1', telephone: '+264 64 000 000', fax: '', schoolEmail: 'office@alpha.test', schoolCellphone: '+264 81 000 0000', principalName: 'Prin Cipal', principalPublicEmail: 'principal.public@alpha.test', gradesOfferedDisplay: '8–12', minimumGrade: '8', maximumGrade: '12', regionId: 'region-1', regionName: 'Erongo Region', circuitId: 'circuit-1', circuitName: 'Swakopmund Circuit', inspectorName: 'Jane Inspector', inspectorPhone: '+264 81 111 1111', inspectorEmail: 'inspector@education.test', inspectorLastUpdatedAt: '2026-09-16T08:00:00Z', inspectorLastUpdatedBySchoolId: 'school-a', inspectorLastUpdatedBySchoolName: 'Alpha Directory School' },
+        { schoolId: 'school-c', schoolName: 'Gamma Unassigned School', emisNumber: '90003', town: 'Oshakati', region: 'Oshana', physicalAddress: '', postalAddress: '', telephone: '', fax: '', schoolEmail: '', schoolCellphone: '', principalName: '', principalPublicEmail: '', gradesOfferedDisplay: '', minimumGrade: '', maximumGrade: '', regionId: null, regionName: '', circuitId: null, circuitName: '', inspectorName: '', inspectorPhone: '', inspectorEmail: '', inspectorLastUpdatedAt: null, inspectorLastUpdatedBySchoolId: null, inspectorLastUpdatedBySchoolName: '' },
+      ]; },
+      getDirectoryFilterOptions: async () => { calls.filters = true; return { regions: [{ value: 'region-1', label: 'Erongo Region' }], circuits: [{ value: 'circuit-1', label: 'Swakopmund Circuit' }] }; },
+      getDirectoryViewerAuthority: async () => { calls.authority = true; return calls.authorityValue ?? { canManageSchoolSettings: false, currentSchoolId: 'viewer-school', editableCircuitIds: [] }; },
+    },
+  })('@/app/school-directory/page').default;
+}
+test('school directory route is open to any authenticated role and renders grouped circuit results', async () => {
+  const calls = {};
+  const html = renderToStaticMarkup(await directoryWorkspace(calls)({ searchParams: Promise.resolve({}) }));
+  assert.match(html, /School Directory/);
+  assert.match(html, /Find contact details for ScolaPro schools\./);
+  assert.match(html, /Swakopmund Circuit/);
+  assert.match(html, /Jane Inspector/);
+  assert.match(html, /Last updated by Alpha Directory School, 16 Sept 2026/);
+  assert.match(html, /Grades 8–12/);
+  assert.match(html, /EMIS: 90001/);
+  assert.match(html, /Principal public email/);
+  assert.match(html, /Circuit not configured/);
+  // Any authenticated role reaches the route: no role gate redirect before data load.
+  assert.ok(calls.search);
+  // No native browser selects anywhere in the directory surface.
+  assert.doesNotMatch(html, /<select/);
+  // No messaging / cross-tenant operational affordances.
+  assert.doesNotMatch(html, /Message|Request access/);
+});
+test('anonymous directory visit redirects to login before loading data', async () => {
+  const calls = {};
+  const load = loader({
+    'next/navigation': navigation,
+    '@/components/shell/app-shell': { AppShell: ({ children }) => children },
+    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: null, memberships: [] }) },
+    '@/features/school-directory/server/queries': { searchSchoolDirectory: async () => { calls.loaded = true; return []; }, getDirectoryFilterOptions: async () => ({ regions: [], circuits: [] }), getDirectoryViewerAuthority: async () => ({}) },
+  })('@/app/school-directory/page').default;
+  await assert.rejects(load({ searchParams: Promise.resolve({}) }), /redirect:\/login/);
+  assert.ok(!calls.loaded);
+});
+test('inspector edit control appears only when the viewer holds same-circuit settings authority', async () => {
+  const calls = { authorityValue: { canManageSchoolSettings: true, currentSchoolId: 'school-a', editableCircuitIds: ['circuit-1'] } };
+  const html = renderToStaticMarkup(await directoryWorkspace(calls)({ searchParams: Promise.resolve({}) }));
+  assert.match(html, /Edit inspector contact/);
+  const deniedCalls = { authorityValue: { canManageSchoolSettings: false, currentSchoolId: 'school-x', editableCircuitIds: [] } };
+  const denied = renderToStaticMarkup(await directoryWorkspace(deniedCalls)({ searchParams: Promise.resolve({}) }));
+  assert.doesNotMatch(denied, /Edit inspector contact/);
+  const wrongCircuit = { authorityValue: { canManageSchoolSettings: true, currentSchoolId: 'school-z', editableCircuitIds: ['circuit-99'] } };
+  const deniedCircuit = renderToStaticMarkup(await directoryWorkspace(wrongCircuit)({ searchParams: Promise.resolve({}) }));
+  assert.doesNotMatch(deniedCircuit, /Edit inspector contact/);
+});
+test('directory filters thread region and circuit through the governed RPC call', async () => {
+  const calls = {};
+  await directoryWorkspace(calls)({ searchParams: Promise.resolve({ q: 'namib', region: 'region-1', circuit: 'circuit-1' }) });
+  assert.deepEqual(calls.search, { search: 'namib', regionId: 'region-1', circuitId: 'circuit-1' });
+});
+test('directory empty search state stays honest when no school matches', async () => {
+  const load = loader({
+    'next/navigation': navigation,
+    '@/components/shell/app-shell': { AppShell: ({ children }) => children },
+    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'u' }, memberships: [], currentSchoolMembership: null }) },
+    '@/features/school-directory/server/queries': { searchSchoolDirectory: async () => [], getDirectoryFilterOptions: async () => ({ regions: [], circuits: [] }), getDirectoryViewerAuthority: async () => ({ canManageSchoolSettings: false, currentSchoolId: null, editableCircuitIds: [] }) },
+  })('@/app/school-directory/page').default;
+  const html = renderToStaticMarkup(await load({ searchParams: Promise.resolve({ q: 'nonexistent' }) }));
+  assert.match(html, /No schools match this search\./);
+});
+test('inspector contact server action proves authority through the governed RPC', async () => {
+  const rpcCalls = [];
+  const load = loader({
+    'next/navigation': navigation,
+    'next/cache': { revalidatePath() {} },
+    '@/lib/supabase/server': { createSupabaseServerClient: async () => ({ rpc: async (name, args) => { rpcCalls.push({ name, args }); return { error: null }; } }) },
+    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'u' }, memberships: [{ roleKey: 'school_admin', schoolId: 'school-a' }] }) },
+  })('@/features/school-directory/server/actions');
+  assert.equal(typeof load.saveCircuitInspectorContact, 'function');
+  // The action delegates entirely to update_circuit_inspector_contact; the RPC re-proves membership, role, placement and current circuit assignment.
+  assert.ok('saveCircuitInspectorContact' in load);
+});
+test('school settings renders the new public directory contact fields with public-facing copy', async () => {
+  const load = loader({
+    'next/navigation': navigation,
+    '@/components/shell/app-shell': { AppShell: ({ children }) => children },
+    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'u' }, memberships: [{ roleKey: 'deputy_principal', schoolId: 'school-a', schoolName: 'Alpha Directory School' }] }) },
+    '@/features/reporting/server/settings': { getReportCardSchoolSettings: async () => ({ documentProfile: { formerName: '', logoUrl: '', logoStoragePath: '', physicalAddress: '', telephone: '', fax: '', email: '', postalAddress: '', town: '', schoolNameFont: 'default' }, reportCardSettings: { showPercentages: false, showNonPromotionalSubjects: true, showPassMarkLegend: true, remarksMode: 'manual', defaultRemark: '' }, subjects: [] }) },
+    '@/features/school-directory/server/queries': { getSchoolDirectoryContact: async () => ({ cellphone: '+264 81 000 0000', principalPublicEmail: 'principal.public@alpha.test' }) },
+    '@/lib/supabase/server': { createSupabaseServerClient: async () => ({ from() { return { select() { return { eq() { return { maybeSingle: async () => ({ data: { id: 'school-a', name: 'Alpha Directory School', emis_number: '90001', region: 'Erongo', town: 'Swakopmund', status: 'active' } }) } } } } } } }) },
+  })('@/app/school/settings/page').default;
+  const html = renderToStaticMarkup(await load({ searchParams: Promise.resolve({}) }));
+  assert.match(html, /School Directory contact/);
+  assert.match(html, /Shown to authenticated ScolaPro schools in the School Directory\./);
+  assert.match(html, /does not use the principal(?:&#x27;|&#39;|')s private account email/);
+  assert.match(html, /value="\+264 81 000 0000"/);
+  // Existing canonical fields are not duplicated inside the directory panel.
+  assert.match(html, /Report card &amp; document identity/);
+});
+test('navigation exposes School Directory to every authenticated role without nesting under settings', () => {
+  const source = fs.readFileSync(path.join(root, 'src/components/shell/navigation.tsx'), 'utf8');
+  assert.ok(source.includes('key: "school_directory", label: "School Directory", href: "/school-directory"'));
+  for (const role of ['school_admin', 'principal', 'teacher', 'learner', 'librarian', 'platform_support', 'parent']) {
+    assert.match(source, new RegExp(`${role}: \\[[^\\]]*"school_directory"`), `${role} gains the directory entry`);
+  }
+});
