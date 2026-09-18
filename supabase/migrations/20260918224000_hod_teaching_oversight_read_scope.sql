@@ -93,17 +93,14 @@ on public.pacing_plans
 for select to authenticated
 using (
   app_private.can_access_teaching_plan(school_id,teacher_allocation_id)
-  or (
-    app_private.user_current_school_matches((select auth.uid()),school_id)
-    and exists (
-      select 1
-      from public.subject_offerings so
-      where so.id = pacing_plans.subject_offering_id
-        and app_private.hod_responsible_for_subject(
-          pacing_plans.school_id,
-          so.subject_id
-        )
-    )
+  or exists (
+    select 1
+    from public.subject_offerings so
+    where so.id = pacing_plans.subject_offering_id
+      and app_private.hod_responsible_for_subject(
+        pacing_plans.school_id,
+        so.subject_id
+      )
   )
 );
 
@@ -125,12 +122,9 @@ using (
           pp.school_id,
           pp.teacher_allocation_id
         )
-        or (
-          app_private.user_current_school_matches((select auth.uid()),pp.school_id)
-          and app_private.hod_responsible_for_subject(
-            pp.school_id,
-            so.subject_id
-          )
+        or app_private.hod_responsible_for_subject(
+          pp.school_id,
+          so.subject_id
         )
       )
   )
