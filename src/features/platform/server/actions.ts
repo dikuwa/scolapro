@@ -223,3 +223,146 @@ export async function revokePlatformSchoolInvitation(formData: FormData) {
   await supabase.rpc("revoke_school_invitation", { p_invitation_id: invitationId.data });
   revalidatePath("/platform/invitations");
 }
+
+
+const platformTenantConfigurationSchema = z.object({
+  tenantId: z.string().uuid(),
+  name: z.string().trim().min(2, "Tenant name is required.").max(180),
+  status: z.enum(["active", "suspended", "archived"]),
+});
+
+const platformSchoolConfigurationSchema = z.object({
+  tenantId: z.string().uuid(),
+  schoolId: z.string().uuid(),
+  name: z.string().trim().min(2, "School name is required.").max(180),
+  emisNumber: z.string().trim().max(120).optional(),
+  region: z.string().trim().max(160).optional(),
+  town: z.string().trim().max(160).optional(),
+  status: z.enum(["active", "inactive", "archived"]),
+  physicalAddress: z.string().trim().max(500).optional(),
+  postalAddress: z.string().trim().max(500).optional(),
+  telephone: z.string().trim().max(80).optional(),
+  fax: z.string().trim().max(80).optional(),
+  email: z.union([z.literal(""), z.string().trim().email("Enter a valid school email address.")]).optional(),
+  cellphone: z.string().trim().max(80).optional(),
+});
+
+const platformNetworkAssignmentSchema = z.object({
+  tenantId: z.string().uuid(),
+  schoolId: z.string().uuid(),
+  regionId: z.string().uuid("Choose a region."),
+  circuitId: z.string().uuid("Choose a circuit."),
+  effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid effective date."),
+});
+
+export type PlatformConfigurationState = {
+  success?: boolean;
+  message?: string;
+  fieldErrors?: Record<string, string[]>;
+};
+
+async function requirePlatformAdmin(): Promise<boolean> {
+  const context = await getUserContext();
+  return Boolean(
+    context.user &&
+    context.platformMemberships.some((membership) => membership.roleKey === "platform_admin")
+  );
+}
+
+export async function updatePlatformTenantConfiguration(
+  _previous: PlatformConfigurationState,
+  formData: FormData,
+): Promise<PlatformConfigurationState> {
+  const parsed = platformTenantConfigurationSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    name: formData.get("name"),
+    status: formData.get("status"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!(await requirePlatformAdmin())) return { message: "Platform administrator authority is required." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("update_platform_tenant_configuration", {
+    p_tenant_id: parsed.data.tenantId,
+    p_name: parsed.data.name,
+    p_status: parsed.data.status,
+  });
+  if (error) return { message: "Tenant configuration could not be saved." };
+
+  revalidatePath("/platform/tenants");
+  return { success: true, message: "Tenant configuration saved." };
+}
+
+export async function updatePlatformSchoolConfiguration(
+  _previous: PlatformConfigurationState,
+  formData: FormData,
+): Promise<PlatformConfigurationState> {
+  const parsed = platformSchoolConfigurationSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    schoolId: formData.get("schoolId"),
+    name: formData.get("name"),
+    emisNumber: formData.get("emisNumber") ?? "",
+    region: formData.get("region") ?? "",
+    town: formData.get("town") ?? "",
+    status: formData.get("status"),
+    physicalAddress: formData.get("physicalAddress") ?? "",
+    postalAddress: formData.get("postalAddress") ?? "",
+    telephone: formData.get("telephone") ?? "",
+    fax: formData.get("fax") ?? "",
+    email: formData.get("email") ?? "",
+    cellphone: formData.get("cellphone") ?? "",
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!(await requirePlatformAdmin())) return { message: "Platform administrator authority is required." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("update_platform_school_configuration", {
+    p_tenant_id: parsed.data.tenantId,
+    p_school_id: parsed.data.schoolId,
+    p_name: parsed.data.name,
+    p_emis_number: parsed.data.emisNumber || null,
+    p_region: parsed.data.region || null,
+    p_town: parsed.data.town || null,
+    p_status: parsed.data.status,
+    p_physical_address: parsed.data.physicalAddress || null,
+    p_postal_address: parsed.data.postalAddress || null,
+    p_telephone: parsed.data.telephone || null,
+    p_fax: parsed.data.fax || null,
+    p_email: parsed.data.email || null,
+    p_cellphone: parsed.data.cellphone || null,
+  });
+  if (error) return { message: "School configuration could not be saved." };
+
+  revalidatePath("/platform/tenants");
+  revalidatePath("/school-directory");
+  return { success: true, message: "School configuration saved." };
+}
+
+export async function updatePlatformSchoolNetworkAssignment(
+  _previous: PlatformConfigurationState,
+  formData: FormData,
+): Promise<PlatformConfigurationState> {
+  const parsed = platformNetworkAssignmentSchema.safeParse({
+    tenantId: formData.get("tenantId"),
+    schoolId: formData.get("schoolId"),
+    regionId: formData.get("regionId"),
+    circuitId: formData.get("circuitId"),
+    effectiveFrom: formData.get("effectiveFrom"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  if (!(await requirePlatformAdmin())) return { message: "Platform administrator authority is required." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("configure_school_network_assignment", {
+    p_tenant_id: parsed.data.tenantId,
+    p_school_id: parsed.data.schoolId,
+    p_region_id: parsed.data.regionId,
+    p_circuit_id: parsed.data.circuitId,
+    p_effective_from: parsed.data.effectiveFrom,
+  });
+  if (error) return { message: "School network assignment could not be saved. Check the region, circuit and effective date." };
+
+  revalidatePath("/platform/tenants");
+  revalidatePath("/school-directory");
+  return { success: true, message: "School network assignment saved." };
+}

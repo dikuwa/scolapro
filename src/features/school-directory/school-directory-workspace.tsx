@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -92,7 +93,7 @@ function InspectorContactForm({ circuitId, initial, onSaved }: { circuitId: stri
   );
 }
 
-function DirectorySchoolCard({ school }: { school: DirectorySchoolRow }) {
+function DirectorySchoolCard({ school, authority }: { school: DirectorySchoolRow; authority: DirectoryViewerAuthority }) {
   const locationBits = [school.town, school.regionName || school.region].filter(Boolean);
   return (
     <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]">
@@ -109,7 +110,21 @@ function DirectorySchoolCard({ school }: { school: DirectorySchoolRow }) {
         {textLine("Cellphone", school.schoolCellphone, Phone)}
         {textLine("Fax", school.fax, Phone)}
         {textLine("Email", school.schoolEmail, AtSign)}
-        {textLine("Principal", school.principalName, UserRound)}
+        <div className="flex items-start gap-2 text-sm">
+          <UserRound aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <span className="min-w-0">
+            <span className="text-muted-foreground">Principal: </span>
+            <span className="font-medium">{school.principalName || "Principal not configured"}</span>
+            {!school.principalName && authority.canManageStaffAccess && authority.currentSchoolId === school.schoolId ? (
+              <span className="mt-1 block text-[0.68rem] leading-5 text-muted-foreground">
+                Principal identity is derived from current staff placement and role membership.{" "}
+                <Link href="/staff" className="font-medium text-brand-strong hover:underline">Review staff</Link>
+                {" · "}
+                <Link href="/school/invitations" className="font-medium text-brand-strong hover:underline">Assign principal access</Link>
+              </span>
+            ) : null}
+          </span>
+        </div>
         {textLine("Principal public email", school.principalPublicEmail, AtSign)}
       </div>
       {school.physicalAddress || school.postalAddress ? (
@@ -247,7 +262,7 @@ export function SchoolDirectoryWorkspace({
                 ) : null}
               </div>
               <div className="grid gap-3 lg:grid-cols-2">
-                {groupSchools.map((school) => <DirectorySchoolCard key={school.schoolId} school={school} />)}
+                {groupSchools.map((school) => <DirectorySchoolCard key={school.schoolId} school={school} authority={authority} />)}
               </div>
             </section>
           );
