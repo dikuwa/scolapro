@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { ProfileChangeRequestRow } from "@/features/profile-changes/server/queries";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -77,6 +78,8 @@ export type ClaimableGuardianProfile = {
   displayName: string;
 };
 
+export type ParentCorrectionRequest = Pick<ProfileChangeRequestRow, "id" | "learnerId" | "fieldKey" | "currentValue" | "proposedValue" | "reason" | "sourceCategory" | "evidenceReference" | "requestedByUserId" | "status" | "requestedAt" | "reviewNote"> & { learnerName: string; targetType: string };
+
 function record(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
@@ -121,6 +124,23 @@ export async function getParentPortalData() {
   }).filter((child) => child.learnerId);
 
   const learnerIds = children.map((child) => child.learnerId);
+  const correctionRequests: ParentCorrectionRequest[] = [];
+  if (learnerIds.length) {
+    const { data, error } = await supabase
+      .from("profile_change_requests")
+      .select("id,learner_id,target_type,field_key,current_value,proposed_value,reason,source_category,evidence_reference,requested_by_user_id,status,requested_at,review_note")
+      .in("learner_id", learnerIds)
+      .order("requested_at", { ascending: false });
+    if (error) throw new Error("Unable to load your correction requests.");
+    for (const row of data ?? []) {
+      correctionRequests.push({
+        id: row.id, learnerId: row.learner_id, learnerName: children.find((child) => child.learnerId === row.learner_id)?.name ?? "Learner",
+        targetType: row.target_type, fieldKey: row.field_key, currentValue: row.current_value, proposedValue: row.proposed_value,
+        reason: row.reason, sourceCategory: row.source_category ?? "parent_guardian_report", evidenceReference: row.evidence_reference,
+        requestedByUserId: row.requested_by_user_id, status: row.status, requestedAt: row.requested_at, reviewNote: row.review_note,
+      });
+    }
+  }
   const reports: ParentPublishedReport[] = [];
   if (learnerIds.length) {
     const { data, error } = await supabase
@@ -227,5 +247,5 @@ export async function getParentPortalData() {
     displayName: row.display_name,
   }));
 
-  return { children, reports, documents, invoices, payments, messages, claimable };
+  return { children, reports, documents, invoices, payments, messages, claimable, correctionRequests };
 }
