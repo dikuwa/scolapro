@@ -75,7 +75,7 @@ select is(
 
 select throws_ok(
   $$update public.transfer_events set approved_by_user_id='f6b00000-0000-4000-8000-000000000002' where id='f6b10000-0000-4000-8000-000000000001'$$,
-  'Completed or cancelled transfer records are immutable',
+  'Transfer approval actor provenance is immutable once recorded',
   'terminal transfer provenance remains immutable'
 );
 
