@@ -40,16 +40,18 @@ select set_config('request.jwt.claims','{"sub":"e5000000-0000-4000-8000-00000000
 set local role authenticated;
 
 select throws_ok(
-  $$select public.reconcile_staff_identities(
+  $select public.reconcile_staff_identities(
     'e5200000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000002',
     'CONFIRM',
     'wrong confirmation'
-  )$$,
+  )$,
   'Type RECONCILE to confirm the identity merge',
   'reconciliation requires explicit confirmation'
 );
+
+reset role;
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status) values
   ('e5300000-0000-4000-8000-000000000003','e5100000-0000-4000-8000-000000000001',null,'Same','Name','active'),
   ('e5300000-0000-4000-8000-000000000004','e5100000-0000-4000-8000-000000000001',null,'Same','Name','active');
@@ -57,6 +59,7 @@ insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,
 values
   ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000003','staff',current_date-2,'e5000000-0000-4000-8000-000000000001'),
   ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000004','staff',current_date-2,'e5000000-0000-4000-8000-000000000001');
+set local role authenticated;
 select throws_ok(
   $$select public.reconcile_staff_identities(
     'e5200000-0000-4000-8000-000000000001',
@@ -79,6 +82,8 @@ select throws_ok(
   'Strong identity evidence is required',
   'one unrelated account link is not identity evidence'
 );
+
+reset role;
 insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status) values
   ('e5300000-0000-4000-8000-000000000005','e5100000-0000-4000-8000-000000000001','e5000000-0000-4000-8000-000000000003','EMP-DIFF','Two','Accounts','active'),
   ('e5300000-0000-4000-8000-000000000006','e5100000-0000-4000-8000-000000000001','e5000000-0000-4000-8000-000000000004','EMP-DIFF','Two','Accounts','active');
@@ -86,6 +91,7 @@ insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,
 values
   ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000005','staff',current_date-2,'e5000000-0000-4000-8000-000000000001'),
   ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000006','staff',current_date-2,'e5000000-0000-4000-8000-000000000001');
+set local role authenticated;
 select throws_ok(
   $$select public.reconcile_staff_identities(
     'e5200000-0000-4000-8000-000000000001',
@@ -97,8 +103,11 @@ select throws_ok(
   'Cannot reconcile two different linked Auth accounts',
   'two different linked accounts cannot be merged'
 );
+
+reset role;
 insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
 values('e5300000-0000-4000-8000-000000000007','e5100000-0000-4000-8000-000000000002','EMP-565','Other','Tenant','active');
+set local role authenticated;
 select throws_ok(
   $$select public.reconcile_staff_identities(
     'e5200000-0000-4000-8000-000000000001',
