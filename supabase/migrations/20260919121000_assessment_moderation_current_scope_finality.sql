@@ -5,7 +5,8 @@
 -- The current-scope migration added canonical ALL policies, but older split
 -- scheme/component mutation policies remained permissive. PostgreSQL ORs
 -- permissive policies, so remove the legacy paths rather than duplicating logic.
-drop policy if exists "academic leaders can manage assessment schemes [insert]" on public.assessment_schemes;
+-- Keep the creator-bound INSERT policy established by current-scope hardening.
+-- It carries created_by_user_id = auth.uid() in addition to current-school authority.
 drop policy if exists "academic leaders can manage assessment schemes [update]" on public.assessment_schemes;
 drop policy if exists "academic leaders can manage assessment schemes [delete]" on public.assessment_schemes;
 
@@ -41,7 +42,7 @@ with check (
     select 1
     from public.assessment_instances ai
     where ai.id=assessment_instance_id
-      and ai.status in ('open','returned')
+      and ai.status in ('not_open','open','returned')
   )
 );
 
@@ -74,7 +75,7 @@ begin
     from public.assessment_instances ai
     where ai.id=new.assessment_instance_id;
 
-    if v_status not in ('open','returned') then
+    if v_status not in ('not_open','open','returned') then
       raise exception 'Assessment is not open for mark editing';
     end if;
   end if;
@@ -87,4 +88,4 @@ revoke all on function app_private.enforce_learner_mark_recorder_integrity()
 from public, anon, authenticated;
 
 comment on function app_private.enforce_learner_mark_recorder_integrity() is
-'Preserves recorder provenance/scope and permits authenticated working-mark revisions only while the assessment is open or returned.';
+'Preserves recorder provenance/scope and permits authenticated working-mark revisions only before governed review/finality or after a governed return.';
