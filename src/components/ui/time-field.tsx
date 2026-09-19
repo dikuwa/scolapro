@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Clock3 } from "lucide-react";
 import { FormFieldFeedback, formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
+import { resolveTimePanelPlacement } from "@/components/ui/time-field-positioning";
 import { cn } from "@/lib/utils";
 
 const HOURS = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
@@ -50,6 +51,7 @@ function TimePanel({
   onClear,
   onClose,
   panelRef,
+  triggerRef,
 }: {
   hour: string;
   minute: string;
@@ -57,22 +59,61 @@ function TimePanel({
   onClear: () => void;
   onClose: () => void;
   panelRef: RefObject<HTMLDivElement | null>;
+  triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const [viewport, setViewport] = useState(visibleViewport);
+  const [desktopPosition, setDesktopPosition] = useState<ReturnType<typeof resolveTimePanelPlacement> | null>(null);
+  const hourListRef = useRef<HTMLDivElement>(null);
+  const minuteListRef = useRef<HTMLDivElement>(null);
+
+  const updatePosition = () => {
+    const nextViewport = visibleViewport();
+    setViewport(nextViewport);
+    if (nextViewport.mobile) {
+      setDesktopPosition(null);
+      return;
+    }
+
+    const panel = panelRef.current;
+    const trigger = triggerRef.current;
+    if (!panel || !trigger) return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    setDesktopPosition(resolveTimePanelPlacement(
+      {
+        left: triggerRect.left,
+        right: triggerRect.right,
+        top: triggerRect.top,
+        bottom: triggerRect.bottom,
+      },
+      { width: panelRect.width, height: panelRect.height },
+      {
+        width: nextViewport.width,
+        height: nextViewport.height,
+        left: nextViewport.left,
+        top: nextViewport.top,
+      },
+    ));
+  };
+
+  useLayoutEffect(() => {
+    updatePosition();
+  }, []);
+
   useEffect(() => {
-    const update = () => setViewport(visibleViewport());
+    const update = () => updatePosition();
     window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
     window.visualViewport?.addEventListener("resize", update);
     window.visualViewport?.addEventListener("scroll", update);
     return () => {
       window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
       window.visualViewport?.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("scroll", update);
     };
   }, []);
-
-  const hourListRef = useRef<HTMLDivElement>(null);
-  const minuteListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!hour) return;
@@ -88,15 +129,21 @@ function TimePanel({
     <div
       ref={panelRef}
       className={cn(
-        "z-[180] flex min-h-0 w-[16rem] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-3 shadow-[var(--shadow-md)]",
-        viewport.mobile ? "fixed -translate-x-1/2 -translate-y-1/2" : "absolute right-0 top-full mt-1",
+        "fixed z-[180] flex min-h-0 w-[16rem] max-w-[calc(100vw-2rem)] flex-col overflow-y-auto rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-3 shadow-[var(--shadow-md)]",
+        viewport.mobile && "-translate-x-1/2 -translate-y-1/2",
       )}
       style={viewport.mobile ? {
         left: viewport.left + viewport.width / 2,
         top: viewport.top + viewport.height / 2,
         maxWidth: Math.max(0, viewport.width - 32),
         maxHeight: Math.max(0, viewport.height - 32),
-      } : undefined}
+      } : {
+        left: desktopPosition?.left ?? viewport.left + 16,
+        top: desktopPosition?.top ?? viewport.top + 16,
+        maxWidth: desktopPosition?.maxWidth ?? Math.max(0, viewport.width - 32),
+        maxHeight: desktopPosition?.maxHeight ?? Math.max(0, viewport.height - 32),
+        visibility: desktopPosition ? "visible" : "hidden",
+      }}
       role="dialog"
       aria-label="Choose time"
     >
@@ -154,8 +201,9 @@ function TimePanel({
       </div>
     </div>
   );
-  // A portal avoids transformed/clipped form ancestors becoming the fixed container.
-  return viewport.mobile ? createPortal(panel, document.body) : panel;
+
+  // Always portal the popup so sidebar/form overflow can never clip it.
+  return createPortal(panel, document.body);
 }
 
 export function TimeField({
@@ -292,7 +340,7 @@ export function TimeField({
           </button>
         </div>
         {open ? (
-          <TimePanel hour={selectedHour} minute={selectedMinute} onPick={pick} onClear={clear} onClose={closePanel} panelRef={panelRef} />
+          <TimePanel hour={selectedHour} minute={selectedMinute} onPick={pick} onClear={clear} onClose={closePanel} panelRef={panelRef} triggerRef={triggerRef} />
         ) : null}
       </div>
       <FormFieldFeedback error={visibleError} errorId={errorId} />
