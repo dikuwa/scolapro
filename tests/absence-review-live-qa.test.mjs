@@ -39,7 +39,7 @@ test("late-arrival and detention remain outside the absence-review workspace", (
 test("Platform Support and stale class-teacher placement are explicitly denied", () => {
   assert.match(page, /platformMemberships\?\.some\(\(membership\) => membership\.roleKey === "platform_support"\)/);
   assert.match(migration, /pm\.role_key = 'platform_support'/);
-  assert.match(migration, /staff_member_has_school_assignment\(staff\.id, p_school_id, v_today\)/);
+  assert.match(migration, /staff_member_covers_school_period\(\s*staff\.id, p_school_id, v_today, v_today\s*\)/);
 });
 
 test("loading, error and empty states are explicit", () => {
