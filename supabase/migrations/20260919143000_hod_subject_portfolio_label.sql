@@ -14,6 +14,36 @@ alter table public.subject_department_responsibilities
 comment on column public.subject_department_responsibilities.department_label is
 'Optional school-defined descriptive portfolio label. It never replaces subject-based HOD authorization.';
 
+-- The earlier provenance guard predates department_label and rejects every
+-- update except effective_to. Keep identity/provenance immutable while allowing
+-- the descriptive label to be edited by the grouped portfolio save.
+create or replace function app_private.preserve_subject_department_responsibility_provenance()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+begin
+  if new.tenant_id is distinct from old.tenant_id
+     or new.school_id is distinct from old.school_id
+     or new.subject_id is distinct from old.subject_id
+     or new.department_head_staff_assignment_id is distinct from old.department_head_staff_assignment_id
+     or new.effective_from is distinct from old.effective_from
+     or new.created_by_user_id is distinct from old.created_by_user_id
+     or new.created_at is distinct from old.created_at then
+    raise exception 'HOD responsibility provenance is immutable; end the row and create a new responsibility'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function app_private.preserve_subject_department_responsibility_provenance()
+  from public, anon, authenticated;
+
+comment on function app_private.preserve_subject_department_responsibility_provenance() is
+'Subject/HOD/school/tenant/effective-from/creator provenance remains immutable. effective_to may change to end responsibility, and department_label may change because it is descriptive metadata only. Subject responsibility remains the authorization source.';
+
 create or replace function public.save_hod_subject_portfolio(
   p_school_id uuid,
   p_subject_ids uuid[],
