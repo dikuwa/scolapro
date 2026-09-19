@@ -20,7 +20,7 @@ const attendance = source("supabase/migrations/20260828234328_report_card_term_a
 const subjectReadiness = source("supabase/migrations/20260902210000_report_card_subject_readiness_snapshot.sql");
 const templateProfile = source("supabase/migrations/20260904190000_report_card_template_profile_snapshot.sql");
 const publicationIntegrity = source("supabase/migrations/20260829113000_report_card_publication_integrity.sql");
-const currentScope = source("supabase/migrations/20260919122000_report_card_certification_publication_current_scope.sql");
+const currentScope = source("supabase/migrations/20260919123000_report_card_certification_publication_current_scope.sql");
 
 test("snapshots freeze approved-result, attendance, rule and template provenance", () => {
   assert.match(snapshotBase, /official_result_id/);
