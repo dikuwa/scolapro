@@ -198,6 +198,7 @@ select throws_ok(
       'rows','integer','count','education_network',true,'2026-01-01'
     )$$,
   '42501',
+  null,
   'authenticated inserts are denied by the registry security boundary'
 );
 
