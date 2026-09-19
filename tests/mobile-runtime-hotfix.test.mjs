@@ -5,13 +5,15 @@ const source = name => readFileSync(new URL(`../src/${name}`, import.meta.url), 
 const time = source('components/ui/time-field.tsx');
 const nav = source('components/shell/navigation.tsx').split('export function MobileNavigation')[1];
 
-test('mobile time panel is portaled and centered in the visual viewport; desktop stays anchored', () => {
-  assert.match(time, /createPortal\(panel, document\.body\)/);
-  assert.match(time, /viewport\.mobile \? "fixed -translate-x-1\/2 -translate-y-1\/2" : "absolute right-0 top-full mt-1"/);
+test('time panel is always portaled; mobile stays centered and desktop uses collision-aware fixed positioning', () => {
+  assert.match(time, /return createPortal\(panel, document\.body\)/);
+  assert.match(time, /"fixed z-\[180\]/);
+  assert.match(time, /viewport\.mobile && "-translate-x-1\/2 -translate-y-1\/2"/);
   assert.match(time, /left: viewport\.left \+ viewport\.width \/ 2/);
   assert.match(time, /top: viewport\.top \+ viewport\.height \/ 2/);
-  assert.match(time, /maxWidth: Math\.max\(0, viewport\.width - 32\)/);
-  assert.match(time, /maxHeight: Math\.max\(0, viewport\.height - 32\)/);
+  assert.match(time, /resolveTimePanelPlacement/);
+  assert.match(time, /left: desktopPosition\?\.left/);
+  assert.match(time, /top: desktopPosition\?\.top/);
 });
 test('keyboard and visual viewport changes update positioning with listener cleanup', () => {
   for (const event of ['resize','scroll']) {
