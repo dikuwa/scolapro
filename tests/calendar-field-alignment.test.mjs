@@ -94,3 +94,20 @@ test('shared form-field contract tokens stay authoritative for mixed rows', () =
   assert.equal(layout.formFieldControlOffsetClass, 'mt-1.5');
   assert.equal(layout.formRowAlignClass, 'items-start');
 });
+
+
+test("calendar page resolves the governed school academic year instead of wall-clock year", () => {
+  const source = fs.readFileSync(path.join(root, "src/app/calendar/page.tsx"), "utf8");
+  assert.match(source, /getGovernedAcademicYear/);
+  assert.match(source, /await getGovernedAcademicYear\(membership\.schoolId\)/);
+  assert.doesNotMatch(source, /getNamibiaCalendarYear/);
+});
+
+test("calendar governed-year fallback is Namibia-local and calendar layout stays responsive", () => {
+  const serverSource = fs.readFileSync(path.join(root, "src/features/calendar/server/calendar.ts"), "utf8");
+  const pageSource = fs.readFileSync(path.join(root, "src/app/calendar/page.tsx"), "utf8");
+  assert.match(serverSource, /getNamibiaCalendarYear\(\)/);
+  assert.doesNotMatch(serverSource, /new Date\(\)\.getFullYear\(\)/);
+  assert.match(pageSource, /sm:grid-cols-3/);
+  assert.match(pageSource, /sm:grid-cols-\[8rem_1fr_1fr_auto\]/);
+});
