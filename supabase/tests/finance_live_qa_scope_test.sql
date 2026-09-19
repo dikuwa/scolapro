@@ -149,13 +149,16 @@ select ok(
   'current-school finance officer retains finance authority'
 );
 
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','51830000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+
 select ok(
-  not app_private.user_can_manage_finance(
-    '51830000-0000-4000-8000-000000000002',
-    '22222222-2222-4222-8222-222222222222'
-  ),
-  'older finance membership does not retain authority after deterministic current school changes'
+  not app_private.can_manage_finance('22222222-2222-4222-8222-222222222222'),
+  'older finance membership does not retain authenticated authority after deterministic current school changes'
 );
+
+reset role;
 
 select ok(
   not app_private.user_can_manage_finance(

@@ -15,15 +15,6 @@ set search_path = pg_catalog, public, app_private
 as $$
   with today as (
     select (now() at time zone 'Africa/Windhoek')::date as value
-  ),
-  current_school as (
-    select sm.school_id
-    from public.school_memberships sm, today t
-    where sm.user_id = p_user_id
-      and sm.active_from <= t.value
-      and (sm.active_to is null or sm.active_to >= t.value)
-    order by sm.active_from desc, sm.id asc
-    limit 1
   )
   select p_user_id is not null
     and p_school_id is not null
@@ -44,30 +35,23 @@ as $$
           and pm.active_from <= t.value
           and (pm.active_to is null or pm.active_to >= t.value)
       )
-      or (
-        exists (
-          select 1
-          from current_school cs
-          where cs.school_id = p_school_id
-        )
-        and exists (
-          select 1
-          from public.school_memberships sm, today t
-          where sm.user_id = p_user_id
-            and sm.school_id = p_school_id
-            and sm.role_key in ('school_admin','principal','finance_officer','bursar')
-            and sm.active_from <= t.value
-            and (sm.active_to is null or sm.active_to >= t.value)
-            and (
-              sm.staff_member_id is null
-              or app_private.staff_member_covers_school_period(
-                sm.staff_member_id,
-                p_school_id,
-                t.value,
-                t.value
-              )
+      or exists (
+        select 1
+        from public.school_memberships sm, today t
+        where sm.user_id = p_user_id
+          and sm.school_id = p_school_id
+          and sm.role_key in ('school_admin','principal','finance_officer','bursar')
+          and sm.active_from <= t.value
+          and (sm.active_to is null or sm.active_to >= t.value)
+          and (
+            sm.staff_member_id is null
+            or app_private.staff_member_covers_school_period(
+              sm.staff_member_id,
+              p_school_id,
+              t.value,
+              t.value
             )
-        )
+          )
       )
     );
 $$;
@@ -84,8 +68,41 @@ stable
 security definer
 set search_path = pg_catalog, public, app_private
 as $$
-  select (select auth.uid()) is not null
-    and app_private.user_can_manage_finance((select auth.uid()), target_school_id);
+  with today as (
+    select (now() at time zone 'Africa/Windhoek')::date as value
+  ),
+  actor as (
+    select (select auth.uid()) as user_id
+  ),
+  current_school as (
+    select sm.school_id
+    from public.school_memberships sm
+    join actor a on a.user_id = sm.user_id
+    cross join today t
+    where sm.active_from <= t.value
+      and (sm.active_to is null or sm.active_to >= t.value)
+    order by sm.active_from desc, sm.id asc
+    limit 1
+  ),
+  governed_platform_admin as (
+    select exists (
+      select 1
+      from public.platform_memberships pm
+      join actor a on a.user_id = pm.user_id
+      cross join today t
+      where pm.role_key = 'platform_admin'
+        and pm.active_from <= t.value
+        and (pm.active_to is null or pm.active_to >= t.value)
+    ) as allowed
+  )
+  select (select user_id from actor) is not null
+    and app_private.user_can_manage_finance((select user_id from actor), target_school_id)
+    and (
+      (select allowed from governed_platform_admin)
+      or exists (
+        select 1 from current_school cs where cs.school_id = target_school_id
+      )
+    );
 $$;
 
 revoke all on function app_private.can_manage_finance(uuid) from public, anon;
@@ -181,7 +198,7 @@ revoke all on function public.get_parent_finance_overview() from public, anon;
 grant execute on function public.get_parent_finance_overview() to authenticated;
 
 comment on function app_private.user_can_manage_finance(uuid,uuid) is
-'Finance authority mirror for physical provenance guards: Platform Support denied; governed Platform Admin retained; school actors require deterministic current school, effective finance role and effective linked staff placement when applicable.';
+'Finance authority mirror for physical provenance guards: Platform Support denied; governed Platform Admin retained; school actors require an effective finance role and effective linked staff placement when applicable. Deterministic current-school enforcement is applied by can_manage_finance().';
 comment on function app_private.can_manage_finance(uuid) is
 'Authenticated finance authority bound to the hardened current-school/current-placement finance predicate.';
 comment on function public.get_parent_finance_overview() is
