@@ -27,6 +27,7 @@ function uuidValue(value: string | string[] | undefined) {
 export default async function AbsenceReviewsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/school/absence-reviews");
+  if (context.platformMemberships?.some((membership) => membership.roleKey === "platform_support")) redirect("/");
 
   const membership = preferredRoleOrder
     .map((roleKey) => context.memberships.find((candidate) => candidate.roleKey === roleKey && allowedRoles.has(candidate.roleKey)))
