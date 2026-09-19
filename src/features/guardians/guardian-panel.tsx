@@ -85,6 +85,7 @@ export function GuardianPanel({ learnerId, guardians, reusableGuardians = [] }: 
 
 function GuardianRow({ learnerId, guardian, expanded, editing, onToggleDetails, onToggleEdit, onClose }: { learnerId: string; guardian: LearnerGuardian; expanded: boolean; editing: boolean; onToggleDetails: () => void; onToggleEdit: () => void; onClose: () => void }) {
   const [state, action, pending] = useActionState(saveGuardianContactDetails, initialState);
+  const [endState, endAction, endPending] = useActionState(endGuardianRelationship, initialState);
 
   useEffect(() => {
     if (!state.message) return;
@@ -93,6 +94,12 @@ function GuardianRow({ learnerId, guardian, expanded, editing, onToggleDetails, 
       onClose();
     } else toast.error(state.message);
   }, [state, onClose]);
+
+  useEffect(() => {
+    if (!endState.message) return;
+    if (endState.success) toast.success(endState.message);
+    else toast.error(endState.message);
+  }, [endState]);
 
   const detailId = `learner-guardian-details-${guardian.guardianId}`;
 
@@ -111,7 +118,7 @@ function GuardianRow({ learnerId, guardian, expanded, editing, onToggleDetails, 
       </button>
       <div className="flex shrink-0 gap-1">
         <button type="button" onClick={onToggleEdit} aria-expanded={editing} aria-label={`${editing ? "Close" : "Edit"} contact details for ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-brand-soft hover:text-brand-strong">{editing ? <X className="size-3.5" /> : <Pencil className="size-3.5" />}</button>
-        <form action={endGuardianRelationship}><input type="hidden" name="relationshipId" value={guardian.relationshipId} /><input type="hidden" name="learnerId" value={learnerId} /><button type="submit" aria-label={`End relationship with ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)]"><Trash2 className="size-3.5" /></button></form>
+        <form action={endAction}><input type="hidden" name="relationshipId" value={guardian.relationshipId} /><input type="hidden" name="learnerId" value={learnerId} /><button type="submit" disabled={endPending} aria-busy={endPending || undefined} aria-label={`End relationship with ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:pointer-events-none disabled:opacity-55"><Trash2 className="size-3.5" /></button></form>
       </div>
     </div>
 

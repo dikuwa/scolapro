@@ -159,8 +159,8 @@ export function GuardianDirectory({ guardians }: { guardians: GuardianDirectoryR
         {filtered.length ? <div>{filtered.map((guardian) => <GuardianRow key={guardian.guardianId} guardian={guardian} expanded={expandedGuardianId === guardian.guardianId} onToggle={() => setExpandedGuardianId((current) => current === guardian.guardianId ? null : guardian.guardianId)} />)}</div> : (
           <div className="px-5 py-12 text-center">
             <span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><Users aria-hidden="true" className="size-5" /></span>
-            <h3 className="mt-3 text-sm font-semibold">No guardians match these filters</h3>
-            <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">Try a shorter search or clear the filters.</p>
+            <h3 className="mt-3 text-sm font-semibold">{guardians.length ? "No guardians match these filters" : "No current guardian relationships"}</h3>
+            <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">{guardians.length ? "Try a shorter search or clear the filters." : "Guardians linked to currently enrolled learners will appear here."}</p>
           </div>
         )}
       </section>

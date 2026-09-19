@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatPersonName } from "@/lib/person-name";
+import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 export type GuardianDirectoryLearner = {
   learnerId: string;
@@ -82,22 +83,28 @@ async function hydrateGuardianRows(
 ): Promise<GuardianDirectoryRow[]> {
   if (!rows.length) return [];
   const guardianIds = rows.map((row) => row.guardian_id);
-  const [{ data: profiles }, { data: contacts }, { data: addresses }] = await Promise.all([
+  const today = getNamibiaDateKey();
+  const [profilesResult, contactsResult, addressesResult] = await Promise.all([
     supabase.from("guardian_profiles").select("id, preferred_name, identity_number, status").in("id", guardianIds),
-    supabase.from("guardian_contacts").select("id, guardian_id, contact_type, contact_value, is_primary, label").in("guardian_id", guardianIds).is("effective_to", null),
-    supabase.from("guardian_addresses").select("id, guardian_id, address_type, label, address_line_1, address_line_2, suburb_or_locality, town_or_city, region, postal_code, country").in("guardian_id", guardianIds).is("effective_to", null),
+    supabase.from("guardian_contacts").select("id, guardian_id, contact_type, contact_value, is_primary, label").in("guardian_id", guardianIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
+    supabase.from("guardian_addresses").select("id, guardian_id, address_type, label, address_line_1, address_line_2, suburb_or_locality, town_or_city, region, postal_code, country").in("guardian_id", guardianIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
   ]);
+  const hydrationError = profilesResult.error || contactsResult.error || addressesResult.error;
+  if (hydrationError) throw new Error("Unable to load guardian directory details.");
+  const profiles = profilesResult.data ?? [];
+  const contacts = contactsResult.data ?? [];
+  const addresses = addressesResult.data ?? [];
 
-  const profileMap = new Map((profiles ?? []).map((profile) => [profile.id, profile]));
+  const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
   const contactMap = new Map<string, GuardianDirectoryContact[]>();
-  for (const contact of contacts ?? []) {
+  for (const contact of contacts) {
     const list = contactMap.get(contact.guardian_id) ?? [];
     list.push({ id: contact.id, type: contact.contact_type, value: contact.contact_value, primary: contact.is_primary, label: contact.label });
     contactMap.set(contact.guardian_id, list);
   }
 
   const addressMap = new Map<string, GuardianDirectoryAddress[]>();
-  for (const address of addresses ?? []) {
+  for (const address of addresses) {
     const list = addressMap.get(address.guardian_id) ?? [];
     list.push({
       id: address.id,
