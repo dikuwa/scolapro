@@ -98,7 +98,8 @@ function TimePanel({
   }, [panelRef, triggerRef]);
 
   useLayoutEffect(() => {
-    updatePosition();
+    const frame = window.requestAnimationFrame(updatePosition);
+    return () => window.cancelAnimationFrame(frame);
   }, [updatePosition]);
 
   useEffect(() => {
