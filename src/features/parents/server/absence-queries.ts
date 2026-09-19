@@ -26,7 +26,7 @@ export type AbsenceAttachment = {
 export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]> {
   const supabase = await createSupabaseServerClient();
 
-  const { data: notices } = await supabase
+  const { data: notices, error } = await supabase
     .from("guardian_absence_notices")
     .select(`
       id, learner_id, absence_from, absence_to, reason_category, message,
@@ -37,6 +37,7 @@ export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]>
     .order("created_at", { ascending: false })
     .limit(50);
 
+  if (error) throw new Error("Unable to load your absence notices.");
   if (!notices?.length) return [];
 
   return notices.map((row) => {
