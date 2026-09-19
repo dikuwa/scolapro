@@ -117,21 +117,35 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to").eq("school_id", schoolId).lte("effective_from", yearEnd).or(`effective_to.is.null,effective_to.gte.${yearStart}`),
   ]);
 
-  const loadError =
-    schoolResult.error ??
-    housesResult.error ??
-    settingsResult.error ??
-    ageGroupsResult.error ??
-    currentLearnerAssignmentsResult.error ??
-    learnerAssignmentsYearsResult.error ??
-    staffAssignmentsResult.error ??
-    staffAssignmentYearsResult.error ??
-    enrolmentsResult.error ??
-    staffPlacementsResult.error;
-  if (loadError) {
-    const dependency = schoolResult.error ? "school context" : housesResult.error ? "house configuration" : settingsResult.error ? "year settings" : ageGroupsResult.error ? "age groups" : currentLearnerAssignmentsResult.error ? "learner assignments" : learnerAssignmentsYearsResult.error ? "learner assignment history" : staffAssignmentsResult.error ? "staff assignments" : staffAssignmentYearsResult.error ? "staff assignment history" : enrolmentsResult.error ? "enrolments" : staffPlacementsResult.error ? "staff placements" : "workspace read";
-    throw new Error(`Unable to load Sports / Houses (${dependency}).`);
+  const readIssues = [
+    ["school context", schoolResult.error],
+    ["house configuration", housesResult.error],
+    ["year settings", settingsResult.error],
+    ["age groups", ageGroupsResult.error],
+    ["learner roster read model", learnerRosterResult.error],
+    ["learner assignments", currentLearnerAssignmentsResult.error],
+    ["learner assignment history", learnerAssignmentsYearsResult.error],
+    ["staff assignments", staffAssignmentsResult.error],
+    ["staff assignment history", staffAssignmentYearsResult.error],
+    ["enrolments", enrolmentsResult.error],
+    ["staff placements", staffPlacementsResult.error],
+  ] as const;
+  for (const [dependency, error] of readIssues) {
+    if (error) console.error(`[sports-houses] ${dependency} read failed`, { code: error.code ?? "unknown" });
   }
+
+  // History, configured cohorts and the roster view are optional read models. The
+  // canonical current-school assignment reads below remain required for a populated
+  // workspace; optional read-model failures must not turn an empty school into a fatal page.
+  const fatalIssue = [
+    ["school context", schoolResult.error],
+    ["house configuration", housesResult.error],
+    ["learner assignments", currentLearnerAssignmentsResult.error],
+    ["staff assignments", staffAssignmentsResult.error],
+    ["enrolments", enrolmentsResult.error],
+    ["staff placements", staffPlacementsResult.error],
+  ].find(([, error]) => error);
+  if (fatalIssue) throw new Error(`Unable to load Sports / Houses (${fatalIssue[0]}).`);
 
   if (!schoolResult.data) throw new Error("Sports / Houses school context is unavailable.");
 
