@@ -97,7 +97,7 @@ export async function getReusableGuardians(learnerId: string, schoolId: string):
   const currentLinks = currentLinksResult.data ?? [];
   if (!school?.tenant_id) return [];
 
-  const existing = new Set((currentLinks ?? []).map((item) => item.guardian_id));
+  const existing = new Set(currentLinks.map((item) => item.guardian_id));
   const { data: profiles, error } = await supabase
     .from("guardian_profiles")
     .select("id,first_names,surname,preferred_name")
@@ -119,10 +119,11 @@ export async function getReusableGuardians(learnerId: string, schoolId: string):
     .lte("effective_from", today)
     .or(`effective_to.is.null,effective_to.gte.${today}`);
   if (contactsError) throw new Error("Unable to load reusable guardian contacts.");
+  const contactRows = contacts ?? [];
 
   return candidates.map((profile) => ({
     id: profile.id,
     name: formatPersonName(`${profile.first_names} ${profile.surname}`),
-    contacts: contacts.filter((item) => item.guardian_id === profile.id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
+    contacts: contactRows.filter((item) => item.guardian_id === profile.id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
   }));
 }
