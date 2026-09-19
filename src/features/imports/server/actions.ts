@@ -6,6 +6,7 @@ import { normalizeSex } from "@/features/imports/server/learner-csv";
 import { fileSha256, tabularFileToRows, validTabularFile } from "@/features/imports/server/tabular-file";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { formatPersonName } from "@/lib/person-name";
+import { getNamibiaCalendarYear, getNamibiaDateKey } from "@/lib/namibia-date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 async function requireSchoolAdmin() {
@@ -40,13 +41,14 @@ export async function stageLearnerCsv(formData: FormData) {
   const parsedRows = await tabularFileToRows(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+learner+rows+were+found.+Use+the+learner+template+or+check+the+header+row");
   const supabase = await createSupabaseServerClient();
-  const year = new Date().getFullYear();
-  const [{ data: grades }, { data: classes }] = await Promise.all([
+  const year = getNamibiaCalendarYear();
+  const [gradesResult, classesResult] = await Promise.all([
     supabase.from("grades").select("id,grade_code,display_name").eq("school_id", membership.schoolId).eq("academic_year", year),
     supabase.from("register_classes").select("id,class_code,display_name,grade_id").eq("school_id", membership.schoolId).eq("academic_year", year),
   ]);
-  const gradeMap = new Map((grades ?? []).flatMap((grade) => [[grade.grade_code.toUpperCase(), grade], [grade.display_name.toUpperCase(), grade]]));
-  const classMap = new Map((classes ?? []).flatMap((item) => [[item.class_code.toUpperCase(), item], [item.display_name.toUpperCase(), item]]));
+  if (gradesResult.error || classesResult.error) redirect("/school/imports?error=Current+school+setup+could+not+be+loaded");
+  const gradeMap = new Map((gradesResult.data ?? []).flatMap((grade) => [[grade.grade_code.toUpperCase(), grade], [grade.display_name.toUpperCase(), grade]]));
+  const classMap = new Map((classesResult.data ?? []).flatMap((item) => [[item.class_code.toUpperCase(), item], [item.display_name.toUpperCase(), item]]));
   const staged = parsedRows.map((row, index) => {
     const issues: { level: string; field: string; message: string }[] = [];
     const grade = gradeMap.get((row.grade_code || row.grade || "").toUpperCase());
@@ -61,7 +63,7 @@ export async function stageLearnerCsv(formData: FormData) {
       || row.admission_date
       || row.enrolment_date
       || row.enrollment_date,
-    ) || new Date().toISOString().slice(0, 10);
+    ) || getNamibiaDateKey();
     if (!firstNames) issues.push({ level: "error", field: "first_names", message: "First names are required." });
     if (!surname) issues.push({ level: "error", field: "surname", message: "Surname is required." });
     if (!grade) issues.push({ level: "error", field: "grade_code", message: "Grade does not match the current school setup." });
@@ -103,7 +105,7 @@ export async function stageStaffCsv(formData: FormData) {
   const parsedRows = await tabularFileToRows(file);
   if (!parsedRows.length) redirect("/school/imports?error=No+staff+rows+were+found.+Use+the+staff+template+or+check+the+header+row");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getNamibiaDateKey();
   const allowedAssignmentTypes = new Set(["staff", "teacher", "management", "support", "temporary", "other"]);
   const staged = parsedRows.map((row, index) => {
     const issues: { level: string; field: string; message: string }[] = [];

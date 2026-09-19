@@ -588,3 +588,30 @@ test('guardian directory distinguishes a true empty school state from a filtered
   assert.match(emptyHtml, /No current guardian relationships/);
   assert.match(emptyHtml, /Guardians linked to currently enrolled learners will appear here\./);
 });
+
+
+test('bulk import staging uses Namibia-local dates and fails closed when school setup cannot load', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/imports/server/actions.ts'), 'utf8');
+
+  assert.match(source, /import \{ getNamibiaCalendarYear, getNamibiaDateKey \} from "@\/lib\/namibia-date";/);
+  assert.match(source, /const year = getNamibiaCalendarYear\(\);/);
+  assert.match(source, /\) \|\| getNamibiaDateKey\(\);/);
+  assert.match(source, /const today = getNamibiaDateKey\(\);/);
+  assert.doesNotMatch(source, /new Date\(\)\.getFullYear\(\)/);
+  assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+  assert.match(source, /if \(gradesResult\.error \|\| classesResult\.error\) redirect\("\/school\/imports\?error=Current\+school\+setup\+could\+not\+be\+loaded"\);/);
+});
+
+test('bulk import workspace keeps explicit empty states and responsive review layout', () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/school/imports/page.tsx'), 'utf8');
+
+  assert.match(source, /No active or recent imports\./);
+  assert.match(source, /No import history found\./);
+  assert.match(source, /overflow-x-auto/);
+  assert.match(source, /min-w-\[56rem\]/);
+  assert.match(source, /sm:flex-row/);
+  assert.match(source, /lg:grid/);
+  assert.match(source, /xl:grid-cols-2 2xl:grid-cols-4/);
+  assert.match(source, /issues\.map\(\(issue\) => issue\.message\)\.join/);
+  assert.doesNotMatch(source, /JSON\.stringify\(row\.source_data/);
+});
