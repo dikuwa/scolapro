@@ -126,26 +126,26 @@ begin
   v_email:=lower(coalesce(auth.jwt()->>'email',''));
   if v_email='' then raise exception 'Authenticated account has no email'; end if;
   select si.* into v_invite from public.school_invitations as si
-  where si.token_hash=encode(digest(p_token,'sha256'),'hex') and si.status='pending' for update;
+  where si.token_hash=encode(digest(p_token,'sha256'),'hex') for update;
   if not found then
-    select si.* into v_invite from public.school_invitations as si
-    where si.token_hash=encode(digest(p_token,'sha256'),'hex')
-      and si.status='accepted'
-      and si.accepted_user_id=auth.uid()
-    order by si.accepted_at desc nulls last, si.id desc
-    limit 1;
-    if found then
+    raise exception 'Invitation is invalid or no longer available';
+  end if;
+  if lower(btrim(v_invite.email))<>v_email then
+    raise exception 'Invitation email does not match the signed-in account';
+  end if;
+  if v_invite.status='accepted' then
+    if v_invite.accepted_user_id=auth.uid() then
       return query select v_invite.school_id,v_invite.role_key;
       return;
     end if;
+    raise exception 'Invitation email does not match the signed-in account';
+  end if;
+  if v_invite.status<>'pending' then
     raise exception 'Invitation is invalid or no longer available';
   end if;
   if v_invite.expires_at<=now() then
     update public.school_invitations set status='expired' where id=v_invite.id;
     raise exception 'Invitation has expired';
-  end if;
-  if lower(btrim(v_invite.email))<>v_email then
-    raise exception 'Invitation email does not match the signed-in account';
   end if;
 
   if v_invite.staff_member_id is not null then

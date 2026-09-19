@@ -33,8 +33,9 @@ test("database lifecycle binds invitations to exact staff identity and preserves
   assert.match(migration, /create_staff_access_invitation/);
   assert.match(migration, /Staff member already has a linked account; manage roles instead/);
   assert.match(migration, /v_invite\.staff_member_id/);
-  assert.match(migration, /si\.status='accepted'/);
-  assert.match(migration, /si\.accepted_user_id=auth\.uid\(\)/);
+  assert.match(migration, /where si\.token_hash=encode\(digest\(p_token,'sha256'\),'hex'\) for update/);
+  assert.match(migration, /v_invite\.status='accepted'/);
+  assert.match(migration, /v_invite\.accepted_user_id=auth\.uid\(\)/);
   assert.match(migration, /return query select v_invite\.school_id,v_invite\.role_key/);
   assert.match(migration, /from public\.staff_school_assignments as ssa/);
   assert.match(migration, /ssa\.school_id=v_invite\.school_id and ssa\.staff_member_id=v_staff_id/);
