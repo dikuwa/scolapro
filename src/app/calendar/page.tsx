@@ -2,10 +2,9 @@ import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { TeachingImpactManager } from "@/features/calendar/teaching-impact-manager";
-import { getSchoolCalendar } from "@/features/calendar/server/calendar";
+import { getGovernedAcademicYear, getSchoolCalendar } from "@/features/calendar/server/calendar";
 import { getTeachingImpactWorkspace } from "@/features/calendar/server/teaching-impact";
 import { getUserContext } from "@/lib/auth/get-user-context";
-import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 function dateLabel(value: string | null) {
   if (!value) return "Not configured";
@@ -23,7 +22,7 @@ export default async function CalendarPage() {
       .filter((item) => item.schoolId === membership.schoolId)
       .map((item) => item.roleKey),
   );
-  const year = getNamibiaCalendarYear();
+  const year = await getGovernedAcademicYear(membership.schoolId);
   const [calendar, teachingImpact] = await Promise.all([
     getSchoolCalendar(membership.schoolId, year),
     getTeachingImpactWorkspace(membership.schoolId, year),
