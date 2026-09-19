@@ -13,9 +13,9 @@ async function loadPositioning() {
       target: ts.ScriptTarget.ES2022,
     },
   }).outputText;
-  const module = { exports: {} };
-  new Function('module', 'exports', compiled)(module, module.exports);
-  return module.exports;
+  const compiledModule = { exports: {} };
+  new Function('module', 'exports', compiled)(compiledModule, compiledModule.exports);
+  return compiledModule.exports;
 }
 
 const timeField = await read('src/components/ui/time-field.tsx');
