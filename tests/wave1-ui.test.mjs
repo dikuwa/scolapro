@@ -615,3 +615,24 @@ test('bulk import workspace keeps explicit empty states and responsive review la
   assert.match(source, /issues\.map\(\(issue\) => issue\.message\)\.join/);
   assert.doesNotMatch(source, /JSON\.stringify\(row\.source_data/);
 });
+
+
+test('assessment workspace uses Namibia-local year and preserves responsive/empty-safe overview', () => {
+  const source = fs.readFileSync(path.join(root, 'src/app/assessment/page.tsx'), 'utf8');
+
+  assert.match(source, /import \{ getNamibiaCalendarYear \} from "@\/lib\/namibia-date";/);
+  assert.match(source, /const academicYear = getNamibiaCalendarYear\(\);/);
+  assert.doesNotMatch(source, /new Date\(\)\.getFullYear\(\)/);
+  assert.match(source, /sm:flex-row/);
+  assert.match(source, /sm:grid-cols-2 xl:grid-cols-4/);
+  assert.match(source, /lg:grid-cols-3/);
+  assert.match(source, /Open for marks/);
+  assert.match(source, /Awaiting review/);
+});
+
+test('assessment overview fails closed when governed counts cannot load', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/academics/server/workspace-overview.ts'), 'utf8');
+
+  assert.match(source, /throw new Error\("Unable to load the assessment workspace\."\)/);
+  assert.match(source, /\.in\("status", \["submitted", "review", "returned"\]\)/);
+});
