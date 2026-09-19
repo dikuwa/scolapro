@@ -7,7 +7,7 @@ const page = await read("src/app/staff/page.tsx");
 const directory = await read("src/features/staff/server/directory.ts");
 const access = await read("src/features/staff/staff-access-manager.tsx");
 const actions = await read("src/features/staff/server/access-actions.ts");
-const migration = await read("supabase/migrations/20260919150000_staff_access_lifecycle.sql");
+const migration = await read("supabase/migrations/20260919151000_staff_access_lifecycle.sql");
 
 test("staff directory exposes access lifecycle states and selected identity action", () => {
   assert.match(page, /StaffAccessManager/);
@@ -33,6 +33,9 @@ test("database lifecycle binds invitations to exact staff identity and preserves
   assert.match(migration, /create_staff_access_invitation/);
   assert.match(migration, /Staff member already has a linked account; manage roles instead/);
   assert.match(migration, /v_invite\.staff_member_id/);
+  assert.match(migration, /si\.status='accepted'/);
+  assert.match(migration, /si\.accepted_user_id=auth\.uid\(\)/);
+  assert.match(migration, /return query select v_invite\.school_id,v_invite\.role_key/);
   assert.match(migration, /from public\.staff_school_assignments as ssa/);
   assert.match(migration, /ssa\.school_id=v_invite\.school_id and ssa\.staff_member_id=v_staff_id/);
   assert.match(migration, /from public\.staff_members as sm/);
@@ -42,6 +45,13 @@ test("database lifecycle binds invitations to exact staff identity and preserves
   assert.match(migration, /user_can_manage_current_school_membership/);
   assert.match(migration, /audit_events/);
   assert.doesNotMatch(migration, /delete from public\.school_memberships/i);
+});
+
+test("social worker invitations preserve canonical support placement", () => {
+  assert.match(
+    migration,
+    /v_invite\.role_key in \('counsellor','social_worker','librarian'\) then 'support'/,
+  );
 });
 
 test("staff access UI remains responsive and provides loading-safe actions", () => {

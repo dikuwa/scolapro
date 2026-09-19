@@ -127,7 +127,19 @@ begin
   if v_email='' then raise exception 'Authenticated account has no email'; end if;
   select si.* into v_invite from public.school_invitations as si
   where si.token_hash=encode(digest(p_token,'sha256'),'hex') and si.status='pending' for update;
-  if not found then raise exception 'Invitation is invalid or no longer available'; end if;
+  if not found then
+    select si.* into v_invite from public.school_invitations as si
+    where si.token_hash=encode(digest(p_token,'sha256'),'hex')
+      and si.status='accepted'
+      and si.accepted_user_id=auth.uid()
+    order by si.accepted_at desc nulls last, si.id desc
+    limit 1;
+    if found then
+      return query select v_invite.school_id,v_invite.role_key;
+      return;
+    end if;
+    raise exception 'Invitation is invalid or no longer available';
+  end if;
   if v_invite.expires_at<=now() then
     update public.school_invitations set status='expired' where id=v_invite.id;
     raise exception 'Invitation has expired';
@@ -182,7 +194,7 @@ begin
   v_assignment_type:=case
     when v_invite.role_key in ('teacher','class_teacher') then 'teacher'
     when v_invite.role_key in ('school_admin','principal','deputy_principal','hod') then 'management'
-    when v_invite.role_key in ('counsellor','librarian') then 'support'
+    when v_invite.role_key in ('counsellor','social_worker','librarian') then 'support'
     else 'staff' end;
   if not exists(
     select 1 from public.staff_school_assignments as ssa
