@@ -6,18 +6,22 @@ import { GuardianPanel } from "@/features/guardians/guardian-panel";
 import { getLearnerGuardians, getReusableGuardians, type LearnerGuardian, type ReusableGuardian } from "@/features/guardians/server/queries";
 import { LearnerProfileEditor } from "@/features/learners/learner-profile-editor";
 import { getLearnerOverview, type LearnerOverview } from "@/features/learners/server/queries";
+import { LearnerExitOperations } from "@/features/learners/learner-exit-operations";
+import { getLearnerExitOperations } from "@/features/learners/server/exit-queries";
 import { LearnerChangeRequestForm } from "@/features/profile-changes/learner-change-request-form";
 import { getLearnerProfileChangeRequests, type ProfileChangeRequestRow } from "@/features/profile-changes/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
 const demoLearners: Record<string, LearnerOverview> = {
-  "demo-001": { id: "demo-001", name: "Amara Demo", preferredName: "Amara", firstNames: "Amara N.", surname: "Demo", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current", dateOfBirth: "2010-05-14", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
-  "demo-002": { id: "demo-002", name: "Tomas Sample", preferredName: "Tomas", firstNames: "Tomas K.", surname: "Sample", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current", dateOfBirth: "2010-02-03", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
+  "demo-001": { id: "demo-001", enrolmentId: "00000000-0000-4000-8000-000000000001", name: "Amara Demo",
+ preferredName: "Amara", firstNames: "Amara N.", surname: "Demo", admissionNumber: "DEMO-001", grade: "Grade 10", registerClass: "Grade 10/A", status: "current", dateOfBirth: "2010-05-14", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
+  "demo-002": { id: "demo-002", enrolmentId: "00000000-0000-4000-8000-000000000002", name: "Tomas Sample", preferredName: "Tomas", firstNames: "Tomas K.", surname: "Sample", admissionNumber: "DEMO-002", grade: "Grade 10", registerClass: "Grade 10/B", status: "current", dateOfBirth: "2010-02-03", academicYear: 2026, enrolledFrom: "2026-01-12", schoolName: "ScolaPro Demonstration School", photoPath: null, photoUrl: null },
 };
 
 const learnerOperationalRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"]);
 const correctionRequestRoles = new Set(["school_admin","principal","deputy_principal","teacher","class_teacher"]);
+const learnerExitRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
@@ -35,7 +39,9 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   let canManageLearner = false;
   let canViewConduct = false;
   let managementSchoolId: string | null = null;
+  let operationalSchoolId: string | null = null;
   let correctionRequests: ProfileChangeRequestRow[] = [];
+  let exitOperations: Awaited<ReturnType<typeof getLearnerExitOperations>> | null = null;
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
@@ -47,9 +53,13 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
     canRequestCorrection = Boolean(learner && correctionRequestRoles.has(membership.roleKey));
     canManageLearner = Boolean(learner && membership.roleKey === "school_admin");
     managementSchoolId = canManageLearner ? membership.schoolId : null;
+    operationalSchoolId = learner && learnerExitRoles.has(membership.roleKey) ? membership.schoolId : null;
     if (learner) {
       [guardians, reusableGuardians] = await Promise.all([getLearnerGuardians(id), getReusableGuardians(id, membership.schoolId)]);
       correctionRequests = await getLearnerProfileChangeRequests(id);
+      if (learnerExitRoles.has(membership.roleKey)) {
+        exitOperations = await getLearnerExitOperations(id, membership.schoolId, learner.enrolmentId);
+      }
     }
   }
 
@@ -99,6 +109,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
         </div>
 
         <div className="mt-5"><GuardianPanel learnerId={learner.id} guardians={guardians} reusableGuardians={reusableGuardians} /></div>
+        {exitOperations && operationalSchoolId ? <LearnerExitOperations learnerId={learner.id} schoolId={operationalSchoolId} enrolmentId={learner.enrolmentId} currentStatus={learner.status} transfers={exitOperations.transfers} completion={exitOperations.completion} /> : null}
       </section>
     </AppShell>
   );
