@@ -33,11 +33,11 @@ export async function renderReportCardHtmlWithSchoolFont(
   }
 
   const sharedHeader = renderOfficialDocumentHtmlHeader(header, input.logoBytes);
-  const withSharedHeader = html.replace(/<header class="school-header">[\s\S]*?<\/header>/, sharedHeader);
-  if (withSharedHeader === html) {
+  const schoolHeaderPattern = /<header class="school-header">[\s\S]*?<\/header>/;
+  if (!schoolHeaderPattern.test(html)) {
     throw new Error("Report-card HTML renderer did not expose the expected school header block.");
   }
-  html = withSharedHeader;
+  html = html.replace(schoolHeaderPattern, sharedHeader);
 
   const metadata = buildOfficialDocumentMetadata({
     snapshotVersion: model.snapshotVersion,
@@ -48,9 +48,9 @@ export async function renderReportCardHtmlWithSchoolFont(
     left: metadata.snapshotLine,
     right: metadata.certificationLine,
   });
-  const withSharedFooter = html.replace(/<footer class="document-meta">[\s\S]*?<\/footer>/, footer);
-  if (withSharedFooter === html) {
+  const documentMetaPattern = /<footer class="document-meta">[\s\S]*?<\/footer>/;
+  if (!documentMetaPattern.test(html)) {
     throw new Error("Report-card HTML renderer did not expose the expected document metadata footer.");
   }
-  return withSharedFooter;
+  return html.replace(documentMetaPattern, footer);
 }
