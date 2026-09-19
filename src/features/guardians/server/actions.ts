@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 const contactSchema = z.array(z.object({ type: z.enum(["mobile", "phone", "whatsapp", "email"]), value: z.string().trim().min(1), label: z.string().trim().optional(), primary: z.boolean().optional() })).max(12);
 const addressSchema = z.array(z.object({ type: z.enum(["physical", "postal", "work", "other"]), line1: z.string().trim().min(1), line2: z.string().trim().optional(), locality: z.string().trim().optional(), town: z.string().trim().optional(), region: z.string().trim().optional(), postalCode: z.string().trim().optional(), country: z.string().trim().optional(), label: z.string().trim().optional(), primary: z.boolean().optional() })).max(8);
@@ -69,12 +70,17 @@ export async function saveGuardianContactDetails(_state: GuardianActionState, fo
   return { success: true, message: "Guardian contact details updated." };
 }
 
-export async function endGuardianRelationship(formData: FormData) {
-  const relationshipId = String(formData.get("relationshipId") ?? "");
-  const learnerId = String(formData.get("learnerId") ?? "");
-  if (!z.string().uuid().safeParse(relationshipId).success) return;
+export async function endGuardianRelationship(_state: GuardianActionState, formData: FormData): Promise<GuardianActionState> {
+  const relationshipId = z.string().uuid().safeParse(formData.get("relationshipId"));
+  const learnerId = z.string().uuid().safeParse(formData.get("learnerId"));
+  if (!relationshipId.success || !learnerId.success) return { message: "The guardian relationship could not be ended." };
   const supabase = await createSupabaseServerClient();
-  await supabase.rpc("end_guardian_relationship", { p_relationship_id: relationshipId });
-  if (learnerId) revalidatePath(`/learners/${learnerId}`);
+  const { error } = await supabase.rpc("end_guardian_relationship", {
+    p_relationship_id: relationshipId.data,
+    p_effective_to: getNamibiaDateKey(),
+  });
+  if (error) return { message: "The guardian relationship could not be ended." };
+  revalidatePath(`/learners/${learnerId.data}`);
   revalidatePath("/school/guardians");
+  return { success: true, message: "Guardian relationship ended." };
 }
