@@ -207,3 +207,202 @@ export async function assignStaffSportsHouse(_state: SportsHousesActionState, fo
   revalidatePath("/school/sports-houses");
   return { success: true, message: parsed.data.roleKey === "leader" ? "House leader assignment saved." : "Staff house assignment saved." };
 }
+
+
+export type SportsBalanceTotal = {
+  houseId: string;
+  houseName: string;
+  total: number;
+};
+
+export type SportsBalanceMove = {
+  id: string;
+  entityType: "learner" | "staff";
+  entityId: string;
+  name: string;
+  fromHouseId: string | null;
+  fromHouseName: string | null;
+  toHouseId: string;
+  toHouseName: string;
+  assignmentSource: string | null;
+  isLocked: boolean;
+  staffRoleKey: string | null;
+  sex: string | null;
+  ageGroup: string | null;
+  grade: string | null;
+};
+
+export type SportsBalancePreview = {
+  id: string;
+  academicYear: number;
+  scope: "learner" | "staff";
+  algorithmVersion: string;
+  status: "preview" | "applied";
+  createdAt: string;
+  appliedAt: string | null;
+  moveCount: number;
+  beforeTotals: SportsBalanceTotal[];
+  afterTotals: SportsBalanceTotal[];
+  moves: SportsBalanceMove[];
+  configuration: {
+    balanceBySex: boolean;
+    balanceByAgeGroup: boolean;
+    balanceByGrade: boolean;
+    ageReferenceDate: string | null;
+  };
+};
+
+export type SportsBalanceActionState = SportsHousesActionState & {
+  preview?: SportsBalancePreview;
+  nextOperationId?: string;
+};
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function asTotals(value: unknown): SportsBalanceTotal[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    const row = asRecord(entry);
+    return {
+      houseId: String(row.house_id ?? ""),
+      houseName: String(row.house_name ?? "House"),
+      total: Number(row.total ?? 0),
+    };
+  }).filter((row) => row.houseId);
+}
+
+function normalizeBalancePreview(value: unknown): SportsBalancePreview | null {
+  const row = asRecord(value);
+  const id = typeof row.id === "string" ? row.id : "";
+  const scope = row.scope === "staff" ? "staff" : row.scope === "learner" ? "learner" : null;
+  if (!id || !scope) return null;
+
+  const configuration = asRecord(row.configuration);
+  const moves = Array.isArray(row.moves) ? row.moves.map((entry) => {
+    const move = asRecord(entry);
+    return {
+      id: String(move.id ?? ""),
+      entityType: move.entity_type === "staff" ? "staff" as const : "learner" as const,
+      entityId: String(move.entity_id ?? ""),
+      name: String(move.name ?? (move.entity_type === "staff" ? "Staff member" : "Learner")),
+      fromHouseId: typeof move.from_house_id === "string" ? move.from_house_id : null,
+      fromHouseName: typeof move.from_house_name === "string" ? move.from_house_name : null,
+      toHouseId: String(move.to_house_id ?? ""),
+      toHouseName: String(move.to_house_name ?? "House"),
+      assignmentSource: typeof move.assignment_source === "string" ? move.assignment_source : null,
+      isLocked: Boolean(move.is_locked),
+      staffRoleKey: typeof move.staff_role_key === "string" ? move.staff_role_key : null,
+      sex: typeof move.sex === "string" ? move.sex : null,
+      ageGroup: typeof move.age_group === "string" ? move.age_group : null,
+      grade: typeof move.grade === "string" ? move.grade : null,
+    };
+  }).filter((move) => move.id && move.entityId && move.toHouseId) : [];
+
+  return {
+    id,
+    academicYear: Number(row.academic_year ?? 0),
+    scope,
+    algorithmVersion: String(row.algorithm_version ?? "deterministic-greedy-v1"),
+    status: row.status === "applied" ? "applied" : "preview",
+    createdAt: String(row.created_at ?? ""),
+    appliedAt: typeof row.applied_at === "string" ? row.applied_at : null,
+    moveCount: Number(row.move_count ?? moves.length),
+    beforeTotals: asTotals(row.before_totals),
+    afterTotals: asTotals(row.after_totals),
+    moves,
+    configuration: {
+      balanceBySex: Boolean(configuration.balance_by_sex),
+      balanceByAgeGroup: Boolean(configuration.balance_by_age_group),
+      balanceByGrade: Boolean(configuration.balance_by_grade),
+      ageReferenceDate: typeof configuration.age_reference_date === "string" ? configuration.age_reference_date : null,
+    },
+  };
+}
+
+async function loadBalancePreview(runId: string): Promise<SportsBalancePreview | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_sports_house_balancing_run", { p_run_id: runId });
+  if (error) return null;
+  return normalizeBalancePreview(data);
+}
+
+export async function previewSportsHouseBalancing(
+  _state: SportsBalanceActionState,
+  formData: FormData,
+): Promise<SportsBalanceActionState> {
+  const parsed = z.object({
+    schoolId: uuid,
+    academicYear: z.coerce.number().int().min(2000).max(2200),
+    scope: z.enum(["learner", "staff"]),
+    clientOperationId: uuid,
+  }).safeParse({
+    schoolId: value(formData, "schoolId"),
+    academicYear: value(formData, "academicYear"),
+    scope: value(formData, "scope"),
+    clientOperationId: value(formData, "clientOperationId"),
+  });
+  if (!parsed.success) return { message: "Choose a valid balancing scope and academic year." };
+  if (!(await canManageSports(parsed.data.schoolId))) return { message: "You do not have permission to balance houses for this school." };
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("preview_sports_house_balancing", {
+    p_school_id: parsed.data.schoolId,
+    p_academic_year: parsed.data.academicYear,
+    p_balance_scope: parsed.data.scope,
+    p_client_operation_id: parsed.data.clientOperationId,
+  });
+  if (error) {
+    return {
+      message: errorMessage(
+        error.message,
+        error.message.includes("At least two active houses")
+          ? "At least two active houses are required before balancing."
+          : "The balance preview could not be created.",
+      ),
+    };
+  }
+
+  const runId = typeof data === "string" ? data : "";
+  const preview = runId ? await loadBalancePreview(runId) : null;
+  if (!preview) return { message: "The balance preview was created but could not be loaded." };
+
+  return {
+    success: true,
+    message: preview.moveCount ? `Preview ready with ${preview.moveCount} proposed ${preview.moveCount === 1 ? "move" : "moves"}.` : "Preview ready. No moves are needed.",
+    preview,
+    nextOperationId: crypto.randomUUID(),
+  };
+}
+
+export async function applySportsHouseBalancing(
+  _state: SportsBalanceActionState,
+  formData: FormData,
+): Promise<SportsBalanceActionState> {
+  const parsed = z.object({ schoolId: uuid, runId: uuid }).safeParse({
+    schoolId: value(formData, "schoolId"),
+    runId: value(formData, "runId"),
+  });
+  if (!parsed.success) return { message: "The balancing preview reference is invalid." };
+  if (!(await canManageSports(parsed.data.schoolId))) return { message: "You do not have permission to apply house balancing for this school." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("apply_sports_house_balancing", { p_run_id: parsed.data.runId });
+  if (error) {
+    const stale = error.message.includes("preview is stale");
+    return {
+      message: stale
+        ? "This preview is stale because assignments changed. Create a fresh preview before applying."
+        : errorMessage(error.message, "The balance could not be applied. No partial changes were kept."),
+    };
+  }
+
+  const preview = await loadBalancePreview(parsed.data.runId);
+  revalidatePath("/school/sports-houses");
+  return {
+    success: true,
+    message: "House balance applied with audit evidence.",
+    preview: preview ?? undefined,
+  };
+}
