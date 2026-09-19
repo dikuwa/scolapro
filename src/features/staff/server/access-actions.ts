@@ -173,3 +173,77 @@ export async function sendStaffVerification(_previous: StaffAccessState, formDat
     return { message: "The verification email could not be sent." };
   }
 }
+
+const correctionSchema = z.object({
+  schoolId: z.string().uuid(),
+  staffMemberId: z.string().uuid(),
+  firstName: z.string().trim().min(1).max(120),
+  lastName: z.string().trim().min(1).max(120),
+  employeeNumber: z.string().trim().min(1).max(80),
+  positionTitle: z.string().trim().max(160),
+  reason: z.string().trim().max(500),
+});
+
+export async function correctStaffDetails(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  const parsed = correctionSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    staffMemberId: formData.get("staffMemberId"),
+    firstName: formData.get("firstName"),
+    lastName: formData.get("lastName"),
+    employeeNumber: formData.get("employeeNumber"),
+    positionTitle: formData.get("positionTitle") ?? "",
+    reason: formData.get("reason") ?? "",
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("correct_staff_details", {
+    p_school_id: parsed.data.schoolId,
+    p_staff_member_id: parsed.data.staffMemberId,
+    p_first_name: parsed.data.firstName,
+    p_last_name: parsed.data.lastName,
+    p_employee_number: parsed.data.employeeNumber,
+    p_position_title: parsed.data.positionTitle || null,
+    p_source: "staff_directory",
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) return { message: error.message || "The staff correction could not be saved." };
+  revalidatePath("/staff");
+  return { success: true, message: "Staff details corrected and audited. Login email and password were unchanged." };
+}
+
+const reconciliationSchema = z.object({
+  schoolId: z.string().uuid(),
+  canonicalStaffMemberId: z.string().uuid(),
+  duplicateStaffMemberId: z.string().uuid(),
+  confirmation: z.literal("RECONCILE"),
+  reason: z.string().trim().max(500),
+});
+
+export async function reconcileStaffIdentities(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  const parsed = reconciliationSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    canonicalStaffMemberId: formData.get("canonicalStaffMemberId"),
+    duplicateStaffMemberId: formData.get("duplicateStaffMemberId"),
+    confirmation: String(formData.get("confirmation") ?? "").trim().toUpperCase(),
+    reason: formData.get("reason") ?? "",
+  });
+  if (!parsed.success) return { message: "Type RECONCILE and select distinct canonical and duplicate identities." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("reconcile_staff_identities", {
+    p_school_id: parsed.data.schoolId,
+    p_canonical_staff_member_id: parsed.data.canonicalStaffMemberId,
+    p_duplicate_staff_member_id: parsed.data.duplicateStaffMemberId,
+    p_confirmation: parsed.data.confirmation,
+    p_reason: parsed.data.reason || null,
+  });
+  if (error) return { message: error.message || "The staff identities could not be reconciled." };
+  revalidatePath("/staff");
+  revalidatePath("/timetable");
+  return { success: true, message: "Staff identities reconciled. Historical evidence was retained and the duplicate is now a governed pointer." };
+}
