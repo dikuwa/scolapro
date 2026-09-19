@@ -35,6 +35,23 @@ as $$
               and ssa.effective_from <= current_date
               and (ssa.effective_to is null or ssa.effective_to >= current_date)
           )
+          or (
+            not exists(
+              select 1
+              from public.staff_school_assignments placement_history
+              where placement_history.staff_member_id = sm.staff_member_id
+                and placement_history.tenant_id = sm.tenant_id
+                and placement_history.school_id = sm.school_id
+            )
+            and exists(
+              select 1
+              from public.staff_members staff_identity
+              where staff_identity.id = sm.staff_member_id
+                and staff_identity.tenant_id = sm.tenant_id
+                and staff_identity.user_id = p_user_id
+                and staff_identity.status = 'active'
+            )
+          )
         )
     );
 $$;
@@ -93,6 +110,23 @@ as $$
                   and ssa.school_id = sm.school_id
                   and ssa.effective_from <= current_date
                   and (ssa.effective_to is null or ssa.effective_to >= current_date)
+              )
+              or (
+                not exists(
+                  select 1
+                  from public.staff_school_assignments placement_history
+                  where placement_history.staff_member_id = sm.staff_member_id
+                    and placement_history.tenant_id = sm.tenant_id
+                    and placement_history.school_id = sm.school_id
+                )
+                and exists(
+                  select 1
+                  from public.staff_members staff_identity
+                  where staff_identity.id = sm.staff_member_id
+                    and staff_identity.tenant_id = sm.tenant_id
+                    and staff_identity.user_id = p_user_id
+                    and staff_identity.status = 'active'
+                )
               )
             )
         )
