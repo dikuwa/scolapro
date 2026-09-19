@@ -5,6 +5,7 @@ import { LockKeyhole, ShieldCheck, UsersRound } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { AssistedBalancingPanel } from "@/features/sports-houses/assisted-balancing-panel";
 import { Picker } from "@/components/ui/picker";
 import {
   assignLearnerSportsHouse,
@@ -248,6 +249,7 @@ export function SportsHousesWorkspace({
   staffAssignedCount,
   staffUnassignedCount,
   canManage,
+  balanceOperationId,
 }: {
   schoolId: string;
   schoolName: string;
@@ -263,6 +265,7 @@ export function SportsHousesWorkspace({
   staffAssignedCount: number;
   staffUnassignedCount: number;
   canManage: boolean;
+  balanceOperationId: string;
 }) {
   const activeHouses = useMemo(() => houses.filter((house) => house.status === "active"), [houses]);
   const leaders = staff.filter((item) => item.roleKey === "leader");
@@ -322,6 +325,8 @@ export function SportsHousesWorkspace({
         </div>
       </section>
 
+      {canManage ? <AssistedBalancingPanel schoolId={schoolId} academicYear={academicYear} operationId={balanceOperationId} /> : null}
+
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div><h2 className="scolapro-section-title">Learner allocation</h2><p className="scolapro-section-description">{learnerAssignedCount} assigned · {learnerUnassignedCount} unassigned in {academicYear}.</p></div>
@@ -364,7 +369,7 @@ export function SportsHousesWorkspace({
         <div className="flex items-start gap-3">
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden="true" />
           <p className="text-xs leading-5 text-muted-foreground">
-            Phase 1 uses the existing governed Sports & Houses records only. Locked/manual provenance is preserved; automatic balancing, fixtures, events, scores, medals, records and tournaments are not part of this workspace.
+            Houses and assignments remain canonical. Assisted balancing is deterministic, preview-first and auditable; manual/locked assignments and staff leaders are preserved. Fixtures, events, scores, medals, records and tournaments remain outside this workspace.
           </p>
         </div>
       </section>

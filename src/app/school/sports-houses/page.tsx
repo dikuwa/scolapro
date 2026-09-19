@@ -48,7 +48,7 @@ export default async function SportsHousesPage({
             Configure school houses and age groups, then manage year-scoped learner and staff house allocation without changing the canonical Sports & Houses model.
           </p>
         </div>
-        <SportsHousesWorkspace {...workspace} canManage={canManage} />
+        <SportsHousesWorkspace {...workspace} canManage={canManage} balanceOperationId={crypto.randomUUID()} />
       </div>
     </AppShell>
   );
