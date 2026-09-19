@@ -58,7 +58,7 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
     if (!membership) redirect("/");
     schoolName = membership.schoolName;
     canRegisterLearner = membership.roleKey === "school_admin";
-    [directory, academicOptions] = await Promise.all([
+    const [directoryResult, academicOptionsResult] = await Promise.allSettled([
       listLearnerDirectoryPage(membership.schoolId, academicYear, {
         query,
         status,
@@ -71,6 +71,12 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
       }),
       getRegistrationOptions(membership.schoolId, academicYear),
     ]);
+    if (directoryResult.status === "rejected") throw directoryResult.reason;
+    directory = directoryResult.value;
+    // Grade/class options only enhance the server-paged directory filters. Do not
+    // make the canonical learner read unavailable when this auxiliary schema/read
+    // path is unavailable during a deployment or for an empty school.
+    academicOptions = academicOptionsResult.status === "fulfilled" ? academicOptionsResult.value : [];
   }
 
   return (
