@@ -8,6 +8,7 @@ export type ReportCardRenderInput = {
   schoolName: string;
   schoolEmisNumber?: string | null;
   snapshotVersion: number;
+  generatedAt?: string | null;
   certifiedAt?: string | null;
   dataSnapshot: JsonRecord;
   logoBytes?: Uint8Array | null;
@@ -76,6 +77,7 @@ export type ReportCardTemplateModel = {
   principalName: string;
   nextTermStartsOn: string;
   snapshotVersion: number;
+  generatedAt: string;
   certifiedAt: string;
 };
 
@@ -288,6 +290,7 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
     principalName: text(principal.name),
     nextTermStartsOn: formatReportCardDate(snapshot.next_term_starts_on),
     snapshotVersion: input.snapshotVersion,
+    generatedAt: text(input.generatedAt),
     certifiedAt: text(input.certifiedAt),
   };
 }
