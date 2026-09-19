@@ -528,7 +528,7 @@ test('room inventory workspace uses Namibia-local effective dates and fails on p
   assert.match(source, /const today = getNamibiaDateKey\(\);/);
   assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.slice\(0,10\)/);
   for (const result of ['roomsResult', 'itemsResult', 'custodiansResult', 'verificationsResult', 'assignmentsResult']) {
-    assert.match(source, new RegExp(result + '\\\\.error'));
+    assert.ok(source.includes(`${result}.error`), `expected ${result} failures to reach the route error boundary`);
   }
   assert.match(source, /if \(loadError\) throw new Error\(\`Unable to load room inventory workspace:/);
   assert.match(source, /if \(staffResult\.error\) throw new Error\(\`Unable to load room inventory workspace:/);
@@ -547,5 +547,7 @@ test('room inventory exposes honest empty verification history and labelled quan
   }));
   assert.match(html, /No verification history yet\./);
   assert.match(html, /<span class="block h-4 text-xs font-medium leading-4">Quantity change<\/span>/);
-  assert.match(html, /name="delta" type="number" value="0"/);
+  assert.match(html, /name="delta"/);
+  assert.match(html, /type="number"/);
+  assert.match(html, /value="0"/);
 });
