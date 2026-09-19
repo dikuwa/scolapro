@@ -126,7 +126,9 @@ values
 on conflict (id) do nothing;
 
 insert into public.staff_school_assignments(id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id)
-values ('f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','management',current_date-10,'f5740000-0000-4000-8000-000000000001')
+values
+  ('f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','management',current_date-10,'f5740000-0000-4000-8000-000000000001'),
+  ('f5740000-0000-4000-8000-000000000002','f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','f5740000-0000-4000-8000-000000000001','management',current_date-9,'f5740000-0000-4000-8000-000000000001')
 on conflict (id) do nothing;
 
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name)
@@ -198,21 +200,21 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$update public.subject_department_responsibilities
+  $update public.subject_department_responsibilities
     set school_id='f5740000-0000-4000-8000-000000000002'::uuid
-    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$$,
-  '23514',
-  'HOD responsibility provenance is immutable; end the row and create a new responsibility',
-  'changing the school provenance is rejected'
+    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$,
+  'P0001',
+  'School scope mismatch for department_head_staff_assignment_id',
+  'changing the school provenance is rejected before it can escape assignment scope'
 );
 
 select throws_ok(
-  $$update public.subject_department_responsibilities
+  $update public.subject_department_responsibilities
     set tenant_id='f5740000-0000-4000-8000-000000000002'::uuid
-    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$$,
-  '23514',
-  'HOD responsibility provenance is immutable; end the row and create a new responsibility',
-  'changing the tenant provenance is rejected'
+    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$,
+  'P0001',
+  'Tenant scope mismatch for department_head_staff_assignment_id',
+  'changing the tenant provenance is rejected before it can escape assignment scope'
 );
 
 select throws_ok(
