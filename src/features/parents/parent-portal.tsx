@@ -5,6 +5,9 @@ import { BadgeCheck, CalendarCheck2, ExternalLink, FileText, GraduationCap, Link
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
+import { AbsenceNoticeForm } from "@/features/parents/absence-notice-form";
+import { reasonLabels } from "@/features/parents/absence-reasons";
+import type { AbsenceNoticeSummary } from "@/features/parents/server/absence-queries";
 import { claimGuardianProfile, type ParentPortalActionState } from "@/features/parents/server/actions";
 import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentMessage, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
 
@@ -24,6 +27,29 @@ function money(currency: string, value: number): string {
   return `${currency} ${value.toFixed(2)}`;
 }
 
+function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) {
+  return <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+    <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+      <h2 className="scolapro-section-title">Absence notice history</h2>
+      <p className="scolapro-section-description">These are your submitted notices and school review outcomes. A notice never changes the official attendance register by itself.</p>
+    </div>
+    {notices.length ? <div className="divide-y divide-border-subtle">{notices.map((notice) => <article key={notice.id} className="px-4 py-4 sm:px-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground">{notice.learnerName}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {notice.absenceFrom === notice.absenceTo ? new Date(`${notice.absenceFrom}T12:00:00`).toLocaleDateString() : `${new Date(`${notice.absenceFrom}T12:00:00`).toLocaleDateString()} – ${new Date(`${notice.absenceTo}T12:00:00`).toLocaleDateString()}`} · {reasonLabels[notice.reasonCategory] ?? notice.reasonCategory}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.64rem] font-medium capitalize text-muted-foreground">{notice.status.replaceAll("_", " ")}</span>
+      </div>
+      {notice.message ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/90">{notice.message}</p> : null}
+      {notice.reviewNote ? <p className="mt-2 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-xs text-muted-foreground">School feedback: {notice.reviewNote}</p> : null}
+      {notice.attachmentCount ? <p className="mt-2 text-[0.68rem] text-muted-foreground">{notice.attachmentCount} supporting file{notice.attachmentCount === 1 ? "" : "s"} attached</p> : null}
+    </article>)}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No absence notices submitted for this learner yet.</div>}
+  </section>;
+}
+
 function ParentMessages({ messages }: { messages: ParentMessage[] }) {
   return <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
     <div className="flex items-start justify-between gap-3 border-b border-border-subtle px-4 py-4 sm:px-5">
@@ -40,7 +66,7 @@ function ParentMessages({ messages }: { messages: ParentMessage[] }) {
   </section>;
 }
 
-export function ParentPortal({ familyChildren, reports, documents, invoices, payments, messages, claimable }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; messages: ParentMessage[]; claimable: ClaimableGuardianProfile[] }) {
+export function ParentPortal({ familyChildren, reports, documents, invoices, payments, messages, claimable, absenceNotices, today }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; messages: ParentMessage[]; claimable: ClaimableGuardianProfile[]; absenceNotices: AbsenceNoticeSummary[]; today: string }) {
   const [state, claimAction, pending] = useActionState(claimGuardianProfile, initialState);
   const [selectedLearnerId, setSelectedLearnerId] = useState(familyChildren[0]?.learnerId ?? "");
 
@@ -54,6 +80,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
   const childReports = useMemo(() => reports.filter((report) => report.learnerId === child?.learnerId), [reports, child?.learnerId]);
   const childInvoices = useMemo(() => invoices.filter((invoice) => invoice.learnerId === child?.learnerId), [invoices, child?.learnerId]);
   const childPayments = useMemo(() => payments.filter((payment) => payment.learnerId === child?.learnerId), [payments, child?.learnerId]);
+  const childAbsenceNotices = useMemo(() => absenceNotices.filter((notice) => notice.learnerId === child?.learnerId), [absenceNotices, child?.learnerId]);
   const documentsBySnapshot = useMemo(() => {
     const map = new Map<string, ParentReportDocument>();
     for (const document of documents) {
@@ -102,6 +129,17 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
           <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="scolapro-section-title">Attendance on latest report</h2><p className="scolapro-section-description">This is the attendance summary frozen into the published report snapshot.</p></div><CalendarCheck2 className="size-5 text-brand" /></div>
           {latestReport ? <div className="grid grid-cols-2 gap-2 sm:grid-cols-3"><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Expected days</p><p className="mt-1 text-lg font-semibold">{attendance.expected_school_days === null || attendance.expected_school_days === undefined ? "—" : numeric(attendance.expected_school_days)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Recorded days</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.recorded_school_days)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Present</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.present)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Absent</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.absent)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Late</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.late)}</p></div><div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-[0.65rem] text-muted-foreground">Excused</p><p className="mt-1 text-lg font-semibold">{numeric(attendance.excused)}</p></div></div> : <p className="text-sm text-muted-foreground">Attendance becomes available here when the school publishes a report card.</p>}
         </div>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div className="mb-4">
+            <h2 className="scolapro-section-title">Submit absence notice</h2>
+            <p className="scolapro-section-description">Send context or supporting evidence for this learner. The school reviews it separately from the official attendance register.</p>
+          </div>
+          <AbsenceNoticeForm learnerId={child.learnerId} learnerName={child.name} today={today} />
+        </div>
+        <ParentAbsenceHistory notices={childAbsenceNotices} />
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
