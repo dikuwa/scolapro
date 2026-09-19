@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Clock3 } from "lucide-react";
 import { FormFieldFeedback, formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
@@ -66,7 +66,7 @@ function TimePanel({
   const hourListRef = useRef<HTMLDivElement>(null);
   const minuteListRef = useRef<HTMLDivElement>(null);
 
-  const updatePosition = () => {
+  const updatePosition = useCallback(() => {
     const nextViewport = visibleViewport();
     setViewport(nextViewport);
     if (nextViewport.mobile) {
@@ -95,11 +95,11 @@ function TimePanel({
         top: nextViewport.top,
       },
     ));
-  };
+  }, [panelRef, triggerRef]);
 
   useLayoutEffect(() => {
     updatePosition();
-  }, []);
+  }, [updatePosition]);
 
   useEffect(() => {
     const update = () => updatePosition();
@@ -113,7 +113,7 @@ function TimePanel({
       window.visualViewport?.removeEventListener("resize", update);
       window.visualViewport?.removeEventListener("scroll", update);
     };
-  }, []);
+  }, [updatePosition]);
 
   useEffect(() => {
     if (!hour) return;
