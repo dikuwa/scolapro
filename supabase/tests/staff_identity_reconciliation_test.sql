@@ -130,6 +130,8 @@ select is(
   'e5300000-0000-4000-8000-000000000001'::uuid,
   'canonical identity is returned'
 );
+
+reset role;
 select is(
   (select user_id from public.staff_members where id='e5300000-0000-4000-8000-000000000001'),
   'e5000000-0000-4000-8000-000000000002'::uuid,
@@ -173,15 +175,27 @@ select is(
   0,
   'reconciliation does not fabricate a correction event'
 );
+insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
+values(
+  'e5300000-0000-4000-8000-000000000008',
+  'e5100000-0000-4000-8000-000000000001',
+  'EMP-CONFLICT',
+  'Conflict',
+  'Identity',
+  'active'
+);
+
+set local role authenticated;
 select throws_ok(
-  $$select public.correct_staff_details(
+  $select public.correct_staff_details(
     'e5200000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000001',
-    'Canonical','Staff','EMP-565','Senior Teacher','staff_directory','typo'
-  )$$,
+    'Canonical','Staff','EMP-CONFLICT','Senior Teacher','staff_directory','typo'
+  )$,
   'Employee number already belongs to another active staff identity',
-  'correction cannot silently claim a duplicate employee number'
+  'correction cannot silently claim another active identity employee number'
 );
+reset role;
 select ok(
   exists(
     select 1 from public.school_memberships
@@ -206,14 +220,41 @@ select is(
   1,
   'unrelated-school placement is not rewritten'
 );
+select is(
+  (
+    select metadata->>'confidence'
+    from public.audit_events
+    where event_type='staff.identity.reconciled'
+      and entity_id='e5300000-0000-4000-8000-000000000001'
+    order by created_at desc
+    limit 1
+  ),
+  'exact_employee_number',
+  'audit records the strong identity evidence basis'
+);
+select is(
+  (
+    select ((metadata->>'untouched_other_school_memberships')::integer
+          + (metadata->>'untouched_other_school_assignments')::integer)
+    from public.audit_events
+    where event_type='staff.identity.reconciled'
+      and entity_id='e5300000-0000-4000-8000-000000000001'
+    order by created_at desc
+    limit 1
+  ),
+  2,
+  'audit records untouched out-of-scope historical references'
+);
+
+set local role authenticated;
 select throws_ok(
-  $$select public.reconcile_staff_identities(
+  $select public.reconcile_staff_identities(
     'e5200000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000002',
     'RECONCILE',
     'replay two different linked accounts'
-  )$$,
+  )$,
   'Only active, unreconciled staff identities can be reconciled',
   'reconciliation cannot replay an already reconciled identity'
 );
