@@ -136,7 +136,7 @@ select ok(
 
 select lives_ok(
   $$select public.upsert_timetable_bell_schedule(
-      'bd110000-0000-4000-8000-000000000001',2197,'Audited schedule','2197-03-01','2197-03-31',array[1,2,3,4,5]::smallint[]
+      'bd110000-0000-4000-8000-000000000001',2197,'Audited schedule','2197-03-01','2197-03-31',array[6,7]::smallint[]
     )$$,
   'governed bell schedule creation succeeds for an authorized school admin'
 );
