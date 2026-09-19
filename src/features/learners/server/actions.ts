@@ -84,10 +84,10 @@ export async function registerLearner(_previousState: LearnerRegistrationState, 
     const photoPath = `${parsed.data.schoolId}/${learnerId}/${crypto.randomUUID()}.${photoExtension(photo)}`;
     const { error: uploadError } = await supabase.storage.from("learner-photos").upload(photoPath, photo, { contentType: photo.type, upsert: false });
     if (uploadError) {
-      console.error("Learner registration photo upload failed", { learnerId, schoolId: parsed.data.schoolId, path: photoPath, error: uploadError.message });
+      console.error("Learner registration photo upload failed", { learnerId, schoolId: parsed.data.schoolId, error: uploadError.message });
     } else {
       const { error: photoLinkError } = await supabase.rpc("set_learner_photo", { p_learner_id: learnerId, p_school_id: parsed.data.schoolId, p_photo_path: photoPath });
-      if (photoLinkError) console.error("Learner registration photo link failed", { learnerId, schoolId: parsed.data.schoolId, path: photoPath, error: photoLinkError.message, code: photoLinkError.code });
+      if (photoLinkError) console.error("Learner registration photo link failed", { learnerId, schoolId: parsed.data.schoolId, error: photoLinkError.message, code: photoLinkError.code });
     }
   }
 
@@ -137,21 +137,21 @@ export async function updateLearnerOperationalProfile(_previousState: LearnerPro
     const photoPath = `${parsed.data.schoolId}/${parsed.data.learnerId}/${crypto.randomUUID()}.${photoExtension(photo)}`;
     const { error: uploadError } = await supabase.storage.from("learner-photos").upload(photoPath, photo, { contentType: photo.type, upsert: false });
     if (uploadError) {
-      console.error("Learner profile direct photo upload failed", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId, path: photoPath, error: uploadError.message });
+      console.error("Learner profile direct photo upload failed", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId, error: uploadError.message });
       revalidatePath(`/learners/${parsed.data.learnerId}`);
       return { success: false, message: `Preferred name was saved, but the new photo could not be uploaded: ${uploadError.message}` };
     }
     const { error: photoLinkError } = await supabase.rpc("set_learner_photo", { p_learner_id: parsed.data.learnerId, p_school_id: parsed.data.schoolId, p_photo_path: photoPath });
     if (photoLinkError) {
-      console.error("Learner profile direct photo link failed", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId, path: photoPath, error: photoLinkError.message, code: photoLinkError.code });
+      console.error("Learner profile direct photo link failed", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId, error: photoLinkError.message, code: photoLinkError.code });
       const { error: cleanupError } = await supabase.storage.from("learner-photos").remove([photoPath]);
-      if (cleanupError) console.warn("Failed learner profile photo cleanup failed", { learnerId: parsed.data.learnerId, path: photoPath, error: cleanupError.message });
+      if (cleanupError) console.warn("Failed learner profile photo cleanup failed", { learnerId: parsed.data.learnerId, error: cleanupError.message });
       revalidatePath(`/learners/${parsed.data.learnerId}`);
       return { success: false, message: "Preferred name was saved, but the new photo could not be linked. The editor is staying open so you can try the photo again." };
     }
     if (oldPhotoPath && oldPhotoPath !== photoPath) {
       const { error: cleanupError } = await supabase.storage.from("learner-photos").remove([oldPhotoPath]);
-      if (cleanupError) console.warn("Previous learner profile photo cleanup failed", { learnerId: parsed.data.learnerId, path: oldPhotoPath, error: cleanupError.message });
+      if (cleanupError) console.warn("Previous learner profile photo cleanup failed", { learnerId: parsed.data.learnerId, error: cleanupError.message });
     }
   } else if (parsed.data.removePhoto === "true" && oldPhotoPath) {
     const { error: photoClearError } = await supabase.rpc("set_learner_photo", { p_learner_id: parsed.data.learnerId, p_school_id: parsed.data.schoolId, p_photo_path: null });
@@ -160,7 +160,7 @@ export async function updateLearnerOperationalProfile(_previousState: LearnerPro
       return { success: false, message: "Profile information was saved, but the photo could not be removed. Try again." };
     }
     const { error: removeError } = await supabase.storage.from("learner-photos").remove([oldPhotoPath]);
-    if (removeError) console.warn("Learner photo storage cleanup after unlink failed", { learnerId: parsed.data.learnerId, path: oldPhotoPath, error: removeError.message });
+    if (removeError) console.warn("Learner photo storage cleanup after unlink failed", { learnerId: parsed.data.learnerId, error: removeError.message });
   }
 
   revalidatePath(`/learners/${parsed.data.learnerId}`);
@@ -174,7 +174,7 @@ export async function saveUploadedLearnerPhoto(learnerId: string, schoolId: stri
 
   const pathMatch = learnerPhotoPathPattern.exec(parsed.data.path);
   if (!pathMatch || pathMatch[1] !== parsed.data.schoolId || pathMatch[2] !== parsed.data.learnerId) {
-    console.error("Learner photo link rejected invalid path", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId, path: parsed.data.path });
+    console.error("Learner photo link rejected invalid path", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId });
     return { success: false, message: "The uploaded learner photo path is invalid." };
   }
 
@@ -200,7 +200,7 @@ export async function saveUploadedLearnerPhoto(learnerId: string, schoolId: stri
     p_photo_path: parsed.data.path,
   });
   if (photoLinkError) {
-    console.error("Learner photo link RPC failed", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId, path: parsed.data.path, error: photoLinkError.message, code: photoLinkError.code });
+    console.error("Learner photo link RPC failed", { learnerId: parsed.data.learnerId, schoolId: parsed.data.schoolId, error: photoLinkError.message, code: photoLinkError.code });
     return { success: false, message: "The new learner photo could not be linked to the learner profile." };
   }
 
