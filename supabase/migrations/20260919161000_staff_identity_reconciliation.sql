@@ -163,6 +163,10 @@ declare
   v_confidence text;
   v_moved_memberships integer:=0;
   v_moved_assignments integer:=0;
+  v_preserved_memberships integer:=0;
+  v_preserved_assignments integer:=0;
+  v_other_school_memberships integer:=0;
+  v_other_school_assignments integer:=0;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not app_private.user_can_reconcile_staff(auth.uid(),p_school_id) then
@@ -195,17 +199,29 @@ begin
      or v_duplicate.reconciled_into_staff_member_id is not null then
     raise exception 'Only active, unreconciled staff identities can be reconciled';
   end if;
+  if not exists(
+    select 1 from public.staff_school_assignments ssa
+    where ssa.school_id=p_school_id
+      and ssa.staff_member_id in (v_canonical.id,v_duplicate.id)
+  ) and not exists(
+    select 1 from public.school_memberships sm
+    where sm.school_id=p_school_id
+      and sm.staff_member_id in (v_canonical.id,v_duplicate.id)
+  ) then
+    raise exception 'At least one identity must be associated with the current school';
+  end if;
 
   if nullif(btrim(v_canonical.employee_number),'') is not null
      and nullif(btrim(v_duplicate.employee_number),'') is not null
      and upper(btrim(v_canonical.employee_number))=upper(btrim(v_duplicate.employee_number)) then
     v_confidence:='exact_employee_number';
-  elsif v_canonical.user_id is not null or v_duplicate.user_id is not null then
-    v_confidence:='existing_auth_link';
+  elsif v_canonical.user_id is not null
+        and v_canonical.user_id=v_duplicate.user_id then
+    v_confidence:='shared_auth_account';
   else
-    -- A name match is never sufficient on its own. The explicit confirmation
-    -- above is the reviewer evidence for an otherwise unresolved pair.
-    v_confidence:='explicit_admin_confirmation';
+    -- An account link on only one record, or a name match, is not identity
+    -- evidence. The reviewer confirmation cannot substitute for evidence.
+    raise exception 'Strong identity evidence is required';
   end if;
   if v_duplicate.employee_number is not null
      and v_canonical.employee_number is null then
@@ -225,6 +241,7 @@ begin
     select sm.*
     from public.school_memberships sm
     where sm.staff_member_id=v_duplicate.id
+      and sm.school_id=p_school_id
     order by sm.school_id,sm.active_from,sm.id
     for update
   loop
@@ -236,7 +253,7 @@ begin
         and existing.role_key=v_membership.role_key
         and existing.active_from=v_membership.active_from
     ) then
-      delete from public.school_memberships where id=v_membership.id;
+      v_preserved_memberships:=v_preserved_memberships+1;
     else
       update public.school_memberships
       set staff_member_id=v_canonical.id,user_id=coalesce(v_canonical_user,user_id)
@@ -249,6 +266,7 @@ begin
     select ssa.*
     from public.staff_school_assignments ssa
     where ssa.staff_member_id=v_duplicate.id
+      and ssa.school_id=p_school_id
     order by ssa.school_id,ssa.effective_from,ssa.id
     for update
   loop
@@ -259,7 +277,7 @@ begin
         and existing.staff_member_id=v_canonical.id
         and existing.effective_from=v_assignment.effective_from
     ) then
-      delete from public.staff_school_assignments where id=v_assignment.id;
+      v_preserved_assignments:=v_preserved_assignments+1;
     else
       update public.staff_school_assignments
       set staff_member_id=v_canonical.id,updated_at=now()
@@ -268,11 +286,19 @@ begin
     v_moved_assignments:=v_moved_assignments+1;
   end loop;
 
+  select count(*) into v_other_school_memberships
+  from public.school_memberships sm
+  where sm.staff_member_id=v_duplicate.id and sm.school_id<>p_school_id;
+  select count(*) into v_other_school_assignments
+  from public.staff_school_assignments ssa
+  where ssa.staff_member_id=v_duplicate.id and ssa.school_id<>p_school_id;
+
   -- Preserve timetable/register references on the canonical identity. These
   -- updates are intentionally narrow and retain the duplicate staff row.
   update public.teacher_allocations ta
   set staff_member_id=v_canonical.id
   where ta.staff_member_id=v_duplicate.id
+    and ta.school_id=p_school_id
     and not exists(
       select 1 from public.teacher_allocations existing
       where existing.staff_member_id=v_canonical.id
@@ -282,7 +308,8 @@ begin
     );
   update public.register_classes
   set register_teacher_staff_id=v_canonical.id
-  where register_teacher_staff_id=v_duplicate.id;
+  where register_teacher_staff_id=v_duplicate.id
+    and school_id=p_school_id;
 
   update public.staff_members
   set status='inactive',
@@ -305,6 +332,10 @@ begin
       'confidence',v_confidence,
       'moved_memberships',v_moved_memberships,
       'moved_assignments',v_moved_assignments,
+      'preserved_conflicting_memberships',v_preserved_memberships,
+      'preserved_conflicting_assignments',v_preserved_assignments,
+      'untouched_other_school_memberships',v_other_school_memberships,
+      'untouched_other_school_assignments',v_other_school_assignments,
       'reason',nullif(btrim(coalesce(p_reason,'')),''),
       'source','staff_directory',
       'reviewer_user_id',auth.uid()

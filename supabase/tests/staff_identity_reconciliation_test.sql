@@ -1,14 +1,22 @@
 begin;
 
-select plan(12);
+select plan(21);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('e5000000-0000-4000-8000-000000000001','staff-admin@example.test','authenticated','authenticated',now(),now()),
-  ('e5000000-0000-4000-8000-000000000002','staff-linked@example.test','authenticated','authenticated',now(),now());
+  ('e5000000-0000-4000-8000-000000000002','staff-linked@example.test','authenticated','authenticated',now(),now()),
+  ('e5000000-0000-4000-8000-000000000003','staff-linked-a@example.test','authenticated','authenticated',now(),now()),
+  ('e5000000-0000-4000-8000-000000000004','staff-linked-b@example.test','authenticated','authenticated',now(),now());
 insert into public.tenants(id,name,slug,status)
 values('e5100000-0000-4000-8000-000000000001','Staff Reconciliation Tenant','staff-reconciliation-tenant','active');
+insert into public.tenants(id,name,slug,status)
+values('e5100000-0000-4000-8000-000000000002','Other Tenant','staff-reconciliation-other-tenant','active');
 insert into public.schools(id,tenant_id,name,emis_number,status)
 values('e5200000-0000-4000-8000-000000000001','e5100000-0000-4000-8000-000000000001','Staff Reconciliation School','STAFF-RECON','active');
+insert into public.schools(id,tenant_id,name,emis_number,status)
+values('e5200000-0000-4000-8000-000000000002','e5100000-0000-4000-8000-000000000001','Unrelated School','STAFF-OTHER','active');
+insert into public.schools(id,tenant_id,name,emis_number,status)
+values('e5200000-0000-4000-8000-000000000003','e5100000-0000-4000-8000-000000000002','Other Tenant School','STAFF-OTHER-TENANT','active');
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
 values('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5000000-0000-4000-8000-000000000001','school_admin',current_date-5);
 
@@ -21,6 +29,10 @@ values
   ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000002','teacher','Teacher duplicate',current_date-10,'e5000000-0000-4000-8000-000000000001');
 insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
 values('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5000000-0000-4000-8000-000000000002','e5300000-0000-4000-8000-000000000002','teacher',current_date-10);
+insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
+values('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000002','e5000000-0000-4000-8000-000000000002','e5300000-0000-4000-8000-000000000002','teacher',current_date-10);
+insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,assignment_type,position_title,effective_from,created_by_user_id)
+values('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000002','e5300000-0000-4000-8000-000000000002','teacher','Unrelated school placement',current_date-10,'e5000000-0000-4000-8000-000000000001');
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','e5000000-0000-4000-8000-000000000001',true);
@@ -37,6 +49,66 @@ select throws_ok(
   )$$,
   'Type RECONCILE to confirm the identity merge',
   'reconciliation requires explicit confirmation'
+);
+insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status) values
+  ('e5300000-0000-4000-8000-000000000003','e5100000-0000-4000-8000-000000000001',null,'Same','Name','active'),
+  ('e5300000-0000-4000-8000-000000000004','e5100000-0000-4000-8000-000000000001',null,'Same','Name','active');
+insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id)
+values
+  ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000003','staff',current_date-2,'e5000000-0000-4000-8000-000000000001'),
+  ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000004','staff',current_date-2,'e5000000-0000-4000-8000-000000000001');
+select throws_ok(
+  $$select public.reconcile_staff_identities(
+    'e5200000-0000-4000-8000-000000000001',
+    'e5300000-0000-4000-8000-000000000003',
+    'e5300000-0000-4000-8000-000000000004',
+    'RECONCILE',
+    'same names only'
+  )$$,
+  'Strong identity evidence is required',
+  'same-name-only reconciliation is rejected'
+);
+select throws_ok(
+  $$select public.reconcile_staff_identities(
+    'e5200000-0000-4000-8000-000000000001',
+    'e5300000-0000-4000-8000-000000000002',
+    'e5300000-0000-4000-8000-000000000003',
+    'RECONCILE',
+    'unrelated account-linked identity'
+  )$$,
+  'Strong identity evidence is required',
+  'one unrelated account link is not identity evidence'
+);
+insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status) values
+  ('e5300000-0000-4000-8000-000000000005','e5100000-0000-4000-8000-000000000001','e5000000-0000-4000-8000-000000000003','EMP-DIFF','Two','Accounts','active'),
+  ('e5300000-0000-4000-8000-000000000006','e5100000-0000-4000-8000-000000000001','e5000000-0000-4000-8000-000000000004','EMP-DIFF','Two','Accounts','active');
+insert into public.staff_school_assignments(tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id)
+values
+  ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000005','staff',current_date-2,'e5000000-0000-4000-8000-000000000001'),
+  ('e5100000-0000-4000-8000-000000000001','e5200000-0000-4000-8000-000000000001','e5300000-0000-4000-8000-000000000006','staff',current_date-2,'e5000000-0000-4000-8000-000000000001');
+select throws_ok(
+  $$select public.reconcile_staff_identities(
+    'e5200000-0000-4000-8000-000000000001',
+    'e5300000-0000-4000-8000-000000000005',
+    'e5300000-0000-4000-8000-000000000006',
+    'RECONCILE',
+    'two different linked accounts'
+  )$$,
+  'Cannot reconcile two different linked Auth accounts',
+  'two different linked accounts cannot be merged'
+);
+insert into public.staff_members(id,tenant_id,employee_number,first_name,last_name,status)
+values('e5300000-0000-4000-8000-000000000007','e5100000-0000-4000-8000-000000000002','EMP-565','Other','Tenant','active');
+select throws_ok(
+  $$select public.reconcile_staff_identities(
+    'e5200000-0000-4000-8000-000000000001',
+    'e5300000-0000-4000-8000-000000000001',
+    'e5300000-0000-4000-8000-000000000007',
+    'RECONCILE',
+    'cross tenant identity'
+  )$$,
+  'Both staff identities must belong to the school tenant',
+  'cross-tenant identity attachment is denied'
 );
 select is(
   public.reconcile_staff_identities(
@@ -108,6 +180,33 @@ select ok(
       and staff_member_id='e5300000-0000-4000-8000-000000000001'
   ),
   'existing school membership remains linked to canonical identity'
+);
+select is(
+  (select count(*)::integer
+   from public.school_memberships
+   where school_id='e5200000-0000-4000-8000-000000000002'
+     and staff_member_id='e5300000-0000-4000-8000-000000000002'),
+  1,
+  'unrelated-school membership is not rewritten'
+);
+select is(
+  (select count(*)::integer
+   from public.staff_school_assignments
+   where school_id='e5200000-0000-4000-8000-000000000002'
+     and staff_member_id='e5300000-0000-4000-8000-000000000002'),
+  1,
+  'unrelated-school placement is not rewritten'
+);
+select throws_ok(
+  $$select public.reconcile_staff_identities(
+    'e5200000-0000-4000-8000-000000000001',
+    'e5300000-0000-4000-8000-000000000001',
+    'e5300000-0000-4000-8000-000000000002',
+    'RECONCILE',
+    'replay two different linked accounts'
+  )$$,
+  'Only active, unreconciled staff identities can be reconciled',
+  'reconciliation cannot replay an already reconciled identity'
 );
 
 select * from finish();
