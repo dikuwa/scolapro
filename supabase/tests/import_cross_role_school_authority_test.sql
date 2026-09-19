@@ -13,7 +13,7 @@ insert into public.schools(id,tenant_id,name,emis_number,status) values
 ('fda10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Import Cross Role School','IMP-XROLE-001','active');
 
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from) values
-('11111111-1111-4111-8111-111111111111','fda10000-0000-4000-8000-000000000001','fda00000-0000-4000-8000-000000000001','school_admin',current_date-2),
+('11111111-1111-4111-8111-111111111111','fda10000-0000-4000-8000-000000000001','fda00000-0000-4000-8000-000000000001','school_admin',current_date-1),
 ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fda00000-0000-4000-8000-000000000001','hod',current_date-2);
 
 select set_config('request.jwt.claim.role','authenticated',true);
