@@ -37,7 +37,7 @@ test("single staff mutation remains canonical RPC based",()=>{
 test("staff directory remains responsive across phone tablet and desktop source breakpoints",()=>{
   assert.match(page,/sm:grid-cols-3/);
   assert.match(page,/lg:flex-row/);
-  assert.match(page,/sm:grid-cols-\[2rem_minmax\(0,1fr\)_minmax\(12rem,0\.7fr\)_auto\]/);
+  assert.match(page,/sm:grid-cols-\[2rem_minmax\(0,1fr\)_minmax\(12rem,0\.7fr\)_minmax\(18rem,1\.3fr\)\]/);
   assert.match(page,/max-h-\[70vh\] overflow-auto/);
   assert.match(directory,/pageSize/);
 });

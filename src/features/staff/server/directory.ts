@@ -11,6 +11,10 @@ export type StaffDirectoryRow = {
   activeFrom: string;
   activeTo: string | null;
   hasAccount: boolean;
+  linkedUserId: string | null;
+  pendingInvitationId: string | null;
+  pendingInvitationStatus: string | null;
+  activeRoles: { id: string; roleKey: string; activeFrom: string; activeTo: string | null }[];
 };
 
 export type StaffDirectoryResult = {
@@ -37,6 +41,10 @@ type StaffDirectoryRpcRow = {
   active_to: string | null;
   has_account: boolean;
   total_count: number | string;
+  linked_user_id: string | null;
+  pending_invitation_id: string | null;
+  pending_invitation_status: string | null;
+  active_roles: { id: string; roleKey: string; activeFrom: string; activeTo: string | null }[] | null;
 };
 
 type StaffSummaryRpcRow = {
@@ -56,7 +64,7 @@ export async function getSchoolStaffDirectory(
   const onDate = options.onDate ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
   const [directoryResult, summaryResult] = await Promise.all([
-    supabase.rpc("list_staff_directory_page", {
+    supabase.rpc("list_staff_access_directory_page", {
       p_school_id: schoolId,
       p_query: options.query?.trim() || null,
       p_page: page,
@@ -86,6 +94,10 @@ export async function getSchoolStaffDirectory(
       activeFrom: row.active_from,
       activeTo: row.active_to,
       hasAccount: row.has_account,
+      linkedUserId: row.linked_user_id,
+      pendingInvitationId: row.pending_invitation_id,
+      pendingInvitationStatus: row.pending_invitation_status,
+      activeRoles: row.active_roles ?? [],
     })),
     totalStaff: Number(summary?.total_staff ?? 0),
     activeStaff: Number(summary?.active_staff ?? 0),
