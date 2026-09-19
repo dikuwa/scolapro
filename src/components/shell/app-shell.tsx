@@ -143,7 +143,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span>
         </div>
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
-          <NotificationCenter unreadCount={unreadCount} notifications={notifications} />
+          <NotificationCenter
+            key={`${unreadCount}:${notifications.map((item) => `${item.id}:${item.readAt ?? "unread"}`).join("|")}`}
+            unreadCount={unreadCount}
+            notifications={notifications}
+          />
           <AccountMenu avatar={<Avatar url={avatarUrl} name={displayName} />} displayName={displayName} roleLabel={roleLabel} />
         </div>
       </div>
