@@ -316,33 +316,35 @@ export function LateArrivalWorkspace({
                   </button>
                 </div>
 
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredLearners.map((learner) => {
-                    const checked = selectedBulkIds.includes(learner.enrolmentId);
-                    return (
-                      <button
-                        key={learner.enrolmentId}
-                        type="button"
-                        onClick={() => toggleBulkId(learner.enrolmentId)}
-                        className={`flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-sm)] border p-2.5 text-left transition ${checked ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-border-subtle bg-surface hover:border-border"}`}
-                      >
-                        <span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>
-                          {checked ? <Check className="size-3" aria-hidden="true" /> : null}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-semibold text-foreground">{learner.name}</p>
-                          <p className="truncate text-[0.65rem] text-muted-foreground">
-                            {learner.admissionNumber ?? "No admission no."} · {learner.triggerProgress} of {learner.triggerThreshold} late
-                          </p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                  {!filteredLearners.length ? (
-                    <p className="col-span-full py-4 text-center text-xs text-muted-foreground">
-                      No active learners found in class {classFilter}.
-                    </p>
-                  ) : null}
+                <div className="mt-3 max-h-[min(62vh,42rem)] overflow-x-hidden overflow-y-auto overscroll-contain scolapro-scrollbar">
+                  <div className="grid gap-2 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                    {filteredLearners.map((learner) => {
+                      const checked = selectedBulkIds.includes(learner.enrolmentId);
+                      return (
+                        <button
+                          key={learner.enrolmentId}
+                          type="button"
+                          onClick={() => toggleBulkId(learner.enrolmentId)}
+                          className={`flex min-h-12 w-full scroll-m-2 items-center gap-3 rounded-[var(--radius-sm)] border p-2.5 text-left transition ${checked ? "border-[color:var(--brand)]/35 bg-brand-soft" : "border-border-subtle bg-surface hover:border-border"}`}
+                        >
+                          <span className={`grid size-4 shrink-0 place-items-center rounded border ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>
+                            {checked ? <Check className="size-3" aria-hidden="true" /> : null}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-foreground">{learner.name}</p>
+                            <p className="truncate text-[0.65rem] text-muted-foreground">
+                              {learner.admissionNumber ?? "No admission no."} · {learner.triggerProgress} of {learner.triggerThreshold} late
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {!filteredLearners.length ? (
+                      <p className="col-span-full py-4 text-center text-xs text-muted-foreground">
+                        No active learners found in class {classFilter}.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               </div>
             ) : (
