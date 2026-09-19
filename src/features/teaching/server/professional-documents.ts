@@ -34,6 +34,12 @@ const archiveSchema = z.object({
   documentId: z.string().uuid(),
 });
 
+const reviewSubmissionSchema = z.object({
+  documentId: z.string().uuid(),
+  subjectId: z.string().uuid(),
+});
+
+
 const teacherOwnerRoles = new Set(["teacher", "class_teacher", "hod"]);
 
 export type TeacherDocumentUploadTicket = {
@@ -174,6 +180,32 @@ export async function finalizeTeacherProfessionalDocument(
 
   revalidatePath("/teaching/files");
   return { success: true, message: "Professional document uploaded." };
+}
+
+export async function submitTeacherProfessionalDocumentForReview(
+  documentId: string,
+  subjectId: string,
+): Promise<TeacherDocumentMutationResult> {
+  const parsed = reviewSubmissionSchema.safeParse({ documentId, subjectId });
+  if (!parsed.success) return { success: false, message: "Choose a valid professional document and review subject." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("submit_teacher_professional_document_for_review", {
+    p_document_id: parsed.data.documentId,
+    p_subject_id: parsed.data.subjectId,
+  });
+  if (error) {
+    const detail = error.message.toLowerCase();
+    if (detail.includes("already awaiting")) return { success: false, message: "This document is already awaiting HOD review." };
+    if (detail.includes("reviewed professional")) return { success: false, message: "This document has already completed its review cycle." };
+    if (detail.includes("review subject")) return { success: false, message: "Choose one of your current teaching subjects for this review." };
+    if (detail.includes("owner authority")) return { success: false, message: "Current teacher ownership is required to submit this document." };
+    return { success: false, message: "The professional document could not be submitted for review." };
+  }
+
+  revalidatePath("/teaching/files");
+  revalidatePath("/teaching/reviews");
+  return { success: true, message: "Professional document submitted for HOD review." };
 }
 
 export async function archiveTeacherProfessionalDocument(

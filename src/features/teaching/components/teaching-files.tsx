@@ -23,10 +23,12 @@ import {
   archiveTeacherProfessionalDocument,
   finalizeTeacherProfessionalDocument,
   prepareTeacherProfessionalDocumentUpload,
+  submitTeacherProfessionalDocumentForReview,
 } from "@/features/teaching/server/professional-documents";
 
 type Allocation = {
   allocationId: string;
+  subjectId: string;
   className: string | null;
   gradeName: string;
   subjectName: string;
@@ -66,6 +68,10 @@ type ProfessionalDocument = {
   archivedAt: string | null;
   viewHref: string;
   downloadHref: string;
+  reviewStatus: "submitted" | "returned" | "reviewed" | null;
+  reviewSubjectId: string | null;
+  reviewSubjectName: string | null;
+  reviewNote: string | null;
 };
 
 export type TeachingFilesHubProps = {
@@ -164,6 +170,8 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
   const [recordStatus, setRecordStatus] = useState("");
   const [uploading, setUploading] = useState(false);
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [submittingReviewId, setSubmittingReviewId] = useState<string | null>(null);
+  const [reviewSubjectByDocument, setReviewSubjectByDocument] = useState<Record<string, string>>({});
 
   const allocationById = useMemo(
     () => new Map(allocations.map((allocation) => [allocation.allocationId, allocation])),
@@ -243,6 +251,12 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
     })),
   ];
 
+  const reviewSubjectOptions = [...new Map(
+    allocations
+      .filter((allocation) => allocation.subjectId)
+      .map((allocation) => [allocation.subjectId, { value: allocation.subjectId, label: allocation.subjectName }]),
+  ).values()];
+
   async function uploadProfessionalDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ownerSchoolId || !ownerStaffMemberId) return;
@@ -319,6 +333,27 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
       setArchivingId(null);
     }
   }
+
+  async function submitProfessionalDocumentReview(document: ProfessionalDocument) {
+    const subjectId = document.reviewSubjectId || reviewSubjectByDocument[document.id];
+    if (!subjectId) {
+      toast.error("Choose the teaching subject for HOD review.");
+      return;
+    }
+    setSubmittingReviewId(document.id);
+    try {
+      const result = await submitTeacherProfessionalDocumentForReview(document.id, subjectId);
+      if (result.success) {
+        toast.success(result.message);
+        router.refresh();
+      } else {
+        toast.error(result.message);
+      }
+    } finally {
+      setSubmittingReviewId(null);
+    }
+  }
+
 
   return (
     <div className="space-y-5">
@@ -442,6 +477,24 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
                     {document.categoryLabel || "Uncategorised"} · {document.originalFilename} · {formatBytes(document.fileSize)} · Uploaded {formatDate(document.createdAt)}
                     {document.archivedAt ? ` · Archived ${formatDate(document.archivedAt)}` : ""}
                   </p>
+                  {document.reviewStatus ? (
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      HOD review: <span className="font-medium capitalize text-foreground">{document.reviewStatus}</span>
+                      {document.reviewSubjectName ? ` · ${document.reviewSubjectName}` : ""}
+                      {document.reviewNote ? <p className="mt-1 break-words">Feedback: {document.reviewNote}</p> : null}
+                    </div>
+                  ) : null}
+                  {document.status === "active" && !document.reviewStatus && reviewSubjectOptions.length ? (
+                    <div className="mt-3 max-w-sm">
+                      <Picker
+                        label="Submit for HOD review"
+                        value={reviewSubjectByDocument[document.id] ?? ""}
+                        onChange={(value) => setReviewSubjectByDocument((current) => ({ ...current, [document.id]: value }))}
+                        options={reviewSubjectOptions}
+                        placeholder="Choose your teaching subject"
+                      />
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-2">
                   <a href={document.viewHref} target="_blank" rel="noopener noreferrer" className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium hover:bg-surface-muted">
@@ -450,7 +503,19 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
                   <a href={document.downloadHref} className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium hover:bg-surface-muted">
                     <FileDown className="size-3.5" aria-hidden="true" /> Download
                   </a>
-                  {document.status === "active" ? (
+                  {document.status === "active" && (!document.reviewStatus || document.reviewStatus === "returned") ? (
+                    <button
+                      type="button"
+                      disabled={submittingReviewId === document.id || (!document.reviewSubjectId && !reviewSubjectByDocument[document.id])}
+                      onClick={() => submitProfessionalDocumentReview(document)}
+                      className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:opacity-60"
+                    >
+                      {submittingReviewId === document.id
+                        ? "Submitting…"
+                        : document.reviewStatus === "returned" ? "Resubmit for review" : "Submit for review"}
+                    </button>
+                  ) : null}
+                  {document.status === "active" && document.reviewStatus !== "submitted" ? (
                     <button
                       type="button"
                       disabled={archivingId === document.id}
@@ -572,7 +637,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
             : "The official teacher-file taxonomy is not yet sourced. Uploaded category labels remain neutral teacher-defined labels or Uncategorised; no Ministry/NIED table of contents has been invented."}
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
-          HOD preparation review remains in its separate governed workspace. This owner-only document foundation does not grant leadership cross-teacher browsing.
+          HOD review is opt-in per professional document and subject. Only explicitly submitted files enter the governed review workspace; ordinary HOD browsing across teacher files remains prohibited.
         </p>
       </section>
     </div>
