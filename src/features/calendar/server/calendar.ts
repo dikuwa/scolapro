@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 export type AcademicTermSummary = {
   id: string;
@@ -33,7 +34,7 @@ export async function getGovernedAcademicYear(schoolId: string): Promise<number>
   if (activeYear) return activeYear;
 
   const configuredYear = years.find((item) => item.status === "setup")?.year ?? years[0]?.year;
-  return configuredYear ?? new Date().getFullYear();
+  return configuredYear ?? getNamibiaCalendarYear();
 }
 
 export async function getSchoolCalendar(schoolId: string, year: number) {
