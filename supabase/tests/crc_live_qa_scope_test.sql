@@ -164,8 +164,8 @@ select throws_ok(
   $$update public.crc_custody_records
      set receiving_school_id='51020000-0000-4000-8000-000000000003'
    where id=(select custody_id from crc_qa_flow)$$,
-  'CRC custody provenance is immutable',
-  'historical custody destination cannot be rewritten after preparation'
+  'CRC custody scope mismatch',
+  'historical custody destination cannot be rebound across tenant scope after preparation'
 );
 
 select set_config('request.jwt.claim.sub','51030000-0000-4000-8000-000000000006',true);
