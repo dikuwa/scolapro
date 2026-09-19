@@ -300,7 +300,7 @@ export function RoomInventoryWorkspace({
           <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4">
             <h2 className="scolapro-section-title">Verification history</h2>
             <div className="mt-2 space-y-2">
-              {verifications
+              {verifications.filter((x) => x.roomId === room.id).length ? verifications
                 .filter((x) => x.roomId === room.id)
                 .slice(0, 8)
                 .map((x) => (
@@ -315,7 +315,9 @@ export function RoomInventoryWorkspace({
                       {x.itemCount} items
                     </span>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-sm text-muted-foreground">No verification history yet.</p>
+                )}
             </div>
           </section>
         </>
@@ -379,8 +381,10 @@ function InventoryChangeForm({
           { value: "ownership_correction", label: "Ownership correction" },
         ]}
       />
-      <div className="block text-xs font-medium">Quantity change</div>
-      <input className={f} name="delta" type="number" defaultValue="0" />
+      <label className="min-w-0">
+        <span className={formFieldLabelClass}>Quantity change</span>
+        <input className={f} name="delta" type="number" defaultValue="0" />
+      </label>
       <Picker
         label="Condition"
         name="condition"

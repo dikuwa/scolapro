@@ -520,3 +520,34 @@ test('timetable core workflow keeps shared ScolaPro controls instead of browser-
   assert.match(bellSource, /Picker, TimePicker/);
   assert.match(cycleSource, /DateField/);
 });
+
+
+test('room inventory workspace uses Namibia-local effective dates and fails on partial query errors', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/room-inventory/server/queries.ts'), 'utf8');
+  assert.match(source, /import \{ getNamibiaDateKey \} from "@\/lib\/namibia-date";/);
+  assert.match(source, /const today = getNamibiaDateKey\(\);/);
+  assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.slice\(0,10\)/);
+  for (const result of ['roomsResult', 'itemsResult', 'custodiansResult', 'verificationsResult', 'assignmentsResult']) {
+    assert.ok(source.includes(`${result}.error`), `expected ${result} failures to reach the route error boundary`);
+  }
+  assert.match(source, /if \(loadError\) throw new Error\(\`Unable to load room inventory workspace:/);
+  assert.match(source, /if \(staffResult\.error\) throw new Error\(\`Unable to load room inventory workspace:/);
+});
+
+test('room inventory exposes honest empty verification history and labelled quantity mutation input', () => {
+  const load = loader({ '@/features/room-inventory/server/actions': { assignCustodian() {}, changeItem() {}, createItem() {}, verifyInventory() {} } });
+  const { RoomInventoryWorkspace } = load('@/features/room-inventory/room-inventory-workspace');
+  const html = renderToStaticMarkup(React.createElement(RoomInventoryWorkspace, {
+    rooms: [{id:'room',code:'R1',name:'Room',block:null,custodianId:null,custodianName:null,lastVerified:null,itemCount:1,status:'active'}],
+    items: [{id:'item',roomId:'room',name:'Desk',assetNumber:null,ownership:'government',condition:'good',quantity:1,status:'active',version:1,notes:null}],
+    staff: [],
+    verifications: [],
+    today: '2026-09-19',
+    canAssign: true,
+  }));
+  assert.match(html, /No verification history yet\./);
+  assert.match(html, /<span class="block h-4 text-xs font-medium leading-4">Quantity change<\/span>/);
+  assert.match(html, /name="delta"/);
+  assert.match(html, /type="number"/);
+  assert.match(html, /value="0"/);
+});
