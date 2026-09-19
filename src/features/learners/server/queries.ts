@@ -148,13 +148,12 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
   if (!enrolments?.length) return null;
 
   const today = getNamibiaDateKey();
-  const effectiveCurrent = enrolments.find((row) =>
+  const data = enrolments.find((row) =>
     row.status === "current"
     && row.enrolled_from <= today
     && (!row.enrolled_to || row.enrolled_to >= today),
   );
-  const latestStarted = enrolments.find((row) => row.enrolled_from <= today);
-  const data = effectiveCurrent ?? latestStarted ?? enrolments[0];
+  if (!data) return null;
 
   const learner = Array.isArray(data.learners) ? data.learners[0] : data.learners;
   const grade = Array.isArray(data.grades) ? data.grades[0] : data.grades;
