@@ -493,3 +493,30 @@ test('navigation exposes School Directory to every authenticated role without ne
     assert.match(source, new RegExp(`${role}: \\[[^\\]]*"school_directory"`), `${role} gains the directory entry`);
   }
 });
+
+
+test('academic setup and timetable share Namibia-local academic-year resolution', () => {
+  const setupSource = fs.readFileSync(path.join(root, 'src/app/school/setup/page.tsx'), 'utf8');
+  const timetableSource = fs.readFileSync(path.join(root, 'src/app/timetable/page.tsx'), 'utf8');
+
+  assert.match(setupSource, /import \{ getNamibiaCalendarYear \} from "@\/lib\/namibia-date";/);
+  assert.match(setupSource, /const academicYear = getNamibiaCalendarYear\(\);/);
+  assert.doesNotMatch(setupSource, /new Date\(\)\.getFullYear\(\)/);
+
+  assert.match(timetableSource, /import \{ getNamibiaCalendarYear \} from "@\/lib\/namibia-date";/);
+  assert.match(timetableSource, /const academicYear = getNamibiaCalendarYear\(\);/);
+});
+
+test('timetable core workflow keeps shared ScolaPro controls instead of browser-native pickers', () => {
+  const workspaceSource = fs.readFileSync(path.join(root, 'src/features/timetable/timetable-workspace.tsx'), 'utf8');
+  const bellSource = fs.readFileSync(path.join(root, 'src/features/timetable/bell-schedule-manager.tsx'), 'utf8');
+  const cycleSource = fs.readFileSync(path.join(root, 'src/features/timetable/timetable-cycle-settings.tsx'), 'utf8');
+
+  for (const source of [workspaceSource, bellSource, cycleSource]) {
+    assert.doesNotMatch(source, /<select\b|type="date"|type="time"/);
+  }
+  assert.match(workspaceSource, /Picker, TimePicker/);
+  assert.match(bellSource, /DateField/);
+  assert.match(bellSource, /Picker, TimePicker/);
+  assert.match(cycleSource, /DateField/);
+});
