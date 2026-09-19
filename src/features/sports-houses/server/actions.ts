@@ -254,6 +254,7 @@ export type SportsBalancePreview = {
 
 export type SportsBalanceActionState = SportsHousesActionState & {
   preview?: SportsBalancePreview;
+  nextOperationId?: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -371,6 +372,7 @@ export async function previewSportsHouseBalancing(
     success: true,
     message: preview.moveCount ? `Preview ready with ${preview.moveCount} proposed ${preview.moveCount === 1 ? "move" : "moves"}.` : "Preview ready. No moves are needed.",
     preview,
+    nextOperationId: crypto.randomUUID(),
   };
 }
 

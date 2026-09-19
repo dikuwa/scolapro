@@ -97,16 +97,13 @@ export function AssistedBalancingPanel({
   operationId: string;
 }) {
   const [scope, setScope] = useState<"learner" | "staff">("learner");
-  const [nextOperationId, setNextOperationId] = useState(operationId);
   const [previewState, previewAction, previewPending] = useActionState(previewSportsHouseBalancing, initialState);
   const [applyState, applyAction, applyPending] = useActionState(applySportsHouseBalancing, initialState);
   useBalanceToast(previewState);
   useBalanceToast(applyState);
-  useEffect(() => {
-    if (previewState.success && previewState.preview) setNextOperationId(crypto.randomUUID());
-  }, [previewState]);
 
   const preview = applyState.preview ?? previewState.preview ?? null;
+  const nextOperationId = previewState.nextOperationId ?? operationId;
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
