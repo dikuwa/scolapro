@@ -220,6 +220,23 @@ test('NumberStepper without a label stays shift-free like the unlabelled Picker'
   assert.doesNotMatch(html, /mt-1\.5/);
 });
 
+test('Room Inventory quantity stepper advances past 2 and respects its minimum boundary', () => {
+  const load = loader();
+  const stepper = load('@/components/ui/number-stepper');
+  assert.equal(stepper.nextStepperValue(1, 1), 2);
+  assert.equal(stepper.nextStepperValue(2, 1), 3);
+  assert.equal(stepper.nextStepperValue("2", 1), 3);
+  assert.equal(stepper.nextStepperValue(3, -1), 2);
+  assert.equal(stepper.nextStepperValue(1, -1, 1, 0), 0);
+  assert.equal(stepper.nextStepperValue(0, -1, 1, 0), 0);
+  assert.equal(stepper.clampStepperValue(-1, 0), 0);
+
+  const source = fs.readFileSync(path.join(root, 'src/components/ui/number-stepper.tsx'), 'utf8');
+  assert.match(source, /const \[uncontrolledValue, setUncontrolledValue\] = useState/);
+  assert.match(source, /const currentValue = isControlled \? value : uncontrolledValue/);
+  assert.match(source, /if \(!isControlled\) setUncontrolledValue\(event\.target\.value\)/);
+});
+
 test('room inventory add-item row shares the 1rem label box across all four fields', () => {
   const load = loader({ '@/features/room-inventory/server/actions': { assignCustodian() {}, changeItem() {}, createItem() {}, verifyInventory() {} } });
   const { RoomInventoryWorkspace } = load('@/features/room-inventory/room-inventory-workspace');
