@@ -18,8 +18,9 @@ function initials(name: string) {
 
 function Avatar({ url, name, size = "size-8" }: { url: string | null; name: string; size?: string }) {
   return (
-    <span className={`grid ${size} shrink-0 place-items-center overflow-hidden rounded-full bg-surface-subtle text-[0.68rem] font-semibold text-foreground`}>
-      {url ? <img src={url} alt="" className="size-full object-cover" /> : initials(name)}
+    <span className={`relative grid ${size} shrink-0 place-items-center overflow-hidden rounded-full bg-surface-subtle text-[0.68rem] font-semibold text-foreground`}>
+      <span aria-hidden="true">{initials(name)}</span>
+      {url ? <img src={url} alt="" className="absolute inset-0 size-full object-cover" /> : null}
     </span>
   );
 }
