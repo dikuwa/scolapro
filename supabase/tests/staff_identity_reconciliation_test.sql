@@ -40,13 +40,13 @@ select set_config('request.jwt.claims','{"sub":"e5000000-0000-4000-8000-00000000
 set local role authenticated;
 
 select throws_ok(
-  $select public.reconcile_staff_identities(
+  $q$select public.reconcile_staff_identities(
     'e5200000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000002',
     'CONFIRM',
     'wrong confirmation'
-  )$,
+  )$q$,
   'Type RECONCILE to confirm the identity merge',
   'reconciliation requires explicit confirmation'
 );
