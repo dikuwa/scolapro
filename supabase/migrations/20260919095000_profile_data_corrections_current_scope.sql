@@ -49,6 +49,26 @@ $$;
 revoke all on function app_private.user_can_review_profile_change_request(uuid,uuid)
 from public, anon, authenticated;
 
+create or replace function app_private.can_review_profile_change_request(
+  p_school_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, app_private
+as $
+  select app_private.user_can_review_profile_change_request(
+    (select auth.uid()),
+    p_school_id
+  );
+$;
+
+revoke all on function app_private.can_review_profile_change_request(uuid)
+from public, anon;
+grant execute on function app_private.can_review_profile_change_request(uuid)
+to authenticated;
+
 drop policy if exists "requesters and reviewers read profile change requests"
 on public.profile_change_requests;
 drop policy if exists "current requesters and reviewers read profile change requests"
@@ -60,7 +80,7 @@ for select
 to authenticated
 using (
   requested_by_user_id = (select auth.uid())
-  or app_private.user_can_review_profile_change_request((select auth.uid()), school_id)
+  or app_private.can_review_profile_change_request(school_id)
 );
 
 comment on function app_private.user_can_review_profile_change_request(uuid,uuid) is
@@ -69,3 +89,6 @@ comment on function app_private.user_can_review_profile_change_request(uuid,uuid
 comment on policy "current requesters and reviewers read profile change requests"
 on public.profile_change_requests is
 'Profile-change requests remain visible to their requester and to governed current reviewers only; older/non-current school memberships and stale linked staff placements do not expose another correction queue.';
+
+comment on function app_private.can_review_profile_change_request(uuid) is
+'Authenticated RLS wrapper for governed profile-change review authority; arbitrary-user review evaluation remains private.';
