@@ -233,17 +233,17 @@ export function DetentionPlanner({
         <div className="border-t border-border-subtle p-4 sm:p-5">
           <div className="mb-4 flex flex-wrap gap-2" aria-label="Detention planning steps"><StepBadge number={1} label="Session" /><StepBadge number={2} label="Supervisors" /><StepBadge number={3} label="Allocate learners" /></div>
           <div className="mb-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted/35 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:items-start md:gap-6">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold">Detention cycle</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
                   {detentionScheduleMode === "manual"
                     ? "Manual/ad-hoc scheduling is active. Authorised coordinators choose each future detention date."
                     : `Configured days: ${configuredDaysLabel || "none"}. Coordinators may still create an authorised manual future session when needed.`}
                 </p>
               </div>
               {canConfigureCycle ? (
-                <form action={cycleAction} className="w-full md:max-w-xl">
+                <form action={cycleAction} className="min-w-0">
                   <input type="hidden" name="schoolId" value={schoolId} />
                   <input type="hidden" name="scheduleMode" value={cycleMode} />
                   {cycleMode === "configured_days" ? cycleDays.map((day) => <input key={day} type="hidden" name="weekdays" value={day} />) : null}
@@ -257,7 +257,7 @@ export function DetentionPlanner({
                         const day = index + 1;
                         const selected = cycleDays.includes(day);
                         return (
-                          <button key={name} type="button" onClick={() => setCycleDays((current) => selected ? current.filter((value) => value !== day) : [...current, day].sort((a, b) => a - b))} className={`min-h-10 rounded-[var(--radius-xs)] border px-2 text-xs font-medium transition ${selected ? "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface"}`}>
+                          <button key={name} type="button" onClick={() => setCycleDays((current) => selected ? current.filter((value) => value !== day) : [...current, day].sort((a, b) => a - b))} className={`min-h-10 min-w-0 rounded-[var(--radius-xs)] border px-2 text-xs font-medium transition ${selected ? "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong" : "border-border-subtle bg-surface"}`}>
                             {name.slice(0, 3)}
                           </button>
                         );
@@ -280,7 +280,7 @@ export function DetentionPlanner({
               <form action={createAction} className="rounded-[var(--radius-md)] bg-surface-muted/55 p-4">
                 <input type="hidden" name="schoolId" value={schoolId} />
                 {newTeam.map((id) => <input key={id} type="hidden" name="staffMemberIds" value={id} />)}
-                <div className="flex items-center justify-between gap-2"><div><StepBadge number={1} label="Session" /><h3 className="mt-2 text-sm font-semibold">Plan a detention date</h3></div></div>
+                <h3 className="text-sm font-semibold">Plan a detention date</h3>
                 <p className="mt-1 text-xs text-muted-foreground">{detentionScheduleMode === "manual"
   ? "Manual/ad-hoc scheduling is active. Choose any authorised future roster date."
   : configuredDaysLabel
