@@ -227,7 +227,6 @@ select is(
     from public.audit_events
     where event_type='staff.identity.reconciled'
       and entity_id='e5300000-0000-4000-8000-000000000001'
-    order by created_at desc
     limit 1
   ),
   'exact_employee_number',
@@ -240,7 +239,6 @@ select is(
     from public.audit_events
     where event_type='staff.identity.reconciled'
       and entity_id='e5300000-0000-4000-8000-000000000001'
-    order by created_at desc
     limit 1
   ),
   2,
