@@ -70,7 +70,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
       const [{ data: snapshot, error: snapshotError }, { data: school, error: schoolError }] = await Promise.all([
         supabase
           .from("report_card_snapshots")
-          .select("id,school_id,snapshot_version,data_snapshot,certified_at")
+          .select("id,school_id,snapshot_version,data_snapshot,generated_at,certified_at")
           .eq("id", job.snapshot_id)
           .single(),
         supabase.from("schools").select("id,name,emis_number").eq("id", job.school_id).single(),
@@ -83,6 +83,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
         schoolName: school.name,
         schoolEmisNumber: school.emis_number,
         snapshotVersion: snapshot.snapshot_version,
+        generatedAt: snapshot.generated_at,
         certifiedAt: snapshot.certified_at,
         dataSnapshot: snapshot.data_snapshot ?? {},
         logoBytes: await loadFrozenSchoolLogo(supabase, snapshot.data_snapshot),
