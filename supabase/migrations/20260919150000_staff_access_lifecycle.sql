@@ -125,8 +125,8 @@ begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   v_email:=lower(coalesce(auth.jwt()->>'email',''));
   if v_email='' then raise exception 'Authenticated account has no email'; end if;
-  select * into v_invite from public.school_invitations
-  where token_hash=encode(digest(p_token,'sha256'),'hex') and status='pending' for update;
+  select si.* into v_invite from public.school_invitations as si
+  where si.token_hash=encode(digest(p_token,'sha256'),'hex') and si.status='pending' for update;
   if not found then raise exception 'Invitation is invalid or no longer available'; end if;
   if v_invite.expires_at<=now() then
     update public.school_invitations set status='expired' where id=v_invite.id;
@@ -137,29 +137,29 @@ begin
   end if;
 
   if v_invite.staff_member_id is not null then
-    select * into v_staff from public.staff_members
-    where id=v_invite.staff_member_id and tenant_id=v_invite.tenant_id for update;
+    select sm.* into v_staff from public.staff_members as sm
+    where sm.id=v_invite.staff_member_id and sm.tenant_id=v_invite.tenant_id for update;
     if not found then raise exception 'Invited staff identity no longer exists'; end if;
     if v_staff.user_id is not null and v_staff.user_id<>auth.uid() then
       raise exception 'Staff identity is already linked to another account';
     end if;
-    update public.staff_members set user_id=auth.uid(),updated_at=now()
-    where id=v_staff.id and user_id is null;
+    update public.staff_members as sm set user_id=auth.uid(),updated_at=now()
+    where sm.id=v_staff.id and sm.user_id is null;
   else
-    select * into v_staff from public.staff_members
-    where tenant_id=v_invite.tenant_id and user_id=auth.uid()
-    order by created_at asc limit 1;
+    select sm.* into v_staff from public.staff_members as sm
+    where sm.tenant_id=v_invite.tenant_id and sm.user_id=auth.uid()
+    order by sm.created_at asc limit 1;
     if not found and nullif(btrim(coalesce(v_invite.employee_number,'')),'') is not null then
-      select * into v_staff from public.staff_members
-      where tenant_id=v_invite.tenant_id
-        and upper(btrim(employee_number))=upper(btrim(v_invite.employee_number))
-      order by created_at asc limit 1 for update;
+      select sm.* into v_staff from public.staff_members as sm
+      where sm.tenant_id=v_invite.tenant_id
+        and upper(btrim(sm.employee_number))=upper(btrim(v_invite.employee_number))
+      order by sm.created_at asc limit 1 for update;
       if found then
         if v_staff.user_id is not null and v_staff.user_id<>auth.uid() then
           raise exception 'Employee number is already linked to another account';
         end if;
-        update public.staff_members set user_id=auth.uid(),updated_at=now()
-        where id=v_staff.id and user_id is null;
+        update public.staff_members as sm set user_id=auth.uid(),updated_at=now()
+        where sm.id=v_staff.id and sm.user_id is null;
       end if;
     end if;
   end if;
@@ -185,9 +185,9 @@ begin
     when v_invite.role_key in ('counsellor','librarian') then 'support'
     else 'staff' end;
   if not exists(
-    select 1 from public.staff_school_assignments
-    where school_id=v_invite.school_id and staff_member_id=v_staff_id
-      and effective_from<=current_date and (effective_to is null or effective_to>=current_date)
+    select 1 from public.staff_school_assignments as ssa
+    where ssa.school_id=v_invite.school_id and ssa.staff_member_id=v_staff_id
+      and ssa.effective_from<=current_date and (ssa.effective_to is null or ssa.effective_to>=current_date)
   ) then
     insert into public.staff_school_assignments(
       tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id
