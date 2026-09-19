@@ -22,16 +22,16 @@ const iconBySeverity = {
   danger: CircleAlert,
 } as const;
 
-export function NotificationCenter({ localUnreadCount, notifications }: { localUnreadCount: number; notifications: UserNotification[] }) {
+export function NotificationCenter({ unreadCount, notifications }: { unreadCount: number; notifications: UserNotification[] }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [items, setItems] = useState(notifications);
-  const [localUnreadCount, setLocalUnreadCount] = useState(localUnreadCount);
+  const [localUnreadCount, setLocalUnreadCount] = useState(unreadCount);
 
   useEffect(() => {
     setItems(notifications);
-    setLocalUnreadCount(localUnreadCount);
-  }, [notifications, localUnreadCount]);
+    setLocalUnreadCount(unreadCount);
+  }, [notifications, unreadCount]);
 
   function run(
     action: () => Promise<{ success: boolean; message?: string }>,
