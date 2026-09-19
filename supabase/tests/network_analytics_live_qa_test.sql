@@ -1,6 +1,6 @@
 begin;
 
-select plan(20);
+select plan(22);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('55500000-0000-4000-8000-000000000001','network-qa-circuit@example.test','authenticated','authenticated',now(),now()),
@@ -185,12 +185,38 @@ select is(
 );
 reset role;
 
-select ok(
-  not has_table_privilege('authenticated','public.canonical_metric_registry','INSERT')
-  and not has_table_privilege('authenticated','public.canonical_metric_registry','UPDATE')
-  and not has_table_privilege('authenticated','public.canonical_metric_registry','DELETE'),
-  'metric definitions remain migration/governance managed rather than user-editable'
+set local role authenticated;
+
+select throws_ok(
+  $$insert into public.canonical_metric_registry(
+      metric_key,display_name,description,unit,value_type,aggregation_method,
+      source_domain,network_safe,effective_from
+    ) values(
+      'network.qa_mutation',
+      'Unauthorized mutation',
+      'Must be rejected',
+      'rows','integer','count','education_network',true,'2026-01-01'
+    )$$,
+  '42501',
+  'authenticated callers cannot insert metric definitions, whether blocked by table privileges or RLS'
 );
+
+select throws_ok(
+  $$update public.canonical_metric_registry
+      set description = description
+    where metric_key='network.school_count' and effective_from='2020-01-01'$$,
+  '42501',
+  'authenticated callers cannot update metric definitions, whether blocked by table privileges or RLS'
+);
+
+select throws_ok(
+  $$delete from public.canonical_metric_registry
+      where metric_key='network.school_count' and effective_from='2020-01-01'$$,
+  '42501',
+  'authenticated callers cannot delete metric definitions, whether blocked by table privileges or RLS'
+);
+
+reset role;
 
 select is(
   (select count(*)::integer from public.canonical_metric_registry
