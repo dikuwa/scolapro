@@ -1,6 +1,6 @@
 begin;
 
-select plan(7);
+select plan(9);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fc000000-0000-4000-8000-000000000001','absence-live-principal@example.test','authenticated','authenticated',now(),now()),
@@ -43,6 +43,20 @@ insert into public.school_memberships(
 
 insert into public.platform_memberships(user_id,role_key,active_from)
 values('fc000000-0000-4000-8000-000000000004','platform_support',current_date-30);
+
+insert into public.guardian_absence_notices(
+  id,tenant_id,school_id,learner_id,enrolment_id,guardian_id,submitted_by_user_id,
+  absence_from,absence_to,reason_category,status
+) values(
+  'fc130000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  '50000000-0000-4000-8000-000000000001',
+  '60000000-0000-4000-8000-000000000001',
+  'fc131000-0000-4000-8000-000000000001',
+  'fc132000-0000-4000-8000-000000000001',
+  current_date,current_date,'illness','submitted'
+);
 
 update public.register_classes
 set register_teacher_staff_id='fc100000-0000-4000-8000-000000000003'
@@ -96,6 +110,13 @@ select is(
   'ended class-teacher placement removes daily/register absence scope'
 );
 
+select ok(
+  not app_private.can_review_guardian_absence_notice(
+    'fc130000-0000-4000-8000-000000000001'
+  ),
+  'ended class-teacher placement also removes guardian-notice review authority'
+);
+
 select set_config('request.jwt.claim.sub','fc000000-0000-4000-8000-000000000004',true);
 select is(
   (
@@ -126,6 +147,13 @@ select ok(
     ) where scope_kind not in ('daily_class','subject_slot')
   ),
   'resolver introduces no broader review or correction scope kinds'
+);
+
+select ok(
+  not app_private.can_review_guardian_absence_notice(
+    'fc130000-0000-4000-8000-000000000001'
+  ),
+  'Platform Support cannot borrow guardian-notice review authority from school membership'
 );
 
 select * from finish();
