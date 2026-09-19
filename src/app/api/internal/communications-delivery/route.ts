@@ -25,8 +25,7 @@ async function runWorkerResponse() {
     const result = await processCommunicationDeliveryQueue(25);
     return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown communication worker error";
-    console.error("communication delivery worker failed", message);
+    console.error("communication delivery worker failed");
     return NextResponse.json(
       { error: "Unable to process communication delivery queue" },
       { status: 500, headers: { "Cache-Control": "no-store" } },

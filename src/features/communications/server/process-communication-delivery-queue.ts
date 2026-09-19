@@ -176,7 +176,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
     } catch (error) {
       failed += 1;
       const message = error instanceof Error ? error.message : "Unknown communication transport error";
-      console.error("communication delivery job failed", job.id, message);
+      console.error("communication delivery job failed", job.id, { channel: job.channel, providerKey: job.provider_key ?? "unconfigured" });
 
       const { error: failError } = await supabase.rpc("fail_communication_delivery_job", {
         p_job_id: job.id,
@@ -184,7 +184,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
         p_retry_after_seconds: 300,
         p_max_attempts: 5,
       });
-      if (failError) console.error("communication delivery failure state update failed", job.id, failError.message);
+      if (failError) console.error("communication delivery failure state update failed", job.id);
     }
   }
 

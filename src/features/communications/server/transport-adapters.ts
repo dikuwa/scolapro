@@ -62,19 +62,6 @@ function birdSmsCategory(): "transactional" | "marketing" | "authentication" | "
   throw new Error("BIRD_SMS_CATEGORY must be transactional, marketing, authentication, or service.");
 }
 
-function birdErrorDetail(
-  responseBody: { message?: unknown; error?: { message?: unknown } | unknown } | null,
-  status: number,
-): string {
-  const nestedMessage =
-    responseBody?.error && typeof responseBody.error === "object" && "message" in responseBody.error
-      ? (responseBody.error as { message?: unknown }).message
-      : null;
-  if (typeof responseBody?.message === "string") return responseBody.message;
-  if (typeof nestedMessage === "string") return nestedMessage;
-  return `HTTP ${status}`;
-}
-
 function declaredTemplateVariableKeys(value: unknown): string[] {
   if (!Array.isArray(value)) throw new Error("Communication template variables are invalid.");
   return value.map((item) => {
@@ -173,8 +160,7 @@ const resendEmailAdapter: CommunicationTransportAdapter = {
 
     const responseBody = (await response.json().catch(() => null)) as { id?: unknown; message?: unknown } | null;
     if (!response.ok) {
-      const detail = typeof responseBody?.message === "string" ? responseBody.message : `HTTP ${response.status}`;
-      throw new Error(`Resend rejected email submission: ${detail}`);
+      throw new Error(`Resend rejected email submission (HTTP ${response.status}).`);
     }
 
     const providerMessageId = typeof responseBody?.id === "string" ? responseBody.id : null;
@@ -216,7 +202,7 @@ const birdSmsAdapter: CommunicationTransportAdapter = {
       message?: unknown;
       error?: { message?: unknown } | unknown;
     } | null;
-    if (!response.ok) throw new Error(`Bird rejected SMS submission: ${birdErrorDetail(responseBody, response.status)}`);
+    if (!response.ok) throw new Error(`Bird rejected SMS submission (HTTP ${response.status}).`);
 
     const providerMessageId = typeof responseBody?.id === "string" ? responseBody.id : null;
     if (!providerMessageId) throw new Error("Bird accepted the SMS without returning a message id.");
@@ -265,7 +251,7 @@ const birdWhatsAppAdapter: CommunicationTransportAdapter = {
       error?: { message?: unknown } | unknown;
     } | null;
     if (!response.ok) {
-      throw new Error(`Bird rejected WhatsApp submission: ${birdErrorDetail(responseBody, response.status)}`);
+      throw new Error(`Bird rejected WhatsApp submission (HTTP ${response.status}).`);
     }
 
     const providerMessageId = typeof responseBody?.id === "string" ? responseBody.id : null;
