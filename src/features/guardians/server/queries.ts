@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatPersonName } from "@/lib/person-name";
+import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 export type GuardianContact = { id: string; type: string; value: string; primary: boolean; label: string | null };
 export type GuardianAddress = {
@@ -35,22 +36,30 @@ export type ReusableGuardian = { id: string; name: string; contacts: GuardianCon
 
 export async function getLearnerGuardians(learnerId: string): Promise<LearnerGuardian[]> {
   const supabase = await createSupabaseServerClient();
+  const today = getNamibiaDateKey();
   const { data: links, error } = await supabase
     .from("learner_guardians")
     .select("id,guardian_id,relationship_type,is_legal_guardian,is_emergency_contact,is_pickup_authorized,priority")
     .eq("learner_id", learnerId)
-    .is("effective_to", null)
+    .lte("effective_from", today)
+    .or(`effective_to.is.null,effective_to.gte.${today}`)
     .order("priority");
-  if (error || !links?.length) return [];
+  if (error) throw new Error("Unable to load learner guardians.");
+  if (!links?.length) return [];
 
   const guardianIds = links.map((item) => item.guardian_id);
-  const [{ data: profiles }, { data: contacts }, { data: addresses }] = await Promise.all([
+  const [profilesResult, contactsResult, addressesResult] = await Promise.all([
     supabase.from("guardian_profiles").select("id,first_names,surname,preferred_name").in("id", guardianIds),
-    supabase.from("guardian_contacts").select("id,guardian_id,contact_type,contact_value,is_primary,label").in("guardian_id", guardianIds).is("effective_to", null),
-    supabase.from("guardian_addresses").select("id,guardian_id,address_type,label,address_line_1,address_line_2,suburb_or_locality,town_or_city,region,postal_code,country,is_primary").in("guardian_id", guardianIds).is("effective_to", null),
+    supabase.from("guardian_contacts").select("id,guardian_id,contact_type,contact_value,is_primary,label").in("guardian_id", guardianIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
+    supabase.from("guardian_addresses").select("id,guardian_id,address_type,label,address_line_1,address_line_2,suburb_or_locality,town_or_city,region,postal_code,country,is_primary").in("guardian_id", guardianIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
   ]);
+  const detailError = profilesResult.error || contactsResult.error || addressesResult.error;
+  if (detailError) throw new Error("Unable to load learner guardian details.");
+  const profiles = profilesResult.data ?? [];
+  const contacts = contactsResult.data ?? [];
+  const addresses = addressesResult.data ?? [];
 
-  const profileMap = new Map((profiles ?? []).map((item) => [item.id, item]));
+  const profileMap = new Map(profiles.map((item) => [item.id, item]));
   return links.map((link) => {
     const profile = profileMap.get(link.guardian_id);
     const firstNames = profile?.first_names ?? "";
@@ -66,8 +75,8 @@ export async function getLearnerGuardians(learnerId: string): Promise<LearnerGua
       emergencyContact: link.is_emergency_contact,
       pickupAuthorized: link.is_pickup_authorized,
       priority: link.priority,
-      contacts: (contacts ?? []).filter((item) => item.guardian_id === link.guardian_id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
-      addresses: (addresses ?? []).filter((item) => item.guardian_id === link.guardian_id).map((item) => ({
+      contacts: contacts.filter((item) => item.guardian_id === link.guardian_id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
+      addresses: addresses.filter((item) => item.guardian_id === link.guardian_id).map((item) => ({
         id: item.id, type: item.address_type, label: item.label, line1: item.address_line_1, line2: item.address_line_2,
         locality: item.suburb_or_locality, town: item.town_or_city, region: item.region, postalCode: item.postal_code,
         country: item.country, primary: item.is_primary,
@@ -78,10 +87,14 @@ export async function getLearnerGuardians(learnerId: string): Promise<LearnerGua
 
 export async function getReusableGuardians(learnerId: string, schoolId: string): Promise<ReusableGuardian[]> {
   const supabase = await createSupabaseServerClient();
-  const [{ data: school }, { data: currentLinks }] = await Promise.all([
+  const today = getNamibiaDateKey();
+  const [schoolResult, currentLinksResult] = await Promise.all([
     supabase.from("schools").select("tenant_id").eq("id", schoolId).maybeSingle(),
-    supabase.from("learner_guardians").select("guardian_id").eq("learner_id", learnerId).is("effective_to", null),
+    supabase.from("learner_guardians").select("guardian_id").eq("learner_id", learnerId).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
   ]);
+  if (schoolResult.error || currentLinksResult.error) throw new Error("Unable to load reusable guardians.");
+  const school = schoolResult.data;
+  const currentLinks = currentLinksResult.data ?? [];
   if (!school?.tenant_id) return [];
 
   const existing = new Set((currentLinks ?? []).map((item) => item.guardian_id));
@@ -93,20 +106,23 @@ export async function getReusableGuardians(learnerId: string, schoolId: string):
     .order("surname")
     .order("first_names")
     .limit(250);
-  if (error || !profiles?.length) return [];
+  if (error) throw new Error("Unable to load reusable guardians.");
+  if (!profiles?.length) return [];
 
   const candidates = profiles.filter((profile) => !existing.has(profile.id));
   if (!candidates.length) return [];
   const ids = candidates.map((item) => item.id);
-  const { data: contacts } = await supabase
+  const { data: contacts, error: contactsError } = await supabase
     .from("guardian_contacts")
     .select("id,guardian_id,contact_type,contact_value,is_primary,label")
     .in("guardian_id", ids)
-    .is("effective_to", null);
+    .lte("effective_from", today)
+    .or(`effective_to.is.null,effective_to.gte.${today}`);
+  if (contactsError) throw new Error("Unable to load reusable guardian contacts.");
 
   return candidates.map((profile) => ({
     id: profile.id,
     name: formatPersonName(`${profile.first_names} ${profile.surname}`),
-    contacts: (contacts ?? []).filter((item) => item.guardian_id === profile.id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
+    contacts: contacts.filter((item) => item.guardian_id === profile.id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
   }));
 }
