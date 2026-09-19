@@ -60,3 +60,15 @@ test("official class-list output keeps long-table continuation and provenance", 
   assert.match(classListRoute, /generatedAt/);
   assert.match(classListRoute, /X-ScolaPro-Page-Count/);
 });
+
+
+test("report-card HTML shared chrome validation checks block presence before replacement", () => {
+  assert.match(htmlShared, /schoolHeaderPattern = \/<header class="school-header">/);
+  assert.match(htmlShared, /if \(!schoolHeaderPattern\.test\(html\)\)/);
+  assert.match(htmlShared, /html = html\.replace\(schoolHeaderPattern, sharedHeader\)/);
+  assert.match(htmlShared, /documentMetaPattern = \/<footer class="document-meta">/);
+  assert.match(htmlShared, /if \(!documentMetaPattern\.test\(html\)\)/);
+  assert.match(htmlShared, /return html\.replace\(documentMetaPattern, footer\)/);
+  assert.doesNotMatch(htmlShared, /withSharedHeader === html/);
+  assert.doesNotMatch(htmlShared, /withSharedFooter === html/);
+});
