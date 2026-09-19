@@ -75,7 +75,7 @@ export default async function StatutoryPage({ searchParams }: { searchParams: Se
   const mappings = (mappingResult.data ?? []) as MappingRow[];
   const params = await searchParams;
 
-  const platformCanManage = context.platformMemberships.some((m) => ["platform_admin", "platform_support"].includes(m.roleKey));
+  const platformCanManage = context.platformMemberships.some((m) => m.roleKey === "platform_admin");
   const metrics = {
     cycles: cycles.length,
     blockers: issues.filter((issue) => !issue.resolved && issue.severity === "blocking").length,
