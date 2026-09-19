@@ -166,7 +166,7 @@ export function ProfileSettings({ avatarUrl, userId, mustChangePassword }: { ava
         <p className="scolapro-section-description">JPG, PNG or WebP. Maximum 3 MB. A local preview appears immediately before upload.</p>
         <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="relative size-20 shrink-0 overflow-hidden rounded-full bg-surface-muted">
-            {previewUrl ? <img src={previewUrl} alt="Current profile" className="size-full object-cover" /> : <div className="grid size-full place-items-center text-xs font-medium text-muted-foreground">No photo</div>}
+            {previewUrl ? <img src={previewUrl} alt="Current profile" className="size-full object-cover" onError={() => setPreviewUrl(null)} /> : <div className="grid size-full place-items-center text-xs font-medium text-muted-foreground">No photo</div>}
             {avatarUploading ? <div className="absolute inset-0 grid place-items-center bg-black/35" aria-label="Uploading profile photo"><Spinner className="size-5 text-white" /></div> : null}
           </div>
           <div className="min-w-0 flex-1">
