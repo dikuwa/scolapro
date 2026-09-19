@@ -43,7 +43,8 @@ test("historical statutory payload and form schemas remain versioned and immutab
   assert.match(finality, /Approved or published statutory form schema is immutable; create a new form version/);
   assert.match(mapping, /mapping_schema_snapshot/);
   assert.match(mapping, /v_version\.mapping_schema/);
-  assert.match(operational, /later canonical source changes do not rewrite|snapshot/i);
+  assert.match(operational, /generate_statutory_snapshot/);
+  assert.match(operational, /reference_date/);
 });
 
 test("generic compiler remains declarative and does not encode Ministry form fields", () => {
