@@ -56,7 +56,7 @@ test("generic compiler remains declarative and does not encode Ministry form fie
 
 test("statutory workspace states and responsive primitives remain present", () => {
   assert.match(page, /No reporting cycles in your scope/);
-  assert.match(page, /Unable to load statutory reporting lifecycle/);
+  assert.match(page, /Unable to load the statutory reporting lifecycle/);
   assert.match(loading, /RouteLoadingIndicator/);
   assert.match(error, /Statutory reporting unavailable/);
   assert.match(page, /sm:grid-cols-2 xl:grid-cols-4/);
