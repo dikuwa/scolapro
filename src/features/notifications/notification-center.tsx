@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bell, CheckCheck, CircleAlert, CircleCheck, Info, Trash2, TriangleAlert } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { clearNotifications, markAllNotificationsRead, markNotificationRead } from "@/features/notifications/server/actions";
 import type { UserNotification } from "@/features/notifications/server/notifications";
 import { Spinner } from "@/components/ui/spinner";
@@ -27,11 +27,6 @@ export function NotificationCenter({ unreadCount, notifications }: { unreadCount
   const [pending, startTransition] = useTransition();
   const [items, setItems] = useState(notifications);
   const [localUnreadCount, setLocalUnreadCount] = useState(unreadCount);
-
-  useEffect(() => {
-    setItems(notifications);
-    setLocalUnreadCount(unreadCount);
-  }, [notifications, unreadCount]);
 
   function run(
     action: () => Promise<{ success: boolean; message?: string }>,
