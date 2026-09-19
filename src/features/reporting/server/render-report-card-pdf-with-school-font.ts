@@ -35,7 +35,7 @@ export async function renderReportCardPdfWithSchoolFont(
   const metadata = buildOfficialDocumentMetadata({
     snapshotVersion: model.snapshotVersion,
     certifiedAt: model.certifiedAt,
-    provenanceText: "Historical marks and report rules are frozen at generation.",
+    provenanceText: `${model.generatedAt ? `Generated ${model.generatedAt} · ` : ""}Historical marks and report rules are frozen at generation.`,
   });
 
   const pdf = await PDFDocument.load(rendered.bytes);
