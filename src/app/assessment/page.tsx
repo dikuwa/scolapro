@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAssessmentWorkspaceOverview } from "@/features/academics/server/workspace-overview";
 import { getUserContext } from "@/lib/auth/get-user-context";
+import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 export default async function AssessmentPage() {
   const context = await getUserContext();
@@ -14,7 +15,7 @@ export default async function AssessmentPage() {
   const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
-  const academicYear = new Date().getFullYear();
+  const academicYear = getNamibiaCalendarYear();
   const overview = await getAssessmentWorkspaceOverview(membership.schoolId, academicYear);
   const canReview = ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey);
 
