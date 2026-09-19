@@ -155,10 +155,11 @@ select is(
 select ok(
   exists(
     select 1 from public.staff_school_assignments
-    where staff_member_id='e5300000-0000-4000-8000-000000000001'
+    where staff_member_id='e5300000-0000-4000-8000-000000000002'
+      and school_id='e5200000-0000-4000-8000-000000000001'
       and position_title='Teacher duplicate'
   ),
-  'historical/current placement evidence remains explainable on canonical identity'
+  'conflicting placement history is preserved on the retained duplicate identity'
 );
 select is(
   (select user_id from public.staff_members where id='e5300000-0000-4000-8000-000000000002'),
@@ -187,11 +188,11 @@ values(
 
 set local role authenticated;
 select throws_ok(
-  $select public.correct_staff_details(
+  $q$select public.correct_staff_details(
     'e5200000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000001',
     'Canonical','Staff','EMP-CONFLICT','Senior Teacher','staff_directory','typo'
-  )$,
+  )$q$,
   'Employee number already belongs to another active staff identity',
   'correction cannot silently claim another active identity employee number'
 );
