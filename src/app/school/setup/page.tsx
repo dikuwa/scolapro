@@ -12,6 +12,7 @@ import { RoomManagement } from "@/features/timetable/room-management";
 import { TimetableCycleSettings } from "@/features/timetable/timetable-cycle-settings";
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
 import { getUserContext } from "@/lib/auth/get-user-context";
+import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 export default async function SchoolSetupPage() {
   const context = await getUserContext();
@@ -21,7 +22,7 @@ export default async function SchoolSetupPage() {
   if (!membership) redirect("/");
 
   const canManageAcademicStructure = membership.roleKey === "school_admin";
-  const academicYear = new Date().getFullYear();
+  const academicYear = getNamibiaCalendarYear();
   const [structure, rooms, conductCategories, hodScope] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
