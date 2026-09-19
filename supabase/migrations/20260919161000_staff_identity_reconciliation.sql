@@ -233,6 +233,18 @@ begin
   end if;
 
   v_canonical_user:=coalesce(v_canonical.user_id,v_duplicate.user_id);
+
+  -- Release the duplicate's tenant/user uniqueness slot before attaching the
+  -- same Auth account to the canonical identity. Both rows are locked above,
+  -- so this handoff remains atomic inside the reconciliation transaction.
+  if v_duplicate.user_id is not null
+     and v_duplicate.user_id=v_canonical_user
+     and v_canonical.user_id is null then
+    update public.staff_members
+    set user_id=null,updated_at=now()
+    where id=v_duplicate.id;
+  end if;
+
   update public.staff_members
   set user_id=v_canonical_user,updated_at=now()
   where id=v_canonical.id;
