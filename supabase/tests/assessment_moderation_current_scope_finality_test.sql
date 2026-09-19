@@ -115,25 +115,25 @@ select lives_ok(
 );
 
 select throws_ok(
-  $insert into public.learner_marks(
+  $$insert into public.learner_marks(
       tenant_id,school_id,assessment_instance_id,enrolment_id,learner_id,numeric_mark,recorded_by_user_id
     ) values(
       '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
       '54508000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000001',
       '50000000-0000-4000-8000-000000000001',73,'54500000-0000-4000-8000-000000000001'
-    )$,
+    )$$,
   'P0001','Assessment is not open for mark editing',
   'working marks cannot be appended while governed review is active'
 );
 
 select throws_ok(
-  $insert into public.learner_marks(
+  $$insert into public.learner_marks(
       tenant_id,school_id,assessment_instance_id,enrolment_id,learner_id,numeric_mark,recorded_by_user_id
     ) values(
       '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
       '54508000-0000-4000-8000-000000000003','60000000-0000-4000-8000-000000000001',
       '50000000-0000-4000-8000-000000000001',74,'54500000-0000-4000-8000-000000000001'
-    )$,
+    )$$,
   'P0001','Assessment is not open for mark editing',
   'working marks cannot be appended after verification'
 );
@@ -145,8 +145,8 @@ select lives_ok(
 );
 
 select throws_ok(
-  $update public.assessment_instances set status='review'
-    where id='54508000-0000-4000-8000-000000000001'$,
+  $$update public.assessment_instances set status='review'
+    where id='54508000-0000-4000-8000-000000000001'$$,
   '42501',null,
   'ordinary client cannot move an open instance into governed review'
 );
