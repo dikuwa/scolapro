@@ -11,6 +11,8 @@ const submitSchema = z.object({
   fieldKey: z.enum(["first_names","initials","surname","preferred_name","date_of_birth","sex","national_id","birth_certificate_number"]),
   proposedValue: z.string().max(300),
   reason: z.string().trim().max(800).optional(),
+  sourceCategory: z.enum(["parent_guardian_report","learner_report","teacher_observation","admin_detected_error","verified_document","other"]).default("teacher_observation"),
+  evidenceReference: z.string().trim().max(500).optional(),
 });
 
 export async function submitLearnerProfileChange(_state: ProfileChangeActionState, formData: FormData): Promise<ProfileChangeActionState> {
@@ -19,6 +21,8 @@ export async function submitLearnerProfileChange(_state: ProfileChangeActionStat
     fieldKey: formData.get("fieldKey"),
     proposedValue: formData.get("proposedValue") ?? "",
     reason: formData.get("reason") || undefined,
+    sourceCategory: formData.get("sourceCategory") || undefined,
+    evidenceReference: formData.get("evidenceReference") || undefined,
   });
   if (!parsed.success) return { message: "Choose a learner field and provide the corrected value." };
 
@@ -35,6 +39,8 @@ export async function submitLearnerProfileChange(_state: ProfileChangeActionStat
     p_field_key: parsed.data.fieldKey,
     p_proposed_value: proposedValue,
     p_reason: parsed.data.reason || null,
+    p_source_category: parsed.data.sourceCategory,
+    p_evidence_reference: parsed.data.evidenceReference || null,
   });
   if (error) return { message: error.message || "The correction request could not be submitted." };
   revalidatePath(`/learners/${parsed.data.learnerId}`);
@@ -57,4 +63,18 @@ export async function reviewProfileChange(_state: ProfileChangeActionState, form
   revalidatePath("/school/data-corrections");
   revalidatePath("/learners");
   return { success: true, message: parsed.data.decision === "approved" ? "Correction approved and applied." : "Correction rejected." };
+}
+
+const cancelSchema = z.object({ requestId: z.string().uuid(), learnerId: z.string().uuid() });
+
+export async function cancelProfileChange(_state: ProfileChangeActionState, formData: FormData): Promise<ProfileChangeActionState> {
+  const parsed = cancelSchema.safeParse({ requestId: formData.get("requestId"), learnerId: formData.get("learnerId") });
+  if (!parsed.success) return { message: "The correction request could not be identified." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("cancel_profile_change_request", { p_request_id: parsed.data.requestId });
+  if (error) return { message: error.message || "The correction request could not be cancelled." };
+  revalidatePath(`/learners/${parsed.data.learnerId}`);
+  revalidatePath("/parent");
+  revalidatePath("/school/data-corrections");
+  return { success: true, message: "Correction request cancelled." };
 }

@@ -32,6 +32,7 @@ export type LearnerDirectoryPage = {
 };
 
 export type LearnerOverview = LearnerListItem & {
+  enrolmentId: string;
   firstNames: string;
   surname: string;
   dateOfBirth: string | null;
@@ -167,6 +168,7 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
 
   return {
     id: learner.id,
+    enrolmentId: data.id,
     name: `${learner.first_names} ${learner.surname}`.trim(),
     preferredName: learner.preferred_name,
     firstNames: learner.first_names,
