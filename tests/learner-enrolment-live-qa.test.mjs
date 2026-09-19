@@ -34,6 +34,14 @@ test("learner routes expose loading empty and explicit error states",()=>{
   assert.match(directory,/No learners|No learner|No matching/i);
 });
 
+test("learner directory keeps the canonical page read independent from auxiliary filter options",()=>{
+  assert.match(directoryPage,/Promise\.allSettled/);
+  assert.match(directoryPage,/directoryResult\.status === "rejected"/);
+  assert.match(directoryPage,/academicOptionsResult\.status === "fulfilled"/);
+  assert.match(directoryPage,/academicOptions = academicOptionsResult\.status === "fulfilled" \? academicOptionsResult\.value : \[\]/);
+  assert.doesNotMatch(directoryPage,/academicOptionsResult\.status === "rejected"[\s\S]{0,180}throw/);
+});
+
 test("generic learner detail remains operational-scope only and does not query restricted support or exam stores",()=>{
   assert.match(detailPage,/getLearnerOverview\(id, membership\.schoolId\)/);
   assert.doesNotMatch(queries,/learner_support_cases|psychometric|exam_access|examination_access|restricted_access/);
