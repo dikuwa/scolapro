@@ -104,7 +104,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       }
 
       const [inbox, navigationAttention] = await Promise.all([
-        getNotificationInbox(),
+        getNotificationInbox(8, {
+          currentSchoolId: membership?.schoolId ?? null,
+          roleKey,
+        }),
         membership
           ? getNavigationAttentionCounts(membership.schoolId, membership.roleKey)
           : Promise.resolve({}),
