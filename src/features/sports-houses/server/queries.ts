@@ -68,6 +68,14 @@ type LearnerRosterRow = {
   age_group_label: string | null;
 };
 
+type LearnerAssignmentRow = {
+  learner_id: string;
+  house_id: string;
+  assignment_source: string;
+  is_locked: boolean;
+  assigned_at: string;
+};
+
 type StaffAssignmentRow = {
   staff_member_id: string;
   house_id: string;
@@ -89,6 +97,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     settingsResult,
     ageGroupsResult,
     learnerRosterResult,
+    currentLearnerAssignmentsResult,
     learnerAssignmentsYearsResult,
     staffAssignmentsResult,
     staffAssignmentYearsResult,
@@ -100,6 +109,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     supabase.from("sports_year_settings").select("academic_year,age_reference_date,assignment_continuity").eq("school_id", schoolId).order("academic_year", { ascending: false }),
     supabase.from("sports_age_groups").select("id,label,min_age,max_age,sort_order,status").eq("school_id", schoolId).order("sort_order").order("label"),
     supabase.from("sports_house_learner_roster").select("learner_id,first_names,surname,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label").eq("school_id", schoolId).eq("academic_year", academicYear),
+    supabase.from("sports_learner_house_assignments").select("learner_id,house_id,assignment_source,is_locked,assigned_at").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("sports_learner_house_assignments").select("academic_year").eq("school_id", schoolId),
     supabase.from("sports_staff_house_assignments").select("staff_member_id,house_id,role_key,assignment_source,is_locked,assigned_at").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("sports_staff_house_assignments").select("academic_year").eq("school_id", schoolId),
@@ -112,13 +122,16 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     housesResult.error ??
     settingsResult.error ??
     ageGroupsResult.error ??
-    learnerRosterResult.error ??
+    currentLearnerAssignmentsResult.error ??
     learnerAssignmentsYearsResult.error ??
     staffAssignmentsResult.error ??
     staffAssignmentYearsResult.error ??
     enrolmentsResult.error ??
     staffPlacementsResult.error;
-  if (loadError) throw new Error("Unable to load Sports / Houses.");
+  if (loadError) {
+    const dependency = schoolResult.error ? "school context" : housesResult.error ? "house configuration" : settingsResult.error ? "year settings" : ageGroupsResult.error ? "age groups" : currentLearnerAssignmentsResult.error ? "learner assignments" : learnerAssignmentsYearsResult.error ? "learner assignment history" : staffAssignmentsResult.error ? "staff assignments" : staffAssignmentYearsResult.error ? "staff assignment history" : enrolmentsResult.error ? "enrolments" : staffPlacementsResult.error ? "staff placements" : "workspace read";
+    throw new Error(`Unable to load Sports / Houses (${dependency}).`);
+  }
 
   if (!schoolResult.data) throw new Error("Sports / Houses school context is unavailable.");
 
@@ -159,25 +172,31 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     status: row.status,
   }));
 
-  const learnerRoster = new Map(
-    ((learnerRosterResult.data ?? []) as LearnerRosterRow[]).map((row) => [row.learner_id, row]),
-  );
+  const learnerRoster = new Map<string, LearnerRosterRow | LearnerAssignmentRow>();
+  if (!learnerRosterResult.error) {
+    for (const row of (learnerRosterResult.data ?? []) as LearnerRosterRow[]) learnerRoster.set(row.learner_id, row);
+  } else {
+    // The roster view is a read-model convenience. Fall back to the canonical assignment
+    // table so an empty or freshly-migrated school still renders the normal workspace.
+    for (const row of (currentLearnerAssignmentsResult.data ?? []) as LearnerAssignmentRow[]) learnerRoster.set(row.learner_id, row);
+  }
   const learnerNames = new Map((learnerIdentityResult.data ?? []).map((row) => [row.id, `${row.first_names} ${row.surname}`.trim()]));
   const admissionNumbers = new Map(enrolments.map((row) => [row.learner_id, row.admission_number]));
   const learners: SportsLearner[] = learnerIds.map((learnerId) => {
     const assignment = learnerRoster.get(learnerId);
+    const roster = assignment && "house_name" in assignment ? assignment : null;
     return {
       id: learnerId,
       name: learnerNames.get(learnerId) ?? "Learner",
       admissionNumber: admissionNumbers.get(learnerId) ?? null,
       houseId: assignment?.house_id ?? null,
-      houseName: assignment?.house_name ?? null,
-      houseColorHex: assignment?.house_color_hex ?? null,
+      houseName: roster?.house_name ?? houseMap.get(assignment?.house_id ?? "")?.name ?? null,
+      houseColorHex: roster?.house_color_hex ?? houseMap.get(assignment?.house_id ?? "")?.colorHex ?? null,
       assignmentSource: assignment?.assignment_source ?? null,
       isLocked: assignment?.is_locked ?? false,
       assignedAt: assignment?.assigned_at ?? null,
-      ageOnReferenceDate: assignment?.age_on_reference_date ?? null,
-      ageGroupLabel: assignment?.age_group_label ?? null,
+      ageOnReferenceDate: roster?.age_on_reference_date ?? null,
+      ageGroupLabel: roster?.age_group_label ?? null,
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
