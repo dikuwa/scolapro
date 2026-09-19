@@ -90,16 +90,19 @@ select is(
 update public.staff_school_assignments
 set effective_to = current_date-1
 where id='52931000-0000-4000-8000-000000000001';
+update public.school_memberships
+set active_to = current_date-1
+where id='52940000-0000-4000-8000-000000000003';
 
 select is(
   app_private.can_access_learner_support_case('52960000-0000-4000-8000-000000000001'),
   false,
-  'stale counsellor staff placement removes confidential support-case access even while membership remains active'
+  'stale counsellor placement and membership remove confidential support-case access'
 );
 select is(
   app_private.can_manage_learner_support('52920000-0000-4000-8000-000000000001'),
   false,
-  'stale linked staff placement removes confidential support-management authority'
+  'stale counsellor placement and membership remove confidential support-management authority'
 );
 
 select set_config('request.jwt.claim.sub','52900000-0000-4000-8000-000000000003',true);
