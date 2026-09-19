@@ -140,4 +140,4 @@ grant execute on function public.save_hod_subject_portfolio(uuid,uuid[],uuid,tex
   to authenticated;
 
 comment on function public.save_hod_subject_portfolio(uuid,uuid[],uuid,text,date,date) is
-'Atomic grouped HOD portfolio save. Subject_department_responsibilities remains the effective-dated authorization source; the optional label is descriptive only.';
+'Atomic grouped HOD portfolio save. Subject_department_responsibilities remains the effective-dated authorization source; the optional label is descriptive only.'
