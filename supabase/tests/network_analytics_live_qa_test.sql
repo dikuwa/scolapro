@@ -1,6 +1,6 @@
 begin;
 
-select plan(22);
+select plan(24);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('55500000-0000-4000-8000-000000000001','network-qa-circuit@example.test','authenticated','authenticated',now(),now()),
@@ -198,22 +198,48 @@ select throws_ok(
       'rows','integer','count','education_network',true,'2026-01-01'
     )$$,
   '42501',
-  'authenticated callers cannot insert metric definitions, whether blocked by table privileges or RLS'
+  'authenticated inserts are denied by the registry security boundary'
 );
 
-select throws_ok(
-  $$update public.canonical_metric_registry
-      set description = description
-    where metric_key='network.school_count' and effective_from='2020-01-01'$$,
-  '42501',
-  'authenticated callers cannot update metric definitions, whether blocked by table privileges or RLS'
+select lives_ok(
+  $$do $mutation$
+begin
+  begin
+    update public.canonical_metric_registry
+       set description = 'Unauthorized mutation'
+     where metric_key='network.school_count' and effective_from='2020-01-01';
+  exception when others then
+    null;
+  end;
+end;
+$mutation$;$$,
+  'authenticated update attempt is tolerated whether denied by privileges or filtered by RLS'
+);
+select is(
+  (select description from public.canonical_metric_registry
+   where metric_key='network.school_count' and effective_from='2020-01-01'),
+  'Distinct schools with an effective education-network assignment inside the caller current authorized circuit or regional scope at the requested as-of date.',
+  'authenticated update attempt leaves the authoritative metric definition unchanged'
 );
 
-select throws_ok(
-  $$delete from public.canonical_metric_registry
-      where metric_key='network.school_count' and effective_from='2020-01-01'$$,
-  '42501',
-  'authenticated callers cannot delete metric definitions, whether blocked by table privileges or RLS'
+select lives_ok(
+  $$do $mutation$
+begin
+  begin
+    delete from public.canonical_metric_registry
+     where metric_key='network.school_count' and effective_from='2020-01-01';
+  exception when others then
+    null;
+  end;
+end;
+$mutation$;$$,
+  'authenticated delete attempt is tolerated whether denied by privileges or filtered by RLS'
+);
+select is(
+  (select count(*)::integer from public.canonical_metric_registry
+   where metric_key='network.school_count' and effective_from='2020-01-01'),
+  1,
+  'authenticated delete attempt leaves the authoritative metric definition present'
 );
 
 reset role;
