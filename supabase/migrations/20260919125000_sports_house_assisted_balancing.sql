@@ -717,7 +717,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public,app_private
-as $
+as $$
 begin
   if tg_op='DELETE' then
     raise exception 'Sports balancing run history is immutable';
@@ -751,18 +751,18 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 create or replace function app_private.enforce_sports_balancing_move_immutability()
 returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public,app_private
-as $
+as $$
 begin
   raise exception 'Sports balancing move proposal is immutable';
 end;
-$;
+$$;
 
 revoke all on function app_private.enforce_sports_balancing_run_finality() from public,anon,authenticated;
 revoke all on function app_private.enforce_sports_balancing_move_immutability() from public,anon,authenticated;
