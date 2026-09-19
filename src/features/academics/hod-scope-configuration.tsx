@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { Network, Plus, ShieldCheck } from "lucide-react";
+import { Network, Plus, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
-  createHodSubjectResponsibility,
   endHodSubjectResponsibility,
+  saveHodSubjectPortfolio,
   type HodScopeActionState,
 } from "./server/hod-scope-actions";
 import type {
@@ -53,14 +54,16 @@ export function HodScopeConfiguration({
   today: string;
 }) {
   const [subjectId, setSubjectId] = useState("");
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [assignmentId, setAssignmentId] = useState("");
+  const [departmentLabel, setDepartmentLabel] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState(today);
   const [effectiveTo, setEffectiveTo] = useState("");
   const [endResponsibilityId, setEndResponsibilityId] = useState("");
   const [endDate, setEndDate] = useState(today);
 
   const [createState, createAction, createPending] = useActionState(
-    createHodSubjectResponsibility,
+    saveHodSubjectPortfolio,
     emptyState,
   );
   const [endState, endAction, endPending] = useActionState(
@@ -70,12 +73,16 @@ export function HodScopeConfiguration({
 
   const subjectOptions = useMemo(
     () =>
-      subjects.map((subject) => ({
+      subjects.filter((subject) => !selectedSubjectIds.includes(subject.id)).map((subject) => ({
         value: subject.id,
         label: subject.name,
         helper: subject.code,
       })),
-    [subjects],
+    [selectedSubjectIds, subjects],
+  );
+  const selectedSubjects = useMemo(
+    () => selectedSubjectIds.map((id) => subjects.find((subject) => subject.id === id)).filter(Boolean) as HodScopeSubject[],
+    [selectedSubjectIds, subjects],
   );
   const headOptions = useMemo(
     () =>
@@ -146,6 +153,7 @@ export function HodScopeConfiguration({
                           </span>
                         ) : null}
                       </p>
+                      {row.departmentLabel ? <p className="mt-1 text-xs font-medium text-brand-strong">{row.departmentLabel}</p> : null}
                       <p className="mt-1 text-xs text-muted-foreground">
                         {row.headName} · {row.effectiveFrom} → {row.effectiveTo ?? "open"}
                       </p>
@@ -170,22 +178,43 @@ export function HodScopeConfiguration({
         <div className="space-y-5">
           <form action={createAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Add responsibility</h3>
+              <h3 className="text-sm font-semibold text-foreground">Assign subject portfolio</h3>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Only current HOD staff placements are offered. The HOD does not need to teach the subject.
+                Select one or more subjects in one save. Only current HOD staff placements are offered; the HOD does not need to teach the subject.
               </p>
             </div>
             <ActionMessage state={createState} />
             <input type="hidden" name="schoolId" value={schoolId} />
-            <Picker
-              label="Subject"
-              name="subjectId"
-              value={subjectId}
-              onChange={setSubjectId}
+            {selectedSubjectIds.map((id) => <input key={id} type="hidden" name="subjectIds" value={id} />)}
+            <SearchableSelect
+              label="Subjects"
               options={subjectOptions}
-              placeholder="Choose subject"
-              disabled={!subjects.length || createPending}
+              placeholder={selectedSubjectIds.length ? "Add another subject" : "Search and choose subjects"}
+              searchPlaceholder="Search subjects"
+              value={subjectId}
+              onChange={(id) => {
+                setSelectedSubjectIds((current) => [...current, id]);
+                setSubjectId("");
+              }}
+              disabled={!subjectOptions.length || createPending}
             />
+            {selectedSubjects.length ? (
+              <div className="flex flex-wrap gap-2" aria-label="Selected subjects">
+                {selectedSubjects.map((subject) => (
+                  <span key={subject.id} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-brand-soft px-3 py-1.5 text-sm text-brand-strong">
+                    {subject.name}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${subject.name}`}
+                      onClick={() => setSelectedSubjectIds((current) => current.filter((id) => id !== subject.id))}
+                      className="grid size-6 place-items-center rounded-[var(--radius-xs)] hover:bg-surface focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                    >
+                      <X className="size-3.5" aria-hidden="true" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
             <Picker
               label="HOD"
               name="assignmentId"
@@ -195,6 +224,18 @@ export function HodScopeConfiguration({
               placeholder="Choose HOD"
               disabled={!heads.length || createPending}
             />
+            <label className="block text-xs font-medium">
+              Department / portfolio label (optional)
+              <input
+                name="departmentLabel"
+                value={departmentLabel}
+                onChange={(event) => setDepartmentLabel(event.target.value)}
+                maxLength={120}
+                placeholder="e.g. Math & Science"
+                className="scolapro-control-surface mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm text-foreground outline-none focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-brand-soft"
+              />
+              <span className="mt-1 block text-xs font-normal leading-5 text-muted-foreground">Descriptive only; subject responsibility remains the authorization source.</span>
+            </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <DateField
                 label="Effective from"
@@ -213,10 +254,10 @@ export function HodScopeConfiguration({
               <Button
                 type="submit"
                 loading={createPending}
-                disabled={!subjectId || !assignmentId || !effectiveFrom}
+                disabled={!selectedSubjectIds.length || !assignmentId || !effectiveFrom}
               >
                 <Plus className="size-4" aria-hidden="true" />
-                Add responsibility
+                Save subject portfolio
               </Button>
             </div>
           </form>

@@ -10,6 +10,15 @@ export type HodScopeActionState = {
   message?: string;
 };
 
+const portfolioSchema = z.object({
+  schoolId: z.string().uuid(),
+  subjectIds: z.array(z.string().uuid()).min(1).max(100),
+  assignmentId: z.string().uuid(),
+  departmentLabel: z.string().trim().max(120),
+  effectiveFrom: z.string().date(),
+  effectiveTo: z.union([z.string().date(), z.literal("")]),
+});
+
 const createSchema = z.object({
   schoolId: z.string().uuid(),
   subjectId: z.string().uuid(),
@@ -40,6 +49,50 @@ function saved(message: string): HodScopeActionState {
   revalidatePath("/teaching");
   revalidatePath("/teaching/planning");
   return { success: true, message };
+}
+
+export async function saveHodSubjectPortfolio(
+  _state: HodScopeActionState,
+  form: FormData,
+): Promise<HodScopeActionState> {
+  const parsed = portfolioSchema.safeParse({
+    schoolId: form.get("schoolId"),
+    subjectIds: form.getAll("subjectIds"),
+    assignmentId: form.get("assignmentId"),
+    departmentLabel: form.get("departmentLabel") ?? "",
+    effectiveFrom: form.get("effectiveFrom"),
+    effectiveTo: String(form.get("effectiveTo") ?? ""),
+  });
+  if (!parsed.success) return { message: "Choose at least one subject, an HOD and valid effective dates." };
+
+  const { schoolId, subjectIds, assignmentId, departmentLabel, effectiveFrom, effectiveTo } = parsed.data;
+  if (effectiveTo && effectiveTo < effectiveFrom) {
+    return { message: "The end date cannot be before the start date." };
+  }
+
+  const context = await canConfigureSchool(schoolId);
+  if (!context?.user) return { message: "You cannot configure HOD scope for this school." };
+
+  const db = await createSupabaseServerClient();
+  const { error } = await db.rpc("save_hod_subject_portfolio", {
+    p_school_id: schoolId,
+    p_subject_ids: [...new Set(subjectIds)],
+    p_assignment_id: assignmentId,
+    p_department_label: departmentLabel || null,
+    p_effective_from: effectiveFrom,
+    p_effective_to: effectiveTo || null,
+  });
+
+  if (error) {
+    return {
+      message:
+        error.code === "23505"
+          ? "One of these HOD responsibilities already starts on that date."
+          : "The HOD subject portfolio could not be saved.",
+    };
+  }
+
+  return saved("HOD subject portfolio saved.");
 }
 
 export async function createHodSubjectResponsibility(
