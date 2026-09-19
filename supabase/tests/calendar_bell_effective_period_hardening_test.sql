@@ -77,7 +77,7 @@ select is(
 );
 
 select is(
-  public.resolve_timetable_bell_schedule('22222222-2222-4222-8222-222222222222',2196,'2196-04-07')::text,
+  public.resolve_timetable_bell_schedule('22222222-2222-4222-8222-222222222222',2196,'2196-04-03')::text,
   (select id::text from public.timetable_bell_schedules where school_id='22222222-2222-4222-8222-222222222222' and academic_year=2196 and display_name='Weekend parallel'),
   'weekend resolver selects disjoint weekend schedule'
 );
