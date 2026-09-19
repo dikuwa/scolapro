@@ -10,12 +10,17 @@ export type UserNotification = {
   createdAt: string;
 };
 
-export async function getNotificationInbox(limit = 8) {
+export type NotificationInboxContext = {
+  currentSchoolId?: string | null;
+  roleKey?: string;
+};
+
+export async function getNotificationInbox(limit = 8, context: NotificationInboxContext = {}) {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { unreadCount: 0, notifications: [] as UserNotification[] };
 
-  const [{ count }, { data, error }] = await Promise.all([
+  const [{ count, error: countError }, { data, error }] = await Promise.all([
     supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
@@ -31,7 +36,7 @@ export async function getNotificationInbox(limit = 8) {
       .limit(limit),
   ]);
 
-  if (error) throw new Error("Unable to load notifications.");
+  if (countError || error) throw new Error("Unable to load notifications.");
 
   return {
     unreadCount: count ?? 0,
@@ -40,7 +45,13 @@ export async function getNotificationInbox(limit = 8) {
       severity: item.severity as UserNotification["severity"],
       title: item.title,
       body: item.body,
-      href: item.href,
+      href:
+        item.title === "School invitation accepted"
+        && item.href === "/platform/invitations"
+        && context.roleKey === "school_admin"
+        && context.currentSchoolId
+          ? "/school/invitations"
+          : item.href,
       readAt: item.read_at,
       createdAt: item.created_at,
     })),
