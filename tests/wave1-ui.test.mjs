@@ -551,3 +551,40 @@ test('room inventory exposes honest empty verification history and labelled quan
   assert.match(html, /type="number"/);
   assert.match(html, /value="0"/);
 });
+
+
+test('guardian reads honor current effective relationship/contact/address periods', () => {
+  const queriesSource = fs.readFileSync(path.join(root, 'src/features/guardians/server/queries.ts'), 'utf8');
+  const directorySource = fs.readFileSync(path.join(root, 'src/features/guardians/server/directory.ts'), 'utf8');
+
+  for (const source of [queriesSource, directorySource]) {
+    assert.match(source, /getNamibiaDateKey/);
+    assert.match(source, /\.lte\("effective_from", today\)/);
+    assert.match(source, /effective_to\.is\.null,effective_to\.gte\.\$\{today\}/);
+  }
+  assert.doesNotMatch(queriesSource, /\.is\("effective_to", null\)/);
+  assert.doesNotMatch(directorySource, /\.is\("effective_to", null\)/);
+  assert.match(queriesSource, /if \(error\) throw new Error\("Unable to load learner guardians\."\)/);
+  assert.match(directorySource, /if \(hydrationError\) throw new Error\("Unable to load guardian directory details\."\)/);
+});
+
+test('guardian relationship end action supplies the required effective date and exposes feedback', () => {
+  const actionsSource = fs.readFileSync(path.join(root, 'src/features/guardians/server/actions.ts'), 'utf8');
+  const panelSource = fs.readFileSync(path.join(root, 'src/features/guardians/guardian-panel.tsx'), 'utf8');
+
+  assert.match(actionsSource, /endGuardianRelationship\(_state: GuardianActionState, formData: FormData\)/);
+  assert.match(actionsSource, /p_relationship_id: relationshipId\.data/);
+  assert.match(actionsSource, /p_effective_to: getNamibiaDateKey\(\)/);
+  assert.match(actionsSource, /Guardian relationship ended\./);
+  assert.match(panelSource, /useActionState\(endGuardianRelationship, initialState\)/);
+  assert.match(panelSource, /disabled=\{endPending\}/);
+  assert.match(panelSource, /aria-busy=\{endPending \|\| undefined\}/);
+});
+
+test('guardian directory distinguishes a true empty school state from a filtered empty result', () => {
+  const load = loader();
+  const { GuardianDirectory } = load('@/features/guardians/guardian-directory');
+  const emptyHtml = renderToStaticMarkup(React.createElement(GuardianDirectory, { guardians: [] }));
+  assert.match(emptyHtml, /No current guardian relationships/);
+  assert.match(emptyHtml, /Guardians linked to currently enrolled learners will appear here\./);
+});
