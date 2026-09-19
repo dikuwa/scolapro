@@ -85,6 +85,42 @@ type StaffAssignmentRow = {
   assigned_at: string;
 };
 
+type LearnerIdentityRow = {
+  id: string;
+  first_names: string;
+  surname: string;
+};
+
+type StaffIdentityRow = {
+  id: string;
+  first_name: string;
+  last_name: string;
+  employee_number: string | null;
+};
+
+const IDENTITY_READ_CHUNK_SIZE = 200;
+
+type IdentityReadError = {
+  code?: string;
+};
+
+async function readIdentityRowsInChunks<T>(
+  ids: string[],
+  readChunk: (chunk: string[]) => Promise<{ data: T[] | null; error: IdentityReadError | null }>,
+) {
+  const uniqueIds = [...new Set(ids)];
+  const rows: T[] = [];
+
+  for (let offset = 0; offset < uniqueIds.length; offset += IDENTITY_READ_CHUNK_SIZE) {
+    const chunk = uniqueIds.slice(offset, offset + IDENTITY_READ_CHUNK_SIZE);
+    const result = await readChunk(chunk);
+    if (result.error) return { data: [] as T[], error: result.error };
+    rows.push(...(result.data ?? []));
+  }
+
+  return { data: rows, error: null };
+}
+
 export async function getSportsHousesWorkspace(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
   const currentYear = Number(getNamibiaDateKey().slice(0, 4));
@@ -151,18 +187,26 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
 
   const enrolments = enrolmentsResult.data ?? [];
   const learnerIds = [...new Set(enrolments.map((row) => row.learner_id))];
-  const learnerIdentityResult = learnerIds.length
-    ? await supabase.from("learners").select("id,first_names,surname").in("id", learnerIds)
-    : { data: [] as Array<{ id: string; first_names: string; surname: string }>, error: null };
-  if (learnerIdentityResult.error) throw new Error("Unable to load learner identities for Sports / Houses.");
+  const learnerIdentityResult = await readIdentityRowsInChunks<LearnerIdentityRow>(
+    learnerIds,
+    async (chunk) => supabase.from("learners").select("id,first_names,surname").in("id", chunk),
+  );
+  if (learnerIdentityResult.error) {
+    console.error("[sports-houses] learner identities read failed", { code: learnerIdentityResult.error.code ?? "unknown" });
+    throw new Error("Unable to load learner identities for Sports / Houses.");
+  }
 
   const staffPlacementIds = [...new Set((staffPlacementsResult.data ?? []).map((row) => row.staff_member_id))];
   const assignedStaffIds = [...new Set(((staffAssignmentsResult.data ?? []) as StaffAssignmentRow[]).map((row) => row.staff_member_id))];
   const staffIds = [...new Set([...staffPlacementIds, ...assignedStaffIds])];
-  const staffIdentityResult = staffIds.length
-    ? await supabase.from("staff_members").select("id,first_name,last_name,employee_number").in("id", staffIds)
-    : { data: [] as Array<{ id: string; first_name: string; last_name: string; employee_number: string | null }>, error: null };
-  if (staffIdentityResult.error) throw new Error("Unable to load staff identities for Sports / Houses.");
+  const staffIdentityResult = await readIdentityRowsInChunks<StaffIdentityRow>(
+    staffIds,
+    async (chunk) => supabase.from("staff_members").select("id,first_name,last_name,employee_number").in("id", chunk),
+  );
+  if (staffIdentityResult.error) {
+    console.error("[sports-houses] staff identities read failed", { code: staffIdentityResult.error.code ?? "unknown" });
+    throw new Error("Unable to load staff identities for Sports / Houses.");
+  }
 
   const houses: SportsHouse[] = (housesResult.data ?? []).map((row) => ({
     id: row.id,
