@@ -48,7 +48,7 @@ function GuardianRow({ guardian, expanded, onToggle }: { guardian: GuardianDirec
       <button
         type="button"
         onClick={onToggle}
-        className={`flex min-h-11 w-full items-center gap-2 px-4 py-2.5 text-left transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5 ${
+        className={`flex min-h-11 w-full scroll-m-2 items-center gap-2 px-4 py-2.5 text-left transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[color:var(--brand-soft)] sm:px-5 ${
           expanded ? "bg-transparent" : "bg-transparent hover:bg-surface-muted/70"
         }`}
         aria-expanded={expanded}
@@ -156,7 +156,14 @@ export function GuardianDirectory({ guardians }: { guardians: GuardianDirectoryR
           <span className="text-xs text-muted-foreground">{filtered.length} shown</span>
         </div>
 
-        {filtered.length ? <div>{filtered.map((guardian) => <GuardianRow key={guardian.guardianId} guardian={guardian} expanded={expandedGuardianId === guardian.guardianId} onToggle={() => setExpandedGuardianId((current) => current === guardian.guardianId ? null : guardian.guardianId)} />)}</div> : (
+        {filtered.length ? (
+          <div
+            className="max-h-[min(62vh,42rem)] overflow-x-hidden overflow-y-auto overscroll-contain scolapro-scrollbar"
+            aria-label="Guardian directory results"
+          >
+            {filtered.map((guardian) => <GuardianRow key={guardian.guardianId} guardian={guardian} expanded={expandedGuardianId === guardian.guardianId} onToggle={() => setExpandedGuardianId((current) => current === guardian.guardianId ? null : guardian.guardianId)} />)}
+          </div>
+        ) : (
           <div className="px-5 py-12 text-center">
             <span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><Users aria-hidden="true" className="size-5" /></span>
             <h3 className="mt-3 text-sm font-semibold">{guardians.length ? "No guardians match these filters" : "No current guardian relationships"}</h3>
