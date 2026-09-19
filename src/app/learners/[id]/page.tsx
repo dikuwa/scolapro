@@ -7,6 +7,7 @@ import { getLearnerGuardians, getReusableGuardians, type LearnerGuardian, type R
 import { LearnerProfileEditor } from "@/features/learners/learner-profile-editor";
 import { getLearnerOverview, type LearnerOverview } from "@/features/learners/server/queries";
 import { LearnerChangeRequestForm } from "@/features/profile-changes/learner-change-request-form";
+import { getLearnerProfileChangeRequests, type ProfileChangeRequestRow } from "@/features/profile-changes/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 
@@ -16,7 +17,7 @@ const demoLearners: Record<string, LearnerOverview> = {
 };
 
 const learnerOperationalRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"]);
-const correctionRequestRoles = new Set(["school_admin","principal","deputy_principal","hod","teacher","class_teacher","counsellor"]);
+const correctionRequestRoles = new Set(["school_admin","principal","deputy_principal","teacher","class_teacher"]);
 
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
@@ -34,6 +35,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   let canManageLearner = false;
   let canViewConduct = false;
   let managementSchoolId: string | null = null;
+  let correctionRequests: ProfileChangeRequestRow[] = [];
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
@@ -47,6 +49,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
     managementSchoolId = canManageLearner ? membership.schoolId : null;
     if (learner) {
       [guardians, reusableGuardians] = await Promise.all([getLearnerGuardians(id), getReusableGuardians(id, membership.schoolId)]);
+      correctionRequests = await getLearnerProfileChangeRequests(id);
     }
   }
 
@@ -85,7 +88,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
               <div><dt className="flex items-center gap-2 text-xs font-medium text-muted-foreground"><MapPin aria-hidden="true" className="size-4" /> School</dt><dd className="mt-1.5 text-sm font-medium">{learner.schoolName}</dd></div>
               <div><dt className="text-xs font-medium text-muted-foreground">Admission number</dt><dd className="mt-1.5 text-sm font-medium">{learner.admissionNumber ?? "Not recorded"}</dd></div>
             </dl>
-            {canRequestCorrection ? <div className="border-t border-border-subtle px-4 py-4 sm:px-5"><p className="mb-2 text-xs text-muted-foreground">Notice incorrect official identity information? Submit a correction for review. Preferred name and profile photo can be maintained directly by the School Admin through Edit learner.</p><LearnerChangeRequestForm learnerId={learner.id} /></div> : null}
+            {canRequestCorrection ? <div className="border-t border-border-subtle px-4 py-4 sm:px-5"><p className="mb-2 text-xs text-muted-foreground">Notice incorrect official identity information? Submit a correction for review. Preferred name and profile photo can be maintained directly by the School Admin through Edit learner.</p><LearnerChangeRequestForm learnerId={learner.id} requests={correctionRequests} /></div> : null}
           </section>
 
           <aside className="space-y-3">

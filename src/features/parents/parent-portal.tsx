@@ -9,7 +9,8 @@ import { AbsenceNoticeForm } from "@/features/parents/absence-notice-form";
 import { reasonLabels } from "@/features/parents/absence-reasons";
 import type { AbsenceNoticeSummary } from "@/features/parents/server/absence-queries";
 import { claimGuardianProfile, type ParentPortalActionState } from "@/features/parents/server/actions";
-import type { ClaimableGuardianProfile, ParentChildSummary, ParentInvoice, ParentMessage, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
+import type { ClaimableGuardianProfile, ParentChildSummary, ParentCorrectionRequest, ParentInvoice, ParentMessage, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
+import { LearnerChangeRequestForm } from "@/features/profile-changes/learner-change-request-form";
 
 const initialState: ParentPortalActionState = {};
 
@@ -66,7 +67,7 @@ function ParentMessages({ messages }: { messages: ParentMessage[] }) {
   </section>;
 }
 
-export function ParentPortal({ familyChildren, reports, documents, invoices, payments, messages, claimable, absenceNotices, today }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; messages: ParentMessage[]; claimable: ClaimableGuardianProfile[]; absenceNotices: AbsenceNoticeSummary[]; today: string }) {
+export function ParentPortal({ familyChildren, reports, documents, invoices, payments, messages, claimable, correctionRequests, absenceNotices, today }: { familyChildren: ParentChildSummary[]; reports: ParentPublishedReport[]; documents: ParentReportDocument[]; invoices: ParentInvoice[]; payments: ParentPayment[]; messages: ParentMessage[]; claimable: ClaimableGuardianProfile[]; correctionRequests: ParentCorrectionRequest[]; absenceNotices: AbsenceNoticeSummary[]; today: string }) {
   const [state, claimAction, pending] = useActionState(claimGuardianProfile, initialState);
   const [selectedLearnerId, setSelectedLearnerId] = useState(familyChildren[0]?.learnerId ?? "");
 
@@ -81,6 +82,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
   const childInvoices = useMemo(() => invoices.filter((invoice) => invoice.learnerId === child?.learnerId), [invoices, child?.learnerId]);
   const childPayments = useMemo(() => payments.filter((payment) => payment.learnerId === child?.learnerId), [payments, child?.learnerId]);
   const childAbsenceNotices = useMemo(() => absenceNotices.filter((notice) => notice.learnerId === child?.learnerId), [absenceNotices, child?.learnerId]);
+  const childCorrectionRequests = useMemo(() => correctionRequests.filter((request) => request.learnerId === child?.learnerId), [correctionRequests, child?.learnerId]);
   const documentsBySnapshot = useMemo(() => {
     const map = new Map<string, ParentReportDocument>();
     for (const document of documents) {
@@ -140,6 +142,14 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
           <AbsenceNoticeForm learnerId={child.learnerId} learnerName={child.name} today={today} />
         </div>
         <ParentAbsenceHistory notices={childAbsenceNotices} />
+      </section>
+
+      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="mb-4">
+          <h2 className="scolapro-section-title">Report incorrect details</h2>
+          <p className="scolapro-section-description">Suggest a correction for {child.name}. The school reviews it before any authoritative learner record changes; this does not edit the record directly.</p>
+        </div>
+        <LearnerChangeRequestForm learnerId={child.learnerId} parentMode requests={childCorrectionRequests} />
       </section>
 
       <section className="grid gap-5 lg:grid-cols-2">
