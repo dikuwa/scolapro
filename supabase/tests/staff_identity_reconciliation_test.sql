@@ -247,13 +247,13 @@ select is(
 
 set local role authenticated;
 select throws_ok(
-  $select public.reconcile_staff_identities(
+  $q$select public.reconcile_staff_identities(
     'e5200000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000001',
     'e5300000-0000-4000-8000-000000000002',
     'RECONCILE',
     'replay two different linked accounts'
-  )$,
+  )$q$,
   'Only active, unreconciled staff identities can be reconciled',
   'reconciliation cannot replay an already reconciled identity'
 );
