@@ -177,9 +177,11 @@ select is(
 
 reset role;
 select throws_ok(
-  $update public.sports_house_balancing_runs
+  $update$
+    update public.sports_house_balancing_runs
     set proposed_moves='[]'::jsonb
-    where client_operation_id='55250000-0000-4000-8000-000000000001'$,
+    where client_operation_id='55250000-0000-4000-8000-000000000001'
+  $update$,
   'Sports balancing run provenance is immutable',
   'applied balancing run provenance cannot be rewritten by trusted direct DML'
 );

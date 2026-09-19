@@ -35,7 +35,7 @@ as $$
           and pm.active_from<=t.value
           and (pm.active_to is null or pm.active_to>=t.value)
       )
-      or app_private.has_school_local_role(
+      or app_private.has_school_role(
         p_school_id,
         array['school_admin','principal','deputy_principal']
       )
@@ -168,6 +168,10 @@ begin
   select * into v_settings
   from public.sports_year_settings
   where school_id=p_school_id and academic_year=p_academic_year;
+
+  drop table if exists _sports_balance_proposals;
+  drop table if exists _sports_balance_fixed;
+  drop table if exists _sports_balance_candidates;
 
   create temporary table _sports_balance_candidates(
     entity_id uuid primary key,
