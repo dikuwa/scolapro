@@ -83,10 +83,14 @@ as $$
             and (sm.active_to is null or sm.active_to >= current_date)
             and (
               sm.staff_member_id is null
-              or app_private.staff_member_has_school_assignment(
-                sm.staff_member_id,
-                p_school_id,
-                current_date
+              or exists(
+                select 1
+                from public.staff_school_assignments ssa
+                where ssa.staff_member_id = sm.staff_member_id
+                  and ssa.tenant_id = sm.tenant_id
+                  and ssa.school_id = sm.school_id
+                  and ssa.effective_from <= current_date
+                  and (ssa.effective_to is null or ssa.effective_to >= current_date)
               )
             )
         )
@@ -230,6 +234,46 @@ revoke all on function app_private.can_access_learner_support_case(uuid)
   from public, anon;
 grant execute on function app_private.can_access_learner_support_case(uuid)
   to authenticated;
+
+create or replace function app_private.user_can_manage_learner_support(
+  p_user_id uuid,
+  p_school_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, app_private
+as $
+  select app_private.user_has_explicit_support_role(p_user_id, p_school_id)
+    or (
+      app_private.user_current_school_matches(p_user_id, p_school_id)
+      and exists(
+        select 1
+        from public.school_memberships sm
+        where sm.school_id = p_school_id
+          and sm.user_id = p_user_id
+          and sm.role_key in ('principal','deputy_principal')
+          and sm.active_from <= current_date
+          and (sm.active_to is null or sm.active_to >= current_date)
+          and (
+            sm.staff_member_id is null
+            or exists(
+              select 1
+              from public.staff_school_assignments ssa
+              where ssa.staff_member_id = sm.staff_member_id
+                and ssa.tenant_id = sm.tenant_id
+                and ssa.school_id = sm.school_id
+                and ssa.effective_from <= current_date
+                and (ssa.effective_to is null or ssa.effective_to >= current_date)
+            )
+          )
+      )
+    );
+$;
+
+revoke all on function app_private.user_can_manage_learner_support(uuid,uuid)
+  from public, anon, authenticated;
 
 create or replace function app_private.can_manage_learner_support(
   target_school_id uuid
