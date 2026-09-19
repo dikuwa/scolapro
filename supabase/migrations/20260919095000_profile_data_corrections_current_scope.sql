@@ -57,18 +57,17 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, public, app_private
-as $
+as $$
   select app_private.user_can_review_profile_change_request(
     (select auth.uid()),
     p_school_id
   );
-$;
+$$;
 
 revoke all on function app_private.can_review_profile_change_request(uuid)
 from public, anon;
 grant execute on function app_private.can_review_profile_change_request(uuid)
 to authenticated;
-
 drop policy if exists "requesters and reviewers read profile change requests"
 on public.profile_change_requests;
 drop policy if exists "current requesters and reviewers read profile change requests"
