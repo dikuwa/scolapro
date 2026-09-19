@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { Bell, CheckCheck, CircleAlert, CircleCheck, Info, Trash2, TriangleAlert } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { clearNotifications, markAllNotificationsRead, markNotificationRead } from "@/features/notifications/server/actions";
 import type { UserNotification } from "@/features/notifications/server/notifications";
 import { Spinner } from "@/components/ui/spinner";
+import { toast } from "sonner";
 
 const toneBySeverity = {
   info: "scolapro-tone-sky",
@@ -21,13 +22,28 @@ const iconBySeverity = {
   danger: CircleAlert,
 } as const;
 
-export function NotificationCenter({ unreadCount, notifications }: { unreadCount: number; notifications: UserNotification[] }) {
+export function NotificationCenter({ localUnreadCount, notifications }: { localUnreadCount: number; notifications: UserNotification[] }) {
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [items, setItems] = useState(notifications);
+  const [localUnreadCount, setLocalUnreadCount] = useState(localUnreadCount);
 
-  function run(action: () => Promise<void>) {
+  useEffect(() => {
+    setItems(notifications);
+    setLocalUnreadCount(localUnreadCount);
+  }, [notifications, localUnreadCount]);
+
+  function run(
+    action: () => Promise<{ success: boolean; message?: string }>,
+    onSuccess: () => void,
+  ) {
     startTransition(async () => {
-      await action();
+      const result = await action();
+      if (!result.success) {
+        toast.error(result.message ?? "The notification action could not be completed.");
+        return;
+      }
+      onSuccess();
     });
   }
 
@@ -35,15 +51,15 @@ export function NotificationCenter({ unreadCount, notifications }: { unreadCount
     <div className="relative">
       <button
         type="button"
-        aria-label={unreadCount ? `${unreadCount} unread notifications` : "Notifications"}
+        aria-label={localUnreadCount ? `${localUnreadCount} unread notifications` : "Notifications"}
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
         className="relative grid size-9 place-items-center rounded-[var(--radius-sm)] text-muted-foreground transition hover:bg-surface-muted hover:text-foreground"
       >
         <Bell className="size-[1.05rem]" aria-hidden="true" />
-        {unreadCount > 0 ? (
+        {localUnreadCount > 0 ? (
           <span className="absolute right-0.5 top-0.5 grid min-h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[0.58rem] font-semibold leading-none text-white">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {localUnreadCount > 99 ? "99+" : localUnreadCount}
           </span>
         ) : null}
       </button>
@@ -53,13 +69,13 @@ export function NotificationCenter({ unreadCount, notifications }: { unreadCount
           <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
             <div>
               <p className="text-sm font-semibold">Notifications</p>
-              <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{unreadCount ? `${unreadCount} unread` : "You’re all caught up"}</p>
+              <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{localUnreadCount ? `${localUnreadCount} unread` : "You’re all caught up"}</p>
             </div>
             {pending ? <Spinner className="size-4" /> : null}
           </div>
 
           <div className="max-h-[25rem] overflow-y-auto">
-            {notifications.length ? notifications.map((notification) => {
+            {items.length ? items.map((notification) => {
               const Icon = iconBySeverity[notification.severity];
               const content = (
                 <div className={`flex gap-3 px-4 py-3 transition hover:bg-surface-muted/70 ${notification.readAt ? "opacity-75" : ""}`}>
@@ -76,11 +92,32 @@ export function NotificationCenter({ unreadCount, notifications }: { unreadCount
               );
 
               return notification.href ? (
-                <Link key={notification.id} href={notification.href} onClick={() => { setOpen(false); if (!notification.readAt) run(() => markNotificationRead(notification.id)); }}>
+                <Link key={notification.id} href={notification.href} onClick={() => {
+                  setOpen(false);
+                  if (!notification.readAt) {
+                    run(
+                      () => markNotificationRead(notification.id),
+                      () => {
+                        setItems((current) => current.map((item) => item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item));
+                        setLocalUnreadCount((count) => Math.max(0, count - 1));
+                      },
+                    );
+                  }
+                }}>
                   {content}
                 </Link>
               ) : (
-                <button key={notification.id} type="button" className="block w-full text-left" onClick={() => { if (!notification.readAt) run(() => markNotificationRead(notification.id)); }}>
+                <button key={notification.id} type="button" className="block w-full text-left" onClick={() => {
+                  if (!notification.readAt) {
+                    run(
+                      () => markNotificationRead(notification.id),
+                      () => {
+                        setItems((current) => current.map((item) => item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item));
+                        setLocalUnreadCount((count) => Math.max(0, count - 1));
+                      },
+                    );
+                  }
+                }}>
                   {content}
                 </button>
               );
@@ -93,12 +130,25 @@ export function NotificationCenter({ unreadCount, notifications }: { unreadCount
             )}
           </div>
 
-          {notifications.length ? (
+          {items.length ? (
             <div className="flex items-center justify-between gap-2 border-t border-border-subtle bg-surface-muted/55 px-3 py-2">
-              <button type="button" disabled={pending || unreadCount === 0} onClick={() => run(markAllNotificationsRead)} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-medium text-muted-foreground transition hover:bg-surface hover:text-foreground disabled:opacity-45">
+              <button type="button" disabled={pending || localUnreadCount === 0} onClick={() => run(
+                markAllNotificationsRead,
+                () => {
+                  const readAt = new Date().toISOString();
+                  setItems((current) => current.map((item) => ({ ...item, readAt: item.readAt ?? readAt })));
+                  setLocalUnreadCount(0);
+                },
+              )} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-medium text-muted-foreground transition hover:bg-surface hover:text-foreground disabled:opacity-45">
                 <CheckCheck className="size-3.5" aria-hidden="true" /> Mark all read
               </button>
-              <button type="button" disabled={pending} onClick={() => run(clearNotifications)} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-medium text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:opacity-45">
+              <button type="button" disabled={pending} onClick={() => run(
+                clearNotifications,
+                () => {
+                  setItems([]);
+                  setLocalUnreadCount(0);
+                },
+              )} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-[0.68rem] font-medium text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:opacity-45">
                 <Trash2 className="size-3.5" aria-hidden="true" /> Clear
               </button>
             </div>
