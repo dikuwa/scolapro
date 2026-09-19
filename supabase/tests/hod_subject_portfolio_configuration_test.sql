@@ -200,18 +200,18 @@ select throws_ok(
 );
 
 select throws_ok(
-  $update public.subject_department_responsibilities
+  $$update public.subject_department_responsibilities
     set school_id='f5740000-0000-4000-8000-000000000002'::uuid
-    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$,
+    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$$,
   'P0001',
   'School scope mismatch for department_head_staff_assignment_id',
   'changing the school provenance is rejected before it can escape assignment scope'
 );
 
 select throws_ok(
-  $update public.subject_department_responsibilities
+  $$update public.subject_department_responsibilities
     set tenant_id='f5740000-0000-4000-8000-000000000002'::uuid
-    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$,
+    where school_id='f5740000-0000-4000-8000-000000000001'::uuid$$,
   'P0001',
   'Tenant scope mismatch for department_head_staff_assignment_id',
   'changing the tenant provenance is rejected before it can escape assignment scope'
