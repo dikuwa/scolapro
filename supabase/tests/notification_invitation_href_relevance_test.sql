@@ -19,8 +19,7 @@ insert into auth.users(id,email,aud,role,created_at,updated_at) values
 
 insert into public.school_memberships(id,tenant_id,school_id,user_id,role_key,active_from) values
   ('d2830000-0000-4000-8000-000000000001','d2800000-0000-4000-8000-000000000001','d2810000-0000-4000-8000-000000000001','d2820000-0000-4000-8000-000000000001','school_admin',current_date-10),
-  ('d2830000-0000-4000-8000-000000000002','d2800000-0000-4000-8000-000000000001','d2810000-0000-4000-8000-000000000001','d2820000-0000-4000-8000-000000000003','school_admin',current_date-20),
-  ('d2830000-0000-4000-8000-000000000003','d2800000-0000-4000-8000-000000000001','d2810000-0000-4000-8000-000000000002','d2820000-0000-4000-8000-000000000003','school_admin',current_date-1);
+  ('d2830000-0000-4000-8000-000000000002','d2800000-0000-4000-8000-000000000001','d2810000-0000-4000-8000-000000000001','d2820000-0000-4000-8000-000000000003','school_admin',current_date-20);
 
 insert into public.platform_memberships(user_id,role_key,active_from)
 values('d2820000-0000-4000-8000-000000000002','platform_admin',current_date-10);
@@ -31,6 +30,18 @@ insert into public.school_invitations(
   ('d2840000-0000-4000-8000-000000000001','d2800000-0000-4000-8000-000000000001','d2810000-0000-4000-8000-000000000001','accepted-one@example.test','teacher','qa-token-1','pending','d2820000-0000-4000-8000-000000000001',now()+interval '1 day'),
   ('d2840000-0000-4000-8000-000000000002','d2800000-0000-4000-8000-000000000001','d2810000-0000-4000-8000-000000000001','accepted-two@example.test','school_admin','qa-token-2','pending','d2820000-0000-4000-8000-000000000002',now()+interval '1 day'),
   ('d2840000-0000-4000-8000-000000000003','d2800000-0000-4000-8000-000000000001','d2810000-0000-4000-8000-000000000001','accepted-three@example.test','teacher','qa-token-3','pending','d2820000-0000-4000-8000-000000000003',now()+interval '1 day');
+
+-- The invitation was valid when created. Move this inviter to a later active school
+-- before acceptance to model a historical invitation whose inviter is now stale.
+insert into public.school_memberships(id,tenant_id,school_id,user_id,role_key,active_from)
+values(
+  'd2830000-0000-4000-8000-000000000003',
+  'd2800000-0000-4000-8000-000000000001',
+  'd2810000-0000-4000-8000-000000000002',
+  'd2820000-0000-4000-8000-000000000003',
+  'school_admin',
+  current_date-1
+);
 
 select lives_ok(
   $$update public.school_invitations
