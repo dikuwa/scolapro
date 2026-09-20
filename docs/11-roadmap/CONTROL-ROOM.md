@@ -13,7 +13,7 @@ Before changing code, read:
 5. relevant domain/architecture/design documents referenced by `AGENTS.md`
 6. `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md` when working on absenteeism or LTSM/library operational UI.
 
-Current authoritative deployed baseline: `7ad6aefd1fe505e01240f94cfe6fb12867b0bd86` (20 September 2026). Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion is tracked in Issue #602.
+Current authoritative main: `7744537797170fb1d3fcea744bb6aa7ba89b42d7` (20 September 2026). Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion remains tracked in Issue #602.
 
 ## 2. Product principle
 
@@ -124,10 +124,14 @@ Closed release acceptance:
 
 Active delivery wave:
 - #602 — Post-release Wave 1: expand offline-first teacher workflows.
-- Priority order: subject-period attendance → lesson-preparation drafts → marks-draft readiness → bounded LTSM issue/return readiness.
+- COMPLETE / MERGED: #604 subject-period attendance offline via PR #611; #607 library circulation offline via PR #614.
+- COMPLETE / MERGED: #608 responsive official-document HTML header correction via PR #612; #609 shell notification auth lookup reduction via PR #613.
+- COMPLETE / NO SOURCE CHANGE: #610 Supabase security-advisor triage.
+- ACTIVE: #605 lesson-preparation drafts; #606 marks-draft safe server contract; #615 teaching coverage/reflection; #616 offline sync attention center; #617 subject-period offline fallback; #618 library offline fallback; #619 offline cache security/privacy review.
 - Every offline business mutation must follow ADR-0005 and `docs/09-architecture/OFFLINE-SYNC-ARCHITECTURE.md`.
 - Server authority, idempotency, explicit conflict/rejection states and user/tenant/school scoping are mandatory.
 - Privileged/destructive/finality actions remain online-first.
+- #590 remains a separate evidence-gated data-governance issue.
 - N06 remains SOURCE-GATED; N11 and T12 remain REQUIREMENTS-GATED.
 
 Confirmed remaining work must be sequenced explicitly:
