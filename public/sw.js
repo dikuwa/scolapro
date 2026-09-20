@@ -1,12 +1,39 @@
-const CACHE_NAME = "scolapro-shell-v1";
+const CACHE_NAME = "scolapro-shell-v2";
+const OFFLINE_PATH = "/offline";
 const SHELL = [
-  "/offline",
   "/manifest.webmanifest",
   "/brand/scolapro/icon-blue.svg",
 ];
 
+async function cacheOfflineShell() {
+  const cache = await caches.open(CACHE_NAME);
+  await cache.addAll(SHELL);
+
+  const response = await fetch(OFFLINE_PATH, { cache: "reload" });
+  if (!response.ok) return;
+  await cache.put(OFFLINE_PATH, response.clone());
+
+  const html = await response.text();
+  const assetPaths = new Set();
+  for (const match of html.matchAll(/(?:src|href)=["']([^"']+)["']/g)) {
+    const value = match[1];
+    if (value.startsWith("/_next/static/") || value.startsWith("/brand/")) assetPaths.add(value);
+  }
+
+  await Promise.all(
+    [...assetPaths].map(async (assetPath) => {
+      try {
+        const asset = await fetch(assetPath, { cache: "reload" });
+        if (asset.ok) await cache.put(assetPath, asset);
+      } catch {
+        // A single optional asset must not prevent the offline shell installing.
+      }
+    }),
+  );
+}
+
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(cacheOfflineShell());
   self.skipWaiting();
 });
 
@@ -29,7 +56,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(request).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
-        return (await cache.match("/offline")) || Response.error();
+        return (await cache.match(OFFLINE_PATH)) || Response.error();
       }),
     );
     return;
