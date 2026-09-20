@@ -42,10 +42,11 @@ test("learner directory keeps the canonical page read independent from auxiliary
   assert.doesNotMatch(directoryPage,/academicOptionsResult\.status === "rejected"[\s\S]{0,180}throw/);
 });
 
-test("learner directory uses the deterministic session membership and Namibia academic year",()=>{
+test("learner directory uses the deterministic current-school membership set and Namibia academic year",()=>{
   assert.match(directoryPage,/getNamibiaCalendarYear/);
   assert.match(directoryPage,/context\.currentSchoolMembership/);
-  assert.doesNotMatch(directoryPage,/context\.memberships\.find/);
+  assert.match(directoryPage,/context\.memberships\.find/);
+  assert.match(directoryPage,/candidate\.schoolId === currentSchoolId/);
 });
 
 test("learner directory preserves the generic UI error while logging bounded RPC diagnostics",()=>{
