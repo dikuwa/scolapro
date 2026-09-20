@@ -17,13 +17,13 @@ insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name
 values('f6313000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','f6312000-0000-4000-8000-000000000002','COND-PERF-CT','Conduct','Teacher','active');
 
 insert into public.staff_school_assignments(
-  id,tenant_id,school_id,staff_member_id,assignment_type,effective_from
+  id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,created_by_user_id
 ) values(
   'f6313100-0000-4000-8000-000000000002',
   '11111111-1111-4111-8111-111111111111',
   'f6311000-0000-4000-8000-000000000001',
   'f6313000-0000-4000-8000-000000000002',
-  'teacher',current_date-5
+  'teacher',current_date-5,'f6312000-0000-4000-8000-000000000001'
 );
 
 insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from) values
