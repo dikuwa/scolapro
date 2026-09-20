@@ -133,6 +133,7 @@ export type TeachingUnitOption = {
 export type PlanningClassOption = {
   classId: string;
   className: string;
+  gradeId: string;
   gradeName: string;
 };
 
@@ -146,6 +147,15 @@ export type PlanningAllocationOption = {
   curriculumVersionId: string | null;
   activeFrom: string;
   activeTo: string | null;
+};
+
+export type PlanningOfferingOption = {
+  offeringId: string;
+  subjectId: string;
+  gradeId: string;
+  subjectName: string;
+  gradeName: string;
+  curriculumVersionId: string | null;
 };
 
 export type PlanningPlanSummary = {
@@ -185,6 +195,8 @@ export type TeachingWorkspaceData = {
   dayOverrides: TeachingDayOverride[];
   /** Curriculum versions actually reachable from this actor's allocations and plans. */
   curriculumVersionIds: string[];
+  /** Configured offerings are populated only for the authoring route. */
+  planningOfferings: PlanningOfferingOption[];
   hasLeadershipAuthority: boolean;
   isTeacher: boolean;
 };
@@ -195,6 +207,8 @@ export async function getTeachingWorkspace(input: {
   schoolId: string;
   academicYear: number;
   roleKey: string;
+  staffMemberId?: string | null;
+  includeConfiguredOfferings?: boolean;
 }): Promise<TeachingWorkspaceData> {
   const supabase = await createSupabaseServerClient();
   const today = getNamibiaDateKey();
@@ -217,7 +231,7 @@ export async function getTeachingWorkspace(input: {
   const allocationsResult = await supabase
     .from("teacher_allocations")
     .select(
-      "id,subject_offering_id,register_class_id,active_from,active_to,subject_offerings(subject_id,curriculum_version_id,subjects(display_name),grades(display_name)),register_classes(display_name)",
+      "id,subject_offering_id,register_class_id,active_from,active_to,subject_offerings(subject_id,curriculum_version_id,status,subjects(display_name),grades(display_name)),register_classes(display_name)",
     )
     .eq("school_id", input.schoolId)
     .eq("academic_year", input.academicYear)
@@ -229,10 +243,87 @@ export async function getTeachingWorkspace(input: {
   const allocations: TeachingAllocationRow[] = [];
   const offeringIds = new Set<string>();
   const curriculumVersionIds = new Set<string>();
+  const planningOfferings: PlanningOfferingOption[] = [];
+  let allowedHodSubjectIds: Set<string> | null = null;
+
+  if (input.includeConfiguredOfferings) {
+    if (input.roleKey === "hod") {
+      allowedHodSubjectIds = new Set<string>();
+      if (input.staffMemberId) {
+        const [assignmentsResult, responsibilitiesResult] = await Promise.all([
+          supabase
+            .from("staff_school_assignments")
+            .select("id,effective_from,effective_to")
+            .eq("school_id", input.schoolId)
+            .eq("staff_member_id", input.staffMemberId),
+          supabase
+            .from("subject_department_responsibilities")
+            .select("subject_id,department_head_staff_assignment_id,effective_from,effective_to")
+            .eq("school_id", input.schoolId),
+        ]);
+        if (assignmentsResult.error || responsibilitiesResult.error) {
+          throw new Error("Unable to load HOD subject scope.");
+        }
+        const activeAssignmentIds = new Set(
+          (assignmentsResult.data ?? [])
+            .filter((assignment) => isEffectiveOn(today, assignment.effective_from, assignment.effective_to))
+            .map((assignment) => assignment.id),
+        );
+        for (const responsibility of responsibilitiesResult.data ?? []) {
+          if (
+            activeAssignmentIds.has(responsibility.department_head_staff_assignment_id) &&
+            isEffectiveOn(today, responsibility.effective_from, responsibility.effective_to)
+          ) {
+            allowedHodSubjectIds.add(responsibility.subject_id);
+          }
+        }
+      }
+    }
+
+    const seenOfferingIds = new Set<string>();
+    const offeringsResult = await supabase
+      .from("subject_offerings")
+      .select("id,subject_id,grade_id,curriculum_version_id,status,subjects(display_name),grades(display_name)")
+      .eq("school_id", input.schoolId)
+      .eq("academic_year", input.academicYear)
+      .eq("status", "active")
+      .order("id");
+
+    if (offeringsResult.error) throw new Error("Unable to load subject offerings.");
+
+    for (const row of offeringsResult.data ?? []) {
+      if (seenOfferingIds.has(row.id)) continue;
+      if (allowedHodSubjectIds && !allowedHodSubjectIds.has(row.subject_id)) continue;
+      const subject = one(row.subjects);
+      const grade = one(row.grades);
+      // A valid offering must resolve through the canonical subject and grade
+      // relations. Never manufacture a catalogue-only placeholder option.
+      if (!subject?.display_name || !grade?.display_name) continue;
+      seenOfferingIds.add(row.id);
+      planningOfferings.push({
+        offeringId: row.id,
+        subjectId: row.subject_id,
+        gradeId: row.grade_id,
+        subjectName: subject.display_name,
+        gradeName: grade.display_name,
+        curriculumVersionId: row.curriculum_version_id,
+      });
+      offeringIds.add(row.id);
+      if (row.curriculum_version_id) curriculumVersionIds.add(row.curriculum_version_id);
+    }
+  }
 
   for (const row of allocationsResult.data ?? []) {
     const offering = one(row.subject_offerings);
     const classRow = one(row.register_classes);
+    if (
+      input.includeConfiguredOfferings &&
+      (!offering ||
+        offering.status !== "active" ||
+        (allowedHodSubjectIds && !allowedHodSubjectIds.has(offering.subject_id)))
+    ) {
+      continue;
+    }
     if (!isEffectiveOn(today, row.active_from, row.active_to)) continue;
     const allocation: TeachingAllocationRow = {
       allocationId: row.id,
@@ -460,6 +551,7 @@ export async function getTeachingWorkspace(input: {
     competenciesByUnit,
     dayOverrides,
     curriculumVersionIds: [...curriculumVersionIds],
+    planningOfferings,
     hasLeadershipAuthority: leadershipRoles.has(input.roleKey),
     isTeacher: input.roleKey === "teacher" || input.roleKey === "class_teacher",
   };
@@ -479,8 +571,12 @@ export async function getTeachingPlanningData(input: {
   schoolId: string;
   academicYear: number;
   roleKey: string;
+  staffMemberId?: string | null;
 }): Promise<TeachingPlanningData> {
-  const workspace = await getTeachingWorkspace(input);
+  const workspace = await getTeachingWorkspace({
+    ...input,
+    includeConfiguredOfferings: true,
+  });
   const supabase = await createSupabaseServerClient();
 
   // Official curriculum registry content for the versions in scope. Read-only.
@@ -505,32 +601,27 @@ export async function getTeachingPlanningData(input: {
     }
   }
 
-  // Register classes behind this actor's active allocations, for scheduling.
+  // Current-year classes are the canonical class scope for class plans and
+  // scheduling. The UI narrows them to the selected offering grade.
   const classes: PlanningClassOption[] = [];
-  const classIds = [
-    ...new Set(
-      workspace.allocations
-        .map((row) => row.classId)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  ];
-  if (classIds.length) {
-    const classRows = await fetchRows(
-      supabase
-        .from("register_classes")
-        .select("id,display_name,grades(display_name)")
-        .eq("school_id", input.schoolId)
-        .in("id", classIds)
-        .order("display_name"),
-      "Unable to load register classes.",
-    );
-    for (const row of classRows) {
-      classes.push({
-        classId: row.id,
-        className: row.display_name ?? "Class",
-        gradeName: one(row.grades)?.display_name ?? "Grade",
-      });
-    }
+  const classRows = await fetchRows(
+    supabase
+      .from("register_classes")
+      .select("id,display_name,grade_id,grades(display_name)")
+      .eq("school_id", input.schoolId)
+      .eq("academic_year", input.academicYear)
+      .order("display_name"),
+    "Unable to load register classes.",
+  );
+  for (const row of classRows) {
+    const grade = one(row.grades);
+    if (!grade?.display_name) continue;
+    classes.push({
+      classId: row.id,
+      className: row.display_name ?? "Class",
+      gradeId: row.grade_id,
+      gradeName: grade.display_name,
+    });
   }
 
   const planningAllocations: PlanningAllocationOption[] = workspace.allocations.map((row) => ({
