@@ -53,7 +53,6 @@ export function HodScopeConfiguration({
   responsibilities: HodScopeResponsibility[];
   today: string;
 }) {
-  const [subjectId, setSubjectId] = useState("");
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [assignmentId, setAssignmentId] = useState("");
   const [departmentLabel, setDepartmentLabel] = useState("");
@@ -73,12 +72,12 @@ export function HodScopeConfiguration({
 
   const subjectOptions = useMemo(
     () =>
-      subjects.filter((subject) => !selectedSubjectIds.includes(subject.id)).map((subject) => ({
+      subjects.map((subject) => ({
         value: subject.id,
         label: subject.name,
         helper: subject.code,
       })),
-    [selectedSubjectIds, subjects],
+    [subjects],
   );
   const selectedSubjects = useMemo(
     () => selectedSubjectIds.map((id) => subjects.find((subject) => subject.id === id)).filter(Boolean) as HodScopeSubject[],
@@ -189,13 +188,14 @@ export function HodScopeConfiguration({
             <SearchableSelect
               label="Subjects"
               options={subjectOptions}
-              placeholder={selectedSubjectIds.length ? "Add another subject" : "Search and choose subjects"}
+              placeholder="Search and choose subjects"
               searchPlaceholder="Search subjects"
-              value={subjectId}
-              onChange={(id) => {
-                setSelectedSubjectIds((current) => [...current, id]);
-                setSubjectId("");
-              }}
+              value=""
+              multiple
+              selectedValues={selectedSubjectIds}
+              onToggle={(id) => setSelectedSubjectIds((current) =>
+                current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+              )}
               disabled={!subjectOptions.length || createPending}
             />
             {selectedSubjects.length ? (

@@ -42,18 +42,24 @@ export function SearchableSelect({
   emptyMessage,
   disabled = false,
   className,
+  multiple = false,
+  selectedValues = [],
+  onToggle,
 }: {
   label?: string;
   ariaLabel?: string;
   name?: string;
   value: string;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   options: SearchableSelectOption[];
   placeholder: string;
   searchPlaceholder?: string;
   emptyMessage?: (query: string) => string;
   disabled?: boolean;
   className?: string;
+  multiple?: boolean;
+  selectedValues?: string[];
+  onToggle?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -63,6 +69,7 @@ export function SearchableSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const selected = options.find((option) => option.value === value);
+  const selectedSet = useMemo(() => new Set(selectedValues), [selectedValues]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
@@ -112,7 +119,13 @@ export function SearchableSelect({
   }
 
   function choose(option: SearchableSelectOption) {
-    onChange(option.value);
+    if (multiple) {
+      onToggle?.(option.value);
+      setQuery("");
+      requestAnimationFrame(() => inputRef.current?.focus());
+      return;
+    }
+    onChange?.(option.value);
     setOpen(false);
     setQuery("");
   }
@@ -157,7 +170,13 @@ export function SearchableSelect({
         aria-label={ariaLabel || label || placeholder}
         className="scolapro-control-surface flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] px-3 text-left text-sm outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55"
       >
-        <span className={cn("min-w-0 truncate", selected ? "text-foreground" : "text-muted-foreground")}>{selected?.label ?? placeholder}</span>
+        <span className={cn("min-w-0 truncate", multiple || selected ? "text-foreground" : "text-muted-foreground")}>
+          {multiple
+            ? selectedValues.length
+              ? `${selectedValues.length} subject${selectedValues.length === 1 ? "" : "s"} selected`
+              : placeholder
+            : selected?.label ?? placeholder}
+        </span>
         <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
 
@@ -170,7 +189,7 @@ export function SearchableSelect({
           </label>
 
           {filtered.length ? (
-            <div ref={listRef} role="listbox" aria-label={ariaLabel || label || placeholder} className="relative mt-1 overflow-y-auto rounded-[var(--radius-xs)]" style={{ height: Math.min(VIEWPORT_HEIGHT, filtered.length * ROW_HEIGHT) }} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
+            <div ref={listRef} role="listbox" aria-label={ariaLabel || label || placeholder} aria-multiselectable={multiple || undefined} className="relative mt-1 overflow-y-auto rounded-[var(--radius-xs)]" style={{ height: Math.min(VIEWPORT_HEIGHT, filtered.length * ROW_HEIGHT) }} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
               <div style={{ height: filtered.length * ROW_HEIGHT, position: "relative" }}>
                 {visibleOptions.map((option, offset) => {
                   const index = startIndex + offset;
@@ -181,10 +200,10 @@ export function SearchableSelect({
                       key={option.value}
                       type="button"
                       role="option"
-                      aria-selected={option.value === value}
+                      aria-selected={multiple ? selectedSet.has(option.value) : option.value === value}
                       onMouseEnter={() => setActiveIndex(index)}
                       onClick={() => choose(option)}
-                      className={cn("absolute left-0 right-0 flex h-12 items-center gap-2 rounded-[var(--radius-xs)] px-2.5 text-left transition", activeIndex === index ? "bg-surface-muted" : "hover:bg-surface-muted/75", option.value === value && "text-brand-strong")}
+                      className={cn("absolute left-0 right-0 flex h-12 items-center gap-2 rounded-[var(--radius-xs)] px-2.5 text-left transition", activeIndex === index ? "bg-surface-muted" : "hover:bg-surface-muted/75", (multiple ? selectedSet.has(option.value) : option.value === value) && "text-brand-strong")}
                       style={{ top: index * ROW_HEIGHT }}
                     >
                       <span className="min-w-0 flex-1">
@@ -192,7 +211,7 @@ export function SearchableSelect({
                         <span className="block truncate text-sm font-medium">{highlightMatch(option.label, query)}</span>
                         {!showGroup && option.helper ? <span className="block truncate text-[0.64rem] text-muted-foreground">{highlightMatch(option.helper, query)}</span> : null}
                       </span>
-                      {option.value === value ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
+                      {(multiple ? selectedSet.has(option.value) : option.value === value) ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
                     </button>
                   );
                 })}
