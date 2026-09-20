@@ -20,7 +20,7 @@ const hrefFix = source("supabase/migrations/20260919092000_notification_invitati
 
 test("notification inbox remains authenticated-recipient scoped and fails closed on count errors", () => {
   assert.match(inbox, /supabase\.auth\.getUser\(\)/);
-  assert.match(inbox, /\.eq\("recipient_user_id", user\.id\)/);
+  assert.match(inbox, /\.eq\("recipient_user_id", recipientUserId\)/);
   assert.match(inbox, /error: countError/);
   assert.match(inbox, /if \(countError \|\| error\) throw new Error\("Unable to load notifications\."\)/);
 });

@@ -13,24 +13,25 @@ export type UserNotification = {
 export type NotificationInboxContext = {
   currentSchoolId?: string | null;
   roleKey?: string;
+  authenticatedUserId?: string | null;
 };
 
 export async function getNotificationInbox(limit = 8, context: NotificationInboxContext = {}) {
   const supabase = await createSupabaseServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { unreadCount: 0, notifications: [] as UserNotification[] };
+  const recipientUserId = context.authenticatedUserId ?? (await supabase.auth.getUser()).data.user?.id ?? null;
+  if (!recipientUserId) return { unreadCount: 0, notifications: [] as UserNotification[] };
 
   const [{ count, error: countError }, { data, error }] = await Promise.all([
     supabase
       .from("notifications")
       .select("id", { count: "exact", head: true })
-      .eq("recipient_user_id", user.id)
+      .eq("recipient_user_id", recipientUserId)
       .is("dismissed_at", null)
       .is("read_at", null),
     supabase
       .from("notifications")
       .select("id,severity,title,body,href,read_at,created_at")
-      .eq("recipient_user_id", user.id)
+      .eq("recipient_user_id", recipientUserId)
       .is("dismissed_at", null)
       .order("created_at", { ascending: false })
       .limit(limit),

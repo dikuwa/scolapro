@@ -110,6 +110,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         getNotificationInbox(8, {
           currentSchoolId: membership?.schoolId ?? null,
           roleKey,
+          authenticatedUserId: context.user.id,
         }),
         membership
           ? getNavigationAttentionCounts(membership.schoolId, membership.roleKey)
