@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { submitDailyRegister, type DailyRegisterState } from "@/features/attendance/server/actions";
+import { hasQueuedEvidence, queueDailyRegister } from "@/features/attendance/offline/daily-register-queue";
+import type { OfflineScope } from "@/lib/offline/db";
 import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOption, AttendanceTeachingDay } from "@/features/attendance/server/register";
 
 const initialState: DailyRegisterState = {};
@@ -42,6 +44,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   reasons: AttendanceReasonOption[];
   currentSubmissionId: string | null;
   teachingDay: AttendanceTeachingDay;
+  offlineScope: OfflineScope;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(submitDailyRegister, initialState);
@@ -81,6 +84,30 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const presentCount = rows.filter((row) => row.status === "present").length;
   const exceptionCount = rows.length - presentCount;
   const focusedRow = focusedId ? rows.find((row) => row.enrolmentId === focusedId) ?? null : null;
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (typeof navigator === "undefined" || navigator.onLine) return;
+
+    event.preventDefault();
+    const form = event.currentTarget;
+    if (hasQueuedEvidence(form)) {
+      toast.error("Attendance evidence needs a connection. Remove the file or reconnect before saving.");
+      return;
+    }
+
+    try {
+      await queueDailyRegister(offlineScope, {
+        registerClassId: selectedClassId!,
+        attendanceDate,
+        clientMutationId,
+        replacesSubmissionId: currentSubmissionId,
+        exceptions,
+      });
+      toast.success("Attendance saved on this device. It will sync when the connection returns.");
+    } catch {
+      toast.error("Offline attendance could not be stored on this device.");
+    }
+  }
 
   function updateRow(enrolmentId: string, changes: Partial<AttendanceLearnerRow>) {
     setRows((current) => current.map((row) => row.enrolmentId === enrolmentId ? { ...row, ...changes } : row));
@@ -132,7 +159,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
         </div>
 
         {!selectedClassId || !classes.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No register classes configured</p></div> : !rows.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No learners in this class</p></div> : (
-          <form action={action}>
+          <form action={action} onSubmit={handleSubmit}>
             <input type="hidden" name="registerClassId" value={selectedClassId} />
             <input type="hidden" name="attendanceDate" value={attendanceDate} />
             <input type="hidden" name="clientMutationId" value={clientMutationId} />
