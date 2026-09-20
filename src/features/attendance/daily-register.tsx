@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { submitDailyRegister, type DailyRegisterState } from "@/features/attendance/server/actions";
-import { hasQueuedEvidence, queueDailyRegister } from "@/features/attendance/offline/daily-register-queue";
+import { cacheDailyRegisterSnapshot, hasQueuedEvidence, queueDailyRegister } from "@/features/attendance/offline/daily-register-queue";
 import type { OfflineScope } from "@/lib/offline/db";
 import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOption, AttendanceTeachingDay } from "@/features/attendance/server/register";
 
@@ -84,6 +84,26 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const presentCount = rows.filter((row) => row.status === "present").length;
   const exceptionCount = rows.length - presentCount;
   const focusedRow = focusedId ? rows.find((row) => row.enrolmentId === focusedId) ?? null : null;
+
+  useEffect(() => {
+    if (!selectedClassId) return;
+    const selectedClass = classes.find((item) => item.id === selectedClassId);
+    if (!selectedClass) return;
+
+    const timer = window.setTimeout(() => {
+      void cacheDailyRegisterSnapshot(offlineScope, {
+        registerClassId: selectedClassId,
+        registerClassName: `${selectedClass.grade} · ${selectedClass.name}`,
+        attendanceDate,
+        currentSubmissionId,
+        learners: rows,
+        reasons,
+        teachingDay,
+      }).catch(() => undefined);
+    }, 150);
+
+    return () => window.clearTimeout(timer);
+  }, [attendanceDate, classes, currentSubmissionId, offlineScope, reasons, rows, selectedClassId, teachingDay]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     if (typeof navigator === "undefined" || navigator.onLine) return;
