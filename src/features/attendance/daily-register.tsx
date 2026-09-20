@@ -36,7 +36,7 @@ function schoolDayShift(date: string, direction: -1 | 1) {
   return current.toISOString().slice(0, 10);
 }
 
-export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay }: {
+export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay, offlineScope }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   attendanceDate: string;
@@ -71,7 +71,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
     }
   }, [attendanceDate, router, selectedClassId]);
 
-  const exceptions = useMemo(() => rows.filter((row) => row.status !== "present").map((row) => ({ enrolment_id: row.enrolmentId, status: row.status, reason_id: row.reasonId, note: row.note })), [rows]);
+  const exceptions = useMemo(() => rows.filter((row) => row.status !== "present").map((row) => ({ enrolment_id: row.enrolmentId, status: row.status as Exclude<AttendanceStatus, "present">, reason_id: row.reasonId, note: row.note })), [rows]);
   const visibleRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return rows.filter((row) => {
