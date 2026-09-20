@@ -47,6 +47,7 @@ export async function POST(request: Request) {
   const formData = new FormData();
   const payload = parsed.data.payload;
   if (payload.action === "issue") {
+    formData.set("clientMutationId", payload.clientMutationId);
     formData.set("copyId", payload.copyId);
     formData.set("borrowerType", payload.borrowerType);
     formData.set("borrowerId", payload.borrowerId);

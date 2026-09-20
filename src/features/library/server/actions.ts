@@ -11,6 +11,7 @@ const libraryRoles = new Set(["school_admin", "principal", "deputy_principal", "
 const uuidOrEmpty = z.string().uuid().optional().or(z.literal(""));
 
 const issueSchema = z.object({
+  clientMutationId: uuidOrEmpty,
   copyId: z.string().uuid(),
   borrowerType: z.enum(["learner", "staff"]),
   borrowerId: z.string().uuid(),
@@ -114,6 +115,7 @@ function operationFailure(message: string): LibraryActionState {
 
 export async function issueLibraryResource(_state: LibraryActionState, formData: FormData): Promise<LibraryActionState> {
   const parsed = issueSchema.safeParse({
+    clientMutationId: value(formData, "clientMutationId"),
     copyId: value(formData, "copyId"),
     borrowerType: value(formData, "borrowerType"),
     borrowerId: value(formData, "borrowerId"),
@@ -123,13 +125,19 @@ export async function issueLibraryResource(_state: LibraryActionState, formData:
   if (!parsed.success) return operationFailure("Choose an available copy, borrower and valid due date.");
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("issue_learning_resource", {
+  const borrower = {
     p_copy_id: parsed.data.copyId,
     p_learner_id: parsed.data.borrowerType === "learner" ? parsed.data.borrowerId : null,
     p_staff_member_id: parsed.data.borrowerType === "staff" ? parsed.data.borrowerId : null,
     p_due_on: parsed.data.dueOn || null,
     p_notes: parsed.data.notes || null,
-  });
+  };
+  const { error } = parsed.data.clientMutationId
+    ? await supabase.rpc("issue_learning_resource_idempotent", {
+        p_client_operation_id: parsed.data.clientMutationId,
+        ...borrower,
+      })
+    : await supabase.rpc("issue_learning_resource", borrower);
   if (error) return operationFailure("The resource could not be issued. Check that the copy and borrower are still eligible.");
 
   revalidatePath("/library");
