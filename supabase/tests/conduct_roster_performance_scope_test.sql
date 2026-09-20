@@ -35,11 +35,14 @@ insert into public.platform_memberships(user_id,role_key,active_from) values
   ('f6312000-0000-4000-8000-000000000003','platform_support',current_date-5),
   ('f6312000-0000-4000-8000-000000000004','platform_admin',current_date-5);
 
+insert into public.grades(id,tenant_id,school_id,academic_year,grade_code,display_name) values
+  ('f6313900-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','f6311000-0000-4000-8000-000000000001',2026,'CP8','Conduct Perf Grade');
+
 set local session_replication_role=replica;
 
-insert into public.register_classes(id,tenant_id,school_id,academic_year,class_code,display_name,register_teacher_staff_id) values
-  ('f6314000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','f6311000-0000-4000-8000-000000000001',2026,'CP-A','Conduct Perf A','f6313000-0000-4000-8000-000000000002'),
-  ('f6314000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','f6311000-0000-4000-8000-000000000001',2026,'CP-B','Conduct Perf B',null);
+insert into public.register_classes(id,tenant_id,school_id,grade_id,academic_year,class_code,display_name,register_teacher_staff_id) values
+  ('f6314000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','f6311000-0000-4000-8000-000000000001','f6313900-0000-4000-8000-000000000001',2026,'CP-A','Conduct Perf A','f6313000-0000-4000-8000-000000000002'),
+  ('f6314000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','f6311000-0000-4000-8000-000000000001','f6313900-0000-4000-8000-000000000001',2026,'CP-B','Conduct Perf B',null);
 
 insert into public.learners(id,tenant_id,first_names,surname) values
   ('f6315000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','Assigned','Learner'),
