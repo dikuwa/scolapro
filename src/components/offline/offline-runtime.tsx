@@ -37,10 +37,10 @@ export function OfflineRuntime({ scope }: { scope: OfflineScope | null }) {
     }
     setState("syncing");
     setPending(before.pending);
-    const [dailyAfter, subjectAfter] = await Promise.all([syncQueuedDailyRegisters(scope), syncQueuedSubjectPeriodAttendance(scope)]);
-    const after = { pending: dailyAfter.pending + subjectAfter.pending, attention: dailyAfter.attention + subjectAfter.attention };
+    await Promise.all([syncQueuedDailyRegisters(scope), syncQueuedSubjectPeriodAttendance(scope)]);
+    const after = await offlineQueueSummary(scope);
     setPending(after.pending);
-    setState(after.attention ? "attention" : after.pending ? "online" : "online");
+    setState(after.attention ? "attention" : "online");
   }, [refresh, scope]);
 
   useEffect(() => {
