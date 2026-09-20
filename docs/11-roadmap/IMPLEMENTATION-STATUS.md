@@ -4,7 +4,7 @@
 
 Last updated: **20 September 2026**
 
-Current authoritative deployed baseline: `7ad6aefd1fe505e01240f94cfe6fb12867b0bd86`. Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion is tracked in Issue #602.
+Current authoritative main: `7744537797170fb1d3fcea744bb6aa7ba89b42d7`. Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion is tracked in Issue #602.
 
 Canonical 10 September product directive: `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md`.
 
@@ -32,7 +32,18 @@ Release closure:
 - Performance hardening integrated navigation prefetch reduction and Vercel/Supabase regional colocation.
 
 Active post-release implementation:
-- #602 — expand offline-first support in the accepted architecture order: subject-period attendance, lesson-preparation drafts, marks-draft readiness, then bounded LTSM issue/return readiness.
+- #604 subject-period attendance offline — COMPLETE / INTEGRATED via PR #611.
+- #607 library issue/return offline queue — COMPLETE / INTEGRATED via PR #614.
+- #608 document mobile-header correction — COMPLETE / INTEGRATED via PR #612.
+- #609 shell notification auth reuse — COMPLETE / INTEGRATED via PR #613.
+- #610 security-advisor triage — COMPLETE / NO SOURCE CHANGE.
+- #605 lesson-preparation drafts — ACTIVE, migration-owning handback pending Control Room import/DB verification.
+- #606 marks-entry drafts — ACTIVE with approved server-authoritative idempotency/version/status contract.
+- #615 teaching coverage/reflection offline — ACTIVE.
+- #616 offline sync attention center — ACTIVE.
+- #617 subject-period offline fallback workspace — ACTIVE.
+- #618 library offline fallback workspace — ACTIVE.
+- #619 offline cache security/privacy review — ACTIVE.
 - No generic HTTP caching of business state.
 - Privileged/destructive/finality workflows remain online-first.
 - N06 remains SOURCE-GATED; N11 and T12 remain REQUIREMENTS-GATED.
