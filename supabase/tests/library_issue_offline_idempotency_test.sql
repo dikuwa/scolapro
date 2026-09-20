@@ -23,7 +23,7 @@ insert into public.school_memberships(
   'fb810000-0000-4000-8000-000000000001',
   'fb820000-0000-4000-8000-000000000001',
   'librarian',
-  app_private.learning_resource_today()-1
+  current_date-1
 );
 
 insert into public.learners(id,tenant_id,first_names,surname)
@@ -42,7 +42,7 @@ insert into public.enrolments(
   'fb830000-0000-4000-8000-000000000001',
   2026,
   'LIB-OFF-001',
-  app_private.learning_resource_today()-30,
+  current_date-30,
   'current'
 );
 
@@ -74,12 +74,12 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fb820000-0000-4000-8000-000000000001',true);
 
 select lives_ok(
-  $$select public.issue_learning_resource_idempotent(
+  $$sql$select public.issue_learning_resource_idempotent(
     'fb870000-0000-4000-8000-000000000001',
     'fb860000-0000-4000-8000-000000000001',
     'fb830000-0000-4000-8000-000000000001',
     null,
-    app_private.learning_resource_today()+14,
+    current_date+14,
     'offline issue'
   )$$,
   'first offline library issue succeeds'
@@ -97,7 +97,7 @@ select is(
     'fb860000-0000-4000-8000-000000000001',
     'fb830000-0000-4000-8000-000000000001',
     null,
-    app_private.learning_resource_today()+14,
+    current_date+14,
     'offline issue'
   ),
   (select id from public.learning_resource_loans where copy_id='fb860000-0000-4000-8000-000000000001'),
@@ -119,21 +119,21 @@ select is(
 );
 
 select throws_ok(
-  $select public.issue_learning_resource_idempotent(
+  $sql$select public.issue_learning_resource_idempotent(
     'fb870000-0000-4000-8000-000000000001',
     'fb860000-0000-4000-8000-000000000001',
     'fb830000-0000-4000-8000-000000000001',
     null,
-    app_private.learning_resource_today()+21,
+    current_date+21,
     'changed offline issue'
-  )$,
+  )$sql$,
   'Client operation ID was already used with different library issue data',
   'changed payload cannot reuse an existing client operation id'
 );
 
 reset role;
 update public.school_memberships
-set active_to=app_private.learning_resource_today()-1
+set active_to=current_date-1
 where user_id='fb820000-0000-4000-8000-000000000001'
   and school_id='fb810000-0000-4000-8000-000000000001';
 set local role authenticated;
@@ -141,14 +141,14 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fb820000-0000-4000-8000-000000000001',true);
 
 select throws_ok(
-  $select public.issue_learning_resource_idempotent(
+  $sql$select public.issue_learning_resource_idempotent(
     'fb870000-0000-4000-8000-000000000001',
     'fb860000-0000-4000-8000-000000000001',
     'fb830000-0000-4000-8000-000000000001',
     null,
-    app_private.learning_resource_today()+14,
+    current_date+14,
     'offline issue'
-  )$,
+  )$sql$,
   'Permission denied',
   'replay revalidates current library authority before returning the receipt'
 );
