@@ -573,14 +573,23 @@ test('room inventory exposes honest empty verification history and labelled quan
 test('guardian reads honor current effective relationship/contact/address periods', () => {
   const queriesSource = fs.readFileSync(path.join(root, 'src/features/guardians/server/queries.ts'), 'utf8');
   const directorySource = fs.readFileSync(path.join(root, 'src/features/guardians/server/directory.ts'), 'utf8');
+  const hydrationMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260920180000_guardian_directory_detail_hydration.sql'), 'utf8');
 
-  for (const source of [queriesSource, directorySource]) {
-    assert.match(source, /getNamibiaDateKey/);
-    assert.match(source, /\.lte\("effective_from", today\)/);
-    assert.match(source, /effective_to\.is\.null,effective_to\.gte\.\$\{today\}/);
-  }
+  assert.match(queriesSource, /getNamibiaDateKey/);
+  assert.match(queriesSource, /\.lte\("effective_from", today\)/);
+  assert.match(queriesSource, /effective_to\.is\.null,effective_to\.gte\.\$\{today\}/);
   assert.doesNotMatch(queriesSource, /\.is\("effective_to", null\)/);
-  assert.doesNotMatch(directorySource, /\.is\("effective_to", null\)/);
+
+  assert.match(directorySource, /rpc\("get_guardian_directory_details"/);
+  assert.match(hydrationMigration, /e\.enrolled_from<=current_date/);
+  assert.match(hydrationMigration, /e\.enrolled_to is null or e\.enrolled_to>=current_date/);
+  assert.match(hydrationMigration, /lg\.effective_from<=current_date/);
+  assert.match(hydrationMigration, /lg\.effective_to is null or lg\.effective_to>=current_date/);
+  assert.match(hydrationMigration, /gc\.effective_from<=current_date/);
+  assert.match(hydrationMigration, /gc\.effective_to is null or gc\.effective_to>=current_date/);
+  assert.match(hydrationMigration, /ga\.effective_from<=current_date/);
+  assert.match(hydrationMigration, /ga\.effective_to is null or ga\.effective_to>=current_date/);
+
   assert.match(queriesSource, /if \(error\) throw new Error\("Unable to load learner guardians\."\)/);
   assert.match(directorySource, /if \(hydrationError\) throw new Error\("Unable to load guardian directory details\."\)/);
 });
