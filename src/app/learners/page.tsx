@@ -7,6 +7,7 @@ import { listLearnerDirectoryPage, type LearnerDirectoryPage } from "@/features/
 import { getRegistrationOptions, type GradeOption } from "@/features/learners/server/registration-options";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
+import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 const learnerDirectoryRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian"]);
 
@@ -49,12 +50,20 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
   let academicOptions: GradeOption[] = [];
   let schoolName = "ScolaPro Demonstration School";
   let canRegisterLearner = true;
-  const academicYear = new Date().getFullYear();
+  const academicYear = getNamibiaCalendarYear();
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
-    const membership = context.memberships.find((candidate) => learnerDirectoryRoles.has(candidate.roleKey));
+    const currentSchoolId = context.currentSchoolMembership?.schoolId;
+    const membership = currentSchoolId
+      ? context.memberships.find((candidate) =>
+          candidate.schoolId === currentSchoolId && candidate.roleKey === "school_admin",
+        ) ??
+        context.memberships.find((candidate) =>
+          candidate.schoolId === currentSchoolId && learnerDirectoryRoles.has(candidate.roleKey),
+        )
+      : null;
     if (!membership) redirect("/");
     schoolName = membership.schoolName;
     canRegisterLearner = membership.roleKey === "school_admin";

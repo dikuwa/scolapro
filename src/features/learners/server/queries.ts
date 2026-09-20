@@ -112,7 +112,22 @@ export async function listLearnerDirectoryPage(
     p_page_size: pageSize,
   });
 
-  if (error) throw new Error("Unable to load the learner directory.");
+  if (error) {
+    // Keep the user-facing error deliberately generic, but retain the provider
+    // details needed to distinguish an authorization, signature, or deployment
+    // mismatch in the server logs. Never log learner search input or row data.
+    console.error("[learners] paged directory RPC failed", {
+      schoolId,
+      academicYear,
+      page,
+      pageSize,
+      code: error.code ?? "unknown",
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    throw new Error("Unable to load the learner directory.");
+  }
   const rows = (data ?? []) as LearnerDirectoryRpcRow[];
   const total = rows.length ? Number(rows[0].total_count) : 0;
 
