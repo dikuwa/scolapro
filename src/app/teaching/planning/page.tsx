@@ -25,6 +25,7 @@ export default async function TeachingPlanningPage() {
     schoolId: membership.schoolId,
     academicYear,
     roleKey: membership.roleKey,
+    staffMemberId: membership.staffMemberId,
   });
 
   return (
