@@ -1,6 +1,6 @@
 begin;
 
-select plan(6);
+select plan(7);
 
 insert into public.schools(id,tenant_id,name)
 values(
@@ -119,16 +119,38 @@ select is(
 );
 
 select throws_ok(
-  $$select public.issue_learning_resource_idempotent(
+  $select public.issue_learning_resource_idempotent(
     'fb870000-0000-4000-8000-000000000001',
     'fb860000-0000-4000-8000-000000000001',
     'fb830000-0000-4000-8000-000000000001',
     null,
     app_private.learning_resource_today()+21,
     'changed offline issue'
-  )$$,
+  )$,
   'Client operation ID was already used with different library issue data',
   'changed payload cannot reuse an existing client operation id'
+);
+
+reset role;
+update public.school_memberships
+set active_to=app_private.learning_resource_today()-1
+where user_id='fb820000-0000-4000-8000-000000000001'
+  and school_id='fb810000-0000-4000-8000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fb820000-0000-4000-8000-000000000001',true);
+
+select throws_ok(
+  $select public.issue_learning_resource_idempotent(
+    'fb870000-0000-4000-8000-000000000001',
+    'fb860000-0000-4000-8000-000000000001',
+    'fb830000-0000-4000-8000-000000000001',
+    null,
+    app_private.learning_resource_today()+14,
+    'offline issue'
+  )$,
+  'Permission denied',
+  'replay revalidates current library authority before returning the receipt'
 );
 
 select * from finish();
