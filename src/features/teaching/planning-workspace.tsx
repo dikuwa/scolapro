@@ -121,6 +121,7 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
         value: item.classId,
         label: item.className,
         helper: item.gradeName,
+        gradeId: item.gradeId,
       })),
     [data.classes],
   );
@@ -169,6 +170,14 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
     teacherAllocationId: "",
     curriculumUnitId: "",
   });
+  const classOptionsForOffering = useMemo(() => {
+    const offering = data.planningOfferings.find(
+      (item) => item.offeringId === planForm.offeringId,
+    );
+    return offering
+      ? classOptions.filter((item) => item.gradeId === offering.gradeId)
+      : classOptions;
+  }, [classOptions, data.planningOfferings, planForm.offeringId]);
   const [planState, planAction, planPending] = useActionState(
     async (state: PlanningActionState, form: FormData) => {
       const result = await createPacingPlan(state, form);
@@ -264,11 +273,22 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
     emptyState,
   );
 
-  const offeringOptions = data.planningAllocations.map((allocation) => ({
-    value: allocation.offeringId,
-    label: allocation.subjectName,
-    helper: `${allocation.gradeName} · ${allocation.className ?? "No register class"}`,
-  }));
+  const offeringOptions = useMemo(
+    () =>
+      data.planningOfferings.map((offering) => {
+        const allocationClasses = data.planningAllocations
+          .filter((allocation) => allocation.offeringId === offering.offeringId)
+          .map((allocation) => allocation.className)
+          .filter(Boolean);
+        const classes = [...new Set(allocationClasses)].join(", ");
+        return {
+          value: offering.offeringId,
+          label: offering.subjectName,
+          helper: `${offering.gradeName}${classes ? ` · ${classes}` : ""}${offering.curriculumVersionId ? "" : " · Curriculum link pending"}`,
+        };
+      }),
+    [data.planningAllocations, data.planningOfferings],
+  );
 
   // A teacher allocation can only be tied to a plan for its own offering.
   const allocationOptionsForOffering = (offeringId: string) =>
@@ -280,7 +300,7 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
         helper: `${allocation.gradeName} · effective ${allocation.activeFrom} → ${allocation.activeTo ?? "open"}`,
       }));
 
-  const hasOfferings = data.planningAllocations.length > 0;
+  const hasOfferings = data.planningOfferings.length > 0;
   const hasUnits = unitOptions.length > 0;
   const hasPlans = planOptions.length > 0;
   const hasItems = itemOptions.length > 0;
@@ -292,7 +312,7 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
         <p className="rounded-[var(--radius-sm)] bg-warning-soft/60 px-3 py-2.5 text-xs text-[color:var(--warning)]">
           {hasOfferings
             ? "No curriculum units are in scope, so nothing can be authored yet. Curriculum registry content is published centrally."
-            : `No teaching allocation is currently effective for the school's academic year (${data.academicYear}), so there is no plan to author yet.`}
+            : `No active subject offering is currently in scope for the school's academic year (${data.academicYear}), so there is no plan to author yet.`}
         </p>
       )}
 
@@ -318,6 +338,7 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
               }
               options={offeringOptions}
               placeholder="Select offering"
+              searchable
               disabled={!hasOfferings || planPending}
             />
             <Picker
@@ -335,9 +356,9 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
                 name="registerClassId"
                 value={planForm.registerClassId}
                 onChange={(value) => setPlanForm((current) => ({ ...current, registerClassId: value }))}
-                options={classOptions}
+                options={classOptionsForOffering}
                 placeholder="Select class"
-                disabled={classOptions.length === 0 || planPending}
+                disabled={classOptionsForOffering.length === 0 || planPending}
               />
             )}
             <Picker

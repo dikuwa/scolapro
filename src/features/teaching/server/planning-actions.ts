@@ -148,9 +148,10 @@ export async function createPacingPlan(
   // the plan. tenant_id must never be derived from school_id.
   const { data: offering } = await supabase
     .from("subject_offerings")
-    .select("id,tenant_id,school_id,academic_year,curriculum_version_id")
+    .select("id,tenant_id,school_id,academic_year,grade_id,status,curriculum_version_id")
     .eq("id", parsed.data.offeringId)
     .eq("school_id", scope.schoolId)
+    .eq("status", "active")
     .maybeSingle();
 
   if (!offering) {
@@ -185,7 +186,7 @@ export async function createPacingPlan(
   if (parsed.data.registerClassId) {
     const { data: registerClass } = await supabase
       .from("register_classes")
-      .select("id,school_id,academic_year")
+      .select("id,school_id,academic_year,grade_id")
       .eq("id", parsed.data.registerClassId)
       .eq("school_id", scope.schoolId)
       .maybeSingle();
@@ -195,6 +196,9 @@ export async function createPacingPlan(
     }
     if (registerClass.academic_year !== offering.academic_year) {
       return { message: "That register class belongs to a different academic year than the offering." };
+    }
+    if (registerClass.grade_id !== offering.grade_id) {
+      return { message: "That register class belongs to a different grade than the offering." };
     }
   }
 
