@@ -3,12 +3,16 @@ import {
   listOfflineMutations,
   offlineQueueSummary,
   removeOfflineMutation,
+  saveOfflineSnapshot,
+  listOfflineSnapshots,
   updateOfflineMutation,
   type OfflineMutationRecord,
   type OfflineScope,
 } from "@/lib/offline/db";
+import type { AttendanceLearnerRow, AttendanceReasonOption, AttendanceTeachingDay } from "@/features/attendance/server/register";
 
 export const DAILY_ATTENDANCE_MUTATION = "attendance.daily-register";
+export const DAILY_ATTENDANCE_SNAPSHOT = "attendance.daily-register.snapshot";
 
 export type OfflineDailyRegisterPayload = {
   registerClassId: string;
@@ -78,3 +82,30 @@ export function hasQueuedEvidence(form: HTMLFormElement) {
 }
 
 export type OfflineDailyRegisterRecord = OfflineMutationRecord<OfflineDailyRegisterPayload>;
+
+
+export type OfflineDailyRegisterSnapshot = {
+  registerClassId: string;
+  registerClassName: string;
+  attendanceDate: string;
+  currentSubmissionId: string | null;
+  learners: AttendanceLearnerRow[];
+  reasons: AttendanceReasonOption[];
+  teachingDay: AttendanceTeachingDay;
+};
+
+export async function cacheDailyRegisterSnapshot(
+  scope: OfflineScope,
+  snapshot: OfflineDailyRegisterSnapshot,
+) {
+  return saveOfflineSnapshot(
+    scope,
+    DAILY_ATTENDANCE_SNAPSHOT,
+    `${snapshot.registerClassId}:${snapshot.attendanceDate}`,
+    snapshot,
+  );
+}
+
+export async function listCachedDailyRegisters(scope: OfflineScope) {
+  return listOfflineSnapshots<OfflineDailyRegisterSnapshot>(scope, DAILY_ATTENDANCE_SNAPSHOT);
+}
