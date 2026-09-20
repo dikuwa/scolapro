@@ -26,7 +26,15 @@ export default async function LibraryPage() {
           <h1 className="scolapro-page-title">Library / Textbooks</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Manage the canonical resource catalog, physical stock, individual circulation and class-scale textbook allocation.</p>
         </div>
-        <LibraryWorkspace {...workspace} today={today} />
+        <LibraryWorkspace
+          {...workspace}
+          today={today}
+          offlineScope={{
+            userId: context.user.id,
+            tenantId: membership.tenantId,
+            schoolId: membership.schoolId,
+          }}
+        />
       </div>
     </AppShell>
   );
