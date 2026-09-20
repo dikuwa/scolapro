@@ -5,6 +5,7 @@ import { CloudOff, RefreshCw, TriangleAlert } from "lucide-react";
 import { activateOfflineScope, offlineQueueSummary, type OfflineScope } from "@/lib/offline/db";
 import { syncQueuedDailyRegisters } from "@/features/attendance/offline/daily-register-queue";
 import { syncQueuedSubjectPeriodAttendance } from "@/features/attendance/offline/subject-period-queue";
+import { syncQueuedLibraryCirculation } from "@/features/library/offline/circulation-queue";
 
 type State = "online" | "offline" | "syncing" | "attention";
 
@@ -37,7 +38,11 @@ export function OfflineRuntime({ scope }: { scope: OfflineScope | null }) {
     }
     setState("syncing");
     setPending(before.pending);
-    await Promise.all([syncQueuedDailyRegisters(scope), syncQueuedSubjectPeriodAttendance(scope)]);
+    await Promise.all([
+      syncQueuedDailyRegisters(scope),
+      syncQueuedSubjectPeriodAttendance(scope),
+      syncQueuedLibraryCirculation(scope),
+    ]);
     const after = await offlineQueueSummary(scope);
     setPending(after.pending);
     setState(after.attention ? "attention" : "online");
