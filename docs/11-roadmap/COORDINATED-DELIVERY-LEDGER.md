@@ -1,6 +1,6 @@
 # Coordinated delivery ledger
 
-Baseline: `7ad6aefd1fe505e01240f94cfe6fb12867b0bd86` (`main`, deployed 20 September 2026). Issue #598 is CLOSED with RELEASE GO. Issue #602 owns Post-release Wave 1 offline-first expansion.
+Baseline: `7744537797170fb1d3fcea744bb6aa7ba89b42d7` (`main`, 20 September 2026). Issue #598 is CLOSED with RELEASE GO. Issue #602 owns Post-release Wave 1 offline-first expansion.
 
 This ledger is governed with `docs/11-roadmap/CONTROL-ROOM.md`. Current source, approved directives and connected-environment evidence override stale chat/roadmap status.
 
@@ -22,6 +22,12 @@ This ledger is governed with `docs/11-roadmap/CONTROL-ROOM.md`. Current source, 
 - #562 — CLOSED; no source defect, production library inventory/circulation data absent.
 - #590 — post-release governed staff-identity cleanup; no destructive/manual identity merge.
 - #602 — active offline-first expansion wave.
+- #604 / PR #611 — subject-period attendance offline COMPLETE / MERGED.
+- #607 / PR #614 — library circulation offline COMPLETE / MERGED.
+- #608 / PR #612 — document responsive header defect COMPLETE / MERGED.
+- #609 / PR #613 — bounded shell performance fix COMPLETE / MERGED.
+- #610 — security-advisor triage COMPLETE / NO SOURCE CHANGE.
+- #605, #606, #615–#619 — active bounded workstreams.
 - Offline business mutations follow ADR-0005; generic HTTP cache success is not sufficient.
 - Performance changes remain evidence-led; no speculative mass indexing.
 
