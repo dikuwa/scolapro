@@ -74,14 +74,14 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fb820000-0000-4000-8000-000000000001',true);
 
 select lives_ok(
-  $$sql$select public.issue_learning_resource_idempotent(
+  $sql$select public.issue_learning_resource_idempotent(
     'fb870000-0000-4000-8000-000000000001',
     'fb860000-0000-4000-8000-000000000001',
     'fb830000-0000-4000-8000-000000000001',
     null,
     current_date+14,
     'offline issue'
-  )$$,
+  )$sql$,
   'first offline library issue succeeds'
 );
 
