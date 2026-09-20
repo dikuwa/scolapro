@@ -16,6 +16,17 @@ export const OFFICIAL_DOCUMENT_FRAME_RULE =
 export const OFFICIAL_DOCUMENT_HEADER_RULE =
   ".school-header { display: grid; grid-template-columns: 88px minmax(0,1fr) 128px; gap: 10px; align-items: center; border: 1px solid var(--line); padding: 8px 10px; min-height: 92px; }";
 
+/**
+ * Keep the official header readable when an HTML print view is inspected on
+ * a phone-sized viewport. The fixed postal column otherwise overlaps the
+ * school's contact block once the identity column becomes too narrow.
+ */
+export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
+  "@media (max-width: 640px) { .school-header { grid-template-columns: 76px minmax(0,1fr); align-items: start; } .school-header > .logo-wrap { grid-row: 1 / span 2; } .school-header > .school-identity, .school-header > .postal { grid-column: 2; } .school-header > .postal { align-self: start; padding-bottom: 0; } }";
+
+export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
+  `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}`;
+
 export const OFFICIAL_DOCUMENT_METADATA_RULE =
   ".document-meta { display: flex; justify-content: space-between; gap: 12px; padding: 5px 2px 0; color: #666; font-size: 6px; }";
 
@@ -52,7 +63,7 @@ type ChromeReplacement = {
 const CHROME_REPLACEMENTS: ChromeReplacement[] = [
   { name: "A4 page rule", legacy: OFFICIAL_DOCUMENT_A4_PAGE_RULE, shared: OFFICIAL_DOCUMENT_A4_PAGE_RULE },
   { name: "official frame", legacy: OFFICIAL_DOCUMENT_FRAME_RULE, shared: OFFICIAL_DOCUMENT_FRAME_RULE },
-  { name: "school header", legacy: OFFICIAL_DOCUMENT_HEADER_RULE, shared: OFFICIAL_DOCUMENT_HEADER_RULE },
+  { name: "school header", legacy: OFFICIAL_DOCUMENT_HEADER_RULE, shared: OFFICIAL_DOCUMENT_HTML_HEADER_RULE },
   { name: "metadata footer", legacy: OFFICIAL_DOCUMENT_METADATA_RULE, shared: OFFICIAL_DOCUMENT_METADATA_RULE },
 ];
 
