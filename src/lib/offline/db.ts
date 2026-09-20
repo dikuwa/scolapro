@@ -18,9 +18,10 @@ export type OfflineMutationRecord<TPayload = unknown> = OfflineScope & {
 };
 
 const DB_NAME = "scolapro-offline";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const MUTATIONS = "mutations";
 const META = "meta";
+const SNAPSHOTS = "snapshots";
 const ACTIVE_SCOPE_KEY = "active-scope";
 
 function scopeKey(scope: OfflineScope) {
@@ -55,6 +56,10 @@ function openOfflineDb() {
         store.createIndex("scope_kind", ["scopeKey", "kind"], { unique: false });
       }
       if (!database.objectStoreNames.contains(META)) database.createObjectStore(META, { keyPath: "key" });
+      if (!database.objectStoreNames.contains(SNAPSHOTS)) {
+        const store = database.createObjectStore(SNAPSHOTS, { keyPath: "id" });
+        store.createIndex("scope_kind", ["scopeKey", "kind"], { unique: false });
+      }
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error("Offline storage could not be opened."));
@@ -63,15 +68,17 @@ function openOfflineDb() {
 
 export async function activateOfflineScope(scope: OfflineScope | null) {
   const database = await openOfflineDb();
-  const transaction = database.transaction([META, MUTATIONS], "readwrite");
+  const transaction = database.transaction([META, MUTATIONS, SNAPSHOTS], "readwrite");
   const meta = transaction.objectStore(META);
   const mutations = transaction.objectStore(MUTATIONS);
-  const current = await requestResult<{ key: string; value: string } | undefined>(meta.get(ACTIVE_SCOPE_KEY));
+  const snapshots = transaction.objectStore(SNAPSHOTS);
+  const current = await requestResult<{ key: string; value: string; scope?: OfflineScope } | undefined>(meta.get(ACTIVE_SCOPE_KEY));
 
   const next = scope ? scopeKey(scope) : "";
   if ((current?.value ?? "") !== next) {
     mutations.clear();
-    if (next) meta.put({ key: ACTIVE_SCOPE_KEY, value: next });
+    snapshots.clear();
+    if (next) meta.put({ key: ACTIVE_SCOPE_KEY, value: next, scope });
     else meta.delete(ACTIVE_SCOPE_KEY);
   }
 
@@ -152,4 +159,60 @@ export async function offlineQueueSummary(scope: OfflineScope) {
     pending: records.filter((record) => record.status === "pending" || record.status === "syncing").length,
     attention: records.filter((record) => record.status === "conflicted" || record.status === "rejected").length,
   };
+}
+
+
+export type OfflineSnapshot<TPayload = unknown> = OfflineScope & {
+  id: string;
+  kind: string;
+  scopeKey: string;
+  payload: TPayload;
+  updatedAt: string;
+};
+
+export async function getActiveOfflineScope(): Promise<OfflineScope | null> {
+  const database = await openOfflineDb();
+  const transaction = database.transaction(META, "readonly");
+  const current = await requestResult<{ key: string; value: string; scope?: OfflineScope } | undefined>(
+    transaction.objectStore(META).get(ACTIVE_SCOPE_KEY),
+  );
+  await transactionDone(transaction);
+  database.close();
+  return current?.scope ?? null;
+}
+
+export async function saveOfflineSnapshot<TPayload>(
+  scope: OfflineScope,
+  kind: string,
+  snapshotKey: string,
+  payload: TPayload,
+) {
+  const database = await openOfflineDb();
+  const transaction = database.transaction(SNAPSHOTS, "readwrite");
+  const record: OfflineSnapshot<TPayload> = {
+    ...scope,
+    id: `${scopeKey(scope)}:${kind}:${snapshotKey}`,
+    kind,
+    scopeKey: scopeKey(scope),
+    payload,
+    updatedAt: new Date().toISOString(),
+  };
+  transaction.objectStore(SNAPSHOTS).put(record);
+  await transactionDone(transaction);
+  database.close();
+  return record;
+}
+
+export async function listOfflineSnapshots<TPayload>(
+  scope: OfflineScope,
+  kind: string,
+): Promise<Array<OfflineSnapshot<TPayload>>> {
+  const database = await openOfflineDb();
+  const transaction = database.transaction(SNAPSHOTS, "readonly");
+  const records = await requestResult<Array<OfflineSnapshot<TPayload>>>(transaction.objectStore(SNAPSHOTS).getAll());
+  await transactionDone(transaction);
+  database.close();
+  return records
+    .filter((record) => record.scopeKey === scopeKey(scope) && record.kind === kind)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
