@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(15);
 
 insert into public.tenants(id,name,slug) values
   ('ab100000-0000-4000-8000-000000000001','Learner Current Scope','learner-current-scope'),
@@ -15,15 +15,18 @@ insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('ab000000-0000-4000-8000-000000000001','learner-current-viewer@example.test','authenticated','authenticated',now(),now()),
   ('ab000000-0000-4000-8000-000000000002','learner-stale-staff@example.test','authenticated','authenticated',now(),now()),
   ('ab000000-0000-4000-8000-000000000003','learner-platform-support@example.test','authenticated','authenticated',now(),now()),
-  ('ab000000-0000-4000-8000-000000000004','learner-platform-admin@example.test','authenticated','authenticated',now(),now());
+  ('ab000000-0000-4000-8000-000000000004','learner-platform-admin@example.test','authenticated','authenticated',now(),now()),
+  ('ab000000-0000-4000-8000-000000000005','learner-linked-no-assignment@example.test','authenticated','authenticated',now(),now());
 
 insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status) values
-  ('ab300000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000001','ab000000-0000-4000-8000-000000000002','LRN-STALE','Stale','Learner Reader','active');
+  ('ab300000-0000-4000-8000-000000000002','ab100000-0000-4000-8000-000000000001','ab000000-0000-4000-8000-000000000002','LRN-STALE','Stale','Learner Reader','active'),
+  ('ab300000-0000-4000-8000-000000000005','ab100000-0000-4000-8000-000000000001','ab000000-0000-4000-8000-000000000005','LRN-NOASSIGN','Linked','No Assignment','active');
 
 insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from) values
   ('ab100000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000001','ab000000-0000-4000-8000-000000000001',null,'school_admin',current_date-10),
   ('ab100000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000002','ab000000-0000-4000-8000-000000000001',null,'school_admin',current_date-1),
-  ('ab100000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000002','ab000000-0000-4000-8000-000000000002','ab300000-0000-4000-8000-000000000002','school_admin',current_date-30);
+  ('ab100000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000002','ab000000-0000-4000-8000-000000000002','ab300000-0000-4000-8000-000000000002','school_admin',current_date-30),
+  ('ab100000-0000-4000-8000-000000000001','ab200000-0000-4000-8000-000000000002','ab000000-0000-4000-8000-000000000005','ab300000-0000-4000-8000-000000000005','school_admin',current_date-30);
 
 insert into public.staff_school_assignments(
   id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id
@@ -89,6 +92,12 @@ select throws_ok(
   $$select * from public.list_learner_directory_page('ab200000-0000-4000-8000-000000000003',2026,null,'current',null,null,null,false,1,50)$$,
   'Permission denied',
   'cross-tenant learner directory enumeration is denied'
+);
+
+select set_config('request.jwt.claim.sub','ab000000-0000-4000-8000-000000000005',true);
+select lives_ok(
+  $select * from public.list_learner_directory_page('ab200000-0000-4000-8000-000000000002',2026,null,'current',null,null,null,false,1,50)$,
+  'staff-linked current-school membership without assignment history retains learner directory authority'
 );
 
 select set_config('request.jwt.claim.sub','ab000000-0000-4000-8000-000000000002',true);
