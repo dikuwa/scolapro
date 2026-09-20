@@ -222,7 +222,9 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
               <span>Show on report</span>
               <span className="sr-only">Actions</span>
             </div>
-            {settings.subjects.map((subject) => <SubjectRule key={subject.subjectId} schoolId={schoolId} subject={subject} />)}
+            <div className="max-h-[min(62vh,42rem)] overflow-x-hidden overflow-y-auto overscroll-contain scolapro-scrollbar">
+              {settings.subjects.map((subject) => <SubjectRule key={subject.subjectId} schoolId={schoolId} subject={subject} />)}
+            </div>
           </div>
         ) : <p className="py-6 text-sm text-muted-foreground">Configure active subjects first; their report-card rules will appear here.</p>}
       </div>
