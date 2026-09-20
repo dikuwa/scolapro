@@ -12,7 +12,7 @@ const schema = z.object({
   clientMutationId: z.string().uuid(),
   source: z.enum(["online", "offline_sync"]).default("online"),
   replacesSubmissionId: z.string().uuid().nullable(),
-  exceptions: z.array(z.object({ enrolment_id: z.string().uuid(), status: z.enum(["absent","late","excused","unknown"]), reason_id: z.string().uuid().nullable(), note: z.string().nullable() })),
+  exceptions: z.array(z.object({ enrolment_id: z.string().uuid(), status: z.enum(["absent","late","excused","unknown"]), reason_id: z.string().uuid().nullable(), note: z.string().max(500).nullable() })),
 });
 
 export async function submitSubjectAttendance(_state: SubjectAttendanceState, formData: FormData): Promise<SubjectAttendanceState> {
@@ -30,7 +30,7 @@ export async function submitSubjectAttendance(_state: SubjectAttendanceState, fo
     p_replaces_submission_id: parsed.data.replacesSubmissionId,
     p_source: parsed.data.source,
   });
-  if (error) return { message: error.message };
+  if (error) return { message: "Lesson attendance could not be saved. Confirm the lesson, learner entries and your current teaching access, then try again." };
   // Subject-period attendance is the authoritative source for the subject view
   // of absence reviews, so that dependent route must be invalidated too — the
   // lesson route alone leaves absence reviews on its previous payload.
