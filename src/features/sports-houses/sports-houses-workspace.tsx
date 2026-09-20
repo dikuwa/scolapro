@@ -7,8 +7,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { AssistedBalancingPanel } from "@/features/sports-houses/assisted-balancing-panel";
 import { Picker } from "@/components/ui/picker";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
-  assignLearnerSportsHouse,
+  assignLearnersSportsHouse,
   assignStaffSportsHouse,
   changeSportsHouseStatus,
   saveSportsAgeGroup,
@@ -162,15 +163,15 @@ function LearnerAssignmentForm({
   learners: SportsLearner[];
   houses: SportsHouse[];
 }) {
-  const [state, action, pending] = useActionState(assignLearnerSportsHouse, initialState);
-  const [learnerId, setLearnerId] = useState("");
+  const [state, action, pending] = useActionState(assignLearnersSportsHouse, initialState);
+  const [learnerIds, setLearnerIds] = useState<string[]>([]);
   const [houseId, setHouseId] = useState("");
   const [locked, setLocked] = useState("false");
   useActionToast(state);
   const learnerOptions = learners.map((item) => ({
     value: item.id,
     label: item.name,
-    helper: [item.admissionNumber, item.houseName ? `Current: ${item.houseName}` : "Unassigned"].filter(Boolean).join(" · "),
+    helper: [item.admissionNumber, item.isLocked ? "Locked" : item.houseName ? `Current: ${item.houseName}` : "Unassigned"].filter(Boolean).join(" · "),
   }));
   const houseOptions = houses.filter((house) => house.status === "active").map((house) => ({ value: house.id, label: house.name, helper: house.shortCode ?? undefined }));
 
@@ -178,10 +179,22 @@ function LearnerAssignmentForm({
     <form action={action} className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted/45 p-3 sm:p-4 lg:grid-cols-[minmax(12rem,1.4fr)_minmax(10rem,1fr)_9rem_auto] lg:items-end">
       <input type="hidden" name="schoolId" value={schoolId} />
       <input type="hidden" name="academicYear" value={academicYear} />
-      <Picker label="Learner" name="learnerId" value={learnerId} onChange={setLearnerId} placeholder="Choose learner" options={learnerOptions} searchable />
+      {learnerIds.map((id) => <input key={id} type="hidden" name="learnerIds" value={id} />)}
+      <SearchableSelect
+        label="Learners"
+        value=""
+        options={learnerOptions}
+        placeholder="Choose one or more learners"
+        searchPlaceholder="Search learners"
+        multiple
+        selectedValues={learnerIds}
+        onToggle={(id) => setLearnerIds((current) =>
+          current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+        )}
+      />
       <Picker label="House" name="houseId" value={houseId} onChange={setHouseId} placeholder="Choose active house" options={houseOptions} />
       <Picker label="Lock assignment" name="isLocked" value={locked} onChange={setLocked} placeholder="Choose" options={[{ value: "false", label: "No" }, { value: "true", label: "Yes" }]} />
-      <Button type="submit" loading={pending} size="sm" disabled={!learnerId || !houseId}>Save assignment</Button>
+      <Button type="submit" loading={pending} size="sm" disabled={!learnerIds.length || !houseId}>Assign selected</Button>
     </form>
   );
 }
