@@ -6,6 +6,7 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 const actions = await read('src/features/teaching/server/planning-actions.ts');
 const workspace = await read('src/features/teaching/planning-workspace.tsx');
+const picker = await read('src/components/ui/picker.tsx');
 const route = await read('src/app/teaching/planning/page.tsx');
 const teachingPage = await read('src/app/teaching/page.tsx');
 const queries = await read('src/features/teaching/server/queries.ts');
@@ -109,6 +110,8 @@ test('plan, item and schedule scope is validated against the current school', ()
   assert.match(actions, /curriculum_version_id !== offering\.curriculum_version_id/);
   assert.match(actions, /curriculum_version_id !== plan\.curriculum_version_id/);
   assert.match(actions, /registerClass\.academic_year !== plan\.academic_year/);
+  assert.match(actions, /registerClass\.grade_id !== offering\.grade_id/);
+  assert.match(actions, /\.eq\("status", "active"\)/);
   assert.match(actions, /allocation\.subject_offering_id !== plan\.subject_offering_id/);
   assert.match(actions, /allocation\.register_class_id !== parsed\.data\.registerClassId/);
 });
@@ -158,8 +161,28 @@ test('the planning route stays thin with no query logic of its own', () => {
 
 test('the authoring read model lives in the shared server module', () => {
   assert.match(queries, /export async function getTeachingPlanningData/);
-  assert.match(queries, /getTeachingWorkspace\(input\)/);
+  assert.match(queries, /getTeachingWorkspace\(\{/);
   assert.match(queries, /export type TeachingPlanningData/);
+});
+
+test('Issue #591 scopes the offering selector to active canonical offerings', () => {
+  assert.match(queries, /from\("subject_offerings"\)/);
+  assert.match(queries, /\.eq\("school_id", input\.schoolId\)/);
+  assert.match(queries, /\.eq\("academic_year", input\.academicYear\)/);
+  assert.match(queries, /\.eq\("status", "active"\)/);
+  assert.match(queries, /includeConfiguredOfferings: true/);
+  assert.match(queries, /planningOfferings/);
+  assert.match(queries, /Never manufacture a catalogue-only placeholder option/);
+  assert.match(queries, /Unable to load subject offerings/);
+  assert.match(queries, /Unable to load HOD subject scope/);
+  assert.match(queries, /subject_department_responsibilities/);
+  assert.match(queries, /staffMemberId/);
+  assert.match(queries, /grade_id/);
+  assert.match(workspace, /data\.planningOfferings\.map/);
+  assert.match(workspace, /new Set\(allocationClasses\)/);
+  assert.match(workspace, /classOptionsForOffering/);
+  assert.match(workspace, /label="Subject offering"[\s\S]*?searchable/);
+  assert.match(picker, /max-h-60 overflow-auto/);
 });
 
 test('the internal row helper is not exported for route-local duplication', () => {
