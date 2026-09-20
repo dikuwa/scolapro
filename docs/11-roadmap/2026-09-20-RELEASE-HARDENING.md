@@ -1,12 +1,12 @@
 # Release hardening — 20 September 2026
 
-Authoritative baseline: `54d68bdc783eee315a0949f2000b452c223d4a96`.
+Authoritative release baseline: `7ad6aefd1fe505e01240f94cfe6fb12867b0bd86`.
 
-Tracking issue: #598.
+Tracking issue: #598 — CLOSED with RELEASE GO. Follow-on offline expansion: #602.
 
 ## Release disposition
 
-ScolaPro is feature-complete enough to enter release hardening. It is not yet production-release-ready.
+ScolaPro completed release hardening and is deployed with RELEASE GO. This document is retained as the release record; new offline-first implementation continues under #602.
 
 ### Blocking / gated work
 
