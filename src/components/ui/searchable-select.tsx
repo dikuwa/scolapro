@@ -40,6 +40,10 @@ export function SearchableSelect({
   placeholder,
   searchPlaceholder = "Search…",
   emptyMessage,
+  loading = false,
+  onSearchChange,
+  clearable = false,
+  onClear,
   disabled = false,
   className,
   multiple = false,
@@ -55,6 +59,10 @@ export function SearchableSelect({
   placeholder: string;
   searchPlaceholder?: string;
   emptyMessage?: (query: string) => string;
+  loading?: boolean;
+  onSearchChange?: (query: string) => void;
+  clearable?: boolean;
+  onClear?: () => void;
   disabled?: boolean;
   className?: string;
   multiple?: boolean;
@@ -73,7 +81,9 @@ export function SearchableSelect({
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
-    const source = needle
+    const source = onSearchChange
+      ? options
+      : needle
       ? options.filter((option) => `${option.label} ${option.helper ?? ""} ${option.group ?? ""} ${option.searchText ?? ""}`.toLocaleLowerCase().includes(needle))
       : options;
     return [...source].sort((a, b) => {
@@ -81,7 +91,7 @@ export function SearchableSelect({
       if (groupCompare) return groupCompare;
       return a.label.localeCompare(b.label, undefined, { numeric: true });
     });
-  }, [options, query]);
+  }, [onSearchChange, options, query]);
 
   const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const visibleCount = Math.ceil(VIEWPORT_HEIGHT / ROW_HEIGHT) + OVERSCAN * 2;
@@ -116,6 +126,7 @@ export function SearchableSelect({
     setActiveIndex(0);
     setScrollTop(0);
     if (listRef.current) listRef.current.scrollTop = 0;
+    onSearchChange?.(next);
   }
 
   function choose(option: SearchableSelectOption) {
@@ -128,6 +139,7 @@ export function SearchableSelect({
     onChange?.(option.value);
     setOpen(false);
     setQuery("");
+    onSearchChange?.("");
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -161,24 +173,41 @@ export function SearchableSelect({
     <div ref={rootRef} className={cn("relative flex min-w-0 flex-col", label ? "gap-1.5" : "", className)}>
       {label ? <label className="text-xs font-medium leading-4">{label}</label> : null}
       {name ? <input type="hidden" name={name} value={value} /> : null}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={openMenu}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        aria-label={ariaLabel || label || placeholder}
-        className="scolapro-control-surface flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] px-3 text-left text-sm outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55"
-      >
-        <span className={cn("min-w-0 truncate", multiple || selected ? "text-foreground" : "text-muted-foreground")}>
-          {multiple
-            ? selectedValues.length
-              ? `${selectedValues.length} subject${selectedValues.length === 1 ? "" : "s"} selected`
-              : placeholder
-            : selected?.label ?? placeholder}
-        </span>
-        <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      </button>
+      <div className="flex min-w-0 gap-1.5">
+        <button
+          type="button"
+          disabled={disabled}
+          onClick={openMenu}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-label={ariaLabel || label || placeholder}
+          className="scolapro-control-surface flex min-h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-[var(--radius-sm)] px-3 text-left text-sm outline-none transition duration-[var(--motion-fast)] hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55"
+        >
+          <span className={cn("min-w-0 truncate", multiple || selected ? "text-foreground" : "text-muted-foreground")}>
+            {multiple
+              ? selectedValues.length
+                ? `${selectedValues.length} subject${selectedValues.length === 1 ? "" : "s"} selected`
+                : placeholder
+              : selected?.label ?? placeholder}
+          </span>
+          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </button>
+        {clearable && selected && !multiple ? (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setQuery("");
+              onSearchChange?.("");
+              onClear?.();
+            }}
+            aria-label={`Clear ${label ?? placeholder}`}
+            className="scolapro-control-surface grid min-h-10 w-10 shrink-0 place-items-center rounded-[var(--radius-sm)] text-muted-foreground transition hover:bg-surface-muted hover:text-foreground focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
 
       {open ? (
         <div className="absolute inset-x-0 top-full z-[90] mt-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)]">
@@ -188,7 +217,9 @@ export function SearchableSelect({
             {query ? <button type="button" onClick={() => updateQuery("")} aria-label="Clear search" className="grid size-6 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-3" /></button> : null}
           </label>
 
-          {filtered.length ? (
+          {loading ? (
+            <p className="px-2.5 py-4 text-center text-xs text-muted-foreground">Searching…</p>
+          ) : filtered.length ? (
             <div ref={listRef} role="listbox" aria-label={ariaLabel || label || placeholder} aria-multiselectable={multiple || undefined} className="relative mt-1 overflow-y-auto rounded-[var(--radius-xs)]" style={{ height: Math.min(VIEWPORT_HEIGHT, filtered.length * ROW_HEIGHT) }} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
               <div style={{ height: filtered.length * ROW_HEIGHT, position: "relative" }}>
                 {visibleOptions.map((option, offset) => {
