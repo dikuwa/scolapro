@@ -57,6 +57,9 @@ test("school setup exposes the bounded configuration surface", () => {
 
 test("Issue #574 uses a searchable multi-subject portfolio editor", () => {
   assert.match(panel, /SearchableSelect/);
+  assert.match(panel, /multiple/);
+  assert.match(panel, /selectedValues=\{selectedSubjectIds\}/);
+  assert.match(panel, /onToggle=\{/);
   assert.match(panel, /Search subjects/);
   assert.match(panel, /selectedSubjectIds/);
   assert.match(panel, /name="subjectIds"/);
@@ -66,6 +69,15 @@ test("Issue #574 uses a searchable multi-subject portfolio editor", () => {
   assert.match(panel, /departmentLabel/);
   assert.match(portfolioMigration, /department_label/);
   assert.match(portfolioMigration, /descriptive only/);
+});
+
+test("shared searchable select exposes an explicit multi-select interaction", async () => {
+  const select = await read("src/components/ui/searchable-select.tsx");
+  assert.match(select, /multiple\?: boolean/);
+  assert.match(select, /aria-multiselectable=\{multiple \|\| undefined\}/);
+  assert.match(select, /selectedValues\.length/);
+  assert.match(select, /onToggle\?\.\(option\.value\)/);
+  assert.match(select, /setOpen\(true\)/);
 });
 
 test("Issue #574 portfolio metadata does not replace subject-based authority", () => {
