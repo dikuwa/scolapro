@@ -3,7 +3,7 @@ import "server-only";
 import {
   OFFICIAL_DOCUMENT_A4_PAGE_RULE,
   OFFICIAL_DOCUMENT_FRAME_RULE,
-  OFFICIAL_DOCUMENT_HEADER_RULE,
+  OFFICIAL_DOCUMENT_HTML_HEADER_RULE,
   OFFICIAL_DOCUMENT_METADATA_RULE,
   OFFICIAL_DOCUMENT_PRINT_RULE,
 } from "@/features/documents/server/official-document-chrome";
@@ -63,7 +63,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   html, body { margin: 0; padding: 0; background: #fff; color: var(--ink); }
   body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; line-height: 1.25; }
   ${OFFICIAL_DOCUMENT_FRAME_RULE}
-  ${OFFICIAL_DOCUMENT_HEADER_RULE}
+  ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   .logo-wrap { display: flex; align-items: center; justify-content: center; height: 76px; }
   .school-logo { display: block; max-width: 76px; max-height: 76px; object-fit: contain; }
   .logo-placeholder { min-height: 60px; }

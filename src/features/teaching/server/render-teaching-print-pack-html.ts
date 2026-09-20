@@ -3,7 +3,7 @@ import "server-only";
 import {
   OFFICIAL_DOCUMENT_A4_PAGE_RULE,
   OFFICIAL_DOCUMENT_FRAME_RULE,
-  OFFICIAL_DOCUMENT_HEADER_RULE,
+  OFFICIAL_DOCUMENT_HTML_HEADER_RULE,
   OFFICIAL_DOCUMENT_METADATA_RULE,
   OFFICIAL_DOCUMENT_PRINT_RULE,
 } from "@/features/documents/server/official-document-chrome";
@@ -60,7 +60,7 @@ ${OFFICIAL_DOCUMENT_A4_PAGE_RULE}
 *{box-sizing:border-box}:root{--ink:#151515;--line:#4a4a4a;--muted:#555}html,body{margin:0;padding:0;background:#fff;color:var(--ink)}
 body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:9px;line-height:1.35}
 ${OFFICIAL_DOCUMENT_FRAME_RULE}
-${OFFICIAL_DOCUMENT_HEADER_RULE}
+${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
 .logo-wrap{display:flex;align-items:center;justify-content:center;height:76px}.school-logo{max-width:76px;max-height:76px;object-fit:contain}.logo-placeholder{min-height:60px}
 .school-identity{text-align:center}.school-name{margin:0;font-size:24px}.school-name.old-english{font-family:"Old English Text MT","Times New Roman",serif;font-weight:400;font-size:28px}.former-name{font-size:8px}.school-contact{margin-top:6px;font-size:7px;display:inline-block;text-align:left}.postal{font-size:8px;align-self:end}.emis{font-size:7px;color:var(--muted)}
 .title{border:1px solid var(--line);border-top:0;padding:8px;text-align:center}.title h2{margin:0;font-size:13px}.meta{margin-top:4px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
