@@ -110,6 +110,7 @@ select is(
   'replay does not duplicate the loan'
 );
 
+reset role;
 select is(
   (select count(*)::integer from public.audit_events
    where event_type='ltsm.resource.issued'
@@ -117,6 +118,10 @@ select is(
   1,
   'replay does not duplicate the durable issue audit event'
 );
+
+set local role authenticated;
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fb820000-0000-4000-8000-000000000001',true);
 
 select throws_ok(
   $sql$select public.issue_learning_resource_idempotent(
