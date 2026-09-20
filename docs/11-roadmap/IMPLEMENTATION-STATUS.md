@@ -4,7 +4,7 @@
 
 Last updated: **20 September 2026**
 
-Current reconciled source baseline: `54d68bdc783eee315a0949f2000b452c223d4a96` (through merged PR #597). Release hardening is tracked in Issue #598.
+Current authoritative deployed baseline: `7ad6aefd1fe505e01240f94cfe6fb12867b0bd86`. Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion is tracked in Issue #602.
 
 Canonical 10 September product directive: `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md`.
 
@@ -18,19 +18,24 @@ Canonical 10 September product directive: `docs/11-roadmap/2026-09-10-ABSENCE-LT
 - **LIVE-QA-GATED** — source/deployment exist; provider/browser/device/real-data acceptance remains.
 - **ACTUAL IMPLEMENTATION GAP** — required documented behavior is absent from merged source and not blocked by another gate.
 
-## Release-hardening status — 20 September 2026
+## Release status — 20 September 2026
 
-Current disposition: **FEATURE-COMPLETE ENOUGH FOR RELEASE HARDENING / NOT YET PRODUCTION-RELEASE-READY**.
+Current disposition: **PRODUCTION RELEASE GO / POST-RELEASE HARDENING ACTIVE**.
 
-Open release work:
-- #577 — attendance browser persistence acceptance remains unresolved even though connected-production PostgreSQL evidence confirms valid teaching-day records persist.
-- #590 — staff identity/account reconciliation is governance-blocked; current evidence does not justify merging duplicate staff identities.
-- #561 — Absence Reviews remains LIVE-QA-GATED only.
-- #562 — Library/Textbooks remains LIVE-QA-GATED only.
-- Offline-first support is an ACTUAL IMPLEMENTATION GAP: accepted architecture requires IndexedDB-scoped cache/mutation queue, explicit sync/conflict states and a service-worker application shell; current source has only the web manifest and server-side idempotency pieces.
-- Performance hardening is active under #598 and must be evidence-led from production query statistics/advisors.
+Release closure:
+- #598 — CLOSED; deployed release candidate accepted.
+- #577 — CLOSED; authoritative attendance persistence/idempotency accepted, reported loss not reproduced as a database persistence defect.
+- #561 — CLOSED; no implementation defect, live role matrix unavailable without fabricating production memberships.
+- #562 — CLOSED; no implementation defect, production has no learning-resource titles/copies/loans for honest circulation UAT.
+- #590 — OPEN as post-release data-governance cleanup only; existing strong-evidence reconciliation rules remain authoritative.
+- Offline Phase 1 is COMPLETE / INTEGRATED for daily-register attendance: PWA service worker, scoped IndexedDB snapshots/queue, reconnect sync, explicit queue states, server scope revalidation/idempotency and logout/context clearing.
+- Performance hardening integrated navigation prefetch reduction and Vercel/Supabase regional colocation.
 
-Final deployment is held until Issue #598 readiness gates pass. Vercel's current free-plan deployment quota has already been reached for the day, so no additional deployment should be spent before the release candidate is ready.
+Active post-release implementation:
+- #602 — expand offline-first support in the accepted architecture order: subject-period attendance, lesson-preparation drafts, marks-draft readiness, then bounded LTSM issue/return readiness.
+- No generic HTTP caching of business state.
+- Privileged/destructive/finality workflows remain online-first.
+- N06 remains SOURCE-GATED; N11 and T12 remain REQUIREMENTS-GATED.
 
 ## Current implementation mode
 

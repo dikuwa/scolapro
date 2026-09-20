@@ -13,7 +13,7 @@ Before changing code, read:
 5. relevant domain/architecture/design documents referenced by `AGENTS.md`
 6. `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md` when working on absenteeism or LTSM/library operational UI.
 
-Current reconciled source baseline: `54d68bdc783eee315a0949f2000b452c223d4a96` (20 September 2026), including merged learner-directory production repair PR #597. Release hardening is tracked in Issue #598.
+Current authoritative deployed baseline: `7ad6aefd1fe505e01240f94cfe6fb12867b0bd86` (20 September 2026). Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion is tracked in Issue #602.
 
 ## 2. Product principle
 
@@ -110,34 +110,35 @@ Recommendation: **KEEP REQUIREMENTS-GATED**.
 
 ## 7. Remaining coordinated work
 
-### 20 September release-hardening sequence
+### 20 September post-release sequence
 
-Issue #598 is the active release-hardening wave. ScolaPro is feature-complete enough for hardening, but is not yet classified production-release-ready.
+Release-hardening Issue #598 is CLOSED with RELEASE GO on deployed main `7ad6aefd1fe505e01240f94cfe6fb12867b0bd86`.
 
-Release blockers and live gates:
-- #577 — attendance submit → authoritative database row → reload/review browser acceptance. Production DB evidence shows valid teaching-day persistence; the reported browser disappearance is not yet reproduced or closed.
-- #590 — duplicate staff identity/account reconciliation. Existing governed evidence is insufficient for a safe merge; do not merge by name or manually move Auth identity.
-- #561 — Absence Reviews source is verified; authenticated role/browser/responsive acceptance remains LIVE-QA-GATED.
-- #562 — Library/Textbooks source is verified; authenticated role/circulation/responsive acceptance remains LIVE-QA-GATED.
-- Offline-first implementation is now an ACTUAL IMPLEMENTATION GAP against ADR-0005 and `docs/09-architecture/OFFLINE-SYNC-ARCHITECTURE.md`: a manifest exists, but no service worker, IndexedDB scoped cache, durable mutation queue, or sync-state UX exists in current source.
-- Performance hardening is active. Production `pg_stat_statements` and Supabase performance advisors must drive index/query changes; do not add speculative indexes.
+Closed release acceptance:
+- #577 — closed; authoritative attendance persistence/idempotency evidence accepted and no PostgreSQL persistence defect reproduced.
+- #561 — closed; no source defect, and the unavailable production role matrix is an environment/data limitation rather than release work.
+- #562 — closed; no source defect, and production has no learning-resource titles/copies/loans for honest circulation acceptance.
+- Offline Phase 1 is integrated: service worker shell, scoped IndexedDB attendance snapshots/queue, explicit sync state, server revalidation/idempotency, logout/context clearing and online-first evidence.
+- Vercel functions are pinned to `dub1` alongside Supabase `eu-west-1`.
+- #590 remains OPEN only as post-release staff-data governance cleanup. Do not merge identities by name, manually move Auth identities or weaken strong-evidence rules.
 
-Release order:
-1. close or explicitly disposition #577 and #590;
-2. implement/test performance and offline-first Phase 1 from Issue #598;
-3. complete available #561/#562 live acceptance without fabricating production data;
-4. exact-head Application + Database CI, migration parity, security/performance advisor review;
-5. one final production deployment when the Vercel deployment quota permits it;
-6. post-deploy smoke verification and Control Room GO/NO-GO.
+Active delivery wave:
+- #602 — Post-release Wave 1: expand offline-first teacher workflows.
+- Priority order: subject-period attendance → lesson-preparation drafts → marks-draft readiness → bounded LTSM issue/return readiness.
+- Every offline business mutation must follow ADR-0005 and `docs/09-architecture/OFFLINE-SYNC-ARCHITECTURE.md`.
+- Server authority, idempotency, explicit conflict/rejection states and user/tenant/school scoping are mandatory.
+- Privileged/destructive/finality actions remain online-first.
+- N06 remains SOURCE-GATED; N11 and T12 remain REQUIREMENTS-GATED.
 
 Confirmed remaining work must be sequenced explicitly:
 
-1. Targeted live browser/device/real-data QA for source-integrated features where acceptance was not explicitly completed, including PR #400, PR #402, and Library / Textbooks after PR #404. Library circulation mutation QA remains blocked by the absence of connected-production learning-resource titles/copies/loans; principal/deputy/librarian/ltsm browser-role acceptance remains unverified where test memberships/credentials are unavailable.
-2. N22/N23 bounded document QA only under explicit ownership.
-3. N24/N25 extensions only from authoritative source facts and explicit disclosure semantics.
-4. N06 only after verified Ministry source material exists.
-5. N11 only after authoritative coursework/moderation requirements are confirmed.
-6. T12 only after the deferred correction auto-approval product decision is resolved.
+1. Issue #602 offline-first expansion slices.
+2. #590 post-release governed identity cleanup once strong authority/evidence exists.
+3. N22/N23 bounded document QA only under explicit ownership.
+4. N24/N25 extensions only from authoritative source facts and explicit disclosure semantics.
+5. N06 only after verified Ministry source material exists.
+6. N11 only after authoritative coursework/moderation requirements are confirmed.
+7. T12 only after the deferred correction auto-approval product decision is resolved.
 
 ## 8. Active ownership
 
