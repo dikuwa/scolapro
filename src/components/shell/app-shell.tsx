@@ -5,6 +5,7 @@ import { MobileNavigation } from "@/components/shell/navigation";
 import { ShellFrame } from "@/components/shell/shell-frame";
 import { DestructiveActionGuard } from "@/components/ui/destructive-action-guard";
 import { NotificationCenter } from "@/features/notifications/notification-center";
+import { OfflineRuntime } from "@/components/offline/offline-runtime";
 import { getNavigationAttentionCounts, type NavigationAttentionCounts } from "@/features/notifications/server/navigation-attention";
 import { getNotificationInbox } from "@/features/notifications/server/notifications";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -35,6 +36,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let unreadCount = 0;
   let attentionCounts: NavigationAttentionCounts = {};
   let notifications: Awaited<ReturnType<typeof getNotificationInbox>>["notifications"] = [];
+  let offlineScope: { userId: string; tenantId: string; schoolId: string } | null = null;
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
@@ -44,6 +46,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       const membership = platformMembership ? undefined : context.currentSchoolMembership ?? undefined;
       const networkMembership = platformMembership || membership ? undefined : context.networkMemberships[0];
       const guardianOnly = !membership && !platformMembership && !networkMembership && context.guardianLinks.length > 0;
+      offlineScope = membership ? { userId: context.user.id, tenantId: membership.tenantId, schoolId: membership.schoolId } : null;
 
       schoolName = platformMembership
         ? `${SCOLAPRO_BRAND.name} Platform`
@@ -159,6 +162,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {children}
       <MobileNavigation roleKey={roleKey} roleKeys={roleKeys} extraKeys={extraNavigationKeys} attentionCounts={attentionCounts} />
       <DestructiveActionGuard />
+      <OfflineRuntime scope={offlineScope} />
     </ShellFrame>
   );
 }
