@@ -23,7 +23,7 @@ insert into public.staff_school_assignments(
   '11111111-1111-4111-8111-111111111111',
   '22222222-2222-4222-8222-222222222222',
   'f6293000-0000-4000-8000-000000000002',
-  'teaching','Hydration Teacher',current_date-5,
+  'teacher','Hydration Teacher',current_date-5,
   'f6292000-0000-4000-8000-000000000001'
 );
 
