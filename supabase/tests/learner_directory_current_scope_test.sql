@@ -96,7 +96,7 @@ select throws_ok(
 
 select set_config('request.jwt.claim.sub','ab000000-0000-4000-8000-000000000005',true);
 select lives_ok(
-  $select * from public.list_learner_directory_page('ab200000-0000-4000-8000-000000000002',2026,null,'current',null,null,null,false,1,50)$,
+  'select * from public.list_learner_directory_page(''ab200000-0000-4000-8000-000000000002'',2026,null,''current'',null,null,null,false,1,50)',
   'staff-linked current-school membership without assignment history retains learner directory authority'
 );
 
