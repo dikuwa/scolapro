@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { KeyRound, LogOut, Settings, UserRound, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { signOut } from "@/features/auth/actions";
+import { clearOfflineData } from "@/lib/offline/db";
 
 export function AccountMenu({
   avatar,
@@ -17,6 +18,7 @@ export function AccountMenu({
   compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [signingOut, startSignOut] = useTransition();
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -74,11 +76,20 @@ export function AccountMenu({
           <Link role="menuitem" href="/settings#security" onClick={() => setOpen(false)} className="flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-muted hover:text-foreground">
             <KeyRound className="size-4" aria-hidden="true" />Password & security
           </Link>
-          <form action={signOut}>
-            <button role="menuitem" type="submit" className="flex min-h-9 w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)]">
-              <LogOut className="size-4" aria-hidden="true" />Log out
-            </button>
-          </form>
+          <button
+            role="menuitem"
+            type="button"
+            disabled={signingOut}
+            onClick={() => {
+              startSignOut(async () => {
+                await clearOfflineData().catch(() => undefined);
+                await signOut();
+              });
+            }}
+            className="flex min-h-9 w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:opacity-60"
+          >
+            <LogOut className="size-4" aria-hidden="true" />{signingOut ? "Logging out…" : "Log out"}
+          </button>
         </div>
       ) : null}
     </div>
