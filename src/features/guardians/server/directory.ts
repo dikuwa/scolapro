@@ -1,6 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { formatPersonName } from "@/lib/person-name";
-import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 export type GuardianDirectoryLearner = {
   learnerId: string;
@@ -77,52 +76,33 @@ type ScopedGuardian = {
   total_count?: number | string;
 };
 
+type GuardianDirectoryDetails = {
+  guardian_id: string;
+  preferred_name: string | null;
+  identity_number: string | null;
+  status: string;
+  contacts: GuardianDirectoryContact[] | null;
+  addresses: GuardianDirectoryAddress[] | null;
+};
+
 async function hydrateGuardianRows(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  schoolId: string,
   rows: ScopedGuardian[],
 ): Promise<GuardianDirectoryRow[]> {
   if (!rows.length) return [];
   const guardianIds = rows.map((row) => row.guardian_id);
-  const today = getNamibiaDateKey();
-  const [profilesResult, contactsResult, addressesResult] = await Promise.all([
-    supabase.from("guardian_profiles").select("id, preferred_name, identity_number, status").in("id", guardianIds),
-    supabase.from("guardian_contacts").select("id, guardian_id, contact_type, contact_value, is_primary, label").in("guardian_id", guardianIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
-    supabase.from("guardian_addresses").select("id, guardian_id, address_type, label, address_line_1, address_line_2, suburb_or_locality, town_or_city, region, postal_code, country").in("guardian_id", guardianIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
-  ]);
-  const hydrationError = profilesResult.error || contactsResult.error || addressesResult.error;
+  const { data: detailRows, error: hydrationError } = await supabase.rpc("get_guardian_directory_details", {
+    p_school_id: schoolId,
+    p_guardian_ids: guardianIds,
+  });
   if (hydrationError) throw new Error("Unable to load guardian directory details.");
-  const profiles = profilesResult.data ?? [];
-  const contacts = contactsResult.data ?? [];
-  const addresses = addressesResult.data ?? [];
 
-  const profileMap = new Map(profiles.map((profile) => [profile.id, profile]));
-  const contactMap = new Map<string, GuardianDirectoryContact[]>();
-  for (const contact of contacts) {
-    const list = contactMap.get(contact.guardian_id) ?? [];
-    list.push({ id: contact.id, type: contact.contact_type, value: contact.contact_value, primary: contact.is_primary, label: contact.label });
-    contactMap.set(contact.guardian_id, list);
-  }
-
-  const addressMap = new Map<string, GuardianDirectoryAddress[]>();
-  for (const address of addresses) {
-    const list = addressMap.get(address.guardian_id) ?? [];
-    list.push({
-      id: address.id,
-      type: address.address_type,
-      label: address.label,
-      line1: address.address_line_1,
-      line2: address.address_line_2,
-      locality: address.suburb_or_locality,
-      town: address.town_or_city,
-      region: address.region,
-      postalCode: address.postal_code,
-      country: address.country,
-    });
-    addressMap.set(address.guardian_id, list);
-  }
+  const details = (detailRows ?? []) as GuardianDirectoryDetails[];
+  const detailMap = new Map(details.map((detail) => [detail.guardian_id, detail]));
 
   return rows.map((row) => {
-    const profile = profileMap.get(row.guardian_id);
+    const detail = detailMap.get(row.guardian_id);
     const fallbackContacts: GuardianDirectoryContact[] = [];
     if (row.primary_mobile) fallbackContacts.push({ id: `${row.guardian_id}-mobile`, type: "mobile", value: row.primary_mobile, primary: true, label: null });
     if (row.primary_email) fallbackContacts.push({ id: `${row.guardian_id}-email`, type: "email", value: row.primary_email, primary: true, label: null });
@@ -130,9 +110,9 @@ async function hydrateGuardianRows(
     return {
       guardianId: row.guardian_id,
       name: formatPersonName(row.guardian_name),
-      preferredName: profile?.preferred_name ?? null,
-      identityNumber: profile?.identity_number ?? null,
-      status: profile?.status ?? "active",
+      preferredName: detail?.preferred_name ?? null,
+      identityNumber: detail?.identity_number ?? null,
+      status: detail?.status ?? "active",
       learners: (row.linked_learners ?? []).map((learner) => ({
         learnerId: learner.learner_id ?? "",
         name: formatPersonName(learner.learner_name ?? "Learner"),
@@ -145,8 +125,8 @@ async function hydrateGuardianRows(
         isPickupAuthorized: Boolean(learner.is_pickup_authorized),
         priority: learner.priority ?? 1,
       })).filter((learner) => learner.learnerId),
-      contacts: contactMap.get(row.guardian_id) ?? fallbackContacts,
-      addresses: addressMap.get(row.guardian_id) ?? [],
+      contacts: detail?.contacts?.length ? detail.contacts : fallbackContacts,
+      addresses: detail?.addresses ?? [],
     };
   });
 }
@@ -159,7 +139,7 @@ export async function getGuardianDirectory(schoolId: string): Promise<GuardianDi
     p_limit: 200,
   });
   if (error) throw new Error("Unable to load the guardian directory.");
-  return hydrateGuardianRows(supabase, (scoped ?? []) as ScopedGuardian[]);
+  return hydrateGuardianRows(supabase, schoolId, (scoped ?? []) as ScopedGuardian[]);
 }
 
 export async function getGuardianDirectoryPage(
@@ -180,7 +160,7 @@ export async function getGuardianDirectoryPage(
   const rows = (scoped ?? []) as ScopedGuardian[];
   const total = rows.length ? Number(rows[0].total_count ?? 0) : 0;
   return {
-    guardians: await hydrateGuardianRows(supabase, rows),
+    guardians: await hydrateGuardianRows(supabase, schoolId, rows),
     total,
     page,
     pageSize,
