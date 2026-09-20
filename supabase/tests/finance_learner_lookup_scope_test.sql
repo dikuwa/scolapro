@@ -68,7 +68,7 @@ from generate_series(1,25) as series(gs);
 insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,admission_number,enrolled_from,enrolled_to,status)
 values
   ('63470000-0000-4000-8000-000000000026','63410000-0000-4000-8000-000000000001','63420000-0000-4000-8000-000000000001','63460000-0000-4000-8000-000000000026',2026,'FIN-634-END',current_date-60,current_date-1,'current'),
-  ('63470000-0000-4000-8000-000000000027','63410000-0000-4000-8000-000000000001','63420000-0000-4000-8000-000000000001','63460000-0000-4000-8000-000000000027',2026,'FIN-634-FUTURE',current_date+1,null,'current');
+  ('63470000-0000-4000-8000-000000000027','63410000-0000-4000-8000-000000000001','63420000-0000-4000-8000-000000000001','63460000-0000-4000-8000-000000000027',2026,'FIN-634-FUTURE',(now() at time zone 'Africa/Windhoek')::date+1,null,'current');
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
