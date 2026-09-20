@@ -18,6 +18,7 @@ const registerSchema = z.object({
   attendanceDate: z.string().date(),
   clientMutationId: z.string().uuid(),
   replacesSubmissionId: z.string().uuid().nullable().optional(),
+  source: z.enum(["online", "offline"]).default("online"),
   exceptions: z.array(exceptionSchema),
 });
 
@@ -49,6 +50,7 @@ export async function submitDailyRegister(
     attendanceDate: formData.get("attendanceDate"),
     clientMutationId: formData.get("clientMutationId"),
     replacesSubmissionId: formData.get("replacesSubmissionId") || null,
+    source: formData.get("source") || "online",
     exceptions: parsedExceptions,
   });
 
@@ -91,7 +93,7 @@ export async function submitDailyRegister(
     p_note: null,
     p_client_mutation_id: parsed.data.clientMutationId,
     p_replaces_submission_id: parsed.data.replacesSubmissionId || null,
-    p_source: "online",
+    p_source: parsed.data.source,
   });
 
   if (error || !submissionId) return { message: "The register could not be saved. Confirm the class and learner entries, then try again." };
