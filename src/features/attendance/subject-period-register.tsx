@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { submitSubjectAttendance, type SubjectAttendanceState } from "@/features/attendance/server/subject-actions";
+import { cacheSubjectPeriodSnapshot, queueSubjectPeriodAttendance } from "@/features/attendance/offline/subject-period-queue";
+import type { OfflineScope } from "@/lib/offline/db";
 import type { SubjectPeriodRoster } from "@/features/attendance/server/subject-period";
 
 const initialState: SubjectAttendanceState = {};
@@ -17,12 +19,16 @@ const statuses = [
   { value: "excused" as const, label: "Excused", icon: ShieldCheck, style: "bg-info-soft text-[color:var(--info)]" },
 ];
 
-export function SubjectPeriodRegister({ roster, attendanceDate }: { roster: SubjectPeriodRoster; attendanceDate: string }) {
+export function SubjectPeriodRegister({ roster, attendanceDate, offlineScope }: { roster: SubjectPeriodRoster; attendanceDate: string; offlineScope: OfflineScope | null }) {
   const [state, action, pending] = useActionState(submitSubjectAttendance, initialState);
   const [rows, setRows] = useState(roster.learners);
   const [query, setQuery] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [clientMutationId] = useState(() => crypto.randomUUID());
+  useEffect(() => {
+    if (!offlineScope) return;
+    void cacheSubjectPeriodSnapshot(offlineScope, roster, attendanceDate).catch(() => undefined);
+  }, [attendanceDate, offlineScope, roster]);
   useEffect(() => {
     if (!state.message) return;
     if (state.success) toast.success(state.message);
@@ -32,10 +38,18 @@ export function SubjectPeriodRegister({ roster, attendanceDate }: { roster: Subj
   const visible = useMemo(() => { const n=query.trim().toLowerCase(); return rows.filter((row)=>!n||`${row.name} ${row.admissionNumber??""}`.toLowerCase().includes(n)); },[query,rows]);
   const exceptions = useMemo(() => rows.filter((row)=>row.status!=="present").map((row)=>({ enrolment_id:row.enrolmentId,status:row.status as "absent"|"late"|"excused"|"unknown",reason_id:row.reasonId,note:row.note })),[rows]);
   function update(id:string, changes:Partial<(typeof rows)[number]>) { setRows((current)=>current.map((row)=>row.enrolmentId===id?{...row,...changes}:row)); }
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (typeof navigator === "undefined" || navigator.onLine || !offlineScope) return;
+    event.preventDefault();
+    try {
+      await queueSubjectPeriodAttendance(offlineScope, { slotId: roster.slot.id, attendanceDate, clientMutationId, replacesSubmissionId: roster.currentSubmissionId, exceptions });
+      toast.success("Lesson attendance saved on this device. It will sync when the connection returns.");
+    } catch { toast.error("Lesson attendance could not be stored on this device."); }
+  }
   function setStatus(id:string,status:Status){ update(id,{status,reasonId:status==="present"?null:rows.find((row)=>row.enrolmentId===id)?.reasonId??null,note:status==="present"?null:rows.find((row)=>row.enrolmentId===id)?.note??null}); setActiveId(status==="present"?null:id); }
   const presentCount=rows.filter((row)=>row.status==="present").length;
 
-  return <form action={action} className="space-y-4">
+  return <form action={action} onSubmit={handleSubmit} className="space-y-4">
     <input type="hidden" name="slotId" value={roster.slot.id}/><input type="hidden" name="attendanceDate" value={attendanceDate}/><input type="hidden" name="clientMutationId" value={clientMutationId}/><input type="hidden" name="replacesSubmissionId" value={roster.currentSubmissionId??""}/><input type="hidden" name="exceptions" value={JSON.stringify(exceptions)}/>
     <section className="bg-surface shadow-[var(--shadow-xs)]">
       <div className="border-b border-border-subtle bg-surface-muted/55 p-4 sm:p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="scolapro-section-title">Lesson register</h2><p className="scolapro-section-description">Operational attendance for this lesson only. It does not replace the official morning register.</p></div><div className="flex gap-2 text-[0.7rem]"><span className="rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 font-medium text-[color:var(--success)]">{presentCount} present</span><span className="rounded-[var(--radius-xs)] bg-surface px-2 py-1 text-muted-foreground">{rows.length-presentCount} exceptions</span></div></div><label className="scolapro-control-surface mt-3 flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3"><Search className="size-4 text-muted-foreground"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Find learner…" className="min-w-0 flex-1 bg-transparent text-xs outline-none"/></label></div>
