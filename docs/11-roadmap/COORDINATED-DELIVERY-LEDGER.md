@@ -1,6 +1,6 @@
 # Coordinated delivery ledger
 
-Baseline: `41b4ad634c0a8f91a2e1d110aa3ecca73728d86f` (`main`, 10 September 2026), including merged PRs #402 and #404.
+Baseline: `54d68bdc783eee315a0949f2000b452c223d4a96` (`main`, 20 September 2026), including merged PR #597. Issue #598 owns release hardening, performance, offline-first readiness and final deployment.
 
 This ledger is governed with `docs/11-roadmap/CONTROL-ROOM.md`. Current source, approved directives and connected-environment evidence override stale chat/roadmap status.
 
@@ -13,6 +13,15 @@ This ledger is governed with `docs/11-roadmap/CONTROL-ROOM.md`. Current source, 
 - **REQUIREMENTS-GATED** — implementation waits for authoritative requirements.
 - **LIVE-QA-GATED** — source/deployment exist but provider/browser/device/real-data acceptance is unverified.
 - **ACTUAL IMPLEMENTATION GAP** — documented required behavior is absent from merged source and is not blocked by another gate.
+
+## Release-hardening ownership — 20 September 2026
+
+- #598 — Control Room release hardening: speed, offline-first Phase 1, readiness and final deployment.
+- #577 — release blocker until valid-teaching-day browser submit → DB → reload/review acceptance is executed or the reported disappearance is otherwise conclusively dispositioned.
+- #590 — governance blocker; no destructive/manual identity merge.
+- #561 / #562 — LIVE-QA-GATED only; do not repeat source audits.
+- Performance changes require production evidence and before/after verification.
+- Offline business mutations must follow ADR-0005; generic HTTP cache success is not sufficient.
 
 ## Current ownership
 
