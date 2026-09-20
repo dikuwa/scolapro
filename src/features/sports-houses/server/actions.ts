@@ -42,6 +42,8 @@ function errorMessage(message: string, fallback: string) {
     "Learner must have an enrolment at the school for the sports year",
     "Staff member must have a school placement overlapping the sports year",
     "Sports house must belong to the same tenant and school",
+    "Sports house must be active in this school",
+    "Locked learner assignment cannot be moved",
   ];
   return allowed.find((item) => message.includes(item)) ?? fallback;
 }
@@ -171,6 +173,38 @@ export async function assignLearnerSportsHouse(_state: SportsHousesActionState, 
 
   revalidatePath("/school/sports-houses");
   return { success: true, message: "Learner house assignment saved." };
+}
+
+export async function assignLearnersSportsHouse(_state: SportsHousesActionState, formData: FormData): Promise<SportsHousesActionState> {
+  const parsed = z.object({
+    schoolId: uuid,
+    academicYear: z.coerce.number().int().min(2000).max(2200),
+    learnerIds: z.array(uuid).min(1).max(500),
+    houseId: uuid,
+    isLocked: z.enum(["true", "false"]),
+  }).safeParse({
+    schoolId: value(formData, "schoolId"),
+    academicYear: value(formData, "academicYear"),
+    learnerIds: formData.getAll("learnerIds").map((item) => String(item)),
+    houseId: value(formData, "houseId"),
+    isLocked: value(formData, "isLocked"),
+  });
+  if (!parsed.success) return { message: "Choose at least one learner and an active house." };
+  if (!(await canManageSports(parsed.data.schoolId))) return { message: "You do not have permission to assign learners to houses." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("assign_learners_sports_house", {
+    p_school_id: parsed.data.schoolId,
+    p_academic_year: parsed.data.academicYear,
+    p_learner_ids: [...new Set(parsed.data.learnerIds)],
+    p_house_id: parsed.data.houseId,
+    p_assignment_source: "manual",
+    p_is_locked: parsed.data.isLocked === "true",
+  });
+  if (error) return { message: errorMessage(error.message, "The learner house assignments could not be saved.") };
+
+  revalidatePath("/school/sports-houses");
+  return { success: true, message: `${parsed.data.learnerIds.length} learner assignment${parsed.data.learnerIds.length === 1 ? "" : "s"} saved.` };
 }
 
 export async function assignStaffSportsHouse(_state: SportsHousesActionState, formData: FormData): Promise<SportsHousesActionState> {
