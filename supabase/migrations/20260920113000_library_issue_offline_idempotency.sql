@@ -38,6 +38,9 @@ begin
   if not found then
     raise exception 'Resource copy not found';
   end if;
+  if not app_private.can_manage_ltsm(v_copy.school_id) then
+    raise exception 'Permission denied';
+  end if;
 
   v_payload:=jsonb_build_object(
     'copy_id',p_copy_id,
