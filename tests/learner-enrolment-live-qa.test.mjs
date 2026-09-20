@@ -42,6 +42,22 @@ test("learner directory keeps the canonical page read independent from auxiliary
   assert.doesNotMatch(directoryPage,/academicOptionsResult\.status === "rejected"[\s\S]{0,180}throw/);
 });
 
+test("learner directory uses the deterministic session membership and Namibia academic year",()=>{
+  assert.match(directoryPage,/getNamibiaCalendarYear/);
+  assert.match(directoryPage,/context\.currentSchoolMembership/);
+  assert.doesNotMatch(directoryPage,/context\.memberships\.find/);
+});
+
+test("learner directory preserves the generic UI error while logging bounded RPC diagnostics",()=>{
+  assert.match(queries,/supabase\.rpc\("list_learner_directory_page"/);
+  assert.match(queries,/console\.error\("\[learners\] paged directory RPC failed"/);
+  for (const field of ["schoolId","academicYear","page","pageSize","code","message","details","hint"]) {
+    assert.match(queries,new RegExp(`\\b${field}:`));
+  }
+  assert.match(queries,/throw new Error\("Unable to load the learner directory\."\)/);
+  assert.doesNotMatch(queries,/console\.error\([\s\S]{0,300}(filters\.query|row\.|learner_id)/);
+});
+
 test("generic learner detail remains operational-scope only and does not query restricted support or exam stores",()=>{
   assert.match(detailPage,/getLearnerOverview\(id, membership\.schoolId\)/);
   assert.doesNotMatch(queries,/learner_support_cases|psychometric|exam_access|examination_access|restricted_access/);
