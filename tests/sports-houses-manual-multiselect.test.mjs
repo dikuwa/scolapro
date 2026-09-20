@@ -31,6 +31,7 @@ test("batch RPC preserves scope, idempotence, and locked semantics", () => {
   assert.match(migration, /p_academic_year/);
   assert.match(migration, /Locked learner assignment cannot be moved/);
   assert.match(migration, /for update;\s+if v_existing\.is_locked[\s\S]*?raise exception 'Locked learner assignment cannot be moved'/);
+  assert.match(migration, /coalesce\(v_existing\.is_locked,false\) or p_is_locked/);
   assert.match(migration, /is_locked=\(public\.sports_learner_house_assignments\.is_locked or excluded\.is_locked\)/);
   assert.match(migration, /status='active'/);
   assert.match(dbTest, /duplicate learner selection is accepted idempotently/);
