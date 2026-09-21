@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CloudOff, RefreshCw, TriangleAlert } from "lucide-react";
-import { activateOfflineScope, offlineQueueSummary, type OfflineScope } from "@/lib/offline/db";
+import { OfflineSyncCenter } from "@/components/offline/offline-sync-center";
+import { activateOfflineScope, discardOfflineMutation, offlineQueueSummary, retryOfflineMutation, type OfflineScope } from "@/lib/offline/db";
 import { syncQueuedDailyRegisters } from "@/features/attendance/offline/daily-register-queue";
 import { syncQueuedSubjectPeriodAttendance } from "@/features/attendance/offline/subject-period-queue";
 import { syncQueuedLibraryCirculation } from "@/features/library/offline/circulation-queue";
@@ -48,6 +48,18 @@ export function OfflineRuntime({ scope }: { scope: OfflineScope | null }) {
     setState(after.attention ? "attention" : "online");
   }, [refresh, scope]);
 
+  const retry = useCallback(async (id: string) => {
+    if (!scope) return;
+    await retryOfflineMutation(scope, id);
+    await sync();
+  }, [scope, sync]);
+
+  const discard = useCallback(async (id: string) => {
+    if (!scope) return;
+    await discardOfflineMutation(scope, id);
+    window.dispatchEvent(new Event("scolapro-offline-queue-changed"));
+  }, [scope]);
+
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
@@ -74,22 +86,5 @@ export function OfflineRuntime({ scope }: { scope: OfflineScope | null }) {
     };
   }, [refresh, scope, sync]);
 
-  if (state === "online" && pending === 0) return null;
-
-  const detail = state === "offline"
-    ? pending ? `Offline · ${pending} change${pending === 1 ? "" : "s"} saved on this device` : "Offline"
-    : state === "syncing"
-      ? `Syncing ${pending} change${pending === 1 ? "" : "s"}…`
-      : state === "attention"
-        ? "Some offline changes need attention"
-        : pending ? `${pending} change${pending === 1 ? "" : "s"} waiting to sync` : "";
-
-  return (
-    <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-1/2 z-[170] -translate-x-1/2 rounded-full border border-border-subtle bg-surface-elevated px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-md)] lg:bottom-5" role="status" aria-live="polite">
-      <span className="flex items-center gap-2">
-        {state === "syncing" ? <RefreshCw className="size-3.5 animate-spin text-brand" aria-hidden="true" /> : state === "attention" ? <TriangleAlert className="size-3.5 text-[color:var(--warning)]" aria-hidden="true" /> : <CloudOff className="size-3.5 text-muted-foreground" aria-hidden="true" />}
-        {detail}
-      </span>
-    </div>
-  );
+  return <OfflineSyncCenter scope={scope} state={state} pending={pending} onRetry={retry} onDiscard={discard} />;
 }

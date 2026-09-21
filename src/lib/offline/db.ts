@@ -153,6 +153,43 @@ export async function removeOfflineMutation(id: string) {
   database.close();
 }
 
+export async function retryOfflineMutation(scope: OfflineScope, id: string) {
+  const database = await openOfflineDb();
+  const transaction = database.transaction(MUTATIONS, "readwrite");
+  const store = transaction.objectStore(MUTATIONS);
+  const current = await requestResult<OfflineMutationRecord | undefined>(store.get(id));
+  if (
+    current
+    && current.scopeKey === scopeKey(scope)
+    && current.userId === scope.userId
+    && current.tenantId === scope.tenantId
+    && current.schoolId === scope.schoolId
+    && current.status === "pending"
+  ) {
+    store.put({ ...current, status: "pending", lastError: null, updatedAt: new Date().toISOString() });
+  }
+  await transactionDone(transaction);
+  database.close();
+}
+
+export async function discardOfflineMutation(scope: OfflineScope, id: string) {
+  const database = await openOfflineDb();
+  const transaction = database.transaction(MUTATIONS, "readwrite");
+  const store = transaction.objectStore(MUTATIONS);
+  const current = await requestResult<OfflineMutationRecord | undefined>(store.get(id));
+  if (
+    current
+    && current.scopeKey === scopeKey(scope)
+    && current.userId === scope.userId
+    && current.tenantId === scope.tenantId
+    && current.schoolId === scope.schoolId
+  ) {
+    store.delete(id);
+  }
+  await transactionDone(transaction);
+  database.close();
+}
+
 export async function offlineQueueSummary(scope: OfflineScope) {
   const records = await listOfflineMutations(scope);
   return {
