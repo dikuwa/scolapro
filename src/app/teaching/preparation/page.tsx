@@ -18,7 +18,7 @@ export default async function LessonPreparationPage() {
       <section className="pb-10">
         <Link href="/teaching" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Teaching</Link>
         <div className="mb-6"><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Lesson preparation</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">Prepare from your connected pacing plan and scheduled lessons. Curriculum registry values remain controlled; teacher preparation, HOD submission and retrospective actual teaching stay separate.</p></div>
-        <LessonPreparationWorkspace data={data} />
+        <LessonPreparationWorkspace data={data} offlineScope={{ userId: context.user.id, tenantId: context.currentSchoolMembership?.tenantId ?? "", schoolId: data.schoolId }} />
       </section>
     </AppShell>
   );

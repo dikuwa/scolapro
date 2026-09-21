@@ -72,7 +72,8 @@ test("curriculum gaps are shown as absent rather than fabricated", () => {
   assert.match(server, /topic: unit\.topic \?\? null/);
 });
 
-test("low-bandwidth draft capture uses local browser storage", () => {
-  assert.match(workspace, /localStorage\.getItem/);
-  assert.match(workspace, /localStorage\.setItem/);
+test("low-bandwidth draft capture uses the shared scoped offline runtime", () => {
+  assert.match(workspace, /queueLessonPreparationDraft/);
+  assert.match(workspace, /getCachedLessonPreparationDraft/);
+  assert.doesNotMatch(workspace, /localStorage/);
 });

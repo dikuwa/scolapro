@@ -7,6 +7,7 @@ import { SUBJECT_ATTENDANCE_MUTATION } from "@/features/attendance/offline/subje
 import { LIBRARY_CIRCULATION_MUTATION } from "@/features/library/offline/circulation-queue";
 import { TEACHING_COVERAGE_MUTATION } from "@/features/teaching/offline/coverage-queue";
 import { ASSESSMENT_MARK_DRAFT_MUTATION } from "@/features/assessment/offline/marks-draft-queue";
+import { LESSON_PREPARATION_MUTATION } from "@/features/academics/offline/lesson-preparation-queue";
 import {
   listOfflineMutations,
   type OfflineMutationRecord,
@@ -43,6 +44,7 @@ const queueLabels: Record<string, { domain: string; action: string }> = {
   [LIBRARY_CIRCULATION_MUTATION]: { domain: "Library circulation", action: "Issue or return" },
   [TEACHING_COVERAGE_MUTATION]: { domain: "Teaching coverage", action: "Save teaching actual" },
   [ASSESSMENT_MARK_DRAFT_MUTATION]: { domain: "Assessment marks", action: "Marks draft" },
+  [LESSON_PREPARATION_MUTATION]: { domain: "Lesson preparation", action: "Save draft" },
 };
 
 function labelFor(record: QueueRecord) {
