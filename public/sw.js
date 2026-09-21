@@ -3,6 +3,9 @@ const OFFLINE_PATH = "/offline";
 const SHELL = [
   "/manifest.webmanifest",
   "/brand/scolapro/icon-blue.svg",
+  "/brand/scolapro/icon-180.png",
+  "/brand/scolapro/icon-192.png",
+  "/brand/scolapro/icon-512.png",
 ];
 
 async function cacheOfflineShell() {
