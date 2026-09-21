@@ -45,6 +45,7 @@ select throws_ok(
 
 set local session_replication_role = replica;
 update public.staff_school_assignments set effective_to=current_date-1 where id='fc300000-0000-4000-8000-000000000001';
+update public.school_memberships set active_to=current_date-1 where id='fc200000-0000-4000-8000-000000000001';
 set local session_replication_role = origin;
 
 select throws_ok(
