@@ -21,6 +21,8 @@ const COVERAGE_STATES = [
 ] as const;
 
 const recordSchema = z.object({
+  clientMutationId: z.string().uuid("Invalid client operation."),
+  source: z.enum(["online", "offline_sync"]).default("online"),
   scheduleItemId: z.string().uuid("Invalid schedule item."),
   taughtOn: z
     .string()
@@ -73,6 +75,8 @@ export async function recordTeachingActual(
   formData: FormData,
 ): Promise<CoverageActionState> {
   const parsed = recordSchema.safeParse({
+    clientMutationId: formData.get("clientMutationId"),
+    source: formData.get("source") ?? "online",
     scheduleItemId: formData.get("scheduleItemId"),
     taughtOn: formData.get("taughtOn"),
     periodsUsed: formData.get("periodsUsed"),
@@ -115,21 +119,15 @@ export async function recordTeachingActual(
     return { success: false, message: "Schedule item not found or not accessible in your current school." };
   }
 
-  const { data, error } = await supabase
-    .from("teaching_actuals")
-    .insert({
-      tenant_id: item.tenant_id,
-      school_id: item.school_id,
-      teaching_schedule_item_id: item.id,
-      taught_on: parsed.data.taughtOn,
-      periods_used: parsed.data.periodsUsed,
-      coverage_state: parsed.data.coverageState,
-      reflection: parsed.data.reflection || null,
-      compensatory_action: parsed.data.compensatoryAction || null,
-      recorded_by_user_id: context.user.id,
-    })
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc("record_teaching_actual_idempotent", {
+    p_client_operation_id: parsed.data.clientMutationId,
+    p_teaching_schedule_item_id: parsed.data.scheduleItemId,
+    p_taught_on: parsed.data.taughtOn,
+    p_periods_used: parsed.data.periodsUsed,
+    p_coverage_state: parsed.data.coverageState,
+    p_reflection: parsed.data.reflection || null,
+    p_compensatory_action: parsed.data.compensatoryAction || null,
+  });
 
   if (error || !data) {
     return { success: false, message: coverageErrorMessage(error?.message) };
