@@ -23,13 +23,19 @@ test("marks offline RPC rejects every non-editable lifecycle state", async () =>
   }
 });
 
-test("marks queue uses scoped durable states without changing shared runtime", async () => {
+test("marks queue uses scoped durable states and the shared runtime contract", async () => {
   const queue = await read("src/features/assessment/offline/marks-draft-queue.ts");
   const route = await read("src/app/api/offline/assessment/marks/route.ts");
+  const runtime = await read("src/components/offline/offline-runtime.tsx");
+  const center = await read("src/components/offline/offline-sync-center.tsx");
   assert.match(queue, /enqueueOfflineMutation/);
   assert.match(queue, /conflicted/);
   assert.match(queue, /rejected/);
   assert.match(queue, /expectedVersion/);
   assert.match(route, /current school access changed/);
   assert.match(route, /submit_offline_assessment_mark/);
+  assert.doesNotMatch(route, /message: error\.message/);
+  assert.match(runtime, /syncQueuedAssessmentMarkDrafts/);
+  assert.match(center, /ASSESSMENT_MARK_DRAFT_MUTATION/);
+  assert.match(center, /Assessment marks/);
 });
