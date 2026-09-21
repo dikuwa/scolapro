@@ -58,22 +58,15 @@ type LearnerRosterRow = {
   learner_id: string;
   first_names: string;
   surname: string;
-  house_id: string;
-  house_name: string;
+  admission_number: string | null;
+  house_id: string | null;
+  house_name: string | null;
   house_color_hex: string | null;
-  assignment_source: string;
+  assignment_source: string | null;
   is_locked: boolean;
-  assigned_at: string;
+  assigned_at: string | null;
   age_on_reference_date: number | null;
   age_group_label: string | null;
-};
-
-type LearnerAssignmentRow = {
-  learner_id: string;
-  house_id: string;
-  assignment_source: string;
-  is_locked: boolean;
-  assigned_at: string;
 };
 
 type StaffAssignmentRow = {
@@ -83,12 +76,6 @@ type StaffAssignmentRow = {
   assignment_source: string;
   is_locked: boolean;
   assigned_at: string;
-};
-
-type LearnerIdentityRow = {
-  id: string;
-  first_names: string;
-  surname: string;
 };
 
 type StaffIdentityRow = {
@@ -133,23 +120,19 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     settingsResult,
     ageGroupsResult,
     learnerRosterResult,
-    currentLearnerAssignmentsResult,
     learnerAssignmentsYearsResult,
     staffAssignmentsResult,
     staffAssignmentYearsResult,
-    enrolmentsResult,
     staffPlacementsResult,
   ] = await Promise.all([
     supabase.from("schools").select("id,name").eq("id", schoolId).maybeSingle(),
     supabase.from("sports_houses").select("id,name,short_code,color_hex,sort_order,status,created_by_user_id,created_at,updated_at").eq("school_id", schoolId).order("sort_order").order("name"),
     supabase.from("sports_year_settings").select("academic_year,age_reference_date,assignment_continuity").eq("school_id", schoolId).order("academic_year", { ascending: false }),
     supabase.from("sports_age_groups").select("id,label,min_age,max_age,sort_order,status").eq("school_id", schoolId).order("sort_order").order("label"),
-    supabase.from("sports_house_learner_roster").select("learner_id,first_names,surname,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label").eq("school_id", schoolId).eq("academic_year", academicYear),
-    supabase.from("sports_learner_house_assignments").select("learner_id,house_id,assignment_source,is_locked,assigned_at").eq("school_id", schoolId).eq("academic_year", academicYear),
+    supabase.rpc("get_sports_house_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
     supabase.from("sports_learner_house_assignments").select("academic_year").eq("school_id", schoolId),
     supabase.from("sports_staff_house_assignments").select("staff_member_id,house_id,role_key,assignment_source,is_locked,assigned_at").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("sports_staff_house_assignments").select("academic_year").eq("school_id", schoolId),
-    supabase.from("enrolments").select("learner_id,admission_number").eq("school_id", schoolId).eq("academic_year", academicYear).in("status", ["current", "completed", "transferred"]),
     supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to").eq("school_id", schoolId).lte("effective_from", yearEnd).or(`effective_to.is.null,effective_to.gte.${yearStart}`),
   ]);
 
@@ -158,43 +141,29 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     ["house configuration", housesResult.error],
     ["year settings", settingsResult.error],
     ["age groups", ageGroupsResult.error],
-    ["learner roster read model", learnerRosterResult.error],
-    ["learner assignments", currentLearnerAssignmentsResult.error],
+    ["learner roster", learnerRosterResult.error],
     ["learner assignment history", learnerAssignmentsYearsResult.error],
     ["staff assignments", staffAssignmentsResult.error],
     ["staff assignment history", staffAssignmentYearsResult.error],
-    ["enrolments", enrolmentsResult.error],
     ["staff placements", staffPlacementsResult.error],
   ] as const;
   for (const [dependency, error] of readIssues) {
     if (error) console.error(`[sports-houses] ${dependency} read failed`, { code: error.code ?? "unknown" });
   }
 
-  // History, configured cohorts and the roster view are optional read models. The
-  // canonical current-school assignment reads below remain required for a populated
-  // workspace; optional read-model failures must not turn an empty school into a fatal page.
+  // The governed roster read returns the complete eligible learner workspace in
+  // one school/year-scoped call. It is required just as the previous enrolment
+  // and learner-identity reads were required.
   const fatalIssue = [
     ["school context", schoolResult.error],
     ["house configuration", housesResult.error],
-    ["learner assignments", currentLearnerAssignmentsResult.error],
+    ["learner roster", learnerRosterResult.error],
     ["staff assignments", staffAssignmentsResult.error],
-    ["enrolments", enrolmentsResult.error],
     ["staff placements", staffPlacementsResult.error],
   ].find(([, error]) => error);
   if (fatalIssue) throw new Error(`Unable to load Sports / Houses (${fatalIssue[0]}).`);
 
   if (!schoolResult.data) throw new Error("Sports / Houses school context is unavailable.");
-
-  const enrolments = enrolmentsResult.data ?? [];
-  const learnerIds = [...new Set(enrolments.map((row) => row.learner_id))];
-  const learnerIdentityResult = await readIdentityRowsInChunks<LearnerIdentityRow>(
-    learnerIds,
-    async (chunk) => supabase.from("learners").select("id,first_names,surname").in("id", chunk),
-  );
-  if (learnerIdentityResult.error) {
-    console.error("[sports-houses] learner identities read failed", { code: learnerIdentityResult.error.code ?? "unknown" });
-    throw new Error("Unable to load learner identities for Sports / Houses.");
-  }
 
   const staffPlacementIds = [...new Set((staffPlacementsResult.data ?? []).map((row) => row.staff_member_id))];
   const assignedStaffIds = [...new Set(((staffAssignmentsResult.data ?? []) as StaffAssignmentRow[]).map((row) => row.staff_member_id))];
@@ -230,33 +199,19 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     status: row.status,
   }));
 
-  const learnerRoster = new Map<string, LearnerRosterRow | LearnerAssignmentRow>();
-  if (!learnerRosterResult.error) {
-    for (const row of (learnerRosterResult.data ?? []) as LearnerRosterRow[]) learnerRoster.set(row.learner_id, row);
-  } else {
-    // The roster view is a read-model convenience. Fall back to the canonical assignment
-    // table so an empty or freshly-migrated school still renders the normal workspace.
-    for (const row of (currentLearnerAssignmentsResult.data ?? []) as LearnerAssignmentRow[]) learnerRoster.set(row.learner_id, row);
-  }
-  const learnerNames = new Map((learnerIdentityResult.data ?? []).map((row) => [row.id, `${row.first_names} ${row.surname}`.trim()]));
-  const admissionNumbers = new Map(enrolments.map((row) => [row.learner_id, row.admission_number]));
-  const learners: SportsLearner[] = learnerIds.map((learnerId) => {
-    const assignment = learnerRoster.get(learnerId);
-    const roster = assignment && "house_name" in assignment ? assignment : null;
-    return {
-      id: learnerId,
-      name: learnerNames.get(learnerId) ?? "Learner",
-      admissionNumber: admissionNumbers.get(learnerId) ?? null,
-      houseId: assignment?.house_id ?? null,
-      houseName: roster?.house_name ?? houseMap.get(assignment?.house_id ?? "")?.name ?? null,
-      houseColorHex: roster?.house_color_hex ?? houseMap.get(assignment?.house_id ?? "")?.colorHex ?? null,
-      assignmentSource: assignment?.assignment_source ?? null,
-      isLocked: assignment?.is_locked ?? false,
-      assignedAt: assignment?.assigned_at ?? null,
-      ageOnReferenceDate: roster?.age_on_reference_date ?? null,
-      ageGroupLabel: roster?.age_group_label ?? null,
-    };
-  }).sort((a, b) => a.name.localeCompare(b.name));
+  const learners: SportsLearner[] = ((learnerRosterResult.data ?? []) as LearnerRosterRow[]).map((row) => ({
+    id: row.learner_id,
+    name: `${row.first_names} ${row.surname}`.trim() || "Learner",
+    admissionNumber: row.admission_number,
+    houseId: row.house_id,
+    houseName: row.house_name,
+    houseColorHex: row.house_color_hex,
+    assignmentSource: row.assignment_source,
+    isLocked: row.is_locked,
+    assignedAt: row.assigned_at,
+    ageOnReferenceDate: row.age_on_reference_date,
+    ageGroupLabel: row.age_group_label,
+  })).sort((a, b) => a.name.localeCompare(b.name));
 
   const staffIdentityMap = new Map((staffIdentityResult.data ?? []).map((row) => [row.id, row]));
   const staffAssignments = new Map(
