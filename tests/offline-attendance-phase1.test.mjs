@@ -13,6 +13,20 @@ const accountMenu = source("src/components/shell/account-menu.tsx");
 const serviceWorker = source("public/sw.js");
 const navigation = source("src/components/shell/navigation.tsx");
 const action = source("src/features/attendance/server/actions.ts");
+const manifest = source("src/app/manifest.ts");
+const layout = source("src/app/layout.tsx");
+
+test("PWA install metadata exposes stable identity, raster icons and iOS support", () => {
+  assert.match(manifest, /id: "\/"/);
+  assert.match(manifest, /start_url: "\/"/);
+  assert.match(manifest, /scope: "\/"/);
+  assert.match(manifest, /icon-192\.png/);
+  assert.match(manifest, /icon-512\.png/);
+  assert.match(manifest, /sizes: "192x192"/);
+  assert.match(manifest, /sizes: "512x512"/);
+  assert.match(layout, /appleWebApp: \{/);
+  assert.match(layout, /icon-180\.png/);
+});
 
 test("offline business data uses scoped IndexedDB rather than localStorage", () => {
   assert.match(db, /indexedDB\.open\(DB_NAME, DB_VERSION\)/);
@@ -60,6 +74,9 @@ test("attendance evidence stays online-first in phase one", () => {
 test("service worker caches shell assets but never business API responses", () => {
   assert.match(serviceWorker, /_next\/static/);
   assert.match(serviceWorker, /OFFLINE_PATH/);
+  assert.match(serviceWorker, /CACHE_NAME = "scolapro-shell-v2"/);
+  assert.match(serviceWorker, /icon-192\.png/);
+  assert.match(serviceWorker, /icon-512\.png/);
   assert.doesNotMatch(serviceWorker, /\/api\//);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
 });
