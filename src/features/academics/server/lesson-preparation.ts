@@ -18,6 +18,7 @@ export type LessonPreparationRow = {
   objectives: string[];
   competencies: string[];
   preparationId: string | null;
+  preparationUpdatedAt: string | null;
   preparationStatus: string | null;
   preparation: Record<string, string>;
   actualReflection: string | null;
@@ -25,7 +26,7 @@ export type LessonPreparationRow = {
 
 export type LessonPreparationTerm = { id: string; name: string; startsOn: string | null; endsOn: string | null };
 export type LessonPreparationWorkspaceData = { schoolId: string; rows: LessonPreparationRow[]; terms: LessonPreparationTerm[] };
-export type LessonPreparationActionState = { success?: boolean; message: string };
+export type LessonPreparationActionState = { success?: boolean; message: string; updatedAt?: string };
 
 type NamedRow = { id: string; display_name: string };
 type PacingRow = { id: string; curriculum_unit_id: string };
@@ -135,7 +136,7 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
   let subjects: NamedRow[] = [];
   let grades: NamedRow[] = [];
   let pacing: PacingRow[] = [];
-  let preparations: Array<{ id: string; teaching_schedule_item_id: string; status: string; preparation: unknown; curriculum_snapshot: unknown }> = [];
+  let preparations: Array<{ id: string; teaching_schedule_item_id: string; status: string; preparation: unknown; curriculum_snapshot: unknown; updated_at: string }> = [];
   let actuals: Array<{ teaching_schedule_item_id: string; reflection: string | null; recorded_at: string }> = [];
   let terms: Array<{ id: string; display_name: string; starts_on: string | null; ends_on: string | null; term_number: number }> = [];
 
@@ -143,7 +144,7 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
   if (gradeIds.length) grades = ((await scope.db.from("grades").select("id,display_name").in("id", gradeIds)).data ?? []) as NamedRow[];
   if (pacingIds.length) pacing = ((await scope.db.from("pacing_plan_items").select("id,curriculum_unit_id").in("id", pacingIds)).data ?? []) as PacingRow[];
   if (scheduleIds.length) {
-    preparations = ((await scope.db.from("lesson_preparations").select("id,teaching_schedule_item_id,status,preparation,curriculum_snapshot").in("teaching_schedule_item_id", scheduleIds)).data ?? []) as typeof preparations;
+    preparations = ((await scope.db.from("lesson_preparations").select("id,teaching_schedule_item_id,status,preparation,curriculum_snapshot,updated_at").in("teaching_schedule_item_id", scheduleIds)).data ?? []) as typeof preparations;
     actuals = ((await scope.db.from("teaching_actuals").select("teaching_schedule_item_id,reflection,recorded_at").in("teaching_schedule_item_id", scheduleIds).order("recorded_at", { ascending: false })).data ?? []) as typeof actuals;
   }
   if (academicYear) terms = ((await scope.db.from("academic_terms").select("id,display_name,starts_on,ends_on,term_number").eq("academic_year_id", academicYear.id).order("term_number")).data ?? []) as typeof terms;
@@ -221,6 +222,7 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
       objectives: objectives.filter((row) => row.curriculum_unit_id === unit?.id).map((row) => row.objective_text),
       competencies: competencies.filter((row) => row.curriculum_unit_id === unit?.id).map((row) => row.competency_text),
       preparationId: prep?.id ?? null,
+      preparationUpdatedAt: prep?.updated_at ?? null,
       preparationStatus: submissionStatus === "returned" ? "returned" : prep?.status ?? null,
       preparation: (prep?.preparation && typeof prep.preparation === "object" ? prep.preparation : {}) as Record<string, string>,
       actualReflection: actualMap.get(schedule.id) ?? null,
@@ -270,6 +272,34 @@ export async function saveLessonPreparation(_state: LessonPreparationActionState
     "assessment", "homeworkMonitoring", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
   ].map((key) => [key, text(form, key)]));
   return savePreparation(scheduleId, preparation, form.get("intent") === "prepared" ? "prepared" : "draft");
+}
+
+export async function saveLessonPreparationOffline(form: FormData): Promise<LessonPreparationActionState> {
+  const scheduleId = text(form, "scheduleId");
+  const clientMutationId = text(form, "clientMutationId");
+  if (!scheduleId || !clientMutationId) return { message: "This offline draft is missing its mutation identity." };
+  const owned = await ownedSchedule(scheduleId);
+  if (!owned) return { message: "This lesson is outside your current teaching allocation." };
+  const preparation = Object.fromEntries([
+    "resources", "introduction", "lessonStructure", "teacherActivities", "learnerActivities", "consolidation",
+    "assessment", "homeworkMonitoring", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
+  ].map((key) => [key, text(form, key)]));
+  const { data, error } = await owned.db.rpc("save_lesson_preparation_offline_draft", {
+    p_schedule_id: scheduleId,
+    p_preparation: preparation,
+    p_curriculum_snapshot: await curriculumSnapshot(owned.db, owned.schedule.pacing_plan_item_id),
+    p_client_mutation_id: clientMutationId,
+    p_expected_updated_at: text(form, "expectedUpdatedAt") || null,
+  });
+  if (error) {
+    if (error.message.includes("changed while this device was offline")) return { message: "This draft changed on the server while you were offline. Review it online before saving again." };
+    if (error.message.includes("no longer an editable draft")) return { message: "This preparation is no longer an editable draft. Review it online." };
+    if (error.message.includes("different lesson preparation data")) return { message: "This offline draft no longer matches its original queued change. Review it online." };
+    return { message: "Offline draft could not be synchronized. Check your current teaching allocation." };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  revalidatePath("/teaching/preparation");
+  return { success: true, message: "Offline draft synchronized.", updatedAt: row?.preparation_updated_at ?? undefined };
 }
 
 export async function prepareLessonRange(_state: LessonPreparationActionState, form: FormData): Promise<LessonPreparationActionState> {
