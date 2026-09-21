@@ -11,8 +11,10 @@ const runtime = await read("src/components/offline/offline-runtime.tsx");
 const center = await read("src/components/offline/offline-sync-center.tsx");
 
 test("preparation drafts use scoped IndexedDB and stable queued mutations", () => {
-  assert.match(workspace, /scoped IndexedDB/);
+  assert.match(workspace, /OfflineScope/);
+  assert.match(workspace, /queueLessonPreparationDraft/);
   assert.doesNotMatch(workspace, /localStorage/);
+  assert.match(queue, /@\/lib\/offline\/db/);
   assert.match(queue, /enqueueOfflineMutation/);
   assert.match(queue, /clientMutationId/);
   assert.match(queue, /saveOfflineSnapshot/);
