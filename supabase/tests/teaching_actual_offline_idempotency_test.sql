@@ -22,7 +22,7 @@ select set_config('request.jwt.claim.sub','fc000000-0000-4000-8000-000000000001'
 select set_config('request.jwt.claim.role','authenticated',true);
 
 select lives_ok(
-  $$select public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000001','fc500000-0000-4000-8000-000000000001',current_date,2,'taught','Reflection','Compensatory')$$,
+  $$select public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000001','fc500000-0000-4000-8000-000000000001',current_date,2::smallint,'taught','Reflection','Compensatory')$$,
   'first offline teaching actual replay operation records an append-only actual'
 );
 
@@ -30,7 +30,7 @@ select is((select count(*)::integer from public.teaching_actuals where teaching_
 select is((select count(*)::integer from public.client_operation_receipts where actor_user_id='fc000000-0000-4000-8000-000000000001' and operation_type='teaching_actual.record'),1,'first operation creates one idempotency receipt');
 
 select is(
-  public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000001','fc500000-0000-4000-8000-000000000001',current_date,2,'taught','Reflection','Compensatory'),
+  public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000001','fc500000-0000-4000-8000-000000000001',current_date,2::smallint,'taught','Reflection','Compensatory'),
   (select id from public.teaching_actuals where teaching_schedule_item_id='fc500000-0000-4000-8000-000000000001'),
   'replaying the same operation returns the original actual'
 );
@@ -38,7 +38,7 @@ select is(
 select is((select count(*)::integer from public.teaching_actuals where teaching_schedule_item_id='fc500000-0000-4000-8000-000000000001'),1,'replay does not duplicate the append-only actual');
 
 select throws_ok(
-  $$select public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000001','fc500000-0000-4000-8000-000000000001',current_date,1,'taught','Changed','Compensatory')$$,
+  $$select public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000001','fc500000-0000-4000-8000-000000000001',current_date,1::smallint,'taught','Changed','Compensatory')$$,
   'Client operation ID was already used with different teaching actual data',
   'reusing an operation key with changed teaching data is rejected'
 );
@@ -48,7 +48,7 @@ update public.staff_school_assignments set effective_to=current_date-1 where id=
 set local session_replication_role = origin;
 
 select throws_ok(
-  $$select public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000002','fc500000-0000-4000-8000-000000000001',current_date,2,'taught','Other','Other')$$,
+  $$select public.record_teaching_actual_idempotent('fc600000-0000-4000-8000-000000000002','fc500000-0000-4000-8000-000000000001',current_date,2::smallint,'taught','Other','Other')$$,
   'Teaching actual recorder mismatch: user is not authorized for teaching allocation',
   'a different offline operation cannot bypass current recorder authority'
 );
