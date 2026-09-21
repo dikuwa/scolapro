@@ -2,11 +2,12 @@ import { CloudOff } from "lucide-react";
 import { ScolaProWordmark } from "@/components/brand/scolapro-brand";
 import { OfflineAttendanceWorkspace } from "@/components/offline/offline-attendance-workspace";
 import { OfflineLibraryWorkspace } from "@/components/offline/offline-library-workspace";
+import { OfflineSubjectPeriodWorkspace } from "@/components/offline/offline-subject-period-workspace";
 
 export default function OfflinePage() {
   return (
     <main className="grid min-h-screen place-items-center bg-background px-5 py-10 text-foreground">
-      <section className="w-full max-w-3xl rounded-[var(--radius-lg)] border border-border-subtle bg-surface p-6 shadow-[var(--shadow-sm)] sm:p-8">
+      <section className="w-full max-w-5xl rounded-[var(--radius-lg)] border border-border-subtle bg-surface p-6 shadow-[var(--shadow-sm)] sm:p-8">
         <ScolaProWordmark compact />
         <div className="mt-8 flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><CloudOff className="size-5" aria-hidden="true" /></span>
@@ -16,6 +17,7 @@ export default function OfflinePage() {
           </div>
         </div>
         <OfflineAttendanceWorkspace />
+        <OfflineSubjectPeriodWorkspace />
         <OfflineLibraryWorkspace />
       </section>
     </main>
