@@ -8,6 +8,8 @@ import { DateField } from "@/components/ui/date-field";
 import { Button } from "@/components/ui/button";
 import { recordTeachingActual, type CoverageActionState } from "@/features/teaching/server/coverage-actions";
 import type { CoverageWorkspaceData } from "@/features/teaching/server/coverage-queries";
+import { activateOfflineScope, offlineQueueSummary, type OfflineScope } from "@/lib/offline/db";
+import { cacheTeachingCoverageSnapshot, queueTeachingActual, syncQueuedTeachingActuals } from "@/features/teaching/offline/coverage-queue";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -71,11 +73,13 @@ function RecordForm({
   defaultDate,
   defaultPeriods,
   onDone,
+  offlineScope,
 }: {
   scheduleItemId: string;
   defaultDate: string;
   defaultPeriods: number;
   onDone: () => void;
+  offlineScope: OfflineScope | null;
 }) {
   const [state, formAction, pending] = useActionState(recordTeachingActual, initialState);
   const [taughtOn, setTaughtOn] = useState(defaultDate);
@@ -83,6 +87,7 @@ function RecordForm({
   const [coverageState, setCoverageState] = useState("taught");
   const [reflection, setReflection] = useState("");
   const [compensatoryAction, setCompensatoryAction] = useState("");
+  const [clientMutationId] = useState(() => crypto.randomUUID());
 
   useEffect(() => {
     if (!state.message) return;
@@ -94,8 +99,18 @@ function RecordForm({
     }
   }, [state, onDone]);
 
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (typeof navigator === "undefined" || navigator.onLine || !offlineScope) return;
+    event.preventDefault();
+    try {
+      await queueTeachingActual(offlineScope, { clientMutationId, scheduleItemId, taughtOn, periodsUsed: Number(periods), coverageState, reflection, compensatoryAction });
+      toast.success("Teaching actual saved on this device. It will sync when the connection returns.");
+    } catch { toast.error("Teaching actual could not be stored on this device."); }
+  }
+
   return (
-    <form action={formAction} className="mt-3 space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4">
+    <form action={formAction} onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4">
+      <input type="hidden" name="clientMutationId" value={clientMutationId} />
       <input type="hidden" name="scheduleItemId" value={scheduleItemId} />
       <p className="text-xs font-semibold text-foreground">Record actual teaching</p>
       <p className="text-[0.7rem] text-muted-foreground">
@@ -183,11 +198,13 @@ function ScheduleRow({
   actuals,
   today,
   canRecord,
+  offlineScope,
 }: {
   item: CoverageWorkspaceData["scheduleItems"][number];
   actuals: CoverageWorkspaceData["actuals"];
   today: string;
   canRecord: boolean;
+  offlineScope: OfflineScope | null;
 }) {
   const [open, setOpen] = useState(false);
   const itemActuals = actuals.filter((a) => a.scheduleItemId === item.itemId);
@@ -245,6 +262,7 @@ function ScheduleRow({
           defaultDate={item.plannedOn <= today ? item.plannedOn : today}
           defaultPeriods={item.plannedPeriodCount}
           onDone={() => setOpen(false)}
+          offlineScope={offlineScope}
         />
       )}
     </li>
@@ -258,6 +276,7 @@ function ScheduleRow({
 export type TeachingCoverageWorkspaceProps = CoverageWorkspaceData & {
   /** Teacher/class_teacher may write; leadership views are read-only here. */
   canRecord: boolean;
+  offlineScope: OfflineScope | null;
 };
 
 export function TeachingCoverageWorkspace({
@@ -267,8 +286,28 @@ export function TeachingCoverageWorkspace({
   scheduleItems,
   actuals,
   canRecord,
+  offlineScope,
 }: TeachingCoverageWorkspaceProps) {
   const [allocationId, setAllocationId] = useState(allocations[0]?.allocationId ?? "");
+  const [offlineAttention, setOfflineAttention] = useState(0);
+
+  useEffect(() => {
+    if (!offlineScope) return;
+    void cacheTeachingCoverageSnapshot(offlineScope, { academicYear, allocations, scheduleItems }).catch(() => undefined);
+    let active = true;
+    const sync = async () => {
+      await activateOfflineScope(offlineScope);
+      if (typeof navigator !== "undefined" && navigator.onLine) await syncQueuedTeachingActuals(offlineScope);
+      const summary = await offlineQueueSummary(offlineScope);
+      if (active) setOfflineAttention(summary.attention);
+    };
+    void sync();
+    const onOnline = () => { void sync(); };
+    const onQueue = () => { void sync(); };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("scolapro-offline-queue-changed", onQueue);
+    return () => { active = false; window.removeEventListener("online", onOnline); window.removeEventListener("scolapro-offline-queue-changed", onQueue); };
+  }, [academicYear, allocations, offlineScope, scheduleItems]);
 
   const allocationOptions = useMemo(
     () =>
@@ -300,6 +339,8 @@ export function TeachingCoverageWorkspace({
 
   const outstanding = pastItems.filter((s) => !actuals.some((a) => a.scheduleItemId === s.itemId)).length;
 
+  const offlineBanner = offlineAttention ? <p role="status" className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs font-medium text-[color:var(--warning)]">Some offline teaching actuals need attention because their current teaching scope changed.</p> : null;
+
   if (!allocations.length) {
     return (
       <section className="rounded-[var(--radius-md)] bg-surface p-5 shadow-[var(--shadow-xs)]">
@@ -308,6 +349,7 @@ export function TeachingCoverageWorkspace({
           <h2 className="scolapro-section-title">Coverage &amp; reflection</h2>
         </div>
         <p className="scolapro-section-description">No teaching allocations found for {academicYear}.</p>
+        {offlineBanner}
         <p className="mt-4 text-sm text-muted-foreground">
           Teaching actuals can only be recorded against governed teacher allocations for your current school.
           Contact your school administrator if allocations are missing.
@@ -329,6 +371,7 @@ export function TeachingCoverageWorkspace({
           {!canRecord && " This view is read-only for your role."}
         </p>
 
+        {offlineBanner}
         <div className="mt-4 max-w-sm">
           <Picker
             label="Subject and class"
@@ -372,7 +415,7 @@ export function TeachingCoverageWorkspace({
           <p className="scolapro-section-description">Lessons scheduled on or before today. Record actuals against items that have been taught.</p>
           <ul className="mt-4 divide-y divide-border-subtle" aria-label="Past and due lessons">
             {pastItems.map((item) => (
-              <ScheduleRow key={item.itemId} item={item} actuals={actuals} today={today} canRecord={canRecord} />
+              <ScheduleRow key={item.itemId} item={item} actuals={actuals} today={today} canRecord={canRecord} offlineScope={offlineScope} />
             ))}
           </ul>
         </section>
@@ -385,7 +428,7 @@ export function TeachingCoverageWorkspace({
           <p className="scolapro-section-description">Planned future schedule. Actuals can be recorded in advance where teaching happened early.</p>
           <ul className="mt-4 divide-y divide-border-subtle" aria-label="Upcoming lessons">
             {upcomingItems.map((item) => (
-              <ScheduleRow key={item.itemId} item={item} actuals={actuals} today={today} canRecord={canRecord} />
+              <ScheduleRow key={item.itemId} item={item} actuals={actuals} today={today} canRecord={canRecord} offlineScope={offlineScope} />
             ))}
           </ul>
         </section>

@@ -5,6 +5,7 @@ import { Check, CloudOff, Clock3, RefreshCw, Trash2, TriangleAlert, X } from "lu
 import { DAILY_ATTENDANCE_MUTATION } from "@/features/attendance/offline/daily-register-queue";
 import { SUBJECT_ATTENDANCE_MUTATION } from "@/features/attendance/offline/subject-period-queue";
 import { LIBRARY_CIRCULATION_MUTATION } from "@/features/library/offline/circulation-queue";
+import { TEACHING_COVERAGE_MUTATION } from "@/features/teaching/offline/coverage-queue";
 import {
   listOfflineMutations,
   type OfflineMutationRecord,
@@ -39,6 +40,7 @@ const queueLabels: Record<string, { domain: string; action: string }> = {
   [DAILY_ATTENDANCE_MUTATION]: { domain: "Daily attendance", action: "Save register" },
   [SUBJECT_ATTENDANCE_MUTATION]: { domain: "Lesson attendance", action: "Save register" },
   [LIBRARY_CIRCULATION_MUTATION]: { domain: "Library circulation", action: "Issue or return" },
+  [TEACHING_COVERAGE_MUTATION]: { domain: "Teaching coverage", action: "Save teaching actual" },
 };
 
 function labelFor(record: QueueRecord) {

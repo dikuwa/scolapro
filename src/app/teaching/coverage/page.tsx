@@ -62,7 +62,7 @@ export default async function TeachingCoveragePage() {
           </p>
         </div>
 
-        <TeachingCoverageWorkspace {...workspace} canRecord={canRecord} />
+        <TeachingCoverageWorkspace {...workspace} canRecord={canRecord} offlineScope={{ userId: context.user.id, tenantId: membership.tenantId, schoolId: membership.schoolId }} />
       </section>
     </AppShell>
   );

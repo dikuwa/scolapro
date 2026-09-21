@@ -98,28 +98,28 @@ test('coverage action validates all six canonical coverage states', () => {
   }
 });
 
-test('coverage action excludes platform roles before database mutation', () => {
+test('coverage action excludes platform roles before the idempotent database mutation', () => {
   const platformCheck = coverageAction.indexOf('platformMemberships');
-  const insertIdx = coverageAction.indexOf('.insert(');
+  const rpcIdx = coverageAction.indexOf('record_teaching_actual_idempotent');
   assert.ok(platformCheck > -1, 'action must check platformMemberships');
-  assert.ok(insertIdx > -1, 'action must call .insert()');
-  assert.ok(platformCheck < insertIdx,
-    'platform membership exclusion must come before the database insert');
+  assert.ok(rpcIdx > -1, 'action must call the governed idempotent RPC');
+  assert.ok(platformCheck < rpcIdx,
+    'platform membership exclusion must come before the database mutation');
 });
 
-test('coverage action verifies schedule item visibility before insert', () => {
+test('coverage action verifies schedule item visibility before the idempotent mutation', () => {
   const itemLookup = coverageAction.indexOf('teaching_schedule_items');
-  const insertIdx = coverageAction.indexOf('.insert(');
+  const rpcIdx = coverageAction.indexOf('record_teaching_actual_idempotent');
   assert.ok(itemLookup > -1, 'action must query teaching_schedule_items');
-  assert.ok(itemLookup < insertIdx,
-    'schedule item lookup must precede the teaching_actuals insert');
+  assert.ok(itemLookup < rpcIdx,
+    'schedule item lookup must precede the governed RPC');
 });
 
-test('coverage action inserts into teaching_actuals with recorded_by_user_id', () => {
-  assert.match(coverageAction, /teaching_actuals/,
-    'action must write to teaching_actuals');
-  assert.match(coverageAction, /recorded_by_user_id.*context\.user\.id/s,
-    'recorded_by_user_id must be set to the authenticated user');
+test('coverage action delegates append-only teaching_actual provenance to the idempotent RPC', () => {
+  assert.match(coverageAction, /record_teaching_actual_idempotent/,
+    'action must use the idempotent teaching actual RPC');
+  assert.match(coverageAction, /p_client_operation_id: parsed\.data\.clientMutationId/,
+    'client operation identity must reach the server contract');
 });
 
 test('coverage action does not attempt UPDATE or DELETE on teaching_actuals', () => {
