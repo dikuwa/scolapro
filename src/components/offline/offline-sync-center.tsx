@@ -42,7 +42,7 @@ const queueLabels: Record<string, { domain: string; action: string }> = {
   [SUBJECT_ATTENDANCE_MUTATION]: { domain: "Lesson attendance", action: "Save register" },
   [LIBRARY_CIRCULATION_MUTATION]: { domain: "Library circulation", action: "Issue or return" },
   [TEACHING_COVERAGE_MUTATION]: { domain: "Teaching coverage", action: "Save teaching actual" },
-  [ASSESSMENT_MARK_DRAFT_MUTATION]: { domain: "Assessment marks", action: "Save draft mark" },
+  [ASSESSMENT_MARK_DRAFT_MUTATION]: { domain: "Assessment marks", action: "Marks draft" },
 };
 
 function labelFor(record: QueueRecord) {

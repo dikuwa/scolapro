@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json(
-      { message: "This marks draft could not be validated against the current assessment state." },
+      { message: "This marks draft could not be validated for sync." },
       { status: 409 },
     );
   }

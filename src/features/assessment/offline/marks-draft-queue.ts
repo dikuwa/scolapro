@@ -16,7 +16,7 @@ export type OfflineAssessmentMarkDraftPayload = {
   enrolmentId: string;
   learnerId: string;
   numericMark: number | null;
-  markStatus: "absent" | "exempt" | "incomplete" | "witheld" | null;
+  markStatus: "absent" | "exempt" | "incomplete" | "withheld" | null;
   teacherNote: string | null;
   expectedVersion: string | null;
   clientMutationId: string;
@@ -55,22 +55,29 @@ export async function syncQueuedAssessmentMarkDrafts(scope: OfflineScope) {
           payload: record.payload,
         }),
       });
-      const body = (await response.json().catch(() => ({}))) as { message?: string };
+      const body = (await response.json().catch(() => ({}))) as { message?: string; code?: string };
+      const safeMessage = body.code === "stale_version"
+        ? "A newer mark draft already exists. Review the current mark before trying again."
+        : body.code === "assessment_not_editable"
+          ? "This assessment is no longer open for mark entry."
+          : body.code === "idempotency_payload_mismatch"
+            ? "This offline mark change no longer matches its original queued draft."
+            : body.message;
       if (response.ok) await removeOfflineMutation(record.id);
       else if (response.status === 409) {
         await updateOfflineMutation(record.id, {
-          status: body.message?.includes("assessment_not_editable") ? "rejected" : "conflicted",
-          lastError: body.message ?? "This mark draft needs attention.",
+          status: body.code === "assessment_not_editable" ? "rejected" : "conflicted",
+          lastError: safeMessage ?? "This mark draft needs attention.",
         });
       } else if (response.status >= 400 && response.status < 500) {
         await updateOfflineMutation(record.id, {
           status: "rejected",
-          lastError: body.message ?? "This mark draft was rejected.",
+          lastError: safeMessage ?? "This mark draft was rejected.",
         });
       } else {
         await updateOfflineMutation(record.id, {
           status: "pending",
-          lastError: body.message ?? "Sync will retry when the service is available.",
+          lastError: safeMessage ?? "Sync will retry when the service is available.",
         });
         break;
       }
@@ -94,6 +101,6 @@ export async function cacheAssessmentMarkDraftReference(
     scope,
     ASSESSMENT_MARK_DRAFT_SNAPSHOT,
     snapshot.assessmentInstanceId,
-   { assessmentInstanceId: snapshot.assessmentInstanceId, learners: snapshot.learners.slice(0, 200) },
+    { assessmentInstanceId: snapshot.assessmentInstanceId, learners: snapshot.learners.slice(0, 200) },
   );
 }

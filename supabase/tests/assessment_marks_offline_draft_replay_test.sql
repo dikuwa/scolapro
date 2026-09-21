@@ -72,7 +72,7 @@ select ok(
 );
 
 select ok(
-  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid,uuid)')) ilike '%status <> 'open'%'
+  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%status <> ''open''%'
   and pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%p_expected_version%',
   'replay requires both an editable window and an expected version'
 );
