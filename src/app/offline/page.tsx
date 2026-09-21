@@ -1,6 +1,7 @@
 import { CloudOff } from "lucide-react";
 import { ScolaProWordmark } from "@/components/brand/scolapro-brand";
 import { OfflineAttendanceWorkspace } from "@/components/offline/offline-attendance-workspace";
+import { OfflineLibraryWorkspace } from "@/components/offline/offline-library-workspace";
 
 export default function OfflinePage() {
   return (
@@ -15,6 +16,7 @@ export default function OfflinePage() {
           </div>
         </div>
         <OfflineAttendanceWorkspace />
+        <OfflineLibraryWorkspace />
       </section>
     </main>
   );
