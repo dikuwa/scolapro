@@ -53,7 +53,12 @@ export async function POST(request: Request) {
     p_client_mutation_id: payload.clientMutationId,
   });
 
-  if (error) return NextResponse.json({ message: error.message }, { status: 409 });
+  if (error) {
+    return NextResponse.json(
+      { message: "This marks draft could not be validated against the current assessment state." },
+      { status: 409 },
+    );
+  }
   const result = data as { outcome?: string; code?: string };
   if (result.outcome === "conflicted") return NextResponse.json(result, { status: 409 });
   if (result.outcome === "rejected") return NextResponse.json(result, { status: 422 });
