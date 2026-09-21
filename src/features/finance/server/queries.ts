@@ -6,7 +6,7 @@ export type SchoolPaymentSettings = {
   referenceInstructions: string | null; paymentInstructions: string | null; active: boolean;
 };
 export type FinanceLearner = { id: string; name: string; admissionNumber: string | null };
-export type FinancePayment = { id: string; learnerId: string | null; reference: string; method: string; amount: number; paidOn: string; bankReference: string | null; status: string };
+export type FinancePayment = { id: string; learnerId: string | null; learnerName: string | null; reference: string; method: string; amount: number; paidOn: string; bankReference: string | null; status: string };
 
 export async function getSchoolPaymentSettings(schoolId: string): Promise<SchoolPaymentSettings | null> {
   const supabase = await createSupabaseServerClient();
@@ -17,17 +17,24 @@ export async function getSchoolPaymentSettings(schoolId: string): Promise<School
 
 export async function getFinanceWorkspace(schoolId: string) {
   const supabase = await createSupabaseServerClient();
-  const [{ data: settings }, { data: enrolments }, { data: payments }] = await Promise.all([
+  const [{ data: settings }, { data: payments }] = await Promise.all([
     supabase.from("school_payment_settings").select("school_id,bank_name,account_name,account_number,branch_name,branch_code,account_type,reference_instructions,payment_instructions,active").eq("school_id", schoolId).maybeSingle(),
-    supabase.from("enrolments").select("learner_id,admission_number").eq("school_id", schoolId).eq("status", "current").order("admission_number"),
     supabase.from("finance_payments").select("id,learner_id,payment_reference,payment_method,amount,paid_on,bank_reference,status").eq("school_id", schoolId).order("paid_on", { ascending: false }).limit(50),
   ]);
-  const learnerIds = [...new Set((enrolments ?? []).map((row) => row.learner_id))];
-  const { data: learnerRows } = learnerIds.length ? await supabase.from("learners").select("id,first_names,surname,preferred_name").in("id", learnerIds) : { data: [] as Array<{id:string;first_names:string;surname:string;preferred_name:string|null}> };
-  const names = new Map((learnerRows ?? []).map((row) => [row.id, `${row.preferred_name || row.first_names} ${row.surname}`]));
+  const paymentLearnerIds = [...new Set((payments ?? []).flatMap((row) => row.learner_id ? [row.learner_id] : []))];
+  const { data: learnerRows, error: learnerLabelsError } = paymentLearnerIds.length
+    ? await supabase.rpc("get_finance_payment_learner_labels", {
+        p_school_id: schoolId,
+        p_learner_ids: paymentLearnerIds,
+      })
+    : { data: [], error: null };
+  if (learnerLabelsError) throw new Error("Unable to load finance learner labels.");
+  const learnerRowsTyped = (learnerRows ?? []) as Array<{ learner_id: string; display_name: string }>;
+  const names = new Map(
+    learnerRowsTyped.map((row) => [row.learner_id, row.display_name]),
+  );
   return {
     settings: settings ? { schoolId: settings.school_id, bankName: settings.bank_name, accountName: settings.account_name, accountNumber: settings.account_number, branchName: settings.branch_name, branchCode: settings.branch_code, accountType: settings.account_type, referenceInstructions: settings.reference_instructions, paymentInstructions: settings.payment_instructions, active: settings.active } as SchoolPaymentSettings : null,
-    learners: (enrolments ?? []).map((row) => ({ id: row.learner_id, name: names.get(row.learner_id) ?? "Learner", admissionNumber: row.admission_number })) as FinanceLearner[],
-    payments: (payments ?? []).map((row) => ({ id: row.id, learnerId: row.learner_id, reference: row.payment_reference, method: row.payment_method, amount: Number(row.amount), paidOn: row.paid_on, bankReference: row.bank_reference, status: row.status })) as FinancePayment[],
+    payments: (payments ?? []).map((row) => ({ id: row.id, learnerId: row.learner_id, learnerName: row.learner_id ? names.get(row.learner_id) ?? null : null, reference: row.payment_reference, method: row.payment_method, amount: Number(row.amount), paidOn: row.paid_on, bankReference: row.bank_reference, status: row.status })) as FinancePayment[],
   };
 }

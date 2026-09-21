@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { FinanceLearner } from "@/features/finance/server/queries";
 
 export type FinanceActionState = { success?: boolean; message?: string };
 const financeRoles = new Set(["school_admin","principal","finance_officer","bursar"]);
@@ -41,4 +42,29 @@ export async function recordPayment(_state: FinanceActionState, formData: FormDa
   if (error) return { message: "Payment could not be recorded. Check the learner, reference and your finance access." };
   revalidatePath("/school/finance");
   return { success: true, message: "Payment recorded in received state." };
+}
+
+const financeLearnerSearchSchema = z.object({
+  schoolId: z.string().uuid(),
+  query: z.string().trim().max(120),
+});
+
+export async function searchFinanceLearners(schoolId: string, query: string): Promise<FinanceLearner[]> {
+  const parsed = financeLearnerSearchSchema.safeParse({ schoolId, query });
+  if (!parsed.success || !await financeMembership(parsed.data.schoolId)) {
+    throw new Error("Finance learner search is unavailable.");
+  }
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("search_finance_learners", {
+    p_school_id: parsed.data.schoolId,
+    p_query: parsed.data.query || null,
+    p_limit: 20,
+  });
+  if (error) throw new Error("Finance learner search is unavailable.");
+  const learnerRows = (data ?? []) as Array<{ learner_id: string; display_name: string; admission_number: string | null }>;
+  return learnerRows.map((row) => ({
+    id: row.learner_id,
+    name: row.display_name,
+    admissionNumber: row.admission_number,
+  }));
 }
