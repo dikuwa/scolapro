@@ -6,6 +6,7 @@ import { activateOfflineScope, discardOfflineMutation, offlineQueueSummary, retr
 import { syncQueuedDailyRegisters } from "@/features/attendance/offline/daily-register-queue";
 import { syncQueuedSubjectPeriodAttendance } from "@/features/attendance/offline/subject-period-queue";
 import { syncQueuedLibraryCirculation } from "@/features/library/offline/circulation-queue";
+import { syncQueuedTeachingActuals } from "@/features/teaching/offline/coverage-queue";
 
 type State = "online" | "offline" | "syncing" | "attention";
 
@@ -42,6 +43,7 @@ export function OfflineRuntime({ scope }: { scope: OfflineScope | null }) {
       syncQueuedDailyRegisters(scope),
       syncQueuedSubjectPeriodAttendance(scope),
       syncQueuedLibraryCirculation(scope),
+      syncQueuedTeachingActuals(scope),
     ]);
     const after = await offlineQueueSummary(scope);
     setPending(after.pending);
