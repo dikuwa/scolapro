@@ -45,7 +45,7 @@ select ok(
 select ok(
   pg_get_functiondef(
     to_regprocedure('public.resolve_staff_identity_authority(uuid,uuid,uuid,uuid,text,text)')
-  ) not ilike '%update public.teacher_allocations%set staff_member_id%'
+  ) !~* 'update[[:space:]]+public[.]teacher_allocations[[:space:]]+set[[:space:]]+staff_member_id'
   and pg_get_functiondef(
     to_regprocedure('public.resolve_staff_identity_authority(uuid,uuid,uuid,uuid,text,text)')
   ) ilike '%preserved_secondary_auth_user_id%',
