@@ -153,3 +153,14 @@ test("skipped-only PDF batches settle out of the export queue", () => {
 test("report-card page ignores non-printable terminal export waits", () => {
   assert.match(page, /batch\.completedItems > 0 && \(batch\.exportStatus === "waiting" \|\| batch\.exportStatus === "processing"\)/);
 });
+
+
+test("internal report-card worker returns safe stage diagnostics on failure", () => {
+  const internalWorker = readFileSync("src/app/api/internal/report-card-render/route.ts", "utf8");
+  assert.match(internalWorker, /stage: "health_before" \| "batch" \| "render" \| "export" \| "health_after"/);
+  assert.match(internalWorker, /stage = "batch"/);
+  assert.match(internalWorker, /stage = "render"/);
+  assert.match(internalWorker, /stage = "export"/);
+  assert.match(internalWorker, /diagnostic: message\.slice\(0, 240\)/);
+  assert.doesNotMatch(internalWorker, /INTERNAL_JOB_RUNNER_SECRET.*diagnostic/);
+});
