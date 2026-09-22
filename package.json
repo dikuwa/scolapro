@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "validate:report-font": "node scripts/validate-report-card-font.mjs",
     "validate:navigation": "node scripts/validate-navigation-role-visibility.mjs",
-    "check": "pnpm lint && pnpm typecheck && pnpm validate:report-font && pnpm validate:navigation && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm validate:report-font && pnpm validate:navigation && pnpm build",
+    "bench:report-cards": "node scripts/benchmark-report-card-worker.mjs"
   },
   "dependencies": {
     "@fontsource/unifrakturcook": "^5.3.0",
