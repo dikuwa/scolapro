@@ -11,3 +11,17 @@ test("library returns authenticated shell before workspace data resolves", () =>
   const helperStart = library.indexOf("async function LibraryWorkspaceData");
   assert.equal(library.slice(pageStart, helperStart).includes("await getLibraryWorkspace"), false);
 });
+
+const attendance = readFileSync("src/app/attendance/page.tsx", "utf8");
+
+
+test("attendance returns authenticated shell before register data resolves", () => {
+  assert.match(attendance, /<Suspense fallback=\{<AttendanceLoading/);
+  assert.match(attendance, /async function AttendanceWorkspaceData/);
+  const pageStart = attendance.indexOf("export default async function AttendancePage");
+  const helperStart = attendance.indexOf("async function AttendanceWorkspaceData");
+  const critical = attendance.slice(pageStart, helperStart);
+  assert.equal(critical.includes("await getDailyRegisterWorkspace"), false);
+  assert.equal(critical.includes("await getWeeklyRegisterWorkspace"), false);
+  assert.equal(critical.includes("await getAbsenceOverviewWorkspace"), false);
+});

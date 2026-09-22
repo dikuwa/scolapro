@@ -1,4 +1,5 @@
 import { CalendarCheck2, ClipboardCheck, UsersRound } from "lucide-react";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { AttendanceSortControl } from "@/features/attendance/attendance-sort-control";
@@ -42,46 +43,92 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const date = safeSchoolDate(requestedDate);
   const academicYear = Number(date.slice(0, 4));
 
-  if (view === "absences") {
-    const workspace = await getAbsenceOverviewWorkspace(membership.schoolId, academicYear, date, requestedClass ?? null);
-    const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
-    return (
-      <AppShell>
-        <section className="attendance-page">
-          <AttendanceHeader date={date} requestedClass={requestedClass} view="absences" sort={sort} />
-          <p className="mb-5 text-sm leading-6 text-muted-foreground">A read-only absence view. It combines official daily-register absences, lesson absences and parent/guardian notices for {selectedClass ? `${selectedClass.grade} ${selectedClass.name}` : "your school"} — it never changes the records it reads.</p>
-          <AbsenceOverview classes={workspace.classes} selectedClassId={workspace.selectedClassId} rows={workspace.rows} attendanceDate={date} />
-        </section>
-      </AppShell>
-    );
-  }
-
-  if (view === "week") {
-    const workspace = await getWeeklyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort);
-    const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
-    const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => day.status !== "present").length, 0);
-    return (
-      <AppShell>
-        <section className="attendance-page">
-          <AttendanceHeader date={date} requestedClass={requestedClass} view="week" sort={sort} />
-          <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
-          <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
-        </section>
-      </AppShell>
-    );
-  }
-
-  const workspace = await getDailyRegisterWorkspace(membership.schoolId, academicYear, requestedClass ?? null, date, sort);
-  const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
-  const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
   return (
     <AppShell>
-      <section className="attendance-page">
-        <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
-        <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-        <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId: context.user.id, tenantId: membership.tenantId, schoolId: membership.schoolId }} />
-      </section>
+      <Suspense fallback={<AttendanceLoading />}>
+        <AttendanceWorkspaceData
+          schoolId={membership.schoolId}
+          tenantId={membership.tenantId}
+          userId={context.user.id}
+          academicYear={academicYear}
+          requestedClass={requestedClass}
+          date={date}
+          view={view}
+          sort={sort}
+        />
+      </Suspense>
     </AppShell>
+  );
+}
+
+async function AttendanceWorkspaceData({
+  schoolId,
+  tenantId,
+  userId,
+  academicYear,
+  requestedClass,
+  date,
+  view,
+  sort,
+}: {
+  schoolId: string;
+  tenantId: string;
+  userId: string;
+  academicYear: number;
+  requestedClass?: string;
+  date: string;
+  view: "day" | "week" | "absences";
+  sort: AttendanceSortDirection;
+}) {
+if (view === "absences") {
+  const workspace = await getAbsenceOverviewWorkspace(schoolId, academicYear, date, requestedClass ?? null);
+  const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
+  return (
+    <section className="attendance-page">
+        <AttendanceHeader date={date} requestedClass={requestedClass} view="absences" sort={sort} />
+        <p className="mb-5 text-sm leading-6 text-muted-foreground">A read-only absence view. It combines official daily-register absences, lesson absences and parent/guardian notices for {selectedClass ? `${selectedClass.grade} ${selectedClass.name}` : "your school"} — it never changes the records it reads.</p>
+        <AbsenceOverview classes={workspace.classes} selectedClassId={workspace.selectedClassId} rows={workspace.rows} attendanceDate={date} />
+    </section>
+  );
+}
+
+if (view === "week") {
+  const workspace = await getWeeklyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort);
+  const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
+  const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => day.status !== "present").length, 0);
+  return (
+    <section className="attendance-page">
+        <AttendanceHeader date={date} requestedClass={requestedClass} view="week" sort={sort} />
+        <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
+        <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
+    </section>
+  );
+}
+
+const workspace = await getDailyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, date, sort);
+const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
+const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
+return (
+  <section className="attendance-page">
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
+      <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
+      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} />
+  </section>
+);
+}
+
+function AttendanceLoading() {
+  return (
+    <section className="attendance-page" aria-busy="true">
+      <div className="mb-6">
+        <div className="h-8 w-40 animate-pulse rounded-[var(--radius-xs)] bg-surface-muted" />
+        <div className="mt-2 h-4 w-full max-w-2xl animate-pulse rounded-[var(--radius-xs)] bg-surface-muted" />
+      </div>
+      <div className="mb-5 grid gap-px overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-border-subtle sm:grid-cols-3">
+        {[0, 1, 2].map((item) => <div key={item} className="h-20 animate-pulse bg-surface" />)}
+      </div>
+      <div className="h-72 animate-pulse rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted" />
+    </section>
   );
 }
 
