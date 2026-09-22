@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowUpRight, BookOpenCheck, Building2, School, ShieldCheck, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
@@ -25,8 +26,7 @@ export default async function Home() {
   let primaryHref = "/learners";
   let primaryLabel = "Open learners";
   const academicYear = new Date().getFullYear();
-  let overview = { currentLearners: 2, gradeCount: 5, registerClassCount: 2 };
-  let platformOverview = { activeTenants: 0, schoolCount: 0 };
+  let schoolId: string | null = null;
   let isPreview = !isSupabaseConfigured();
 
   if (isSupabaseConfigured()) {
@@ -42,13 +42,11 @@ export default async function Home() {
       dashboardMode = "platform";
       primaryHref = "/platform/tenants";
       primaryLabel = "Manage tenants";
-      const tenants = await getPlatformTenants();
-      platformOverview = { activeTenants: tenants.filter((tenant) => tenant.status === "active").length, schoolCount: tenants.reduce((total, tenant) => total + tenant.schools.length, 0) };
       isPreview = false;
     } else if (membership) {
       schoolName = membership.schoolName;
       roleLabel = membership.roleKey.replaceAll("_", " ");
-      overview = await getDashboardOverview(membership.schoolId, academicYear);
+      schoolId = membership.schoolId;
       isPreview = false;
     } else if (context.guardianLinks.length) {
       redirect("/parent");
@@ -56,6 +54,56 @@ export default async function Home() {
   }
 
   const firstName = displayName.split(/\s+/).filter(Boolean)[0] || displayName;
+
+  return (
+    <AppShell>
+      <section>
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0"><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">{greeting}, {firstName}</h1><p className="mt-1 text-sm text-muted-foreground">{dateLabel} · {schoolName}</p></div>
+          <Link href={primaryHref} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto">{primaryLabel}<ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-4" /></Link>
+        </div>
+        {isPreview ? <div className="mb-4 rounded-[var(--radius-sm)] bg-info-soft px-4 py-3 text-xs leading-5 text-[color:var(--info)]">Local design preview uses synthetic school data. Configure the ScolaPro Supabase environment to use authenticated RLS-backed data.</div> : null}
+        <Suspense fallback={<DashboardOverviewLoading />}>
+          <HomeOverviewData
+            dashboardMode={dashboardMode}
+            schoolId={schoolId}
+            academicYear={academicYear}
+            roleLabel={roleLabel}
+            schoolName={schoolName}
+          />
+        </Suspense>
+      </section>
+    </AppShell>
+  );
+}
+
+
+async function HomeOverviewData({
+  dashboardMode,
+  schoolId,
+  academicYear,
+  roleLabel,
+  schoolName,
+}: {
+  dashboardMode: "school" | "platform";
+  schoolId: string | null;
+  academicYear: number;
+  roleLabel: string;
+  schoolName: string;
+}) {
+  let overview = { currentLearners: 2, gradeCount: 5, registerClassCount: 2 };
+  let platformOverview = { activeTenants: 0, schoolCount: 0 };
+
+  if (dashboardMode === "platform") {
+    const tenants = await getPlatformTenants();
+    platformOverview = {
+      activeTenants: tenants.filter((tenant) => tenant.status === "active").length,
+      schoolCount: tenants.reduce((total, tenant) => total + tenant.schools.length, 0),
+    };
+  } else if (schoolId) {
+    overview = await getDashboardOverview(schoolId, academicYear);
+  }
+
   const metrics = dashboardMode === "platform"
     ? [
         { label: "Active tenants", value: platformOverview.activeTenants.toLocaleString("en-NA"), detail: "Organizations using ScolaPro", icon: Building2, tone: "scolapro-tone-brand", valueColor: "text-[color:var(--accent-indigo)]" },
@@ -77,24 +125,31 @@ export default async function Home() {
   const verticalLabel = dashboardMode === "platform" ? "Review tenants" : "Open teaching";
 
   return (
-    <AppShell>
-      <section>
-        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0"><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">{greeting}, {firstName}</h1><p className="mt-1 text-sm text-muted-foreground">{dateLabel} · {schoolName}</p></div>
-          <Link href={primaryHref} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto">{primaryLabel}<ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-4" /></Link>
-        </div>
-        {isPreview ? <div className="mb-4 rounded-[var(--radius-sm)] bg-info-soft px-4 py-3 text-xs leading-5 text-[color:var(--info)]">Local design preview uses synthetic school data. Configure the ScolaPro Supabase environment to use authenticated RLS-backed data.</div> : null}
-        <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
-          {metrics.map((metric, index) => { const Icon = metric.icon; return <article key={metric.label} className={["flex items-start justify-between gap-4 px-4 py-4 sm:px-5", index > 0 ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""].join(" ")}><div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">{metric.label}</p><p className={`mt-2 text-[clamp(1.45rem,1.2rem+0.55vw,1.9rem)] font-semibold tracking-[-0.04em] ${metric.valueColor}`}>{metric.value}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{metric.detail}</p></div><span className={`grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] ${metric.tone}`}><Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} /></span></article>; })}
-        </div>
-        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
-          <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="scolapro-section-title">{contextTitle}</h2><p className="scolapro-section-description">{contextDescription}</p></div><span className="w-fit rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 text-xs font-medium capitalize text-muted-foreground shadow-[var(--shadow-xs)]">{roleLabel}</span></div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]"><p className="text-xs font-medium text-muted-foreground">{contextLabel}</p><p className="mt-1.5 text-sm font-medium text-foreground">{schoolName}</p></div><div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]"><p className="text-xs font-medium text-muted-foreground">Academic year</p><p className="mt-1.5 text-sm font-medium tabular-nums text-foreground">{academicYear}</p></div></div>
-          </section>
-          <section className="rounded-[var(--radius-md)] bg-[color:var(--accent-sky-soft)] p-4 shadow-[var(--shadow-xs)] sm:p-5"><h2 className="scolapro-section-title">{verticalTitle}</h2><p className="scolapro-section-description">{verticalDescription}</p><Link href={verticalHref} className="scolapro-cta mt-4 inline-flex min-h-9 items-center gap-2 bg-surface/80 px-3 text-xs font-medium text-brand-strong hover:bg-brand-soft">{verticalLabel}<ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-3.5" /></Link></section>
-        </div>
-      </section>
-    </AppShell>
+    <>
+      <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
+        {metrics.map((metric, index) => { const Icon = metric.icon; return <article key={metric.label} className={["flex items-start justify-between gap-4 px-4 py-4 sm:px-5", index > 0 ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""].join(" ")}><div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">{metric.label}</p><p className={`mt-2 text-[clamp(1.45rem,1.2rem+0.55vw,1.9rem)] font-semibold tracking-[-0.04em] ${metric.valueColor}`}>{metric.value}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{metric.detail}</p></div><span className={`grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] ${metric.tone}`}><Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} /></span></article>; })}
+      </div>
+      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
+        <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="scolapro-section-title">{contextTitle}</h2><p className="scolapro-section-description">{contextDescription}</p></div><span className="w-fit rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 text-xs font-medium capitalize text-muted-foreground shadow-[var(--shadow-xs)]">{roleLabel}</span></div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-2"><div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]"><p className="text-xs font-medium text-muted-foreground">{contextLabel}</p><p className="mt-1.5 text-sm font-medium text-foreground">{schoolName}</p></div><div className="rounded-[var(--radius-sm)] bg-surface px-4 py-3.5 shadow-[var(--shadow-xs)]"><p className="text-xs font-medium text-muted-foreground">Academic year</p><p className="mt-1.5 text-sm font-medium tabular-nums text-foreground">{academicYear}</p></div></div>
+        </section>
+        <section className="rounded-[var(--radius-md)] bg-[color:var(--accent-sky-soft)] p-4 shadow-[var(--shadow-xs)] sm:p-5"><h2 className="scolapro-section-title">{verticalTitle}</h2><p className="scolapro-section-description">{verticalDescription}</p><Link href={verticalHref} className="scolapro-cta mt-4 inline-flex min-h-9 items-center gap-2 bg-surface/80 px-3 text-xs font-medium text-brand-strong hover:bg-brand-soft">{verticalLabel}<ArrowUpRight aria-hidden="true" className="scolapro-cta-icon size-3.5" /></Link></section>
+      </div>
+    </>
+  );
+}
+
+function DashboardOverviewLoading() {
+  return (
+    <div className="space-y-5" aria-busy="true">
+      <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface sm:grid-cols-3">
+        {[0, 1, 2].map((item) => <div key={item} className="h-24 animate-pulse bg-surface-muted sm:border-l sm:first:border-l-0" />)}
+      </div>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
+        <div className="h-44 animate-pulse rounded-[var(--radius-md)] bg-surface-muted" />
+        <div className="h-44 animate-pulse rounded-[var(--radius-md)] bg-surface-muted" />
+      </div>
+    </div>
   );
 }

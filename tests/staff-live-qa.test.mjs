@@ -24,7 +24,8 @@ test("staff page remains current-context role scoped without Platform Support",(
   assert.match(page,/deputy_principal/);
   assert.match(page,/hod/);
   assert.doesNotMatch(page,/platform_support/);
-  assert.match(page,/getSchoolStaffDirectory\(membership\.schoolId/);
+  assert.match(page,/schoolId=\{membership\.schoolId\}/);
+  assert.match(page,/getSchoolStaffDirectory\(schoolId/);
 });
 
 test("single staff mutation remains canonical RPC based",()=>{

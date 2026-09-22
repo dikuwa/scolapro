@@ -25,3 +25,35 @@ test("attendance returns authenticated shell before register data resolves", () 
   assert.equal(critical.includes("await getWeeklyRegisterWorkspace"), false);
   assert.equal(critical.includes("await getAbsenceOverviewWorkspace"), false);
 });
+
+
+const learners = readFileSync("src/app/learners/page.tsx", "utf8");
+test("learner directory streams after authenticated shell", () => {
+  assert.match(learners, /<Suspense fallback=\{<LearnerDirectoryLoading/);
+  assert.match(learners, /async function LearnerDirectoryData/);
+  const pageStart = learners.indexOf("export default async function LearnersPage");
+  const helperStart = learners.indexOf("async function LearnerDirectoryData");
+  const critical = learners.slice(pageStart, helperStart);
+  assert.equal(critical.includes("await listLearnerDirectoryPage"), false);
+  assert.equal(critical.includes("await getRegistrationOptions"), false);
+});
+
+const staff = readFileSync("src/app/staff/page.tsx", "utf8");
+test("staff directory streams after authenticated shell", () => {
+  assert.match(staff, /<Suspense fallback=\{<StaffDirectoryLoading/);
+  assert.match(staff, /async function StaffDirectoryData/);
+  const pageStart = staff.indexOf("export default async function StaffPage");
+  const helperStart = staff.indexOf("async function StaffDirectoryData");
+  assert.equal(staff.slice(pageStart, helperStart).includes("await getSchoolStaffDirectory"), false);
+});
+
+const home = readFileSync("src/app/page.tsx", "utf8");
+test("home shell and greeting render before dashboard overview data", () => {
+  assert.match(home, /<Suspense fallback=\{<DashboardOverviewLoading/);
+  assert.match(home, /async function HomeOverviewData/);
+  const pageStart = home.indexOf("export default async function Home");
+  const helperStart = home.indexOf("async function HomeOverviewData");
+  const critical = home.slice(pageStart, helperStart);
+  assert.equal(critical.includes("await getDashboardOverview"), false);
+  assert.equal(critical.includes("await getPlatformTenants"), false);
+});
