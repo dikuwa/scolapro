@@ -93,18 +93,24 @@ async function drainReportCardRenderQueue(workerStartedAt: number): Promise<Repo
 
 async function runWorkerResponse(request: Request) {
   const workerStartedAt = Date.now();
+  let stage: "health_before" | "batch" | "render" | "export" | "health_after" = "batch";
 
   try {
     const includeHealth = new URL(request.url).searchParams.get("health") === "1";
+    stage = "health_before";
     const healthBefore = includeHealth ? await getReportCardWorkerHealth() : null;
 
     // Process durable generation/certification/PDF-preparation batches first. PDF
     // preparation may enqueue more learner renders than one worker claim can hold,
     // so drain bounded render passes before asking the export worker to combine
     // learner PDFs. The deadline guard keeps a reserve inside the 60-second route.
+    stage = "batch";
     const batch = await processReportCardBatchQueue(50);
+    stage = "render";
     const render = await drainReportCardRenderQueue(workerStartedAt);
+    stage = "export";
     const exportResult = await processReportCardBatchExportQueue(1);
+    stage = "health_after";
     const healthAfter = includeHealth ? await getReportCardWorkerHealth() : null;
 
     return NextResponse.json(
@@ -118,8 +124,15 @@ async function runWorkerResponse(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown report-card worker error";
-    console.error("report-card worker failed", message);
-    return NextResponse.json({ error: "Unable to process report-card queues" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    console.error("report-card worker failed", stage, message);
+    return NextResponse.json(
+      {
+        error: "Unable to process report-card queues",
+        stage,
+        diagnostic: message.slice(0, 240),
+      },
+      { status: 500, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }
 
