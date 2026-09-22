@@ -6,12 +6,12 @@ const nextConfig = readFileSync("next.config.ts", "utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx", "utf8");
 const loading = readFileSync("src/app/loading.tsx", "utf8");
 
-test("Next 16.3 instant navigation foundations are enabled", () => {
-  assert.match(nextConfig, /cacheComponents:\s*true/);
-  assert.match(nextConfig, /partialPrefetching:\s*true/);
+test("navigation keeps production-safe Next defaults instead of globally enabling incompatible Cache Components", () => {
+  assert.doesNotMatch(nextConfig, /cacheComponents:\s*true/);
+  assert.doesNotMatch(nextConfig, /partialPrefetching:\s*true/);
 });
 
-test("primary navigation allows reusable route-shell prefetching", () => {
+test("primary navigation allows standard Next production prefetching", () => {
   assert.doesNotMatch(navigation, /prefetch=\{false\}/);
   assert.doesNotMatch(navigation, /router\.prefetch/);
   assert.match(navigation, /from "next\/link"/);
