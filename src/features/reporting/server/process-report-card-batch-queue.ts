@@ -25,6 +25,24 @@ export async function processReportCardBatchQueue(limit = 50): Promise<ReportCar
     failed?: number;
   };
 
+  // A terminal PDF batch with zero completed learner items has nothing to
+  // combine. Leaving export_status="waiting" would create permanent phantom
+  // work that no export worker can ever claim.
+  const { error: settleEmptyExportError } = await supabase
+    .from("report_card_batches")
+    .update({
+      export_status: "not_applicable",
+      export_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("operation", "pdf")
+    .eq("export_status", "waiting")
+    .eq("completed_items", 0)
+    .in("status", ["completed", "partial"]);
+  if (settleEmptyExportError) {
+    throw new Error(`Unable to settle empty report-card PDF batches: ${settleEmptyExportError.message}`);
+  }
+
   const { count, error: countError } = await supabase
     .from("report_card_batches")
     .select("id", { count: "exact", head: true })

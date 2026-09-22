@@ -13,6 +13,7 @@ const workerSchedule = readFileSync(".github/workflows/report-card-worker.yml", 
 const loadBenchmark = readFileSync("scripts/benchmark-report-card-worker.mjs", "utf8");
 const internalWorker = readFileSync("src/app/api/internal/report-card-render/route.ts", "utf8");
 const workerHealth = readFileSync("src/features/reporting/server/report-card-worker-health.ts", "utf8");
+const batchWorker = readFileSync("src/features/reporting/server/process-report-card-batch-queue.ts", "utf8");
 
 test("report-card management starts independent reads without serial learner-roster blocking", () => {
   assert.match(page, /individualLearnersPromise = getIndividualReportCardLearnerOptions/);
@@ -127,4 +128,28 @@ test("load benchmark can capture final queue health without enabling telemetry b
   assert.match(loadBenchmark, /REPORT_CARD_LOAD_INCLUDE_HEALTH === "YES"/);
   assert.match(loadBenchmark, /health=1/);
   assert.match(loadBenchmark, /healthAfter:/);
+});
+
+
+test("skipped-only PDF batches settle instead of remaining permanent waiting exports", () => {
+  assert.match(batchWorker, /export_status: "not_applicable"/);
+  assert.match(batchWorker, /\.eq\("operation", "pdf"\)/);
+  assert.match(batchWorker, /\.eq\("export_status", "waiting"\)/);
+  assert.match(batchWorker, /\.eq\("completed_items", 0\)/);
+  assert.match(batchWorker, /\.in\("status", \["completed", "partial"\]\)/);
+  assert.match(page, /batch\.completedItems > 0 && \(batch\.exportStatus === "waiting" \|\| batch\.exportStatus === "processing"\)/);
+});
+
+
+test("skipped-only PDF batches settle out of the export queue", () => {
+  const batchWorker = readFileSync("src/features/reporting/server/process-report-card-batch-queue.ts", "utf8");
+  assert.match(batchWorker, /export_status: "not_applicable"/);
+  assert.match(batchWorker, /\.eq\("operation", "pdf"\)/);
+  assert.match(batchWorker, /\.eq\("export_status", "waiting"\)/);
+  assert.match(batchWorker, /\.eq\("completed_items", 0\)/);
+  assert.match(batchWorker, /\.in\("status", \["completed", "partial"\]\)/);
+});
+
+test("report-card page ignores non-printable terminal export waits", () => {
+  assert.match(page, /batch\.completedItems > 0 && \(batch\.exportStatus === "waiting" \|\| batch\.exportStatus === "processing"\)/);
 });
