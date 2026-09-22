@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { LibraryWorkspace } from "@/features/library/library-workspace";
@@ -22,7 +23,6 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
     ? requestedView as "catalog" | "manage" | "class" | "circulation" | "import"
     : "catalog";
   const today = getNamibiaDateKey();
-  const workspace = await getLibraryWorkspace(membership.schoolId, today, view);
 
   return (
     <AppShell>
@@ -31,17 +31,45 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
           <h1 className="scolapro-page-title">Library / Textbooks</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Manage the canonical resource catalog, physical stock, individual circulation and class-scale textbook allocation.</p>
         </div>
-        <LibraryWorkspace
-          {...workspace}
-          view={view}
-          today={today}
-          offlineScope={{
-            userId: context.user.id,
-            tenantId: membership.tenantId,
-            schoolId: membership.schoolId,
-          }}
-        />
+        <Suspense fallback={<WorkspaceLoading label="Loading library workspace…" />}>
+          <LibraryWorkspaceData
+            schoolId={membership.schoolId}
+            today={today}
+            view={view}
+            offlineScope={{
+              userId: context.user.id,
+              tenantId: membership.tenantId,
+              schoolId: membership.schoolId,
+            }}
+          />
+        </Suspense>
       </div>
     </AppShell>
+  );
+}
+
+
+async function LibraryWorkspaceData({
+  schoolId,
+  today,
+  view,
+  offlineScope,
+}: {
+  schoolId: string;
+  today: string;
+  view: "catalog" | "manage" | "class" | "circulation" | "import";
+  offlineScope: { userId: string; tenantId: string; schoolId: string };
+}) {
+  const workspace = await getLibraryWorkspace(schoolId, today, view);
+  return <LibraryWorkspace {...workspace} view={view} today={today} offlineScope={offlineScope} />;
+}
+
+function WorkspaceLoading({ label }: { label: string }) {
+  return (
+    <div className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-xs)]" aria-busy="true">
+      <div className="h-5 w-44 animate-pulse rounded-[var(--radius-xs)] bg-surface-subtle" />
+      <div className="mt-3 h-10 w-full animate-pulse rounded-[var(--radius-sm)] bg-surface-muted" />
+      <p className="mt-3 text-xs text-muted-foreground">{label}</p>
+    </div>
   );
 }
