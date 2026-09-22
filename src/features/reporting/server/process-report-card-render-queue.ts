@@ -16,6 +16,12 @@ type RenderJob = {
   document_format: RenderFormat;
 };
 
+type SchoolRow = {
+  id: string;
+  name: string;
+  emis_number: string | null;
+};
+
 export type ReportCardRenderWorkerResult = {
   recovered: number;
   claimed: number;
@@ -27,15 +33,65 @@ export type ReportCardRenderWorkerResult = {
   durationMs: number;
 };
 
-async function loadFrozenSchoolLogo(supabase: ReturnType<typeof createSupabaseAdminClient>, dataSnapshot: unknown): Promise<Uint8Array | null> {
+const MAX_RENDER_CLAIM = 12;
+const RENDER_CONCURRENCY = 4;
+
+async function loadFrozenSchoolLogo(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  dataSnapshot: unknown,
+  cache: Map<string, Promise<Uint8Array | null>>,
+): Promise<Uint8Array | null> {
   const snapshot = record(dataSnapshot);
   const profile = record(snapshot.school_document_profile);
   const storagePath = text(profile.logo_storage_path);
   if (!storagePath) return null;
 
-  const { data, error } = await supabase.storage.from("school-document-assets").download(storagePath);
-  if (error || !data) throw new Error(`Unable to load frozen school logo asset: ${error?.message ?? "asset not found"}`);
-  return new Uint8Array(await data.arrayBuffer());
+  const cached = cache.get(storagePath);
+  if (cached) return cached;
+
+  const load = (async () => {
+    const { data, error } = await supabase.storage.from("school-document-assets").download(storagePath);
+    if (error || !data) throw new Error(`Unable to load frozen school logo asset: ${error?.message ?? "asset not found"}`);
+    return new Uint8Array(await data.arrayBuffer());
+  })();
+  cache.set(storagePath, load);
+  return load;
+}
+
+async function loadSchool(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  schoolId: string,
+  cache: Map<string, Promise<SchoolRow>>,
+): Promise<SchoolRow> {
+  const cached = cache.get(schoolId);
+  if (cached) return cached;
+
+  const load = (async () => {
+    const { data, error } = await supabase.from("schools").select("id,name,emis_number").eq("id", schoolId).single();
+    if (error || !data) throw new Error(error?.message ?? "School not found");
+    return data as SchoolRow;
+  })();
+  cache.set(schoolId, load);
+  return load;
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+) {
+  let cursor = 0;
+  const runners = Array.from(
+    { length: Math.min(Math.max(1, concurrency), items.length) },
+    async () => {
+      while (cursor < items.length) {
+        const index = cursor;
+        cursor += 1;
+        await worker(items[index]);
+      }
+    },
+  );
+  await Promise.all(runners);
 }
 
 export async function processReportCardRenderQueue(limit = 20): Promise<ReportCardRenderWorkerResult> {
@@ -49,35 +105,45 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
   });
   if (recoveryError) throw new Error(`Unable to recover stale render jobs: ${recoveryError.message}`);
 
-  const perFormatLimit = Math.max(1, Math.floor(limit / 2));
+  // Keep each invocation bounded so one serverless request cannot claim a large
+  // queue and strand it in "processing". Independent workers can safely scale
+  // horizontally because the claim RPC uses FOR UPDATE SKIP LOCKED.
+  const claimLimit = Math.max(1, Math.min(limit, MAX_RENDER_CLAIM));
+  const htmlLimit = Math.ceil(claimLimit / 2);
+  const pdfLimit = Math.floor(claimLimit / 2);
   const [htmlClaim, pdfClaim] = await Promise.all([
-    supabase.rpc("claim_report_card_render_jobs", { p_limit: perFormatLimit, p_document_format: "html" }),
-    supabase.rpc("claim_report_card_render_jobs", { p_limit: perFormatLimit, p_document_format: "pdf" }),
+    htmlLimit > 0
+      ? supabase.rpc("claim_report_card_render_jobs", { p_limit: htmlLimit, p_document_format: "html" })
+      : Promise.resolve({ data: [], error: null }),
+    pdfLimit > 0
+      ? supabase.rpc("claim_report_card_render_jobs", { p_limit: pdfLimit, p_document_format: "pdf" })
+      : Promise.resolve({ data: [], error: null }),
   ]);
   if (htmlClaim.error) throw new Error(`Unable to claim HTML render jobs: ${htmlClaim.error.message}`);
   if (pdfClaim.error) throw new Error(`Unable to claim PDF render jobs: ${pdfClaim.error.message}`);
 
   const jobs = [...((htmlClaim.data ?? []) as RenderJob[]), ...((pdfClaim.data ?? []) as RenderJob[])];
+  const schoolCache = new Map<string, Promise<SchoolRow>>();
+  const logoCache = new Map<string, Promise<Uint8Array | null>>();
   let completed = 0;
   let failed = 0;
 
-  for (const job of jobs) {
+  await runWithConcurrency(jobs, RENDER_CONCURRENCY, async (job) => {
     try {
       if (job.renderer_version !== REPORT_CARD_RENDERER_VERSION) {
         throw new Error(`Unsupported report-card renderer revision ${job.renderer_version}`);
       }
 
-      const [{ data: snapshot, error: snapshotError }, { data: school, error: schoolError }] = await Promise.all([
+      const [{ data: snapshot, error: snapshotError }, school] = await Promise.all([
         supabase
           .from("report_card_snapshots")
           .select("id,school_id,snapshot_version,data_snapshot,generated_at,certified_at")
           .eq("id", job.snapshot_id)
           .single(),
-        supabase.from("schools").select("id,name,emis_number").eq("id", job.school_id).single(),
+        loadSchool(supabase, job.school_id, schoolCache),
       ]);
 
       if (snapshotError || !snapshot) throw new Error(snapshotError?.message ?? "Report-card snapshot not found");
-      if (schoolError || !school) throw new Error(schoolError?.message ?? "School not found");
 
       const renderInput = {
         schoolName: school.name,
@@ -86,7 +152,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
         generatedAt: snapshot.generated_at,
         certifiedAt: snapshot.certified_at,
         dataSnapshot: snapshot.data_snapshot ?? {},
-        logoBytes: await loadFrozenSchoolLogo(supabase, snapshot.data_snapshot),
+        logoBytes: await loadFrozenSchoolLogo(supabase, snapshot.data_snapshot, logoCache),
       };
 
       let bytes: Uint8Array;
@@ -136,7 +202,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
       });
       if (failError) console.error("report-card-render failure state update failed", job.id, failError.message);
     }
-  }
+  });
 
   const { data: queueRows, error: queueError } = await supabase
     .from("report_card_render_jobs")
