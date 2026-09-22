@@ -9,8 +9,10 @@ test("root layout declares intentional smooth scroll behavior for Next navigatio
   assert.match(layout, /<html lang="en" data-scroll-behavior="smooth">/);
 });
 
-test("primary internal navigation keeps Next.js route prefetch enabled", () => {
-  assert.match(navigation, /from "next\/link"/);
-  assert.doesNotMatch(navigation, /prefetch=\{false\}/);
-  assert.match(navigation, /<Link[^>]+href=\{item\.href\}/);
+test("primary navigation avoids viewport prefetch storms but prefetches on intent", () => {
+  assert.match(navigation, /from "next\\/link"/);
+  assert.match(navigation, /prefetch=\{false\}/);
+  assert.match(navigation, /router\.prefetch\(href\)/);
+  assert.match(navigation, /onMouseEnter=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
+  assert.match(navigation, /onPointerDown=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
 });

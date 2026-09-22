@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   BookOpenText,
@@ -110,18 +110,22 @@ function AttentionBadge({ count, compact = false }: { count: number; compact?: b
 
 export function DesktopNavigation({ roleKey, roleKeys = [], extraKeys = [], collapsed = false, attentionCounts = {} }: { roleKey?: string; roleKeys?: readonly string[]; extraKeys?: readonly string[]; collapsed?: boolean; attentionCounts?: NavigationAttentionCounts }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const prefetchOnIntent = (href: string) => router.prefetch(href);
   const items = itemsForRoles(roleKey, roleKeys, extraKeys);
   return <nav aria-label="Primary" className="space-y-1">{items.map((item) => {
     const Icon = item.icon;
     const active = isActive(pathname, item.href);
     const count = attentionCounts[item.key] ?? 0;
-    const link = <Link href={item.href} aria-current={active ? "page" : undefined} aria-label={collapsed ? `${item.label}${count ? `, ${count} need attention` : ""}` : undefined} className={["relative flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition-colors duration-[var(--motion-fast)]", collapsed ? "justify-center px-2" : "gap-3 px-3", active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"].join(" ")}><Icon aria-hidden="true" className="size-[1.05rem] shrink-0" strokeWidth={1.8}/>{collapsed ? <AttentionBadge count={count} compact /> : <><span>{item.label}</span><AttentionBadge count={count} /></>}</Link>;
+    const link = <Link prefetch={false} onMouseEnter={() => prefetchOnIntent(item.href)} onFocus={() => prefetchOnIntent(item.href)} href={item.href} aria-current={active ? "page" : undefined} aria-label={collapsed ? `${item.label}${count ? `, ${count} need attention` : ""}` : undefined} className={["relative flex min-h-10 items-center rounded-[var(--radius-sm)] text-sm font-medium transition-colors duration-[var(--motion-fast)]", collapsed ? "justify-center px-2" : "gap-3 px-3", active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"].join(" ")}><Icon aria-hidden="true" className="size-[1.05rem] shrink-0" strokeWidth={1.8}/>{collapsed ? <AttentionBadge count={count} compact /> : <><span>{item.label}</span><AttentionBadge count={count} /></>}</Link>;
     return collapsed ? <Tooltip key={item.label} title={`${item.label}${count ? ` · ${count} need attention` : ""}`} side="right">{link}</Tooltip> : <span key={item.label} className="block">{link}</span>;
   })}</nav>;
 }
 
 export function MobileNavigation({ roleKey, roleKeys = [], extraKeys = [], attentionCounts = {} }: { roleKey?: string; roleKeys?: readonly string[]; extraKeys?: readonly string[]; attentionCounts?: NavigationAttentionCounts }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const prefetchOnIntent = (href: string) => router.prefetch(href);
   const [moreOpen, setMoreOpen] = useState(false);
   const allItems = itemsForRoles(roleKey, roleKeys, extraKeys);
   const primaryItems = allItems.slice(0, 4);
@@ -132,10 +136,10 @@ export function MobileNavigation({ roleKey, roleKeys = [], extraKeys = [], atten
     const Icon = item.icon;
     const active = isActive(pathname, item.href);
     const count = attentionCounts[item.key] ?? 0;
-    return <Link key={item.label} href={item.href} aria-current={active ? "page" : undefined} aria-label={`${item.label}${count ? `, ${count} need attention` : ""}`} className={["relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium transition duration-[var(--motion-fast)]", active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"].join(" ")}><span className="relative"><Icon aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.9}/><AttentionBadge count={count} compact /></span><span className="mobile-nav-label max-w-full truncate">{item.label}</span></Link>;
+    return <Link key={item.label} prefetch={false} onPointerDown={() => prefetchOnIntent(item.href)} onFocus={() => prefetchOnIntent(item.href)} href={item.href} aria-current={active ? "page" : undefined} aria-label={`${item.label}${count ? `, ${count} need attention` : ""}`} className={["relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium transition duration-[var(--motion-fast)]", active ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"].join(" ")}><span className="relative"><Icon aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.9}/><AttentionBadge count={count} compact /></span><span className="mobile-nav-label max-w-full truncate">{item.label}</span></Link>;
   })}{showMore ? <button type="button" onClick={() => setMoreOpen(true)} aria-expanded={moreOpen} aria-haspopup="dialog" className="relative flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-[var(--radius-sm)] px-1 text-[0.68rem] font-medium text-muted-foreground transition hover:bg-surface-muted hover:text-foreground"><span className="relative"><MoreHorizontal aria-hidden="true" className="size-[1.1rem]" strokeWidth={1.9}/><AttentionBadge count={overflowCount} compact /></span><span className="mobile-nav-label">More</span></button> : null}</div></nav>{moreOpen ? <div className="fixed inset-0 z-[140] flex items-end bg-[color:var(--foreground)]/12 backdrop-blur-[1px] lg:hidden" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setMoreOpen(false); }}><div role="dialog" aria-modal="true" aria-label="More navigation" className="max-h-[calc(100dvh-2rem)] w-full min-w-0 overflow-y-auto rounded-t-[var(--radius-lg)] border border-border-subtle bg-surface-elevated p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[var(--shadow-md)]"><div className="mb-3 flex items-center justify-between"><div><p className="scolapro-section-title">More</p><p className="scolapro-section-description">Additional tools for your role.</p></div><button type="button" onClick={() => setMoreOpen(false)} aria-label="Close more navigation" className="grid size-9 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-4"/></button></div><div className="grid min-w-0 grid-cols-2 gap-2">{overflowItems.map((item) => {
     const Icon = item.icon;
     const count = attentionCounts[item.key] ?? 0;
-    return <Link key={item.label} href={item.href} onClick={() => setMoreOpen(false)} className="relative flex min-h-14 min-w-0 items-center gap-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-sm font-medium text-foreground shadow-[var(--shadow-xs)]"><Icon className="size-4 shrink-0 text-brand" aria-hidden="true"/><span className="min-w-0 break-words">{item.label}</span><AttentionBadge count={count} /></Link>;
+    return <Link key={item.label} prefetch={false} onPointerDown={() => prefetchOnIntent(item.href)} onFocus={() => prefetchOnIntent(item.href)} href={item.href} onClick={() => setMoreOpen(false)} className="relative flex min-h-14 min-w-0 items-center gap-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-sm font-medium text-foreground shadow-[var(--shadow-xs)]"><Icon className="size-4 shrink-0 text-brand" aria-hidden="true"/><span className="min-w-0 break-words">{item.label}</span><AttentionBadge count={count} /></Link>;
   })}</div></div></div> : null}</>;
 }
