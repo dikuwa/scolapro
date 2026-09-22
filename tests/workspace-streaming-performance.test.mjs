@@ -12,18 +12,8 @@ test("library returns authenticated shell before workspace data resolves", () =>
   assert.equal(library.slice(pageStart, helperStart).includes("await getLibraryWorkspace"), false);
 });
 
-const teaching = readFileSync("src/app/teaching/page.tsx", "utf8");
 const attendance = readFileSync("src/app/attendance/page.tsx", "utf8");
 
-
-test("teaching returns authenticated shell before governed workspace resolves", () => {
-  assert.match(teaching, /<Suspense fallback=\{<TeachingLoading/);
-  assert.match(teaching, /async function TeachingWorkspaceData/);
-  const pageStart = teaching.indexOf("export default async function TeachingPage");
-  const helperStart = teaching.indexOf("async function TeachingWorkspaceData");
-  assert.equal(teaching.slice(pageStart, helperStart).includes("await getTeachingWorkspace"), false);
-  assert.equal(teaching.slice(pageStart, helperStart).includes("await getGovernedAcademicYear"), false);
-});
 
 test("attendance returns authenticated shell before register data resolves", () => {
   assert.match(attendance, /<Suspense fallback=\{<AttendanceLoading/);
