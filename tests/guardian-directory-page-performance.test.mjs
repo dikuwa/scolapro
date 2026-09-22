@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration = readFileSync(
-  "supabase/migrations/20260922092000_guardian_directory_page_performance.sql",
+  "supabase/migrations/20260922093000_guardian_directory_page_performance.sql",
   "utf8",
 );
 
