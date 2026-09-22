@@ -30,6 +30,8 @@ export type ReportCardBatchExportWorkerResult = {
   durationMs: number;
 };
 
+const EXPORT_DOWNLOAD_CONCURRENCY = 6;
+
 function one<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
 }
@@ -114,19 +116,29 @@ export async function processReportCardBatchExportQueue(limit = 1): Promise<Repo
       );
       const merged = await PDFDocument.create();
 
-      for (const item of orderedItems) {
-        const snapshotId = item.snapshot_id as string;
-        const document = documentBySnapshot.get(snapshotId);
-        if (!document) throw new Error(`Current PDF artifact is not ready for snapshot ${snapshotId}`);
-        if (document.storage_bucket !== "report-card-artifacts") throw new Error("Unexpected report-card artifact bucket");
+      // Download a small group of learner PDFs in parallel, then merge and release
+      // that group before fetching the next one. This removes the one-by-one network
+      // waterfall without holding an entire school of source PDFs in memory.
+      for (let offset = 0; offset < orderedItems.length; offset += EXPORT_DOWNLOAD_CONCURRENCY) {
+        const chunk = orderedItems.slice(offset, offset + EXPORT_DOWNLOAD_CONCURRENCY);
+        const sourceBytes = await Promise.all(chunk.map(async (item) => {
+          const snapshotId = item.snapshot_id as string;
+          const document = documentBySnapshot.get(snapshotId);
+          if (!document) throw new Error(`Current PDF artifact is not ready for snapshot ${snapshotId}`);
+          if (document.storage_bucket !== "report-card-artifacts") throw new Error("Unexpected report-card artifact bucket");
 
-        const { data: blob, error: downloadError } = await supabase.storage
-          .from("report-card-artifacts")
-          .download(document.storage_path);
-        if (downloadError || !blob) throw new Error(downloadError?.message ?? "Unable to download learner PDF artifact");
-        const source = await PDFDocument.load(new Uint8Array(await blob.arrayBuffer()));
-        const pages = await merged.copyPages(source, source.getPageIndices());
-        for (const page of pages) merged.addPage(page);
+          const { data: blob, error: downloadError } = await supabase.storage
+            .from("report-card-artifacts")
+            .download(document.storage_path);
+          if (downloadError || !blob) throw new Error(downloadError?.message ?? "Unable to download learner PDF artifact");
+          return new Uint8Array(await blob.arrayBuffer());
+        }));
+
+        for (const bytes of sourceBytes) {
+          const source = await PDFDocument.load(bytes);
+          const pages = await merged.copyPages(source, source.getPageIndices());
+          for (const page of pages) merged.addPage(page);
+        }
       }
 
       if (!merged.getPageCount()) throw new Error("Combined PDF contains no pages");
