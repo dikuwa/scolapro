@@ -91,11 +91,12 @@ async function drainReportCardRenderQueue(workerStartedAt: number): Promise<Repo
   return aggregate;
 }
 
-async function runWorkerResponse() {
+async function runWorkerResponse(request: Request) {
   const workerStartedAt = Date.now();
 
   try {
-    const healthBefore = await getReportCardWorkerHealth();
+    const includeHealth = new URL(request.url).searchParams.get("health") === "1";
+    const healthBefore = includeHealth ? await getReportCardWorkerHealth() : null;
 
     // Process durable generation/certification/PDF-preparation batches first. PDF
     // preparation may enqueue more learner renders than one worker claim can hold,
@@ -104,10 +105,15 @@ async function runWorkerResponse() {
     const batch = await processReportCardBatchQueue(50);
     const render = await drainReportCardRenderQueue(workerStartedAt);
     const exportResult = await processReportCardBatchExportQueue(1);
-    const healthAfter = await getReportCardWorkerHealth();
+    const healthAfter = includeHealth ? await getReportCardWorkerHealth() : null;
 
     return NextResponse.json(
-      { batch, render, export: exportResult, healthBefore, healthAfter },
+      {
+        batch,
+        render,
+        export: exportResult,
+        ...(includeHealth ? { healthBefore, healthAfter } : {}),
+      },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
@@ -121,12 +127,12 @@ export async function POST(request: Request) {
   if (!authorizedInternalRunner(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return runWorkerResponse();
+  return runWorkerResponse(request);
 }
 
 export async function GET(request: Request) {
   if (!authorizedScheduler(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return runWorkerResponse();
+  return runWorkerResponse(request);
 }
