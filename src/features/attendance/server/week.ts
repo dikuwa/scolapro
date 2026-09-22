@@ -59,9 +59,10 @@ export async function getWeeklyRegisterWorkspace(
   const monday = dates[0];
   const friday = dates[4];
 
-  const [{ data: classes, error: classError }, { data: reasons, error: reasonError }] = await Promise.all([
+  const [{ data: classes, error: classError }, { data: reasons, error: reasonError }, resolvedDays] = await Promise.all([
     supabase.from("register_classes").select("id,display_name,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("attendance_reasons").select("id,reason_code,display_name,sensitive").eq("audience", "learner").eq("active", true).order("sort_order"),
+    Promise.all(dates.map(async (attendanceDate) => ({ attendanceDate, ...(await resolveAttendanceTeachingImpact(schoolId, attendanceDate)) }))),
   ]);
   if (classError || reasonError) throw new Error("Unable to load the weekly attendance workspace.");
 
@@ -69,10 +70,9 @@ export async function getWeeklyRegisterWorkspace(
   const reasonsList: AttendanceReasonOption[] = (reasons ?? []).map((item) => ({ id: item.id, code: item.reason_code, name: item.display_name, sensitive: item.sensitive }));
   const classId = selectedClassId && classOptions.some((item) => item.id === selectedClassId) ? selectedClassId : classOptions[0]?.id ?? null;
 
-  // A week column is excluded from capture when the shared calendar marks that
-  // school date NO_TEACHING, so an accidental register is never submitted for a
-  // clearly non-teaching day.
-  const resolvedDays = await Promise.all(dates.map(async (attendanceDate) => ({ attendanceDate, ...(await resolveAttendanceTeachingImpact(schoolId, attendanceDate)) })));
+  // Calendar impact is independent of class selection, so all five day
+  // resolutions share the first request wave instead of creating another
+  // serial phase before the register data can load.
   const nonTeachingDates: string[] = [];
   const nonTeachingReasons: Record<string, string> = {};
   for (const day of resolvedDays) {

@@ -79,9 +79,10 @@ export async function getDailyRegisterWorkspace(
 ) {
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: classes, error: classError }, { data: reasons, error: reasonError }] = await Promise.all([
+  const [{ data: classes, error: classError }, { data: reasons, error: reasonError }, teachingDay] = await Promise.all([
     supabase.from("register_classes").select("id,display_name,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("attendance_reasons").select("id,reason_code,display_name,sensitive").eq("audience", "learner").eq("active", true).order("sort_order"),
+    resolveAttendanceTeachingImpact(schoolId, attendanceDate),
   ]);
   if (classError || reasonError) throw new Error("Unable to load the attendance workspace.");
 
@@ -89,10 +90,9 @@ export async function getDailyRegisterWorkspace(
   const reasonsList: AttendanceReasonOption[] = (reasons ?? []).map((item) => ({ id: item.id, code: item.reason_code, name: item.display_name, sensitive: item.sensitive }));
   const classId = selectedClassId && classOptions.some((item) => item.id === selectedClassId) ? selectedClassId : classOptions[0]?.id ?? null;
 
-  // The shared calendar teaching-impact state for the selected date. When the
-  // date is explicitly NO_TEACHING the register is presented read-only so an
-  // accidental official register is never submitted for a non-teaching day.
-  const teachingDay = await resolveAttendanceTeachingImpact(schoolId, attendanceDate);
+  // Calendar impact is independent of class selection, so resolve it in the
+  // first request wave instead of adding a serial round trip.
+
 
   if (!classId) return { classes: classOptions, reasons: reasonsList, selectedClassId: null, teachingDay, learners: [] as AttendanceLearnerRow[], currentSubmissionId: null };
 
