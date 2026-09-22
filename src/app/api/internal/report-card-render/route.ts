@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { processReportCardBatchExportQueue } from "@/features/reporting/server/process-report-card-batch-export-queue";
 import { processReportCardBatchQueue } from "@/features/reporting/server/process-report-card-batch-queue";
+import { getReportCardWorkerHealth } from "@/features/reporting/server/report-card-worker-health";
 import {
   processReportCardRenderQueue,
   type ReportCardRenderWorkerResult,
@@ -94,6 +95,8 @@ async function runWorkerResponse() {
   const workerStartedAt = Date.now();
 
   try {
+    const healthBefore = await getReportCardWorkerHealth();
+
     // Process durable generation/certification/PDF-preparation batches first. PDF
     // preparation may enqueue more learner renders than one worker claim can hold,
     // so drain bounded render passes before asking the export worker to combine
@@ -101,7 +104,12 @@ async function runWorkerResponse() {
     const batch = await processReportCardBatchQueue(50);
     const render = await drainReportCardRenderQueue(workerStartedAt);
     const exportResult = await processReportCardBatchExportQueue(1);
-    return NextResponse.json({ batch, render, export: exportResult }, { headers: { "Cache-Control": "no-store" } });
+    const healthAfter = await getReportCardWorkerHealth();
+
+    return NextResponse.json(
+      { batch, render, export: exportResult, healthBefore, healthAfter },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown report-card worker error";
     console.error("report-card worker failed", message);
