@@ -1,23 +1,31 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-type QueueCounts = {
-  pending: number;
-  processing: number;
-  retrying: number;
-  dead: number;
-  waitingExports: number;
-  processingExports: number;
-  failedExports: number;
-  oldestPendingBatchAt: string | null;
-  oldestReadyRenderAt: string | null;
-  oldestWaitingExportAt: string | null;
+export type ReportCardWorkerHealth = {
+  batches: {
+    pending: number;
+    processing: number;
+    oldestActiveAt: string | null;
+  };
+  renders: {
+    pending: number;
+    retrying: number;
+    processing: number;
+    dead: number;
+    oldestReadyAt: string | null;
+  };
+  exports: {
+    waiting: number;
+    processing: number;
+    failed: number;
+    oldestWaitingAt: string | null;
+  };
 };
 
 function countResult(count: number | null) {
   return count ?? 0;
 }
 
-export async function getReportCardWorkerHealth(): Promise<QueueCounts> {
+export async function getReportCardWorkerHealth(): Promise<ReportCardWorkerHealth> {
   const supabase = createSupabaseAdminClient();
 
   const [
@@ -62,20 +70,26 @@ export async function getReportCardWorkerHealth(): Promise<QueueCounts> {
     oldestRender.error,
     oldestExport.error,
   ].filter(Boolean);
-  if (errors.length) {
-    throw new Error("Unable to inspect report-card worker health.");
-  }
+  if (errors.length) throw new Error("Unable to inspect report-card worker health.");
 
   return {
-    pending: countResult(pendingBatch.count) + countResult(pendingRender.count),
-    processing: countResult(processingBatch.count) + countResult(processingRender.count),
-    retrying: countResult(retryRender.count),
-    dead: countResult(deadRender.count),
-    waitingExports: countResult(waitingExport.count),
-    processingExports: countResult(processingExport.count),
-    failedExports: countResult(failedExport.count),
-    oldestPendingBatchAt: oldestBatch.data?.created_at ?? null,
-    oldestReadyRenderAt: oldestRender.data?.available_at ?? null,
-    oldestWaitingExportAt: oldestExport.data?.created_at ?? null,
+    batches: {
+      pending: countResult(pendingBatch.count),
+      processing: countResult(processingBatch.count),
+      oldestActiveAt: oldestBatch.data?.created_at ?? null,
+    },
+    renders: {
+      pending: countResult(pendingRender.count),
+      retrying: countResult(retryRender.count),
+      processing: countResult(processingRender.count),
+      dead: countResult(deadRender.count),
+      oldestReadyAt: oldestRender.data?.available_at ?? null,
+    },
+    exports: {
+      waiting: countResult(waitingExport.count),
+      processing: countResult(processingExport.count),
+      failed: countResult(failedExport.count),
+      oldestWaitingAt: oldestExport.data?.created_at ?? null,
+    },
   };
 }
