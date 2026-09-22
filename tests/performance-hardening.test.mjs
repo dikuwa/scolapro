@@ -26,9 +26,10 @@ test("shell defers notification inbox behind Suspense instead of blocking the cr
   assert.match(shell, /notificationContext/);
 });
 
-test("shell supplemental navigation lookups run in parallel", () => {
+test("shell keeps only required supplemental lookups on the server critical path", () => {
   assert.match(shell, /Promise\.all\(\[/);
   assert.match(shell, /dutyPromise/);
   assert.match(shell, /inventoryPromise/);
-  assert.match(shell, /attentionPromise/);
+  assert.doesNotMatch(shell, /attentionPromise/);
+  assert.match(shell, /attentionCacheKey/);
 });
