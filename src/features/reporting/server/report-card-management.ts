@@ -54,7 +54,7 @@ export async function getReportCardManagementMeta(
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
       .order("created_at", { ascending: false })
-      .limit(12),
+      .limit(30),
   ]);
 
   const error = termsResult.error || gradesResult.error || classesResult.error || batchesResult.error;
