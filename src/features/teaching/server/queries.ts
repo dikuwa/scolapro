@@ -213,7 +213,37 @@ export async function getTeachingWorkspace(input: {
   const supabase = await createSupabaseServerClient();
   const today = getNamibiaDateKey();
 
-  const calendar = await getSchoolCalendar(input.schoolId, input.academicYear);
+  const [calendar, allocationsResult, plans, dayOverrideRows] = await Promise.all([
+    getSchoolCalendar(input.schoolId, input.academicYear),
+    supabase
+      .from("teacher_allocations")
+      .select(
+        "id,subject_offering_id,register_class_id,active_from,active_to,subject_offerings(subject_id,curriculum_version_id,status,subjects(display_name),grades(display_name)),register_classes(display_name)",
+      )
+      .eq("school_id", input.schoolId)
+      .eq("academic_year", input.academicYear)
+      .order("active_from")
+      .order("id"),
+    fetchRows(
+      supabase
+        .from("pacing_plans")
+        .select("id,plan_level,status,curriculum_version_id,subject_offering_id")
+        .eq("school_id", input.schoolId)
+        .eq("academic_year", input.academicYear)
+        .in("status", ["draft", "active"]),
+      "Unable to load pacing plans.",
+    ),
+    fetchRows(
+      supabase
+        .from("school_day_overrides")
+        .select("school_date,is_school_day,reason,source")
+        .eq("school_id", input.schoolId)
+        .gte("school_date", `${input.academicYear}-01-01`)
+        .lte("school_date", `${input.academicYear}-12-31`)
+        .order("school_date"),
+      "Unable to load school day calendar.",
+    ),
+  ]);
 
   const terms: TeachingTerm[] = calendar.terms.map((term) => ({
     id: term.id,
@@ -227,16 +257,6 @@ export async function getTeachingWorkspace(input: {
       (Boolean(term.startsOn) && Boolean(term.endsOn) && term.startsOn! <= today && term.endsOn! >= today),
   }));
   const currentTerm = terms.find((term) => term.isCurrent) ?? null;
-
-  const allocationsResult = await supabase
-    .from("teacher_allocations")
-    .select(
-      "id,subject_offering_id,register_class_id,active_from,active_to,subject_offerings(subject_id,curriculum_version_id,status,subjects(display_name),grades(display_name)),register_classes(display_name)",
-    )
-    .eq("school_id", input.schoolId)
-    .eq("academic_year", input.academicYear)
-    .order("active_from")
-    .order("id");
 
   if (allocationsResult.error) throw new Error("Unable to load teaching allocations.");
 
@@ -342,16 +362,6 @@ export async function getTeachingWorkspace(input: {
     if (allocation.curriculumVersionId) curriculumVersionIds.add(allocation.curriculumVersionId);
   }
 
-  const plans = await fetchRows(
-    supabase
-      .from("pacing_plans")
-      .select("id,plan_level,status,curriculum_version_id,subject_offering_id")
-      .eq("school_id", input.schoolId)
-      .eq("academic_year", input.academicYear)
-      .in("status", ["draft", "active"]),
-    "Unable to load pacing plans.",
-  );
-
   const planByAllocation: Record<string, TeachingPlanRow[]> = {};
   const planIds: string[] = [];
   for (const plan of plans) {
@@ -412,18 +422,40 @@ export async function getTeachingWorkspace(input: {
   const planItemIds = planItems.map((item) => item.itemId);
   const unitIds = [...new Set(planItems.map((item) => item.unitId))];
 
-  const scheduleRows = await fetchRows(
-    planItemIds.length
-      ? supabase
-          .from("teaching_schedule_items")
-          .select("id,pacing_plan_item_id,planned_on,planned_period_count,status,moved_to_date")
-          .eq("school_id", input.schoolId)
-          .eq("academic_year", input.academicYear)
-          .in("pacing_plan_item_id", planItemIds)
-          .order("planned_on")
-      : null,
-    "Unable to load the teaching schedule.",
-  );
+  const [scheduleRows, objectiveRows, competencyRows] = await Promise.all([
+    fetchRows(
+      planItemIds.length
+        ? supabase
+            .from("teaching_schedule_items")
+            .select("id,pacing_plan_item_id,planned_on,planned_period_count,status,moved_to_date")
+            .eq("school_id", input.schoolId)
+            .eq("academic_year", input.academicYear)
+            .in("pacing_plan_item_id", planItemIds)
+            .order("planned_on")
+        : null,
+      "Unable to load the teaching schedule.",
+    ),
+    fetchRows(
+      unitIds.length
+        ? supabase
+            .from("curriculum_objectives")
+            .select("curriculum_unit_id,objective_code,objective_text,sequence_number")
+            .in("curriculum_unit_id", unitIds)
+            .order("sequence_number")
+        : null,
+      "Unable to load curriculum objectives.",
+    ),
+    fetchRows(
+      unitIds.length
+        ? supabase
+            .from("curriculum_competencies")
+            .select("curriculum_unit_id,competency_code,competency_text,sequence_number")
+            .in("curriculum_unit_id", unitIds)
+            .order("sequence_number")
+        : null,
+      "Unable to load curriculum competencies.",
+    ),
+  ]);
 
   const scheduleItems: TeachingScheduleRow[] = scheduleRows.map((row) => ({
     itemId: row.id,
@@ -436,18 +468,30 @@ export async function getTeachingWorkspace(input: {
 
   const scheduleItemIds = scheduleItems.map((item) => item.itemId);
 
-  const preparationRows = await fetchRows(
-    scheduleItemIds.length
-      ? supabase
-          .from("lesson_preparations")
-          .select(
-            "id,teaching_schedule_item_id,planned_on,status,preparation,curriculum_snapshot,review_note,submitted_at,reviewed_at",
-          )
-          .in("teaching_schedule_item_id", scheduleItemIds)
-          .order("planned_on")
-      : null,
-    "Unable to load lesson preparations.",
-  );
+  const [preparationRows, actualRows] = await Promise.all([
+    fetchRows(
+      scheduleItemIds.length
+        ? supabase
+            .from("lesson_preparations")
+            .select(
+              "id,teaching_schedule_item_id,planned_on,status,preparation,curriculum_snapshot,review_note,submitted_at,reviewed_at",
+            )
+            .in("teaching_schedule_item_id", scheduleItemIds)
+            .order("planned_on")
+        : null,
+      "Unable to load lesson preparations.",
+    ),
+    fetchRows(
+      scheduleItemIds.length
+        ? supabase
+            .from("teaching_actuals")
+            .select("teaching_schedule_item_id,taught_on,periods_used,coverage_state,reflection,compensatory_action")
+            .in("teaching_schedule_item_id", scheduleItemIds)
+            .order("taught_on")
+        : null,
+      "Unable to load teaching actuals.",
+    ),
+  ]);
 
   const preparations: TeachingPreparationRow[] = preparationRows.map((row) => ({
     id: row.id,
@@ -461,16 +505,7 @@ export async function getTeachingWorkspace(input: {
     reviewedAt: row.reviewed_at,
   }));
 
-  const actualRows = await fetchRows(
-    scheduleItemIds.length
-      ? supabase
-          .from("teaching_actuals")
-          .select("teaching_schedule_item_id,taught_on,periods_used,coverage_state,reflection,compensatory_action")
-          .in("teaching_schedule_item_id", scheduleItemIds)
-          .order("taught_on")
-      : null,
-    "Unable to load teaching actuals.",
-  );
+
 
   const actuals: TeachingActualRow[] = actualRows.map((row) => ({
     scheduleItemId: row.teaching_schedule_item_id,
@@ -481,29 +516,8 @@ export async function getTeachingWorkspace(input: {
     compensatoryAction: row.compensatory_action,
   }));
 
-  // Official curriculum registry content for the units actually planned. This
-  // is authoritative registry text rendered read-only in every view.
-  const objectiveRows = await fetchRows(
-    unitIds.length
-      ? supabase
-          .from("curriculum_objectives")
-          .select("curriculum_unit_id,objective_code,objective_text,sequence_number")
-          .in("curriculum_unit_id", unitIds)
-          .order("sequence_number")
-      : null,
-    "Unable to load curriculum objectives.",
-  );
-  const competencyRows = await fetchRows(
-    unitIds.length
-      ? supabase
-          .from("curriculum_competencies")
-          .select("curriculum_unit_id,competency_code,competency_text,sequence_number")
-          .in("curriculum_unit_id", unitIds)
-          .order("sequence_number")
-      : null,
-    "Unable to load curriculum competencies.",
-  );
-
+  // Official curriculum registry content is fetched in parallel with the
+  // schedule because both depend only on the already-loaded plan items.
   const objectivesByUnit: Record<string, TeachingObjectiveRow[]> = {};
   for (const row of objectiveRows) {
     const list = objectivesByUnit[row.curriculum_unit_id] ?? [];
@@ -516,17 +530,6 @@ export async function getTeachingWorkspace(input: {
     list.push({ unitId: row.curriculum_unit_id, code: row.competency_code, text: row.competency_text });
     competenciesByUnit[row.curriculum_unit_id] = list;
   }
-
-  const dayOverrideRows = await fetchRows(
-    supabase
-      .from("school_day_overrides")
-      .select("school_date,is_school_day,reason,source")
-      .eq("school_id", input.schoolId)
-      .gte("school_date", `${input.academicYear}-01-01`)
-      .lte("school_date", `${input.academicYear}-12-31`)
-      .order("school_date"),
-    "Unable to load school day calendar.",
-  );
 
   const dayOverrides: TeachingDayOverride[] = dayOverrideRows.map((row) => ({
     date: row.school_date,
