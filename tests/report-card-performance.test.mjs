@@ -5,6 +5,7 @@ import test from "node:test";
 const page = readFileSync("src/app/reports/report-cards/page.tsx", "utf8");
 const worker = readFileSync("src/features/reporting/server/process-report-card-render-queue.ts", "utf8");
 const pulse = readFileSync("src/app/api/report-card-batches/process/route.ts", "utf8");
+const exportWorker = readFileSync("src/features/reporting/server/process-report-card-batch-export-queue.ts", "utf8");
 
 test("report-card management starts independent reads without serial learner-roster blocking", () => {
   assert.match(page, /individualLearnersPromise = getIndividualReportCardLearnerOptions/);
@@ -40,4 +41,12 @@ test("report-card render worker reuses school and frozen logo reads within one i
 test("authenticated browser pulse cannot claim an oversized render batch", () => {
   assert.match(pulse, /processReportCardRenderQueue\(12\)/);
   assert.doesNotMatch(pulse, /processReportCardRenderQueue\(40\)/);
+});
+
+
+test("combined report export removes serial artifact-download waterfall with bounded chunks", () => {
+  assert.match(exportWorker, /const EXPORT_DOWNLOAD_CONCURRENCY = 6/);
+  assert.match(exportWorker, /offset < orderedItems\.length; offset \+= EXPORT_DOWNLOAD_CONCURRENCY/);
+  assert.match(exportWorker, /sourceBytes = await Promise\.all\(chunk\.map/);
+  assert.match(exportWorker, /for \(const bytes of sourceBytes\)/);
 });
