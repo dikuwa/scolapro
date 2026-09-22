@@ -71,9 +71,11 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   if (!membership) redirect("/");
 
   const canManageReports = managerRoles.has(membership.roleKey);
-  const academicYear = await getReportCardAcademicYear(membership.schoolId);
+  const [academicYear, params] = await Promise.all([
+    getReportCardAcademicYear(membership.schoolId),
+    searchParams,
+  ]);
   const defaultTermNumber = await getReportCardAcademicTerm(membership.schoolId, academicYear);
-  const params = await searchParams;
   const common = parseCommonParams(params, defaultTermNumber);
 
   if (!canManageReports) {
@@ -103,64 +105,73 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   const scopeClassId = validUuid(firstParam(params.scopeClass));
   const individualLearnerId = validUuid(firstParam(params.individual));
 
-  const individualLearners = await getIndividualReportCardLearnerOptions(membership.schoolId, academicYear);
+  // Start independent management reads together. The complete learner picker no
+  // longer blocks status, batch metadata or scope-summary reads on the critical path.
+  const individualLearnersPromise = getIndividualReportCardLearnerOptions(membership.schoolId, academicYear);
+  const metaPromise = getReportCardManagementMeta(membership.schoolId, academicYear);
+  const wholeSchoolSummaryPromise = getReportCardScopeSummary({
+    schoolId: membership.schoolId,
+    academicYear,
+    termNumber: common.termNumber,
+    scopeType: "school",
+  });
+  const selectedScopeSummaryPromise = scopeType === "grade" && scopeGradeId
+    ? getReportCardScopeSummary({
+        schoolId: membership.schoolId,
+        academicYear,
+        termNumber: common.termNumber,
+        scopeType: "grade",
+        scopeId: scopeGradeId,
+      })
+    : scopeType === "class" && scopeClassId
+      ? getReportCardScopeSummary({
+          schoolId: membership.schoolId,
+          academicYear,
+          termNumber: common.termNumber,
+          scopeType: "class",
+          scopeId: scopeClassId,
+        })
+      : Promise.resolve(null);
+  const bulkStatusPagePromise = individualLearnerId
+    ? Promise.resolve(null)
+    : getReportCardStatusPage({
+        schoolId: membership.schoolId,
+        academicYear,
+        termNumber: common.termNumber,
+        query: common.query,
+        gradeId: filterGradeId || undefined,
+        classId: filterClassId || undefined,
+        status: common.status,
+        page: common.page,
+        pageSize: 50,
+      });
+
+  const individualLearners = await individualLearnersPromise;
   const individualOption = individualLearnerId
     ? individualLearners.find((item) => item.enrolmentId === individualLearnerId)
     : undefined;
+  const selectedIndividualRowPromise = individualOption
+    ? getReportCardStatusForEnrolment({
+        schoolId: membership.schoolId,
+        academicYear,
+        termNumber: common.termNumber,
+        enrolmentId: individualOption.enrolmentId,
+      })
+    : Promise.resolve(null);
 
-  const [meta, selectedIndividualRow, bulkStatusPage, wholeSchoolSummary] = await Promise.all([
-    getReportCardManagementMeta(membership.schoolId, academicYear),
-    individualOption
-      ? getReportCardStatusForEnrolment({
-          schoolId: membership.schoolId,
-          academicYear,
-          termNumber: common.termNumber,
-          enrolmentId: individualOption.enrolmentId,
-        })
-      : Promise.resolve(null),
-    individualOption
-      ? Promise.resolve(null)
-      : getReportCardStatusPage({
-          schoolId: membership.schoolId,
-          academicYear,
-          termNumber: common.termNumber,
-          query: common.query,
-          gradeId: filterGradeId || undefined,
-          classId: filterClassId || undefined,
-          status: common.status,
-          page: common.page,
-          pageSize: 50,
-        }),
-    getReportCardScopeSummary({
-      schoolId: membership.schoolId,
-      academicYear,
-      termNumber: common.termNumber,
-      scopeType: "school",
-    }),
+  const [meta, selectedIndividualRow, bulkStatusPage, wholeSchoolSummary, selectedScopeSummary] = await Promise.all([
+    metaPromise,
+    selectedIndividualRowPromise,
+    bulkStatusPagePromise,
+    wholeSchoolSummaryPromise,
+    selectedScopeSummaryPromise,
   ]);
 
   const statusPage = individualOption
     ? individualStatusPage(selectedIndividualRow)
     : bulkStatusPage as ReportCardStatusPage;
 
-  let scopeSummary = scopeType === "school" ? wholeSchoolSummary : null;
-  if (scopeType === "grade" && scopeGradeId) {
-    scopeSummary = await getReportCardScopeSummary({
-      schoolId: membership.schoolId,
-      academicYear,
-      termNumber: common.termNumber,
-      scopeType: "grade",
-      scopeId: scopeGradeId,
-    });
-  } else if (scopeType === "class" && scopeClassId) {
-    scopeSummary = await getReportCardScopeSummary({
-      schoolId: membership.schoolId,
-      academicYear,
-      termNumber: common.termNumber,
-      scopeType: "class",
-      scopeId: scopeClassId,
-    });
-  }
+  const scopeSummary = scopeType === "school" ? wholeSchoolSummary : selectedScopeSummary;
 
   const pageArtifacts = await getReportCardPageArtifacts(
     membership.schoolId,
