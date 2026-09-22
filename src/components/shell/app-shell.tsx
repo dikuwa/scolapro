@@ -2,12 +2,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ScolaProMark, ScolaProWordmark } from "@/components/brand/scolapro-brand";
 import { AccountMenu } from "@/components/shell/account-menu";
-import { MobileNavigation } from "@/components/shell/navigation";
 import { ShellFrame } from "@/components/shell/shell-frame";
 import { DestructiveActionGuard } from "@/components/ui/destructive-action-guard";
 import { NotificationCenter } from "@/features/notifications/notification-center";
 import { OfflineRuntime } from "@/components/offline/offline-runtime";
-import { getNavigationAttentionCounts, type NavigationAttentionCounts } from "@/features/notifications/server/navigation-attention";
+import type { NavigationAttentionCounts } from "@/features/notifications/server/navigation-attention";
 import { getNotificationInbox } from "@/features/notifications/server/notifications";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { SCOLAPRO_BRAND } from "@/lib/brand";
@@ -60,6 +59,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let attentionCounts: NavigationAttentionCounts = {};
   let offlineScope: { userId: string; tenantId: string; schoolId: string } | null = null;
   let notificationContext: { authenticatedUserId: string; currentSchoolId: string | null; roleKey?: string } | null = null;
+  let attentionCacheKey: string | null = null;
 
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
@@ -134,14 +134,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             .limit(1)
         : Promise.resolve({ data: [] as Array<{ id: string }> });
 
-      const attentionPromise = membership
-        ? getNavigationAttentionCounts(membership.schoolId, membership.roleKey)
-        : Promise.resolve({});
-
-      const [dutyResult, inventoryResult, navigationAttention] = await Promise.all([
+      const [dutyResult, inventoryResult] = await Promise.all([
         dutyPromise,
         inventoryPromise,
-        attentionPromise,
       ]);
 
       if (dutyResult.data?.length) extraNavigationKeys.push("late_arrivals");
@@ -152,7 +147,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         avatarUrl = shellSupabase.storage.from("avatars").getPublicUrl(context.avatarPath).data.publicUrl;
       }
 
-      attentionCounts = navigationAttention;
+      attentionCacheKey = membership
+        ? `${context.user.id}:${membership.schoolId}:${membership.roleKey}`
+        : null;
       notificationContext = {
         authenticatedUserId: context.user.id,
         currentSchoolId: membership?.schoolId ?? null,
@@ -200,9 +197,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey} roleKeys={roleKeys} extraNavigationKeys={extraNavigationKeys} attentionCounts={attentionCounts}>
+    <ShellFrame brand={brand} footer={footer} header={header} roleKey={roleKey} roleKeys={roleKeys} extraNavigationKeys={extraNavigationKeys} attentionCounts={attentionCounts} attentionCacheKey={attentionCacheKey}>
       {children}
-      <MobileNavigation roleKey={roleKey} roleKeys={roleKeys} extraKeys={extraNavigationKeys} attentionCounts={attentionCounts} />
       <DestructiveActionGuard />
       <OfflineRuntime scope={offlineScope} />
     </ShellFrame>
