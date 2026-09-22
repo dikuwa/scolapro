@@ -12,10 +12,12 @@ on public.enrolments
 for select
 to authenticated
 using (
-  status='current'
-  and enrolled_from<=current_date
-  and (enrolled_to is null or enrolled_to>=current_date)
-  and case
+  (select app_private.has_platform_role(array['platform_admin']))
+  or (
+    status='current'
+    and enrolled_from<=current_date
+    and (enrolled_to is null or enrolled_to>=current_date)
+    and case
     when school_id = any(
       array(
         select sm.school_id
@@ -39,7 +41,8 @@ using (
       enrolled_from,
       enrolled_to
     )
-  end
+    end
+  )
 );
 
 comment on policy "scoped staff read enrolments" on public.enrolments is

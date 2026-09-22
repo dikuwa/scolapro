@@ -4,6 +4,10 @@ import test from "node:test";
 
 const migration = readFileSync("supabase/migrations/20260922090000_enrolments_broad_role_read_fast_path.sql", "utf8");
 
+test("enrolment RLS preserves Platform Admin historical oversight", () => {
+  assert.match(migration, /has_platform_role\(array\['platform_admin'\]\)/);
+});
+
 test("enrolment RLS fast path keeps broad authority statement-scoped", () => {
   assert.match(migration, /school_id = any\(\s*array\(\s*select sm\.school_id/s);
   assert.match(migration, /sm\.user_id=\(select auth\.uid\(\)\)/);

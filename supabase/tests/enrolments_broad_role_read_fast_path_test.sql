@@ -1,6 +1,6 @@
 begin;
 
-select plan(5);
+select plan(6);
 
 select policies_are(
   'public',
@@ -17,6 +17,14 @@ select is(
   (select cmd from pg_policies where schemaname='public' and tablename='enrolments' and policyname='scoped staff read enrolments'),
   'SELECT',
   'fast-path policy remains read-only'
+);
+
+select ok(
+  (select qual from pg_policies where schemaname='public' and tablename='enrolments' and policyname='scoped staff read enrolments')
+    ilike '%has_platform_role%'
+  and (select qual from pg_policies where schemaname='public' and tablename='enrolments' and policyname='scoped staff read enrolments')
+    ilike '%platform_admin%',
+  'governed Platform Admin keeps historical and current enrolment oversight'
 );
 
 select ok(
