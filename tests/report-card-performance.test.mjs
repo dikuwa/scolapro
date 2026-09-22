@@ -11,6 +11,8 @@ const management = readFileSync("src/features/reporting/server/report-card-manag
 const workspace = readFileSync("src/features/reporting/paged-report-card-management.tsx", "utf8");
 const workerSchedule = readFileSync(".github/workflows/report-card-worker.yml", "utf8");
 const loadBenchmark = readFileSync("scripts/benchmark-report-card-worker.mjs", "utf8");
+const internalWorker = readFileSync("src/app/api/internal/report-card-render/route.ts", "utf8");
+const workerHealth = readFileSync("src/features/reporting/server/report-card-worker-health.ts", "utf8");
 
 test("report-card management starts independent reads without serial learner-roster blocking", () => {
   assert.match(page, /individualLearnersPromise = getIndividualReportCardLearnerOptions/);
@@ -105,4 +107,24 @@ test("report-card load benchmark is explicitly armed and reports p95 plus queue 
   assert.match(loadBenchmark, /renderCompleted/);
   assert.match(loadBenchmark, /exportsCompleted/);
   assert.match(loadBenchmark, /if \(failures\.length\) process\.exit\(1\)/);
+});
+
+
+test("internal report-card queue health is opt-in and aggregate-only", () => {
+  assert.match(internalWorker, /searchParams\.get\("health"\) === "1"/);
+  assert.match(internalWorker, /includeHealth \? await getReportCardWorkerHealth\(\) : null/);
+  assert.match(internalWorker, /\.\.\.\(includeHealth \? \{ healthBefore, healthAfter \} : \{\}\)/);
+  assert.match(workerHealth, /report_card_batches/);
+  assert.match(workerHealth, /report_card_render_jobs/);
+  assert.match(workerHealth, /count: "exact", head: true/);
+  assert.match(workerHealth, /oldestActiveAt/);
+  assert.match(workerHealth, /oldestReadyAt/);
+  assert.match(workerHealth, /oldestWaitingAt/);
+  assert.doesNotMatch(workerHealth, /school_id.*select|learner_id.*select|snapshot_id.*select/);
+});
+
+test("load benchmark can capture final queue health without enabling telemetry by default", () => {
+  assert.match(loadBenchmark, /REPORT_CARD_LOAD_INCLUDE_HEALTH === "YES"/);
+  assert.match(loadBenchmark, /health=1/);
+  assert.match(loadBenchmark, /healthAfter:/);
 });

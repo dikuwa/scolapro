@@ -3,6 +3,7 @@ const secret = process.env.INTERNAL_JOB_RUNNER_SECRET?.trim();
 const armed = process.env.REPORT_CARD_LOAD_TEST_ARMED === "YES";
 const concurrency = Math.max(1, Math.min(Number(process.env.REPORT_CARD_LOAD_CONCURRENCY ?? 4), 12));
 const rounds = Math.max(1, Math.min(Number(process.env.REPORT_CARD_LOAD_ROUNDS ?? 5), 50));
+const includeHealth = process.env.REPORT_CARD_LOAD_INCLUDE_HEALTH === "YES";
 
 if (!armed) {
   console.error("Refusing to run: set REPORT_CARD_LOAD_TEST_ARMED=YES explicitly.");
@@ -26,7 +27,10 @@ const percentile = (values, p) => {
 
 async function invoke(token = secret) {
   const started = performance.now();
-  const response = await fetch(url, {
+  const endpoint = includeHealth
+    ? `${url}${url.includes("?") ? "&" : "?"}health=1`
+    : url;
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -107,6 +111,7 @@ const summary = {
   },
   httpFailures: failures.map((result) => result.status),
   queueTotals,
+  healthAfter: successes.findLast((result) => result.body?.healthAfter)?.body?.healthAfter ?? null,
 };
 
 console.log(JSON.stringify(summary, null, 2));

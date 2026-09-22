@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { processReportCardBatchExportQueue } from "@/features/reporting/server/process-report-card-batch-export-queue";
 import { processReportCardBatchQueue } from "@/features/reporting/server/process-report-card-batch-queue";
+import { getReportCardWorkerHealth } from "@/features/reporting/server/report-card-worker-health";
 import {
   processReportCardRenderQueue,
   type ReportCardRenderWorkerResult,
@@ -90,10 +91,13 @@ async function drainReportCardRenderQueue(workerStartedAt: number): Promise<Repo
   return aggregate;
 }
 
-async function runWorkerResponse() {
+async function runWorkerResponse(request: Request) {
   const workerStartedAt = Date.now();
 
   try {
+    const includeHealth = new URL(request.url).searchParams.get("health") === "1";
+    const healthBefore = includeHealth ? await getReportCardWorkerHealth() : null;
+
     // Process durable generation/certification/PDF-preparation batches first. PDF
     // preparation may enqueue more learner renders than one worker claim can hold,
     // so drain bounded render passes before asking the export worker to combine
@@ -101,7 +105,17 @@ async function runWorkerResponse() {
     const batch = await processReportCardBatchQueue(50);
     const render = await drainReportCardRenderQueue(workerStartedAt);
     const exportResult = await processReportCardBatchExportQueue(1);
-    return NextResponse.json({ batch, render, export: exportResult }, { headers: { "Cache-Control": "no-store" } });
+    const healthAfter = includeHealth ? await getReportCardWorkerHealth() : null;
+
+    return NextResponse.json(
+      {
+        batch,
+        render,
+        export: exportResult,
+        ...(includeHealth ? { healthBefore, healthAfter } : {}),
+      },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown report-card worker error";
     console.error("report-card worker failed", message);
@@ -113,12 +127,12 @@ export async function POST(request: Request) {
   if (!authorizedInternalRunner(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return runWorkerResponse();
+  return runWorkerResponse(request);
 }
 
 export async function GET(request: Request) {
   if (!authorizedScheduler(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return runWorkerResponse();
+  return runWorkerResponse(request);
 }
