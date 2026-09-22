@@ -139,3 +139,17 @@ test("skipped-only PDF batches settle instead of remaining permanent waiting exp
   assert.match(batchWorker, /\.in\("status", \["completed", "partial"\]\)/);
   assert.match(page, /batch\.completedItems > 0 && \(batch\.exportStatus === "waiting" \|\| batch\.exportStatus === "processing"\)/);
 });
+
+
+test("skipped-only PDF batches settle out of the export queue", () => {
+  const batchWorker = readFileSync("src/features/reporting/server/process-report-card-batch-queue.ts", "utf8");
+  assert.match(batchWorker, /export_status: "not_applicable"/);
+  assert.match(batchWorker, /\.eq\("operation", "pdf"\)/);
+  assert.match(batchWorker, /\.eq\("export_status", "waiting"\)/);
+  assert.match(batchWorker, /\.eq\("completed_items", 0\)/);
+  assert.match(batchWorker, /\.in\("status", \["completed", "partial"\]\)/);
+});
+
+test("report-card page ignores non-printable terminal export waits", () => {
+  assert.match(page, /batch\.completedItems > 0 && \(batch\.exportStatus === "waiting" \|\| batch\.exportStatus === "processing"\)/);
+});
