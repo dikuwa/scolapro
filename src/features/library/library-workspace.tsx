@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { BookOpenText, Boxes, CircleAlert, History, Search, UsersRound, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +18,7 @@ import type { LibraryBorrower, LibraryClass, LibraryCopy, LibraryGrade, LibraryL
 
 const initialState: LibraryActionState = {};
 const returnConditions = ["good", "new", "fair", "poor", "damaged", "lost"].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }));
-type View = "catalog" | "manage" | "class" | "circulation" | "import";
+export type View = "catalog" | "manage" | "class" | "circulation" | "import";
 
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function formatDate(value: string | null) { return value ? new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`)) : "No due date"; }
@@ -53,7 +54,7 @@ function ReturnLoanForm({ loan, title, copy, offlineScope }: { loan: LibraryLoan
   </form>;
 }
 
-export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, subjects, grades, classes, learners, today, offlineScope }: {
+export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, subjects, grades, classes, learners, today, offlineScope, view }: {
   schoolId: string;
   titles: LibraryTitle[];
   copies: LibraryCopy[];
@@ -65,8 +66,8 @@ export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, s
   learners: LibraryLearner[];
   today: string;
   offlineScope: OfflineScope | null;
+  view: View;
 }) {
-  const [view, setView] = useState<View>("catalog");
   const [query, setQuery] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [gradeId, setGradeId] = useState("");
@@ -75,9 +76,9 @@ export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, s
   const latestGrades = useMemo(() => { const map = new Map<string, LibraryGrade>(); for (const grade of [...grades].sort((a, b) => b.academicYear - a.academicYear)) if (!map.has(grade.code)) map.set(grade.code, grade); return [...map.values()]; }, [grades]);
   const normalized = query.trim().toLocaleLowerCase();
   useEffect(() => {
-    if (!offlineScope) return;
+    if (!offlineScope || view !== "circulation") return;
     void cacheLibraryCirculationSnapshot(offlineScope, { copies, borrowers, loans }).catch(() => undefined);
-  }, [borrowers, copies, loans, offlineScope]);
+  }, [borrowers, copies, loans, offlineScope, view]);
 
   const filteredTitles = useMemo(() => titles.filter((title) => {
     if (catalogStatus && title.status !== catalogStatus) return false;
@@ -111,7 +112,7 @@ export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, s
   ];
 
   return <div className="space-y-5">
-    <nav className="flex gap-1 overflow-x-auto rounded-[var(--radius-sm)] bg-surface-muted p-1" aria-label="Library workspace views">{tabs.map((tab) => { const Icon = tab.icon; return <button key={tab.value} type="button" onClick={() => setView(tab.value)} className={`scolapro-cta flex min-h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-xs)] px-3 text-xs font-medium outline-none transition focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] ${view === tab.value ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`} aria-current={view === tab.value ? "page" : undefined}><Icon className="size-3.5" aria-hidden="true" />{tab.label}</button>; })}</nav>
+    <nav className="flex gap-1 overflow-x-auto rounded-[var(--radius-sm)] bg-surface-muted p-1" aria-label="Library workspace views">{tabs.map((tab) => { const Icon = tab.icon; const href = tab.value === "catalog" ? "/library" : `/library?view=${tab.value}`; return <Link key={tab.value} href={href} prefetch={false} className={`scolapro-cta flex min-h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-xs)] px-3 text-xs font-medium outline-none transition focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] ${view === tab.value ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`} aria-current={view === tab.value ? "page" : undefined}><Icon className="size-3.5" aria-hidden="true" />{tab.label}</Link>; })}</nav>
 
     {view === "catalog" ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div><h2 className="scolapro-section-title">Catalog & physical stock</h2><p className="scolapro-section-description">Canonical configured subjects remain filterable even when the catalog contains no titles.</p></div>

@@ -81,8 +81,25 @@ type StaffBorrowerRow = {
   employee_number: string | null;
 };
 
-export async function getLibraryWorkspace(schoolId: string, today: string) {
+export type LibraryWorkspaceView = "catalog" | "manage" | "class" | "circulation" | "import";
+
+export async function getLibraryWorkspace(schoolId: string, today: string, view: LibraryWorkspaceView = "catalog") {
   const supabase = await createSupabaseServerClient();
+  const needsCirculationData = view === "circulation" || view === "class";
+  const loansRequest = needsCirculationData
+    ? supabase
+        .from("learning_resource_loans")
+        .select("id,copy_id,learner_id,staff_member_id,issued_on,due_on,returned_on,returned_condition,status,notes")
+        .eq("school_id", schoolId)
+        .order("issued_on", { ascending: false })
+    : Promise.resolve({ data: [] as Array<{ id: string; copy_id: string; learner_id: string | null; staff_member_id: string | null; issued_on: string; due_on: string | null; returned_on: string | null; returned_condition: string | null; status: string; notes: string | null }>, error: null });
+  const learnersRequest = needsCirculationData
+    ? supabase.rpc("list_learning_resource_learner_borrowers", { p_school_id: schoolId })
+    : Promise.resolve({ data: [] as LearnerRow[], error: null });
+  const staffRequest = needsCirculationData
+    ? supabase.rpc("list_learning_resource_staff_borrowers", { p_school_id: schoolId })
+    : Promise.resolve({ data: [] as StaffBorrowerRow[], error: null });
+
   const [titlesResult, copiesResult, loansResult, learnersResult, staffResult, subjectsResult, gradesResult, classesResult] = await Promise.all([
     supabase
       .from("learning_resource_titles")
@@ -94,13 +111,9 @@ export async function getLibraryWorkspace(schoolId: string, today: string) {
       .select("id,title_id,barcode,asset_number,condition,availability,location_label,notes")
       .eq("school_id", schoolId)
       .order("created_at"),
-    supabase
-      .from("learning_resource_loans")
-      .select("id,copy_id,learner_id,staff_member_id,issued_on,due_on,returned_on,returned_condition,status,notes")
-      .eq("school_id", schoolId)
-      .order("issued_on", { ascending: false }),
-    supabase.rpc("list_learning_resource_learner_borrowers", { p_school_id: schoolId }),
-    supabase.rpc("list_learning_resource_staff_borrowers", { p_school_id: schoolId }),
+    loansRequest,
+    learnersRequest,
+    staffRequest,
     supabase
       .from("subjects")
       .select("id,subject_code,display_name,status")

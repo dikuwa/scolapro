@@ -9,15 +9,20 @@ const ltsmRoles = new Set(["school_admin", "principal", "deputy_principal", "lib
 
 export const dynamic = "force-dynamic";
 
-export default async function LibraryPage() {
+export default async function LibraryPage({ searchParams }: { searchParams: Promise<{ view?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/library");
 
   const membership = context.memberships.find((candidate) => ltsmRoles.has(candidate.roleKey));
   if (!membership) redirect("/");
 
+  const params = await searchParams;
+  const requestedView = Array.isArray(params.view) ? params.view[0] : params.view;
+  const view = ["catalog", "manage", "class", "circulation", "import"].includes(requestedView ?? "")
+    ? requestedView as "catalog" | "manage" | "class" | "circulation" | "import"
+    : "catalog";
   const today = getNamibiaDateKey();
-  const workspace = await getLibraryWorkspace(membership.schoolId, today);
+  const workspace = await getLibraryWorkspace(membership.schoolId, today, view);
 
   return (
     <AppShell>
@@ -28,6 +33,7 @@ export default async function LibraryPage() {
         </div>
         <LibraryWorkspace
           {...workspace}
+          view={view}
           today={today}
           offlineScope={{
             userId: context.user.id,
