@@ -72,7 +72,6 @@ export default async function Home() {
             schoolName={schoolName}
           />
         </Suspense>
-        </div>
       </section>
     </AppShell>
   );
