@@ -13,7 +13,7 @@ import { syncQueuedLessonPreparationDrafts } from "@/features/academics/offline/
 type State = "online" | "offline" | "syncing" | "attention";
 
 export function OfflineRuntime({ scope }: { scope: OfflineScope | null }) {
-  const [state, setState] = useState<State>(() => typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "online");
+  const [state, setState] = useState<State>("online");
   const [pending, setPending] = useState(0);
 
   const refresh = useCallback(async () => {

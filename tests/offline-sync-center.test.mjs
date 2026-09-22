@@ -66,3 +66,9 @@ test("status UI remains responsive and reachable from the existing runtime", () 
   assert.match(center, /lg:right-5/);
   assert.match(center, /aria-expanded/);
 });
+
+test("offline runtime hydrates from a deterministic server/client initial state", () => {
+  assert.match(runtime, /useState<State>\("online"\)/);
+  assert.doesNotMatch(runtime, /useState<State>\(\(\) => typeof navigator/);
+  assert.match(runtime, /else if \(typeof navigator !== "undefined" && !navigator\.onLine\) setState\("offline"\)/);
+});
