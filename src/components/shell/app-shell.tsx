@@ -56,7 +56,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   let roleKeys: string[] = [];
   let extraNavigationKeys: string[] = [];
   let avatarUrl: string | null = null;
-  let attentionCounts: NavigationAttentionCounts = {};
+  const attentionCounts: NavigationAttentionCounts = {};
   let offlineScope: { userId: string; tenantId: string; schoolId: string } | null = null;
   let notificationContext: { authenticatedUserId: string; currentSchoolId: string | null; roleKey?: string } | null = null;
   let attentionCacheKey: string | null = null;

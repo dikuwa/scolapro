@@ -37,8 +37,8 @@ export function ShellFrame({
       if (cached) {
         const parsed = JSON.parse(cached) as { expiresAt?: number; counts?: NavigationAttentionCounts };
         if ((parsed.expiresAt ?? 0) > Date.now() && parsed.counts) {
-          setResolvedAttentionCounts(parsed.counts);
-          return;
+          const frame = window.requestAnimationFrame(() => setResolvedAttentionCounts(parsed.counts ?? {}));
+          return () => window.cancelAnimationFrame(frame);
         }
       }
     } catch {
