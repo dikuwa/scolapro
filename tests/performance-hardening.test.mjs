@@ -18,3 +18,17 @@ test("notification loader still fails closed when no authenticated user is avail
   assert.match(notifications, /supabase\.auth\.getUser\(\)/);
   assert.match(notifications, /if \(!recipientUserId\) return \{ unreadCount: 0, notifications: \[\]/);
 });
+
+
+test("shell defers notification inbox behind Suspense instead of blocking the critical shell", () => {
+  assert.match(shell, /<Suspense fallback=\{<NotificationCenter unreadCount=\{0\} notifications=\{\[\]\} \/>\}>/);
+  assert.match(shell, /async function ShellNotificationCenter/);
+  assert.match(shell, /notificationContext/);
+});
+
+test("shell supplemental navigation lookups run in parallel", () => {
+  assert.match(shell, /Promise\.all\(\[/);
+  assert.match(shell, /dutyPromise/);
+  assert.match(shell, /inventoryPromise/);
+  assert.match(shell, /attentionPromise/);
+});
