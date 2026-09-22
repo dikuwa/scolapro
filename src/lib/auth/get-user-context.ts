@@ -52,7 +52,7 @@ const primarySchoolRolePriority = [
 
 function primarySchoolMembership(memberships: SchoolMembershipContext[]) {
   if (!memberships.length) return null;
-  const rank = new Map(primarySchoolRolePriority.map((role, index) => [role, index]));
+  const rank = new Map<string, number>(primarySchoolRolePriority.map((role, index) => [role, index]));
   return memberships.reduce((best, candidate) => {
     const bestRank = rank.get(best.roleKey) ?? Number.MAX_SAFE_INTEGER;
     const candidateRank = rank.get(candidate.roleKey) ?? Number.MAX_SAFE_INTEGER;
