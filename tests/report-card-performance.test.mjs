@@ -9,6 +9,7 @@ const exportWorker = readFileSync("src/features/reporting/server/process-report-
 const actions = readFileSync("src/features/reporting/server/actions.ts", "utf8");
 const management = readFileSync("src/features/reporting/server/report-card-management.ts", "utf8");
 const workspace = readFileSync("src/features/reporting/paged-report-card-management.tsx", "utf8");
+const workerSchedule = readFileSync(".github/workflows/report-card-worker.yml", "utf8");
 
 test("report-card management starts independent reads without serial learner-roster blocking", () => {
   assert.match(page, /individualLearnersPromise = getIndividualReportCardLearnerOptions/);
@@ -76,4 +77,17 @@ test("PDF scope resolution remains current-school and current-year bounded", () 
 test("report-card management retains enough print-pack history for a 5000 learner school", () => {
   assert.match(management, /\.limit\(30\)/);
   assert.match(workspace, /visibleBatches\.slice\(0, 20\)\.map/);
+});
+
+
+test("report-card worker can run independently of an open browser on a bounded schedule", () => {
+  assert.match(workerSchedule, /cron: "\*\/5 \* \* \* \*"/);
+  assert.match(workerSchedule, /workflow_dispatch/);
+  assert.match(workerSchedule, /group: report-card-worker/);
+  assert.match(workerSchedule, /cancel-in-progress: false/);
+  assert.match(workerSchedule, /REPORT_CARD_WORKER_URL/);
+  assert.match(workerSchedule, /INTERNAL_JOB_RUNNER_SECRET/);
+  assert.match(workerSchedule, /Authorization: Bearer \$INTERNAL_JOB_RUNNER_SECRET/);
+  assert.match(workerSchedule, /--max-time 55/);
+  assert.match(workerSchedule, /--retry 2/);
 });
