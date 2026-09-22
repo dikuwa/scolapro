@@ -182,7 +182,9 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   const certifiedCount = wholeSchoolSummary.certified + wholeSchoolSummary.published;
   const readyBatchExports = meta.batches.filter((batch) => batch.operation === "pdf" && batch.exportStatus === "ready").slice(0, 8);
   const hasActiveBatchWork = meta.batches.some((batch) =>
-    batch.status === "pending" || batch.status === "processing" || batch.exportStatus === "waiting" || batch.exportStatus === "processing"
+    batch.status === "pending"
+    || batch.status === "processing"
+    || (batch.completedItems > 0 && (batch.exportStatus === "waiting" || batch.exportStatus === "processing"))
   );
 
   return <AppShell><section>
