@@ -16,6 +16,8 @@ import {
 export type ReportCardActionState = { success?: boolean; message?: string; batchId?: string };
 
 const reportManagerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
+const PDF_PRINT_PACK_SIZE = 250;
+const PDF_PRINT_PACK_CREATE_CONCURRENCY = 4;
 const generateSchema = z.object({ enrolmentId: z.string().uuid(), termNumber: z.coerce.number().int().min(1).max(6) });
 const renderSchema = z.object({ snapshotId: z.string().uuid(), documentFormat: z.enum(["html", "pdf"]).default("html") });
 const batchSchema = z.object({
@@ -38,6 +40,72 @@ async function getReportManagerContext() {
 
 async function canManageReportCards() {
   return Boolean(await getReportManagerContext());
+}
+
+async function resolvePdfScopeEnrolmentIds(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  input: { schoolId: string; academicYear: number; scopeType: "school" | "grade" | "class" | "custom"; scopeId?: string },
+) {
+  let query = supabase
+    .from("enrolments")
+    .select("id")
+    .eq("school_id", input.schoolId)
+    .eq("academic_year", input.academicYear)
+    .eq("status", "current")
+    .order("admission_number", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (input.scopeType === "grade") query = query.eq("grade_id", input.scopeId as string);
+  if (input.scopeType === "class") query = query.eq("register_class_id", input.scopeId as string);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message || "Unable to resolve report-card PDF scope.");
+  return (data ?? []).map((row) => row.id);
+}
+
+async function createPdfPrintPacks(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  input: {
+    schoolId: string;
+    academicYear: number;
+    termNumber: number;
+    scopeType: "school" | "grade" | "class" | "custom";
+    scopeLabel: string;
+    enrolmentIds: string[];
+  },
+) {
+  const chunks: string[][] = [];
+  for (let offset = 0; offset < input.enrolmentIds.length; offset += PDF_PRINT_PACK_SIZE) {
+    chunks.push(input.enrolmentIds.slice(offset, offset + PDF_PRINT_PACK_SIZE));
+  }
+
+  const batchIds = new Array<string>(chunks.length);
+  let cursor = 0;
+  const workers = Array.from(
+    { length: Math.min(PDF_PRINT_PACK_CREATE_CONCURRENCY, chunks.length) },
+    async () => {
+      while (cursor < chunks.length) {
+        const index = cursor;
+        cursor += 1;
+        const label = chunks.length === 1
+          ? input.scopeLabel
+          : `${input.scopeLabel} · Print pack ${index + 1}/${chunks.length}`;
+        const { data, error } = await supabase.rpc("create_report_card_batch", {
+          p_school_id: input.schoolId,
+          p_academic_year: input.academicYear,
+          p_term_number: input.termNumber,
+          p_scope_type: input.scopeType,
+          p_scope_label: label,
+          p_operation: "pdf",
+          p_enrolment_ids: chunks[index],
+        });
+        if (error) throw new Error(error.message || "The report-card PDF print pack could not be created.");
+        batchIds[index] = String(data);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return batchIds;
 }
 
 async function kickReportWorkers() {
@@ -115,8 +183,46 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
   const supabase = await createSupabaseServerClient();
   let batchId: string | null = null;
   let affectedCount = uniqueEnrolmentIds.length;
+  let printPackCount = 0;
 
-  if (parsed.data.scopeType === "custom") {
+  if ((parsed.data.scopeType === "grade" || parsed.data.scopeType === "class") && !parsed.data.scopeId) {
+    return { message: "Choose a valid grade or class report scope." };
+  }
+
+  if (parsed.data.operation === "pdf") {
+    let pdfEnrolmentIds = uniqueEnrolmentIds;
+    if (parsed.data.scopeType === "custom") {
+      if (pdfEnrolmentIds.length === 0) return { message: "Choose at least one learner for a custom report scope." };
+    } else {
+      try {
+        pdfEnrolmentIds = await resolvePdfScopeEnrolmentIds(supabase, {
+          schoolId: manager.membership.schoolId,
+          academicYear: parsed.data.academicYear,
+          scopeType: parsed.data.scopeType,
+          scopeId: parsed.data.scopeId,
+        });
+      } catch (error) {
+        return { message: error instanceof Error ? error.message : "Unable to resolve report-card PDF scope." };
+      }
+    }
+    if (pdfEnrolmentIds.length === 0) return { message: "No current learners are available in this report-card PDF scope." };
+
+    try {
+      const batchIds = await createPdfPrintPacks(supabase, {
+        schoolId: manager.membership.schoolId,
+        academicYear: parsed.data.academicYear,
+        termNumber: parsed.data.termNumber,
+        scopeType: parsed.data.scopeType,
+        scopeLabel: parsed.data.scopeLabel,
+        enrolmentIds: pdfEnrolmentIds,
+      });
+      batchId = batchIds[0] ?? null;
+      printPackCount = batchIds.length;
+      affectedCount = pdfEnrolmentIds.length;
+    } catch (error) {
+      return { message: error instanceof Error ? error.message : "The report-card PDF print packs could not be created." };
+    }
+  } else if (parsed.data.scopeType === "custom") {
     if (uniqueEnrolmentIds.length === 0) return { message: "Choose at least one learner for a custom report scope." };
     const { data, error } = await supabase.rpc("create_report_card_batch", {
       p_school_id: manager.membership.schoolId,
@@ -130,10 +236,6 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
     if (error) return { message: error.message || "The report-card batch could not be created." };
     batchId = String(data);
   } else {
-    if ((parsed.data.scopeType === "grade" || parsed.data.scopeType === "class") && !parsed.data.scopeId) {
-      return { message: "Choose a valid grade or class report scope." };
-    }
-
     const { data, error } = await supabase.rpc("create_report_card_batch_for_scope", {
       p_school_id: manager.membership.schoolId,
       p_academic_year: parsed.data.academicYear,
@@ -163,7 +265,10 @@ export async function createReportCardBatch(_state: ReportCardActionState, formD
       : parsed.data.operation === "publish"
         ? "Publication"
         : "PDF preparation";
-  return { success: true, batchId: batchId ?? undefined, message: `${operationLabel} started for ${affectedCount} learner${affectedCount === 1 ? "" : "s"}. Progress is saved even if you leave this page.` };
+  const packText = parsed.data.operation === "pdf" && printPackCount > 1
+    ? ` across ${printPackCount} resumable print packs`
+    : "";
+  return { success: true, batchId: batchId ?? undefined, message: `${operationLabel} started for ${affectedCount} learner${affectedCount === 1 ? "" : "s"}${packText}. Progress is saved even if you leave this page.` };
 }
 
 export async function certifyReportCard(formData: FormData) {
