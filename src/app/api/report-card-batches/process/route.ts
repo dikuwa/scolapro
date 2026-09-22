@@ -21,7 +21,7 @@ export async function POST() {
     // This pulse only accelerates already-authorized durable jobs. Do not expose global
     // worker counts in its response because multiple schools may have work queued.
     await processReportCardBatchQueue(100);
-    await processReportCardRenderQueue(40);
+    await processReportCardRenderQueue(12);
     await processReportCardBatchExportQueue(1);
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
