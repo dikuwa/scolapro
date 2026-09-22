@@ -6,6 +6,9 @@ const page = readFileSync("src/app/reports/report-cards/page.tsx", "utf8");
 const worker = readFileSync("src/features/reporting/server/process-report-card-render-queue.ts", "utf8");
 const pulse = readFileSync("src/app/api/report-card-batches/process/route.ts", "utf8");
 const exportWorker = readFileSync("src/features/reporting/server/process-report-card-batch-export-queue.ts", "utf8");
+const actions = readFileSync("src/features/reporting/server/actions.ts", "utf8");
+const management = readFileSync("src/features/reporting/server/report-card-management.ts", "utf8");
+const workspace = readFileSync("src/features/reporting/paged-report-card-management.tsx", "utf8");
 
 test("report-card management starts independent reads without serial learner-roster blocking", () => {
   assert.match(page, /individualLearnersPromise = getIndividualReportCardLearnerOptions/);
@@ -49,4 +52,28 @@ test("combined report export removes serial artifact-download waterfall with bou
   assert.match(exportWorker, /offset < orderedItems\.length; offset \+= EXPORT_DOWNLOAD_CONCURRENCY/);
   assert.match(exportWorker, /sourceBytes = await Promise\.all\(chunk\.map/);
   assert.match(exportWorker, /for \(const bytes of sourceBytes\)/);
+});
+
+
+test("large PDF preparation is split into durable bounded print packs", () => {
+  assert.match(actions, /const PDF_PRINT_PACK_SIZE = 250/);
+  assert.match(actions, /const PDF_PRINT_PACK_CREATE_CONCURRENCY = 4/);
+  assert.match(actions, /createPdfPrintPacks/);
+  assert.match(actions, /offset < input\.enrolmentIds\.length; offset \+= PDF_PRINT_PACK_SIZE/);
+  assert.match(actions, /Print pack \$\{index \+ 1\}\/\$\{chunks\.length\}/);
+  assert.match(actions, /p_operation: "pdf"/);
+  assert.match(actions, /across \$\{printPackCount\} resumable print packs/);
+});
+
+test("PDF scope resolution remains current-school and current-year bounded", () => {
+  assert.match(actions, /\.eq\("school_id", input\.schoolId\)/);
+  assert.match(actions, /\.eq\("academic_year", input\.academicYear\)/);
+  assert.match(actions, /\.eq\("status", "current"\)/);
+  assert.match(actions, /query = query\.eq\("grade_id", input\.scopeId as string\)/);
+  assert.match(actions, /query = query\.eq\("register_class_id", input\.scopeId as string\)/);
+});
+
+test("report-card management retains enough print-pack history for a 5000 learner school", () => {
+  assert.match(management, /\.limit\(30\)/);
+  assert.match(workspace, /visibleBatches\.slice\(0, 20\)\.map/);
 });
