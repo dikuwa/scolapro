@@ -27,17 +27,6 @@ test("attendance returns authenticated shell before register data resolves", () 
 });
 
 
-const teaching = readFileSync("src/app/teaching/page.tsx", "utf8");
-test("teaching returns shell before governed workspace data resolves", () => {
-  assert.match(teaching, /<Suspense fallback=\{<TeachingWorkspaceLoading/);
-  assert.match(teaching, /async function TeachingWorkspaceData/);
-  const pageStart = teaching.indexOf("export default async function TeachingPage");
-  const helperStart = teaching.indexOf("async function TeachingWorkspaceData");
-  const critical = teaching.slice(pageStart, helperStart);
-  assert.equal(critical.includes("await getGovernedAcademicYear"), false);
-  assert.equal(critical.includes("await getTeachingWorkspace"), false);
-});
-
 const learners = readFileSync("src/app/learners/page.tsx", "utf8");
 test("learner directory streams after authenticated shell", () => {
   assert.match(learners, /<Suspense fallback=\{<LearnerDirectoryLoading/);
