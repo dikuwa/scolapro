@@ -10,7 +10,7 @@ test("root layout declares intentional smooth scroll behavior for Next navigatio
 });
 
 test("primary navigation avoids viewport prefetch storms but prefetches on intent", () => {
-  assert.match(navigation, /from "next\\/link"/);
+  assert.match(navigation, /from "next\/link"/);
   assert.match(navigation, /prefetch=\{false\}/);
   assert.match(navigation, /router\.prefetch\(href\)/);
   assert.match(navigation, /onMouseEnter=\{\(\) => prefetchOnIntent\(item\.href\)\}/);
