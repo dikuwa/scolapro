@@ -8,7 +8,7 @@ const workspace = readFileSync("src/features/library/library-workspace.tsx", "ut
 
 test("library workspace view is URL-controlled so inactive tabs need not hydrate their data", () => {
   assert.match(page, /searchParams/);
-  assert.match(page, /getLibraryWorkspace\(membership\.schoolId, today, view\)/);
+  assert.match(page, /getLibraryWorkspace\(schoolId, today, view\)/);
   assert.match(workspace, /href=\{href\}/);
   assert.doesNotMatch(workspace, /setView\(tab\.value\)/);
 });
