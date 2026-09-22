@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Plus } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
@@ -46,10 +47,9 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
   const sortOrder = single(params.sort) === "desc" ? "desc" : "asc";
   const requestedPage = Math.max(Number(single(params.page) ?? "1") || 1, 1);
 
-  let directory = demoDirectory;
-  let academicOptions: GradeOption[] = [];
   let schoolName = "ScolaPro Demonstration School";
   let canRegisterLearner = true;
+  let schoolId: string | null = null;
   const academicYear = getNamibiaCalendarYear();
 
   if (isSupabaseConfigured()) {
@@ -67,25 +67,7 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
     if (!membership) redirect("/");
     schoolName = membership.schoolName;
     canRegisterLearner = membership.roleKey === "school_admin";
-    const [directoryResult, academicOptionsResult] = await Promise.allSettled([
-      listLearnerDirectoryPage(membership.schoolId, academicYear, {
-        query,
-        status,
-        grade,
-        registerClass,
-        sex,
-        sortOrder,
-        page: requestedPage,
-        pageSize: 50,
-      }),
-      getRegistrationOptions(membership.schoolId, academicYear),
-    ]);
-    if (directoryResult.status === "rejected") throw directoryResult.reason;
-    directory = directoryResult.value;
-    // Grade/class options only enhance the server-paged directory filters. Do not
-    // make the canonical learner read unavailable when this auxiliary schema/read
-    // path is unavailable during a deployment or for an empty school.
-    academicOptions = academicOptionsResult.status === "fulfilled" ? academicOptionsResult.value : [];
+    schoolId = membership.schoolId;
   }
 
   return (
@@ -101,16 +83,85 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
           </Link> : null}
         </div>
 
-        <LearnerDirectory
-          learners={directory.learners}
-          academicOptions={academicOptions}
-          total={directory.total}
-          page={directory.page}
-          pageSize={directory.pageSize}
-          pageCount={directory.pageCount}
-          initialFilters={{ query, status, grade, registerClass, sex, sortOrder }}
-        />
+        <Suspense fallback={<LearnerDirectoryLoading />}>
+          <LearnerDirectoryData
+            schoolId={schoolId}
+            academicYear={academicYear}
+            query={query}
+            status={status}
+            grade={grade}
+            registerClass={registerClass}
+            sex={sex}
+            sortOrder={sortOrder}
+            requestedPage={requestedPage}
+          />
+        </Suspense>
       </section>
     </AppShell>
+  );
+}
+
+async function LearnerDirectoryData({
+  schoolId,
+  academicYear,
+  query,
+  status,
+  grade,
+  registerClass,
+  sex,
+  sortOrder,
+  requestedPage,
+}: {
+  schoolId: string | null;
+  academicYear: number;
+  query: string;
+  status: string;
+  grade: string;
+  registerClass: string;
+  sex: string;
+  sortOrder: "asc" | "desc";
+  requestedPage: number;
+}) {
+  let directory = demoDirectory;
+  let academicOptions: GradeOption[] = [];
+
+  if (schoolId) {
+    const [directoryResult, academicOptionsResult] = await Promise.allSettled([
+      listLearnerDirectoryPage(schoolId, academicYear, {
+        query,
+        status,
+        grade,
+        registerClass,
+        sex,
+        sortOrder,
+        page: requestedPage,
+        pageSize: 50,
+      }),
+      getRegistrationOptions(schoolId, academicYear),
+    ]);
+    if (directoryResult.status === "rejected") throw directoryResult.reason;
+    directory = directoryResult.value;
+    academicOptions = academicOptionsResult.status === "fulfilled" ? academicOptionsResult.value : [];
+  }
+
+  return (
+    <LearnerDirectory
+      learners={directory.learners}
+      academicOptions={academicOptions}
+      total={directory.total}
+      page={directory.page}
+      pageSize={directory.pageSize}
+      pageCount={directory.pageCount}
+      initialFilters={{ query, status, grade, registerClass, sex, sortOrder }}
+    />
+  );
+}
+
+function LearnerDirectoryLoading() {
+  return (
+    <div className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-5 shadow-[var(--shadow-xs)]" aria-busy="true">
+      <div className="h-10 w-full animate-pulse rounded-[var(--radius-sm)] bg-surface-muted" />
+      <div className="mt-3 h-72 w-full animate-pulse rounded-[var(--radius-sm)] bg-surface-muted" />
+    </div>
   );
 }
