@@ -10,6 +10,7 @@ const actions = readFileSync("src/features/reporting/server/actions.ts", "utf8")
 const management = readFileSync("src/features/reporting/server/report-card-management.ts", "utf8");
 const workspace = readFileSync("src/features/reporting/paged-report-card-management.tsx", "utf8");
 const workerSchedule = readFileSync(".github/workflows/report-card-worker.yml", "utf8");
+const loadBenchmark = readFileSync("scripts/benchmark-report-card-worker.mjs", "utf8");
 
 test("report-card management starts independent reads without serial learner-roster blocking", () => {
   assert.match(page, /individualLearnersPromise = getIndividualReportCardLearnerOptions/);
@@ -90,4 +91,18 @@ test("report-card worker can run independently of an open browser on a bounded s
   assert.match(workerSchedule, /Authorization: Bearer \$INTERNAL_JOB_RUNNER_SECRET/);
   assert.match(workerSchedule, /--max-time 55/);
   assert.match(workerSchedule, /--retry 2/);
+});
+
+
+test("report-card load benchmark is explicitly armed and reports p95 plus queue outcomes", () => {
+  assert.match(loadBenchmark, /REPORT_CARD_LOAD_TEST_ARMED === "YES"/);
+  assert.match(loadBenchmark, /REPORT_CARD_LOAD_CONCURRENCY/);
+  assert.match(loadBenchmark, /REPORT_CARD_LOAD_ROUNDS/);
+  assert.match(loadBenchmark, /REPORT_CARD_LOAD_FAILURE_PROBE === "YES"/);
+  assert.match(loadBenchmark, /percentile\(durations, 95\)/);
+  assert.match(loadBenchmark, /requestsPerSecond/);
+  assert.match(loadBenchmark, /batchProcessed/);
+  assert.match(loadBenchmark, /renderCompleted/);
+  assert.match(loadBenchmark, /exportsCompleted/);
+  assert.match(loadBenchmark, /if \(failures\.length\) process\.exit\(1\)/);
 });
