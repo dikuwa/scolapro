@@ -88,10 +88,11 @@ test("offline shell exposes cached attendance and registers synchronization runt
   assert.match(db, /SNAPSHOTS/);
 });
 
-test("role navigation avoids eager prefetch storms on low-bandwidth school connections", () => {
+test("role navigation uses Next route-shell prefetching without custom eager fetch hooks", () => {
   const links = [...navigation.matchAll(/<Link[^>]+>/g)].map((match) => match[0]);
   assert.ok(links.length > 0);
   for (const link of links) {
-    assert.match(link, /prefetch=\{false\}/, `navigation link should opt out of eager prefetch: ${link}`);
+    assert.doesNotMatch(link, /prefetch=\{false\}/, `navigation link should allow Next shell prefetching: ${link}`);
   }
+  assert.doesNotMatch(navigation, /router\.prefetch/);
 });
