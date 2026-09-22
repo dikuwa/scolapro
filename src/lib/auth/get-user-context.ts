@@ -32,6 +32,34 @@ type GuardianLinkRpcRow = {
   guardian_id: string;
 };
 
+const primarySchoolRolePriority = [
+  "school_admin",
+  "principal",
+  "deputy_principal",
+  "hod",
+  "counsellor",
+  "class_teacher",
+  "teacher",
+  "librarian",
+  "ltsm",
+  "learner_support",
+  "social_worker",
+  "exam_officer",
+  "emis_officer",
+  "board_member",
+  "learner",
+] as const;
+
+function primarySchoolMembership(memberships: SchoolMembershipContext[]) {
+  if (!memberships.length) return null;
+  const rank = new Map(primarySchoolRolePriority.map((role, index) => [role, index]));
+  return memberships.reduce((best, candidate) => {
+    const bestRank = rank.get(best.roleKey) ?? Number.MAX_SAFE_INTEGER;
+    const candidateRank = rank.get(candidate.roleKey) ?? Number.MAX_SAFE_INTEGER;
+    return candidateRank < bestRank ? candidate : best;
+  });
+}
+
 export const getUserContext = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const {
@@ -117,7 +145,7 @@ export const getUserContext = cache(async () => {
   const memberships = currentSchoolId
     ? allSchoolMemberships.filter((membership) => membership.schoolId === currentSchoolId)
     : [];
-  const currentSchoolMembership = memberships[0] ?? null;
+  const currentSchoolMembership = primarySchoolMembership(memberships);
 
   const platformMemberships: PlatformMembershipContext[] = (platformResult.data ?? []).map((membership) => ({
     membershipId: membership.id,
