@@ -112,11 +112,9 @@ return (
   <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
       <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId: userId, tenantId: tenantId, schoolId: schoolId }} />
+      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} />
   </section>
 );
-}
-
 }
 
 function AttendanceLoading() {
