@@ -34,7 +34,7 @@ export default async function Home() {
     if (!context.user) redirect("/login");
     displayName = context.displayName ?? displayName;
     const platformMembership = context.platformMemberships[0];
-    const membership = platformMembership ? undefined : context.memberships[0];
+    const membership = platformMembership ? undefined : context.currentSchoolMembership ?? undefined;
 
     if (platformMembership) {
       schoolName = "ScolaPro Platform";
