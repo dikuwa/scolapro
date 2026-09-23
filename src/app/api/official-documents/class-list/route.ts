@@ -1,37 +1,26 @@
 import { Buffer } from "node:buffer";
-import {
-  buildOfficialDocumentHeaderModel,
-  officialDocumentHeaderModeForType,
-} from "@/features/documents/server/official-document-header";
+import * as XLSX from "xlsx";
+import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
+import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialClassListHtml } from "@/features/documents/server/render-official-class-list-html";
 import { renderOfficialClassListPdf } from "@/features/documents/server/render-official-class-list-pdf";
-import { getOfficialClassListRoster } from "@/features/learners/server/class-list";
+import { classListColumnIds, type ClassListColumnId, type ClassListConfiguration, type ClassListRosterType } from "@/features/learners/class-list-types";
+import { getClassListWorkspace } from "@/features/learners/server/class-list-workspace";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function safeFilePart(value: string): string {
-  return value
-    .trim()
-    .replace(/[^a-zA-Z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60) || "class";
+  return value.trim().replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "class-list";
 }
 
 function exportErrorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "";
-
-  if (message === "This class list exceeds the supported official export size.") {
-    return Response.json({ error: message }, { status: 413 });
-  }
-
-  console.error("official class-list export failed", error);
-  return Response.json(
-    { error: "Unable to generate the official class list." },
-    { status: 500, headers: { "Cache-Control": "no-store" } },
-  );
+  if (/access|scope|role/i.test(message)) return Response.json({ error: "This class list is outside your active teaching scope." }, { status: 403 });
+  console.error("official class-list export failed", { message });
+  return Response.json({ error: "Unable to generate the class list." }, { status: 500, headers: { "Cache-Control": "no-store" } });
 }
 
 async function loadStoredLogoBytes(storagePath: string, signedUrl: string): Promise<Uint8Array | null> {
@@ -41,98 +30,89 @@ async function loadStoredLogoBytes(storagePath: string, signedUrl: string): Prom
   return new Uint8Array(await response.arrayBuffer());
 }
 
+function parseColumns(url: URL): ClassListColumnId[] {
+  return Array.from(new Set((url.searchParams.get("columns") ?? "admissionNumber,sex,registerClass,status")
+    .split(",").filter((item): item is ClassListColumnId => classListColumnIds.includes(item as ClassListColumnId))));
+}
+
+function xlsxBytes(input: Awaited<ReturnType<typeof getClassListWorkspace>>): ArrayBuffer {
+  const columns = buildOfficialClassListColumns(input.configuration.columns, input.configuration.blankColumns);
+  const rows: Array<Array<string | number>> = [
+    [input.schoolName], [input.title],
+    ["Academic Year", input.academicYear, "Grade", input.grade, "Class", input.className],
+    ["Register Teacher", input.registerTeacherName ?? "—"], [],
+    columns.map((column) => column.label),
+    ...input.learners.map((learner, index) => columns.map((column) => column.value(learner, index))),
+  ];
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  worksheet["!cols"] = columns.map((column) => ({ wch: Math.max(8, Math.round(column.weight * 14)) }));
+  worksheet["!autofilter"] = { ref: `A6:${XLSX.utils.encode_col(columns.length - 1)}${rows.length}` };
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Class List");
+  workbook.Props = { Title: `${input.title} class list`, Subject: "ScolaPro class list", Author: "ScolaPro" };
+  return XLSX.write(workbook, { type: "array", bookType: "xlsx", compression: true }) as ArrayBuffer;
+}
+
 export async function GET(request: Request) {
   const context = await getUserContext();
   if (!context.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Match the learner directory's current access boundary: an authenticated
-  // active school membership scopes the export to that membership's school.
-  const membership = context.memberships[0];
+  const membership = context.currentSchoolMembership;
   if (!membership) return Response.json({ error: "School membership required" }, { status: 403 });
 
   const url = new URL(request.url);
-  const grade = url.searchParams.get("grade")?.trim() ?? "";
-  const registerClass = url.searchParams.get("class")?.trim() ?? "";
-  const format = url.searchParams.get("format") === "pdf" ? "pdf" : "html";
   const requestedYear = Number(url.searchParams.get("year") ?? new Date().getFullYear());
-  const academicYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100
-    ? requestedYear
-    : new Date().getFullYear();
-
-  if (!grade || !registerClass || grade === "all" || registerClass === "all") {
-    return Response.json({ error: "Select a specific grade and register class before exporting a class list." }, { status: 400 });
-  }
+  const academicYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100 ? requestedYear : new Date().getFullYear();
+  const format = url.searchParams.get("format") === "pdf" ? "pdf" : url.searchParams.get("format") === "xlsx" ? "xlsx" : "html";
+  const baseConfiguration: Partial<ClassListConfiguration> = {
+    scope: url.searchParams.get("scope") === "all" || (!url.searchParams.has("scope") && !membership.staffMemberId) ? "all" : "my",
+    rosterType: (url.searchParams.get("rosterType") ?? "register_class") as ClassListRosterType,
+    rosterId: url.searchParams.get("rosterId") ?? "",
+    columns: parseColumns(url),
+    blankColumns: Number(url.searchParams.get("blankColumns") ?? 0),
+  };
 
   try {
-    const [profile, roster] = await Promise.all([
-      getLiveSchoolDocumentProfile(membership.schoolId),
-      getOfficialClassListRoster(membership.schoolId, academicYear, grade, registerClass),
-    ]);
-    const header = buildOfficialDocumentHeaderModel(profile, {
-      mode: officialDocumentHeaderModeForType("class_list"),
-      provenanceSource: "live_school_profile",
-    });
-    const generatedAt = new Intl.DateTimeFormat("en-NA", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    }).format(new Date());
-    const rows = roster.learners.map((learner) => ({
-      learnerName: learner.name,
-      admissionNumber: learner.admissionNumber,
-      sex: learner.sex,
-      status: learner.status,
-    }));
-    const fileBase = `${safeFilePart(roster.grade)}-${safeFilePart(roster.registerClass)}-${academicYear}-class-list`;
-
-    if (format === "pdf") {
-      // Only fetch a server-managed stored logo. A legacy/external logo URL is
-      // left to HTML rendering so arbitrary configured URLs are never fetched
-      // server-side by the PDF endpoint.
-      const logoBytes = await loadStoredLogoBytes(profile.logoStoragePath, profile.logoUrl);
-      const rendered = await renderOfficialClassListPdf({
-        header,
-        academicYear,
-        grade: roster.grade,
-        registerClass: roster.registerClass,
-        registerTeacherName: roster.registerTeacherName,
-        rows,
-        generatedAt,
-        logoBytes,
-      });
-      return new Response(Buffer.from(rendered.bytes), {
-        status: 200,
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${fileBase}.pdf"`,
-          "Cache-Control": "private, no-store, max-age=0",
-          "X-Content-Type-Options": "nosniff",
-          "Referrer-Policy": "no-referrer",
-          "X-ScolaPro-Page-Count": String(rendered.pageCount),
-        },
-      });
+    let workspace = await getClassListWorkspace({ membership, academicYear, configuration: baseConfiguration });
+    // Legacy grade/class links are resolved only against the actor's scoped
+    // options. Arbitrary labels therefore cannot widen a teacher's access.
+    if (!url.searchParams.get("rosterId") && url.searchParams.get("class")) {
+      const classLabel = url.searchParams.get("class")?.trim();
+      const gradeLabel = url.searchParams.get("grade")?.trim();
+      const match = workspace.options.register_class.find((option) => option.label === classLabel && (!gradeLabel || option.helper === gradeLabel));
+      if (!match) return Response.json({ error: "This class list is outside your active teaching scope." }, { status: 403 });
+      workspace = await getClassListWorkspace({ membership, academicYear, configuration: { ...baseConfiguration, rosterType: "register_class", rosterId: match.id } });
     }
+    if (!workspace.configuration.rosterId) return Response.json({ error: "No roster is available in your active scope." }, { status: 404 });
 
-    const html = renderOfficialClassListHtml({
-      header,
-      academicYear,
-      grade: roster.grade,
-      registerClass: roster.registerClass,
-      registerTeacherName: roster.registerTeacherName,
-      rows,
-      generatedAt,
-    });
+    const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
+    const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("class_list"), provenanceSource: "live_school_profile" });
+    const generatedAt = new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
+    const documentInput = {
+      header, academicYear, grade: workspace.grade, registerClass: workspace.className,
+      registerTeacherName: workspace.registerTeacherName, rosterTitle: workspace.title,
+      rows: workspace.learners, columns: workspace.configuration.columns,
+      blankColumns: workspace.configuration.blankColumns, generatedAt,
+    };
+    const fileBase = `${safeFilePart(workspace.title)}-${academicYear}-class-list`;
 
-    return new Response(html, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/html; charset=utf-8",
-        "Content-Disposition": `inline; filename="${fileBase}.html"`,
-        "Cache-Control": "private, no-store, max-age=0",
-        "X-Content-Type-Options": "nosniff",
-        "Referrer-Policy": "no-referrer",
-      },
-    });
+    if (format === "xlsx") {
+      return new Response(xlsxBytes(workspace), { status: 200, headers: {
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${fileBase}.xlsx"`,
+        "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+      } });
+    }
+    if (format === "pdf") {
+      const logoBytes = await loadStoredLogoBytes(profile.logoStoragePath, profile.logoUrl);
+      const rendered = await renderOfficialClassListPdf({ ...documentInput, logoBytes });
+      return new Response(Buffer.from(rendered.bytes), { status: 200, headers: {
+        "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${fileBase}.pdf"`,
+        "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-ScolaPro-Page-Count": String(rendered.pageCount),
+      } });
+    }
+    return new Response(renderOfficialClassListHtml(documentInput), { status: 200, headers: {
+      "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `inline; filename="${fileBase}.html"`,
+      "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
+    } });
   } catch (error) {
     return exportErrorResponse(error);
   }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Plus } from "lucide-react";
+import { Plus, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { LearnerDirectory } from "@/features/learners/learner-directory";
@@ -78,9 +78,12 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
             <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Learners</h1>
             <p className="mt-1 text-sm text-muted-foreground">{schoolName} · Current learner identities and enrolments.</p>
           </div>
-          {canRegisterLearner ? <Link href="/learners/register" className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 self-start bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong sm:self-auto">
-            <Plus aria-hidden="true" className="size-4" /> Register learner
-          </Link> : null}
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <Link href="/class-lists" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted"><UsersRound aria-hidden="true" className="size-4" />Class Lists</Link>
+            {canRegisterLearner ? <Link href="/learners/register" className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong">
+              <Plus aria-hidden="true" className="size-4" /> Register learner
+            </Link> : null}
+          </div>
         </div>
 
         <Suspense fallback={<LearnerDirectoryLoading />}>
