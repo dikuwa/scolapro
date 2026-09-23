@@ -119,6 +119,7 @@ select set_config('request.jwt.claim.sub','ca000000-0000-4000-8000-000000000004'
 select is(public.resolve_school_teaching_impact('ca200000-0000-4000-8000-000000000003','2027-02-03'),'NO_TEACHING','national baseline applies without per-school duplication');
 
 reset role;
+select set_config('request.jwt.claim.sub','ca000000-0000-4000-8000-000000000002',true);
 insert into public.learner_calendar_events(
   id,event_scope,tenant_id,school_id,academic_year,title,category,starts_on,ends_on,
   audience_scope,teaching_impact,created_by_user_id
