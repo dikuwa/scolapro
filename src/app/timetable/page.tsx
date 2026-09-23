@@ -1,4 +1,5 @@
-import { BookOpenCheck, CalendarDays, Clock3, UserRoundCheck } from "lucide-react";
+import { BookOpenCheck, CalendarDays, Clock3, UserRoundCheck, UsersRound } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { BellScheduleManager } from "@/features/timetable/bell-schedule-manager";
@@ -33,12 +34,14 @@ export default async function TimetablePage() {
   return (
     <AppShell>
       <section>
-        <div className="mb-6">
-          <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Timetable</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{canManage ? "Configure subjects, teacher allocations, teaching periods, bell schedules and conflict-safe timetable slots from one connected workspace." : "View the current school timetable generated from governed subject and teacher allocations."}</p>
-          <div className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs text-muted-foreground">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Timetable</h1>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{canManage ? "Configure subjects, teacher allocations, teaching periods, bell schedules and conflict-safe timetable slots from one connected workspace." : "View the current school timetable generated from governed subject and teacher allocations."}</p>
+            <div className="mt-3 inline-flex min-h-8 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs text-muted-foreground">
             <CalendarDays className="size-3.5" aria-hidden="true" /><span>Today · {workspace.todayDate}</span><span aria-hidden="true">·</span><span className="font-medium text-foreground">{todayLabel ?? "No timetable day"}</span>
+            </div>
           </div>
+          <Link href="/class-lists" className="inline-flex min-h-10 items-center justify-center gap-2 self-start rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted sm:self-auto"><UsersRound className="size-4" aria-hidden="true" />Class Lists</Link>
         </div>
         <TodayTimetableContextCard context={todayContext} cycleMode={workspace.cycleMode} cycleLength={workspace.cycleLength} />
         <div className="mb-5 grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-4">

@@ -13,13 +13,10 @@ import {
   renderOfficialDocumentHtmlHeader,
 } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { buildOfficialClassListColumns, classListColumnPercentages } from "@/features/documents/server/class-list-document";
+import type { ClassListColumnId, ClassListLearnerRow } from "@/features/learners/class-list-types";
 
-export type OfficialClassListRow = {
-  learnerName: string;
-  admissionNumber?: string | null;
-  sex?: string | null;
-  status?: string | null;
-};
+export type OfficialClassListRow = ClassListLearnerRow;
 
 export type OfficialClassListDocumentInput = {
   header: OfficialDocumentHeaderModel;
@@ -27,20 +24,21 @@ export type OfficialClassListDocumentInput = {
   grade: string;
   registerClass: string;
   rows: OfficialClassListRow[];
+  columns?: ClassListColumnId[];
+  blankColumns?: number;
+  rosterTitle?: string | null;
   generatedAt?: string | null;
   registerTeacherName?: string | null;
 };
 
 export function renderOfficialClassListHtml(input: OfficialClassListDocumentInput): string {
   const { header } = input;
+  const columns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
+  const widths = classListColumnPercentages(columns);
   const rowMarkup = input.rows
     .map(
       (row, index) => `<tr>
-        <td class="number-cell">${index + 1}</td>
-        <td>${escapeOfficialDocumentHtml(row.learnerName)}</td>
-        <td>${escapeOfficialDocumentHtml(row.admissionNumber || "—")}</td>
-        <td>${escapeOfficialDocumentHtml(row.sex || "—")}</td>
-        <td>${escapeOfficialDocumentHtml(row.status || "—")}</td>
+        ${columns.map((column) => `<td class="${column.key === "number" ? "number-cell" : ""}">${escapeOfficialDocumentHtml(column.value(row, index))}</td>`).join("")}
       </tr>`,
     )
     .join("");
@@ -82,11 +80,9 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   .class-list th, .class-list td { border: 1px solid var(--line); padding: 4px 5px; vertical-align: middle; }
   .class-list th { text-align: left; font-size: 7.3px; font-weight: 700; }
   .class-list td { font-size: 7.5px; }
-  .class-list .number-cell { width: 7%; text-align: center; font-variant-numeric: tabular-nums; }
-  .class-list th:nth-child(2) { width: 42%; }
-  .class-list th:nth-child(3) { width: 21%; }
-  .class-list th:nth-child(4) { width: 12%; }
-  .class-list th:nth-child(5) { width: 18%; }
+  .class-list .number-cell { text-align: center; font-variant-numeric: tabular-nums; }
+  .class-list thead { display: table-header-group; }
+  .class-list tr { break-inside: avoid; page-break-inside: avoid; }
   .empty-row { text-align: center; color: var(--muted); padding: 14px 6px !important; }
   .class-summary { display: flex; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-top: 0; padding: 6px 8px; font-size: 7px; }
   ${OFFICIAL_DOCUMENT_METADATA_RULE}
@@ -102,7 +98,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   ${renderOfficialDocumentHtmlHeader(header)}
 
   <section class="document-title">
-    <h2>Class List</h2>
+    <h2>${escapeOfficialDocumentHtml(input.rosterTitle || "Class List")}</h2>
     <div class="context">
       <span><strong>Academic Year:</strong> ${escapeOfficialDocumentHtml(input.academicYear)}</span>
       <span><strong>Grade:</strong> ${escapeOfficialDocumentHtml(input.grade || "—")}</span>
@@ -112,11 +108,12 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   </section>
 
   <table class="class-list">
+    <colgroup>${columns.map((column, index) => `<col data-column="${escapeOfficialDocumentHtml(column.key)}" style="width:${widths[index].toFixed(2)}%" />`).join("")}</colgroup>
     <thead>
-      <tr><th class="number-cell">No.</th><th>Learner</th><th>Admission No.</th><th>Sex</th><th>Status</th></tr>
+      <tr>${columns.map((column) => `<th class="${column.key === "number" ? "number-cell" : ""}">${escapeOfficialDocumentHtml(column.label)}</th>`).join("")}</tr>
     </thead>
     <tbody>
-      ${rowMarkup || `<tr><td colspan="5" class="empty-row">No learners in this class list.</td></tr>`}
+      ${rowMarkup || `<tr><td colspan="${columns.length}" class="empty-row">No learners in this class list.</td></tr>`}
     </tbody>
   </table>
 
