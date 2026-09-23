@@ -27,6 +27,8 @@ test("finalization freezes official provenance and revisions are append-only", (
   assert.match(migration, /reference_number='CORR-'/);
   assert.match(migration, /Correspondence history cannot be deleted/);
   assert.match(migration, /revision provenance is invalid/);
+  assert.match(migration, /revoke all on function app_private\.enforce_correspondence_document_integrity\(\)/);
+  assert.match(migration, /correspondence_reference_counters_deny_direct_read/);
 });
 
 test("the controlled rich-text surface rejects arbitrary HTML and unsafe links", () => {

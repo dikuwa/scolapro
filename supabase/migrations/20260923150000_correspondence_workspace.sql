@@ -131,6 +131,9 @@ begin
 end;
 $$;
 
+revoke all on function app_private.enforce_correspondence_document_integrity()
+  from public, anon, authenticated;
+
 create trigger correspondence_document_integrity
 before insert or update or delete on public.correspondence_documents
 for each row execute function app_private.enforce_correspondence_document_integrity();
@@ -225,6 +228,12 @@ grant execute on function public.revise_correspondence_document(uuid,text) to au
 
 alter table public.correspondence_documents enable row level security;
 alter table public.correspondence_reference_counters enable row level security;
+
+-- Counter allocation is RPC-only. Keep an explicit fail-closed policy so the
+-- table satisfies the repository RLS baseline without exposing sequence state.
+create policy correspondence_reference_counters_deny_direct_read
+on public.correspondence_reference_counters for select to authenticated
+using (false);
 
 create policy correspondence_documents_read on public.correspondence_documents
 for select to authenticated using (app_private.can_manage_correspondence((select auth.uid()),school_id));
