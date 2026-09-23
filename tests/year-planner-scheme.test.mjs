@@ -15,8 +15,6 @@ const route = await read("src/app/api/official-documents/teaching-plan/route.ts"
 
 test("the canonical plan identity stays subject + grade + academic year", () => {
   assert.match(migration, /shared subject\/grade\/year plan/i);
-  assert.match(migration, /pacing_plans_one_live_department_plan_idx/);
-  assert.match(migration, /where plan_level = 'department' and status in \('draft', 'active'\)/);
   assert.match(migration, /p_plan_level = 'department'/);
   assert.match(migration, /teacher_allocations ta[\s\S]*ta\.subject_offering_id = p_subject_offering_id/);
   assert.doesNotMatch(migration, /create table if not exists public\.(year_plans|schemes_of_work)/);
@@ -33,6 +31,7 @@ test("current allocation authority is enforced at database and application bound
   assert.match(queries, /row\.staff_member_id === input\.staffMemberId/);
   assert.match(queries, /teacherOfferingIds/);
   assert.match(actions, /Teachers author the shared subject and grade plan/);
+  assert.match(actions, /A shared subject and grade plan already exists for this academic year/);
 });
 
 test("curriculum text remains read-only while teacher planning fields are mutable", () => {

@@ -11,7 +11,7 @@ test("teaching workspace starts independent top-level reads together", () => {
 });
 
 test("teaching schedule and curriculum registry reads share one request wave", () => {
-  assert.match(source, /const \[scheduleRows, objectiveRows, competencyRows\] = await Promise\.all/);
+  assert.match(source, /const \[scheduleRows, objectiveRows, competencyRows, eventRows\] = await Promise\.all/);
 });
 
 test("preparation and actual teaching reads share one request wave", () => {

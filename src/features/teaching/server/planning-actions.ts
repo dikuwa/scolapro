@@ -47,9 +47,6 @@ const formInteger = (form: FormData, key: string): number | undefined => {
 
 function planningErrorMessage(message: string | undefined, fallback: string): string {
   const detail = (message ?? "").toLowerCase();
-  if (detail.includes("pacing_plans_one_live_department_plan_idx")) {
-    return "A shared subject and grade plan already exists for this academic year. Open the existing plan instead.";
-  }
   if (detail.includes("national_baseline") || detail.includes("national baseline")) {
     return "National baseline plans are authored at platform level, not by a school.";
   }
@@ -235,6 +232,22 @@ export async function createPacingPlan(
     const today = getNamibiaDateKey();
     if (allocation.active_from > today || (allocation.active_to && allocation.active_to < today)) {
       return { message: "That teacher allocation is not currently effective." };
+    }
+  }
+
+  if (parsed.data.planLevel === "department") {
+    const { data: existingPlan } = await supabase
+      .from("pacing_plans")
+      .select("id")
+      .eq("school_id", offering.school_id)
+      .eq("academic_year", offering.academic_year)
+      .eq("subject_offering_id", offering.id)
+      .eq("plan_level", "department")
+      .in("status", ["draft", "active"])
+      .limit(1)
+      .maybeSingle();
+    if (existingPlan) {
+      return { message: "A shared subject and grade plan already exists for this academic year. Open the existing plan instead." };
     }
   }
 

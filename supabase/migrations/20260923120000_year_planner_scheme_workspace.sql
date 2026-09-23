@@ -10,13 +10,6 @@ alter table public.pacing_plan_items
     references public.academic_terms(id) on delete restrict,
   add column if not exists completed_on date;
 
--- The subject offering already fixes school, grade, subject and academic year.
--- Keep one live shared plan for that identity; archived/superseded records remain
--- available as history and do not prevent an intentional replacement.
-create unique index if not exists pacing_plans_one_live_department_plan_idx
-  on public.pacing_plans(school_id, academic_year, subject_offering_id)
-  where plan_level = 'department' and status in ('draft', 'active');
-
 create index if not exists pacing_plan_items_term_sequence_idx
   on public.pacing_plan_items(academic_term_id, sequence_number)
   where academic_term_id is not null;
@@ -77,6 +70,13 @@ as $$
             on staff.id = ta.staff_member_id
            and staff.user_id = (select auth.uid())
            and staff.status = 'active'
+          join public.school_memberships sm
+            on sm.school_id = ta.school_id
+           and sm.staff_member_id = ta.staff_member_id
+           and sm.user_id = (select auth.uid())
+           and sm.role_key in ('teacher','class_teacher')
+           and sm.active_from <= current_date
+           and (sm.active_to is null or sm.active_to >= current_date)
           where ta.subject_offering_id = p_subject_offering_id
             and ta.school_id = p_school_id
             and ta.active_from <= current_date
@@ -140,6 +140,13 @@ as $$
               on staff.id = ta.staff_member_id
              and staff.user_id = (select auth.uid())
              and staff.status = 'active'
+            join public.school_memberships sm
+              on sm.school_id = ta.school_id
+             and sm.staff_member_id = ta.staff_member_id
+             and sm.user_id = (select auth.uid())
+             and sm.role_key in ('teacher','class_teacher')
+             and sm.active_from <= current_date
+             and (sm.active_to is null or sm.active_to >= current_date)
             where ta.subject_offering_id = p_subject_offering_id
               and ta.school_id = p_school_id
               and ta.active_from <= current_date
@@ -254,12 +261,12 @@ begin
   end if;
 
   if tg_table_name = 'pacing_plan_items' then
-    if new.planned_start_on is not null and v_term.id is not null
+    if new.planned_start_on is not null and new.academic_term_id is not null
        and (v_term.starts_on is null or v_term.ends_on is null
          or new.planned_start_on < v_term.starts_on or new.planned_start_on > v_term.ends_on) then
       raise exception 'Planned date is outside the selected academic term';
     end if;
-    if new.planned_end_on is not null and v_term.id is not null
+    if new.planned_end_on is not null and new.academic_term_id is not null
        and (v_term.starts_on is null or v_term.ends_on is null
          or new.planned_end_on < v_term.starts_on or new.planned_end_on > v_term.ends_on) then
       raise exception 'Planned end date is outside the selected academic term';
@@ -270,7 +277,7 @@ begin
       raise exception 'Completed date is outside the pacing plan academic year';
     end if;
   else
-    if v_term.id is not null
+    if new.academic_term_id is not null
        and (v_term.starts_on is null or v_term.ends_on is null
          or new.starts_on < v_term.starts_on or new.ends_on > v_term.ends_on) then
       raise exception 'Planning event dates are outside the selected academic term';
