@@ -267,7 +267,7 @@ export async function permanentlyDeleteTeacherProfessionalDocument(
   // Row-Level Security already narrows this read to the actor's own document.
   const { data: document, error: readError } = await supabase
     .from("teacher_professional_documents")
-    .select("id,school_id,owner_staff_member_id,storage_path")
+    .select("id,school_id,owner_staff_member_id,storage_path,status")
     .eq("id", parsed.data.documentId)
     .maybeSingle();
 
