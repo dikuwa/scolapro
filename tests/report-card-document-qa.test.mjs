@@ -57,7 +57,7 @@ test("official class-list output keeps long-table continuation and provenance", 
   assert.match(classListHtml, /OFFICIAL_DOCUMENT_PRINT_RULE/);
   assert.match(classListHtml, /<thead>/);
   assert.match(classListPdf, /rowsPerPage/);
-  assert.match(classListPdf, /drawTableHeader\(page, bold, y, columns\)/);
+  assert.match(classListPdf, /drawTableHeader\(page, bold, y, columns, documentColumns\.map/);
   assert.match(classListPdf, /drawOfficialDocumentPdfFooter/);
   assert.match(classListRoute, /generatedAt/);
   assert.match(classListRoute, /X-ScolaPro-Page-Count/);
