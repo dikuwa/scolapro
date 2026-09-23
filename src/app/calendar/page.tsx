@@ -36,13 +36,13 @@ export default async function CalendarPage() {
       <section>
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Calendar</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Academic-year, term and teaching-impact context for {membership.schoolName}. Calendar dates can close teaching, shorten a day, or activate an altered/exam timetable without replacing academic-year or term logic.</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Academic-year, term and learner-event context for {membership.schoolName}. National baseline dates and school events remain separate from teacher and hostel calendars, while explicit teaching impact connects to attendance, bells and timetable cycles.</p>
         </div>
 
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
           <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Academic year</p><p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-indigo)]">{year}</p></div><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span></div>
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Configured terms</p><p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-mint)]">{calendar.terms.length}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><CheckCircle2 className="size-4" /></span></div>
-          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Teaching overrides</p><p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-amber)]">{teachingImpact.overrides.length}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span></div>
+          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Learner events</p><p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-amber)]">{teachingImpact.events.length}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span></div>
         </div>
 
         <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -56,7 +56,7 @@ export default async function CalendarPage() {
             <div className="mt-4 rounded-[var(--radius-sm)] bg-warning-soft px-4 py-5"><p className="text-sm font-medium text-[color:var(--warning)]">Academic year dates are not configured yet</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Configure the academic-year foundation before adding effective bell schedules.</p></div>
           )}
         </section>
-        {canManageTeachingImpact ? <TeachingImpactManager schoolId={membership.schoolId} year={year} schedules={teachingImpact.schedules} overrides={teachingImpact.overrides} /> : null}
+        <TeachingImpactManager schoolId={membership.schoolId} year={year} schedules={teachingImpact.schedules} events={teachingImpact.events} overrides={teachingImpact.overrides} audienceOptions={teachingImpact.audienceOptions} canManage={canManageTeachingImpact} />
       </section>
     </AppShell>
   );
