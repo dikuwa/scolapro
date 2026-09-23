@@ -231,8 +231,11 @@ set search_path = pg_catalog, public
 as $$
 declare
   v_plan record;
-  v_term record;
-  v_year record;
+  v_term_starts_on date;
+  v_term_ends_on date;
+  v_year_id uuid;
+  v_year_starts_on date;
+  v_year_ends_on date;
 begin
   select tenant_id, school_id, academic_year
     into v_plan
@@ -246,40 +249,40 @@ begin
   end if;
 
   select id, starts_on, ends_on
-    into v_year
+    into v_year_id, v_year_starts_on, v_year_ends_on
     from public.academic_years
    where school_id = v_plan.school_id and year = v_plan.academic_year;
 
   if new.academic_term_id is not null then
-    select at.id, at.starts_on, at.ends_on
-      into v_term
+    select at.starts_on, at.ends_on
+      into v_term_starts_on, v_term_ends_on
       from public.academic_terms at
      where at.id = new.academic_term_id
        and at.school_id = v_plan.school_id
-       and at.academic_year_id = v_year.id;
+       and at.academic_year_id = v_year_id;
     if not found then raise exception 'Academic term is outside the pacing plan year'; end if;
   end if;
 
   if tg_table_name = 'pacing_plan_items' then
     if new.planned_start_on is not null and new.academic_term_id is not null
-       and (v_term.starts_on is null or v_term.ends_on is null
-         or new.planned_start_on < v_term.starts_on or new.planned_start_on > v_term.ends_on) then
+       and (v_term_starts_on is null or v_term_ends_on is null
+         or new.planned_start_on < v_term_starts_on or new.planned_start_on > v_term_ends_on) then
       raise exception 'Planned date is outside the selected academic term';
     end if;
     if new.planned_end_on is not null and new.academic_term_id is not null
-       and (v_term.starts_on is null or v_term.ends_on is null
-         or new.planned_end_on < v_term.starts_on or new.planned_end_on > v_term.ends_on) then
+       and (v_term_starts_on is null or v_term_ends_on is null
+         or new.planned_end_on < v_term_starts_on or new.planned_end_on > v_term_ends_on) then
       raise exception 'Planned end date is outside the selected academic term';
     end if;
-    if new.completed_on is not null and v_year.id is not null
-       and (v_year.starts_on is null or v_year.ends_on is null
-         or new.completed_on < v_year.starts_on or new.completed_on > v_year.ends_on) then
+    if new.completed_on is not null and v_year_id is not null
+       and (v_year_starts_on is null or v_year_ends_on is null
+         or new.completed_on < v_year_starts_on or new.completed_on > v_year_ends_on) then
       raise exception 'Completed date is outside the pacing plan academic year';
     end if;
   else
     if new.academic_term_id is not null
-       and (v_term.starts_on is null or v_term.ends_on is null
-         or new.starts_on < v_term.starts_on or new.ends_on > v_term.ends_on) then
+       and (v_term_starts_on is null or v_term_ends_on is null
+         or new.starts_on < v_term_starts_on or new.ends_on > v_term_ends_on) then
       raise exception 'Planning event dates are outside the selected academic term';
     end if;
   end if;
