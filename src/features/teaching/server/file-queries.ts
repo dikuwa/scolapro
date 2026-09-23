@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
+import { PROFESSIONAL_DOCUMENT_ARCHIVE_FIRST_MESSAGE, PROFESSIONAL_DOCUMENT_REVIEW_RETENTION_REASON } from "@/features/teaching/professional-document-policy";
 
 // Read-only aggregation read model for the teacher professional-files hub.
 //
@@ -114,6 +115,12 @@ export type TeachingFileProfessionalDocument = {
   reviewSubjectId: string | null;
   reviewSubjectName: string | null;
   reviewNote: string | null;
+  /**
+   * Governed permanent deletion (Issue #676). A document that entered the HOD
+   * review cycle is retained evidence and stays archivable only.
+   */
+  canPermanentlyDelete: boolean;
+  permanentDeleteBlockedReason: string | null;
 };
 
 export type TeachingFilesHub = {
@@ -278,6 +285,11 @@ export async function getTeachingFilesHub(input: {
 
   const professionalDocuments: TeachingFileProfessionalDocument[] = professionalRows.map((row) => {
     const review = reviewByDocument.get(row.id);
+    const archived = row.status === "archived";
+    // Option B (Issue #676): active documents can never be purged; archived
+    // documents with review history stay retained as governed evidence.
+    // canPermanentlyDelete stays false unless archived AND dependency-free.
+    const canPermanentlyDelete = archived && !review;
     return {
       id: row.id,
       originalFilename: row.original_filename,
@@ -285,7 +297,7 @@ export async function getTeachingFilesHub(input: {
       categoryLabel: row.category_label,
       mimeType: row.mime_type,
       fileSize: row.file_size,
-      status: row.status === "archived" ? "archived" : "active",
+      status: archived ? "archived" : "active",
       createdAt: row.created_at,
       archivedAt: row.archived_at,
       viewHref: `/api/teaching/files/${row.id}`,
@@ -294,6 +306,12 @@ export async function getTeachingFilesHub(input: {
       reviewSubjectId: review?.subject_id ?? null,
       reviewSubjectName: review ? one(review.subjects)?.display_name ?? null : null,
       reviewNote: review?.review_note ?? null,
+      canPermanentlyDelete,
+      permanentDeleteBlockedReason: review
+        ? PROFESSIONAL_DOCUMENT_REVIEW_RETENTION_REASON
+        : archived
+          ? null
+          : PROFESSIONAL_DOCUMENT_ARCHIVE_FIRST_MESSAGE,
     };
   });
 

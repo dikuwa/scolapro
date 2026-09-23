@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   Archive,
@@ -12,16 +12,37 @@ import {
   FolderOpen,
   Info,
   ListChecks,
+  Paperclip,
   Printer,
   Search,
   ShieldCheck,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  FormActionSlot,
+  FormFieldFeedback,
+  formFieldControlOffsetClass,
+  formFieldLabelClass,
+  formRowAlignClass,
+} from "@/components/ui/form-field-layout";
+import { cn } from "@/lib/utils";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  PROFESSIONAL_DOCUMENT_ARCHIVE_FIRST_MESSAGE,
+  PROFESSIONAL_DOCUMENT_DELETE_UNAVAILABLE_MESSAGE,
+  PROFESSIONAL_DOCUMENT_REVIEW_RETENTION_REASON,
+  TEACHER_PROFESSIONAL_DOCUMENT_ACCEPT,
+  TEACHER_PROFESSIONAL_DOCUMENT_BUCKET,
+  resolveTeacherProfessionalDocumentMimeType,
+  teacherProfessionalDocumentUploadIssue,
+} from "@/features/teaching/professional-document-policy";
 import {
   archiveTeacherProfessionalDocument,
   finalizeTeacherProfessionalDocument,
+  permanentlyDeleteTeacherProfessionalDocument,
   prepareTeacherProfessionalDocumentUpload,
   submitTeacherProfessionalDocumentForReview,
 } from "@/features/teaching/server/professional-documents";
@@ -72,6 +93,9 @@ type ProfessionalDocument = {
   reviewSubjectId: string | null;
   reviewSubjectName: string | null;
   reviewNote: string | null;
+  /** Governed permanent deletion (Issue #676); resolved by the server read model. */
+  canPermanentlyDelete: boolean;
+  permanentDeleteBlockedReason: string | null;
 };
 
 export type TeachingFilesHubProps = {
@@ -93,15 +117,6 @@ const preparationStatusLabels: Record<string, string> = {
   reviewed: "Reviewed",
   returned: "Returned",
 };
-
-const uploadAccept = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "image/jpeg",
-  "image/png",
-].join(",");
 
 function pretty(value: string) {
   return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -169,9 +184,15 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
   const [itemType, setItemType] = useState("");
   const [recordStatus, setRecordStatus] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<{ tone: "success" | "error"; message: string } | null>(null);
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<{ documentId: string; tone: "success" | "error"; message: string } | null>(null);
   const [submittingReviewId, setSubmittingReviewId] = useState<string | null>(null);
   const [reviewSubjectByDocument, setReviewSubjectByDocument] = useState<Record<string, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allocationById = useMemo(
     () => new Map(allocations.map((allocation) => [allocation.allocationId, allocation])),
@@ -257,41 +278,83 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
       .map((allocation) => [allocation.subjectId, { value: allocation.subjectId, label: allocation.subjectName }]),
   ).values()];
 
+  // The styled file control still uses a real (visually hidden) file input, so
+  // selection is validated here before any signed upload ticket is requested.
+  function selectProfessionalDocumentFile(file: File | null) {
+    setUploadStatus(null);
+    if (!file) {
+      setSelectedFile(null);
+      setFileError(null);
+      return;
+    }
+    setSelectedFile(file);
+    setFileError(
+      teacherProfessionalDocumentUploadIssue({ name: file.name, size: file.size, type: file.type }),
+    );
+  }
+
   async function uploadProfessionalDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ownerSchoolId || !ownerStaffMemberId) return;
 
     const form = event.currentTarget;
     const formData = new FormData(form);
-    const file = formData.get("file");
-    if (!(file instanceof File) || !file.size) {
-      toast.error("Choose a professional document to upload.");
+
+    if (!selectedFile) {
+      const message = "Choose a professional document to upload.";
+      setFileError(message);
+      setUploadStatus({ tone: "error", message });
+      return;
+    }
+
+    const issue = teacherProfessionalDocumentUploadIssue({
+      name: selectedFile.name,
+      size: selectedFile.size,
+      type: selectedFile.type,
+    });
+    if (issue) {
+      setFileError(issue);
+      setUploadStatus({ tone: "error", message: issue });
+      return;
+    }
+
+    const mimeType = resolveTeacherProfessionalDocumentMimeType(selectedFile.name, selectedFile.type);
+    if (!mimeType) {
+      const message = "Choose a PDF, DOCX, XLSX, PPTX, JPG or PNG file.";
+      setFileError(message);
+      setUploadStatus({ tone: "error", message });
       return;
     }
 
     setUploading(true);
+    setFileError(null);
+    setUploadStatus(null);
     try {
       const ticket = await prepareTeacherProfessionalDocumentUpload({
         schoolId: ownerSchoolId,
         staffMemberId: ownerStaffMemberId,
-        originalFilename: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
+        originalFilename: selectedFile.name,
+        mimeType,
+        fileSize: selectedFile.size,
       });
-      if (!ticket.success || !ticket.storagePath || !ticket.token || !ticket.documentId || !ticket.mimeType) {
-        toast.error(ticket.message ?? "Upload could not be prepared.");
+      if (!ticket.success || !ticket.storagePath || !ticket.token || !ticket.documentId) {
+        const message = ticket.message ?? "Upload could not be prepared.";
+        setUploadStatus({ tone: "error", message });
+        toast.error(message);
         return;
       }
 
       const supabase = createSupabaseBrowserClient();
       const { error: uploadError } = await supabase.storage
-        .from("teacher-professional-documents")
-        .uploadToSignedUrl(ticket.storagePath, ticket.token, file, {
-          contentType: ticket.mimeType,
+        .from(TEACHER_PROFESSIONAL_DOCUMENT_BUCKET)
+        .uploadToSignedUrl(ticket.storagePath, ticket.token, selectedFile, {
+          contentType: ticket.mimeType ?? mimeType,
           upsert: false,
         });
       if (uploadError) {
-        toast.error("The file could not be uploaded to private storage.");
+        const message = "The file could not be uploaded to private storage. Check your connection and try again.";
+        setUploadStatus({ tone: "error", message });
+        toast.error(message);
         return;
       }
 
@@ -300,22 +363,58 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         schoolId: ownerSchoolId,
         staffMemberId: ownerStaffMemberId,
         storagePath: ticket.storagePath,
-        originalFilename: file.name,
-        mimeType: ticket.mimeType,
-        fileSize: file.size,
+        originalFilename: selectedFile.name,
+        mimeType: ticket.mimeType ?? mimeType,
+        fileSize: selectedFile.size,
         title: String(formData.get("title") ?? ""),
         categoryLabel: String(formData.get("categoryLabel") ?? ""),
       });
       if (!result.success) {
+        setUploadStatus({ tone: "error", message: result.message });
         toast.error(result.message);
         return;
       }
 
+      setUploadStatus({ tone: "success", message: `${result.message} It is listed below.` });
       toast.success(result.message);
       form.reset();
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
+    } catch {
+      const message = "The upload could not be completed. Try again.";
+      setUploadStatus({ tone: "error", message });
+      toast.error(message);
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function deleteProfessionalDocument(documentId: string) {
+    setDeletingId(documentId);
+    setDeleteStatus(null);
+    try {
+      const result = await permanentlyDeleteTeacherProfessionalDocument(documentId);
+      setDeleteStatus({
+        documentId,
+        tone: result.success ? "success" : "error",
+        message: result.message,
+      });
+      if (result.success) {
+        toast.success(result.message);
+        router.refresh();
+      } else {
+        toast.error(result.message);
+      }
+    } catch {
+      setDeleteStatus({
+        documentId,
+        tone: "error",
+        message: PROFESSIONAL_DOCUMENT_DELETE_UNAVAILABLE_MESSAGE,
+      });
+      toast.error(PROFESSIONAL_DOCUMENT_DELETE_UNAVAILABLE_MESSAGE);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -429,31 +528,107 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         </p>
 
         {canUploadProfessionalDocuments && ownerSchoolId && ownerStaffMemberId ? (
-          <form onSubmit={uploadProfessionalDocument} className="mt-4 grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] xl:items-end">
-            <label className="text-xs font-medium leading-4">
-              File
-              <input
-                name="file"
-                type="file"
-                accept={uploadAccept}
-                required
-                className="mt-1.5 block min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2 text-sm"
-              />
-              <span className="mt-1 block text-[0.68rem] font-normal text-muted-foreground">PDF, DOCX, XLSX, PPTX, JPG or PNG · maximum 10 MB.</span>
-            </label>
-            <label className="text-xs font-medium leading-4">
-              Title
-              <input name="title" maxLength={180} placeholder="Optional display title" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:ring-4 focus:ring-[color:var(--brand-soft)]" />
-            </label>
-            <label className="text-xs font-medium leading-4">
-              Category label
-              <input name="categoryLabel" maxLength={120} placeholder="Optional neutral label" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:ring-4 focus:ring-[color:var(--brand-soft)]" />
-              <span className="mt-1 block text-[0.68rem] font-normal text-muted-foreground">A personal label only; it does not represent an official requirement.</span>
-            </label>
-            <button type="submit" disabled={uploading} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
-              <FileUp className="size-4" aria-hidden="true" />
-              {uploading ? "Uploading…" : "Upload"}
-            </button>
+          <form
+            onSubmit={uploadProfessionalDocument}
+            className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted p-3"
+          >
+            <div
+              className={cn(
+                "grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]",
+                formRowAlignClass,
+              )}
+            >
+              <div>
+                <label className={formFieldLabelClass} htmlFor="professional-document-file">
+                  File
+                </label>
+                <div className={formFieldControlOffsetClass}>
+                  <input
+                    ref={fileInputRef}
+                    id="professional-document-file"
+                    name="file"
+                    type="file"
+                    accept={TEACHER_PROFESSIONAL_DOCUMENT_ACCEPT}
+                    disabled={uploading}
+                    aria-describedby="professional-document-file-help"
+                    onChange={(event) => selectProfessionalDocumentFile(event.target.files?.[0] ?? null)}
+                    className="sr-only"
+                  />
+                  <div className="flex min-h-10 w-full flex-wrap items-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-2 py-1.5">
+                    <label
+                      htmlFor="professional-document-file"
+                      className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-3 text-xs font-medium text-foreground transition-colors duration-[var(--motion-fast)] hover:bg-surface focus-within:ring-4 focus-within:ring-brand-soft"
+                    >
+                      <Paperclip className="size-3.5" aria-hidden="true" />
+                      {selectedFile ? "Change file" : "Choose file"}
+                    </label>
+                    <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={selectedFile?.name ?? undefined}>
+                      {selectedFile
+                        ? `${selectedFile.name} · ${formatBytes(selectedFile.size)}`
+                        : "No file chosen"}
+                    </span>
+                  </div>
+                </div>
+                <FormFieldFeedback
+                  helper="PDF, DOCX, XLSX, PPTX, JPG or PNG · maximum 10 MB."
+                  error={fileError}
+                  errorId="professional-document-file-help"
+                />
+              </div>
+              <div>
+                <label className={formFieldLabelClass} htmlFor="professional-document-title">
+                  Title
+                </label>
+                <div className={formFieldControlOffsetClass}>
+                  <input
+                    id="professional-document-title"
+                    name="title"
+                    maxLength={180}
+                    disabled={uploading}
+                    placeholder="Optional display title"
+                    className="min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:ring-4 focus:ring-[color:var(--brand-soft)] disabled:opacity-60"
+                  />
+                </div>
+                <FormFieldFeedback />
+              </div>
+              <div>
+                <label className={formFieldLabelClass} htmlFor="professional-document-category">
+                  Category label
+                </label>
+                <div className={formFieldControlOffsetClass}>
+                  <input
+                    id="professional-document-category"
+                    name="categoryLabel"
+                    maxLength={120}
+                    disabled={uploading}
+                    placeholder="Optional neutral label"
+                    className="min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:ring-4 focus:ring-[color:var(--brand-soft)] disabled:opacity-60"
+                  />
+                </div>
+                <FormFieldFeedback helper="A personal label only; it does not represent an official requirement." />
+              </div>
+              <FormActionSlot>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  aria-busy={uploading}
+                  className="scolapro-cta inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] transition-colors duration-[var(--motion-fast)] hover:bg-brand-strong focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:opacity-60"
+                >
+                  {uploading ? <Spinner className="size-4 text-white" /> : <FileUp className="size-4" aria-hidden="true" />}
+                  {uploading ? "Uploading…" : "Upload"}
+                </button>
+              </FormActionSlot>
+            </div>
+            <p
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "mt-2 min-h-4 text-xs",
+                uploadStatus?.tone === "error" ? "text-[color:var(--danger)]" : "text-muted-foreground",
+              )}
+            >
+              {uploadStatus?.message ?? ""}
+            </p>
           </form>
         ) : (
           <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-4">
@@ -464,8 +639,16 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
 
         {visibleProfessionalDocuments.length ? (
           <ul className="mt-4 divide-y divide-border-subtle">
-            {visibleProfessionalDocuments.map((document) => (
-              <li key={document.id} className="flex flex-col gap-3 py-4 first:pt-1 sm:flex-row sm:items-start sm:justify-between">
+            {visibleProfessionalDocuments.map((document) => {
+              const archived = document.status === "archived";
+              const permanentDeleteDisabled =
+                deletingId === document.id || !archived || !document.canPermanentlyDelete;
+              const permanentDeleteTitle = !archived
+                ? PROFESSIONAL_DOCUMENT_ARCHIVE_FIRST_MESSAGE
+                : (document.permanentDeleteBlockedReason ?? undefined);
+              return (
+              <li key={document.id} className="flex flex-col gap-3 py-4 first:pt-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="scolapro-record-title">{document.title || document.originalFilename}</p>
@@ -525,9 +708,40 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
                       <Archive className="size-3.5" aria-hidden="true" /> {archivingId === document.id ? "Archiving…" : "Archive"}
                     </button>
                   ) : null}
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (permanentDeleteDisabled) return;
+                      void deleteProfessionalDocument(document.id);
+                    }}
+                  >
+                    <button
+                      type="submit"
+                      data-confirm-destructive="true"
+                      data-confirm-label={`delete ${document.title || document.originalFilename} permanently`}
+                      disabled={permanentDeleteDisabled}
+                      title={permanentDeleteTitle}
+                      aria-describedby={permanentDeleteDisabled ? `permanent-delete-hint-${document.id}` : undefined}
+                      className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium text-[color:var(--danger)] hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Trash2 className="size-3.5" aria-hidden="true" /> {deletingId === document.id ? "Deleting…" : "Delete permanently"}
+                    </button>
+                  </form>
                 </div>
-              </li>
-            ))}
+                {permanentDeleteDisabled && permanentDeleteTitle ? (
+                  <p id={`permanent-delete-hint-${document.id}`} className="mt-1 text-[0.68rem] leading-4 text-muted-foreground sm:text-right">
+                    {permanentDeleteTitle}
+                  </p>
+                ) : null}
+                {deleteStatus?.documentId === document.id ? (
+                  <p role="status" className={cn("text-xs", deleteStatus.tone === "error" ? "text-[color:var(--danger)]" : "text-[color:var(--success)]")}>
+                    {deleteStatus.message}
+                  </p>
+                ) : null}
+                </div>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <EmptyState

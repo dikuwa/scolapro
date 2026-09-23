@@ -188,6 +188,8 @@ const professionalA = {
   reviewSubjectId: null,
   reviewSubjectName: null,
   reviewNote: null,
+  canPermanentlyDelete: false,
+  permanentDeleteBlockedReason: 'Archive this document before deleting it permanently.',
 };
 
 function renderHub(overrides = {}) {

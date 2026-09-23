@@ -77,6 +77,38 @@ test("teaching files keeps existing connected records and adds owner uploads wit
   assert.match(page, /ownerMembership/);
 });
 
+test("permanent deletion is archive-gated, review-retained, FK-blocked and storage-server-side", () => {
+  const migration = source("supabase/migrations/20260923143000_teacher_professional_document_permanent_delete.sql");
+  const policy = source("src/features/teaching/professional-document-policy.ts");
+  assert.match(migration, /Archive this document before deleting it permanently/);
+  assert.match(migration, /entered HOD review/);
+  assert.match(migration, /Teacher professional documents are archived, not deleted/);
+  assert.match(policy, /PROFESSIONAL_DOCUMENT_ARCHIVE_FIRST_MESSAGE/);
+  assert.match(policy, /PROFESSIONAL_DOCUMENT_GOVERNED_REFERENCE_MESSAGE/);
+  assert.match(actions, /PROFESSIONAL_DOCUMENT_ARCHIVE_FIRST_MESSAGE/);
+  assert.match(actions, /createSupabaseAdminClient\(\)\.storage/);
+  assert.match(actions, /\.remove\(\[document\.storage_path\]\)/);
+  assert.doesNotMatch(migration, /create policy[^;]{0,300}teacher-professional-documents[^;]{0,300}delete/i);
+  assert.doesNotMatch(migration, /offline|queue|retention|retention_period|retain_for|interval '\d/i);
+  assert.match(queries, /canPermanentlyDelete = archived && !review/);
+  assert.match(workspace, /PROFESSIONAL_DOCUMENT_ARCHIVE_FIRST_MESSAGE/);
+  assert.match(workspace, /Delete permanently/);
+  assert.match(workspace, /data-confirm-destructive/);
+  assert.match(workspace, /disabled=\{permanentDeleteDisabled\}/);
+});
+
+test("upload MIME normalization stays consistent across prepare, browser content type and finalize", () => {
+  const policy = source("src/features/teaching/professional-document-policy.ts");
+  assert.match(policy, /resolveTeacherProfessionalDocumentMimeType/);
+  assert.match(policy, /EXTENSION_MIME_TYPES/);
+  assert.match(workspace, /resolveTeacherProfessionalDocumentMimeType/);
+  assert.match(workspace, /teacherProfessionalDocumentUploadIssue/);
+  assert.match(workspace, /contentType: ticket\.mimeType/);
+  assert.match(workspace, /accept=\{TEACHER_PROFESSIONAL_DOCUMENT_ACCEPT\}/);
+  assert.match(workspace, /setSelectedFile/);
+  assert.match(actions, /createSignedUploadUrl/);
+});
+
 test("download route authorizes through RLS before minting a short-lived signed URL", () => {
   const selectIndex = route.indexOf('.from("teacher_professional_documents")');
   const signIndex = route.indexOf(".createSignedUrl(");
