@@ -1,5 +1,8 @@
 import { Buffer } from "node:buffer";
-import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import {
+  buildOfficialDocumentHeaderModel,
+  officialDocumentHeaderModeForType,
+} from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialClassListHtml } from "@/features/documents/server/render-official-class-list-html";
 import { renderOfficialClassListPdf } from "@/features/documents/server/render-official-class-list-pdf";
@@ -65,7 +68,10 @@ export async function GET(request: Request) {
       getLiveSchoolDocumentProfile(membership.schoolId),
       getOfficialClassListRoster(membership.schoolId, academicYear, grade, registerClass),
     ]);
-    const header = buildOfficialDocumentHeaderModel(profile);
+    const header = buildOfficialDocumentHeaderModel(profile, {
+      mode: officialDocumentHeaderModeForType("class_list"),
+      provenanceSource: "live_school_profile",
+    });
     const generatedAt = new Intl.DateTimeFormat("en-NA", {
       day: "2-digit",
       month: "long",
