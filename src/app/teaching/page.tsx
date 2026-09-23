@@ -29,6 +29,7 @@ export default async function TeachingPage() {
     schoolId: membership.schoolId,
     academicYear,
     roleKey: membership.roleKey,
+    staffMemberId: membership.staffMemberId,
   });
 
   return (
@@ -42,7 +43,7 @@ export default async function TeachingPage() {
         </div>
         <TeachingWorkspace
           {...workspace}
-          planningHref={reviewRoles.has(membership.roleKey) ? "/teaching/planning" : null}
+          planningHref="/teaching/planning"
           curriculumHref={membership.staffMemberId ? "/teaching/curriculum" : null}
           preparationHref={preparationRoles.has(membership.roleKey) ? "/teaching/preparation" : null}
           coverageHref="/teaching/coverage"

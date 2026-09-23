@@ -61,6 +61,7 @@ export type TeachingPlanRow = {
   status: string;
   curriculumVersionId: string;
   offeringId: string;
+  registerClassId: string | null;
 };
 
 export type TeachingPlanItem = {
@@ -80,6 +81,19 @@ export type TeachingPlanItem = {
   recommendedPeriodsMax: number | null;
   practicalRequired: boolean;
   priority: string;
+  termId: string | null;
+  completedOn: string | null;
+  notes: string | null;
+};
+
+export type TeachingPlanEvent = {
+  eventId: string;
+  planId: string;
+  termId: string | null;
+  title: string;
+  notes: string | null;
+  startsOn: string;
+  endsOn: string;
 };
 
 export type TeachingScheduleRow = {
@@ -187,6 +201,7 @@ export type TeachingWorkspaceData = {
   allocations: TeachingAllocationRow[];
   planByAllocation: Record<string, TeachingPlanRow[]>;
   planItems: TeachingPlanItem[];
+  planEvents: TeachingPlanEvent[];
   scheduleItems: TeachingScheduleRow[];
   preparations: TeachingPreparationRow[];
   actuals: TeachingActualRow[];
@@ -218,7 +233,7 @@ export async function getTeachingWorkspace(input: {
     supabase
       .from("teacher_allocations")
       .select(
-        "id,subject_offering_id,register_class_id,active_from,active_to,subject_offerings(subject_id,curriculum_version_id,status,subjects(display_name),grades(display_name)),register_classes(display_name)",
+        "id,staff_member_id,subject_offering_id,register_class_id,active_from,active_to,subject_offerings(subject_id,curriculum_version_id,status,subjects(display_name),grades(display_name)),register_classes(display_name)",
       )
       .eq("school_id", input.schoolId)
       .eq("academic_year", input.academicYear)
@@ -227,7 +242,7 @@ export async function getTeachingWorkspace(input: {
     fetchRows(
       supabase
         .from("pacing_plans")
-        .select("id,plan_level,status,curriculum_version_id,subject_offering_id")
+        .select("id,plan_level,status,curriculum_version_id,subject_offering_id,register_class_id")
         .eq("school_id", input.schoolId)
         .eq("academic_year", input.academicYear)
         .in("status", ["draft", "active"]),
@@ -264,6 +279,16 @@ export async function getTeachingWorkspace(input: {
   const offeringIds = new Set<string>();
   const curriculumVersionIds = new Set<string>();
   const planningOfferings: PlanningOfferingOption[] = [];
+  const teacherOfferingIds = new Set(
+    (allocationsResult.data ?? [])
+      .filter(
+        (row) =>
+          !["teacher", "class_teacher"].includes(input.roleKey) ||
+          (Boolean(input.staffMemberId) && row.staff_member_id === input.staffMemberId),
+      )
+      .filter((row) => isEffectiveOn(today, row.active_from, row.active_to))
+      .map((row) => row.subject_offering_id),
+  );
   let allowedHodSubjectIds: Set<string> | null = null;
 
   if (input.includeConfiguredOfferings) {
@@ -314,6 +339,7 @@ export async function getTeachingWorkspace(input: {
     for (const row of offeringsResult.data ?? []) {
       if (seenOfferingIds.has(row.id)) continue;
       if (allowedHodSubjectIds && !allowedHodSubjectIds.has(row.subject_id)) continue;
+      if ((input.roleKey === "teacher" || input.roleKey === "class_teacher") && !teacherOfferingIds.has(row.id)) continue;
       const subject = one(row.subjects);
       const grade = one(row.grades);
       // A valid offering must resolve through the canonical subject and grade
@@ -334,6 +360,10 @@ export async function getTeachingWorkspace(input: {
   }
 
   for (const row of allocationsResult.data ?? []) {
+    if (
+      (input.roleKey === "teacher" || input.roleKey === "class_teacher") &&
+      (!input.staffMemberId || row.staff_member_id !== input.staffMemberId)
+    ) continue;
     const offering = one(row.subject_offerings);
     const classRow = one(row.register_classes);
     if (
@@ -374,6 +404,7 @@ export async function getTeachingWorkspace(input: {
         status: plan.status,
         curriculumVersionId: plan.curriculum_version_id,
         offeringId: plan.subject_offering_id,
+        registerClassId: plan.register_class_id,
       },
     ];
     planIds.push(plan.id);
@@ -385,7 +416,7 @@ export async function getTeachingWorkspace(input: {
       ? supabase
           .from("pacing_plan_items")
           .select(
-            "id,pacing_plan_id,curriculum_unit_id,planned_start_on,planned_end_on,planned_periods,priority,sequence_number,curriculum_units(unit_code,theme,topic,recommended_periods_min,recommended_periods_max,practical_required)",
+            "id,pacing_plan_id,curriculum_unit_id,academic_term_id,planned_start_on,planned_end_on,completed_on,planned_periods,priority,sequence_number,notes,curriculum_units(unit_code,theme,topic,recommended_periods_min,recommended_periods_max,practical_required)",
           )
           .in("pacing_plan_id", planIds)
           .order("sequence_number")
@@ -416,13 +447,16 @@ export async function getTeachingWorkspace(input: {
       recommendedPeriodsMax: unit?.recommended_periods_max ?? null,
       practicalRequired: unit?.practical_required ?? false,
       priority: row.priority,
+      termId: row.academic_term_id,
+      completedOn: row.completed_on,
+      notes: row.notes,
     };
   });
 
   const planItemIds = planItems.map((item) => item.itemId);
   const unitIds = [...new Set(planItems.map((item) => item.unitId))];
 
-  const [scheduleRows, objectiveRows, competencyRows] = await Promise.all([
+  const [scheduleRows, objectiveRows, competencyRows, eventRows] = await Promise.all([
     fetchRows(
       planItemIds.length
         ? supabase
@@ -455,7 +489,28 @@ export async function getTeachingWorkspace(input: {
         : null,
       "Unable to load curriculum competencies.",
     ),
+    fetchRows(
+      planIds.length
+        ? supabase
+            .from("pacing_plan_events")
+            .select("id,pacing_plan_id,academic_term_id,title,notes,starts_on,ends_on")
+            .in("pacing_plan_id", planIds)
+            .order("starts_on")
+            .order("id")
+        : null,
+      "Unable to load local planning events.",
+    ),
   ]);
+
+  const planEvents: TeachingPlanEvent[] = eventRows.map((row) => ({
+    eventId: row.id,
+    planId: row.pacing_plan_id,
+    termId: row.academic_term_id,
+    title: row.title,
+    notes: row.notes,
+    startsOn: row.starts_on,
+    endsOn: row.ends_on,
+  }));
 
   const scheduleItems: TeachingScheduleRow[] = scheduleRows.map((row) => ({
     itemId: row.id,
@@ -547,6 +602,7 @@ export async function getTeachingWorkspace(input: {
     allocations,
     planByAllocation,
     planItems,
+    planEvents,
     scheduleItems,
     preparations,
     actuals,
@@ -659,6 +715,9 @@ export async function getTeachingPlanningData(input: {
     .flat()
     .map((plan) => {
       const allocation = allocationByOffering.get(plan.offeringId) ?? null;
+      const variantClass = plan.registerClassId
+        ? classes.find((row) => row.classId === plan.registerClassId) ?? null
+        : null;
       return {
         planId: plan.planId,
         planLevel: plan.planLevel,
@@ -667,7 +726,7 @@ export async function getTeachingPlanningData(input: {
         offeringId: plan.offeringId,
         subjectName: allocation?.subjectName ?? "Subject",
         gradeName: allocation?.gradeName ?? "Grade",
-        className: allocation?.className ?? null,
+        className: plan.planLevel === "class" ? (variantClass?.className ?? allocation?.className ?? null) : null,
         itemCount: itemCountByPlan.get(plan.planId) ?? 0,
         scheduledCount: scheduledByPlan.get(plan.planId) ?? 0,
       };

@@ -5,7 +5,7 @@ import { getTeachingPlanningData } from "@/features/teaching/server/queries";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
-const planningRoles = new Set(["school_admin", "principal", "deputy_principal", "hod"]);
+const planningRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
 
 export const dynamic = "force-dynamic";
 

@@ -24,6 +24,7 @@ import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 export type PlanningActionState = { success?: boolean; message: string };
 
 const leadershipRoles = new Set(["school_admin", "principal", "deputy_principal", "hod"]);
+const planningRoles = new Set([...leadershipRoles, "teacher", "class_teacher"]);
 
 const uuidSchema = z.string().uuid();
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a valid date.");
@@ -46,6 +47,9 @@ const formInteger = (form: FormData, key: string): number | undefined => {
 
 function planningErrorMessage(message: string | undefined, fallback: string): string {
   const detail = (message ?? "").toLowerCase();
+  if (detail.includes("pacing_plans_one_live_department_plan_idx")) {
+    return "A shared subject and grade plan already exists for this academic year. Open the existing plan instead.";
+  }
   if (detail.includes("national_baseline") || detail.includes("national baseline")) {
     return "National baseline plans are authored at platform level, not by a school.";
   }
@@ -93,7 +97,7 @@ async function planningScope(): Promise<PlanningScope | null> {
   const context = await getUserContext();
   if (!context.user) return null;
   if (context.platformMemberships.length) return null;
-  const membership = context.memberships.find((item) => leadershipRoles.has(item.roleKey));
+  const membership = context.memberships.find((item) => planningRoles.has(item.roleKey));
   if (!membership) return null;
   return {
     schoolId: membership.schoolId,
@@ -141,6 +145,9 @@ export async function createPacingPlan(
 
   const scope = await planningScope();
   if (!scope) return { message: SCOPE_MESSAGE };
+  if (!leadershipRoles.has(scope.roleKey) && parsed.data.planLevel !== "department") {
+    return { message: "Teachers author the shared subject and grade plan. A class-specific pacing variant requires academic leadership." };
+  }
 
   const supabase = await createSupabaseServerClient();
 
@@ -308,6 +315,8 @@ export async function createPacingPlanItem(
       priority: itemPrioritySchema.optional(),
       sequenceNumber: z.number().int().positive().optional(),
       notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").optional(),
+      academicTermId: uuidSchema.optional(),
+      completedOn: dateSchema.optional(),
     })
     .safeParse({
       planId: text(form, "planId"),
@@ -318,6 +327,8 @@ export async function createPacingPlanItem(
       priority: formText(form, "priority"),
       sequenceNumber: formInteger(form, "sequenceNumber"),
       notes: formText(form, "notes"),
+      academicTermId: formText(form, "academicTermId"),
+      completedOn: formText(form, "completedOn"),
     });
 
   if (!parsed.success) {
@@ -368,6 +379,8 @@ export async function createPacingPlanItem(
     priority: parsed.data.priority ?? "normal",
     sequence_number: parsed.data.sequenceNumber ?? 100,
     notes: parsed.data.notes ?? null,
+    academic_term_id: parsed.data.academicTermId ?? null,
+    completed_on: parsed.data.completedOn ?? null,
   });
 
   if (error) {
@@ -391,6 +404,8 @@ export async function updatePacingPlanItem(
       priority: itemPrioritySchema.optional(),
       sequenceNumber: z.number().int().positive().optional(),
       notes: z.string().max(2000, "Notes must be 2000 characters or fewer.").optional(),
+      academicTermId: uuidSchema.optional(),
+      completedOn: dateSchema.optional(),
     })
     .safeParse({
       itemId: text(form, "itemId"),
@@ -400,6 +415,8 @@ export async function updatePacingPlanItem(
       priority: formText(form, "priority"),
       sequenceNumber: formInteger(form, "sequenceNumber"),
       notes: formText(form, "notes"),
+      academicTermId: formText(form, "academicTermId"),
+      completedOn: formText(form, "completedOn"),
     });
 
   if (!parsed.success) {
@@ -436,6 +453,8 @@ export async function updatePacingPlanItem(
   if (parsed.data.priority !== undefined) updates.priority = parsed.data.priority;
   if (parsed.data.sequenceNumber !== undefined) updates.sequence_number = parsed.data.sequenceNumber;
   if (parsed.data.notes !== undefined) updates.notes = parsed.data.notes;
+  if (parsed.data.academicTermId !== undefined) updates.academic_term_id = parsed.data.academicTermId;
+  if (parsed.data.completedOn !== undefined) updates.completed_on = parsed.data.completedOn;
 
   if (!Object.keys(updates).length) {
     return { message: "Nothing to change on this plan item." };
@@ -452,6 +471,64 @@ export async function updatePacingPlanItem(
 
   revalidatePlanning();
   return { success: true, message: "Plan item updated." };
+}
+
+// ==================== local planning events ====================
+
+export async function createPacingPlanEvent(
+  _state: PlanningActionState,
+  form: FormData,
+): Promise<PlanningActionState> {
+  const parsed = z
+    .object({
+      planId: uuidSchema,
+      academicTermId: uuidSchema.optional(),
+      title: z.string().trim().min(1).max(160),
+      notes: z.string().trim().max(2000).optional(),
+      startsOn: dateSchema,
+      endsOn: dateSchema,
+    })
+    .safeParse({
+      planId: text(form, "planId"),
+      academicTermId: formText(form, "academicTermId"),
+      title: text(form, "eventTitle"),
+      notes: formText(form, "eventNotes"),
+      startsOn: text(form, "eventStartsOn"),
+      endsOn: text(form, "eventEndsOn"),
+    });
+
+  if (!parsed.success) return { message: "Choose a plan, title and valid event dates." };
+  if (parsed.data.endsOn < parsed.data.startsOn) {
+    return { message: "The planning event end date must be on or after its start date." };
+  }
+
+  const scope = await planningScope();
+  if (!scope) return { message: SCOPE_MESSAGE };
+  const supabase = await createSupabaseServerClient();
+  const { data: plan } = await supabase
+    .from("pacing_plans")
+    .select("id,tenant_id,school_id")
+    .eq("id", parsed.data.planId)
+    .eq("school_id", scope.schoolId)
+    .maybeSingle();
+  if (!plan) return { message: "That plan is not available in your current school." };
+
+  const { error } = await supabase.from("pacing_plan_events").insert({
+    tenant_id: plan.tenant_id,
+    school_id: plan.school_id,
+    pacing_plan_id: plan.id,
+    academic_term_id: parsed.data.academicTermId ?? null,
+    title: parsed.data.title,
+    notes: parsed.data.notes ?? null,
+    starts_on: parsed.data.startsOn,
+    ends_on: parsed.data.endsOn,
+    created_by_user_id: scope.userId,
+  });
+  if (error) {
+    return { message: planningErrorMessage(error.message, "The planning event could not be added. Try again.") };
+  }
+  revalidatePlanning();
+  return { success: true, message: "Planning event added." };
 }
 
 // ==================== teaching schedule items ====================
