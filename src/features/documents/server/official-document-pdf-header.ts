@@ -1,5 +1,7 @@
 import "server-only";
 
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
 import {
@@ -27,6 +29,7 @@ export type OfficialDocumentPdfResources = {
   bold: PDFFont;
   schoolNameFont: PDFFont;
   logo: PDFImage | null;
+  coatOfArms: PDFImage | null;
 };
 
 export function officialDocumentPdfSafeText(value: unknown): string {
@@ -68,6 +71,14 @@ async function embedOfficialDocumentLogo(pdf: PDFDocument, bytes: Uint8Array | n
   }
 }
 
+async function loadGovernedCoatOfArmsBytes(): Promise<Uint8Array | null> {
+  try {
+    return new Uint8Array(await readFile(join(process.cwd(), "public", "brand", "governed", "namibia-coat-of-arms.png")));
+  } catch {
+    return null;
+  }
+}
+
 export async function createOfficialDocumentPdfResources(
   pdf: PDFDocument,
   header: OfficialDocumentHeaderModel,
@@ -85,6 +96,9 @@ export async function createOfficialDocumentPdfResources(
     bold,
     schoolNameFont,
     logo: await embedOfficialDocumentLogo(pdf, logoBytes),
+    coatOfArms: header.mode === "external_correspondence"
+      ? await embedOfficialDocumentLogo(pdf, await loadGovernedCoatOfArmsBytes())
+      : null,
   };
 }
 
@@ -95,7 +109,7 @@ export function drawOfficialDocumentPdfHeader(
   resources: OfficialDocumentPdfResources,
   topY = PAGE_HEIGHT - MARGIN,
 ): number {
-  const { regular, schoolNameFont, logo } = resources;
+  const { regular, schoolNameFont, logo, coatOfArms } = resources;
   page.drawRectangle({
     x: MARGIN,
     y: topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
@@ -107,13 +121,14 @@ export function drawOfficialDocumentPdfHeader(
 
   const centreX = MARGIN + LOGO_WIDTH;
   const centreWidth = CONTENT_WIDTH - LOGO_WIDTH - POSTAL_WIDTH;
-  const logoX = MARGIN + 8;
-  const logoY = topY - 72;
-  if (logo) {
-    const scale = Math.min(58 / logo.width, 56 / logo.height);
-    const width = logo.width * scale;
-    const height = logo.height * scale;
-    page.drawImage(logo, { x: logoX + (66 - width) / 2, y: logoY + (64 - height) / 2, width, height });
+  const leftX = MARGIN + 8;
+  const imageY = topY - 72;
+  const leftImage = header.mode === "external_correspondence" ? coatOfArms : logo;
+  if (leftImage) {
+    const scale = Math.min(58 / leftImage.width, 56 / leftImage.height);
+    const width = leftImage.width * scale;
+    const height = leftImage.height * scale;
+    page.drawImage(leftImage, { x: leftX + (66 - width) / 2, y: imageY + (64 - height) / 2, width, height });
   }
 
   let schoolFontSize = header.schoolNameFont === "old_english" ? 19 : 16;
@@ -125,20 +140,41 @@ export function drawOfficialDocumentPdfHeader(
   header.contactLines.slice(0, 4).forEach((line, index) => {
     drawOfficialDocumentPdfCentered(page, regular, line.text, 5.8, centreX, centreWidth, topY - 47 - index * 8);
   });
-  if (header.schoolEmisNumber) {
-    drawOfficialDocumentPdfCentered(page, regular, `EMIS: ${header.schoolEmisNumber}`, 5.4, centreX, centreWidth, topY - 78);
-  }
-
-  const postalX = PAGE_WIDTH - MARGIN - POSTAL_WIDTH + 8;
-  header.postalLines.slice(0, 3).forEach((line, index) => {
-    page.drawText(fitOfficialDocumentPdfText(regular, line, 6.2, POSTAL_WIDTH - 16), {
-      x: postalX,
-      y: topY - 48 - index * 9,
-      size: 6.2,
-      font: regular,
-      color: INK,
-    });
+  const centreTail = header.mode === "external_correspondence"
+    ? [...header.postalLines, ...(header.schoolEmisNumber ? [`EMIS: ${header.schoolEmisNumber}`] : [])]
+    : (header.schoolEmisNumber ? [`EMIS: ${header.schoolEmisNumber}`] : []);
+  centreTail.slice(0, 3).forEach((line, index) => {
+    drawOfficialDocumentPdfCentered(
+      page,
+      regular,
+      line,
+      5.4,
+      centreX,
+      centreWidth,
+      topY - (header.mode === "external_correspondence" ? 79 : 78) - index * 7,
+    );
   });
+
+  if (header.mode === "external_correspondence") {
+    if (logo) {
+      const scale = Math.min(58 / logo.width, 56 / logo.height);
+      const width = logo.width * scale;
+      const height = logo.height * scale;
+      const logoX = PAGE_WIDTH - MARGIN - POSTAL_WIDTH + 8;
+      page.drawImage(logo, { x: logoX + (66 - width) / 2, y: imageY + (64 - height) / 2, width, height });
+    }
+  } else {
+    const postalX = PAGE_WIDTH - MARGIN - POSTAL_WIDTH + 8;
+    header.postalLines.slice(0, 3).forEach((line, index) => {
+      page.drawText(fitOfficialDocumentPdfText(regular, line, 6.2, POSTAL_WIDTH - 16), {
+        x: postalX,
+        y: topY - 48 - index * 9,
+        size: 6.2,
+        font: regular,
+        color: INK,
+      });
+    });
+  }
 
   return topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT;
 }
