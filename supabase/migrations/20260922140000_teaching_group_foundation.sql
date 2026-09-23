@@ -80,18 +80,20 @@ declare
   v_enrolment record;
   v_allocation record;
 begin
-  if tg_op='UPDATE' and (
-    new.tenant_id is distinct from old.tenant_id
-    or new.school_id is distinct from old.school_id
-    or new.academic_year is distinct from old.academic_year
-    or new.subject_offering_id is distinct from old.subject_offering_id
-    or new.code is distinct from old.code
-    or new.created_at is distinct from old.created_at
-  ) then
-    raise exception 'Teaching group identity and provenance are immutable';
-  end if;
-
+  -- Column-specific immutability must be scoped per table: the trigger fires on
+  -- three tables and subject_offering_id/code exist only on teaching_groups.
   if tg_table_name='teaching_groups' then
+    if tg_op='UPDATE' and (
+      new.tenant_id is distinct from old.tenant_id
+      or new.school_id is distinct from old.school_id
+      or new.academic_year is distinct from old.academic_year
+      or new.subject_offering_id is distinct from old.subject_offering_id
+      or new.code is distinct from old.code
+      or new.created_at is distinct from old.created_at
+    ) then
+      raise exception 'Teaching group identity and provenance are immutable';
+    end if;
+
     select s.tenant_id into v_school_tenant from public.schools s where s.id=new.school_id;
     select so.tenant_id,so.school_id,so.academic_year into v_offering
     from public.subject_offerings so where so.id=new.subject_offering_id;
@@ -101,6 +103,16 @@ begin
       raise exception 'Teaching group scope does not match school and subject offering';
     end if;
     return new;
+  end if;
+
+  if tg_op='UPDATE' and (
+    new.tenant_id is distinct from old.tenant_id
+    or new.school_id is distinct from old.school_id
+    or new.academic_year is distinct from old.academic_year
+    or new.teaching_group_id is distinct from old.teaching_group_id
+    or new.created_at is distinct from old.created_at
+  ) then
+    raise exception 'Teaching group relation identity and provenance are immutable';
   end if;
 
   select tg.tenant_id,tg.school_id,tg.academic_year,tg.subject_offering_id
@@ -139,6 +151,8 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function app_private.enforce_teaching_group_scope_integrity() from public,anon,authenticated;
 
 create trigger teaching_group_scope_integrity_trg
 before insert or update on public.teaching_groups
@@ -278,10 +292,17 @@ where lsr.status='active'
   and not exists (select 1 from public.teaching_groups tg where tg.school_id=so.school_id and tg.academic_year=so.academic_year and tg.code='offering:'||so.id::text||':class:'||e.register_class_id::text)
 order by so.id,e.register_class_id;
 
+-- Membership windows are clamped to the enrolment window so a retroactive
+-- registration on an already-ended enrolment cannot produce effective_to
+-- earlier than effective_from (which would abort the migration on the
+-- membership CHECK constraint).
 insert into public.teaching_group_memberships(tenant_id,school_id,academic_year,teaching_group_id,enrolment_id,learner_id,effective_from,effective_to,source)
 select lsr.tenant_id,lsr.school_id,lsr.academic_year,tg.id,lsr.enrolment_id,lsr.learner_id,
        greatest(e.enrolled_from,lsr.registered_at::date),
-       case when lsr.status='withdrawn' then lsr.withdrawn_at::date else e.enrolled_to end,
+       greatest(
+         greatest(e.enrolled_from,lsr.registered_at::date),
+         case when lsr.status='withdrawn' then lsr.withdrawn_at::date else e.enrolled_to end
+       ),
        'backfill:learner_subject_registration'
 from public.learner_subject_registrations lsr
 join public.enrolments e on e.id=lsr.enrolment_id and e.register_class_id is not null
