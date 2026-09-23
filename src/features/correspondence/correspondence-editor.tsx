@@ -8,7 +8,7 @@ import { TableKit } from "@tiptap/extension-table";
 import { FontFamily, FontSize, TextStyle } from "@tiptap/extension-text-style";
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Download, Eye, Heading2, Italic, Link2,
-  List, ListOrdered, Mail, PenLine, Printer, Redo2, Rows3, Save, Share2, Signature, Underline as UnderlineIcon, Undo2,
+  List, ListOrdered, PenLine, Printer, Redo2, Rows3, Save, Signature, Underline as UnderlineIcon, Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { Tooltip } from "@/components/ui/tooltip";
 import { finalizeCorrespondenceDocument, reviseCorrespondenceDocument, saveCorrespondenceDraft } from "@/features/correspondence/server/actions";
-import { CORRESPONDENCE_FONTS, CORRESPONDENCE_FONT_SIZES, correspondenceBodyPlainText } from "@/features/correspondence/rich-text";
+import { CORRESPONDENCE_FONTS, CORRESPONDENCE_FONT_SIZES } from "@/features/correspondence/rich-text";
 import { CORRESPONDENCE_TEMPLATES, templateContent, type CorrespondenceTemplateKey } from "@/features/correspondence/templates";
 import type { CorrespondenceDocument } from "@/features/correspondence/types";
 import { useRouter } from "next/navigation";
@@ -135,20 +135,6 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
       if (target) target.location.href = `/api/official-documents/correspondence/${document.id}${suffix}`;
     });
   };
-  const email = () => {
-    const content = `${recipient ? `To: ${recipient}\n\n` : ""}${correspondenceBodyPlainText(body)}\n\n${closing}\n${signatoryName}\n${signatoryPosition}`;
-    window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(content)}`;
-  };
-  const share = async () => {
-    const data = { title: subject || "Official correspondence", text: correspondenceBodyPlainText(body), url: window.location.href };
-    if (navigator.share) {
-      try { await navigator.share(data); } catch (error) { if ((error as DOMException).name !== "AbortError") toast.error("The document could not be shared."); }
-      return;
-    }
-    try { await navigator.clipboard.writeText(window.location.href); toast.success("Document link copied."); }
-    catch { toast.error("Sharing is not available in this browser."); }
-  };
-
   return <div className="space-y-5">
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
@@ -174,8 +160,6 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
         <Button variant="neutral" disabled={pending} onClick={() => preview("html")}><Eye className="size-4" />Preview</Button>
         <Button variant="neutral" disabled={pending} onClick={() => preview("print")}><Printer className="size-4" />Print</Button>
         <Button variant="neutral" disabled={pending} onClick={() => preview("pdf")}><Download className="size-4" />PDF</Button>
-        {readOnly ? <Button variant="neutral" disabled={pending} onClick={email}><Mail className="size-4" />Email</Button> : null}
-        {readOnly ? <Button variant="neutral" disabled={pending} onClick={() => { void share(); }}><Share2 className="size-4" />Share</Button> : null}
         {!readOnly ? <Button variant="success" loading={pending} onClick={() => startTransition(async () => { if (!(await save())) return; const result = await finalizeCorrespondenceDocument(document.id); if (result.success) toast.success(result.message); else toast.error(result.message); if (result.success) router.refresh(); })}><Signature className="size-4" />Finalize</Button> : <Button onClick={() => setRevisionOpen(true)}><PenLine className="size-4" />Create revision</Button>}
       </div>
     </section>

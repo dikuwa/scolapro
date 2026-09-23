@@ -49,10 +49,11 @@ test("all eight governed templates and required correspondence fields are presen
   }
 });
 
-test("create, edit, preview, finalize, print, PDF, email and share are exposed", () => {
-  for (const label of ["Save draft", "Preview", "Print", "PDF", "Email", "Share", "Finalize", "Create revision"]) {
+test("issue 691 workflow ends at finalize, print and PDF", () => {
+  for (const label of ["Save draft", "Preview", "Print", "PDF", "Finalize", "Create revision"]) {
     assert.match(editor, new RegExp(label));
   }
+  assert.doesNotMatch(editor, /navigator\.share|navigator\.clipboard|mailto:\?subject/);
 });
 
 test("HTML and PDF use the canonical external header and handle multi-page tables", () => {
