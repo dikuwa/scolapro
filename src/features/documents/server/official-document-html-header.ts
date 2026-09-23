@@ -34,9 +34,10 @@ export function renderOfficialDocumentHtmlHeader(
   logoBytes?: Uint8Array | null,
 ): string {
   const resolvedLogoUrl = logoDataUrl(logoBytes) || header.logoUrl;
-  const logoMarkup = resolvedLogoUrl
+  const schoolLogoMarkup = resolvedLogoUrl
     ? `<div class="logo-wrap"><img class="school-logo" src="${escapeOfficialDocumentHtml(resolvedLogoUrl)}" alt="${escapeOfficialDocumentHtml(header.schoolName)} logo" /></div>`
     : `<div class="logo-wrap logo-placeholder"></div>`;
+  const coatOfArmsMarkup = `<div class="coat-of-arms-wrap"><img class="governed-coat-of-arms" src="${escapeOfficialDocumentHtml(header.governedCoatOfArms.url)}" alt="${escapeOfficialDocumentHtml(header.governedCoatOfArms.alt)}" /></div>`;
   const nameClass = header.schoolNameFont === "old_english" ? " old-english" : "";
   const contactMarkup = header.contactLines
     .map((line) => `<div><span>${escapeOfficialDocumentHtml(line.label)}:</span> ${escapeOfficialDocumentHtml(line.value)}</div>`)
@@ -45,8 +46,22 @@ export function renderOfficialDocumentHtmlHeader(
     .map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`)
     .join("");
 
+  if (header.mode === "external_correspondence") {
+    return `<header class="school-header external-correspondence">
+    ${coatOfArmsMarkup}
+    <div class="school-identity">
+      <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
+      ${header.formerName ? `<div class="former-name">(${escapeOfficialDocumentHtml(header.formerName)})</div>` : ""}
+      ${contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : ""}
+      ${header.schoolEmisNumber ? `<div class="emis">EMIS: ${escapeOfficialDocumentHtml(header.schoolEmisNumber)}</div>` : ""}
+      ${postalMarkup ? `<div class="postal external-postal">${postalMarkup}</div>` : ""}
+    </div>
+    <div class="school-logo-right">${schoolLogoMarkup.replace('class="logo-wrap"', 'class="logo-wrap school-logo-wrap"')}</div>
+  </header>`;
+  }
+
   return `<header class="school-header">
-    ${logoMarkup}
+    ${schoolLogoMarkup}
     <div class="school-identity">
       <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
       ${header.formerName ? `<div class="former-name">(${escapeOfficialDocumentHtml(header.formerName)})</div>` : ""}

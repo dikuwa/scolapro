@@ -25,7 +25,25 @@ export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
   "@media (max-width: 640px) { .school-header { grid-template-columns: 76px minmax(0,1fr); align-items: start; } .school-header > .logo-wrap { grid-row: 1 / span 2; } .school-header > .school-identity, .school-header > .postal { grid-column: 2; } .school-header > .postal { align-self: start; padding-bottom: 0; } }";
 
 export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
-  `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}`;
+  `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}
+  .school-header.external-correspondence { grid-template-columns: 88px minmax(0,1fr) 88px; }
+  .external-correspondence .coat-of-arms-wrap,
+  .external-correspondence .school-logo-right,
+  .external-correspondence .school-logo-wrap { display: flex; align-items: center; justify-content: center; min-height: 76px; }
+  .external-correspondence .governed-coat-of-arms,
+  .external-correspondence .school-logo { display: block; max-width: 68px; max-height: 68px; object-fit: contain; }
+  .external-correspondence .school-identity { text-align: center; }
+  .external-correspondence .school-contact { text-align: center; }
+  .external-correspondence .external-postal { margin-top: 4px; padding: 0; text-align: center; }
+  @media (max-width: 640px) {
+    .school-header.external-correspondence { grid-template-columns: 58px minmax(0,1fr) 58px; gap: 6px; padding: 6px; }
+    .external-correspondence .governed-coat-of-arms,
+    .external-correspondence .school-logo { max-width: 48px; max-height: 58px; }
+    .external-correspondence .school-name { font-size: 17px; }
+    .external-correspondence .school-contact,
+    .external-correspondence .external-postal,
+    .external-correspondence .emis { font-size: 6.5px; }
+  }`;
 
 export const OFFICIAL_DOCUMENT_METADATA_RULE =
   ".document-meta { display: flex; justify-content: space-between; gap: 12px; padding: 5px 2px 0; color: #666; font-size: 6px; }";

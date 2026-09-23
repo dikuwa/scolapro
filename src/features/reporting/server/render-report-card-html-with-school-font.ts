@@ -4,7 +4,10 @@ import { Buffer } from "node:buffer";
 import { applyOfficialDocumentHtmlChrome } from "@/features/documents/server/official-document-chrome";
 import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
 import { renderOfficialDocumentHtmlHeader } from "@/features/documents/server/official-document-html-header";
-import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import {
+  buildOfficialDocumentHeaderModel,
+  officialDocumentHeaderModeForType,
+} from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import { loadOldEnglishFontBytes } from "@/features/reporting/server/report-card-fonts";
 import { renderReportCardHtml } from "@/features/reporting/server/render-report-card-html";
@@ -18,7 +21,10 @@ export async function renderReportCardHtmlWithSchoolFont(
 ): Promise<string> {
   let html = applyOfficialDocumentHtmlChrome(renderReportCardHtml(input));
   const model = buildReportCardTemplateModel(input);
-  const header = buildOfficialDocumentHeaderModel(model);
+  const header = buildOfficialDocumentHeaderModel(model, {
+    mode: officialDocumentHeaderModeForType("report_card"),
+    provenanceSource: "frozen_snapshot",
+  });
 
   if (header.schoolNameFont === "old_english") {
     const fontBase64 = Buffer.from(await loadOldEnglishFontBytes()).toString("base64");

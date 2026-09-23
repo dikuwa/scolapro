@@ -1,5 +1,8 @@
 import { Buffer } from "node:buffer";
-import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import {
+  buildOfficialDocumentHeaderModel,
+  officialDocumentHeaderModeForType,
+} from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderTeachingPrintPackHtml } from "@/features/teaching/server/render-teaching-print-pack-html";
 import { renderTeachingPrintPackPdf } from "@/features/teaching/server/render-teaching-print-pack-pdf";
@@ -42,7 +45,10 @@ export async function GET(request: Request) {
     if (!pack) continue;
 
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
-    const header = buildOfficialDocumentHeaderModel(profile);
+    const header = buildOfficialDocumentHeaderModel(profile, {
+      mode: officialDocumentHeaderModeForType("teaching_print_pack"),
+      provenanceSource: "live_school_profile",
+    });
     const generatedAt = new Intl.DateTimeFormat("en-NA", {
       dateStyle: "medium",
       timeStyle: "short",

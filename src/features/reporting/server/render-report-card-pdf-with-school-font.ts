@@ -6,7 +6,10 @@ import {
   officialDocumentPdfContentWidth,
 } from "@/features/documents/server/official-document-chrome";
 import { drawOfficialDocumentPdfFooter } from "@/features/documents/server/official-document-pdf-footer";
-import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import {
+  buildOfficialDocumentHeaderModel,
+  officialDocumentHeaderModeForType,
+} from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import {
   OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
@@ -31,7 +34,10 @@ export async function renderReportCardPdfWithSchoolFont(
 ): Promise<{ bytes: Uint8Array; pageCount: number }> {
   const rendered = await renderReportCardPdf(input);
   const model = buildReportCardTemplateModel(input);
-  const header = buildOfficialDocumentHeaderModel(model);
+  const header = buildOfficialDocumentHeaderModel(model, {
+    mode: officialDocumentHeaderModeForType("report_card"),
+    provenanceSource: "frozen_snapshot",
+  });
   const metadata = buildOfficialDocumentMetadata({
     snapshotVersion: model.snapshotVersion,
     certifiedAt: model.certifiedAt,

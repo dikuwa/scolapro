@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  buildOfficialDocumentHeaderModel,
+  type OfficialDocumentHeaderMode,
+  type OfficialDocumentHeaderModel,
+} from "@/features/documents/server/official-document-header";
 import { buildSchoolDocumentProfile, type SchoolDocumentProfile } from "@/features/documents/server/school-document-profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -50,5 +55,22 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
       logo_url: signedLogoUrl || profile.logo_url,
       logo_storage_path: logoStoragePath,
     },
+  });
+}
+
+/**
+ * Resolves a live governed header without allowing school settings to select
+ * or replace platform-owned assets. Existing operational documents should
+ * request `internal_school`; external correspondence is opt-in by its
+ * document family.
+ */
+export async function getLiveSchoolDocumentHeader(
+  schoolId: string,
+  mode: OfficialDocumentHeaderMode = "internal_school",
+): Promise<OfficialDocumentHeaderModel> {
+  const profile = await getLiveSchoolDocumentProfile(schoolId);
+  return buildOfficialDocumentHeaderModel(profile, {
+    mode,
+    provenanceSource: "live_school_profile",
   });
 }
