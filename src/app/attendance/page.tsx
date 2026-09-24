@@ -1,7 +1,9 @@
 import { CalendarCheck2, ClipboardCheck, UsersRound } from "lucide-react";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { AppShell } from "@/components/shell/app-shell";
+import { renderOfficialDocumentVerificationQrSvg } from "@/features/documents/server/official-document-verification";
 import { AttendanceSortControl } from "@/features/attendance/attendance-sort-control";
 import { AttendanceViewTabs } from "@/features/attendance/attendance-view-tabs";
 import { AbsenceOverview } from "@/features/attendance/absence-overview";
@@ -11,6 +13,7 @@ import { WeeklyRegister } from "@/features/attendance/weekly-register";
 import { getAbsenceOverviewWorkspace } from "@/features/attendance/server/absence-overview";
 import { getDailyRegisterWorkspace, type AttendanceSortDirection } from "@/features/attendance/server/register";
 import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
+import { getOfficialAttendanceSummaryFinalization } from "@/features/attendance/server/finalization";
 import { getWeeklyRegisterWorkspace, mondayFor } from "@/features/attendance/server/week";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import "./attendance-mobile.css";
@@ -27,13 +30,14 @@ function safeSchoolDate(value?: string) {
   return parsed.toISOString().slice(0, 10);
 }
 
-export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; term?: string | string[] }> }) {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; term?: string | string[]; mode?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/attendance");
 
   const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
   const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
+  const canFinalize = ["principal", "deputy_principal", "school_admin"].includes(membership.roleKey);
 
   const params = await searchParams;
   const requestedClass = Array.isArray(params.class) ? params.class[0] : params.class;
@@ -41,7 +45,9 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedView = Array.isArray(params.view) ? params.view[0] : params.view;
   const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
   const requestedTerm = Array.isArray(params.term) ? params.term[0] : params.term;
+  const requestedMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
   const view = requestedView === "week" ? "week" : requestedView === "official" ? "official" : requestedView === "absences" ? "absences" : "day";
+  const mode: "week" | "term" = requestedMode === "term" ? "term" : "week";
   const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
   const date = safeSchoolDate(requestedDate);
   const academicYear = Number(date.slice(0, 4));
@@ -58,7 +64,9 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           date={date}
           view={view}
           sort={sort}
+          mode={mode}
           requestedTerm={requestedTerm}
+          canFinalize={canFinalize}
         />
       </Suspense>
     </AppShell>
@@ -74,7 +82,9 @@ async function AttendanceWorkspaceData({
   date,
   view,
   sort,
+  mode,
   requestedTerm,
+  canFinalize,
 }: {
   schoolId: string;
   tenantId: string;
@@ -84,14 +94,42 @@ async function AttendanceWorkspaceData({
   date: string;
   view: "day" | "week" | "official" | "absences";
   sort: AttendanceSortDirection;
+  mode: "week" | "term";
   requestedTerm?: string;
+  canFinalize: boolean;
 }) {
 if (view === "official") {
-  const summary = await getOfficialAttendanceSummary(schoolId, academicYear, "week", date, requestedTerm ?? null);
+  const summary = await getOfficialAttendanceSummary(schoolId, academicYear, mode, date, requestedTerm ?? null);
+  const finalization = await getOfficialAttendanceSummaryFinalization({
+    schoolId,
+    mode,
+    scopeStart: summary.scopeStart,
+    scopeEnd: summary.scopeEnd,
+    termId: requestedTerm ?? null,
+  });
+
+  let qrSvg: string | null = null;
+  if (finalization) {
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("host") ?? "localhost:3000";
+    const proto = requestHeaders.get("x-forwarded-proto") ?? "https";
+    qrSvg = await renderOfficialDocumentVerificationQrSvg({ token: finalization.verificationToken, origin: `${proto}://${host}` });
+  }
+
   return (
     <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="official" sort={sort} />
-      <OfficialSummary summary={summary} date={date} />
+      <OfficialSummary
+        summary={summary}
+        date={date}
+        mode={mode}
+        schoolId={schoolId}
+        academicYear={academicYear}
+        termId={requestedTerm ?? null}
+        canFinalize={canFinalize}
+        finalization={finalization}
+        qrSvg={qrSvg}
+      />
     </section>
   );
 }
