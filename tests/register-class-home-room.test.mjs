@@ -55,6 +55,17 @@ test("5. upsert/update RPCs validate the room and keep the previous value audita
   assert.match(migration, /previous_home_room_id/);
   assert.match(migration, /grant execute on function public\.upsert_register_class\(uuid,integer,uuid,text,text,uuid\) to authenticated/);
   assert.match(migration, /grant execute on function public\.update_register_class\(uuid,uuid,text,text,uuid\) to authenticated/);
+  assert.doesNotMatch(migration, /grant execute[^;]*(?:to public|to anon)/);
+});
+
+test("6. server actions forward the optional home room without dropping register-class behaviour", () => {
+  assert.match(actions, /homeRoomId: z\.string\(\)\.uuid\("Choose a room\."\)\.optional\(\)\.or\(z\.literal\(""\)\)/);
+  assert.match(actions, /p_home_room_id: parsed\.data\.homeRoomId \|\| null/);
+  assert.match(actions, /p_class_code: normalizeCode\(parsed\.data\.classCode\)/);
+  assert.match(actions, /p_display_name: parsed\.data\.displayName/);
+  // Both create and update accept the field.
+  assert.equal((actions.match(/p_home_room_id: parsed\.data\.homeRoomId \|\| null/g) ?? []).length, 2);
+});
 
 test("7. structure read model resolves the home room for display and keeps classes intact", () => {
   assert.match(structure, /home_room_id/);
@@ -120,16 +131,4 @@ test("12. pgTAP covers denial, historical change, shared rooms and preserved beh
   assert.match(pgtap, /and entity_id = \(select id from public\.register_classes where lower\(class_code\)='7b'\)/);
   assert.doesNotMatch(pgtap, /where class_code='/);
   assert.match(pgtap, /set local role authenticated/);
-});
-
-  assert.doesNotMatch(migration, /grant execute[^;]*(?:to public|to anon)/);
-});
-
-test("6. server actions forward the optional home room without dropping register-class behaviour", () => {
-  assert.match(actions, /homeRoomId: z\.string\(\)\.uuid\("Choose a room\."\)\.optional\(\)\.or\(z\.literal\(""\)\)/);
-  assert.match(actions, /p_home_room_id: parsed\.data\.homeRoomId \|\| null/);
-  assert.match(actions, /p_class_code: normalizeCode\(parsed\.data\.classCode\)/);
-  assert.match(actions, /p_display_name: parsed\.data\.displayName/);
-  // Both create and update accept the field.
-  assert.equal((actions.match(/p_home_room_id: parsed\.data\.homeRoomId \|\| null/g) ?? []).length, 2);
 });
