@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { PlanningWorkspace } from "@/features/teaching/planning-workspace";
@@ -31,6 +33,13 @@ export default async function TeachingPlanningPage() {
   return (
     <AppShell>
       <section className="pb-10">
+        <Link
+          href="/teaching"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" aria-hidden="true" />
+          Teaching
+        </Link>
         <div className="mb-6">
           <h1 className="scolapro-page-title">Teaching plan</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
