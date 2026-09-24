@@ -19,10 +19,16 @@ stable
 security definer
 set search_path = pg_catalog, public, app_private
 as $$
-  with baseline as (
+  with days as (
+    -- generate_series has no (date, date, interval) overload; without the
+    -- explicit timestamp cast the preferred timestamptz variant is chosen
+    -- and the date-typed resolver call below fails to resolve (42883).
+    select generate_series(p_from::timestamp, p_to::timestamp, interval '1 day')::date as day
+  ),
+  baseline as (
     select day,
       app_private.resolve_learner_event_teaching_impact(p_school_id, day) as event_impact
-    from generate_series(p_from, p_to, interval '1 day') as series(day)
+    from days
   ),
   overrides as (
     select sdo.school_date, sdo.is_school_day, sdo.teaching_impact

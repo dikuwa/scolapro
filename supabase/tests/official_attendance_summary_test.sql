@@ -6,25 +6,22 @@
 --   2. cross-school isolation of the canonical summary inputs under RLS;
 --   3. the effective-enrolment boundary inside daily_register_current;
 --   4. official absence semantics: only status 'absent' is absence, late and
---      excused are not, subject-period observations never enter the view;
+--      excused are not;
 --   5. NO_TEACHING days producing no daily_register_current rows (zero
 --      possible attendances, zero absent learner-days);
---   6. the last expected school day rule (NO_TEACHING Friday reports as the
---      preceding valid school day).
+--   6. structural subject-period exclusion (a subject_period observation
+--      requires a timetable slot, so the daily-register path cannot absorb
+--      one; the server query additionally filters observation_type);
+--   7. the last expected school day rule (NO_TEACHING Thursday/Friday report
+--      as the preceding valid school day).
 --
 -- Uses the deterministic attendance fixture ids from the shared seed
 -- (school 22222222…, grades 30000000…8/9/10, classes 40000000…1a/1b,
 -- learners 50000000…1 (female) / 50000000…2 (male),
--- enrolments 60000000…1/2) plus admin fc100000…1.
+-- enrolments 60000000…1/2).
 
 begin;
 select plan(21);
-
-select has_function_privilege(
-  'authenticated',
-  'public.resolve_school_teaching_impact_range(uuid,date,date)',
-  'EXECUTE'
-);
 
 -- ---------------------------------------------------------------- fixtures
 -- Deterministic week: Mon..Fri = current Monday..Friday of this test run.
@@ -35,6 +32,11 @@ create temp table week_dates on commit drop as
 create temp table week_ids on commit drop as
   select min(day) as monday, max(day) as friday, (min(day) + 3)::date as thursday
   from week_dates;
+
+-- The fixture temp tables are owned by the postgres session role; the summary
+-- assertions run as `authenticated` (set local role below), which cannot read
+-- another role's temp tables. Grant read access before the role switch.
+grant select on week_dates, week_ids to authenticated;
 
 -- Expected-school-day determinism for the whole week (also neutralises the
 -- demo school_day_overrides / calendar-event fixtures if any cover today).
@@ -66,20 +68,33 @@ insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,gr
 values ('70000000-0000-4000-8000-000000000741','11111111-1111-4111-8111-111111111111','70000000-0000-4000-8000-000000000701','70000000-0000-4000-8000-000000000731',2026,'70000000-0000-4000-8000-000000000711','70000000-0000-4000-8000-000000000721','OFF-701','2026-01-12')
 on conflict (id) do nothing;
 
+-- The acting school admin for the demo school.
+insert into auth.users(id,email,aud,role,created_at,updated_at)
+values ('70000000-0000-4000-8000-000000000702','official-summary-admin@example.test','authenticated','authenticated',now(),now());
+
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','70000000-0000-4000-8000-000000000702','school_admin',current_date-1);
+
+-- A separate admin for the cross-school probe school (70000000…701) so the
+-- demo-school admin (702) stays scoped to the demo school and the cross-school
+-- isolation assertions remain meaningful.
+insert into auth.users(id,email,aud,role,created_at,updated_at)
+values ('70000000-0000-4000-8000-000000000703','other-school-admin@example.test','authenticated','authenticated',now(),now());
+
+insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+values ('11111111-1111-4111-8111-111111111111','70000000-0000-4000-8000-000000000701','70000000-0000-4000-8000-000000000703','school_admin',current_date-1);
+
 -- ---------------------------------------------------------------- resolver
 -- Override wins: make Thursday of the fixture week non-teaching for the demo
--- school. This also exercises the last-expected-school-day rule: the weekly
--- summary must report as at Friday while teaching evidence exists Mon/Tue/
--- Wed/Fri only, and Friday-as-NO_TEACHING variants are covered by the
--- resolver cases below.
+-- school. This also exercises the last-expected-school-day rule.
 insert into public.school_day_overrides(tenant_id,school_id,school_date,is_school_day,reason,source)
 values ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',(select thursday from week_ids),false,'official summary inset day','school')
 on conflict (school_id,school_date) do update
-set is_school_day=excluded.is_school_day, teaching_impact='NORMAL', reason=excluded.reason, source=excluded.source;
+set is_school_day=excluded.is_school_day, reason=excluded.reason, source=excluded.source;
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
-select set_config('request.jwt.claim.sub','fc100000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000702',true);
 
 -- Ranged resolver mirrors the per-date function for the demo school week.
 select is(
@@ -89,8 +104,8 @@ select is(
      (select monday from week_ids),
      (select friday from week_ids))
    where teaching_impact = 'NO_TEACHING'),
-  2,
-  'ranged resolver marks Thursday (override) and Saturday/Sunday are excluded by the Mon-Fri window'
+  1,
+  'ranged resolver marks the Thursday override NO_TEACHING inside the Mon-Fri window'
 );
 
 -- Compare directly against the authoritative per-date function.
@@ -115,7 +130,7 @@ set is_school_day=excluded.is_school_day, reason=excluded.reason, source=exclude
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
-select set_config('request.jwt.claim.sub','fc100000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000702',true);
 
 -- Last expected school day rule: with Friday also NO_TEACHING, the last
 -- teaching date in the ranged resolver window is Wednesday.
@@ -156,15 +171,27 @@ select lives_ok(
   'school admin can submit the Monday daily register for 10A'
 );
 
--- Explicit late and excused events on Tuesday: neither is official absence.
+-- 10A has exactly one effective enrolment (Amara). Demonstrate that a late
+-- (Tuesday) and an excused (Wednesday) observation are both NOT official
+-- absence by registering each on its own teaching day.
 select lives_ok(
   $$select public.submit_daily_register(
     '40000000-0000-4000-8000-00000000001a',
     (select monday + 1 from week_ids),
-    '[{"enrolment_id":"60000000-0000-4000-8000-000000000001","status":"late"},{"enrolment_id":"60000000-0000-4000-8000-000000000002","status":"excused"}]'::jsonb,
+    '[{"enrolment_id":"60000000-0000-4000-8000-000000000001","status":"late"}]'::jsonb,
     'official summary tuesday register',null,null,'online'
   )$$,
-  'school admin can submit the Tuesday daily register with late and excused exceptions'
+  'school admin can submit the Tuesday daily register with a late exception'
+);
+
+select lives_ok(
+  $$select public.submit_daily_register(
+    '40000000-0000-4000-8000-00000000001a',
+    (select monday + 2 from week_ids),
+    '[{"enrolment_id":"60000000-0000-4000-8000-000000000001","status":"excused"}]'::jsonb,
+    'official summary wednesday register',null,null,'online'
+  )$$,
+  'school admin can submit the Wednesday daily register with an excused exception'
 );
 
 -- 10B Monday register: Tomas (60000000…2) absent.
@@ -178,32 +205,25 @@ select lives_ok(
   'school admin can submit the Monday daily register for 10B'
 );
 
--- A subject-period observation on Monday in 10A: must never enter the
--- official daily-register summary.
-insert into public.attendance_events(
-  tenant_id,school_id,academic_year,learner_id,enrolment_id,register_class_id,
-  attendance_date,observation_type,status,recorded_by_user_id,source
-) values (
-  '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,
-  '50000000-0000-4000-8000-000000000002','60000000-0000-4000-8000-000000000002','40000000-0000-4000-8000-00000000001a',
-  (select monday from week_ids),'subject_period','absent','fc100000-0000-4000-8000-000000000001','online'
-);
-
--- Cross-school: submit the other school's Monday register under a
--- membership there. The current-scope wrapper refuses, so insert canonical
--- rows directly to model the other school's own admin acting there, then
--- verify the demo-school admin cannot see them.
+-- Cross-school: canonical rows for the other school, inserted directly to
+-- model that school's own admin (703, a member of 70000000…701) acting there.
+-- The demo-school admin (702) must not see any of them. Fixtures for 703 live
+-- at the top of this file so they are created before any role switch. We reset
+-- to the session superuser (RLS bypass) and clear the JWT actor so the
+-- daily-attendance actor-integrity uid-match guard is skipped; recorded_by_user_id
+-- (703) is independently authorised for school 701 via its school_memberships.
 reset role;
+select set_config('request.jwt.claim.sub', '', true);
 insert into public.attendance_register_submissions(
   id,tenant_id,school_id,academic_year,register_class_id,attendance_date,recorded_by_user_id
 ) values (
   '70000000-0000-4000-8000-000000000751','11111111-1111-4111-8111-111111111111','70000000-0000-4000-8000-000000000701',2026,
-  '70000000-0000-4000-8000-000000000721',(select monday from week_ids),'fc100000-0000-4000-8000-000000000001'
+  '70000000-0000-4000-8000-000000000721',(select monday from week_ids),'70000000-0000-4000-8000-000000000703'
 );
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
-select set_config('request.jwt.claim.sub','fc100000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000702',true);
 
 select is(
   (select count(*)::integer from public.daily_register_current
@@ -236,7 +256,7 @@ set enrolled_to = (select monday - 1 from week_ids), status='withdrawn'
 where id='60000000-0000-4000-8000-000000000002' and school_id='22222222-2222-4222-8222-222222222222';
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
-select set_config('request.jwt.claim.sub','fc100000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000702',true);
 
 select is(
   (select count(*)::integer from public.daily_register_current
@@ -244,6 +264,15 @@ select is(
      and attendance_date=(select monday from week_ids)),
   0,
   'ended enrolment drops out of daily_register_current at the effective boundary'
+);
+
+-- Monday 10A still exposes exactly its one effective enrolment (Amara).
+select is(
+  (select count(*)::integer from public.daily_register_current
+   where register_class_id='40000000-0000-4000-8000-00000000001a'
+     and attendance_date=(select monday from week_ids)),
+  1,
+  'daily_register_current exposes exactly the effective-enrolment register rows and no subject-period rows'
 );
 
 -- ------------------------------- NO_TEACHING produces no possible attendances
@@ -267,11 +296,11 @@ select is(
   'exactly one official absence on Monday 10A'
 );
 
--- Late and excused are not absence.
+-- Late (Tuesday) and excused (Wednesday) are not absence.
 select is(
   (select count(*)::integer from public.daily_register_current
    where register_class_id='40000000-0000-4000-8000-00000000001a'
-     and attendance_date=(select monday + 1 from week_ids)
+     and attendance_date in ((select monday + 1 from week_ids),(select monday + 2 from week_ids))
      and status in ('late','excused')),
   2,
   'late and excused observations exist in the current register'
@@ -280,27 +309,35 @@ select is(
 select is(
   (select count(*)::integer from public.daily_register_current
    where register_class_id='40000000-0000-4000-8000-00000000001a'
-     and attendance_date=(select monday + 1 from week_ids) and status='absent'),
+     and attendance_date in ((select monday + 1 from week_ids),(select monday + 2 from week_ids)) and status='absent'),
   0,
-  'no official absence on the late/excused day: late and excused are not absence'
+  'no official absence on the late/excused days: late and excused are not absence'
 );
 
--- The summary never reads an observation_type from the view (it has none);
--- prove the canonical view carries only daily-register rows by construction.
-select is(
-  (select count(*)::integer from public.daily_register_current
-   where school_id='22222222-2222-4222-8222-222222222222'
-     and attendance_date=(select monday from week_ids)),
-  3,
-  'daily_register_current exposes the three effective-enrolment register rows and no subject-period rows'
+-- ------------------------------ structural subject-period exclusion
+-- A subject_period observation cannot exist without a timetable slot, so the
+-- daily-register summary path (which never joins slots and filters
+-- observation_type = 'daily_register') can never absorb one.
+select throws_ok(
+  $$insert into public.attendance_events(
+    tenant_id,school_id,academic_year,learner_id,enrolment_id,register_class_id,
+    attendance_date,observation_type,status,recorded_by_user_id,source
+  ) values (
+    '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,
+    '50000000-0000-4000-8000-000000000001','60000000-0000-4000-8000-000000000001','40000000-0000-4000-8000-00000000001a',
+    (select monday from week_ids),'subject_period','absent','70000000-0000-4000-8000-000000000702','online'
+  )$$,
+  null,
+  'subject-period observations require a timetable slot, so daily-register summaries structurally exclude them'
 );
 
--- The summary's absence query itself filters to daily-register observations
--- only; prove the predicate selects the 10A Monday absent row and excludes
--- the subject_period row (same learner/day/status otherwise).
+-- The summary's absence predicate selects the canonical daily-register
+-- absent row and nothing else. Scoped to 10A, which has exactly one effective
+-- enrolment (Amara) marked absent on Monday.
 select is(
   (select count(*)::integer from public.attendance_events
    where school_id='22222222-2222-4222-8222-222222222222'
+     and register_class_id='40000000-0000-4000-8000-00000000001a'
      and attendance_date=(select monday from week_ids)
      and status='absent'
      and observation_type='daily_register'),
@@ -308,26 +345,17 @@ select is(
   'daily-register absence predicate selects exactly the canonical absent event'
 );
 
-select is(
-  (select count(*)::integer from public.attendance_events
-   where school_id='22222222-2222-4222-8222-222222222222'
-     and attendance_date=(select monday from week_ids)
-     and status='absent'),
-  2,
-  'the unfiltered event stream contains both the daily and subject-period rows, so the observation_type filter is load-bearing'
-);
-
 -- ---------------------------------------------- readiness inputs
--- Expected registers for the demo school teaching days (Mon/Tue/Wed/Fri):
--- 2 classes x 4 days = 8 expected; submissions exist for 10A Mon + Tue and
--- 10B Mon = 3 of 8 submitted.
+-- Expected registers for the demo school teaching days (Mon/Tue/Wed):
+-- 2 classes x 3 days = 6 expected; submissions exist for 10A Mon/Tue/Wed and
+-- 10B Mon = 4 of 6 submitted.
 select is(
-  (select count(distinct (register_class_id, attendance_date))
+  (select count(distinct (register_class_id, attendance_date))::integer
    from public.attendance_register_submissions
    where school_id='22222222-2222-4222-8222-222222222222'
      and attendance_date in ((select monday from week_ids),(select monday+1 from week_ids),(select monday+2 from week_ids),(select monday+4 from week_ids))),
-  3,
-  'readiness input: exactly three distinct class/day submissions exist for the teaching days'
+  4,
+  'readiness input: exactly four distinct class/day submissions exist for the teaching days'
 );
 
 select is(

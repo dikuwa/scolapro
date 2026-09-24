@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, CalendarCheck2, ChevronLeft, ChevronRight, Percent, ShieldCheck, UsersRound } from "lucide-react";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
-import { mondayFor, type OfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
+import type { OfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
 
 const weekdayFormatter = new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short" });
 const longDateFormatter = new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
@@ -21,6 +21,15 @@ function formatPercent(value: number | null) {
 function shiftWeek(date: string, direction: -1 | 1) {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + direction * 7);
+  return value.toISOString().slice(0, 10);
+}
+
+/** Monday of the ISO week containing `date` — client-side twin of the server helper. */
+function mondayFor(date: string) {
+  const value = new Date(`${date}T12:00:00`);
+  const day = value.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  value.setDate(value.getDate() + offset);
   return value.toISOString().slice(0, 10);
 }
 
