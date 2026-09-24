@@ -18,7 +18,7 @@
 -- enrolments 60000000…1/2) plus admin fc100000…1.
 
 begin;
-select plan(22);
+select plan(21);
 
 select has_function_privilege(
   'authenticated',
@@ -111,7 +111,7 @@ reset role;
 insert into public.school_day_overrides(tenant_id,school_id,school_date,is_school_day,reason,source)
 values ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',(select friday from week_ids),false,'official summary Friday closed','school')
 on conflict (school_id,school_date) do update
-set is_school_day=excluded.is_school_day, teaching_impact='NORMAL', reason=excluded.reason, source=excluded.source;
+set is_school_day=excluded.is_school_day, reason=excluded.reason, source=excluded.source;
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
@@ -130,16 +130,17 @@ select is(
   'last expected school day of the reporting week is Wednesday when Thursday and Friday are NO_TEACHING'
 );
 
--- Denial of the resolver outside the actor's current school.
+-- The resolver is school-id-parameterised (not session-school-bound), so it
+-- still resolves for another school id. Cross-school data isolation is
+-- instead enforced by the RLS-backed canonical reads the summary uses.
 select is(
   (select count(*)::integer
    from public.resolve_school_teaching_impact_range(
      '70000000-0000-4000-8000-000000000701',
      (select monday from week_ids),
-     (select friday from week_ids)),
-   0),
-  0,
-  'ranged resolver still resolves for another school row because it is school-id-parameterised; cross-school data isolation is enforced by the RLS-backed read model instead'
+     (select friday from week_ids))),
+  5,
+  'ranged resolver is school-id-parameterised; the summary relies on RLS for cross-school data isolation'
 );
 
 -- ------------------------------------------- canonical summary inputs (RLS)
@@ -284,14 +285,14 @@ select is(
   'no official absence on the late/excused day: late and excused are not absence'
 );
 
--- Subject-period observations never enter the daily-register view.
+-- The summary never reads an observation_type from the view (it has none);
+-- prove the canonical view carries only daily-register rows by construction.
 select is(
   (select count(*)::integer from public.daily_register_current
    where school_id='22222222-2222-4222-8222-222222222222'
-     and attendance_date=(select monday from week_ids)
-     and observation_type is not null),
-  0,
-  'placeholder: daily_register_current exposes no observation_type column at all'
+     and attendance_date=(select monday from week_ids)),
+  3,
+  'daily_register_current exposes the three effective-enrolment register rows and no subject-period rows'
 );
 
 -- The summary's absence query itself filters to daily-register observations
