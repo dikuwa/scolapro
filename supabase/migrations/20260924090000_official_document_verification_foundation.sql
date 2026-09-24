@@ -68,19 +68,19 @@ alter table public.official_document_verifications enable row level security;
 
 create policy "official document type registry is internal only"
 on public.official_document_type_registry for all
-to anon, authenticated
+to authenticated
 using (false)
 with check (false);
 
 create policy "official document reference counters are internal only"
 on public.official_document_reference_counters for all
-to anon, authenticated
+to authenticated
 using (false)
 with check (false);
 
 create policy "official document verification provenance is internal only"
 on public.official_document_verifications for all
-to anon, authenticated
+to authenticated
 using (false)
 with check (false);
 
