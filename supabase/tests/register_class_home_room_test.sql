@@ -86,7 +86,7 @@ select is(
 select is(
   (select metadata->>'home_room_id' from public.audit_events
    where event_type='academic.class.upserted' and entity_type='register_class'
-   order by created_at desc limit 1),
+      order by occurred_at desc limit 1),
   '70160000-0000-4000-8000-000000000001',
   'audit log captures home_room_id on upsert'
 );
@@ -110,7 +110,7 @@ select is(
 
 select is(
   (select metadata->>'previous_home_room_id' from public.audit_events
-   where event_type='register_class.updated' order by created_at desc limit 1),
+      where event_type='register_class.updated' order by occurred_at desc limit 1),
   '70160000-0000-4000-8000-000000000001',
   'audit log captures previous home room on update'
 );
