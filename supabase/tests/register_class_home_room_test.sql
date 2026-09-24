@@ -58,6 +58,7 @@ values('70160000-0000-4000-8000-000000000005','70110000-0000-4000-8000-000000000
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','70100000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 
 -- 1. upsert with no home room (optional)
 select lives_ok(
@@ -78,7 +79,7 @@ select lives_ok(
 );
 
 select is(
-  (select home_room_id from public.register_classes where class_code='7b' and school_id='70120000-0000-4000-8000-000000000001'),
+  (select home_room_id from public.register_classes where lower(class_code)='7b' and school_id='70120000-0000-4000-8000-000000000001'),
   '70160000-0000-4000-8000-000000000001',
   'home room is persisted on the register class row'
 );
@@ -86,7 +87,7 @@ select is(
 select is(
   (select metadata->>'home_room_id' from public.audit_events
    where event_type='academic.class.upserted' and entity_type='register_class'
-      order by occurred_at desc limit 1),
+     and entity_id = (select id from public.register_classes where lower(class_code)='7b')),
   '70160000-0000-4000-8000-000000000001',
   'audit log captures home_room_id on upsert'
 );
@@ -94,7 +95,7 @@ select is(
 -- 3. update changes the home room
 select lives_ok(
   $$select public.update_register_class(
-    (select id from public.register_classes where class_code='7b'),
+    (select id from public.register_classes where lower(class_code)='7b'),
     '70150000-0000-4000-8000-000000000010',
     '7b', 'Grade 7/B',
     '70160000-0000-4000-8000-000000000002'
@@ -103,14 +104,15 @@ select lives_ok(
 );
 
 select is(
-  (select home_room_id from public.register_classes where class_code='7b'),
+  (select home_room_id from public.register_classes where lower(class_code)='7b'),
   '70160000-0000-4000-8000-000000000002',
   'updated home room is persisted'
 );
 
 select is(
   (select metadata->>'previous_home_room_id' from public.audit_events
-      where event_type='register_class.updated' order by occurred_at desc limit 1),
+      where event_type='register_class.updated'
+        and entity_id = (select id from public.register_classes where lower(class_code)='7b')),
   '70160000-0000-4000-8000-000000000001',
   'audit log captures previous home room on update'
 );
@@ -118,7 +120,7 @@ select is(
 -- 4. update with null clears the assignment
 select lives_ok(
   $$select public.update_register_class(
-    (select id from public.register_classes where class_code='7b'),
+    (select id from public.register_classes where lower(class_code)='7b'),
     '70150000-0000-4000-8000-000000000010',
     '7b', 'Grade 7/B',
     null::uuid
@@ -127,7 +129,7 @@ select lives_ok(
 );
 
 select is(
-  (select home_room_id from public.register_classes where class_code='7b'),
+  (select home_room_id from public.register_classes where lower(class_code)='7b'),
   null,
   'home room is cleared to null'
 );
@@ -145,7 +147,7 @@ select throws_ok(
 -- 6. update with cross-school room is denied
 select throws_ok(
   $$select public.update_register_class(
-    (select id from public.register_classes where class_code='7b'),
+    (select id from public.register_classes where lower(class_code)='7b'),
     '70150000-0000-4000-8000-000000000010',
     '7b', 'Grade 7/B',
     '70160000-0000-4000-8000-000000000003'
@@ -168,13 +170,13 @@ update public.school_rooms set room_code='RENAMED', display_name='Renamed Room'
 
 -- Re-create class 7b with the original room for this check
 select public.update_register_class(
-  (select id from public.register_classes where class_code='7b'),
+  (select id from public.register_classes where lower(class_code)='7b'),
   '70150000-0000-4000-8000-000000000010', '7b', 'Grade 7/B',
   '70160000-0000-4000-8000-000000000001'
 );
 
 select is(
-  (select home_room_id from public.register_classes where class_code='7b'),
+  (select home_room_id from public.register_classes where lower(class_code)='7b'),
   '70160000-0000-4000-8000-000000000001',
   'home room reference survives room renumbering (on delete set null, no cascade)'
 );
@@ -205,7 +207,7 @@ select lives_ok(
 -- 11. update with non-existent room is denied
 select throws_ok(
   $$select public.update_register_class(
-    (select id from public.register_classes where class_code='7f'),
+    (select id from public.register_classes where lower(class_code)='7f'),
     '70150000-0000-4000-8000-000000000010',
     '7f', 'Grade 7/F',
     '00000000-0000-0000-0000-000000000000'
@@ -216,13 +218,13 @@ select throws_ok(
 
 -- 12. shared-room arrangement is permitted (no hard one-class-per-room limit)
 select public.update_register_class(
-  (select id from public.register_classes where class_code='7a'),
+  (select id from public.register_classes where lower(class_code)='7a'),
   '70150000-0000-4000-8000-000000000010', '7a', 'Grade 7/A',
   '70160000-0000-4000-8000-000000000001'
 );
 
 select is(
-  (select count(*) from public.register_classes where home_room_id='70160000-0000-4000-8000-000000000001'),
+  (select count(*)::int from public.register_classes where home_room_id='70160000-0000-4000-8000-000000000001'),
   2,
   'shared-room arrangement is permitted: more than one class can reference the same room'
 );
@@ -230,7 +232,7 @@ select is(
 -- 13. existing register-class behavior preserved
 select lives_ok(
   $$select public.update_register_class(
-    (select id from public.register_classes where class_code='7f'),
+    (select id from public.register_classes where lower(class_code)='7f'),
     '70150000-0000-4000-8000-000000000010',
     '7f', 'Grade Seven F',
     null::uuid
@@ -239,7 +241,7 @@ select lives_ok(
 );
 
 select is(
-  (select display_name from public.register_classes where class_code='7f'),
+  (select display_name from public.register_classes where lower(class_code)='7f'),
   'Grade Seven F',
   'display name update without home room succeeds'
 );
