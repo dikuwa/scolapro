@@ -55,6 +55,7 @@ test('updateSession is still invoked and the login redirect contract is preserve
   assert.match(sessionProxy, /loginUrl\.searchParams\.set\("next"/);
   assert.match(sessionProxy, /loginUrl\.pathname = "\/login"/);
   assert.match(sessionProxy, /PUBLIC_PATHS = new Set\(\["\/login", "\/join"\]\)/);
+  assert.match(sessionProxy, /pathname\.startsWith\("\/verify\/"\)/);
   assert.match(sessionProxy, /supabase\.auth\.getClaims\(\)/);
 });
 
@@ -94,6 +95,7 @@ test('protected pages are still matched by the proxy', () => {
   // user away from /login.
   assert.equal(handledByProxy('/login'), true);
   assert.equal(handledByProxy('/join'), true);
+  assert.equal(handledByProxy('/verify/opaque-token'), true);
 });
 
 test('Next internals and static assets stay excluded', () => {
