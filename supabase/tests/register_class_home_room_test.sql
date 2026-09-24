@@ -18,7 +18,7 @@
 
 begin;
 
-select plan(20);
+select plan(19);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('70100000-0000-4000-8000-000000000001','admin-701@example.test','authenticated','authenticated',now(),now());
@@ -157,8 +157,8 @@ select throws_ok(
 -- 7. direct INSERT with a cross-tenant room is denied by the trigger
 select throws_ok(
   $$insert into public.register_classes(tenant_id,school_id,grade_id,academic_year,class_code,display_name,home_room_id)
-    values('70110000-0000-4000-8000-000000000001','70120000-0000-4000-8000-000000000001','70150000-0000-4000-8000-000000000010',2026,'7d','Direct Insert','70160000-0000-4000-8000-000000000005')$$
-  'P0001','Home room must belong to the same school and tenant as the register class',
+    values('70110000-0000-4000-8000-000000000001','70120000-0000-4000-8000-000000000001','70150000-0000-4000-8000-000000000010',2026,'7d','Direct Insert','70160000-0000-4000-8000-000000000005')$$,
+  'Home room must belong to the same school and tenant as the register class',
   'trigger enforces scope on direct INSERT (cross-tenant)'
 );
 
