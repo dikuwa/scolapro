@@ -63,7 +63,7 @@ select set_config('request.jwt.claim.sub','70100000-0000-4000-8000-000000000001'
 select lives_ok(
   $$select public.upsert_register_class(
     '70120000-0000-4000-8000-000000000001', 2026, '70150000-0000-4000-8000-000000000010',
-    '7a','Grade 7/A', null
+    '7a','Grade 7/A', null::uuid
   )$$,
   'register class can be created without a home room (optional)'
 );
@@ -121,7 +121,7 @@ select lives_ok(
     (select id from public.register_classes where class_code='7b'),
     '70150000-0000-4000-8000-000000000010',
     '7b', 'Grade 7/B',
-    null
+    null::uuid
   )$$,
   'register class home room can be cleared'
 );
@@ -185,7 +185,7 @@ select set_config('request.jwt.claim.role','',true);
 select throws_ok(
   $$select public.upsert_register_class(
     '70120000-0000-4000-8000-000000000001', 2026, '70150000-0000-4000-8000-000000000010',
-    '7e','Grade 7/E', null
+    '7e','Grade 7/E', null::uuid
   )$$,
   'P0001','Authentication required',
   'unauthenticated user cannot upsert a register class'
@@ -197,7 +197,7 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select lives_ok(
   $$select public.upsert_register_class(
     '70120000-0000-4000-8000-000000000001', 2026, '70150000-0000-4000-8000-000000000010',
-    '7f','Grade 7/F', null
+    '7f','Grade 7/F', null::uuid
   )$$,
   'school admin can upsert a register class without home room'
 );
@@ -233,7 +233,7 @@ select lives_ok(
     (select id from public.register_classes where class_code='7f'),
     '70150000-0000-4000-8000-000000000010',
     '7f', 'Grade Seven F',
-    null
+    null::uuid
   )$$,
   'register class code and name can be updated without touching home room'
 );

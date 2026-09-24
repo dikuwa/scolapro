@@ -48,8 +48,8 @@ begin
   end if;
 
   if v_tenant <> new.tenant_id or v_school <> new.school_id then
-    raise exception 'Home room must belong to the same school and tenant as the register class'
-    using errcode = '23514';
+        raise exception 'Home room must belong to the same school and tenant as the register class'
+    using errcode = 'P0001';
   end if;
 
   return new;
