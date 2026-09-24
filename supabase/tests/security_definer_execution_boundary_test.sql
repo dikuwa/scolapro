@@ -1,6 +1,6 @@
 begin;
 
-select plan(7);
+select plan(8);
 
 select is(
   (
@@ -31,8 +31,8 @@ select is(
       and p.prosecdef
       and has_function_privilege('anon', p.oid, 'EXECUTE')
   ),
-  'get_school_invitation_preview'::text,
-  'anonymous execution is limited to the token-scoped invitation preview RPC'
+  'get_school_invitation_preview,resolve_official_document_verification'::text,
+  'anonymous execution is limited to the two token-scoped preview RPCs'
 );
 
 select is(
@@ -100,6 +100,12 @@ select is(
   has_function_privilege('anon', 'public.get_school_invitation_preview(text)', 'EXECUTE'),
   true,
   'invitation preview remains callable before authentication'
+);
+
+select is(
+  has_function_privilege('anon', 'public.resolve_official_document_verification(text)', 'EXECUTE'),
+  true,
+  'official-document verification remains callable only by possession of its opaque token'
 );
 
 select is(
