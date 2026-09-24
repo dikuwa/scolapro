@@ -1,5 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+function one<T>(value: T[] | T | null | undefined): T | null {
+  return (Array.isArray(value) ? value[0] : value) ?? null;
+}
+
 export async function getSchoolStructure(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
   const [
@@ -27,7 +31,7 @@ export async function getSchoolStructure(schoolId: string, academicYear: number)
       .order("grade_code"),
     supabase
       .from("register_classes")
-      .select("id,class_code,display_name,grade_id")
+      .select("id,class_code,display_name,grade_id,home_room_id,home_rooms:home_room_id!left(id,room_code,display_name,block_name)")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
       .order("class_code"),
@@ -45,11 +49,17 @@ export async function getSchoolStructure(schoolId: string, academicYear: number)
       code: grade.grade_code,
       name: grade.display_name,
     })),
-    classes: (classes ?? []).map((item) => ({
-      id: item.id,
-      code: item.class_code,
-      name: item.display_name,
-      gradeId: item.grade_id,
-    })),
+    classes: (classes ?? []).map((item) => {
+      const room = one(item.home_rooms);
+      return {
+        id: item.id,
+        code: item.class_code,
+        name: item.display_name,
+        gradeId: item.grade_id,
+        homeRoom: room
+          ? { id: room.id, code: room.room_code, name: room.display_name, block: room.block_name }
+          : null,
+      };
+    }),
   };
 }

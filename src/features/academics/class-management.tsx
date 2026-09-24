@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
-import { ChevronDown, ChevronRight, Pencil, Save, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, Save, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,12 +11,13 @@ const initialState: AcademicStructureState = {};
 const fieldClass = "min-h-9 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-2.5 text-xs outline-none transition hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
 
 type Grade = { id: string; code: string; name: string };
-type RegisterClass = { id: string; code: string; name: string; gradeId: string };
+type SchoolRoom = { id: string; code: string; name: string; block: string | null };
+export type RegisterClass = { id: string; code: string; name: string; gradeId: string; homeRoom: { id: string; code: string; name: string; block: string | null } | null };
 
 function numericPart(value: string) { const match = value.match(/\d+/); return match ? Number(match[0]) : Number.NEGATIVE_INFINITY; }
 function naturalCompare(a: string, b: string) { return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }); }
 
-export function ClassManagement({ grades, classes }: { grades: Grade[]; classes: RegisterClass[] }) {
+export function ClassManagement({ grades, classes, rooms }: { grades: Grade[]; classes: RegisterClass[]; rooms: SchoolRoom[] }) {
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [editingGradeId, setEditingGradeId] = useState<string | null>(null);
   const [expandedGradeIds, setExpandedGradeIds] = useState<Set<string>>(() => new Set());
@@ -24,6 +25,7 @@ export function ClassManagement({ grades, classes }: { grades: Grade[]; classes:
   const [gradeState, gradeAction, gradePending] = useActionState(updateGrade, initialState);
   const [deletePending, startDelete] = useTransition();
   const [classGradeId, setClassGradeId] = useState("");
+  const [classHomeRoomId, setClassHomeRoomId] = useState("");
 
   const orderedGrades = useMemo(() => [...grades].sort((a, b) => {
     const numberDelta = numericPart(b.name || b.code) - numericPart(a.name || a.code);
@@ -31,11 +33,19 @@ export function ClassManagement({ grades, classes }: { grades: Grade[]; classes:
   }), [grades]);
   const orderedClasses = useMemo(() => [...classes].sort((a, b) => naturalCompare(a.name || a.code, b.name || b.code)), [classes]);
 
+  const classHomeRoomWarning = useMemo(() => {
+    if (!classHomeRoomId) return null;
+    const existing = classes.find((item) => item.id !== editingClassId && item.homeRoom?.id === classHomeRoomId);
+    return existing
+      ? `${existing.name} already uses this home room. Shared rooms are allowed — save to confirm, or choose another room.`
+      : null;
+  }, [classes, classHomeRoomId, editingClassId]);
+
   useEffect(() => {
     if (!classState.message) return;
     if (classState.success) {
       toast.success(classState.message);
-      queueMicrotask(() => { setEditingClassId(null); setClassGradeId(""); });
+      queueMicrotask(() => { setEditingClassId(null); setClassGradeId(""); setClassHomeRoomId(""); });
     } else toast.error(classState.message);
   }, [classState]);
 
@@ -94,8 +104,8 @@ export function ClassManagement({ grades, classes }: { grades: Grade[]; classes:
               <div className="ml-10 mt-2 space-y-2 border-l border-border-subtle pl-3 sm:ml-12">
                 {gradeClasses.length ? gradeClasses.map((item) => {
                   const editing = editingClassId === item.id;
-                  if (editing) return <form key={item.id} action={classAction} className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-[0.8fr_1fr_1fr_auto] sm:items-end"><input type="hidden" name="classId" value={item.id} /><Picker label="Grade" name="gradeId" value={classGradeId || item.gradeId} onChange={setClassGradeId} placeholder="Choose grade" options={orderedGrades.map((option) => ({ value: option.id, label: option.name }))} /><div><label className="text-xs font-medium" htmlFor={`code-${item.id}`}>Class code</label><input id={`code-${item.id}`} name="classCode" defaultValue={item.code.toUpperCase()} className={`${fieldClass} mt-1.5 uppercase`} /></div><div><label className="text-xs font-medium" htmlFor={`name-${item.id}`}>Display name</label><input id={`name-${item.id}`} name="displayName" defaultValue={item.name} className={`${fieldClass} mt-1.5`} /></div><div className="flex items-center gap-2"><button type="submit" disabled={classPending} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-[0.7rem] font-semibold text-white disabled:opacity-60">{classPending ? <Spinner className="size-3.5 text-white" /> : <Save className="size-3.5" />}Save</button><button type="button" onClick={() => { setEditingClassId(null); setClassGradeId(""); }} className="min-h-9 rounded-[var(--radius-sm)] px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:bg-surface">Cancel</button></div></form>;
-                  return <div key={item.id} className="flex min-h-10 items-center justify-between gap-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2"><div className="min-w-0"><p className="text-xs font-medium">{item.name}</p><p className="mt-0.5 text-[0.68rem] uppercase tracking-[0.04em] text-muted-foreground">{item.code}</p></div><div className="flex shrink-0 items-center gap-1"><button type="button" onClick={() => { expandGrade(grade.id); setEditingClassId(item.id); setClassGradeId(item.gradeId); }} aria-label={`Edit ${item.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface hover:text-brand-strong"><Pencil className="size-3.5" /></button><button type="button" disabled={deletePending} onClick={() => startDelete(async () => { const formData = new FormData(); formData.set("classId", item.id); const result = await deleteRegisterClass(formData); result.success ? toast.success(result.message) : toast.error(result.message); })} aria-label={`Delete ${item.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:opacity-50"><Trash2 className="size-3.5" /></button></div></div>;
+                  if (editing) return <form key={item.id} action={classAction} className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-[0.8fr_1fr_1fr_0.8fr_auto] sm:items-end"><input type="hidden" name="classId" value={item.id} /><input type="hidden" name="homeRoomId" value={classHomeRoomId} /><Picker label="Grade" name="gradeId" value={classGradeId || item.gradeId} onChange={setClassGradeId} placeholder="Choose grade" options={orderedGrades.map((option) => ({ value: option.id, label: option.name }))} /><div><label className="text-xs font-medium" htmlFor={`code-${item.id}`}>Class code</label><input id={`code-${item.id}`} name="classCode" defaultValue={item.code.toUpperCase()} className={`${fieldClass} mt-1.5 uppercase`} /></div><div><label className="text-xs font-medium" htmlFor={`name-${item.id}`}>Display name</label><input id={`name-${item.id}`} name="displayName" defaultValue={item.name} className={`${fieldClass} mt-1.5`} /></div><div><Picker label="Home room" name="homeRoomId" value={classHomeRoomId} onChange={setClassHomeRoomId} placeholder="Optional" searchable searchPlaceholder="Search rooms" options={rooms.map((room) => ({ value: room.id, label: room.name, helper: room.block ? `${room.block} · ${room.code}` : room.code }))} disabled={!rooms.length} />{classHomeRoomWarning ? <p role="status" className="mt-1.5 flex items-start gap-1.5 rounded-[var(--radius-xs)] bg-warning-soft/60 px-2.5 py-1.5 text-[0.68rem] leading-5 text-[color:var(--warning)]"><TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" /><span>{classHomeRoomWarning}</span></p> : null}</div><div className="flex items-center gap-2"><button type="submit" disabled={classPending} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-[0.7rem] font-semibold text-white disabled:opacity-60">{classPending ? <Spinner className="size-3.5 text-white" /> : <Save className="size-3.5" />}Save</button><button type="button" onClick={() => { setEditingClassId(null); setClassGradeId(""); setClassHomeRoomId(""); }} className="min-h-9 rounded-[var(--radius-sm)] px-2.5 text-[0.7rem] font-medium text-muted-foreground hover:bg-surface">Cancel</button></div></form>;
+                  return <div key={item.id} className="flex min-h-10 items-center justify-between gap-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2"><div className="min-w-0"><p className="text-xs font-medium">{item.name}</p><p className="mt-0.5 text-[0.68rem] uppercase tracking-[0.04em] text-muted-foreground">{item.code}</p>{item.homeRoom ? <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{item.homeRoom.name}</p> : null}</div><div className="flex shrink-0 items-center gap-1"><button type="button" onClick={() => { expandGrade(grade.id); setEditingClassId(item.id); setClassGradeId(item.gradeId); setClassHomeRoomId(item.homeRoom ? item.homeRoom.id : ""); }} aria-label={`Edit ${item.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface hover:text-brand-strong"><Pencil className="size-3.5" /></button><button type="button" disabled={deletePending} onClick={() => startDelete(async () => { const formData = new FormData(); formData.set("classId", item.id); const result = await deleteRegisterClass(formData); result.success ? toast.success(result.message) : toast.error(result.message); })} aria-label={`Delete ${item.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:opacity-50"><Trash2 className="size-3.5" /></button></div></div>;
                 }) : <p className="py-2 text-xs text-muted-foreground">No register classes yet.</p>}
               </div>
             ) : null}

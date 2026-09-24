@@ -19,6 +19,7 @@ const classSchema = z.object({
   gradeId: z.string().uuid("Choose a grade."),
   classCode: z.string().trim().min(1, "Class code is required."),
   displayName: z.string().trim().min(1, "Class name is required."),
+  homeRoomId: z.string().uuid("Choose a room.").optional().or(z.literal("")),
 });
 
 const classUpdateSchema = classSchema.omit({ schoolId: true, academicYear: true }).extend({ classId: z.string().uuid() });
@@ -77,22 +78,22 @@ export async function deleteGrade(formData: FormData): Promise<AcademicStructure
 }
 
 export async function saveRegisterClass(_previous: AcademicStructureState, formData: FormData): Promise<AcademicStructureState> {
-  const parsed = classSchema.safeParse({ schoolId: formData.get("schoolId"), academicYear: formData.get("academicYear"), gradeId: formData.get("gradeId"), classCode: formData.get("classCode"), displayName: formData.get("displayName") });
+  const parsed = classSchema.safeParse({ schoolId: formData.get("schoolId"), academicYear: formData.get("academicYear"), gradeId: formData.get("gradeId"), classCode: formData.get("classCode"), displayName: formData.get("displayName"), homeRoomId: formData.get("homeRoomId") });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to configure this school." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("upsert_register_class", { p_school_id: parsed.data.schoolId, p_academic_year: parsed.data.academicYear, p_grade_id: parsed.data.gradeId, p_class_code: normalizeCode(parsed.data.classCode), p_display_name: parsed.data.displayName });
+  const { error } = await supabase.rpc("upsert_register_class", { p_school_id: parsed.data.schoolId, p_academic_year: parsed.data.academicYear, p_grade_id: parsed.data.gradeId, p_class_code: normalizeCode(parsed.data.classCode), p_display_name: parsed.data.displayName, p_home_room_id: parsed.data.homeRoomId || null });
   if (error) return { message: "The register class could not be saved. Confirm the grade and academic year." };
   revalidatePath("/school/setup"); revalidatePath("/");
   return { success: true, message: "Register class saved." };
 }
 
 export async function updateRegisterClass(_previous: AcademicStructureState, formData: FormData): Promise<AcademicStructureState> {
-  const parsed = classUpdateSchema.safeParse({ classId: formData.get("classId"), gradeId: formData.get("gradeId"), classCode: formData.get("classCode"), displayName: formData.get("displayName") });
+  const parsed = classUpdateSchema.safeParse({ classId: formData.get("classId"), gradeId: formData.get("gradeId"), classCode: formData.get("classCode"), displayName: formData.get("displayName"), homeRoomId: formData.get("homeRoomId") });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   if (!(await canManageAnyAcademicStructure())) return { message: "You do not have permission to update this class." };
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("update_register_class", { p_class_id: parsed.data.classId, p_grade_id: parsed.data.gradeId, p_class_code: normalizeCode(parsed.data.classCode), p_display_name: parsed.data.displayName });
+  const { error } = await supabase.rpc("update_register_class", { p_class_id: parsed.data.classId, p_grade_id: parsed.data.gradeId, p_class_code: normalizeCode(parsed.data.classCode), p_display_name: parsed.data.displayName, p_home_room_id: parsed.data.homeRoomId || null });
   if (error) return { message: "The class could not be updated. Check for duplicate codes and try again." };
   revalidatePath("/school/setup"); revalidatePath("/");
   return { success: true, message: "Register class updated." };

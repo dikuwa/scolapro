@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { LoaderCircle, Plus } from "lucide-react";
+import { useActionState, useEffect, useMemo, useState } from "react";
+import { LoaderCircle, Plus, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
+import type { RegisterClass } from "@/features/academics/class-management";
 import { saveGrade, saveRegisterClass, type AcademicStructureState } from "@/features/academics/server/actions";
 
 const initialState: AcademicStructureState = {};
@@ -23,14 +24,27 @@ export function AcademicStructureForms({
   schoolId,
   academicYear,
   grades,
+  rooms,
+  classes,
 }: {
   schoolId: string;
   academicYear: number;
   grades: { id: string; code: string; name: string }[];
+  rooms: { id: string; code: string; name: string; block: string | null }[];
+  classes: RegisterClass[];
 }) {
   const [gradeState, gradeAction, gradePending] = useActionState(saveGrade, initialState);
   const [classState, classAction, classPending] = useActionState(saveRegisterClass, initialState);
   const [gradeId, setGradeId] = useState(grades[0]?.id ?? "");
+  const [homeRoomId, setHomeRoomId] = useState("");
+
+  const sharedRoomWarning = useMemo(() => {
+    if (!homeRoomId) return null;
+    const existing = classes.find((item) => item.homeRoom?.id === homeRoomId);
+    return existing
+      ? `${existing.name} already uses this home room. Shared rooms are allowed — save to confirm, or choose another room.`
+      : null;
+  }, [classes, homeRoomId]);
 
   useEffect(() => {
     if (!gradeState.message) return;
@@ -107,6 +121,34 @@ export function AcademicStructureForms({
               <FieldError messages={classState.fieldErrors?.displayName} />
             </div>
           </div>
+
+          <div>
+            <input type="hidden" name="homeRoomId" value={homeRoomId} />
+            <Picker
+              label="Home room"
+              name="homeRoomId"
+              value={homeRoomId}
+              onChange={setHomeRoomId}
+              placeholder="Optional — links to a same-school room"
+              disabled={!rooms.length}
+              searchable
+              searchPlaceholder="Search rooms"
+              options={rooms.map((room) => ({
+                value: room.id,
+                label: room.name,
+                helper: room.block ? `${room.block} · ${room.code}` : room.code,
+              }))}
+            />
+            {sharedRoomWarning ? (
+              <p role="status" className="mt-1.5 flex items-start gap-1.5 rounded-[var(--radius-xs)] bg-warning-soft/60 px-2.5 py-1.5 text-[0.68rem] leading-5 text-[color:var(--warning)]">
+                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                <span>{sharedRoomWarning}</span>
+              </p>
+            ) : (
+              <p className="mt-1 text-[0.68rem] text-muted-foreground">{rooms.length} room{rooms.length === 1 ? " is" : "s are"} configured for this school. Register teacher remains a separate field.</p>
+            )}
+          </div>
+
           <div className="flex justify-end border-t border-border-subtle pt-4">
             <button type="submit" disabled={classPending || !grades.length} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">
               {classPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}

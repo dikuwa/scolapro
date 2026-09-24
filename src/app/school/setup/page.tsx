@@ -71,11 +71,11 @@ export default async function SchoolSetupPage() {
 
         {canManageAcademicStructure ? (
           <>
-            <div className="mt-5"><AcademicStructureForms schoolId={membership.schoolId} academicYear={academicYear} grades={structure.grades} /></div>
+            <div className="mt-5"><AcademicStructureForms schoolId={membership.schoolId} academicYear={academicYear} grades={structure.grades} rooms={rooms} classes={structure.classes} /></div>
 
             <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
               <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4"><div><h2 className="scolapro-section-title">Current register structure</h2><p className="scolapro-section-description">Classes are grouped by grade. Edit incorrect labels/codes here; deletion is allowed only before a class is used by enrolment, attendance or timetable records.</p></div><span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span></div>
-              <ClassManagement grades={structure.grades} classes={structure.classes} />
+              <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} />
             </section>
 
             <RoomManagement schoolId={membership.schoolId} rooms={rooms} />
