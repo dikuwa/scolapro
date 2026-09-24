@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, Check, RefreshCcw, Search, UsersRound } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ function PreviewMetric({ label, value, tone = "neutral" }: { label: string; valu
 }
 
 export function SubjectAssignmentWorkspace({ data }: { data: SubjectAssignmentWorkspaceData }) {
+  const router = useRouter();
   const [scopeType, setScopeType] = useState<SubjectAssignmentScopeType>("grade");
   const [scopeId, setScopeId] = useState(data.scopes.grade[0]?.id ?? "");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -76,8 +78,9 @@ export function SubjectAssignmentWorkspace({ data }: { data: SubjectAssignmentWo
     startApply(async () => {
       const result = await applyLearnerSubjectBulkAssignment({ academicYear: data.academicYear, scopeType, scopeId, subjectOfferingIds: selectedIds, previewFingerprint: preview.preview_fingerprint });
       if (!result.success) { setPreview(null); toast.error(result.message); return; }
-      if (result.preview) setPreview(result.preview);
+      setPreview(null);
       toast.success(result.message);
+      router.refresh();
     });
   }
 
