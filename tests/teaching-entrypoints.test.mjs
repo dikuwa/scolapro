@@ -31,7 +31,7 @@ test("Teaching remains one primary navigation entry while the workspace exposes 
 });
 
 test("Teaching tool entry points are role bounded by the server page", () => {
-  assert.match(teachingPage, /reviewRoles\.has\(membership\.roleKey\) \? "\/teaching\/planning" : null/);
+  assert.match(teachingPage, /planningRoles\.has\(membership\.roleKey\) \? "\/teaching\/planning" : null/);
   assert.match(teachingPage, /preparationRoles\.has\(membership\.roleKey\) \? "\/teaching\/preparation" : null/);
   assert.match(teachingPage, /membership\.staffMemberId \? "\/teaching\/curriculum" : null/);
   assert.match(teachingPage, /membership\.staffMemberId \? "\/teaching\/files" : null/);

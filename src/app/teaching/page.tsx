@@ -9,6 +9,7 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 
 const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
 const reviewRoles = new Set(["school_admin", "principal", "deputy_principal", "hod"]);
+const planningRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
 const preparationRoles = new Set(["teacher", "class_teacher"]);
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,7 @@ export default async function TeachingPage() {
     schoolId: membership.schoolId,
     academicYear,
     roleKey: membership.roleKey,
+    staffMemberId: membership.staffMemberId,
   });
 
   return (
@@ -42,7 +44,7 @@ export default async function TeachingPage() {
         </div>
         <TeachingWorkspace
           {...workspace}
-          planningHref={reviewRoles.has(membership.roleKey) ? "/teaching/planning" : null}
+          planningHref={planningRoles.has(membership.roleKey) ? "/teaching/planning" : null}
           curriculumHref={membership.staffMemberId ? "/teaching/curriculum" : null}
           preparationHref={preparationRoles.has(membership.roleKey) ? "/teaching/preparation" : null}
           coverageHref="/teaching/coverage"

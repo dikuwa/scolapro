@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { CalendarClock, ListOrdered, Plus, Route } from "lucide-react";
+import { CalendarClock, CalendarPlus, Eye, FileDown, ListOrdered, Plus, Printer, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { Picker } from "@/components/ui/picker";
 import {
   createPacingPlan,
+  createPacingPlanEvent,
   createPacingPlanItem,
   createTeachingScheduleItem,
   updatePacingPlanItem,
@@ -105,6 +106,10 @@ function Section({
  * edits official curriculum registry content.
  */
 export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
+  const termOptions = useMemo(
+    () => data.terms.map((term) => ({ value: term.id, label: term.name, helper: term.startsOn && term.endsOn ? `${term.startsOn} – ${term.endsOn}` : term.status })),
+    [data.terms],
+  );
   const unitOptions = useMemo(
     () =>
       data.units.map((unit) => ({
@@ -209,6 +214,8 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
     priority: "normal",
     sequenceNumber: 100,
     notes: "",
+    academicTermId: "",
+    completedOn: "",
   });
   const [itemState, itemAction, itemPending] = useActionState(
     async (state: PlanningActionState, form: FormData) => {
@@ -224,6 +231,8 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
           priority: "normal",
           sequenceNumber: 100,
           notes: "",
+          academicTermId: "",
+          completedOn: "",
         }));
       }
       return result;
@@ -240,6 +249,8 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
     priority: "normal",
     sequenceNumber: 100,
     notes: "",
+    academicTermId: "",
+    completedOn: "",
   });
   const [editState, editAction, editPending] = useActionState(updatePacingPlanItem, emptyState);
 
@@ -270,6 +281,25 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
   });
   const [lessonStatusState, lessonStatusAction, lessonStatusPending] = useActionState(
     updateTeachingScheduleItemStatus,
+    emptyState,
+  );
+
+  const [eventForm, setEventForm] = useState({
+    planId: "",
+    academicTermId: "",
+    eventTitle: "",
+    eventNotes: "",
+    eventStartsOn: "",
+    eventEndsOn: "",
+  });
+  const [eventState, eventAction, eventPending] = useActionState(
+    async (state: PlanningActionState, form: FormData) => {
+      const result = await createPacingPlanEvent(state, form);
+      if (result.success) {
+        setEventForm((current) => ({ ...current, eventTitle: "", eventNotes: "", eventStartsOn: "", eventEndsOn: "" }));
+      }
+      return result;
+    },
     emptyState,
   );
 
@@ -346,7 +376,7 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
               name="planLevel"
               value={planForm.planLevel}
               onChange={(value) => setPlanForm((current) => ({ ...current, planLevel: value }))}
-              options={PLAN_LEVEL_OPTIONS}
+              options={data.isTeacher ? PLAN_LEVEL_OPTIONS.filter((option) => option.value === "department") : PLAN_LEVEL_OPTIONS}
               placeholder="Department"
               disabled={planPending}
             />
@@ -361,17 +391,19 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
                 disabled={classOptionsForOffering.length === 0 || planPending}
               />
             )}
-            <Picker
-              label="Teacher allocation (optional)"
-              name="teacherAllocationId"
-              value={planForm.teacherAllocationId}
-              onChange={(value) =>
-                setPlanForm((current) => ({ ...current, teacherAllocationId: value }))
-              }
-              options={allocationOptionsForOffering(planForm.offeringId)}
-              placeholder="Leave unassigned"
-              disabled={!planForm.offeringId || planPending}
-            />
+            {planForm.planLevel === "class" ? (
+              <Picker
+                label="Variant teacher allocation (optional)"
+                name="teacherAllocationId"
+                value={planForm.teacherAllocationId}
+                onChange={(value) =>
+                  setPlanForm((current) => ({ ...current, teacherAllocationId: value }))
+                }
+                options={allocationOptionsForOffering(planForm.offeringId)}
+                placeholder="Leave unassigned"
+                disabled={!planForm.offeringId || planPending}
+              />
+            ) : <input type="hidden" name="teacherAllocationId" value="" />}
             <Picker
               label="Curriculum unit"
               name="curriculumUnitId"
@@ -417,8 +449,13 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
                     {plan.className ? ` · ${plan.className}` : ""}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {plan.planLevel} · {plan.status} · {plan.gradeName} · {plan.itemCount} item
+                    {plan.planLevel === "department" ? "Shared subject/grade plan" : "Explicit class pacing variant"} · {plan.status} · {plan.gradeName} · {plan.itemCount} item
                     {plan.itemCount === 1 ? "" : "s"} · {plan.scheduledCount} scheduled
+                  </span>
+                  <span className="ml-auto flex flex-wrap gap-1.5">
+                    <a className="scolapro-cta inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium" href={`/api/official-documents/teaching-plan?plan=${plan.planId}&view=year-planner&format=html`} target="_blank" rel="noreferrer"><Eye className="size-3.5" /> Preview</a>
+                    <a className="scolapro-cta inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium" href={`/api/official-documents/teaching-plan?plan=${plan.planId}&view=year-planner&format=html&print=1`} target="_blank" rel="noreferrer"><Printer className="size-3.5" /> Print</a>
+                    <a className="scolapro-cta inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-xs font-medium text-brand-strong" href={`/api/official-documents/teaching-plan?plan=${plan.planId}&view=scheme&format=pdf`}><FileDown className="size-3.5" /> PDF</a>
                   </span>
                 </li>
               ))}
@@ -494,6 +531,21 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
               value={itemForm.plannedStartOn}
               onChange={(value) => setItemForm((current) => ({ ...current, plannedStartOn: value }))}
             />
+            <Picker
+              label="Term placement"
+              name="academicTermId"
+              value={itemForm.academicTermId ?? ""}
+              onChange={(value) => setItemForm((current) => ({ ...current, academicTermId: value }))}
+              options={termOptions}
+              placeholder="Select term"
+              disabled={!termOptions.length || itemPending}
+            />
+            <DateField
+              label="Completed date"
+              name="completedOn"
+              value={itemForm.completedOn ?? ""}
+              onChange={(value) => setItemForm((current) => ({ ...current, completedOn: value }))}
+            />
             <DateField
               label="Planned end"
               name="plannedEndOn"
@@ -563,6 +615,8 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
                     priority: "normal",
                     sequenceNumber: 100,
                     notes: "",
+                    academicTermId: "",
+                    completedOn: "",
                   }))
                 }
               >
@@ -594,6 +648,8 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
                     plannedPeriods: item?.plannedPeriods ?? 1,
                     priority: item?.priority ?? "normal",
                     sequenceNumber: item?.sequenceNumber ?? 100,
+                    academicTermId: item?.termId ?? "",
+                    completedOn: item?.completedOn ?? "",
                   }));
                 }}
                 options={itemOptions}
@@ -642,6 +698,21 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
                 placeholder="Normal"
                 disabled={editPending}
               />
+              <Picker
+                label="Term placement"
+                name="academicTermId"
+                value={editForm.academicTermId ?? ""}
+                onChange={(value) => setEditForm((current) => ({ ...current, academicTermId: value }))}
+                options={termOptions}
+                placeholder="Select term"
+                disabled={!termOptions.length || editPending}
+              />
+              <DateField
+                label="Completed date"
+                name="completedOn"
+                value={editForm.completedOn ?? ""}
+                onChange={(value) => setEditForm((current) => ({ ...current, completedOn: value }))}
+              />
               <div className="flex gap-2 sm:col-span-2 lg:col-span-3">
                 <Button type="submit" variant="soft" loading={editPending} disabled={!editForm.itemId}>
                   Save plan item
@@ -654,6 +725,26 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
             Add a plan item before adjusting one.
           </p>
         )}
+      </Section>
+
+      <Section
+        icon={<CalendarPlus className="size-4" />}
+        title="Local planning events"
+        description="Add teacher planning notes, assessment preparation or revision windows to this plan. These annotations do not change the authoritative school calendar or timetable cycle."
+      >
+        <div className="mt-4 space-y-3">
+          <ActionMessage state={eventState} />
+          <form action={eventAction} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Picker label="Plan" name="planId" value={eventForm.planId} onChange={(value) => setEventForm((current) => ({ ...current, planId: value }))} options={planOptions} placeholder="Select plan" disabled={!hasPlans || eventPending} />
+            <Picker label="Term" name="academicTermId" value={eventForm.academicTermId} onChange={(value) => setEventForm((current) => ({ ...current, academicTermId: value }))} options={termOptions} placeholder="Select term" disabled={!termOptions.length || eventPending} />
+            <div><label className="block text-xs font-medium" htmlFor="planning-event-title">Event / note</label><input id="planning-event-title" name="eventTitle" className={fieldClass} value={eventForm.eventTitle} onChange={(event) => setEventForm((current) => ({ ...current, eventTitle: event.target.value }))} maxLength={160} placeholder="Revision week" /></div>
+            <DateField label="Starts" name="eventStartsOn" value={eventForm.eventStartsOn} onChange={(value) => setEventForm((current) => ({ ...current, eventStartsOn: value }))} />
+            <DateField label="Ends" name="eventEndsOn" value={eventForm.eventEndsOn} onChange={(value) => setEventForm((current) => ({ ...current, eventEndsOn: value }))} />
+            <div className="sm:col-span-2 lg:col-span-3"><label className="block text-xs font-medium" htmlFor="planning-event-notes">Planning note</label><textarea id="planning-event-notes" name="eventNotes" rows={2} className={`${fieldClass} resize-y py-2`} value={eventForm.eventNotes} onChange={(event) => setEventForm((current) => ({ ...current, eventNotes: event.target.value }))} maxLength={2000} /></div>
+            <div className="sm:col-span-2 lg:col-span-3"><Button type="submit" loading={eventPending} disabled={!eventForm.planId || !eventForm.eventTitle || !eventForm.eventStartsOn || !eventForm.eventEndsOn}><Plus className="size-4" /> Add planning event</Button></div>
+          </form>
+          {data.planEvents.length ? <ul className="divide-y divide-border-subtle border-t border-border-subtle pt-2">{data.planEvents.map((event) => <li key={event.eventId} className="py-2"><p className="scolapro-record-title">{event.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{event.startsOn}{event.endsOn !== event.startsOn ? ` – ${event.endsOn}` : ""}{event.notes ? ` · ${event.notes}` : ""}</p></li>)}</ul> : <p className="text-xs text-muted-foreground">No local planning events yet.</p>}
+        </div>
       </Section>
 
       {/* ---- lesson scheduling ---- */}
