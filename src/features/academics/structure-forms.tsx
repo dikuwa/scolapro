@@ -23,14 +23,17 @@ export function AcademicStructureForms({
   schoolId,
   academicYear,
   grades,
+  rooms,
 }: {
   schoolId: string;
   academicYear: number;
   grades: { id: string; code: string; name: string }[];
+  rooms: { id: string; code: string; name: string; block: string | null }[];
 }) {
   const [gradeState, gradeAction, gradePending] = useActionState(saveGrade, initialState);
   const [classState, classAction, classPending] = useActionState(saveRegisterClass, initialState);
   const [gradeId, setGradeId] = useState(grades[0]?.id ?? "");
+  const [homeRoomId, setHomeRoomId] = useState("");
 
   useEffect(() => {
     if (!gradeState.message) return;
@@ -106,7 +109,26 @@ export function AcademicStructureForms({
               <p className="mt-1 text-[0.68rem] text-muted-foreground">Shown to teachers, learners and administrators.</p>
               <FieldError messages={classState.fieldErrors?.displayName} />
             </div>
+        </div>
+
+          <div>
+            <input type="hidden" name="homeRoomId" value={homeRoomId} />
+            <Picker
+              label="Home room"
+              name="homeRoomId"
+              value={homeRoomId}
+              onChange={setHomeRoomId}
+              placeholder="Optional — links to a same-school room"
+              disabled={!rooms.length}
+              options={rooms.map((room) => ({
+                value: room.id,
+                label: room.name,
+                helper: room.block ? `${room.block} · ${room.code}` : room.code,
+              }))}
+            />
+            <p className="mt-1 text-[0.68rem] text-muted-foreground">{rooms.length} room{rooms.length === 1 ? ' is' : 's are'} configured for this school. Register teacher remains a separate field.</p>
           </div>
+
           <div className="flex justify-end border-t border-border-subtle pt-4">
             <button type="submit" disabled={classPending || !grades.length} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-60">
               {classPending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Plus className="size-4" aria-hidden="true" />}
