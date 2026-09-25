@@ -1,6 +1,9 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { mapCorrespondenceDocument } from "@/features/correspondence/server/queries";
+import { renderCorrespondencePdf } from "@/features/correspondence/server/render-correspondence-pdf";
+import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import {
   resolveCommunicationTransportAdapter,
   type CommunicationChannel,
@@ -24,6 +27,8 @@ type MessageRow = {
   channel: CommunicationChannel;
   subject: string | null;
   body: string;
+  domain_type: string | null;
+  domain_id: string | null;
   template_version_id: string | null;
   template_parameters: Record<string, unknown>;
 };
@@ -59,6 +64,51 @@ export type CommunicationDeliveryWorkerResult = {
   dead: number;
   durationMs: number;
 };
+
+const CORRESPONDENCE_FIELDS =
+  "id,tenant_id,school_id,lineage_id,revision_number,revises_document_id,revision_reason,status,template_key,document_date,recipient,attention,subject,body,closing,signatory_name,signatory_position,include_signature_block,attachments,author_user_id,created_at,updated_at,finalized_at,finalized_by_user_id,reference_number,header_snapshot,school_identity_snapshot,author_snapshot";
+
+function safeAttachmentName(value: string) {
+  return value.trim().replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "official-correspondence";
+}
+
+async function correspondencePdfAttachment(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  message: MessageRow,
+) {
+  if (message.domain_type !== "correspondence_finalized_pdf") return [];
+  if (!message.domain_id) throw new Error("Correspondence PDF communication is missing its finalized document id.");
+
+  const { data, error } = await supabase
+    .from("correspondence_documents")
+    .select(CORRESPONDENCE_FIELDS)
+    .eq("id", message.domain_id)
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? "Finalized correspondence document not found.");
+  const document = mapCorrespondenceDocument(data as Record<string, unknown>);
+  if (document.status !== "finalized" || !document.headerSnapshot || !document.finalizedAt) {
+    throw new Error("Correspondence email attachment must come from a finalized immutable revision.");
+  }
+
+  let logoBytes: Uint8Array | null = null;
+  const header = document.headerSnapshot as OfficialDocumentHeaderModel;
+  if (header.logoStoragePath) {
+    const { data: logo } = await supabase.storage.from("school-document-assets").download(header.logoStoragePath);
+    if (logo) logoBytes = new Uint8Array(await logo.arrayBuffer());
+  }
+
+  const rendered = await renderCorrespondencePdf({ document, header, logoBytes });
+  if (rendered.bytes.byteLength > 10 * 1024 * 1024) {
+    throw new Error("Finalized correspondence PDF exceeds the 10 MB email attachment limit.");
+  }
+
+  return [{
+    filename: `${safeAttachmentName(document.referenceNumber ?? document.subject)}-r${document.revisionNumber}.pdf`,
+    contentBase64: Buffer.from(rendered.bytes).toString("base64"),
+    contentType: "application/pdf",
+  }];
+}
 
 async function loadTemplateTransportContext(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
@@ -139,7 +189,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
       const [{ data: message, error: messageError }, { data: recipient, error: recipientError }] = await Promise.all([
         supabase
           .from("communication_messages")
-          .select("id,channel,subject,body,template_version_id,template_parameters")
+          .select("id,channel,subject,body,domain_type,domain_id,template_version_id,template_parameters")
           .eq("id", job.message_id)
           .single(),
         supabase.from("communication_recipients").select("id,destination").eq("id", job.recipient_id).single(),
@@ -153,6 +203,9 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
       if (messageRow.channel !== job.channel) throw new Error("Communication job channel does not match its message.");
 
       const template = await loadTemplateTransportContext(supabase, messageRow, job.provider_key);
+      const attachments = job.channel === "email"
+        ? await correspondencePdfAttachment(supabase, messageRow)
+        : [];
       const adapter = resolveCommunicationTransportAdapter(job.channel, job.provider_key);
       const input: CommunicationTransportInput = {
         jobId: job.id,
@@ -163,6 +216,7 @@ export async function processCommunicationDeliveryQueue(limit = 25): Promise<Com
         subject: messageRow.subject,
         body: messageRow.body,
         template,
+        attachments,
       };
       const accepted = await adapter.send(input);
 
