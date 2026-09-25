@@ -12,6 +12,12 @@ export type CommunicationTemplateTransportContext = {
   providerConfig: Record<string, unknown>;
 };
 
+export type CommunicationTransportAttachment = {
+  filename: string;
+  contentBase64: string;
+  contentType: string;
+};
+
 export type CommunicationTransportInput = {
   jobId: string;
   attemptCount: number;
@@ -21,6 +27,7 @@ export type CommunicationTransportInput = {
   subject: string | null;
   body: string;
   template: CommunicationTemplateTransportContext | null;
+  attachments?: CommunicationTransportAttachment[];
 };
 
 export type CommunicationTransportAccepted = {
@@ -154,6 +161,15 @@ const resendEmailAdapter: CommunicationTransportAdapter = {
         to: [destination],
         subject: input.subject?.trim() || "ScolaPro notification",
         text: input.body,
+        ...(input.attachments?.length
+          ? {
+              attachments: input.attachments.map((attachment) => ({
+                filename: attachment.filename,
+                content: attachment.contentBase64,
+                content_type: attachment.contentType,
+              })),
+            }
+          : {}),
       }),
       signal: AbortSignal.timeout(20_000),
     });
