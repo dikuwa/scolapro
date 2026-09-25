@@ -1567,3 +1567,63 @@ $$;
 
 revoke all on function public.acknowledge_crc_request_escalation(uuid) from public,anon;
 grant execute on function public.acknowledge_crc_request_escalation(uuid) to authenticated;
+
+
+-- The canonical close helper previously selected the audit school via the
+-- confidential-support predicate. Delegated CRC custodians are workflow actors,
+-- not support actors, so choose the audit school from CRC custody authority.
+create or replace function public.close_crc_custody(p_custody_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path=pg_catalog,public,app_private
+as $$
+declare
+  v_record public.crc_custody_records%rowtype;
+  v_audit_school uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if not (
+    app_private.can_manage_crc_custody_incoming(p_custody_id)
+    or app_private.can_manage_crc_custody_outgoing(p_custody_id)
+  ) then
+    raise exception 'Permission denied: only the receiving or originating custodian may close CRC custody';
+  end if;
+
+  update public.crc_custody_records
+  set custody_status='closed',
+      closed_by_user_id=auth.uid(),
+      closed_at=now(),
+      updated_at=now()
+  where id=p_custody_id
+  returning * into v_record;
+
+  if not found then raise exception 'CRC custody record not found'; end if;
+
+  v_audit_school := case
+    when v_record.receiving_user_id=auth.uid()
+      and app_private.is_crc_custodian(auth.uid(),v_record.receiving_school_id)
+      then v_record.receiving_school_id
+    else v_record.school_id
+  end;
+
+  insert into public.audit_events(
+    tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+  )
+  values(
+    v_record.tenant_id,
+    v_audit_school,
+    auth.uid(),
+    'crc_custody.closed',
+    'crc_custody_record',
+    v_record.id,
+    jsonb_build_object(
+      'origin_school_id',v_record.school_id,
+      'receiving_school_id',v_record.receiving_school_id
+    )
+  );
+end;
+$$;
+
+revoke all on function public.close_crc_custody(uuid) from public,anon;
+grant execute on function public.close_crc_custody(uuid) to authenticated;
