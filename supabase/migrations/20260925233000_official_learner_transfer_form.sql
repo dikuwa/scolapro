@@ -70,13 +70,28 @@ $$;
 revoke all on function app_private.can_manage_learner_transfer_form(uuid)
 from public,anon,authenticated;
 
+create or replace function app_private.can_read_learner_transfer_form_for_rls(p_transfer_event_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $
+  select app_private.can_manage_learner_transfer_form(p_transfer_event_id);
+$;
+
+revoke all on function app_private.can_read_learner_transfer_form_for_rls(uuid)
+from public,anon;
+grant execute on function app_private.can_read_learner_transfer_form_for_rls(uuid)
+to authenticated;
+
 create policy "authorized source actors read transfer form drafts"
 on public.learner_transfer_form_drafts for select to authenticated
-using(app_private.can_manage_learner_transfer_form(transfer_event_id));
+using(app_private.can_read_learner_transfer_form_for_rls(transfer_event_id));
 
 create policy "authorized source actors read transfer form snapshots"
 on public.learner_transfer_form_snapshots for select to authenticated
-using(app_private.can_manage_learner_transfer_form(transfer_event_id));
+using(app_private.can_read_learner_transfer_form_for_rls(transfer_event_id));
 
 revoke insert,update,delete on public.learner_transfer_form_drafts from authenticated;
 revoke insert,update,delete on public.learner_transfer_form_snapshots from authenticated;
