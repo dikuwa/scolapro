@@ -568,3 +568,51 @@ comment on table public.learner_transfer_form_drafts is
 'Human verification workspace for the prescribed learner transfer form. Authoritative learner/transfer fields remain derived from canonical sources.';
 comment on table public.learner_transfer_form_snapshots is
 'Immutable finalized learner transfer-form revisions linked to canonical transfer events and shared official-document verification provenance.';
+
+
+create or replace function public.list_learner_transfer_form_candidates()
+returns table(
+  transfer_event_id uuid,
+  learner_name text,
+  admission_number text,
+  transfer_status text,
+  destination_name text,
+  effective_on date,
+  requested_on date,
+  latest_revision integer,
+  latest_finalized_at timestamptz
+)
+language sql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $$
+  select
+    t.id,
+    concat_ws(' ',l.first_names,l.surname),
+    e.admission_number,
+    t.status,
+    coalesce(ds.name,t.destination_name,''),
+    t.effective_on,
+    t.requested_on,
+    latest.revision,
+    latest.finalized_at
+  from public.transfer_events t
+  join public.learners l on l.id=t.learner_id
+  join public.enrolments e on e.id=t.source_enrolment_id
+  left join public.schools ds on ds.id=t.destination_school_id
+  left join lateral(
+    select s.revision,s.finalized_at
+    from public.learner_transfer_form_snapshots s
+    where s.transfer_event_id=t.id
+    order by s.revision desc
+    limit 1
+  ) latest on true
+  where auth.uid() is not null
+    and t.status in ('approved','completed')
+    and app_private.can_manage_learner_transfer_form(t.id)
+  order by coalesce(t.effective_on,t.requested_on) desc,t.id;
+$$;
+
+revoke all on function public.list_learner_transfer_form_candidates() from public,anon;
+grant execute on function public.list_learner_transfer_form_candidates() to authenticated;
