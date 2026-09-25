@@ -85,7 +85,17 @@ export async function getTeachingImpactWorkspace(schoolId: string, academicYear:
     supabase.from("teaching_groups").select("id,name,code").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("name"),
   ]);
 
-  if (overrideResult.error || scheduleResult.error || eventResult.error || gradeResult.error || classResult.error || groupResult.error) {
+  const calendarErrors = {
+    overrides: overrideResult.error,
+    schedules: scheduleResult.error,
+    events: eventResult.error,
+    grades: gradeResult.error,
+    registerClasses: classResult.error,
+    teachingGroups: groupResult.error,
+  };
+
+  if (Object.values(calendarErrors).some(Boolean)) {
+    console.error("[calendar] learner-calendar query failure", calendarErrors);
     throw new Error("Unable to load learner-calendar data.");
   }
 
