@@ -90,5 +90,5 @@ test("circuit and regional officers receive a separate bounded referral surface"
   assert.match(networkPage, /circuit_officer/);
   assert.match(networkPage, /regional_officer/);
   assert.match(networkWorkspace, /Referral metadata only/);
-  assert.match(networkWorkspace, /do not.*learner records|does not grant access to learner records/i);
+  assert.match(networkWorkspace, /Learner identity, confidential CRC content, counselling, health and psychometric records are not exposed/);
 });
