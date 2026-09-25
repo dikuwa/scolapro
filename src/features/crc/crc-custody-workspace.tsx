@@ -316,7 +316,7 @@ export function CrcCustodyWorkspace({
               </div>
             ) : (
               <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center">
-                <p className="text-sm font-medium">No records in this view</p>
+                <p className="text-sm font-medium">No custody records in your scope</p>
                 <p className="mt-1 text-xs text-muted-foreground">Only custody records within your authorized scope appear here.</p>
               </div>
             )}
