@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -19,13 +19,38 @@ import type {
 const initialState: SchoolDutyActionState = {};
 
 function useNotice(state: SchoolDutyActionState) {
-  if (state.success && state.message) toast.success(state.message);
-  else if (state.message) toast.error(state.message);
+  useEffect(() => {
+    if (state.success && state.message) toast.success(state.message);
+    else if (state.message) toast.error(state.message);
+  }, [state.success, state.message]);
 }
 
 function formatDate(value: string | null) {
   if (!value) return "Open-ended";
   return new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${value}T12:00:00`));
+}
+
+function EndDutyForm({
+  assignmentId,
+  today,
+  action,
+  pending,
+}: {
+  assignmentId: string;
+  today: string;
+  action: (formData: FormData) => void;
+  pending: boolean;
+}) {
+  const [activeTo, setActiveTo] = useState(today);
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="assignmentId" value={assignmentId} />
+      <DateField label="End on" name="activeTo" value={activeTo} onChange={setActiveTo} required />
+      <Button type="submit" variant="neutral" loading={pending} disabled={pending}>
+        End responsibility
+      </Button>
+    </form>
+  );
 }
 
 export function ResponsibilitiesWorkspace({
@@ -122,13 +147,12 @@ export function ResponsibilitiesWorkspace({
                     {formatDate(item.activeFrom)} → {formatDate(item.activeTo)}
                   </p>
                 </div>
-                <form action={endAction} className="flex flex-wrap items-end gap-2">
-                  <input type="hidden" name="assignmentId" value={item.assignmentId} />
-                  <DateField label="End on" name="activeTo" defaultValue={today} required />
-                  <Button type="submit" variant="neutral" loading={ending} disabled={ending}>
-                    End responsibility
-                  </Button>
-                </form>
+                <EndDutyForm
+                  assignmentId={item.assignmentId}
+                  today={today}
+                  action={endAction}
+                  pending={ending}
+                />
               </article>
             ))}
           </div>
