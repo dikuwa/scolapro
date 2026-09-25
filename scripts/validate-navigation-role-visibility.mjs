@@ -12,6 +12,7 @@ const learnersPagePath = path.join(process.cwd(), "src/app/learners/page.tsx");
 const learnerDetailPagePath = path.join(process.cwd(), "src/app/learners/[id]/page.tsx");
 const learnerCrcPagePath = path.join(process.cwd(), "src/app/learners/[id]/cumulative-record/page.tsx");
 const staffPagePath = path.join(process.cwd(), "src/app/staff/page.tsx");
+const schoolDutyCapabilitiesPath = path.join(process.cwd(), "src/lib/permissions/school-duty-capabilities.ts");
 const source = fs.readFileSync(navigationPath, "utf8");
 const shellSource = fs.readFileSync(shellPath, "utf8");
 const shellFrameSource = fs.readFileSync(shellFramePath, "utf8");
@@ -23,6 +24,7 @@ const learnersPageSource = fs.readFileSync(learnersPagePath, "utf8");
 const learnerDetailPageSource = fs.readFileSync(learnerDetailPagePath, "utf8");
 const learnerCrcPageSource = fs.readFileSync(learnerCrcPagePath, "utf8");
 const staffPageSource = fs.readFileSync(staffPagePath, "utf8");
+const schoolDutyCapabilitiesSource = fs.readFileSync(schoolDutyCapabilitiesPath, "utf8");
 
 const roleBlock = source.match(/const enabledKeysByRole:[\s\S]*?= \{([\s\S]*?)\n\};/);
 if (!roleBlock) throw new Error("Unable to locate enabledKeysByRole in navigation.tsx");
@@ -135,10 +137,13 @@ if (!learnersPageSource.includes('canRegisterLearner = membership.roleKey === "s
   throw new Error("Learner registration action must stay hidden outside School Admin scope");
 }
 
+if (!lateArrivalsPageSource.includes('.eq("duty_key", "late_arrival_recorder")')) {
+  throw new Error("Late-arrival route delegation must require the late_arrival_recorder duty");
+}
+if (!schoolDutyCapabilitiesSource.includes("late_arrival_recorder") || !schoolDutyCapabilitiesSource.includes('navigationKey: "late_arrivals"')) {
+  throw new Error("Shell delegated navigation must map late_arrival_recorder to late_arrivals");
+}
 for (const target of [shellSource, lateArrivalsPageSource]) {
-  if (!target.includes('.eq("duty_key", "late_arrival_recorder")')) {
-    throw new Error("Late-arrival delegation must require the late_arrival_recorder duty");
-  }
   if (!target.includes('.lte("active_from", today)') || !target.includes('.or(`active_to.is.null,active_to.gte.${today}`)')) {
     throw new Error("Late-arrival delegation must require an effective current duty assignment");
   }
@@ -149,8 +154,8 @@ if (!shellSource.includes('.eq("staff_member_id", membership.staffMemberId)') ||
 if (!lateArrivalsPageSource.includes('.eq("staff_member_id", candidate.staffMemberId!)') || !lateArrivalsPageSource.includes('.eq("school_id", candidate.schoolId)')) {
   throw new Error("Late-arrival route delegation must preserve exact actor staff/school binding");
 }
-if (!shellSource.includes('extraNavigationKeys.push("late_arrivals")')) {
-  throw new Error("Effective delegated late-arrival recorders must receive route visibility");
+if (!shellSource.includes("navigationKeyForSchoolDuty") || !shellSource.includes("extraNavigationKeys.push(navigationKey)")) {
+  throw new Error("Effective delegated school duties must contribute mapped route visibility");
 }
 if (shellSource.includes('.in("school_id", schoolIds)') || lateArrivalsPageSource.includes('.in("school_id", schoolIds)')) {
   throw new Error("Late-arrival delegation must not use school-only duty lookup that can match another staff member");

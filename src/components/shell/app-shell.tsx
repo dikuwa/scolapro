@@ -12,6 +12,7 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 import { SCOLAPRO_BRAND } from "@/lib/brand";
 import { isSupabaseConfigured } from "@/lib/config/runtime";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { navigationKeyForSchoolDuty } from "@/lib/permissions/school-duty-capabilities";
 
 function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || SCOLAPRO_BRAND.initials;
@@ -114,14 +115,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       const dutyPromise = needsDutyLookup && shellSupabase && membership?.staffMemberId && today
         ? shellSupabase
             .from("school_duty_assignments")
-            .select("id")
+            .select("id,duty_key")
             .eq("school_id", membership.schoolId)
             .eq("staff_member_id", membership.staffMemberId)
-            .eq("duty_key", "late_arrival_recorder")
             .lte("active_from", today)
             .or(`active_to.is.null,active_to.gte.${today}`)
-            .limit(1)
-        : Promise.resolve({ data: [] as Array<{ id: string }> });
+        : Promise.resolve({ data: [] as Array<{ id: string; duty_key: string }> });
 
       const inventoryPromise = needsInventoryLookup && shellSupabase && membership && today
         ? shellSupabase
@@ -139,7 +138,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         inventoryPromise,
       ]);
 
-      if (dutyResult.data?.length) extraNavigationKeys.push("late_arrivals");
+      for (const duty of dutyResult.data ?? []) {
+        const navigationKey = navigationKeyForSchoolDuty(duty.duty_key);
+        if (navigationKey) extraNavigationKeys.push(navigationKey);
+      }
       if (inventoryResult.data?.length) extraNavigationKeys.push("room_inventory");
       extraNavigationKeys = [...new Set(extraNavigationKeys)];
 
