@@ -10,11 +10,14 @@ import { formFieldLabelClass, formFieldControlOffsetClass } from "@/components/u
 import {
   assignCustodian,
   changeItem,
+  clearCustodian,
   createItem,
   verifyInventory,
   type RoomInventoryActionState,
 } from "@/features/room-inventory/server/actions";
+import { TriangleAlert, Undo2, UserRound } from "lucide-react";
 import type {
+  RoomCustodianSource,
   RoomInventoryItem,
   RoomInventoryRoom,
   RoomInventoryStaff,
@@ -25,6 +28,54 @@ const init: RoomInventoryActionState = {};
 // control offset so they sit level with Picker/DateField/NumberStepper in a row.
 const f =
   `scolapro-control-surface ${formFieldControlOffsetClass} min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm outline-none`;
+// #702 provenance: the custodian of record is either an explicit manual override
+// or a default inherited from the home-room register class. Colour never carries
+// the meaning alone — every chip also states its source in text.
+const custodianSourceLabel: Record<RoomCustodianSource, string> = {
+  manual: "Manual override",
+  inherited: "Home room default",
+  ambiguous: "Shared home room",
+  none: "No custodian",
+};
+const custodianSourceClass: Record<RoomCustodianSource, string> = {
+  manual: "bg-brand-soft text-[color:var(--brand)]",
+  inherited: "bg-[color:var(--accent-mint-soft)] text-[color:var(--accent-mint)]",
+  ambiguous: "bg-warning-soft text-[color:var(--warning)]",
+  none: "bg-surface-muted text-muted-foreground",
+};
+function CustodianSourceChip({ source }: { source: RoomCustodianSource }) {
+  return (
+    <span
+      className={`inline-flex w-fit items-center gap-1.5 rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.68rem] font-medium ${custodianSourceClass[source]}`}
+    >
+      {source === "ambiguous" ? (
+        <TriangleAlert className="size-3" aria-hidden="true" />
+      ) : (
+        <UserRound className="size-3" aria-hidden="true" />
+      )}
+      {custodianSourceLabel[source]}
+    </span>
+  );
+}
+function custodianContextLine(room: RoomInventoryRoom): string {
+  const classes = (room.homeRoomClasses ?? []).map((c) => c.name).join(", ");
+  if (room.custodianSource === "manual") {
+    return `Manual override${room.manualEffectiveFrom ? ` effective from ${room.manualEffectiveFrom}` : ""}.`;
+  }
+  if (room.custodianSource === "inherited") {
+    return `Inherited default — register teacher of ${classes}.`;
+  }
+  if (room.custodianSource === "ambiguous") {
+    return `${classes} are homed in this room and name different register teachers.`;
+  }
+  if (room.custodianReason === "home_room_teacher_unassigned") {
+    return `${classes} has no register teacher, so no default custodian applies.`;
+  }
+  if (room.custodianReason === "home_room_teacher_not_current") {
+    return `The register teacher for ${classes} is not currently assigned to this school.`;
+  }
+  return "No register class uses this room as its home room.";
+}
 function useNotice(s: RoomInventoryActionState) {
   useEffect(() => {
     if (s.message) {
@@ -75,10 +126,13 @@ export function RoomInventoryWorkspace({
   const [c, create, p2] = useActionState(createItem, init);
   const [ch, change, p3] = useActionState(changeItem, init);
   const [v, verify, p4] = useActionState(verifyInventory, init);
+  const safeClear = clearCustodian || (async () => ({}));
+  const [cl, clear, p5] = useActionState(safeClear, init);
   useNotice(a);
   useNotice(c);
   useNotice(ch);
   useNotice(v);
+  useNotice(cl);
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]">
@@ -141,8 +195,14 @@ export function RoomInventoryWorkspace({
                 {room.block || "No building/section"} · {room.itemCount} item
                 lines
               </p>
-              <p className="mt-1 text-sm">
-                Responsible: {room.custodianName || "Not assigned"}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="text-sm">
+                  Responsible: {room.custodianName || "Not assigned"}
+                </span>
+                <CustodianSourceChip source={room.custodianSource} />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {custodianContextLine(room)}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Last verified: {room.lastVerified || "Never"}
@@ -155,30 +215,80 @@ export function RoomInventoryWorkspace({
               >
                 <input type="hidden" name="roomId" value={room.id} />
                 <h3 className="scolapro-section-title">Responsible staff</h3>
+
+                {room.custodianSource === "ambiguous" ? (
+                  <p
+                    role="status"
+                    className="mb-3 flex items-start gap-1.5 rounded-[var(--radius-xs)] bg-warning-soft/60 px-2.5 py-1.5 text-[0.68rem] leading-5 text-[color:var(--warning)]"
+                  >
+                    <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      {room.homeRoomClasses.length} register classes share this room and name
+                      different register teachers. Choose a custodian below — nothing is
+                      picked automatically.
+                    </span>
+                  </p>
+                ) : null}
+
                 <Picker
                   label="Staff"
                   name="staffId"
-                  value={staffId || room.custodianId || ""}
+                  value={staffId || room.custodianId || room.inheritedCustodianId || ""}
                   onChange={setStaffId}
                   searchable
                   placeholder="Choose staff"
                   options={staff.map((s) => ({ value: s.id, label: s.name }))}
                 />
+                {!staffId && room.custodianSource === "inherited" && room.inheritedCustodianId ? (
+                  <p className="mt-1 text-[0.68rem] text-muted-foreground">
+                    Prefilled from the home room default. Assigning records it as the
+                    explicit custodian.
+                  </p>
+                ) : null}
                 <DateField
                   label="Effective from"
                   name="effectiveFrom"
                   value={effectiveFrom}
                   onChange={setEffectiveFrom}
                 />
-                <div className="mt-3 flex justify-start">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                   <Button
                     type="submit"
                     loading={p1}
-                    disabled={p1 || !(staffId || room.custodianId)}
+                    disabled={
+                      p1 ||
+                      !(staffId || room.custodianId || room.inheritedCustodianId)
+                    }
                   >
-                    Assign custodian
+                    {room.custodianSource === "inherited"
+                      ? "Assign as custodian"
+                      : "Assign custodian"}
                   </Button>
+                  {room.custodianSource === "manual" ? (
+                    <Button
+                      type="button"
+                      variant="neutral"
+                      size="sm"
+                      loading={p5}
+                      disabled={p5}
+                      onClick={() => {
+                        const fd = new FormData();
+                        fd.set("roomId", room.id);
+                        fd.set("effectiveOn", effectiveFrom);
+                        clear(fd);
+                      }}
+                    >
+                      <Undo2 className="size-3.5" aria-hidden="true" />
+                      Clear override
+                    </Button>
+                  ) : null}
                 </div>
+                {room.custodianSource === "manual" ? (
+                  <p className="mt-2 text-[0.68rem] text-muted-foreground">
+                    Clearing the override restores the home room default and keeps this
+                    assignment in the custodian history.
+                  </p>
+                ) : null}
               </form>
             ) : null}
             <form
