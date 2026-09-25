@@ -93,3 +93,94 @@ export async function searchCrcCustodyReceivers(schoolId: string): Promise<CrcCu
     roleKey: String(row.role_key ?? ""),
   }));
 }
+
+export type CrcContributionContext = {
+  enrolmentId: string;
+  learnerId: string;
+  schoolId: string;
+  academicYear: number;
+  gradeLabel: string;
+  registerClassLabel: string;
+};
+
+export type CrcAdministrationSummary = {
+  academicYear: number;
+  currentLearners: number;
+  learnersWithRoutineCrcActivity: number;
+  learnersWithoutRoutineCrcActivity: number;
+  outgoingTransfers: number;
+  incomingTransfers: number;
+  requestsAwaitingAction: number;
+  incomingAwaitingAcknowledgement: number;
+  canViewConfidentialSupport: boolean;
+  leadershipOversight: boolean;
+};
+
+export type CrcClassCompleteness = {
+  registerClassId: string;
+  registerClassLabel: string;
+  gradeLabel: string;
+  learnerCount: number;
+  contributedCount: number;
+  followUpCount: number;
+};
+
+export async function getMyCrcContributionContext(
+  learnerId: string,
+  schoolId: string,
+): Promise<CrcContributionContext | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_my_crc_contribution_context", {
+    p_learner_id: learnerId,
+    p_school_id: schoolId,
+  });
+  if (error) throw new Error("Unable to resolve routine CRC contribution authority.");
+  const row = ((data ?? []) as RpcRow[])[0];
+  if (!row) return null;
+  return {
+    enrolmentId: String(row.enrolment_id),
+    learnerId: String(row.learner_id),
+    schoolId: String(row.school_id),
+    academicYear: Number(row.academic_year),
+    gradeLabel: String(row.grade_label ?? ""),
+    registerClassLabel: String(row.register_class_label ?? ""),
+  };
+}
+
+export async function getCrcAdministrationSummary(
+  schoolId: string,
+): Promise<{ summary: CrcAdministrationSummary; classes: CrcClassCompleteness[] }> {
+  const supabase = await createSupabaseServerClient();
+  const [summaryResult, classesResult] = await Promise.all([
+    supabase.rpc("get_crc_administration_summary", { p_school_id: schoolId }),
+    supabase.rpc("list_crc_class_completeness", { p_school_id: schoolId }),
+  ]);
+  if (summaryResult.error || classesResult.error) {
+    throw new Error("Unable to load CRC administration readiness.");
+  }
+
+  const raw = (summaryResult.data ?? {}) as Record<string, unknown>;
+  const summary: CrcAdministrationSummary = {
+    academicYear: Number(raw.academic_year ?? new Date().getFullYear()),
+    currentLearners: Number(raw.current_learners ?? 0),
+    learnersWithRoutineCrcActivity: Number(raw.learners_with_routine_crc_activity ?? 0),
+    learnersWithoutRoutineCrcActivity: Number(raw.learners_without_routine_crc_activity ?? 0),
+    outgoingTransfers: Number(raw.outgoing_transfers ?? 0),
+    incomingTransfers: Number(raw.incoming_transfers ?? 0),
+    requestsAwaitingAction: Number(raw.requests_awaiting_action ?? 0),
+    incomingAwaitingAcknowledgement: Number(raw.incoming_awaiting_acknowledgement ?? 0),
+    canViewConfidentialSupport: Boolean(raw.can_view_confidential_support),
+    leadershipOversight: Boolean(raw.leadership_oversight),
+  };
+
+  const classes: CrcClassCompleteness[] = ((classesResult.data ?? []) as RpcRow[]).map((row) => ({
+    registerClassId: String(row.register_class_id),
+    registerClassLabel: String(row.register_class_label ?? "Class"),
+    gradeLabel: String(row.grade_label ?? "Grade"),
+    learnerCount: Number(row.learner_count ?? 0),
+    contributedCount: Number(row.contributed_count ?? 0),
+    followUpCount: Number(row.follow_up_count ?? 0),
+  }));
+
+  return { summary, classes };
+}
