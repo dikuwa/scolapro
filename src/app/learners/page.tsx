@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { Plus, UsersRound } from "lucide-react";
+import { BookOpenCheck, Plus, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { LearnerDirectory } from "@/features/learners/learner-directory";
@@ -49,6 +49,7 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
 
   let schoolName = "ScolaPro Demonstration School";
   let canRegisterLearner = true;
+  let canManageSubjects = true;
   let schoolId: string | null = null;
   const academicYear = getNamibiaCalendarYear();
 
@@ -67,6 +68,7 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
     if (!membership) redirect("/");
     schoolName = membership.schoolName;
     canRegisterLearner = membership.roleKey === "school_admin";
+    canManageSubjects = ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey);
     schoolId = membership.schoolId;
   }
 
@@ -79,6 +81,7 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
             <p className="mt-1 text-sm text-muted-foreground">{schoolName} · Current learner identities and enrolments.</p>
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            {canManageSubjects ? <Link href="/school/learner-subjects" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted"><BookOpenCheck aria-hidden="true" className="size-4" />Subject assignments</Link> : null}
             <Link href="/class-lists" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted"><UsersRound aria-hidden="true" className="size-4" />Class Lists</Link>
             {canRegisterLearner ? <Link href="/learners/register" className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong">
               <Plus aria-hidden="true" className="size-4" /> Register learner

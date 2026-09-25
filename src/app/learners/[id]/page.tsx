@@ -37,6 +37,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   let reusableGuardians: ReusableGuardian[] = [];
   let canRequestCorrection = false;
   let canManageLearner = false;
+  let canManageSubjects = false;
   let canViewConduct = false;
   let managementSchoolId: string | null = null;
   let operationalSchoolId: string | null = null;
@@ -52,6 +53,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
     canViewConduct = correctionRequestRoles.has(membership.roleKey);
     canRequestCorrection = Boolean(learner && correctionRequestRoles.has(membership.roleKey));
     canManageLearner = Boolean(learner && membership.roleKey === "school_admin");
+    canManageSubjects = Boolean(learner && ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey));
     managementSchoolId = canManageLearner ? membership.schoolId : null;
     operationalSchoolId = learner && learnerExitRoles.has(membership.roleKey) ? membership.schoolId : null;
     if (learner) {
@@ -85,7 +87,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
           </div>
         </div>
 
-        <div className="mb-5 border-b border-border-subtle"><span className="inline-flex border-b-2 border-brand px-3 py-2.5 text-xs font-medium text-brand-strong">Overview</span></div>
+        <div className="mb-5 flex border-b border-border-subtle"><span className="inline-flex border-b-2 border-brand px-3 py-2.5 text-xs font-medium text-brand-strong">Overview</span>{canManageSubjects ? <Link href={`/learners/${learner.id}/academic/subjects`} className="inline-flex border-b-2 border-transparent px-3 py-2.5 text-xs font-medium text-muted-foreground transition hover:text-foreground">Academic · Subjects</Link> : null}</div>
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
           <section className="bg-surface shadow-[var(--shadow-xs)]">
