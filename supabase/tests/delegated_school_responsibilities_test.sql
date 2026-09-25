@@ -149,10 +149,15 @@ select lives_ok(
   format(
     'select public.end_school_duty(%L::uuid,%L::date)',
     (
-      select id from public.school_duty_assignments
+      select assignment_id
+      from public.list_school_duty_assignments(
+        '22222222-2222-4222-8222-222222222222'::uuid,
+        current_date
+      )
       where staff_member_id='fdc10000-0000-4000-8000-000000000002'
         and duty_key='late_arrival_recorder'
-      order by created_at desc limit 1
+      order by active_from desc
+      limit 1
     ),
     current_date-1
   ),
