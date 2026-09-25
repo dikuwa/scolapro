@@ -355,10 +355,10 @@ language sql
 stable
 security definer
 set search_path=pg_catalog,public,app_private
-as $
+as $$
   select app_private.is_school_leadership(auth.uid(),p_school_id)
     or app_private.is_crc_custodian(auth.uid(),p_school_id);
-$;
+$$;
 
 create or replace function app_private.can_read_crc_custody_request_for_rls(p_request_id uuid)
 returns boolean
@@ -366,7 +366,7 @@ language sql
 stable
 security definer
 set search_path=pg_catalog,public,app_private
-as $
+as $$
   select exists(
     select 1
     from public.crc_custody_requests r
@@ -383,7 +383,7 @@ as $
         )
       )
   );
-$;
+$$;
 
 create or replace function app_private.can_read_crc_request_escalation_for_rls(p_escalation_id uuid)
 returns boolean
@@ -391,7 +391,7 @@ language sql
 stable
 security definer
 set search_path=pg_catalog,public,app_private
-as $
+as $$
   select exists(
     select 1
     from public.crc_custody_request_escalations x
@@ -408,7 +408,7 @@ as $
         )
       )
   );
-$;
+$$;
 
 revoke all on function app_private.can_read_crc_request_policy_for_rls(uuid) from public,anon;
 revoke all on function app_private.can_read_crc_custody_request_for_rls(uuid) from public,anon;
