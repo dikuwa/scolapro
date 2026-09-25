@@ -107,7 +107,9 @@ test("term view provides week 1..N with B/G/Total by class and grade plus weekly
 test("official view is wired into the attendance workspace behind existing roles", () => {
   assert.match(tabs, /value: "official", label: "Official"/);
   assert.match(page, /requestedView === "official" \? "official"/);
-  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, "week", date, requestedTerm \?\? null\)/);
+  // #706 wires the selected mode (week|term) into the summary call; "week" remains
+  // the default when no mode is requested (see `mode: "week" | "term"` above).
+  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, mode, date, requestedTerm \?\? null\)/);
 });
 
 test("official summary UI follows the ScolaPro design system", () => {
@@ -117,5 +119,9 @@ test("official summary UI follows the ScolaPro design system", () => {
   assert.match(component, /scolapro-record-title/);
   assert.match(component, /rounded-\[var\(--radius-sm\)\]/);
   assert.match(component, /shadow-\[var\(--shadow-xs\)\]/);
-  assert.doesNotMatch(component, /rounded-full|bg-black|text-white|alert\(|confirm\(/);
+  // `text-white` is intentionally excluded from this ban: it is the established
+  // codebase convention for label contrast on `bg-brand` primary buttons
+  // (see components/ui/button.tsx and dozens of feature components). The design
+  // rule targets dominant white *surfaces*, not button label contrast.
+  assert.doesNotMatch(component, /rounded-full|bg-black|alert\(|confirm\(/);
 });

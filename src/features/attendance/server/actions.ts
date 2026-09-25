@@ -3,8 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
+import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+const FINALIZE_AUTHORIZED_ROLES = new Set(["principal", "deputy_principal", "school_admin"]);
 
 const exceptionSchema = z.object({
   enrolment_id: z.string().uuid(),
@@ -151,4 +154,101 @@ export async function submitDailyRegister(
   return evidenceFailures
     ? { success: true, message: `Attendance saved. ${evidenceFailures} evidence file${evidenceFailures === 1 ? "" : "s"} could not be attached.` }
     : { success: true, message: "Attendance register saved." };
+}
+
+export type FinalizeOfficialAttendanceSummaryInput = {
+  schoolId: string;
+  academicYear: number;
+  mode: "week" | "term";
+  date: string;
+  termId?: string | null;
+};
+
+export type FinalizeOfficialAttendanceSummaryResult = {
+  success: boolean;
+  message?: string;
+  revision?: number;
+  scolaproReference?: string;
+  verificationToken?: string;
+  verificationPath?: string;
+};
+
+/**
+ * Finalizes (or, when a finalized version already exists for the scope, issues a
+ * new superseding revision of) the Official Attendance Summary.
+ *
+ * The authoritative summary is recomputed server-side so readiness and the frozen
+ * data snapshot are never forged by the caller. The DB RPC independently
+ * re-checks authority and readiness and writes the immutable revision.
+ */
+export async function finalizeOfficialAttendanceSummary(
+  input: FinalizeOfficialAttendanceSummaryInput,
+): Promise<FinalizeOfficialAttendanceSummaryResult> {
+  const context = await getUserContext();
+  const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
+  const membership = context.memberships.find(
+    (item) => item.schoolId === input.schoolId && allowedRoles.has(item.roleKey),
+  );
+  if (!context.user || !membership) {
+    return { success: false, message: "You do not have permission to finalize this summary." };
+  }
+  if (!FINALIZE_AUTHORIZED_ROLES.has(membership.roleKey)) {
+    return {
+      success: false,
+      message: "Only the Principal, Deputy Principal or School Admin may finalize the official attendance summary.",
+    };
+  }
+
+  const summary = await getOfficialAttendanceSummary(
+    input.schoolId,
+    input.academicYear,
+    input.mode,
+    input.date,
+    input.termId ?? null,
+  );
+  if (!summary.readiness.complete) {
+    return {
+      success: false,
+      message: "All expected registers must be confirmed before this summary can be finalized.",
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("finalize_official_attendance_summary", {
+    p_school_id: input.schoolId,
+    p_academic_year: input.academicYear,
+    p_mode: input.mode,
+    p_scope_start: summary.scopeStart,
+    p_scope_end: summary.scopeEnd,
+    p_term_id: input.termId ?? null,
+    p_data_snapshot: summary as unknown as Record<string, unknown>,
+  });
+
+  if (error) {
+    console.error("official attendance summary finalize failed", error.message);
+    const isReadiness = /readiness|confirmed|incomplete/i.test(error.message);
+    return {
+      success: false,
+      message: isReadiness
+        ? "All expected registers must be confirmed before this summary can be finalized."
+        : "The official attendance summary could not be finalized. Try again.",
+    };
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | { snapshot_id: string; revision: number; scolapro_reference: string; verification_token: string; verification_path: string }
+    | undefined;
+  if (!row) {
+    return { success: false, message: "The official attendance summary could not be finalized. Try again." };
+  }
+
+  revalidatePath("/attendance");
+  return {
+    success: true,
+    revision: row.revision,
+    scolaproReference: row.scolapro_reference,
+    verificationToken: row.verification_token,
+    verificationPath: row.verification_path,
+    message: row.revision > 1 ? `Revision ${row.revision} finalized.` : "Official attendance summary finalized.",
+  };
 }
