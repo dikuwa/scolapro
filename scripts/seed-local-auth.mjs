@@ -6,7 +6,7 @@ import { createClient } from "@supabase/supabase-js";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const userId = "70000000-0000-4000-8000-000000000001";
 const membershipId = "70000000-0000-4000-8000-000000000002";
-const tenantId = "11111111-1111-4111-8111-111111111111";
+const expectedTenantId = "11111111-1111-4111-8111-111111111111";
 const schoolId = "22222222-2222-4222-8222-222222222222";
 const email = process.env.SCOLAPRO_LOCAL_ADMIN_EMAIL || "local-admin@scolapro.test";
 const password = process.env.SCOLAPRO_LOCAL_ADMIN_PASSWORD;
@@ -47,6 +47,19 @@ if (authResult.error || !authResult.data.user) {
   throw new Error(`Unable to seed local Auth user: ${authResult.error?.message ?? "unknown error"}`);
 }
 
+const { data: school, error: schoolError } = await supabase
+  .from("schools")
+  .select("tenant_id")
+  .eq("id", schoolId)
+  .single();
+
+if (schoolError || !school) {
+  throw new Error(`Unable to resolve local demo school tenant: ${schoolError?.message ?? "school not found"}`);
+}
+if (school.tenant_id !== expectedTenantId) {
+  throw new Error("Local demo school tenant does not match the repository seed.");
+}
+
 const [profileResult, membershipResult] = await Promise.all([
   supabase.from("user_profiles").upsert({
     user_id: userId,
@@ -56,7 +69,7 @@ const [profileResult, membershipResult] = await Promise.all([
   }),
   supabase.from("school_memberships").upsert({
     id: membershipId,
-    tenant_id: tenantId,
+    tenant_id: school.tenant_id,
     school_id: schoolId,
     user_id: userId,
     role_key: "school_admin",
