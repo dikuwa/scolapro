@@ -10,6 +10,7 @@ import {
   getMyCrcCustodyRecords,
   getMyCrcCustodyRequests,
 } from "@/features/crc/server/custody";
+import { listLearnerTransferFormCandidates } from "@/features/transfers/server/transfer-form";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 export default async function CrcCustodyPage() {
@@ -22,12 +23,13 @@ export default async function CrcCustodyPage() {
   const access = await getCrcCustodyAccessContext(membership.schoolId);
   if (!access.canManageCustody && !access.leadership) redirect("/");
 
-  const [records, requests, destinations, administration, requestPolicyDays] = await Promise.all([
+  const [records, requests, destinations, administration, requestPolicyDays, transferForms] = await Promise.all([
     getMyCrcCustodyRecords(),
     getMyCrcCustodyRequests(),
     access.canManageCustody ? getCrcCustodyDestinations() : Promise.resolve([]),
     getCrcAdministrationSummary(membership.schoolId),
     getCrcCustodyRequestPolicy(membership.schoolId),
+    listLearnerTransferFormCandidates(),
   ]);
 
   return (
@@ -51,6 +53,7 @@ export default async function CrcCustodyPage() {
           requests={requests}
           requestPolicyDays={requestPolicyDays}
           schoolId={membership.schoolId}
+          transferForms={transferForms}
         />
       </section>
     </AppShell>
