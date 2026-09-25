@@ -67,9 +67,23 @@ export function OfflineRuntime({ scope }: { scope: OfflineScope | null }) {
   }, [scope]);
 
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+    if (!("serviceWorker" in navigator)) return;
+
+    if (process.env.NODE_ENV === "development") {
+      Promise.all([
+        navigator.serviceWorker.getRegistrations().then((registrations) =>
+          Promise.all(registrations.map((registration) => registration.unregister())),
+        ),
+        "caches" in window
+          ? window.caches.keys().then((keys) =>
+              Promise.all(keys.filter((key) => key.startsWith("scolapro-")).map((key) => window.caches.delete(key))),
+            )
+          : Promise.resolve([]),
+      ]).catch(() => undefined);
+      return;
     }
+
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
   }, []);
 
   useEffect(() => {

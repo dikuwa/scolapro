@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync("supabase/migrations/20260924130000_official_attendance_summary_finalization.sql", "utf8");
+const migration = readFileSync("supabase/migrations/20260924131000_official_attendance_summary_finalization.sql", "utf8");
 const route = readFileSync("src/app/api/official-documents/attendance-summary/route.ts", "utf8");
 const pdfRenderer = readFileSync("src/features/documents/server/render-official-attendance-summary-pdf.ts", "utf8");
 const actions = readFileSync("src/features/attendance/server/actions.ts", "utf8");

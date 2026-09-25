@@ -1,5 +1,6 @@
 const CACHE_NAME = "scolapro-shell-v2";
 const OFFLINE_PATH = "/offline";
+const IS_LOOPBACK = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.hostname);
 const SHELL = [
   "/manifest.webmanifest",
   "/brand/scolapro/icon-blue.svg",
@@ -36,11 +37,21 @@ async function cacheOfflineShell() {
 }
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(cacheOfflineShell());
+  if (!IS_LOOPBACK) event.waitUntil(cacheOfflineShell());
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
+  if (IS_LOOPBACK) {
+    event.waitUntil(
+      Promise.all([
+        caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
+        self.registration.unregister(),
+      ]).then(() => self.clients.claim()),
+    );
+    return;
+  }
+
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
@@ -49,6 +60,10 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  // Next development chunks are mutable. A localhost worker must never serve
+  // a chunk emitted by another dev server, checkout or Turbopack session.
+  if (IS_LOOPBACK) return;
+
   const request = event.request;
   if (request.method !== "GET") return;
 

@@ -37,7 +37,17 @@ export async function getSchoolStructure(schoolId: string, academicYear: number)
       .order("class_code"),
   ]);
 
-  if (schoolError || anchorError || gradeError || classError) throw new Error("Unable to load school academic structure.");
+  const academicStructureErrors = {
+    school: schoolError,
+    cycleAnchor: anchorError,
+    grades: gradeError,
+    registerClasses: classError,
+  };
+
+  if (Object.values(academicStructureErrors).some(Boolean)) {
+    console.error("[academic-setup] structure query failure", academicStructureErrors);
+    throw new Error("Unable to load school academic structure.");
+  }
 
   return {
     timetableCycleMode: school?.timetable_cycle_mode === "rotating" ? "rotating" as const : "weekday" as const,
