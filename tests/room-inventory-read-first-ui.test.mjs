@@ -14,7 +14,7 @@ test("room inventory keeps add form collapsed until requested", () => {
   assert.match(source, /const \[addOpen, setAddOpen\] = useState\(false\)/);
   assert.match(source, /\{addOpen \? \(/);
   assert.match(source, /\+ Add inventory item/);
-  assert.match(source, /if \(c\.success\)[\s\S]*setAddOpen\(false\)/);
+  assert.match(source, /const createAndClose = async[\s\S]*if \(result\.success\)[\s\S]*setAddOpen\(false\)/);
 });
 
 test("room inventory exposes one edit-on-demand item editor", () => {
@@ -22,7 +22,7 @@ test("room inventory exposes one edit-on-demand item editor", () => {
   assert.match(source, /expanded=\{editingItemId === i\.id\}/);
   assert.match(source, /aria-expanded=\{expanded\}/);
   assert.match(source, /\{expanded \? \(/);
-  assert.match(source, /if \(ch\.success\) setEditingItemId\(null\)/);
+  assert.match(source, /const changeAndClose = async[\s\S]*if \(result\.success\) setEditingItemId\(null\)/);
 });
 
 test("room inventory preserves filters and clear-filter convention", () => {
