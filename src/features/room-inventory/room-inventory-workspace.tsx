@@ -203,6 +203,11 @@ export function RoomInventoryWorkspace({
             />
           </label>
         </div>
+        <div className="mt-3 flex justify-end">
+          <Button type="button" variant="neutral" size="sm" disabled={!ownership && !condition && !q} onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
       </section>
       {room ? (
         <>
@@ -342,12 +347,19 @@ export function RoomInventoryWorkspace({
               </div>
             </form>
           </div>
-          <form
-            action={create}
-            className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5"
-          >
-            <input type="hidden" name="roomId" value={room.id} />
-            <h2 className="scolapro-section-title">Add inventory item</h2>
+          <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="scolapro-section-title">Add inventory item</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Open only when you need to add a new inventory line.</p>
+              </div>
+              <Button type="button" variant="neutral" onClick={() => setAddOpen((open) => !open)}>
+                {addOpen ? "Close" : "+ Add inventory item"}
+              </Button>
+            </div>
+            {addOpen ? (
+              <form action={create} className="mt-4 border-t border-border-subtle pt-4">
+                <input type="hidden" name="roomId" value={room.id} />
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="min-w-0">
                 <span className={formFieldLabelClass}>Item description</span>
@@ -401,14 +413,18 @@ export function RoomInventoryWorkspace({
                 />
               </label>
             </div>
-            <div className="mt-3 flex justify-start sm:justify-end">
-              <Button type="submit" loading={p2} disabled={p2}>
-                Add item
-              </Button>
-            </div>
-          </form>
+                <div className="mt-3 flex justify-start gap-2 sm:justify-end">
+                  <Button type="button" variant="neutral" onClick={() => setAddOpen(false)}>Cancel</Button>
+                  <Button type="submit" loading={p2} disabled={p2}>Add item</Button>
+                </div>
+              </form>
+            ) : null}
+          </section>
           <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
-            <h2 className="scolapro-section-title">Current inventory</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="scolapro-section-title">Current inventory</h2>
+              <span className="text-xs text-muted-foreground">{visible.length} {visible.length === 1 ? "item" : "items"}</span>
+            </div>
             {visible.length ? (
               <div className="mt-3 space-y-3">
                 {visible.map((i) => (
