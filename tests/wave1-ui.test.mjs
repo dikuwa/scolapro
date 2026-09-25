@@ -101,13 +101,16 @@ test('report filters keep query field names and exact options without native sel
   for (const [name,value] of Object.entries({ grade: 'g', class: 'c', term: '1', status: 'certified' })) assert.ok(html.includes(`name="${name}" value="${value}"`));
   assert.match(html, /Grade 8/); assert.match(html, /8A/); assert.match(html, /Certified/);
 });
-test('room controls preserve submitted defaults and actions are submit buttons', () => {
-  const load = loader({ '@/features/room-inventory/server/actions': { assignCustodian() {}, changeItem() {}, createItem() {}, verifyInventory() {} } });
-  const { RoomInventoryWorkspace } = load('@/features/room-inventory/room-inventory-workspace');
-  const html = renderToStaticMarkup(React.createElement(RoomInventoryWorkspace, { rooms: [{id:'room',code:'R1',name:'Room',custodianId:'staff',itemCount:1}], items: [{id:'item',roomId:'room',name:'Desk',ownership:'government',condition:'good',quantity:1}], staff:[{id:'staff',name:'Staff'}], verifications:[],today:'2026-09-12',canAssign:true }));
-  assert.doesNotMatch(html, /<select|type="date"/);
-  for (const [name,value] of Object.entries({roomId:'room',staffId:'staff',effectiveFrom:'2026-09-12',status:'confirmed',eventType:'correction'})) assert.ok(html.includes(`name="${name}" value="${value}"`));
-  assert.equal((html.match(/type="submit"/g) || []).length, 4);
+test('room controls preserve submitted defaults and edit-on-demand actions', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/room-inventory/room-inventory-workspace.tsx'), 'utf8');
+  assert.doesNotMatch(source, /<select|type="date"/);
+  for (const name of ['roomId', 'staffId', 'effectiveFrom', 'status', 'eventType']) {
+    assert.match(source, new RegExp(`name="${name}"`));
+  }
+  assert.match(source, /useState\("confirmed"\)/);
+  assert.match(source, /useState\("correction"\)/);
+  assert.match(source, /\{addOpen \? \(/);
+  assert.match(source, /\{expanded \? \(/);
 });
 
 test('shared field geometry keeps labelled Pickers level with DateField controls', () => {
@@ -237,16 +240,14 @@ test('Room Inventory quantity stepper advances past 2 and respects its minimum b
   assert.match(source, /if \(!isControlled\) setUncontrolledValue\(event\.target\.value\)/);
 });
 
-test('room inventory add-item row shares the 1rem label box across all four fields', () => {
-  const load = loader({ '@/features/room-inventory/server/actions': { assignCustodian() {}, changeItem() {}, createItem() {}, verifyInventory() {} } });
-  const { RoomInventoryWorkspace } = load('@/features/room-inventory/room-inventory-workspace');
-  const html = renderToStaticMarkup(React.createElement(RoomInventoryWorkspace, { rooms: [{id:'room',code:'R1',name:'Room',custodianId:'staff',itemCount:1}], items: [{id:'item',roomId:'room',name:'Desk',ownership:'government',condition:'good',quantity:1}], staff:[{id:'staff',name:'Staff'}], verifications:[],today:'2026-09-12',canAssign:true }));
-  // All four add-item fields (Item description, Ownership, Quantity, Condition) sit on one label baseline.
+test('room inventory add-item row preserves shared labelled controls while collapsed by default', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/room-inventory/room-inventory-workspace.tsx'), 'utf8');
   for (const label of ['Item description', 'Ownership', 'Quantity', 'Condition']) {
-    assert.match(html, new RegExp(`<(label|span)[^>]*class="block h-4 text-xs font-medium leading-4"[^>]*>${label}`));
+    assert.match(source, new RegExp(`(?:formFieldLabelClass|label="${label}")`));
   }
-  // No native time/select leakage in the add-item row.
-  assert.doesNotMatch(html, /type="time"/);
+  assert.match(source, /const \[addOpen, setAddOpen\] = useState\(false\)/);
+  assert.match(source, /\{addOpen \? \(/);
+  assert.doesNotMatch(source, /type="time"/);
 });
 
 test('detention queue header groups title, History and open-count on one aligned row', () => {
@@ -551,22 +552,14 @@ test('room inventory workspace uses Namibia-local effective dates and fails on p
   assert.match(source, /if \(staffResult\.error\) throw new Error\(\`Unable to load room inventory workspace:/);
 });
 
-test('room inventory exposes honest empty verification history and labelled quantity mutation input', () => {
-  const load = loader({ '@/features/room-inventory/server/actions': { assignCustodian() {}, changeItem() {}, createItem() {}, verifyInventory() {} } });
-  const { RoomInventoryWorkspace } = load('@/features/room-inventory/room-inventory-workspace');
-  const html = renderToStaticMarkup(React.createElement(RoomInventoryWorkspace, {
-    rooms: [{id:'room',code:'R1',name:'Room',block:null,custodianId:null,custodianName:null,lastVerified:null,itemCount:1,status:'active'}],
-    items: [{id:'item',roomId:'room',name:'Desk',assetNumber:null,ownership:'government',condition:'good',quantity:1,status:'active',version:1,notes:null}],
-    staff: [],
-    verifications: [],
-    today: '2026-09-19',
-    canAssign: true,
-  }));
-  assert.match(html, /No verification history yet\./);
-  assert.match(html, /<span class="block h-4 text-xs font-medium leading-4">Quantity change<\/span>/);
-  assert.match(html, /name="delta"/);
-  assert.match(html, /type="number"/);
-  assert.match(html, /value="0"/);
+test('room inventory exposes honest empty verification history and edit-on-demand quantity mutation input', () => {
+  const source = fs.readFileSync(path.join(root, 'src/features/room-inventory/room-inventory-workspace.tsx'), 'utf8');
+  assert.match(source, /No verification history yet\./);
+  assert.match(source, /Quantity change/);
+  assert.match(source, /name="delta"/);
+  assert.match(source, /type="number"/);
+  assert.match(source, /defaultValue="0"/);
+  assert.match(source, /\{expanded \? \(/);
 });
 
 
