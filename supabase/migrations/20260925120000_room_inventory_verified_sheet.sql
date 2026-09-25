@@ -88,22 +88,6 @@ begin
   )
   into v_classes
   from public.register_classes rc
-  where rc.room_id is null;
-
-  -- The previous query intentionally cannot bind to a non-existent generic room_id.
-  -- Replace it with the canonical home-room relationship.
-  select coalesce(
-    jsonb_agg(
-      jsonb_build_object(
-        'id', rc.id,
-        'display_name', rc.display_name
-      )
-      order by rc.display_name, rc.id
-    ),
-    '[]'::jsonb
-  )
-  into v_classes
-  from public.register_classes rc
   where rc.home_room_id = p_room_id
     and rc.school_id = v_room.school_id
     and rc.tenant_id = v_room.tenant_id;
