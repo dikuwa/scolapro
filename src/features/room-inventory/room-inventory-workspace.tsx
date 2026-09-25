@@ -124,9 +124,24 @@ export function RoomInventoryWorkspace({
       ),
     [items, roomId, ownership, condition, q],
   );
+  const createAndClose = async (previous: RoomInventoryActionState, data: FormData) => {
+    const result = await createItem(previous, data);
+    if (result.success) {
+      setAddOpen(false);
+      setItemOwnership("government");
+      setItemCondition("good");
+    }
+    return result;
+  };
+  const changeAndClose = async (previous: RoomInventoryActionState, data: FormData) => {
+    const result = await changeItem(previous, data);
+    if (result.success) setEditingItemId(null);
+    return result;
+  };
+
   const [a, assign, p1] = useActionState(assignCustodian, init);
-  const [c, create, p2] = useActionState(createItem, init);
-  const [ch, change, p3] = useActionState(changeItem, init);
+  const [c, create, p2] = useActionState(createAndClose, init);
+  const [ch, change, p3] = useActionState(changeAndClose, init);
   const [v, verify, p4] = useActionState(verifyInventory, init);
   const safeClear = clearCustodian || (async () => ({}));
   const [cl, clear, p5] = useActionState(safeClear, init);
@@ -136,17 +151,6 @@ export function RoomInventoryWorkspace({
   useNotice(v);
   useNotice(cl);
 
-  useEffect(() => {
-    if (c.success) {
-      setAddOpen(false);
-      setItemOwnership("government");
-      setItemCondition("good");
-    }
-  }, [c.success]);
-
-  useEffect(() => {
-    if (ch.success) setEditingItemId(null);
-  }, [ch.success]);
 
   const clearFilters = () => {
     setOwnership("");
