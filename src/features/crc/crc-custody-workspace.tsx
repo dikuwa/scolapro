@@ -5,7 +5,12 @@ import { ArrowRightLeft, Check, LoaderCircle, Plus, Search, Send, ShieldCheck } 
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import {
+  acceptCrcCustodyRequest,
+  escalateCrcCustodyRequest,
+  fulfillExternalCrcRequest,
   prepareCrcCustody,
+  requestCrcCustody,
+  setCrcCustodyRequestPolicy,
   transitionCrcCustody,
   type CrcCustodyActionState,
 } from "@/features/crc/server/actions";
@@ -16,6 +21,8 @@ import type {
   CrcCustodyRecord,
   CrcAdministrationSummary,
   CrcClassCompleteness,
+  CrcCustodyRequest,
+  CrcRequestOrigin,
 } from "@/features/crc/server/custody";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -210,6 +217,313 @@ function PrepareForm({ destinations, canPrepare }: { destinations: CrcCustodyDes
           </button>
         </div>
       </form>
+    </section>
+  );
+}
+
+
+function RequestForm({
+  canRequest,
+  responseDays,
+}: {
+  canRequest: boolean;
+  responseDays: number;
+}) {
+  const [learnerQuery, setLearnerQuery] = useState("");
+  const [learners, setLearners] = useState<CrcCustodyLearner[]>([]);
+  const [selectedLearnerId, setSelectedLearnerId] = useState("");
+  const [origins, setOrigins] = useState<CrcRequestOrigin[]>([]);
+  const [originSchoolId, setOriginSchoolId] = useState("");
+  const [externalOrigin, setExternalOrigin] = useState(false);
+  const [externalOriginName, setExternalOriginName] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [loadingOrigins, setLoadingOrigins] = useState(false);
+  const [state, action, pending] = useActionState(requestCrcCustody, initialState);
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [state]);
+
+  if (!canRequest) return null;
+
+  async function runSearch() {
+    if (!learnerQuery.trim()) return;
+    setSearching(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc("search_crc_custody_learners", { p_query: learnerQuery.trim() });
+      if (error) {
+        toast.error("Learner search is not available for your CRC custody scope.");
+        setLearners([]);
+        return;
+      }
+      setLearners((data ?? []) as CrcCustodyLearner[]);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function chooseLearner(learnerId: string) {
+    setSelectedLearnerId(learnerId);
+    setOriginSchoolId("");
+    setExternalOrigin(false);
+    setExternalOriginName("");
+    setLoadingOrigins(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc("list_crc_request_origins", { p_learner_id: learnerId });
+      if (error) {
+        toast.error("Previous ScolaPro schools could not be resolved for this learner.");
+        setOrigins([]);
+        return;
+      }
+      setOrigins(((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+        schoolId: String(row.school_id),
+        schoolName: String(row.school_name ?? "School"),
+        schoolTown: row.school_town ? String(row.school_town) : null,
+        lastEnrolledOn: String(row.last_enrolled_on ?? ""),
+      })));
+    } finally {
+      setLoadingOrigins(false);
+    }
+  }
+
+  const selectedLearner = learners.find((learner) => learner.learnerId === selectedLearnerId);
+
+  return (
+    <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <h2 className="scolapro-section-title">Request a missing CRC</h2>
+      <p className="scolapro-section-description">
+        Request custody from a learner&apos;s previous school. The current school response target is {responseDays} {responseDays === 1 ? "day" : "days"}.
+      </p>
+      <form action={action} className="mt-4 space-y-4">
+        <input type="hidden" name="learnerId" value={selectedLearnerId} />
+        <input type="hidden" name="originSchoolId" value={externalOrigin ? "" : originSchoolId} />
+        <input type="hidden" name="externalOriginName" value={externalOrigin ? externalOriginName : ""} />
+
+        <div>
+          <p className="text-xs font-medium">Learner</p>
+          <div className="mt-1.5 flex gap-2">
+            <input
+              value={learnerQuery}
+              onChange={(event) => setLearnerQuery(event.target.value)}
+              className={fieldClass()}
+              placeholder="Search learner name or admission number"
+            />
+            <button type="button" onClick={runSearch} disabled={searching || !learnerQuery.trim()} className="scolapro-cta inline-flex min-h-10 shrink-0 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-sm font-medium hover:bg-surface disabled:opacity-60">
+              {searching ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Search className="size-4" aria-hidden="true" />}
+              Search
+            </button>
+          </div>
+          {learners.length ? (
+            <div className="mt-2 max-h-44 overflow-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1.5">
+              {learners.map((learner) => (
+                <button key={learner.learnerId} type="button" onClick={() => chooseLearner(learner.learnerId)} className={`flex w-full items-center justify-between rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm hover:bg-surface-muted ${selectedLearnerId === learner.learnerId ? "bg-brand-soft text-brand-strong" : ""}`}>
+                  <span>
+                    <span className="block font-medium">{learner.learnerName}</span>
+                    <span className="block text-[0.68rem] text-muted-foreground">{[learner.gradeLabel, learner.admissionNumber].filter(Boolean).join(" · ")}</span>
+                  </span>
+                  {selectedLearnerId === learner.learnerId ? <Check className="size-4" aria-hidden="true" /> : null}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {selectedLearner ? <p className="mt-1.5 text-xs text-[color:var(--success)]">Selected: {selectedLearner.learnerName}</p> : null}
+        </div>
+
+        {selectedLearnerId ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setExternalOrigin(false)} className={`rounded-[var(--radius-xs)] px-3 py-2 text-xs font-medium ${!externalOrigin ? "bg-brand-soft text-brand-strong" : "bg-surface-muted text-muted-foreground"}`}>ScolaPro previous school</button>
+              <button type="button" onClick={() => setExternalOrigin(true)} className={`rounded-[var(--radius-xs)] px-3 py-2 text-xs font-medium ${externalOrigin ? "bg-brand-soft text-brand-strong" : "bg-surface-muted text-muted-foreground"}`}>External school</button>
+            </div>
+            {externalOrigin ? (
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">External school name</span>
+                <input value={externalOriginName} onChange={(event) => setExternalOriginName(event.target.value)} maxLength={180} className={fieldClass()} placeholder="School name" />
+              </label>
+            ) : (
+              <Picker
+                label="Previous school"
+                value={originSchoolId}
+                onChange={setOriginSchoolId}
+                placeholder={loadingOrigins ? "Loading previous schools…" : "Choose previous school"}
+                disabled={loadingOrigins || !origins.length}
+                searchable
+                options={origins.map((origin) => ({
+                  value: origin.schoolId,
+                  label: origin.schoolName,
+                  helper: [origin.schoolTown, origin.lastEnrolledOn].filter(Boolean).join(" · "),
+                }))}
+              />
+            )}
+          </>
+        ) : null}
+
+        <label className="grid gap-1.5">
+          <span className="text-xs font-medium">Request note (optional)</span>
+          <textarea name="requestNote" rows={3} maxLength={2000} className={`${fieldClass()} py-2`} placeholder="Administrative context only; do not enter confidential case details." />
+        </label>
+        <div className="flex justify-end">
+          <button type="submit" disabled={pending || !selectedLearnerId || (externalOrigin ? !externalOriginName.trim() : !originSchoolId)} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
+            {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
+            Request CRC
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function RequestAction({
+  request,
+}: {
+  request: CrcCustodyRequest;
+}) {
+  const [acceptState, acceptAction, accepting] = useActionState(acceptCrcCustodyRequest, initialState);
+  const [externalState, externalAction, fulfilling] = useActionState(fulfillExternalCrcRequest, initialState);
+  const [escalationState, escalationAction, escalating] = useActionState(escalateCrcCustodyRequest, initialState);
+
+  useEffect(() => {
+    const state = acceptState.message ? acceptState : externalState.message ? externalState : escalationState;
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [acceptState, externalState, escalationState]);
+
+  if (request.incoming && !request.externalOrigin && ["requested", "escalated"].includes(request.status)) {
+    return (
+      <form action={acceptAction}>
+        <input type="hidden" name="requestId" value={request.requestId} />
+        <button type="submit" disabled={accepting} className="scolapro-cta rounded-[var(--radius-xs)] bg-brand px-2.5 py-2 text-xs font-medium text-white disabled:opacity-60">
+          {accepting ? "Accepting…" : "Accept request"}
+        </button>
+      </form>
+    );
+  }
+
+  if (request.outgoing && request.externalOrigin && ["requested", "escalated"].includes(request.status)) {
+    return (
+      <form action={externalAction}>
+        <input type="hidden" name="requestId" value={request.requestId} />
+        <button type="submit" disabled={fulfilling} className="scolapro-cta rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-2 text-xs font-medium disabled:opacity-60">
+          {fulfilling ? "Saving…" : "Mark received"}
+        </button>
+      </form>
+    );
+  }
+
+  if (request.outgoing && request.overdue && ["requested", "escalated"].includes(request.status)) {
+    return (
+      <div className="flex flex-wrap gap-2">
+        {(["circuit", "region"] as const).map((scopeKind) => (
+          <form action={escalationAction} key={scopeKind}>
+            <input type="hidden" name="requestId" value={request.requestId} />
+            <input type="hidden" name="scopeKind" value={scopeKind} />
+            <button type="submit" disabled={escalating} className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-2 text-xs font-medium hover:bg-surface disabled:opacity-60">
+              Escalate to {scopeKind}
+            </button>
+          </form>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function RequestPolicyForm({
+  schoolId,
+  responseDays,
+}: {
+  schoolId: string;
+  responseDays: number;
+}) {
+  const [state, action, pending] = useActionState(setCrcCustodyRequestPolicy, initialState);
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [state]);
+
+  return (
+    <form action={action} className="flex flex-wrap items-end gap-2">
+      <input type="hidden" name="schoolId" value={schoolId} />
+      <label className="grid gap-1.5">
+        <span className="text-xs font-medium">Response target (days)</span>
+        <input name="responseDays" type="number" min={1} max={60} defaultValue={responseDays} className={`${fieldClass()} w-28`} />
+      </label>
+      <button type="submit" disabled={pending} className="rounded-[var(--radius-xs)] bg-surface-muted px-3 py-2 text-xs font-medium hover:bg-surface disabled:opacity-60">
+        {pending ? "Saving…" : "Save policy"}
+      </button>
+    </form>
+  );
+}
+
+function RequestQueue({
+  requests,
+  records,
+  leadership,
+  schoolId,
+  responseDays,
+}: {
+  requests: CrcCustodyRequest[];
+  records: CrcCustodyRecord[];
+  leadership: boolean;
+  schoolId: string;
+  responseDays: number;
+}) {
+  const recordById = new Map(records.map((record) => [record.custodyId, record]));
+  const groups = [
+    ["Incoming", requests.filter((request) => request.incoming && ["requested", "escalated"].includes(request.status))],
+    ["Outgoing", requests.filter((request) => request.outgoing && ["requested", "escalated"].includes(request.status))],
+    ["Awaiting dispatch", requests.filter((request) => request.status === "accepted" && ["prepared", "authorized"].includes(recordById.get(request.custodyRecordId ?? "")?.custodyStatus ?? ""))],
+    ["Awaiting acknowledgement", requests.filter((request) => request.status === "accepted" && ["dispatched", "received", "acknowledged"].includes(recordById.get(request.custodyRecordId ?? "")?.custodyStatus ?? ""))],
+    ["Completed", requests.filter((request) => request.status === "fulfilled")],
+  ] as const;
+
+  return (
+    <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+      <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
+        <div>
+          <h2 className="scolapro-section-title">CRC request queues</h2>
+          <p className="scolapro-section-description">Requests are separate from custody transfer records and retain their own due dates and escalation history.</p>
+        </div>
+        {leadership ? <RequestPolicyForm schoolId={schoolId} responseDays={responseDays} /> : null}
+      </div>
+      <div className="divide-y divide-border-subtle">
+        {groups.map(([label, items]) => (
+          <div key={label} className="px-4 py-4 sm:px-5">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold">{label}</h3>
+              <span className="text-xs text-muted-foreground">{items.length}</span>
+            </div>
+            {items.length ? (
+              <div className="space-y-2">
+                {items.map((request) => (
+                  <article key={request.requestId} className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="scolapro-record-title">{request.learnerName}</p>
+                        <span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.68rem] font-medium ${request.overdue ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]" : "bg-surface text-muted-foreground"}`}>
+                          {request.overdue ? "Overdue" : request.status.replaceAll("_", " ")}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {request.originSchoolName} → {request.receivingSchoolName} · due {request.responseDueOn}
+                      </p>
+                      {request.requestNote ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{request.requestNote}</p> : null}
+                    </div>
+                    <RequestAction request={request} />
+                  </article>
+                ))}
+              </div>
+            ) : <p className="text-xs text-muted-foreground">No items in this queue.</p>}
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
