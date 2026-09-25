@@ -303,7 +303,7 @@ begin
   left join contributed c on c.learner_id=ce.learner_id
   where rc.school_id=p_school_id and rc.academic_year=v_year
   group by rc.id,rc.display_name,g.display_name
-  order by g.sort_order,rc.display_name,rc.id;
+  order by g.display_name,rc.display_name,rc.id;
 end;
 $$;
 
