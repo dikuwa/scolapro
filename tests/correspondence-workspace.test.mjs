@@ -49,11 +49,11 @@ test("all eight governed templates and required correspondence fields are presen
   }
 });
 
-test("issue 691 workflow ends at finalize, print and PDF", () => {
+test("issue 691 core workflow remains intact while issue 692 owns finalized sharing", () => {
   for (const label of ["Save draft", "Preview", "Print", "PDF", "Finalize", "Create revision"]) {
     assert.match(editor, new RegExp(label));
   }
-  assert.doesNotMatch(editor, /navigator\.share|navigator\.clipboard|mailto:\?subject/);
+  assert.doesNotMatch(editor, /navigator\.clipboard|mailto:\?subject/);
 });
 
 test("HTML and PDF use the canonical external header and handle multi-page tables", () => {
