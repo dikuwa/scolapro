@@ -229,7 +229,8 @@ select public.request_crc_custody(
 
 reset role;
 update public.crc_custody_requests
-set response_due_on=current_date-1
+set requested_on=current_date-8,
+    response_due_on=current_date-1
 where id=(select request_id from crc689_escalation_request);
 
 select set_config('request.jwt.claim.sub','fce40000-0000-4000-8000-000000000002',true);
