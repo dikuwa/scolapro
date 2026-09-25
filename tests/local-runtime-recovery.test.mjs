@@ -22,6 +22,9 @@ test("local Auth provisioning is explicit, password-gated and loopback-only", ()
   assert.match(seed, /password\.length < 12/);
   assert.match(seed, /Refusing to seed Auth outside the local Supabase stack/);
   assert.match(seed, /role_key: "school_admin"/);
+  assert.match(seed, /\.from\("schools"\)/);
+  assert.match(seed, /tenant_id: school\.tenant_id/);
+  assert.match(seed, /Local demo school tenant does not match the repository seed/);
   assert.doesNotMatch(seed, /https:\/\//);
 });
 
