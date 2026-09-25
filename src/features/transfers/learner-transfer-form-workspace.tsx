@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { CheckCircle2, FileDown, FileText, Printer, Save, ShieldCheck, Sparkles } from "lucide-react";
+import { CheckCircle2, FileText, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import {
   finalizeLearnerTransferForm,
   saveLearnerTransferFormDraft,
@@ -89,25 +89,8 @@ export function LearnerTransferFormWorkspace({
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=html`}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonVariants({ variant: "neutral", size: "md" })}
-              >
-                <Printer className="size-4" aria-hidden="true" />
-                Print
-              </a>
-              <a
-                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=pdf`}
-                target="_blank"
-                rel="noreferrer"
-                className={buttonVariants({ variant: "primary", size: "md" })}
-              >
-                <FileDown className="size-4" aria-hidden="true" />
-                PDF
-              </a>
+            <div className="max-w-sm rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-xs leading-5 text-muted-foreground">
+              Official print/PDF stays locked until the governed prescribed-form template source is configured. The finalized data snapshot remains immutable.
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
