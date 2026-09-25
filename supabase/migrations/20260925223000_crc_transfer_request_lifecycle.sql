@@ -1047,7 +1047,7 @@ begin
 
   if v_enrolment.id is null then raise exception 'Learner has no current enrolment at a school'; end if;
   if not app_private.is_crc_custodian(auth.uid(),v_enrolment.school_id) then
-    raise exception 'Permission denied: not an authorized CRC custodian at the learner school';
+    raise exception 'Permission denied: not an authorized custodian at the learner school';
   end if;
   if p_receiving_school_id=v_enrolment.school_id then raise exception 'CRC custody must be dispatched to a different school'; end if;
   if not exists(
@@ -1057,7 +1057,7 @@ begin
       and s.status='active'
   ) then raise exception 'Receiving school not found in learner tenant or inactive'; end if;
   if not app_private.is_crc_custodian(p_receiving_user_id,p_receiving_school_id) then
-    raise exception 'Receiving user is not an authorized CRC custodian at the receiving school';
+    raise exception 'Receiving user is not an authorized custodian at the receiving school';
   end if;
 
   insert into public.crc_custody_records(
@@ -1110,7 +1110,7 @@ begin
   limit 1;
 
   if v_origin_school_id is null or not app_private.is_crc_custodian(auth.uid(),v_origin_school_id) then
-    raise exception 'Permission denied: not an authorized CRC custodian';
+    raise exception 'Permission denied: not an authorized custodian';
   end if;
 
   if p_school_id=v_origin_school_id
@@ -1161,7 +1161,7 @@ begin
   limit 1;
 
   if v_origin_school_id is null or not app_private.is_crc_custodian(auth.uid(),v_origin_school_id) then
-    raise exception 'Permission denied: not an authorized CRC custodian';
+    raise exception 'Permission denied: not an authorized custodian';
   end if;
 
   return query
