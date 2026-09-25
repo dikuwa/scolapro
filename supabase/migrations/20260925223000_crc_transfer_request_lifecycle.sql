@@ -1549,14 +1549,16 @@ begin
     )
     values(
       v_request.tenant_id,
-      v_request.receiving_school_id,
+      null,
       auth.uid(),
       'crc_custody.escalation_acknowledged',
       'crc_custody_request',
       v_request.id,
       jsonb_build_object(
         'escalation_id',v_escalation.id,
-        'scope_kind',v_escalation.scope_kind
+        'scope_kind',v_escalation.scope_kind,
+        'receiving_school_id',v_request.receiving_school_id,
+        'origin_school_id',v_request.origin_school_id
       )
     );
   end if;
