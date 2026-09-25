@@ -45,9 +45,9 @@ test("custody prepare controls use ScolaPro Picker rather than browser-native se
   assert.doesNotMatch(custodyWorkspace, /<select/);
 });
 
-test("CRC administration route remains support or leadership scoped", () => {
-  assert.match(custodyPage, /supportRoles/);
-  assert.match(custodyPage, /leadershipRoles/);
-  assert.match(custodyPage, /if \(!hasSupport && !hasLeadership\) redirect/);
+test("CRC administration route remains governed by custody or leadership authority", () => {
+  assert.match(custodyPage, /getCrcCustodyAccessContext/);
+  assert.match(custodyPage, /if \(!access\.canManageCustody && !access\.leadership\) redirect/);
   assert.match(custodyPage, /getCrcAdministrationSummary\(membership\.schoolId\)/);
+  assert.match(custodyQueries, /canViewConfidentialSupport/);
 });
