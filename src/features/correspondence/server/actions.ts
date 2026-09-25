@@ -121,3 +121,56 @@ export async function reviseCorrespondenceDocument(documentId: string, reason: s
   revalidatePath("/correspondence");
   return { success: true, message: "Revision draft created.", documentId: row.id };
 }
+
+
+const finalizedEmailSchema = z.object({
+  documentId: z.string().uuid(),
+  destination: z.string().trim().email().max(320),
+});
+
+export async function emailFinalizedCorrespondence(
+  documentId: string,
+  destination: string,
+): Promise<CorrespondenceActionResult> {
+  const manager = await currentManager();
+  if (!manager) return { success: false, message: "Current-school leadership access is required." };
+  const parsed = finalizedEmailSchema.safeParse({ documentId, destination });
+  if (!parsed.success) return { success: false, message: "Enter a valid recipient email address." };
+
+  const db = await createSupabaseServerClient();
+  const { data, error } = await db.rpc("queue_finalized_correspondence_email", {
+    p_document_id: parsed.data.documentId,
+    p_destination: parsed.data.destination,
+  });
+  if (error || !data) {
+    return {
+      success: false,
+      message: error?.message.includes("finalized")
+        ? "Only finalized correspondence can be emailed."
+        : "The finalized correspondence could not be queued for email.",
+    };
+  }
+
+  revalidatePath(`/correspondence/${parsed.data.documentId}`);
+  return { success: true, message: "Finalized PDF queued for email delivery.", documentId: parsed.data.documentId };
+}
+
+export async function recordFinalizedCorrespondenceShare(
+  documentId: string,
+  method: "web_share_pdf" | "download_for_whatsapp",
+): Promise<CorrespondenceActionResult> {
+  const manager = await currentManager();
+  if (!manager) return { success: false, message: "Current-school leadership access is required." };
+  const parsedId = z.string().uuid().safeParse(documentId);
+  if (!parsedId.success) return { success: false, message: "This document reference is invalid." };
+
+  const db = await createSupabaseServerClient();
+  const { data, error } = await db.rpc("record_finalized_correspondence_device_share", {
+    p_document_id: parsedId.data,
+    p_share_method: method,
+  });
+  if (error || !data) {
+    return { success: false, message: "The share action could not be recorded." };
+  }
+  return { success: true, message: "Share action recorded.", documentId: parsedId.data };
+}
