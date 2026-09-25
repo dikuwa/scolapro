@@ -235,6 +235,34 @@ export function RoomInventoryWorkspace({
               <p className="mt-1 text-xs text-muted-foreground">
                 Last verified: {room.lastVerified || "Never"}
               </p>
+              {room.lastVerified ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="neutral"
+                    size="sm"
+                    onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}`, "_blank", "noopener,noreferrer")}
+                  >
+                    Preview sheet
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="neutral"
+                    size="sm"
+                    onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&print=1`, "_blank", "noopener,noreferrer")}
+                  >
+                    Print
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="neutral"
+                    size="sm"
+                    onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&format=pdf`, "_blank", "noopener,noreferrer")}
+                  >
+                    PDF
+                  </Button>
+                </div>
+              ) : null}
             </section>
             {canAssign ? (
               <form
