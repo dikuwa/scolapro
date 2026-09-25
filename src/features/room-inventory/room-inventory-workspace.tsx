@@ -108,6 +108,8 @@ export function RoomInventoryWorkspace({
   const [ownership, setOwnership] = useState("");
   const [condition, setCondition] = useState("");
   const [q, setQ] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const room = rooms.find((r) => r.id === roomId);
   const visible = useMemo(
     () =>
@@ -122,9 +124,24 @@ export function RoomInventoryWorkspace({
       ),
     [items, roomId, ownership, condition, q],
   );
+  const createAndClose = async (previous: RoomInventoryActionState, data: FormData) => {
+    const result = await createItem(previous, data);
+    if (result.success) {
+      setAddOpen(false);
+      setItemOwnership("government");
+      setItemCondition("good");
+    }
+    return result;
+  };
+  const changeAndClose = async (previous: RoomInventoryActionState, data: FormData) => {
+    const result = await changeItem(previous, data);
+    if (result.success) setEditingItemId(null);
+    return result;
+  };
+
   const [a, assign, p1] = useActionState(assignCustodian, init);
-  const [c, create, p2] = useActionState(createItem, init);
-  const [ch, change, p3] = useActionState(changeItem, init);
+  const [c, create, p2] = useActionState(createAndClose, init);
+  const [ch, change, p3] = useActionState(changeAndClose, init);
   const [v, verify, p4] = useActionState(verifyInventory, init);
   const safeClear = clearCustodian || (async () => ({}));
   const [cl, clear, p5] = useActionState(safeClear, init);
@@ -133,6 +150,14 @@ export function RoomInventoryWorkspace({
   useNotice(ch);
   useNotice(v);
   useNotice(cl);
+
+
+  const clearFilters = () => {
+    setOwnership("");
+    setCondition("");
+    setQ("");
+  };
+
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]">
@@ -148,7 +173,7 @@ export function RoomInventoryWorkspace({
             placeholder="Choose room"
             options={rooms.map((r) => ({
               value: r.id,
-              label: `${r.block ? `${r.block} · ` : ""}${r.code} · ${r.name}`,
+              label: `${r.block ? `${r.block} · ` : ""}${r.name}`,
             }))}
           />
           <Picker
@@ -182,15 +207,18 @@ export function RoomInventoryWorkspace({
             />
           </label>
         </div>
+        <div className="mt-3 flex justify-end">
+          <Button type="button" variant="neutral" size="sm" disabled={!ownership && !condition && !q} onClick={clearFilters}>
+            Clear filters
+          </Button>
+        </div>
       </section>
       {room ? (
         <>
           <div className="grid gap-4 lg:grid-cols-3">
             <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4">
               <p className="text-xs text-muted-foreground">Selected room</p>
-              <h2 className="mt-1 font-semibold">
-                {room.code} · {room.name}
-              </h2>
+              <h2 className="mt-1 font-semibold">{room.name}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {room.block || "No building/section"} · {room.itemCount} item
                 lines
@@ -323,12 +351,19 @@ export function RoomInventoryWorkspace({
               </div>
             </form>
           </div>
-          <form
-            action={create}
-            className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5"
-          >
-            <input type="hidden" name="roomId" value={room.id} />
-            <h2 className="scolapro-section-title">Add inventory item</h2>
+          <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="scolapro-section-title">Add inventory item</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Open only when you need to add a new inventory line.</p>
+              </div>
+              <Button type="button" variant="neutral" onClick={() => setAddOpen((open) => !open)}>
+                {addOpen ? "Close" : "+ Add inventory item"}
+              </Button>
+            </div>
+            {addOpen ? (
+              <form action={create} className="mt-4 border-t border-border-subtle pt-4">
+                <input type="hidden" name="roomId" value={room.id} />
             <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label className="min-w-0">
                 <span className={formFieldLabelClass}>Item description</span>
@@ -382,22 +417,28 @@ export function RoomInventoryWorkspace({
                 />
               </label>
             </div>
-            <div className="mt-3 flex justify-start sm:justify-end">
-              <Button type="submit" loading={p2} disabled={p2}>
-                Add item
-              </Button>
-            </div>
-          </form>
+                <div className="mt-3 flex justify-start gap-2 sm:justify-end">
+                  <Button type="button" variant="neutral" onClick={() => setAddOpen(false)}>Cancel</Button>
+                  <Button type="submit" loading={p2} disabled={p2}>Add item</Button>
+                </div>
+              </form>
+            ) : null}
+          </section>
           <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
-            <h2 className="scolapro-section-title">Current inventory</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="scolapro-section-title">Current inventory</h2>
+              <span className="text-xs text-muted-foreground">{visible.length} {visible.length === 1 ? "item" : "items"}</span>
+            </div>
             {visible.length ? (
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 divide-y divide-border-subtle overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle">
                 {visible.map((i) => (
                   <InventoryChangeForm
                     key={i.id}
                     item={i}
                     action={change}
                     pending={p3}
+                    expanded={editingItemId === i.id}
+                    onToggle={() => setEditingItemId((current) => current === i.id ? null : i.id)}
                   />
                 ))}
               </div>
@@ -453,74 +494,83 @@ function InventoryChangeForm({
   item: i,
   action,
   pending,
+  expanded,
+  onToggle,
 }: {
   item: RoomInventoryItem;
   action: (data: FormData) => void;
   pending: boolean;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const [eventType, setEventType] = useState("correction");
   const [condition, setCondition] = useState("");
   const [ownership, setOwnership] = useState("");
   return (
-    <form
-      action={action}
-      className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      <input type="hidden" name="itemId" value={i.id} />
-      <div className="sm:col-span-2 lg:col-span-3">
-        <p className="scolapro-record-title">{i.name}</p>
-        <p className="text-xs text-muted-foreground">
-          {i.assetNumber || "No asset no."} · {i.ownership} · qty {i.quantity} ·{" "}
-          {i.condition}
-        </p>
-      </div>
-      <Picker
-        label="Change"
-        name="eventType"
-        value={eventType}
-        onChange={setEventType}
-        placeholder="Choose change"
-        options={[
-          { value: "quantity_increase", label: "Quantity increase" },
-          { value: "quantity_decrease", label: "Quantity decrease" },
-          { value: "damaged", label: "Damaged" },
-          { value: "lost", label: "Lost" },
-          { value: "disposed", label: "Disposed" },
-          { value: "transferred_out", label: "Transferred out" },
-          { value: "correction", label: "Correction" },
-          { value: "ownership_correction", label: "Ownership correction" },
-        ]}
-      />
-      <label className="min-w-0">
-        <span className={formFieldLabelClass}>Quantity change</span>
-        <input className={f} name="delta" type="number" defaultValue="0" />
-      </label>
-      <Picker
-        label="Condition"
-        name="condition"
-        value={condition}
-        onChange={setCondition}
-        placeholder="Keep condition"
-        options={[{ value: "", label: "Keep condition" }, ...conditions]}
-      />
-      <Picker
-        label="Ownership"
-        name="ownership"
-        value={ownership}
-        onChange={setOwnership}
-        placeholder="Keep ownership"
-        options={[
-          { value: "", label: "Keep ownership" },
-          { value: "government", label: "GRN" },
-          { value: "school", label: "School" },
-          { value: "personal", label: "Personal" },
-        ]}
-      />
-      <div className="flex items-end">
-        <Button type="submit" loading={pending}>
-          Record
+    <div className="bg-surface">
+      <div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="scolapro-record-title truncate">{i.name}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {i.assetNumber || "No asset no."} · {i.ownership} · qty {i.quantity} · {i.condition}
+          </p>
+          {i.notes ? <p className="mt-1 truncate text-xs text-muted-foreground">{i.notes}</p> : null}
+        </div>
+        <Button type="button" variant="neutral" size="sm" onClick={onToggle} aria-expanded={expanded}>
+          {expanded ? "Close edit" : "Edit"}
         </Button>
       </div>
-    </form>
+      {expanded ? (
+        <form action={action} className="grid gap-3 border-t border-border-subtle bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-3">
+          <input type="hidden" name="itemId" value={i.id} />
+          <Picker
+            label="Change"
+            name="eventType"
+            value={eventType}
+            onChange={setEventType}
+            placeholder="Choose change"
+            options={[
+              { value: "quantity_increase", label: "Quantity increase" },
+              { value: "quantity_decrease", label: "Quantity decrease" },
+              { value: "damaged", label: "Damaged" },
+              { value: "lost", label: "Lost" },
+              { value: "disposed", label: "Disposed" },
+              { value: "transferred_out", label: "Transferred out" },
+              { value: "correction", label: "Correction" },
+              { value: "ownership_correction", label: "Ownership correction" },
+            ]}
+          />
+          <label className="min-w-0">
+            <span className={formFieldLabelClass}>Quantity change</span>
+            <input className={f} name="delta" type="number" defaultValue="0" />
+          </label>
+          <Picker
+            label="Condition"
+            name="condition"
+            value={condition}
+            onChange={setCondition}
+            placeholder="Keep condition"
+            options={[{ value: "", label: "Keep condition" }, ...conditions]}
+          />
+          <Picker
+            label="Ownership"
+            name="ownership"
+            value={ownership}
+            onChange={setOwnership}
+            placeholder="Keep ownership"
+            options={[
+              { value: "", label: "Keep ownership" },
+              { value: "government", label: "GRN" },
+              { value: "school", label: "School" },
+              { value: "personal", label: "Personal" },
+            ]}
+          />
+          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
+            <Button type="button" variant="neutral" onClick={onToggle}>Cancel</Button>
+            <Button type="submit" loading={pending}>Record change</Button>
+          </div>
+        </form>
+      ) : null}
+    </div>
   );
 }
