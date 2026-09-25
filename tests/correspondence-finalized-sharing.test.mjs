@@ -23,7 +23,7 @@ test("only finalized immutable correspondence can be emailed or device-shared", 
   assert.match(migration, /Only finalized correspondence can be emailed/);
   assert.match(migration, /Only finalized correspondence can be shared/);
   assert.match(migration, /app_private\.can_manage_correspondence/);
-  assert.match(editor, /readOnly \? <>/);
+  assert.match(editor, /!readOnly \? <Button[\s\S]*: <>/);
   assert.match(editor, /Email PDF/);
   assert.match(editor, /Share \/ WhatsApp/);
 });
