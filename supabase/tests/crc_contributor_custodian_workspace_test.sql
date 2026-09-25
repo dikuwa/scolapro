@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(9);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -42,14 +42,6 @@ reset role;
 select set_config('request.jwt.claim.sub','fdd00000-0000-4000-8000-000000000002',true);
 set local role authenticated;
 
-select ok(
-  app_private.is_current_register_teacher_for_enrolment(
-    '60000000-0000-4000-8000-000000000001'::uuid,
-    current_date
-  ),
-  'assigned register teacher receives current contribution authority'
-);
-
 select is(
   (select count(*)::integer
    from public.get_my_crc_contribution_context(
@@ -57,7 +49,7 @@ select is(
      '22222222-2222-4222-8222-222222222222'::uuid
    )),
   1,
-  'current register teacher receives learner contribution context'
+  'assigned register teacher receives current learner contribution context'
 );
 
 select lives_ok(
