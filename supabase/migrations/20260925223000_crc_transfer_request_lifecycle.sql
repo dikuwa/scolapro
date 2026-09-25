@@ -341,6 +341,10 @@ create table if not exists public.crc_custody_request_escalations(
   )
 );
 
+create unique index if not exists crc_custody_request_escalations_active_unique
+on public.crc_custody_request_escalations(request_id,scope_kind)
+where status in ('open','acknowledged');
+
 alter table public.crc_custody_request_policies enable row level security;
 alter table public.crc_custody_requests enable row level security;
 alter table public.crc_custody_request_escalations enable row level security;
@@ -666,6 +670,11 @@ begin
   update public.crc_custody_requests
   set status='fulfilled',fulfilled_at=now(),updated_at=now()
   where id=v_request.id;
+
+  update public.crc_custody_request_escalations
+  set status='resolved',resolved_at=now()
+  where request_id=v_request.id
+    and status<>'resolved';
 
   insert into public.audit_events(
     tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
