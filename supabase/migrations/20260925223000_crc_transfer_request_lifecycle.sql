@@ -53,6 +53,15 @@ as $$
             and sm.user_id=p_user_id
             and sm.status='active'
             and app_private.staff_member_has_school_assignment(sm.id,p_school_id,p_on_date)
+            and exists(
+              select 1
+              from public.school_memberships membership
+              where membership.user_id=p_user_id
+                and membership.school_id=p_school_id
+                and membership.staff_member_id=sm.id
+                and membership.active_from<=p_on_date
+                and (membership.active_to is null or membership.active_to>=p_on_date)
+            )
         )
       )
     );
