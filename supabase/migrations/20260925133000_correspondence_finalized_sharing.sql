@@ -102,8 +102,7 @@ begin
       'reference_number', v_document.reference_number,
       'revision_number', v_document.revision_number,
       'communication_message_id', v_message_id,
-      'communication_recipient_id', v_recipient_id,
-      'destination', v_destination
+      'communication_recipient_id', v_recipient_id
     )
   );
 
