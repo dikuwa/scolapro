@@ -31,15 +31,13 @@ test("cumulative record stays on authoritative role-scoped read paths", () => {
   assert.match(cumulativeQueries, /RLS intentionally makes restricted collections look empty/);
 });
 
-test("CRC custody UI preserves support versus leadership responsibilities", () => {
-  assert.match(custodyPage, /counsellor/);
-  assert.match(custodyPage, /learner_support/);
-  assert.match(custodyPage, /social_worker/);
-  assert.match(custodyPage, /school_admin/);
-  assert.match(custodyPage, /principal/);
-  assert.match(custodyPage, /deputy_principal/);
-  assert.doesNotMatch(custodyPage, /["']teacher["']/);
-  assert.doesNotMatch(custodyPage, /["']hod["']/);
+test("CRC custody UI preserves confidential-support versus workflow authority", () => {
+  assert.match(custodyPage, /getCrcCustodyAccessContext/);
+  assert.match(custodyPage, /access\.canManageCustody/);
+  assert.match(custodyPage, /access\.leadership/);
+  assert.match(custodyWorkspace, /Confidential support/);
+  assert.match(custodyWorkspace, /Administrative oversight/);
+  assert.match(custodyWorkspace, /Confidential case content is not duplicated into this dashboard/);
 });
 
 test("CRC custody source remains responsive from phone through desktop breakpoints", () => {
