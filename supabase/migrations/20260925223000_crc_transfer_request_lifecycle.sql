@@ -33,17 +33,27 @@ as $$
     and p_on_date is not null
     and (
       app_private.is_support_role_member(p_user_id,p_school_id)
-      or exists(
-        select 1
-        from public.school_duty_assignments d
-        join public.staff_members sm on sm.id=d.staff_member_id
-        where d.school_id=p_school_id
-          and d.duty_key='crc_custodian'
-          and d.active_from<=p_on_date
-          and (d.active_to is null or d.active_to>=p_on_date)
-          and sm.user_id=p_user_id
-          and sm.status='active'
-          and app_private.staff_member_has_school_assignment(sm.id,p_school_id,p_on_date)
+      or (
+        not exists(
+          select 1
+          from public.platform_memberships pm
+          where pm.user_id=p_user_id
+            and pm.role_key='platform_support'
+            and pm.active_from<=p_on_date
+            and (pm.active_to is null or pm.active_to>=p_on_date)
+        )
+        and exists(
+          select 1
+          from public.school_duty_assignments d
+          join public.staff_members sm on sm.id=d.staff_member_id
+          where d.school_id=p_school_id
+            and d.duty_key='crc_custodian'
+            and d.active_from<=p_on_date
+            and (d.active_to is null or d.active_to>=p_on_date)
+            and sm.user_id=p_user_id
+            and sm.status='active'
+            and app_private.staff_member_has_school_assignment(sm.id,p_school_id,p_on_date)
+        )
       )
     );
 $$;
@@ -1251,12 +1261,16 @@ begin
   select
     count(*) filter(where r.school_id=p_school_id)::integer,
     count(*) filter(where r.receiving_school_id=p_school_id)::integer,
-    count(*) filter(where r.school_id=p_school_id and r.custody_status in ('prepared','authorized'))::integer,
     count(*) filter(where r.receiving_school_id=p_school_id and r.custody_status in ('dispatched','received'))::integer
-  into v_outgoing,v_incoming,v_requests,v_awaiting_ack
+  into v_outgoing,v_incoming,v_awaiting_ack
   from public.crc_custody_records r
   where (r.school_id=p_school_id or r.receiving_school_id=p_school_id)
     and app_private.can_access_crc_custody_record(r.id);
+
+  select count(*)::integer into v_requests
+  from public.crc_custody_requests q
+  where (q.receiving_school_id=p_school_id or q.origin_school_id=p_school_id)
+    and q.status in ('requested','accepted','escalated');
 
   return jsonb_build_object(
     'academic_year',v_year,
