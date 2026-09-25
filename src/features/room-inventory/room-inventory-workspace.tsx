@@ -108,6 +108,8 @@ export function RoomInventoryWorkspace({
   const [ownership, setOwnership] = useState("");
   const [condition, setCondition] = useState("");
   const [q, setQ] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const room = rooms.find((r) => r.id === roomId);
   const visible = useMemo(
     () =>
@@ -133,6 +135,25 @@ export function RoomInventoryWorkspace({
   useNotice(ch);
   useNotice(v);
   useNotice(cl);
+
+  useEffect(() => {
+    if (c.success) {
+      setAddOpen(false);
+      setItemOwnership("government");
+      setItemCondition("good");
+    }
+  }, [c.success]);
+
+  useEffect(() => {
+    if (ch.success) setEditingItemId(null);
+  }, [ch.success]);
+
+  const clearFilters = () => {
+    setOwnership("");
+    setCondition("");
+    setQ("");
+  };
+
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]">
@@ -148,7 +169,7 @@ export function RoomInventoryWorkspace({
             placeholder="Choose room"
             options={rooms.map((r) => ({
               value: r.id,
-              label: `${r.block ? `${r.block} · ` : ""}${r.code} · ${r.name}`,
+              label: `${r.block ? `${r.block} · ` : ""}${r.name}`,
             }))}
           />
           <Picker
@@ -188,9 +209,7 @@ export function RoomInventoryWorkspace({
           <div className="grid gap-4 lg:grid-cols-3">
             <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4">
               <p className="text-xs text-muted-foreground">Selected room</p>
-              <h2 className="mt-1 font-semibold">
-                {room.code} · {room.name}
-              </h2>
+              <h2 className="mt-1 font-semibold">{room.name}</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 {room.block || "No building/section"} · {room.itemCount} item
                 lines
