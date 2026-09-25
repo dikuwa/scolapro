@@ -349,30 +349,85 @@ alter table public.crc_custody_request_policies enable row level security;
 alter table public.crc_custody_requests enable row level security;
 alter table public.crc_custody_request_escalations enable row level security;
 
+create or replace function app_private.can_read_crc_request_policy_for_rls(p_school_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $
+  select app_private.is_school_leadership(auth.uid(),p_school_id)
+    or app_private.is_crc_custodian(auth.uid(),p_school_id);
+$;
+
+create or replace function app_private.can_read_crc_custody_request_for_rls(p_request_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $
+  select exists(
+    select 1
+    from public.crc_custody_requests r
+    where r.id=p_request_id
+      and (
+        app_private.is_school_leadership(auth.uid(),r.receiving_school_id)
+        or app_private.is_crc_custodian(auth.uid(),r.receiving_school_id)
+        or (
+          r.origin_school_id is not null
+          and (
+            app_private.is_school_leadership(auth.uid(),r.origin_school_id)
+            or app_private.is_crc_custodian(auth.uid(),r.origin_school_id)
+          )
+        )
+      )
+  );
+$;
+
+create or replace function app_private.can_read_crc_request_escalation_for_rls(p_escalation_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $
+  select exists(
+    select 1
+    from public.crc_custody_request_escalations x
+    where x.id=p_escalation_id
+      and (
+        app_private.is_school_leadership(auth.uid(),x.receiving_school_id)
+        or app_private.is_crc_custodian(auth.uid(),x.receiving_school_id)
+        or (
+          x.origin_school_id is not null
+          and (
+            app_private.is_school_leadership(auth.uid(),x.origin_school_id)
+            or app_private.is_crc_custodian(auth.uid(),x.origin_school_id)
+          )
+        )
+      )
+  );
+$;
+
+revoke all on function app_private.can_read_crc_request_policy_for_rls(uuid) from public,anon;
+revoke all on function app_private.can_read_crc_custody_request_for_rls(uuid) from public,anon;
+revoke all on function app_private.can_read_crc_request_escalation_for_rls(uuid) from public,anon;
+grant execute on function app_private.can_read_crc_request_policy_for_rls(uuid) to authenticated;
+grant execute on function app_private.can_read_crc_custody_request_for_rls(uuid) to authenticated;
+grant execute on function app_private.can_read_crc_request_escalation_for_rls(uuid) to authenticated;
+
 create policy "school leadership read crc request policy"
 on public.crc_custody_request_policies for select to authenticated
-using(
-  app_private.is_school_leadership(auth.uid(),school_id)
-  or app_private.is_crc_custodian(auth.uid(),school_id)
-);
+using(app_private.can_read_crc_request_policy_for_rls(school_id));
 
 create policy "school actors read crc custody requests"
 on public.crc_custody_requests for select to authenticated
-using(
-  app_private.is_school_leadership(auth.uid(),receiving_school_id)
-  or app_private.is_crc_custodian(auth.uid(),receiving_school_id)
-  or (origin_school_id is not null and app_private.is_school_leadership(auth.uid(),origin_school_id))
-  or (origin_school_id is not null and app_private.is_crc_custodian(auth.uid(),origin_school_id))
-);
+using(app_private.can_read_crc_custody_request_for_rls(id));
 
 create policy "school actors read crc escalation rows"
 on public.crc_custody_request_escalations for select to authenticated
-using(
-  app_private.is_school_leadership(auth.uid(),receiving_school_id)
-  or app_private.is_crc_custodian(auth.uid(),receiving_school_id)
-  or (origin_school_id is not null and app_private.is_school_leadership(auth.uid(),origin_school_id))
-  or (origin_school_id is not null and app_private.is_crc_custodian(auth.uid(),origin_school_id))
-);
+using(app_private.can_read_crc_request_escalation_for_rls(id));
 
 revoke insert,update,delete on public.crc_custody_request_policies from authenticated;
 revoke insert,update,delete on public.crc_custody_requests from authenticated;
