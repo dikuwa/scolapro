@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, Brain, Building2, FileText, HeartPulse, MessageSquareText, ShieldCheck } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { CrcRoutineContributionCard } from "@/features/crc/crc-routine-contribution-card";
+import { getMyCrcContributionContext } from "@/features/crc/server/custody";
 import { getLearnerCumulativeRecord } from "@/features/learners/server/cumulative-record";
 import { getLearnerOverview } from "@/features/learners/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -28,7 +30,10 @@ export default async function LearnerCumulativeRecordPage({ params }: { params: 
 
   const learner = await getLearnerOverview(id, membership.schoolId);
   if (!learner) notFound();
-  const record = await getLearnerCumulativeRecord(id, membership.schoolId);
+  const [record, contributionContext] = await Promise.all([
+    getLearnerCumulativeRecord(id, membership.schoolId),
+    getMyCrcContributionContext(id, membership.schoolId),
+  ]);
 
   return (
     <AppShell>
@@ -44,6 +49,8 @@ export default async function LearnerCumulativeRecordPage({ params }: { params: 
         <section className="rounded-[var(--radius-md)] border border-border-subtle bg-brand-soft/40 px-4 py-3 text-xs leading-5 text-muted-foreground">
           This digital record follows the Namibian cumulative-record structure while keeping each item in its authoritative ScolaPro domain. Restricted health and psychometric material appears only when your role has explicit need-to-know access.
         </section>
+
+        {contributionContext ? <CrcRoutineContributionCard context={contributionContext} /> : null}
 
         <div className="grid gap-5 xl:grid-cols-2">
           <section className="bg-surface shadow-[var(--shadow-xs)]">
