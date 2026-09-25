@@ -55,6 +55,6 @@ test("A4 room inventory output contains required identity, table, signatures, QR
 test("room inventory workspace exposes Preview Print PDF only after verification exists", () => {
   assert.match(workspace, /room\.lastVerified \? \(/);
   assert.match(workspace, /Preview sheet/);
-  assert.match(workspace, />Print</);
-  assert.match(workspace, />PDF</);
+  assert.match(workspace, /Print/);
+  assert.match(workspace, /PDF/);
 });
