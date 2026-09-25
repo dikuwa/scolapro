@@ -1342,3 +1342,141 @@ comment on table public.crc_custody_requests is
 'Governed requests for missing CRC custody from a known ScolaPro origin school or an external/non-ScolaPro school.';
 comment on table public.crc_custody_request_escalations is
 'Non-confidential escalation metadata for overdue CRC custody requests. Network officers access only effective circuit/region referrals through a limited RPC.';
+
+
+-- Delegated CRC custodians use the same bounded learner search as explicit
+-- support-role custodians; this does not expose confidential support content.
+create or replace function public.search_crc_custody_learners(p_query text default '')
+returns table(learner_id uuid,learner_name text,admission_number text,grade_label text)
+language plpgsql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $$
+declare
+  v_query text := '%'||lower(btrim(coalesce(p_query,'')))||'%';
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+
+  return query
+  select
+    l.id,
+    concat_ws(' ',l.first_names,l.surname),
+    e.admission_number,
+    g.display_name
+  from public.learners l
+  join public.enrolments e
+    on e.learner_id=l.id
+   and e.status='current'
+   and e.enrolled_from<=(now() at time zone 'Africa/Windhoek')::date
+   and (e.enrolled_to is null or e.enrolled_to>=(now() at time zone 'Africa/Windhoek')::date)
+  left join public.grades g on g.id=e.grade_id
+  where app_private.is_crc_custodian(auth.uid(),e.school_id)
+    and (
+      v_query='%%'
+      or lower(concat_ws(' ',l.first_names,l.surname)) like v_query
+      or lower(coalesce(l.preferred_name,'')) like v_query
+      or lower(coalesce(e.admission_number,'')) like v_query
+    )
+  order by l.surname,l.first_names
+  limit 25;
+end;
+$$;
+
+revoke all on function public.search_crc_custody_learners(text) from public,anon;
+grant execute on function public.search_crc_custody_learners(text) to authenticated;
+
+create or replace function public.get_crc_custody_request_policy(p_school_id uuid)
+returns smallint
+language plpgsql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $$
+declare
+  v_days smallint;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if not (
+    app_private.is_crc_custodian(auth.uid(),p_school_id)
+    or app_private.is_school_leadership(auth.uid(),p_school_id)
+  ) then raise exception 'Permission denied'; end if;
+
+  select response_days into v_days
+  from public.crc_custody_request_policies
+  where school_id=p_school_id;
+
+  return coalesce(v_days,7);
+end;
+$$;
+
+revoke all on function public.get_crc_custody_request_policy(uuid) from public,anon;
+grant execute on function public.get_crc_custody_request_policy(uuid) to authenticated;
+
+create or replace function public.acknowledge_crc_request_escalation(p_escalation_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $$
+declare
+  v_escalation public.crc_custody_request_escalations%rowtype;
+  v_request public.crc_custody_requests%rowtype;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+
+  select * into v_escalation
+  from public.crc_custody_request_escalations
+  where id=p_escalation_id
+  for update;
+
+  if v_escalation.id is null then raise exception 'CRC escalation not found'; end if;
+
+  if not exists(
+    select 1
+    from public.education_network_memberships m
+    where m.user_id=auth.uid()
+      and m.active_from<=(now() at time zone 'Africa/Windhoek')::date
+      and (m.active_to is null or m.active_to>=(now() at time zone 'Africa/Windhoek')::date)
+      and (
+        (v_escalation.scope_kind='circuit' and m.role_key='circuit_officer' and m.circuit_id=v_escalation.circuit_id)
+        or
+        (v_escalation.scope_kind='region' and m.role_key='regional_officer' and m.region_id=v_escalation.region_id)
+      )
+  ) then raise exception 'Permission denied'; end if;
+
+  update public.crc_custody_request_escalations
+  set status='acknowledged',
+      acknowledged_by_user_id=auth.uid(),
+      acknowledged_at=now()
+  where id=v_escalation.id
+    and status='open';
+
+  select * into v_request
+  from public.crc_custody_requests
+  where id=v_escalation.request_id;
+
+  if found then
+    insert into public.audit_events(
+      tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+    )
+    values(
+      v_request.tenant_id,
+      v_request.receiving_school_id,
+      auth.uid(),
+      'crc_custody.escalation_acknowledged',
+      'crc_custody_request',
+      v_request.id,
+      jsonb_build_object(
+        'escalation_id',v_escalation.id,
+        'scope_kind',v_escalation.scope_kind
+      )
+    );
+  end if;
+
+  return true;
+end;
+$$;
+
+revoke all on function public.acknowledge_crc_request_escalation(uuid) from public,anon;
+grant execute on function public.acknowledge_crc_request_escalation(uuid) to authenticated;
