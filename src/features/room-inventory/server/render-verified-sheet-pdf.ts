@@ -1,5 +1,6 @@
 import "server-only";
 
+import { Buffer } from "node:buffer";
 import QRCode from "qrcode";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
