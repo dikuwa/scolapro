@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(20);
 
 insert into public.schools(id,tenant_id,name,emis_number,region,town,status) values
   ('fce10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','CRC Origin School','CRC689-ORG','Erongo','Origin Town','active'),
