@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -157,6 +157,20 @@ select lives_ok(
     current_date-1
   ),
   'leadership can end a responsibility without deleting its history'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub','fdc00000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+
+select is(
+  app_private.has_school_duty(
+    '22222222-2222-4222-8222-222222222222'::uuid,
+    'late_arrival_recorder',
+    current_date
+  ),
+  false,
+  'ended duty no longer grants operational authority'
 );
 
 reset role;
