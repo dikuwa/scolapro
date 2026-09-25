@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { ArrowRightLeft, Check, LoaderCircle, Plus, Search, Send, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ import type {
   CrcCustodyRequest,
   CrcRequestOrigin,
 } from "@/features/crc/server/custody";
+import type { LearnerTransferFormCandidate } from "@/features/transfers/server/transfer-form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const initialState: CrcCustodyActionState = {};
@@ -528,6 +530,66 @@ function RequestQueue({
   );
 }
 
+function TransferFormQueue({
+  transferForms,
+}: {
+  transferForms: LearnerTransferFormCandidate[];
+}) {
+  return (
+    <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+      <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+        <h2 className="scolapro-section-title">Official learner transfer forms</h2>
+        <p className="scolapro-section-description">
+          Approved or completed learner transfers in your source-school scope. Open a form to verify its human-entered fields before principal finalization.
+        </p>
+      </div>
+      {transferForms.length ? (
+        <div className="divide-y divide-border-subtle">
+          {transferForms.map((item) => (
+            <article
+              key={item.transferEventId}
+              className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5"
+            >
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="scolapro-record-title">{item.learnerName}</p>
+                  <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.68rem] font-medium capitalize text-muted-foreground">
+                    {item.transferStatus}
+                  </span>
+                  {item.latestRevision ? (
+                    <span className="rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--success)]">
+                      Finalized v{item.latestRevision}
+                    </span>
+                  ) : (
+                    <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-amber-soft)] px-2 py-1 text-[0.68rem] font-medium text-[color:var(--accent-amber)]">
+                      Verification needed
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {item.admissionNumber ? `${item.admissionNumber} · ` : ""}
+                  {item.destinationName ? `to ${item.destinationName} · ` : ""}
+                  {item.effectiveOn ? `effective ${item.effectiveOn}` : `requested ${item.requestedOn}`}
+                </p>
+              </div>
+              <Link
+                href={`/school/crc-custody/transfer-form/${item.transferEventId}`}
+                className="scolapro-cta inline-flex min-h-9 items-center justify-center rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-foreground hover:bg-surface-subtle"
+              >
+                {item.latestRevision ? "Review / revise" : "Open form"}
+              </Link>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="px-4 py-8 text-sm text-muted-foreground sm:px-5">
+          No approved or completed learner transfers are awaiting transfer-form work in your scope.
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function CrcCustodyWorkspace({
   records,
   destinations,
@@ -538,6 +600,7 @@ export function CrcCustodyWorkspace({
   requests,
   requestPolicyDays,
   schoolId,
+  transferForms,
 }: {
   records: CrcCustodyRecord[];
   destinations: CrcCustodyDestination[];
@@ -548,6 +611,7 @@ export function CrcCustodyWorkspace({
   requests: CrcCustodyRequest[];
   requestPolicyDays: number;
   schoolId: string;
+  transferForms: LearnerTransferFormCandidate[];
 }) {
   const [view, setView] = useState<"overview" | "requests" | "transfers" | "incoming" | "completeness" | "reports" | "training">("overview");
 
@@ -614,6 +678,8 @@ export function CrcCustodyWorkspace({
           <RequestForm canRequest={canPrepare} responseDays={requestPolicyDays} />
         </div>
       ) : null}
+
+      {view === "transfers" ? <TransferFormQueue transferForms={transferForms} /> : null}
 
       {showCustodyList ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] xl:items-start">
