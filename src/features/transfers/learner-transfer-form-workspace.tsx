@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { CheckCircle2, FileDown, FileText, Printer, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   finalizeLearnerTransferForm,
   saveLearnerTransferFormDraft,
@@ -90,18 +90,24 @@ export function LearnerTransferFormWorkspace({
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button asChild variant="neutral">
-                <a href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=html`} target="_blank" rel="noreferrer">
-                  <Printer className="size-4" aria-hidden="true" />
-                  Print
-                </a>
-              </Button>
-              <Button asChild>
-                <a href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=pdf`} target="_blank" rel="noreferrer">
-                  <FileDown className="size-4" aria-hidden="true" />
-                  PDF
-                </a>
-              </Button>
+              <a
+                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=html`}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonVariants({ variant: "neutral", size: "md" })}
+              >
+                <Printer className="size-4" aria-hidden="true" />
+                Print
+              </a>
+              <a
+                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=pdf`}
+                target="_blank"
+                rel="noreferrer"
+                className={buttonVariants({ variant: "primary", size: "md" })}
+              >
+                <FileDown className="size-4" aria-hidden="true" />
+                PDF
+              </a>
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
@@ -228,12 +234,12 @@ export function LearnerTransferFormWorkspace({
         </p>
         <form action={finalizeAction} className="mt-4">
           <input type="hidden" name="transferEventId" value={source.transferEventId} />
-          <Button type="submit" loading={finalizing} disabled={finalizing || !draft?.verificationNote?.trim()}>
+          <Button type="submit" loading={finalizing} disabled={finalizing || !verification.trim()}>
             <CheckCircle2 className="size-4" aria-hidden="true" />
             {finalization ? "Finalize new revision" : "Finalize transfer form"}
           </Button>
         </form>
-        {!draft?.verificationNote?.trim() ? <p className="mt-2 text-xs text-muted-foreground">Save a verification note before finalization.</p> : null}
+        {!verification.trim() ? <p className="mt-2 text-xs text-muted-foreground">Save a verification note before finalization.</p> : null}
       </section>
     </div>
   );
