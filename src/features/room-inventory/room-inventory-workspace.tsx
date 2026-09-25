@@ -426,13 +426,15 @@ export function RoomInventoryWorkspace({
               <span className="text-xs text-muted-foreground">{visible.length} {visible.length === 1 ? "item" : "items"}</span>
             </div>
             {visible.length ? (
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 divide-y divide-border-subtle overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle">
                 {visible.map((i) => (
                   <InventoryChangeForm
                     key={i.id}
                     item={i}
                     action={change}
                     pending={p3}
+                    expanded={editingItemId === i.id}
+                    onToggle={() => setEditingItemId((current) => current === i.id ? null : i.id)}
                   />
                 ))}
               </div>
@@ -488,74 +490,83 @@ function InventoryChangeForm({
   item: i,
   action,
   pending,
+  expanded,
+  onToggle,
 }: {
   item: RoomInventoryItem;
   action: (data: FormData) => void;
   pending: boolean;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
   const [eventType, setEventType] = useState("correction");
   const [condition, setCondition] = useState("");
   const [ownership, setOwnership] = useState("");
   return (
-    <form
-      action={action}
-      className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-3"
-    >
-      <input type="hidden" name="itemId" value={i.id} />
-      <div className="sm:col-span-2 lg:col-span-3">
-        <p className="scolapro-record-title">{i.name}</p>
-        <p className="text-xs text-muted-foreground">
-          {i.assetNumber || "No asset no."} · {i.ownership} · qty {i.quantity} ·{" "}
-          {i.condition}
-        </p>
-      </div>
-      <Picker
-        label="Change"
-        name="eventType"
-        value={eventType}
-        onChange={setEventType}
-        placeholder="Choose change"
-        options={[
-          { value: "quantity_increase", label: "Quantity increase" },
-          { value: "quantity_decrease", label: "Quantity decrease" },
-          { value: "damaged", label: "Damaged" },
-          { value: "lost", label: "Lost" },
-          { value: "disposed", label: "Disposed" },
-          { value: "transferred_out", label: "Transferred out" },
-          { value: "correction", label: "Correction" },
-          { value: "ownership_correction", label: "Ownership correction" },
-        ]}
-      />
-      <label className="min-w-0">
-        <span className={formFieldLabelClass}>Quantity change</span>
-        <input className={f} name="delta" type="number" defaultValue="0" />
-      </label>
-      <Picker
-        label="Condition"
-        name="condition"
-        value={condition}
-        onChange={setCondition}
-        placeholder="Keep condition"
-        options={[{ value: "", label: "Keep condition" }, ...conditions]}
-      />
-      <Picker
-        label="Ownership"
-        name="ownership"
-        value={ownership}
-        onChange={setOwnership}
-        placeholder="Keep ownership"
-        options={[
-          { value: "", label: "Keep ownership" },
-          { value: "government", label: "GRN" },
-          { value: "school", label: "School" },
-          { value: "personal", label: "Personal" },
-        ]}
-      />
-      <div className="flex items-end">
-        <Button type="submit" loading={pending}>
-          Record
+    <div className="bg-surface">
+      <div className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="scolapro-record-title truncate">{i.name}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {i.assetNumber || "No asset no."} · {i.ownership} · qty {i.quantity} · {i.condition}
+          </p>
+          {i.notes ? <p className="mt-1 truncate text-xs text-muted-foreground">{i.notes}</p> : null}
+        </div>
+        <Button type="button" variant="neutral" size="sm" onClick={onToggle} aria-expanded={expanded}>
+          {expanded ? "Close edit" : "Edit"}
         </Button>
       </div>
-    </form>
+      {expanded ? (
+        <form action={action} className="grid gap-3 border-t border-border-subtle bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-3">
+          <input type="hidden" name="itemId" value={i.id} />
+          <Picker
+            label="Change"
+            name="eventType"
+            value={eventType}
+            onChange={setEventType}
+            placeholder="Choose change"
+            options={[
+              { value: "quantity_increase", label: "Quantity increase" },
+              { value: "quantity_decrease", label: "Quantity decrease" },
+              { value: "damaged", label: "Damaged" },
+              { value: "lost", label: "Lost" },
+              { value: "disposed", label: "Disposed" },
+              { value: "transferred_out", label: "Transferred out" },
+              { value: "correction", label: "Correction" },
+              { value: "ownership_correction", label: "Ownership correction" },
+            ]}
+          />
+          <label className="min-w-0">
+            <span className={formFieldLabelClass}>Quantity change</span>
+            <input className={f} name="delta" type="number" defaultValue="0" />
+          </label>
+          <Picker
+            label="Condition"
+            name="condition"
+            value={condition}
+            onChange={setCondition}
+            placeholder="Keep condition"
+            options={[{ value: "", label: "Keep condition" }, ...conditions]}
+          />
+          <Picker
+            label="Ownership"
+            name="ownership"
+            value={ownership}
+            onChange={setOwnership}
+            placeholder="Keep ownership"
+            options={[
+              { value: "", label: "Keep ownership" },
+              { value: "government", label: "GRN" },
+              { value: "school", label: "School" },
+              { value: "personal", label: "Personal" },
+            ]}
+          />
+          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-2">
+            <Button type="button" variant="neutral" onClick={onToggle}>Cancel</Button>
+            <Button type="submit" loading={pending}>Record change</Button>
+          </div>
+        </form>
+      ) : null}
+    </div>
   );
 }
