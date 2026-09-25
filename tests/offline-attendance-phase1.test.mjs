@@ -79,10 +79,15 @@ test("service worker caches shell assets but never business API responses", () =
   assert.match(serviceWorker, /icon-512\.png/);
   assert.doesNotMatch(serviceWorker, /\/api\//);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
+  assert.match(serviceWorker, /IS_LOOPBACK/);
+  assert.match(serviceWorker, /self\.registration\.unregister\(\)/);
 });
 
 test("offline shell exposes cached attendance and registers synchronization runtime", () => {
   assert.match(runtime, /serviceWorker\.register\("\/sw\.js"/);
+  assert.match(runtime, /process\.env\.NODE_ENV === "development"/);
+  assert.match(runtime, /registration\.unregister\(\)/);
+  assert.match(runtime, /key\.startsWith\("scolapro-"\)/);
   assert.match(runtime, /window\.addEventListener\("online"/);
   assert.match(queue, /listCachedDailyRegisters/);
   assert.match(db, /SNAPSHOTS/);

@@ -1,5 +1,6 @@
 node_modules/
 .next/
+next-env.d.ts
 out/
 coverage/
 .env
@@ -9,5 +10,8 @@ coverage/
 .DS_Store
 *.log
 pnpm-debug.log*
+*.tsbuildinfo
 references/private/
 .vercel/
+supabase/.branches/
+supabase/.temp/

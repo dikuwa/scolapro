@@ -61,7 +61,15 @@ With the Supabase CLI installed:
 ```bash
 supabase start
 supabase db reset
+SCOLAPRO_LOCAL_ADMIN_PASSWORD='<choose-a-local-password>' pnpm local:seed-auth
+pnpm dev
 ```
+
+`pnpm dev` deliberately reads the running loopback Supabase credentials from
+`supabase status`; it does not use hosted credentials left in `.env.local`.
+Use `pnpm dev:configured` only when you intentionally want the environment
+declared in `.env.local`. Hosted and local sessions are separate, so sign in
+with the seeded local account after switching environments.
 
 The initial migration establishes the first vertical-slice entities:
 

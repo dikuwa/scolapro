@@ -8,11 +8,11 @@ const proxy = readFileSync("src/lib/supabase/proxy.ts", "utf8");
 test("protected request boundary and user context use verified JWT claims", () => {
   assert.match(proxy, /supabase\.auth\.getClaims\(\)/);
   assert.match(context, /supabase\.auth\.getClaims\(\)/);
-  assert.doesNotMatch(context, /supabase\.auth\.getUser\(\)/);
+  assert.match(context, /supabase\.auth\.getUser\(\)/);
 });
 
-test("session user is accepted only when it matches the verified JWT subject", () => {
-  assert.match(context, /supabase\.auth\.getSession\(\)/);
+test("authenticated user is accepted only when it matches the verified JWT subject", () => {
+  assert.doesNotMatch(context, /supabase\.auth\.getSession\(\)/);
   assert.match(context, /user\.id !== verifiedUserId/);
 });
 

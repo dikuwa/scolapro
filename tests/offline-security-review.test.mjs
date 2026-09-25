@@ -34,6 +34,7 @@ test("service worker never caches business API responses", () => {
   assert.doesNotMatch(sw, /stableAsset[\s\S]*\/api\//);
   assert.match(sw, /_next\/static/);
   assert.match(sw, /\/brand\//);
+  assert.match(sw, /if \(IS_LOOPBACK\) return/);
 });
 
 test("subject attendance failures do not expose raw database error text to offline queues", () => {

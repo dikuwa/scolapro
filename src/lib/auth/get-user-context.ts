@@ -63,20 +63,16 @@ function primarySchoolMembership(memberships: SchoolMembershipContext[]) {
 export const getUserContext = cache(async () => {
   const supabase = await createSupabaseServerClient();
   // The request proxy has already verified the access-token claims. Verify
-  // them again here through Supabase's cached JWKS path instead of making a
-  // second Auth-server getUser() round trip on every protected navigation.
-  // getClaims() falls back to server verification automatically for symmetric
-  // signing keys. The session user is used only after its subject matches the
-  // verified JWT subject.
+  // them again here, then ask Auth for the user object rather than trusting
+  // user metadata read directly from the session cookie.
   const { data: claimsData, error: claimsError } = await supabase.auth.getClaims();
   const verifiedUserId = typeof claimsData?.claims?.sub === "string" ? claimsData.claims.sub : null;
   const {
-    data: { session },
-    error: sessionError,
-  } = verifiedUserId ? await supabase.auth.getSession() : { data: { session: null }, error: null };
-  const user = session?.user ?? null;
+    data: { user },
+    error: userError,
+  } = verifiedUserId ? await supabase.auth.getUser() : { data: { user: null }, error: null };
 
-  if (claimsError || sessionError || !verifiedUserId || !user || user.id !== verifiedUserId) {
+  if (claimsError || userError || !verifiedUserId || !user || user.id !== verifiedUserId) {
     return {
       user: null,
       displayName: null,

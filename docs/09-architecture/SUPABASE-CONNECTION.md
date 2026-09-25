@@ -26,20 +26,30 @@ Migration history on Supabase must continue to match the timestamped files in `s
 
 Do not commit `.env.local`.
 
-The application requires:
+The default local workflow is:
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://jhgumnvhoxmapmgotchu.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<project publishable key>
+```bash
+supabase start
+supabase db reset
+SCOLAPRO_LOCAL_ADMIN_PASSWORD='<choose-a-local-password>' pnpm local:seed-auth
+pnpm dev
 ```
 
-The publishable key is intentionally not stored in repository files. Obtain it from the connected Supabase project or your local secret manager.
+`pnpm dev` obtains the local URL, publishable key and server-only service-role
+key from `supabase status` and refuses a non-loopback URL. This prevents stale
+hosted values in `.env.local` from coupling localhost to a hosted schema.
+
+Use `pnpm dev:configured` only for an intentionally configured non-local
+environment. The publishable key is intentionally not stored in repository
+files; obtain it from the environment owner or local secret manager.
 
 `SUPABASE_SERVICE_ROLE_KEY` is server-only and must not be exposed to browser code. It is not required for the first authenticated RLS-backed slice.
 
-## Local CLI link
+## Hosted CLI link
 
-From the repository root:
+Linking and remote migration inspection are deployment operations, not part of
+ordinary localhost startup. Only run them when the Control Room explicitly
+assigns hosted deployment work. From the repository root, the commands are:
 
 ```bash
 supabase link --project-ref jhgumnvhoxmapmgotchu
