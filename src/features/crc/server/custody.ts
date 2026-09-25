@@ -114,6 +114,30 @@ export type CrcAdministrationSummary = {
   incomingAwaitingAcknowledgement: number;
   canViewConfidentialSupport: boolean;
   leadershipOversight: boolean;
+  canManageCustody?: boolean;
+};
+
+export type CrcCustodyAccessContext = {
+  canManageCustody: boolean;
+  canViewConfidentialSupport: boolean;
+  leadership: boolean;
+};
+
+export type CrcCustodyRequest = {
+  requestId: string;
+  learnerName: string;
+  admissionNumber: string | null;
+  receivingSchoolName: string;
+  originSchoolName: string;
+  status: string;
+  requestedOn: string;
+  responseDueOn: string;
+  overdue: boolean;
+  requestNote: string | null;
+  custodyRecordId: string | null;
+  incoming: boolean;
+  outgoing: boolean;
+  externalOrigin: boolean;
 };
 
 export type CrcClassCompleteness = {
@@ -171,6 +195,7 @@ export async function getCrcAdministrationSummary(
     incomingAwaitingAcknowledgement: Number(raw.incoming_awaiting_acknowledgement ?? 0),
     canViewConfidentialSupport: Boolean(raw.can_view_confidential_support),
     leadershipOversight: Boolean(raw.leadership_oversight),
+    canManageCustody: Boolean(raw.can_manage_custody),
   };
 
   const classes: CrcClassCompleteness[] = ((classesResult.data ?? []) as RpcRow[]).map((row) => ({
@@ -183,4 +208,107 @@ export async function getCrcAdministrationSummary(
   }));
 
   return { summary, classes };
+}
+
+
+export async function getCrcCustodyAccessContext(
+  schoolId: string,
+): Promise<CrcCustodyAccessContext> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_crc_custody_access_context", {
+    p_school_id: schoolId,
+  });
+  if (error) throw new Error("Unable to resolve CRC custody authority.");
+  const row = (data ?? {}) as Record<string, unknown>;
+  return {
+    canManageCustody: Boolean(row.can_manage_custody),
+    canViewConfidentialSupport: Boolean(row.can_view_confidential_support),
+    leadership: Boolean(row.leadership),
+  };
+}
+
+export async function getMyCrcCustodyRequests(): Promise<CrcCustodyRequest[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_my_crc_custody_requests");
+  if (error) throw new Error("Unable to load CRC custody requests.");
+  return rpcRows<RpcRow>(data).map((row) => ({
+    requestId: String(row.request_id),
+    learnerName: String(row.learner_name ?? "Learner"),
+    admissionNumber: row.admission_number ? String(row.admission_number) : null,
+    receivingSchoolName: String(row.receiving_school_name ?? "School"),
+    originSchoolName: String(row.origin_school_name ?? "School"),
+    status: String(row.status ?? "requested"),
+    requestedOn: String(row.requested_on ?? ""),
+    responseDueOn: String(row.response_due_on ?? ""),
+    overdue: Boolean(row.overdue),
+    requestNote: row.request_note ? String(row.request_note) : null,
+    custodyRecordId: row.custody_record_id ? String(row.custody_record_id) : null,
+    incoming: Boolean(row.incoming),
+    outgoing: Boolean(row.outgoing),
+    externalOrigin: Boolean(row.external_origin),
+  }));
+}
+
+
+export type CrcRequestOrigin = {
+  schoolId: string;
+  schoolName: string;
+  schoolTown: string | null;
+  lastEnrolledOn: string;
+};
+
+export type CrcNetworkEscalation = {
+  escalationId: string;
+  requestId: string;
+  scopeKind: "circuit" | "region";
+  receivingSchoolName: string;
+  originSchoolName: string;
+  responseDueOn: string;
+  requestStatus: string;
+  escalationStatus: string;
+  escalatedAt: string;
+};
+
+export async function listCrcRequestOrigins(
+  learnerId: string,
+): Promise<CrcRequestOrigin[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_crc_request_origins", {
+    p_learner_id: learnerId,
+  });
+  if (error) throw new Error("Unable to load the learner's prior schools.");
+  return rpcRows<RpcRow>(data).map((row) => ({
+    schoolId: String(row.school_id),
+    schoolName: String(row.school_name ?? "School"),
+    schoolTown: row.school_town ? String(row.school_town) : null,
+    lastEnrolledOn: String(row.last_enrolled_on ?? ""),
+  }));
+}
+
+export async function getCrcCustodyRequestPolicy(
+  schoolId: string,
+): Promise<number> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_crc_custody_request_policy", {
+    p_school_id: schoolId,
+  });
+  if (error) throw new Error("Unable to load CRC request policy.");
+  return Number(data ?? 7);
+}
+
+export async function getMyCrcRequestEscalations(): Promise<CrcNetworkEscalation[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_my_crc_request_escalations");
+  if (error) throw new Error("Unable to load CRC request escalations.");
+  return rpcRows<RpcRow>(data).map((row) => ({
+    escalationId: String(row.escalation_id),
+    requestId: String(row.request_id),
+    scopeKind: String(row.scope_kind) as "circuit" | "region",
+    receivingSchoolName: String(row.receiving_school_name ?? "School"),
+    originSchoolName: String(row.origin_school_name ?? "School"),
+    responseDueOn: String(row.response_due_on ?? ""),
+    requestStatus: String(row.request_status ?? "requested"),
+    escalationStatus: String(row.escalation_status ?? "open"),
+    escalatedAt: String(row.escalated_at ?? ""),
+  }));
 }

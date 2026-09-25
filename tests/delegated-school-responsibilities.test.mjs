@@ -45,7 +45,9 @@ test("leadership gets a dedicated responsibilities workspace using design-system
   assert.doesNotMatch(workspace, /<select/);
 });
 
-test("domain-specific custodianship is not duplicated into generic duty capabilities", () => {
-  assert.doesNotMatch(capabilityMap, /crc_custodian|room_inventory_custodian|librarian/);
+test("only explicitly approved bounded custodianship enters generic duty capabilities", () => {
+  assert.match(capabilityMap, /crc_custodian/);
+  assert.match(capabilityMap, /does not grant counselling or psychometric access/);
+  assert.doesNotMatch(capabilityMap, /room_inventory_custodian|librarian/);
   assert.match(migration, /Domain-specific custodianship remains in its authoritative domain model/);
 });

@@ -2,27 +2,32 @@ import { ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CrcCustodyWorkspace } from "@/features/crc/crc-custody-workspace";
-import { getCrcAdministrationSummary, getCrcCustodyDestinations, getMyCrcCustodyRecords } from "@/features/crc/server/custody";
+import {
+  getCrcAdministrationSummary,
+  getCrcCustodyAccessContext,
+  getCrcCustodyDestinations,
+  getCrcCustodyRequestPolicy,
+  getMyCrcCustodyRecords,
+  getMyCrcCustodyRequests,
+} from "@/features/crc/server/custody";
 import { getUserContext } from "@/lib/auth/get-user-context";
-
-const supportRoles = new Set(["counsellor", "learner_support", "social_worker"]);
-const leadershipRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 
 export default async function CrcCustodyPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/school/crc-custody");
 
-  const hasSupport = context.memberships.some((membership) => supportRoles.has(membership.roleKey));
-  const hasLeadership = context.memberships.some((membership) => leadershipRoles.has(membership.roleKey));
-  if (!hasSupport && !hasLeadership) redirect("/");
-
   const membership = context.currentSchoolMembership;
   if (!membership) redirect("/");
 
-  const [records, destinations, administration] = await Promise.all([
+  const access = await getCrcCustodyAccessContext(membership.schoolId);
+  if (!access.canManageCustody && !access.leadership) redirect("/");
+
+  const [records, requests, destinations, administration, requestPolicyDays] = await Promise.all([
     getMyCrcCustodyRecords(),
-    hasSupport ? getCrcCustodyDestinations() : Promise.resolve([]),
+    getMyCrcCustodyRequests(),
+    access.canManageCustody ? getCrcCustodyDestinations() : Promise.resolve([]),
     getCrcAdministrationSummary(membership.schoolId),
+    getCrcCustodyRequestPolicy(membership.schoolId),
   ]);
 
   return (
@@ -39,10 +44,13 @@ export default async function CrcCustodyPage() {
         <CrcCustodyWorkspace
           records={records}
           destinations={destinations}
-          canPrepare={hasSupport}
-          leadership={hasLeadership}
+          canPrepare={access.canManageCustody}
+          leadership={access.leadership}
           summary={administration.summary}
           classes={administration.classes}
+          requests={requests}
+          requestPolicyDays={requestPolicyDays}
+          schoolId={membership.schoolId}
         />
       </section>
     </AppShell>
