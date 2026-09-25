@@ -27,6 +27,13 @@ on conflict (duty_key) do update set
   active=excluded.active;
 
 alter table public.school_duty_capabilities enable row level security;
+
+drop policy if exists "authenticated read active school duty capabilities"
+on public.school_duty_capabilities;
+create policy "authenticated read active school duty capabilities"
+on public.school_duty_capabilities for select to authenticated
+using (active);
+
 revoke all on public.school_duty_capabilities from public, anon, authenticated;
 
 create or replace function public.list_school_duty_capabilities()
