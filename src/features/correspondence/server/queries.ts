@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const fields = "id,tenant_id,school_id,lineage_id,revision_number,revises_document_id,revision_reason,status,template_key,document_date,recipient,attention,subject,body,closing,signatory_name,signatory_position,include_signature_block,attachments,author_user_id,created_at,updated_at,finalized_at,finalized_by_user_id,reference_number,header_snapshot,school_identity_snapshot,author_snapshot";
 
-function mapDocument(row: Record<string, unknown>): CorrespondenceDocument {
+export function mapCorrespondenceDocument(row: Record<string, unknown>): CorrespondenceDocument {
   const body = validateCorrespondenceBody(row.body);
   if (!body) throw new Error("Stored correspondence body is invalid.");
   return {
@@ -30,12 +30,12 @@ export async function getCorrespondenceDocuments(schoolId: string): Promise<Corr
   const db = await createSupabaseServerClient();
   const { data, error } = await db.from("correspondence_documents").select(fields).eq("school_id", schoolId).order("updated_at", { ascending: false }).limit(100);
   if (error) throw new Error("Unable to load correspondence documents.");
-  return (data ?? []).map((row) => mapDocument(row as Record<string, unknown>));
+  return (data ?? []).map((row) => mapCorrespondenceDocument(row as Record<string, unknown>));
 }
 
 export async function getCorrespondenceDocument(documentId: string): Promise<CorrespondenceDocument | null> {
   const db = await createSupabaseServerClient();
   const { data, error } = await db.from("correspondence_documents").select(fields).eq("id", documentId).maybeSingle();
   if (error) throw new Error("Unable to load this correspondence document.");
-  return data ? mapDocument(data as Record<string, unknown>) : null;
+  return data ? mapCorrespondenceDocument(data as Record<string, unknown>) : null;
 }
