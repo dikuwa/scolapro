@@ -1,5 +1,7 @@
 import "server-only";
 
+import { Buffer } from "node:buffer";
+
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { mapCorrespondenceDocument } from "@/features/correspondence/server/queries";
 import { renderCorrespondencePdf } from "@/features/correspondence/server/render-correspondence-pdf";
