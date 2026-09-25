@@ -535,6 +535,9 @@ export function CrcCustodyWorkspace({
   leadership,
   summary,
   classes,
+  requests,
+  requestPolicyDays,
+  schoolId,
 }: {
   records: CrcCustodyRecord[];
   destinations: CrcCustodyDestination[];
@@ -542,16 +545,17 @@ export function CrcCustodyWorkspace({
   leadership: boolean;
   summary: CrcAdministrationSummary;
   classes: CrcClassCompleteness[];
+  requests: CrcCustodyRequest[];
+  requestPolicyDays: number;
+  schoolId: string;
 }) {
   const [view, setView] = useState<"overview" | "requests" | "transfers" | "incoming" | "completeness" | "reports" | "training">("overview");
 
-  const visibleRecords = view === "requests"
-    ? records.filter((record) => record.outgoing && ["prepared", "authorized"].includes(record.custodyStatus))
-    : view === "transfers"
-      ? records.filter((record) => record.outgoing)
-      : view === "incoming"
-        ? records.filter((record) => record.incoming)
-        : records;
+  const visibleRecords = view === "transfers"
+    ? records.filter((record) => record.outgoing && record.custodyStatus !== "closed")
+    : view === "incoming"
+      ? records.filter((record) => record.incoming && record.custodyStatus !== "closed")
+      : records.filter((record) => record.custodyStatus !== "closed");
 
   const tabs = [
     ["overview", "Overview"],
@@ -563,7 +567,7 @@ export function CrcCustodyWorkspace({
     ["training", "Training"],
   ] as const;
 
-  const showCustodyList = ["overview", "requests", "transfers", "incoming"].includes(view);
+  const showCustodyList = ["overview", "transfers", "incoming"].includes(view);
 
   return (
     <div className="mt-5 space-y-5">
@@ -586,7 +590,7 @@ export function CrcCustodyWorkspace({
           {[
             ["Routine CRC activity", summary.learnersWithRoutineCrcActivity, `of ${summary.currentLearners} current learners`],
             ["Follow-up", summary.learnersWithoutRoutineCrcActivity, "learners without routine CRC activity"],
-            ["Requests", summary.requestsAwaitingAction, "prepared or authorized outgoing transfers"],
+            ["Requests", requests.filter((request) => request.status !== "fulfilled" && request.status !== "cancelled").length, "open CRC custody requests"],
             ["Incoming", summary.incomingAwaitingAcknowledgement, "awaiting receipt or acknowledgement"],
           ].map(([label, value, helper], index) => (
             <div key={String(label)} className={`px-4 py-4 sm:px-5 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}>
@@ -598,13 +602,26 @@ export function CrcCustodyWorkspace({
         </div>
       ) : null}
 
+      {view === "requests" ? (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)] xl:items-start">
+          <RequestQueue
+            requests={requests}
+            records={records}
+            leadership={leadership}
+            schoolId={schoolId}
+            responseDays={requestPolicyDays}
+          />
+          <RequestForm canRequest={canPrepare} responseDays={requestPolicyDays} />
+        </div>
+      ) : null}
+
       {showCustodyList ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] xl:items-start">
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
             <div className="mb-4 flex items-center gap-2 border-b border-border-subtle pb-4">
               <span className="scolapro-tone-amber grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><ShieldCheck className="size-4" aria-hidden="true" /></span>
               <div>
-                <h2 className="scolapro-section-title">{view === "incoming" ? "Incoming custody" : view === "requests" ? "Requests awaiting action" : view === "transfers" ? "Outgoing transfers" : "Custody records"}</h2>
+                <h2 className="scolapro-section-title">{view === "incoming" ? "Incoming custody" : view === "transfers" ? "Outgoing transfers" : "Custody records"}</h2>
                 <p className="scolapro-section-description !mt-0">Confidential CRC transfers remain within the caller&apos;s need-to-know custody scope.</p>
               </div>
             </div>
@@ -637,7 +654,7 @@ export function CrcCustodyWorkspace({
           </section>
 
           <div className="space-y-5">
-            {view === "overview" || view === "transfers" ? <PrepareForm destinations={destinations} canPrepare={canPrepare} /> : null}
+            {view === "transfers" ? <PrepareForm destinations={destinations} canPrepare={canPrepare} /> : null}
             {summary.canViewConfidentialSupport ? (
               <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
                 <h2 className="scolapro-section-title">Confidential support</h2>
@@ -694,7 +711,7 @@ export function CrcCustodyWorkspace({
             <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><ArrowRightLeft className="size-4" aria-hidden="true" /></span>
             <div>
               <h2 className="scolapro-section-title">CRC workflow guidance</h2>
-              <p className="scolapro-section-description">Routine register-teacher contributions stay non-confidential. Confidential custody follows Prepare → Authorize → Dispatch → Receive → Acknowledge → Close. Health, counselling and psychometric content remains separately permissioned throughout.</p>
+              <p className="scolapro-section-description">Routine register-teacher contributions stay non-confidential. Missing CRC requests use a governed due date and may be escalated only when overdue and only through the schools&apos; current circuit/region relationship. Confidential custody follows Prepare → Authorize → Dispatch → Receive → Acknowledge → Close. Health, counselling and psychometric content remains separately permissioned throughout.</p>
             </div>
           </div>
         </section>
