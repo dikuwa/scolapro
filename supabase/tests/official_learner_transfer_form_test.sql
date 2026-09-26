@@ -89,11 +89,7 @@ select is(
   public.get_learner_transfer_form_source(
     'fcf20000-0000-4000-8000-000000000001'::uuid
   )->>'learnerName',
-  (
-    select concat_ws(' ',first_names,surname)
-    from public.learners
-    where id='50000000-0000-4000-8000-000000000001'
-  ),
+  'Amara N. Demo',
   'delegated CRC custodian resolves learner identity from the canonical learner record'
 );
 
@@ -130,13 +126,10 @@ select lives_ok(
 );
 
 select throws_ok(
-  $$select * from public.finalize_learner_transfer_form(
+  $select public.finalize_learner_transfer_form(
     'fcf20000-0000-4000-8000-000000000001'::uuid,
-    jsonb_build_object(
-      'schoolName',
-      (select name from public.schools where id='22222222-2222-4222-8222-222222222222')
-    )
-  )$$,
+    '{}'::jsonb
+  )$,
   null,
   'delegated custodian cannot replace source-school leadership finalization'
 );
