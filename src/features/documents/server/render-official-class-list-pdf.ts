@@ -45,6 +45,13 @@ const ROW_HEIGHT = 13;
 const FOOTER_RESERVE = 28;
 
 
+function normalizedSex(value: string | null): "M" | "F" | "" {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "male" || normalized === "m") return "M";
+  if (normalized === "female" || normalized === "f") return "F";
+  return "";
+}
+
 function drawRightAlignedText(page: PDFPage, font: PDFFont, value: string, size: number, x: number, width: number, y: number) {
   const rendered = fitOfficialDocumentPdfText(font, value, size, width);
   const renderedWidth = font.widthOfTextAtSize(rendered, size);
@@ -95,10 +102,14 @@ function drawClassListHeader(
     color: INK,
   });
 
-  drawRightAlignedText(page, bold, input.rosterTitle || input.registerClass || "Class List", 9.5, metaX, metaWidth, topY - 18);
-  drawRightAlignedText(page, regular, `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`, 6.3, metaX, metaWidth, topY - 31);
-  const teacherLine = input.registerTeacherName ? `Register teacher: ${input.registerTeacherName}` : `${input.rows.length} learners`;
-  drawRightAlignedText(page, regular, teacherLine, 6.1, metaX, metaWidth, topY - 43);
+  const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
+  const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
+  drawRightAlignedText(page, bold, input.registerClass || input.rosterTitle || "Class List", 10.5, metaX, metaWidth, topY - 16);
+  drawRightAlignedText(page, regular, `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`, 6.2, metaX, metaWidth, topY - 29);
+  drawRightAlignedText(page, regular, `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`, 5.9, metaX, metaWidth, topY - 40);
+  if (input.registerTeacherName) {
+    drawRightAlignedText(page, regular, `Register teacher: ${input.registerTeacherName}`, 5.5, metaX, metaWidth, topY - 50);
+  }
   return topY - CLASS_LIST_HEADER_HEIGHT;
 }
 
