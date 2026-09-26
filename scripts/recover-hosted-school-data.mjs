@@ -37,6 +37,8 @@ const protectedIdentityColumns = new Map([
   ["guardian_profiles", new Set(["id", "tenant_id", "created_at"])]
 ]);
 
+const attendanceReasonIdMap = new Map();
+
 function parseEnvFile(filePath) {
   const env = {};
   for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
@@ -85,6 +87,9 @@ function assertLocalTarget(apiUrl) {
 
 function rewriteActorIds(table, row) {
   const next = { ...row };
+  if (table === "attendance_events" && next.reason_id) {
+    next.reason_id = attendanceReasonIdMap.get(next.reason_id) ?? next.reason_id;
+  }
   if (table === "school_learner_identifiers") delete next.id;
   if (table === "staff_members") {
     if ("user_id" in next) next.user_id = null;
@@ -115,6 +120,45 @@ async function fetchAll(client, table) {
     if (!result.data || result.data.length < pageSize) break;
   }
   return rows;
+}
+
+async function restoreAttendanceReasons(client, rows) {
+  if (!rows.length) return;
+
+  const existingResult = await client.from("attendance_reasons")
+    .select("id,reason_code");
+  if (existingResult.error) {
+    throw new Error("Unable to inspect existing attendance_reasons: " + existingResult.error.message);
+  }
+
+  const localByCode = new Map((existingResult.data ?? []).map((row) => [row.reason_code, row.id]));
+
+  for (const sourceRow of rows) {
+    const localId = localByCode.get(sourceRow.reason_code);
+    const payload = { ...sourceRow };
+    delete payload.id;
+
+    if (localId) {
+      const updateResult = await client.from("attendance_reasons")
+        .update(payload)
+        .eq("id", localId);
+      if (updateResult.error) {
+        throw new Error("Unable to update attendance_reasons: " + updateResult.error.message);
+      }
+      attendanceReasonIdMap.set(sourceRow.id, localId);
+      continue;
+    }
+
+    const insertResult = await client.from("attendance_reasons")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (insertResult.error || !insertResult.data) {
+      throw new Error("Unable to insert attendance_reasons: " + (insertResult.error?.message ?? "missing inserted id"));
+    }
+    localByCode.set(sourceRow.reason_code, insertResult.data.id);
+    attendanceReasonIdMap.set(sourceRow.id, insertResult.data.id);
+  }
 }
 
 async function upsertRows(client, table, rows) {
@@ -197,7 +241,11 @@ const sourceCounts = new Map();
 for (const table of requiredTables) {
   const rows = await fetchAll(source, table);
   sourceCounts.set(table, rows.length);
-  await upsertRows(target, table, rows);
+  if (table === "attendance_reasons") {
+    await restoreAttendanceReasons(target, rows);
+  } else {
+    await upsertRows(target, table, rows);
+  }
   console.log("restored " + table + ": " + rows.length);
 }
 

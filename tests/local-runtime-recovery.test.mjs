@@ -110,3 +110,14 @@ test("guardian relationships are restored before governed guardian contact prove
   assert.ok(contacts > relationships);
   assert.ok(addresses > contacts);
 });
+
+
+test("hosted recovery reconciles seeded attendance reasons and remaps event foreign keys", () => {
+  assert.match(recovery, /const attendanceReasonIdMap = new Map\(\)/);
+  assert.match(recovery, /restoreAttendanceReasons/);
+  assert.match(recovery, /select\("id,reason_code"\)/);
+  assert.match(recovery, /delete payload\.id/);
+  assert.match(recovery, /attendanceReasonIdMap\.set\(sourceRow\.id, localId\)/);
+  assert.match(recovery, /table === "attendance_events" && next\.reason_id/);
+  assert.match(recovery, /attendanceReasonIdMap\.get\(next\.reason_id\) \?\? next\.reason_id/);
+});
