@@ -123,6 +123,7 @@ function preferredColumnWidth(key: string): number {
   if (key === "registerClass") return 78;
   if (key === "guardianName") return 118;
   if (key === "guardianPhone") return 92;
+  if (key === "guardianAddress") return 122;
   if (key === "emergencyContact") return 128;
   if (key.startsWith("blank-")) return 62;
   return 72;
@@ -193,7 +194,7 @@ export async function renderOfficialClassListPdf(
     const chunk = chunks[pageIndex];
     if (!chunk.length) {
       page.drawRectangle({ x: documentX, y: y - ROW_HEIGHT * 2, width: tableWidth, height: ROW_HEIGHT * 2, borderWidth: 0.45, borderColor: LINE });
-      drawOfficialDocumentPdfCentered(page, regular, "No learners in this class list.", 7, MARGIN, tableWidth, y - 20);
+      drawOfficialDocumentPdfCentered(page, regular, "No learners in this class list.", 7, documentX, tableWidth, y - 20);
     } else {
       chunk.forEach((row, index) => {
         drawRow(page, regular, chunkStart + index, row, y, columns, documentColumns.map((column) => column.value(row, chunkStart + index)), documentX);
