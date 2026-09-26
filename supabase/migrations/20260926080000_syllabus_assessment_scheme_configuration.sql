@@ -397,7 +397,7 @@ language plpgsql
 stable
 security definer
 set search_path = public
-as $
+as $$
 declare
   v_scheme public.assessment_schemes%rowtype;
   v_enrolment public.enrolments%rowtype;
@@ -497,7 +497,7 @@ begin
     'term_number',p_term_number
   );
 end;
-$;
+$$;
 
 revoke all on function public.calculate_subject_result(uuid,uuid,smallint) from public,anon;
 grant execute on function public.calculate_subject_result(uuid,uuid,smallint) to authenticated;
