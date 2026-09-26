@@ -41,6 +41,16 @@ type ObjectiveRow = { curriculum_unit_id: string; objective_text: string; sequen
 type CompetencyRow = { id: string; curriculum_unit_id: string; competency_text: string; sequence_number: number };
 type SubmissionItemRow = { lesson_preparation_id: string; preparation_submission_id: string };
 type SubmissionRow = { id: string; status: string; submitted_at: string };
+type CurriculumSnapshot = {
+  curriculumVersionId: string | null;
+  curriculumVersion: string | null;
+  curriculumUnitId: string | null;
+  theme: string | null;
+  topic: string | null;
+  generalObjectives: string[];
+  competencies: string[];
+  competencyOptions: Array<{ id: string; text: string }>;
+};
 
 const editableStatuses = new Set(["draft", "prepared", "returned"]);
 const teacherRoles = new Set(["teacher", "class_teacher"]);
@@ -90,11 +100,24 @@ async function latestPreparationSubmissionStatus(
   return submission?.status ?? null;
 }
 
-async function curriculumSnapshot(db: Awaited<ReturnType<typeof createSupabaseServerClient>>, pacingPlanItemId: string) {
+async function curriculumSnapshot(
+  db: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  pacingPlanItemId: string,
+): Promise<CurriculumSnapshot> {
+  const empty: CurriculumSnapshot = {
+    curriculumVersionId: null,
+    curriculumVersion: null,
+    curriculumUnitId: null,
+    theme: null,
+    topic: null,
+    generalObjectives: [],
+    competencies: [],
+    competencyOptions: [],
+  };
   const { data: item } = await db.from("pacing_plan_items").select("curriculum_unit_id").eq("id", pacingPlanItemId).maybeSingle();
-  if (!item?.curriculum_unit_id) return {};
+  if (!item?.curriculum_unit_id) return empty;
   const { data: unit } = await db.from("curriculum_units").select("id,curriculum_version_id,theme,topic").eq("id", item.curriculum_unit_id).maybeSingle();
-  if (!unit) return {};
+  if (!unit) return empty;
   const [{ data: version }, { data: objectives }, { data: competencies }] = await Promise.all([
     db.from("curriculum_versions").select("id,version_key").eq("id", unit.curriculum_version_id).maybeSingle(),
     db.from("curriculum_objectives").select("objective_text,sequence_number").eq("curriculum_unit_id", unit.id).order("sequence_number"),
