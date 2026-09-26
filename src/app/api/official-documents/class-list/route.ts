@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { classListDocumentName } from "@/features/documents/server/class-list-document";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialClassListHtml } from "@/features/documents/server/render-official-class-list-html";
 import { renderClassListXlsx } from "@/features/documents/server/render-official-class-list-xlsx";
@@ -84,7 +85,7 @@ export async function GET(request: Request) {
       rows: workspace.learners, columns: workspace.configuration.columns,
       blankColumns: workspace.configuration.blankColumns, generatedAt,
     };
-    const fileBase = `${safeFilePart(workspace.title)}-${academicYear}-class-list`;
+    const fileBase = `${safeFilePart(classListDocumentName(workspace.className, workspace.title))}-${academicYear}`;
 
     if (format === "xlsx") {
       const logoBytes = await loadClassListLogoBytes(profile.logoStoragePath, profile.logoUrl);
