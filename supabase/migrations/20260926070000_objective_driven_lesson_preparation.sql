@@ -178,22 +178,16 @@ begin
   end if;
 
   if new.teaching_group_id is null then
-    select candidate.teaching_group_id
+    select min(tga.teaching_group_id)
       into new.teaching_group_id
-      from (
-        select tga.teaching_group_id
-        from public.teaching_group_allocations tga
-        join public.teaching_groups tg on tg.id=tga.teaching_group_id
-        where tga.teacher_allocation_id=v_schedule.teacher_allocation_id
-          and tga.effective_from<=v_schedule.planned_on
-          and (tga.effective_to is null or tga.effective_to>=v_schedule.planned_on)
-          and tg.status='active'
-          and tg.effective_from<=v_schedule.planned_on
-          and (tg.effective_to is null or tg.effective_to>=v_schedule.planned_on)
-        order by tga.created_at
-        limit 2
-      ) candidate
-      group by candidate.teaching_group_id
+      from public.teaching_group_allocations tga
+      join public.teaching_groups tg on tg.id=tga.teaching_group_id
+      where tga.teacher_allocation_id=v_schedule.teacher_allocation_id
+        and tga.effective_from<=v_schedule.planned_on
+        and (tga.effective_to is null or tga.effective_to>=v_schedule.planned_on)
+        and tg.status='active'
+        and tg.effective_from<=v_schedule.planned_on
+        and (tg.effective_to is null or tg.effective_to>=v_schedule.planned_on)
       having count(*)=1;
   end if;
 
