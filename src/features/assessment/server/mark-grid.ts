@@ -42,7 +42,7 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
 
   const db = await createSupabaseServerClient();
   const { data: instance } = await db.from("assessment_instances")
-    .select("id,tenant_id,school_id,academic_year,assessment_scheme_id,assessment_component_id,subject_offering_id,register_class_id,display_name,raw_max,status")
+    .select("id,tenant_id,school_id,academic_year,assessment_scheme_id,assessment_component_id,subject_offering_id,register_class_id,display_name,assessment_date,raw_max,status")
     .eq("id", instanceId)
     .maybeSingle();
   if (!instance || instance.school_id !== membership.schoolId) return null;
@@ -54,11 +54,10 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
       ? db.from("assessment_components").select("id,display_name,raw_max").eq("id",instance.assessment_component_id).maybeSingle()
       : Promise.resolve({ data: null }),
     db.from("enrolments")
-      .select("id,learner_id,admission_number")
+      .select("id,learner_id,admission_number,enrolled_from,enrolled_to,status")
       .eq("school_id",instance.school_id)
       .eq("academic_year",instance.academic_year)
-      .eq("register_class_id",instance.register_class_id)
-      .eq("status","current"),
+      .eq("register_class_id",instance.register_class_id),
   ]);
   if (!offering || !registerClass) return null;
 
@@ -99,8 +98,13 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
     registrationsByEnrolment.set(row.enrolment_id,list);
   }
 
+  const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Windhoek",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const eligibilityDate=instance.assessment_date ?? today;
   const rows=(enrolments ?? [])
     .filter((row)=>{
+      const effective=row.enrolled_from<=eligibilityDate && (!row.enrolled_to || row.enrolled_to>=eligibilityDate);
+      const lifecycleOk=instance.assessment_date ? effective : row.status==="current" && effective;
+      if (!lifecycleOk) return false;
       const registrationsForLearner=registrationsByEnrolment.get(row.id) ?? [];
       return !registrationsForLearner.length
         || registrationsForLearner.some((item)=>item.subject_offering_id===instance.subject_offering_id && item.status==="active");
