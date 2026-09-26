@@ -156,8 +156,8 @@ test("all Class List document access points use the shared preview/print/PDF/Exc
   assert.match(workspace, /ClassListDocumentActions baseHref=\{exportBase\}/);
   assert.match(learnerDirectory, /ClassListDocumentActions baseHref=\{classListHref\} compact/);
   assert.match(documentActions, /Preview \/ Print/);
-  assert.match(documentActions, />PDF</);
-  assert.match(documentActions, />Excel</);
+  assert.match(documentActions, /\bPDF\b/);
+  assert.match(documentActions, /\bExcel\b/);
   assert.match(documentActions, /format=pdf/);
   assert.match(documentActions, /format=xlsx/);
   assert.doesNotMatch(workspace, /<Printer|<Download|<FileSpreadsheet/);
