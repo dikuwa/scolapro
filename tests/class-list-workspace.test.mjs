@@ -249,7 +249,8 @@ test("compact PDF class-list content is horizontally centered on A4", () => {
 
 
 test("Class List headers resolve room and responsible teacher from canonical school data", () => {
-  assert.match(resolver, /register_teacher_staff_id,home_room_id/);
+  assert.match(resolver, /select\("id,grade_id,display_name,register_teacher_staff_id"\)/);
+  assert.match(resolver, /select\("id,home_room_id"\)/);
   assert.match(resolver, /from\("school_rooms"\)\.select\("id,room_code,display_name"\)/);
   assert.match(resolver, /const roomName = room \? \(room\.room_code \|\| room\.display_name\) : null/);
   assert.match(resolver, /subjectTeacherId = allocation\.staff_member_id/);
