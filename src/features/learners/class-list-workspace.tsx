@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Save, Search, UsersRound, X } from "lucide-react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -153,11 +153,22 @@ export function ClassListWorkspace({
   const exportBase = `/api/official-documents/class-list?${exportParams.toString()}`;
   const availableColumns = classListColumnIds.filter((column) => data.canViewGuardianFields || !guardianColumns.has(column));
   const addableColumns = availableColumns.filter((column) => !configuration.columns.includes(column));
-  const selectedKeys = useMemo(() => new Set(targets.map(targetKey)), [targets]);
   const batchMatchesServer = targets.length === batch.targets.length && targets.every((item) => batch.targets.some((current) => targetKey(current) === targetKey(item)));
 
   function patch(next: Partial<ClassListConfiguration>) {
     setConfiguration((current) => ({ ...current, ...next }));
+  }
+
+  function changeScope(value: string) {
+    const nextScope = value === "all" ? "all" : "my";
+    setTargets([]);
+    const params = new URLSearchParams({
+      scope: nextScope,
+      rosterType: configuration.rosterType,
+      columns: configuration.columns.join(","),
+      blankColumns: String(configuration.blankColumns),
+    });
+    startTransition(() => router.push(`/class-lists?${params.toString()}`, { scroll: false }));
   }
 
   function toggleTarget(target: ClassListTarget) {
@@ -224,7 +235,7 @@ export function ClassListWorkspace({
           <div><h2 className="scolapro-section-title">Build class lists</h2><p className="scolapro-section-description !mt-0">Select one or many governed rosters. Every selected roster remains an independent list.</p></div>
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-[12rem_14rem_minmax(18rem,1fr)] lg:items-start">
-          <Picker label="Scope" value={configuration.scope} onChange={(value) => { patch({ scope: value === "all" ? "all" : "my" }); setTargets([]); }} placeholder="My Classes"
+          <Picker label="Scope" value={configuration.scope} onChange={changeScope} placeholder="My Classes"
             options={[{ value: "my", label: "My Classes" }, { value: "all", label: "All", helper: "School-wide active rosters" }]} />
           <Picker label="Roster type" value={configuration.rosterType} onChange={(value) => patch({ rosterType: value as ClassListRosterType, rosterId: "" })} placeholder="Choose roster type" options={rosterTypeOptions} />
           <RosterMultiSelect options={currentRosterOptions} rosterType={configuration.rosterType} selected={targets} onToggle={toggleTarget} />
