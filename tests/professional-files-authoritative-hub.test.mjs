@@ -29,7 +29,7 @@ test("year planner and scheme reuse one canonical planning module",()=>{
 test("teacher uploads remain visibly separate private owned evidence",()=>{
   assert.match(workspace,/Authoritative ScolaPro records/);
   assert.match(workspace,/My uploaded professional documents/);
-  assert.match(workspace,/Private teacher-owned evidence and resources/);
+  assert.match(workspace,/Private teacher-owned files, evidence and resources/);
   assert.match(workspace,/never copies system records into your uploaded-document store/);
 });
 
