@@ -23,7 +23,7 @@ test("class-list targets remain school bounded while current staff can use schoo
   assert.match(resolver, /schoolWide = canAccessClassLists\(membership\) && scope === "all"/);
   assert.match(resolver, /if \(schoolWide\) for \(const item of rows\.classes\)/);
   assert.match(resolver, /requested roster is outside your active school class-list scope/i);
-  assert.match(page, /scope: single\(params\.scope\) === "my" \? "my" : "all"/);
+  assert.match(page, /const scope = single\(params\.scope\) === "my" \? "my" : "all"/);
   assert.match(resolver, /resolveTeachingGroups/);
   assert.match(resolver, /resolveTeachingGroupMembers/);
   assert.doesNotMatch(resolver, /class_list_v2|teaching_group_v2/i);
@@ -47,7 +47,7 @@ test("guardian columns are stripped and hydration is permission controlled", () 
 
 test("preview, print, PDF and real XLSX share one normalized configuration", () => {
   assert.match(route, /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/);
-  assert.match(route, /renderClassListXlsx\(workspace, header, logoBytes\)/);
+  assert.match(route, /renderClassListXlsx\(batch\.lists\[0\], header, logoBytes\)/);
   assert.match(route, /documentInput/);
   assert.match(route, /columns: workspace\.configuration\.columns/);
   assert.match(route, /blankColumns: workspace\.configuration\.blankColumns/);
@@ -144,7 +144,7 @@ test("official class-list columns place admission before learner and abbreviate 
 
 test("class-list exports use a school-only compact header across print, PDF and Excel", () => {
   assert.match(route, /loadClassListLogoBytes/);
-  assert.match(route, /renderClassListXlsx\(workspace, header, logoBytes\)/);
+  assert.match(route, /renderClassListXlsx\(batch\.lists\[0\], header, logoBytes\)/);
 
   assert.match(html, /class-list-header/);
   assert.match(html, /school-name/);
@@ -197,8 +197,8 @@ test("Class List document naming is dynamic and consistent across all Class List
   assert.match(pdf, /classListDocumentName\(input\.registerClass, input\.rosterTitle\)/);
   assert.match(html, /classListDocumentName\(input\.registerClass, input\.rosterTitle\)/);
   assert.match(xlsx, /classListDocumentName\(input\.className, input\.title\)/);
-  assert.match(route, /classListDocumentName\(workspace\.className, workspace\.title\)/);
-  assert.match(workspace, /classListDocumentName\(data\.className, data\.title\)/);
+  assert.match(route, /classListDocumentName\(batch\.lists\[0\]\.className, batch\.lists\[0\]\.title\)/);
+  assert.match(workspace, /classListDocumentName\(list\.className, list\.title\)/);
 });
 
 
