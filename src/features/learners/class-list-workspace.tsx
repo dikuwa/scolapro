@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Save, Search, UsersRound, X } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { ChevronDown, LockKeyhole, Save, Search, UsersRound, X } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -73,46 +73,190 @@ function RosterMultiSelect({
   selected: ClassListTarget[];
   onToggle: (target: ClassListTarget) => void;
 }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const normalized = query.trim().toLocaleLowerCase();
   const selectedIds = new Set(selected.filter((item) => item.rosterType === rosterType).map((item) => item.rosterId));
+  const selectedCount = selectedIds.size;
   const filtered = normalized
     ? options.filter((item) => `${item.label} ${item.helper}`.toLocaleLowerCase().includes(normalized))
     : options;
 
+  function closeMenu() {
+    setOpen(false);
+    setQuery("");
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) closeMenu();
+    };
+    const handleKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    document.addEventListener("pointerdown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
   return (
-    <div>
-      <label htmlFor="class-list-roster-search" className="text-xs font-medium">Rosters</label>
-      <div className="mt-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated shadow-[var(--shadow-xs)]">
-        <div className="relative border-b border-border-subtle">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <input
-            id="class-list-roster-search"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search available rosters"
-            className="min-h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none placeholder:text-muted-foreground/70"
-          />
-        </div>
-        <div role="listbox" aria-multiselectable="true" className="max-h-64 overflow-auto p-1">
-          {filtered.length ? filtered.map((option) => {
-            const checked = selectedIds.has(option.id);
-            return (
-              <button
-                key={option.id}
-                type="button"
-                role="option"
-                aria-selected={checked}
-                onClick={() => onToggle({ rosterType, rosterId: option.id })}
-                className={`flex w-full items-start gap-2.5 rounded-[var(--radius-xs)] px-2.5 py-2 text-left transition hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none ${checked ? "bg-brand-soft text-brand-strong" : ""}`}
-              >
-                <span aria-hidden="true" className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded border text-[0.62rem] font-bold ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? "✓" : ""}</span>
-                <span className="min-w-0"><span className="block truncate text-sm font-medium">{option.label}</span><span className="mt-0.5 block truncate text-[0.68rem] text-muted-foreground">{option.helper}</span></span>
-              </button>
-            );
-          }) : <p className="px-2.5 py-3 text-xs text-muted-foreground">No matching rosters.</p>}
-        </div>
+    <div ref={rootRef} className="min-w-0">
+      <label className="text-xs font-medium">Rosters</label>
+      <div className="relative mt-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((current) => !current);
+            if (!open) requestAnimationFrame(() => searchRef.current?.focus());
+          }}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] outline-none transition hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]"
+        >
+          <span className={selectedCount ? "truncate text-foreground" : "truncate text-muted-foreground"}>
+            {selectedCount ? `${selectedCount} roster${selectedCount === 1 ? "" : "s"} selected` : "Select rosters"}
+          </span>
+          <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+
+        {open ? (
+          <div className="absolute inset-x-0 top-full z-50 mt-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1 shadow-[var(--shadow-sm)]">
+            <div className="relative mb-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                id="class-list-roster-search"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search available rosters"
+                className="min-h-9 w-full rounded-[var(--radius-xs)] border border-border-subtle bg-surface-muted pl-8 pr-2.5 text-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+              />
+            </div>
+            <div role="listbox" aria-multiselectable="true" className="max-h-60 overflow-auto">
+              {filtered.length ? filtered.map((option) => {
+                const checked = selectedIds.has(option.id);
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="option"
+                    aria-selected={checked}
+                    onClick={() => onToggle({ rosterType, rosterId: option.id })}
+                    className={`flex w-full items-start gap-2.5 rounded-[var(--radius-xs)] px-2.5 py-2 text-left transition hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none ${checked ? "bg-brand-soft text-brand-strong" : ""}`}
+                  >
+                    <span aria-hidden="true" className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded border text-[0.62rem] font-bold ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? "✓" : ""}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium">{option.label}</span>
+                      <span className="mt-0.5 block truncate text-[0.68rem] text-muted-foreground">{option.helper}</span>
+                    </span>
+                  </button>
+                );
+              }) : <p className="px-2.5 py-3 text-xs text-muted-foreground">No matching rosters.</p>}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ColumnMultiSelect({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: ClassListColumnId[];
+  selected: ClassListColumnId[];
+  onToggle: (column: ClassListColumnId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const normalized = query.trim().toLocaleLowerCase();
+  const visibleOptions = normalized
+    ? options.filter((column) => classListColumnLabels[column].toLocaleLowerCase().includes(normalized))
+    : options;
+
+  function closeMenu() {
+    setOpen(false);
+    setQuery("");
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointer = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) closeMenu();
+    };
+    const handleKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") closeMenu();
+    };
+    document.addEventListener("pointerdown", handlePointer);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointer);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="min-w-0">
+      <label className="text-xs font-medium">Add columns</label>
+      <div className="relative mt-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((current) => !current);
+            if (!open) requestAnimationFrame(() => searchRef.current?.focus());
+          }}
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          className="flex min-h-10 w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-[var(--shadow-xs)] outline-none transition hover:border-border focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]"
+        >
+          <span className="truncate text-muted-foreground">Choose optional fields</span>
+          <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+
+        {open ? (
+          <div className="absolute inset-x-0 top-full z-50 mt-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-1 shadow-[var(--shadow-sm)]">
+            <div className="relative mb-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <input
+                ref={searchRef}
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search optional fields"
+                className="min-h-9 w-full rounded-[var(--radius-xs)] border border-border-subtle bg-surface-muted pl-8 pr-2.5 text-sm outline-none transition placeholder:text-muted-foreground/70 focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
+              />
+            </div>
+            <div role="listbox" aria-multiselectable="true" className="max-h-60 overflow-auto">
+              {visibleOptions.length ? visibleOptions.map((column) => {
+                const checked = selected.includes(column);
+                return (
+                  <button
+                    key={column}
+                    type="button"
+                    role="option"
+                    aria-selected={checked}
+                    onClick={() => onToggle(column)}
+                    className={`flex w-full items-center gap-2.5 rounded-[var(--radius-xs)] px-2.5 py-2 text-left text-sm transition hover:bg-surface-muted focus-visible:bg-surface-muted focus-visible:outline-none ${checked ? "bg-brand-soft text-brand-strong" : ""}`}
+                  >
+                    <span aria-hidden="true" className={`grid size-4 shrink-0 place-items-center rounded border text-[0.62rem] font-bold ${checked ? "border-[color:var(--brand)] bg-brand text-white" : "border-border"}`}>{checked ? "✓" : ""}</span>
+                    <span className="truncate font-medium">{classListColumnLabels[column]}</span>
+                  </button>
+                );
+              }) : <p className="px-2.5 py-3 text-xs text-muted-foreground">No matching fields.</p>}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -152,7 +296,6 @@ export function ClassListWorkspace({
   const exportParams = configurationParams(configuration, data.academicYear, targets);
   const exportBase = `/api/official-documents/class-list?${exportParams.toString()}`;
   const availableColumns = classListColumnIds.filter((column) => data.canViewGuardianFields || !guardianColumns.has(column));
-  const addableColumns = availableColumns.filter((column) => !configuration.columns.includes(column));
   const batchMatchesServer = targets.length === batch.targets.length && targets.every((item) => batch.targets.some((current) => targetKey(current) === targetKey(item)));
 
   function patch(next: Partial<ClassListConfiguration>) {
@@ -234,13 +377,13 @@ export function ClassListWorkspace({
           <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span>
           <div><h2 className="scolapro-section-title">Build class lists</h2><p className="scolapro-section-description !mt-0">Select one or many governed rosters. Every selected roster remains an independent list.</p></div>
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-[12rem_14rem_minmax(18rem,1fr)] lg:items-start">
+        <div className="mt-4 grid gap-3 lg:grid-cols-[12rem_14rem_minmax(18rem,1fr)] lg:items-end">
           <Picker label="Scope" value={configuration.scope} onChange={changeScope} placeholder="My Classes"
             options={[{ value: "my", label: "My Classes" }, { value: "all", label: "All", helper: "School-wide active rosters" }]} />
           <Picker label="Roster type" value={configuration.rosterType} onChange={(value) => patch({ rosterType: value as ClassListRosterType, rosterId: "" })} placeholder="Choose roster type" options={rosterTypeOptions} />
           <RosterMultiSelect options={currentRosterOptions} rosterType={configuration.rosterType} selected={targets} onToggle={toggleTarget} />
         </div>
-        <div className="mt-4 border-t border-border-subtle pt-4">
+        <div className="mt-3 border-t border-border-subtle pt-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div><h3 className="text-xs font-semibold">Selected</h3><p className="mt-0.5 text-xs text-muted-foreground">{targets.length} list{targets.length === 1 ? "" : "s"} · {batchMatchesServer ? batch.totalLearners : "Preview to refresh"} learner{batch.totalLearners === 1 ? "" : "s"}</p></div>
             {targets.length ? <button type="button" onClick={() => setTargets([])} className="text-xs font-medium text-muted-foreground hover:text-foreground">Clear all</button> : null}
@@ -258,8 +401,8 @@ export function ClassListWorkspace({
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div><h2 className="scolapro-section-title">Choose details</h2><p className="scolapro-section-description">No. and Learner are fixed. Optional fields apply once to the complete batch.</p></div>
         <div className="mt-4 flex flex-wrap gap-2">
-          <span className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">No. 🔒</span>
-          <span className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">Learner 🔒</span>
+          <span className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">No. <LockKeyhole className="size-3 text-muted-foreground" aria-label="Fixed column" /></span>
+          <span className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">Learner <LockKeyhole className="size-3 text-muted-foreground" aria-label="Fixed column" /></span>
           {configuration.columns.map((column) => (
             <button key={column} type="button" onClick={() => patch({ columns: configuration.columns.filter((item) => item !== column) })} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-xs font-medium text-brand-strong">
               {classListColumnLabels[column]} <X className="size-3" aria-hidden="true" />
@@ -267,15 +410,14 @@ export function ClassListWorkspace({
           ))}
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(14rem,1fr)_12rem] md:items-end">
-          <Picker
-            label="+ Add columns"
-            value=""
-            onChange={(value) => value && patch({ columns: [...configuration.columns, value as ClassListColumnId] })}
-            placeholder={addableColumns.length ? "Choose optional field" : "All available fields selected"}
-            disabled={!addableColumns.length}
-            searchable
-            searchPlaceholder="Search optional fields"
-            options={addableColumns.map((column) => ({ value: column, label: classListColumnLabels[column] }))}
+          <ColumnMultiSelect
+            options={availableColumns}
+            selected={configuration.columns}
+            onToggle={(column) => patch({
+              columns: configuration.columns.includes(column)
+                ? configuration.columns.filter((item) => item !== column)
+                : [...configuration.columns, column],
+            })}
           />
           <Picker label="Blank columns" value={String(configuration.blankColumns)} onChange={(value) => patch({ blankColumns: Number(value) })} placeholder="No blank columns" options={Array.from({ length: 7 }, (_, index) => ({ value: String(index), label: index === 0 ? "None" : `${index} blank column${index === 1 ? "" : "s"}` }))} />
         </div>
