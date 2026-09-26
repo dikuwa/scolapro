@@ -163,8 +163,8 @@ export function ClassListWorkspace({ data }: { data: ClassListWorkspaceData }) {
           <div><h2 className="scolapro-section-title">Preview · {data.title}</h2><p className="scolapro-section-description">{data.academicYear} · {data.grade} · {data.className} · {data.learners.length} learner{data.learners.length === 1 ? "" : "s"}{data.registerTeacherName ? ` · Register teacher: ${data.registerTeacherName}` : ""}</p></div>
           <ClassListDocumentActions baseHref={exportBase} />
         </div>
-        {data.learners.length ? <div className="max-h-[60vh] overflow-auto overscroll-contain">
-          <table className="w-max min-w-0 table-auto border-collapse text-left text-xs">
+        {data.learners.length ? <div className="max-h-[60vh] w-full overflow-auto overscroll-contain">
+          <table className="w-full min-w-[48rem] table-auto border-collapse text-left text-xs">
             <thead className="sticky top-0 z-10 bg-surface-muted">
               <tr>{previewColumns.map((column) => <th key={column.key} className={`whitespace-nowrap border border-border-subtle px-2.5 py-2 font-semibold ${column.key.startsWith("blank-") ? "min-w-28" : ""}`}>{column.label || "Blank"}</th>)}</tr>
             </thead>

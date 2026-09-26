@@ -17,7 +17,7 @@ export function ClassListDocumentActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Link
-        href={baseHref}
+        href={`${baseHref}&format=pdf&preview=1`}
         target="_blank"
         rel="noreferrer"
         className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${sizeClass}`}

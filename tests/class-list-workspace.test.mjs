@@ -116,8 +116,9 @@ test("class-list grade ordering only uses canonical grade columns", () => {
 });
 
 
-test("class-list preview uses compact spreadsheet layout and clearable recents", () => {
-  assert.match(workspace, /w-max min-w-0 table-auto border-collapse/);
+test("class-list workspace preview fills the available document area and keeps clearable recents", () => {
+  assert.match(workspace, /w-full min-w-\[48rem\] table-auto border-collapse/);
+  assert.match(workspace, /max-h-\[60vh\] w-full overflow-auto/);
   assert.match(workspace, /border border-border-subtle px-2\.5 py-2/);
   assert.match(workspace, /function clearRecents\(\)/);
   assert.match(workspace, /localStorage\.removeItem\(RECENTS_KEY\)/);
@@ -152,8 +153,15 @@ test("class-list exports use a school-only compact header across print, PDF and 
   assert.match(xlsx, /embedLogoAndStyles/);
   assert.match(xlsx, /class-list-logo/);
   assert.match(xlsx, /School crest/);
-  assert.match(xlsx, /header\.schoolName/);
-  assert.match(xlsx, /Register teacher:/);
+  assert.match(xlsx, /readImageDimensions/);
+  assert.match(xlsx, /xdr:oneCellAnchor/);
+  assert.doesNotMatch(xlsx, /xdr:twoCellAnchor/);
+  assert.match(xlsx, /rows\[0\]\[1\] = header\.schoolName/);
+  assert.match(xlsx, /rows\[1\]\[1\] = "Grade: "/);
+  assert.match(xlsx, /rows\[2\]\[1\] = "Block\/Class: "/);
+  assert.match(xlsx, /rows\[3\]\[1\] = input\.registerTeacherName/);
+  assert.match(xlsx, /"Male: " \+ maleCount \+ "   Female: " \+ femaleCount/);
+  assert.match(xlsx, /"Total learners: " \+ input\.learners\.length/);
   assert.match(xlsx, /orientation: "portrait"/);
   assert.match(xlsx, /fitToWidth: 1/);
   assert.doesNotMatch(xlsx, /!autofilter|postalLines|contactLines/);
@@ -164,6 +172,9 @@ test("all Class List document access points use the shared preview/print/PDF/Exc
   assert.match(workspace, /ClassListDocumentActions baseHref=\{exportBase\}/);
   assert.match(learnerDirectory, /ClassListDocumentActions baseHref=\{classListHref\} compact/);
   assert.match(documentActions, /Preview \/ Print/);
+  assert.match(documentActions, /format=pdf&preview=1/);
+  assert.match(route, /previewPdf = url\.searchParams\.get\("preview"\) === "1"/);
+  assert.match(route, /previewPdf \? "inline" : "attachment"/);
   assert.match(documentActions, /\bPDF\b/);
   assert.match(documentActions, /\bExcel\b/);
   assert.match(documentActions, /format=pdf/);
