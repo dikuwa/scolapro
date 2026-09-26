@@ -546,3 +546,29 @@ export async function getReviewDetail(submissionId: string): Promise<ReviewDetai
     events,
   };
 }
+
+export type PreparationReviewPolicy = {
+  cadence: "weekly" | "fortnightly" | "selected" | "term_batch";
+  effectiveFrom: string;
+  canManage: boolean;
+};
+
+export async function getPreparationReviewPolicy(): Promise<PreparationReviewPolicy | null> {
+  const scope=await resolveReviewScope();
+  if (!scope) return null;
+  const supabase=await createSupabaseServerClient();
+  const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Windhoek",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const { data }=await supabase.from("preparation_review_policies")
+    .select("cadence,effective_from")
+    .eq("school_id",scope.schoolId)
+    .lte("effective_from",today)
+    .or(`effective_to.is.null,effective_to.gte.${today}`)
+    .order("effective_from",{ascending:false})
+    .limit(1)
+    .maybeSingle();
+  return {
+    cadence:(data?.cadence ?? "selected") as PreparationReviewPolicy["cadence"],
+    effectiveFrom:data?.effective_from ?? today,
+    canManage:["school_admin","principal","deputy_principal"].includes(scope.roleKey),
+  };
+}
