@@ -32,6 +32,7 @@ function excelColumnWidth(key: string): number {
   if (key === "registerClass") return 16;
   if (key === "guardianName") return 24;
   if (key === "guardianPhone") return 18;
+  if (key === "guardianAddress") return 28;
   if (key === "emergencyContact") return 28;
   if (key.startsWith("blank-")) return 14;
   return 14;
