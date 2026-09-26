@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Filter, Save, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Picker } from "@/components/ui/picker";
@@ -10,12 +10,15 @@ import {
   syncQueuedAssessmentMarkDrafts,
 } from "@/features/assessment/offline/marks-draft-queue";
 import type { MarkGridData, MarkGridRow } from "./server/mark-grid";
+import { submitMarkGrid, validateMarkGrid, type MarkGridActionState } from "./server/mark-grid-actions";
 
 type RowDraft=MarkGridRow & {
   draftMark:string;
   saveState:"idle"|"saving"|"saved"|"queued"|"error";
   error:string|null;
 };
+
+const initialActionState:MarkGridActionState={message:""};
 
 const statusOptions=[
   {value:"numeric",label:"Mark"},
@@ -39,6 +42,8 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
   })));
   const [filter,setFilter]=useState<"all"|"missing"|"errors">("all");
   const [message,setMessage]=useState("");
+  const [validateState,validateAction,validatePending]=useActionState(validateMarkGrid,initialActionState);
+  const [submitState,submitAction,submitPending]=useActionState(submitMarkGrid,initialActionState);
   const inputRefs=useRef<Record<string,HTMLInputElement|null>>({});
   const scope={userId:data.userId,tenantId:data.tenantId,schoolId:data.schoolId};
 
@@ -165,6 +170,18 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
       <article className="rounded-[var(--radius-sm)] bg-surface-muted p-4"><p className="text-xs text-muted-foreground">Captured</p><p className="mt-1 text-xl font-semibold">{summary.captured}/{rows.length}</p></article>
       <article className="rounded-[var(--radius-sm)] bg-surface-muted p-4"><p className="text-xs text-muted-foreground">Missing</p><p className="mt-1 text-xl font-semibold">{summary.missing}</p></article>
       <article className="rounded-[var(--radius-sm)] bg-surface-muted p-4"><p className="text-xs text-muted-foreground">Current average</p><p className="mt-1 text-xl font-semibold">{summary.average==null ? "—" : summary.average.toFixed(1)}</p><p className="mt-1 text-[0.68rem] text-muted-foreground">Read-only working calculation</p></article>
+    </section>
+
+    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div><h2 className="scolapro-section-title">Validate & submit</h2><p className="scolapro-section-description">Validation checks eligible learners without changing workflow state. Submission moves the assessment into governed review and stops ordinary mark editing.</p></div>
+        <div className="flex flex-wrap gap-2">
+          <form action={validateAction}><input type="hidden" name="instanceId" value={data.instanceId}/><Button type="submit" variant="neutral" loading={validatePending} disabled={!data.editable}>Validate</Button></form>
+          <form action={submitAction}><input type="hidden" name="instanceId" value={data.instanceId}/><Button type="submit" loading={submitPending} disabled={!data.editable || summary.missing>0}>Submit for review</Button></form>
+        </div>
+      </div>
+      {validateState.message ? <p className={`mt-3 text-xs ${validateState.success ? "text-success" : "text-muted-foreground"}`}>{validateState.message}</p> : null}
+      {submitState.message ? <p className={`mt-2 text-xs ${submitState.success ? "text-success" : "text-danger"}`}>{submitState.message}</p> : null}
     </section>
 
     <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
