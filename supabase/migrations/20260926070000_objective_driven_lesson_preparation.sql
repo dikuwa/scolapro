@@ -178,7 +178,7 @@ begin
   end if;
 
   if new.teaching_group_id is null then
-    select min(tga.teaching_group_id)
+    select (array_agg(tga.teaching_group_id order by tga.created_at))[1]
       into new.teaching_group_id
       from public.teaching_group_allocations tga
       join public.teaching_groups tg on tg.id=tga.teaching_group_id
