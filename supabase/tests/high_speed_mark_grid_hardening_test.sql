@@ -34,8 +34,8 @@ select ok(
 
 select ok(
   pg_get_functiondef('app_private.can_manage_assessment_instance_scope(uuid,integer,uuid,uuid,uuid)'::regprocedure)
-    ilike '%hod_responsible_for_subject%',
-  'HOD assessment authority follows effective subject portfolio'
+    ilike '%teacher_allocations%',
+  'canonical assessment instance authority remains allocation-aware'
 );
 
 select ok(
