@@ -82,8 +82,8 @@ test("workspace exposes all required roster types, multi-select semantics, fixed
   assert.match(workspace, /aria-multiselectable="true"/);
   assert.match(workspace, /Remove \$\{targetLabel\(data, target\)\}/);
   assert.match(workspace, /Clear all/);
-  assert.match(workspace, /No\. 🔒/);
-  assert.match(workspace, /Learner 🔒/);
+  assert.match(workspace, /No\. <LockKeyhole/);
+  assert.match(workspace, /Learner <LockKeyhole/);
   assert.match(workspace, /Array\.from\(\{ length: 7 \}/);
 });
 
@@ -278,4 +278,21 @@ test("home-room header enrichment is optional and cannot break Class Lists when 
   assert.match(resolver, /class-list home-room metadata unavailable; continuing without room labels/);
   assert.match(resolver, /class-list school-room metadata unavailable; continuing without room labels/);
   assert.match(resolver, /home_room_id: null as string \| null/);
+});
+
+
+test("Class List filter controls behave as compact searchable multi-select dropdowns", () => {
+  assert.match(workspace, /function RosterMultiSelect/);
+  assert.match(workspace, /function ColumnMultiSelect/);
+  assert.match(workspace, /aria-haspopup="listbox"/);
+  assert.match(workspace, /aria-multiselectable="true"/);
+  assert.match(workspace, /document\.addEventListener\("pointerdown", handlePointer\)/);
+  assert.match(workspace, /document\.addEventListener\("keydown", handleKey\)/);
+  assert.match(workspace, /if \(event\.key === "Escape"\) closeMenu\(\)/);
+  assert.match(workspace, /Search available rosters/);
+  assert.match(workspace, /Search optional fields/);
+  assert.match(workspace, /LockKeyhole/);
+  assert.doesNotMatch(workspace, /🔒/);
+  assert.match(workspace, /lg:items-end/);
+  assert.match(workspace, /mt-3 border-t border-border-subtle pt-3/);
 });
