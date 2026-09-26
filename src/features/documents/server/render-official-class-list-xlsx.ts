@@ -149,11 +149,16 @@ function embedLogoAndStyles(
   dataRowCount: number,
   columnCount: number,
   metaStartColumn: number,
+  sheetNumber = 1,
 ): Buffer {
   const CFB = (XLSX as unknown as { CFB?: CfbApi }).CFB;
   if (!CFB) return workbookBytes;
   const cfb = CFB.read(workbookBytes, { type: "buffer" });
-  let sheetXml = readText(CFB, cfb, "xl/worksheets/sheet1.xml");
+  const sheetPath = `xl/worksheets/sheet${sheetNumber}.xml`;
+  const worksheetRelsPath = `xl/worksheets/_rels/sheet${sheetNumber}.xml.rels`;
+  const drawingPath = `xl/drawings/drawing${sheetNumber}.xml`;
+  const drawingRelsPath = `xl/drawings/_rels/drawing${sheetNumber}.xml.rels`;
+  let sheetXml = readText(CFB, cfb, sheetPath);
 
   sheetXml = sheetXml.replace(/<worksheet\\b([^>]*)>/, (match, attributes: string) =>
     attributes.includes("xmlns:r=")
@@ -192,7 +197,7 @@ function embedLogoAndStyles(
     const dimensions = readImageDimensions(logoBytes) ?? { width: 1, height: 1 };
     const targetHeightEmu = 590550;
     const targetWidthEmu = Math.round(targetHeightEmu * (dimensions.width / dimensions.height));
-    writePart(CFB, cfb, "xl/drawings/drawing1.xml",
+    writePart(CFB, cfb, drawingPath,
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
       '<xdr:oneCellAnchor>' +
@@ -202,21 +207,20 @@ function embedLogoAndStyles(
       '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="' + imageRelationshipId + '"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>' +
       '<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/>' +
       '</xdr:oneCellAnchor></xdr:wsDr>');
-    writePart(CFB, cfb, "xl/drawings/_rels/drawing1.xml.rels",
+    writePart(CFB, cfb, drawingRelsPath,
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
       '<Relationship Id="' + imageRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/class-list-logo.' + imageExtension + '"/>' +
       '</Relationships>');
 
-    const worksheetRelsPath = "xl/worksheets/_rels/sheet1.xml.rels";
     const existingWorksheetRels = findEntry(CFB, cfb, worksheetRelsPath)
       ? readText(CFB, cfb, worksheetRelsPath)
       : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
-    const worksheetRels = existingWorksheetRels.includes("../drawings/drawing1.xml")
+    const worksheetRels = existingWorksheetRels.includes(`../drawings/drawing${sheetNumber}.xml`)
       ? existingWorksheetRels
       : existingWorksheetRels.replace(
           "</Relationships>",
-          '<Relationship Id="' + drawingRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>',
+          '<Relationship Id="' + drawingRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target=`../drawings/drawing${sheetNumber}.xml`/></Relationships>',
         );
     writePart(CFB, cfb, worksheetRelsPath, worksheetRels);
 
@@ -228,16 +232,16 @@ function embedLogoAndStyles(
     if (!contentTypes.includes('Extension="' + imageExtension + '"')) {
       contentTypes = contentTypes.replace("</Types>", '<Default Extension="' + imageExtension + '" ContentType="' + imageContentType + '"/></Types>');
     }
-    if (!contentTypes.includes('PartName="/xl/drawings/drawing1.xml"')) {
+    if (!contentTypes.includes('PartName="/xl/drawings/drawing${sheetNumber}.xml"')) {
       contentTypes = contentTypes.replace(
         "</Types>",
-        '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
+        '<Override PartName="/xl/drawings/drawing${sheetNumber}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
       );
     }
     writePart(CFB, cfb, "[Content_Types].xml", contentTypes);
   }
 
-  writePart(CFB, cfb, "xl/worksheets/sheet1.xml", sheetXml);
+  writePart(CFB, cfb, sheetPath, sheetXml);
   return Buffer.from(CFB.write(cfb, { type: "buffer", fileType: "zip", compression: true }));
 }
 
