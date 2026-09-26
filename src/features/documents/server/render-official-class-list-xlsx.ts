@@ -296,7 +296,15 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
   worksheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({
     wch: columns[index] ? excelColumnWidth(columns[index].key) : 12,
   }));
-  worksheet["!rows"] = [{ hpt: 24 }, { hpt: 16 }, { hpt: 16 }, { hpt: 8 }, { hpt: 21 }];
+  const addressSelected = input.configuration.columns.includes("guardianAddress");
+  worksheet["!rows"] = [
+    { hpt: 24 },
+    { hpt: 16 },
+    { hpt: 16 },
+    { hpt: 8 },
+    { hpt: 21 },
+    ...input.learners.map(() => ({ hpt: addressSelected ? 42 : 18 })),
+  ];
   worksheet["!margins"] = { left: 0.25, right: 0.25, top: 0.25, bottom: 0.35, header: 0.1, footer: 0.1 };
   (worksheet as XLSX.WorkSheet & { "!pageSetup"?: Record<string, unknown> })["!pageSetup"] = {
     orientation: "portrait",
