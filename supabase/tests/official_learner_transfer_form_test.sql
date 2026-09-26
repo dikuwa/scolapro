@@ -160,9 +160,8 @@ select * from public.finalize_learner_transfer_form(
 
 select is((select revision from trf_v1),1,'first finalized transfer form is revision 1');
 
-select like(
-  (select scolapro_reference from trf_v1),
-  'SP-TRF-%',
+select ok(
+  (select scolapro_reference from trf_v1) like 'SP-TRF-%',
   'finalization registers shared official-document verification provenance'
 );
 
