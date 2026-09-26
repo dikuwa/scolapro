@@ -15,6 +15,7 @@ create table if not exists public.learner_transfer_form_drafts (
   school_id uuid not null references public.schools(id) on delete restrict,
   transfer_event_id uuid not null unique references public.transfer_events(id) on delete restrict,
   reason_for_departure text,
+  medium_of_instruction text,
   documents_attached text,
   behaviour_summary text,
   health_summary text,
@@ -347,7 +348,8 @@ create or replace function public.save_learner_transfer_form_draft(
   p_behaviour_summary text,
   p_health_summary text,
   p_other_relevant_information text,
-  p_verification_note text
+  p_verification_note text,
+  p_medium_of_instruction text
 )
 returns uuid
 language plpgsql
@@ -365,13 +367,14 @@ begin
   if v_transfer.status not in ('approved','completed') then raise exception 'Transfer form is available only after transfer approval'; end if;
 
   insert into public.learner_transfer_form_drafts(
-    tenant_id,school_id,transfer_event_id,reason_for_departure,documents_attached,
+    tenant_id,school_id,transfer_event_id,reason_for_departure,medium_of_instruction,documents_attached,
     behaviour_summary,health_summary,other_relevant_information,verification_note,
     updated_by_user_id,updated_at
   ) values(
     v_transfer.tenant_id,v_transfer.source_school_id,v_transfer.id,
     nullif(btrim(coalesce(p_reason_for_departure,'')),''),
-    nullif(btrim(coalesce(p_documents_attached,'')),''),
+    nullif(btrim(coalesce(p_medium_of_instruction,'')),''),
+    nullif(btrim(coalesce(p_documents_attached,'')),'') ,
     nullif(btrim(coalesce(p_behaviour_summary,'')),''),
     nullif(btrim(coalesce(p_health_summary,'')),''),
     nullif(btrim(coalesce(p_other_relevant_information,'')),''),
@@ -380,6 +383,7 @@ begin
   )
   on conflict(transfer_event_id) do update set
     reason_for_departure=excluded.reason_for_departure,
+    medium_of_instruction=excluded.medium_of_instruction,
     documents_attached=excluded.documents_attached,
     behaviour_summary=excluded.behaviour_summary,
     health_summary=excluded.health_summary,
@@ -401,9 +405,9 @@ begin
 end;
 $$;
 
-revoke all on function public.save_learner_transfer_form_draft(uuid,text,text,text,text,text,text)
+revoke all on function public.save_learner_transfer_form_draft(uuid,text,text,text,text,text,text,text)
 from public,anon;
-grant execute on function public.save_learner_transfer_form_draft(uuid,text,text,text,text,text,text)
+grant execute on function public.save_learner_transfer_form_draft(uuid,text,text,text,text,text,text,text)
 to authenticated;
 
 create or replace function public.finalize_learner_transfer_form(
@@ -483,6 +487,7 @@ begin
     'header',p_header_snapshot,
     'verifiedFields',jsonb_build_object(
       'reasonForDeparture',v_draft.reason_for_departure,
+      'mediumOfInstruction',v_draft.medium_of_instruction,
       'documentsAttached',v_draft.documents_attached,
       'behaviour',v_draft.behaviour_summary,
       'stateOfHealth',v_draft.health_summary,
