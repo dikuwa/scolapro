@@ -49,6 +49,7 @@ export function LearnerTransferFormWorkspace({
   const [finalizeState, finalizeAction, finalizing] = useActionState(finalizeLearnerTransferForm, initialState);
 
   const [reason, setReason] = useState(draft?.reasonForDeparture || source.reasonForDeparture);
+  const [mediumOfInstruction, setMediumOfInstruction] = useState(draft?.mediumOfInstruction ?? "");
   const [documents, setDocuments] = useState(draft?.documentsAttached ?? "");
   const [behaviour, setBehaviour] = useState(draft?.behaviourSummary || source.suggestions.behaviour);
   const [health, setHealth] = useState(draft?.healthSummary || source.suggestions.health);
@@ -150,6 +151,18 @@ export function LearnerTransferFormWorkspace({
           <label className="grid gap-1.5">
             <span className="text-xs font-medium">Reason for departure</span>
             <textarea name="reasonForDeparture" rows={3} maxLength={4000} required value={reason} onChange={(event) => setReason(event.target.value)} className={fieldClass()} />
+          </label>
+
+          <label className="grid gap-1.5">
+            <span className="text-xs font-medium">Medium of instruction (only grades 1, 2 &amp; 3)</span>
+            <input
+              name="mediumOfInstruction"
+              value={mediumOfInstruction}
+              onChange={(event) => setMediumOfInstruction(event.target.value)}
+              maxLength={500}
+              className={fieldClass()}
+              placeholder="Complete only where the prescribed form requires it."
+            />
           </label>
 
           <label className="grid gap-1.5">
