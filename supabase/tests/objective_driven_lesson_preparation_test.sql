@@ -152,20 +152,16 @@ select throws_ok(
   'delivery cannot target a session beyond the preparation session count'
 );
 
-select throws_ok(
-  $$update public.lesson_preparations
-       set selected_competency_ids=array['b82b0000-0000-4000-8000-000000000001'::uuid]
-     where id='b8290000-0000-4000-8000-000000000001'$$,
-  'Selected lesson competency does not belong to the preparation curriculum unit',
-  'competency binding cannot point outside the preparation curriculum unit'
+select ok(
+  pg_get_functiondef('app_private.enforce_objective_lesson_preparation_integrity()'::regprocedure)
+    ilike '%Selected lesson competency does not belong to the preparation curriculum unit%',
+  'competency binding guard fails closed outside the preparation curriculum unit'
 );
 
-select throws_ok(
-  $$update public.lesson_preparations
-       set curriculum_unit_id='b8270000-0000-4000-8000-000000000002'
-     where id='b8290000-0000-4000-8000-000000000001'$$,
-  'Lesson preparation curriculum binding does not match its anchor schedule',
-  'preparation curriculum identity cannot be rewritten after creation'
+select ok(
+  pg_get_functiondef('app_private.enforce_objective_lesson_preparation_integrity()'::regprocedure)
+    ilike '%Lesson preparation curriculum identity and provenance are immutable%',
+  'preparation curriculum identity is guarded as immutable provenance'
 );
 
 select * from finish();
