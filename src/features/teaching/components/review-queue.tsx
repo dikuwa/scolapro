@@ -75,6 +75,10 @@ export function ReviewQueue({ rows }: { rows: ReviewQueueRow[] }) {
                 <dd className="mt-0.5 font-medium text-foreground">{row.preparedCount} / {row.missingCount}</dd>
               </div>
               <div className="min-w-0">
+                <dt className="text-muted-foreground">Submission state</dt>
+                <dd className="mt-0.5 font-medium capitalize text-foreground">{row.status}</dd>
+              </div>
+              <div className="min-w-0">
                 <dt className="text-muted-foreground">Submitted</dt>
                 <dd className="mt-0.5 font-medium text-foreground">{row.submittedOn ?? "Not recorded"}</dd>
               </div>
