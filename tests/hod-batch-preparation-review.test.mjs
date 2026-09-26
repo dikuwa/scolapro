@@ -8,6 +8,7 @@ const batch=await read("src/features/academics/preparation-batch-submission.tsx"
 const reviewActions=await read("src/features/teaching/server/review-actions.ts");
 const reviewQueries=await read("src/features/teaching/server/review-queries.ts");
 const detail=await read("src/features/teaching/components/review-detail.tsx");
+const queue=await read("src/features/teaching/components/review-queue.tsx");
 const reviewsPage=await read("src/app/teaching/reviews/page.tsx");
 const migration=await read("supabase/migrations/20260926100000_hod_batch_preparation_review.sql");
 
@@ -51,4 +52,16 @@ test("batch UI follows responsive existing design primitives",()=>{
   assert.match(batch,/Picker/);
   assert.match(batch,/DateField/);
   assert.match(batch,/CheckboxField/);
+});
+
+
+test("HOD queue exposes teacher subject grade week prepared missing and submission state",()=>{
+  assert.match(queue,/Teacher/);
+  assert.match(queue,/Subject · grade · class/);
+  assert.match(queue,/Week \/ scope/);
+  assert.match(queue,/Prepared/);
+  assert.match(queue,/Missing/);
+  assert.match(queue,/Submission state/);
+  assert.match(reviewQueries,/preparedCount/);
+  assert.match(reviewQueries,/missingCount/);
 });
