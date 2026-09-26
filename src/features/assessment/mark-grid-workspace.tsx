@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Filter, Save, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Picker } from "@/components/ui/picker";
@@ -145,10 +145,9 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
     setMessage(result.pending || result.syncing ? "Some mark drafts are still waiting to sync." : result.conflicted || result.rejected ? "Some queued marks need attention before they can sync." : "Queued mark drafts are synced.");
   }
 
-  useMemo(()=>{
+  useEffect(()=>{
     void cacheAssessmentMarkDraftReference(scope,{assessmentInstanceId:data.instanceId,learners:data.rows});
-    return null;
-  },[]); // eslint-disable-line react-hooks/exhaustive-deps
+  },[data.instanceId,data.rows,scope.schoolId,scope.tenantId,scope.userId]);
 
   return <div className="space-y-4">
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -207,7 +206,7 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
                     if (event.key==="ArrowDown" || event.key==="Enter") { event.preventDefault(); moveFocus(index,1); }
                     if (event.key==="ArrowUp") { event.preventDefault(); moveFocus(index,-1); }
                   }}
-                  onPaste={(event)=>{void handlePaste(index,event.clipboardData.getData("text")).then((handled)=>{if(handled) event.preventDefault();});}}
+                  onPaste={(event)=>{const text=event.clipboardData.getData("text"); if (text.split(/\\r?\\n/).filter((value)=>value.trim()!=="").length>1) { event.preventDefault(); void handlePaste(index,text); }}}
                   className="min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand-soft disabled:opacity-55"
                 />
                 {row.error ? <p className="mt-1 text-[0.68rem] text-danger">{row.error}</p> : null}
