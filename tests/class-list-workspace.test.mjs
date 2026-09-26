@@ -101,3 +101,9 @@ test("restored school-scale Class Lists use URI-safe guardian batches and tolera
   assert.match(resolver, /class-list teaching group allocations unavailable; continuing without allocation links/);
   assert.match(resolver, /groupAllocations\.error \? \[\] : \(groupAllocations\.data \?\? \[\]\)/);
 });
+
+
+test("class-list grade ordering only uses canonical grade columns", () => {
+  assert.doesNotMatch(resolver, /\.order\("sort_order"\)/);
+  assert.match(resolver, /from\("grades"\)[\s\S]*\.order\("display_name"\)\.order\("id"\)/);
+});
