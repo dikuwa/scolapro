@@ -108,8 +108,10 @@ export function drawOfficialDocumentPdfHeader(
   header: OfficialDocumentHeaderModel,
   resources: OfficialDocumentPdfResources,
   topY = PAGE_HEIGHT - MARGIN,
+  options: { layout?: "standard" | "compact_left" } = {},
 ): number {
   const { regular, schoolNameFont, logo, coatOfArms } = resources;
+  const compactLeft = options.layout === "compact_left" && header.mode === "internal_school";
   page.drawRectangle({
     x: MARGIN,
     y: topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
@@ -119,9 +121,10 @@ export function drawOfficialDocumentPdfHeader(
     borderColor: LINE,
   });
 
-  const centreX = MARGIN + LOGO_WIDTH;
-  const centreWidth = CONTENT_WIDTH - LOGO_WIDTH - POSTAL_WIDTH;
-  const leftX = MARGIN + 8;
+  const logoWidth = compactLeft ? 66 : LOGO_WIDTH;
+  const centreX = MARGIN + logoWidth;
+  const centreWidth = CONTENT_WIDTH - logoWidth - POSTAL_WIDTH;
+  const leftX = MARGIN + 5;
   const imageY = topY - 72;
   const leftImage = header.mode === "external_correspondence" ? coatOfArms : logo;
   if (leftImage) {
@@ -135,11 +138,27 @@ export function drawOfficialDocumentPdfHeader(
   while (schoolFontSize > 11 && schoolNameFont.widthOfTextAtSize(header.schoolName, schoolFontSize) > centreWidth - 8) {
     schoolFontSize -= 0.5;
   }
-  drawOfficialDocumentPdfCentered(page, schoolNameFont, header.schoolName, schoolFontSize, centreX, centreWidth, topY - 22);
-  if (header.formerName) drawOfficialDocumentPdfCentered(page, regular, `(${header.formerName})`, 6.8, centreX, centreWidth, topY - 34);
-  header.contactLines.slice(0, 4).forEach((line, index) => {
-    drawOfficialDocumentPdfCentered(page, regular, line.text, 5.8, centreX, centreWidth, topY - 47 - index * 8);
-  });
+  if (compactLeft) {
+    page.drawText(fitOfficialDocumentPdfText(schoolNameFont, header.schoolName, schoolFontSize, centreWidth - 6), {
+      x: centreX + 3, y: topY - 22, size: schoolFontSize, font: schoolNameFont, color: INK,
+    });
+    if (header.formerName) {
+      page.drawText(fitOfficialDocumentPdfText(regular, `(${header.formerName})`, 6.8, centreWidth - 6), {
+        x: centreX + 3, y: topY - 34, size: 6.8, font: regular, color: INK,
+      });
+    }
+    header.contactLines.slice(0, 4).forEach((line, index) => {
+      page.drawText(fitOfficialDocumentPdfText(regular, line.text, 5.7, centreWidth - 6), {
+        x: centreX + 3, y: topY - 47 - index * 7.2, size: 5.7, font: regular, color: INK,
+      });
+    });
+  } else {
+    drawOfficialDocumentPdfCentered(page, schoolNameFont, header.schoolName, schoolFontSize, centreX, centreWidth, topY - 22);
+    if (header.formerName) drawOfficialDocumentPdfCentered(page, regular, `(${header.formerName})`, 6.8, centreX, centreWidth, topY - 34);
+    header.contactLines.slice(0, 4).forEach((line, index) => {
+      drawOfficialDocumentPdfCentered(page, regular, line.text, 5.8, centreX, centreWidth, topY - 47 - index * 8);
+    });
+  }
   const centreTail = header.mode === "external_correspondence"
     ? [...header.postalLines, ...(header.schoolEmisNumber ? [`EMIS: ${header.schoolEmisNumber}`] : [])]
     : (header.schoolEmisNumber ? [`EMIS: ${header.schoolEmisNumber}`] : []);
