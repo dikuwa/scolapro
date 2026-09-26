@@ -99,9 +99,9 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
   const supabase = createSupabaseAdminClient();
 
   const { data: recovered, error: recoveryError } = await supabase.rpc("recover_stale_report_card_render_jobs", {
-    p_stale_after_seconds: 900,
-    p_retry_after_seconds: 300,
+    p_stale_after_minutes: 15,
     p_max_attempts: 5,
+    p_limit: 100,
   });
   if (recoveryError) throw new Error(`Unable to recover stale render jobs: ${recoveryError.message}`);
 
