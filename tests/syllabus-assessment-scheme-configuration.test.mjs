@@ -22,9 +22,8 @@ test("extraction is candidate-only and publication requires verification",()=>{
 });
 
 test("manual scheme configuration supports three terms and component metadata",()=>{
-  assert.match(workspace,/Term 1/);
-  assert.match(workspace,/Term 2/);
-  assert.match(workspace,/Term 3/);
+  assert.match(workspace,/\[1,2,3\]/);
+  assert.match(workspace,/label=\{\`Term \$\{term\}\`\}/);
   assert.match(workspace,/Raw maximum/);
   assert.match(workspace,/Weight/);
   assert.match(workspace,/Moderation required/);
