@@ -62,7 +62,7 @@ function stylesXml(): string {
     '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
-    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
     '</cellXfs>' +
@@ -245,11 +245,14 @@ function embedLogoAndStyles(
   return Buffer.from(CFB.write(cfb, { type: "buffer", fileType: "zip", compression: true }));
 }
 
-export function renderClassListXlsx(
-  input: ClassListWorkspaceData,
-  header: OfficialDocumentHeaderModel,
-  logoBytes: Uint8Array | null,
-): ArrayBuffer {
+type BuiltWorksheet = {
+  worksheet: XLSX.WorkSheet;
+  columnCount: number;
+  dataColumnCount: number;
+  metaStartColumn: number;
+};
+
+function buildClassListWorksheet(input: ClassListWorkspaceData, header: OfficialDocumentHeaderModel): BuiltWorksheet {
   const columns = buildOfficialClassListColumns(input.configuration.columns, input.configuration.blankColumns);
   const columnCount = Math.max(columns.length, 6);
   const metaStartColumn = Math.max(3, Math.floor(columnCount * 0.58));
@@ -272,7 +275,6 @@ export function renderClassListXlsx(
   rows[1][1] = "Grade: " + input.grade;
   rows[2][1] = "Block/Class: " + input.className;
   rows[3][1] = input.registerTeacherName ? "Register teacher: " + input.registerTeacherName : "";
-
   rows[0][metaStartColumn] = classListDocumentName(input.className, input.title);
   rows[1][metaStartColumn] = "Male: " + maleCount + "   Female: " + femaleCount;
   rows[2][metaStartColumn] = "Total learners: " + input.learners.length;
@@ -301,11 +303,78 @@ export function renderClassListXlsx(
     fitToHeight: 0,
     paperSize: 9,
   };
+  return { worksheet, columnCount, dataColumnCount: columns.length, metaStartColumn };
+}
 
+function safeWorksheetName(value: string, used: Set<string>): string {
+  const base = value.replace(/[\\/?*\[\]:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31) || "Class List";
+  let name = base;
+  let suffix = 2;
+  while (used.has(name.toLocaleLowerCase())) {
+    const tail = " " + suffix;
+    name = base.slice(0, Math.max(1, 31 - tail.length)) + tail;
+    suffix += 1;
+  }
+  used.add(name.toLocaleLowerCase());
+  return name;
+}
+
+function arrayBufferFromBuffer(rendered: Buffer): ArrayBuffer {
+  return rendered.buffer.slice(rendered.byteOffset, rendered.byteOffset + rendered.byteLength) as ArrayBuffer;
+}
+
+export function renderClassListXlsx(
+  input: ClassListWorkspaceData,
+  header: OfficialDocumentHeaderModel,
+  logoBytes: Uint8Array | null,
+): ArrayBuffer {
+  const built = buildClassListWorksheet(input, header);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Class List");
+  XLSX.utils.book_append_sheet(workbook, built.worksheet, "Class List");
   workbook.Props = { Title: classListDocumentName(input.className, input.title), Subject: "ScolaPro class list", Author: input.schoolName };
   const baseBytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
-  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, columns.length, metaStartColumn);
-  return rendered.buffer.slice(rendered.byteOffset, rendered.byteOffset + rendered.byteLength) as ArrayBuffer;
+  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, built.dataColumnCount, built.metaStartColumn);
+  return arrayBufferFromBuffer(rendered);
+}
+
+export function renderClassListBatchXlsx(
+  inputs: ClassListWorkspaceData[],
+  header: OfficialDocumentHeaderModel,
+  logoBytes: Uint8Array | null,
+): ArrayBuffer {
+  if (!inputs.length) throw new Error("At least one class list is required for Excel export.");
+  const workbook = XLSX.utils.book_new();
+  const builtSheets: BuiltWorksheet[] = [];
+  const usedNames = new Set<string>();
+
+  for (const input of inputs) {
+    const built = buildClassListWorksheet(input, header);
+    builtSheets.push(built);
+    XLSX.utils.book_append_sheet(
+      workbook,
+      built.worksheet,
+      safeWorksheetName(classListDocumentName(input.className, input.title), usedNames),
+    );
+  }
+
+  workbook.Props = {
+    Title: inputs.length === 1 ? classListDocumentName(inputs[0].className, inputs[0].title) : `${inputs.length} Class Lists`,
+    Subject: "ScolaPro class-list batch",
+    Author: inputs[0].schoolName,
+  };
+
+  let rendered = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
+  builtSheets.forEach((built, index) => {
+    const input = inputs[index];
+    rendered = embedLogoAndStyles(
+      rendered,
+      logoBytes,
+      5,
+      input.learners.length,
+      built.dataColumnCount,
+      built.metaStartColumn,
+      index + 1,
+    );
+  });
+  return arrayBufferFromBuffer(rendered);
 }
