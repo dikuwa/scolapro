@@ -6,9 +6,11 @@ import { Download, FileSpreadsheet, Printer } from "lucide-react";
 export function ClassListDocumentActions({
   baseHref,
   compact = false,
+  batch = false,
 }: {
   baseHref: string;
   compact?: boolean;
+  batch?: boolean;
 }) {
   const sizeClass = compact
     ? "min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem]"
@@ -23,7 +25,7 @@ export function ClassListDocumentActions({
         className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${sizeClass}`}
       >
         <Printer aria-hidden="true" className="size-3.5" />
-        Preview / Print
+        {batch ? "Print all" : "Preview / Print"}
       </Link>
       <a
         href={`${baseHref}&format=pdf`}
