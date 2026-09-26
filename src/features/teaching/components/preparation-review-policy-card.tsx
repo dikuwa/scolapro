@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Picker } from "@/components/ui/picker";
 import {
@@ -20,6 +20,7 @@ const options=[
 
 export function PreparationReviewPolicyCard({policy}:{policy:PreparationReviewPolicy}) {
   const [state,action,pending]=useActionState(setPreparationReviewPolicy,initialState);
+  const [cadence,setCadence]=useState(policy.cadence);
   return <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
@@ -27,7 +28,7 @@ export function PreparationReviewPolicyCard({policy}:{policy:PreparationReviewPo
         <p className="scolapro-section-description">Controls the school&apos;s preferred preparation submission rhythm. It does not alter lesson content, review authority or historical submissions.</p>
       </div>
       {policy.canManage ? <form action={action} className="flex w-full flex-col gap-2 sm:w-auto sm:min-w-72 sm:flex-row sm:items-end">
-        <Picker label="Cadence" name="cadence" defaultValue={policy.cadence} options={options}/>
+        <Picker label="Cadence" name="cadence" value={cadence} onChange={(value)=>setCadence(value as PreparationReviewPolicy["cadence"])} options={options} placeholder="Choose cadence"/>
         <Button type="submit" loading={pending}>Save cadence</Button>
       </form> : <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
         Current: {options.find((item)=>item.value===policy.cadence)?.label ?? policy.cadence}
