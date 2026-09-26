@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
-import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
+import { buildOfficialClassListColumns, classListDocumentName } from "@/features/documents/server/class-list-document";
 import { ClassListDocumentActions } from "@/features/learners/class-list-document-actions";
 import {
   classListColumnIds,
@@ -160,7 +160,7 @@ export function ClassListWorkspace({ data }: { data: ClassListWorkspaceData }) {
 
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]" aria-busy={pending}>
         <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-          <div><h2 className="scolapro-section-title">Preview · {data.title}</h2><p className="scolapro-section-description">{data.academicYear} · {data.grade} · {data.className} · {data.learners.length} learner{data.learners.length === 1 ? "" : "s"}{data.registerTeacherName ? ` · Register teacher: ${data.registerTeacherName}` : ""}</p></div>
+          <div><h2 className="scolapro-section-title">Preview · {classListDocumentName(data.className, data.title)}</h2><p className="scolapro-section-description">{data.academicYear} · {data.grade} · {data.className} · {data.learners.length} learner{data.learners.length === 1 ? "" : "s"}{data.registerTeacherName ? ` · Register teacher: ${data.registerTeacherName}` : ""}</p></div>
           <ClassListDocumentActions baseHref={exportBase} />
         </div>
         {data.learners.length ? <div className="max-h-[60vh] w-full overflow-auto overscroll-contain">
