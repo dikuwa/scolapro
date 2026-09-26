@@ -41,6 +41,7 @@ export type FinalizedLearnerTransferForm = {
   };
   verified: {
     reasonForDeparture: string;
+    mediumOfInstruction: string;
     documentsAttached: string;
     behaviour: string;
     stateOfHealth: string;
@@ -90,6 +91,7 @@ export function parseFinalizedLearnerTransferForm(value: unknown): FinalizedLear
     },
     verified:{
       reasonForDeparture:text(verified.reasonForDeparture),
+      mediumOfInstruction:text(verified.mediumOfInstruction),
       documentsAttached:text(verified.documentsAttached),
       behaviour:text(verified.behaviour),
       stateOfHealth:text(verified.stateOfHealth),
@@ -135,7 +137,7 @@ ${line("2. Full names and surname of learner:",f.source.learnerName)}
 ${line("3. Date of birth:",date(f.source.dateOfBirth))}
 ${line("4. Present grade:",f.source.presentGrade)}
 ${line("5. Last grade passed:",f.source.lastGradePassed)}
-${line("6. Medium of instruction (only grades 1, 2 & 3):","")}
+${line("6. Medium of instruction (only grades 1, 2 & 3):",f.verified.mediumOfInstruction)}
 ${line("7. Subjects taken in last grade (secondary schools):",subjects,"tall")}
 ${line("8. Date of departure from school:",date(f.source.departureDate))}
 ${line("9. Reason for departure:",f.verified.reasonForDeparture)}
@@ -199,7 +201,7 @@ export async function renderOfficialLearnerTransferFormPdf(input:{
   y=field(page,regular,bold,"3.  Date of birth:",date(f.source.dateOfBirth),y);
   y=field(page,regular,bold,"4.  Present grade:",f.source.presentGrade,y);
   y=field(page,regular,bold,"5.  Last grade passed:",f.source.lastGradePassed,y);
-  y=field(page,regular,bold,"6.  Medium of instruction (only grades 1, 2 & 3):","",y);
+  y=field(page,regular,bold,"6.  Medium of instruction (only grades 1, 2 & 3):",f.verified.mediumOfInstruction,y);
   y=field(page,regular,bold,"7.  Subjects taken in last grade (secondary schools):",f.source.subjects.join(", "),y,38);
   y=field(page,regular,bold,"8.  Date of departure from school:",date(f.source.departureDate),y);
   y=field(page,regular,bold,"9.  Reason for departure:",f.verified.reasonForDeparture,y,28);
