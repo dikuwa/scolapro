@@ -68,17 +68,22 @@ test("official documents use compact content-fit portrait columns and safe multi
   assert.match(pdf, /rowsPerPage/);
 });
 
-test("presets and recents store configuration only", () => {
+test("column presets remain local recipes and do not replace the active batch", () => {
   assert.match(workspace, /type StoredConfiguration = \{ id: string; name: string; configuration: ClassListConfiguration \}/);
   assert.match(workspace, /localStorage\.setItem\(PRESETS_KEY/);
-  assert.match(workspace, /localStorage\.setItem\(RECENTS_KEY/);
+  assert.match(workspace, /columns: allowedColumns/);
+  assert.match(workspace, /blankColumns: item\.configuration\.blankColumns/);
+  assert.doesNotMatch(workspace, /setTargets\([^\n]*item\.configuration/);
   assert.doesNotMatch(workspace, /localStorage\.setItem\([^\n]*learners/);
 });
 
-test("workspace exposes all required roster types, fixed columns and 0-6 blanks", () => {
+test("workspace exposes all required roster types, multi-select semantics, fixed columns and 0-6 blanks", () => {
   for (const type of ["register_class", "grade", "subject", "teacher_subject", "teaching_group", "field_group"]) assert.match(workspace, new RegExp(`value: "${type}"`));
-  assert.match(workspace, /No\. \(fixed\)/);
-  assert.match(workspace, /Learner \(fixed\)/);
+  assert.match(workspace, /aria-multiselectable="true"/);
+  assert.match(workspace, /Remove \$\{targetLabel\(data, target\)\}/);
+  assert.match(workspace, /Clear all/);
+  assert.match(workspace, /No\. 🔒/);
+  assert.match(workspace, /Learner 🔒/);
   assert.match(workspace, /Array\.from\(\{ length: 7 \}/);
 });
 
@@ -117,13 +122,13 @@ test("class-list grade ordering only uses canonical grade columns", () => {
 });
 
 
-test("class-list workspace preview fills the available document area and keeps clearable recents", () => {
+test("class-list batch preview fills the available document area and keeps roster boundaries", () => {
   assert.match(workspace, /w-full min-w-\[48rem\] table-auto border-collapse/);
-  assert.match(workspace, /max-h-\[60vh\] w-full overflow-auto/);
-  assert.match(workspace, /border border-border-subtle px-2\.5 py-2/);
-  assert.match(workspace, /function clearRecents\(\)/);
-  assert.match(workspace, /localStorage\.removeItem\(RECENTS_KEY\)/);
-  assert.match(workspace, />Clear<\/button>/);
+  assert.match(workspace, /max-h-\[52vh\] w-full overflow-auto/);
+  assert.match(workspace, /batch\.lists\.map/);
+  assert.match(workspace, /list\.configuration\.rosterType/);
+  assert.match(workspace, /list\.configuration\.rosterId/);
+  assert.match(workspace, /list\.learners\.map/);
 });
 
 test("official class-list columns place admission before learner and abbreviate sex", () => {
@@ -194,4 +199,50 @@ test("Class List document naming is dynamic and consistent across all Class List
   assert.match(xlsx, /classListDocumentName\(input\.className, input\.title\)/);
   assert.match(route, /classListDocumentName\(workspace\.className, workspace\.title\)/);
   assert.match(workspace, /classListDocumentName\(data\.className, data\.title\)/);
+});
+
+
+test("batch targets remain typed, bounded, server-authorized and independently resolved", () => {
+  assert.match(resolver, /getClassListBatchWorkspace/);
+  assert.match(resolver, /target\.rosterType/);
+  assert.match(resolver, /target\.rosterId/);
+  assert.match(resolver, /\.slice\(0, 20\)/);
+  assert.match(resolver, /Promise\.all\(uniqueTargets\.map/);
+  assert.match(resolver, /getClassListWorkspace/);
+  assert.match(route, /parseTargets/);
+  assert.match(route, /getClassListBatchWorkspace/);
+  assert.match(route, /No valid class-list targets were supplied/);
+});
+
+test("parent grade and child register-class selections cannot coexist in the active batch", () => {
+  assert.match(workspace, /target\.rosterType === "grade"/);
+  assert.match(workspace, /item\.rosterType !== "register_class"/);
+  assert.match(workspace, /target\.rosterType === "register_class"/);
+  assert.match(workspace, /item\.rosterType !== "grade"/);
+});
+
+test("batch exports stay single-request and preserve document boundaries", () => {
+  assert.match(route, /renderOfficialClassListBatchPdf/);
+  assert.match(route, /renderClassListBatchXlsx/);
+  assert.match(xlsx, /renderClassListBatchXlsx/);
+  assert.match(xlsx, /safeWorksheetName/);
+  assert.match(xlsx, /index \+ 1/);
+  assert.match(documentActions, /batch \? "Print all" : "Preview \/ Print"/);
+});
+
+test("guardian address is permission-gated and available as one compact optional field", () => {
+  const types = source("src/features/learners/class-list-types.ts");
+  assert.match(types, /"guardianAddress"/);
+  assert.match(types, /guardianAddress: "Guardian address"/);
+  assert.match(resolver, /guardianColumns = new Set<ClassListColumnId>\(\["guardianName", "guardianPhone", "guardianAddress", "emergencyContact"\]\)/);
+  assert.match(resolver, /from\("guardian_addresses"\)/);
+  assert.match(resolver, /guardianAddress: primary \? addressByGuardian/);
+  assert.match(workspace, /guardianAddress/);
+});
+
+test("compact PDF class-list content is horizontally centered on A4", () => {
+  assert.match(pdf, /const documentX = Math\.max\(MARGIN, \(PAGE_WIDTH - tableWidth\) \/ 2\)/);
+  assert.match(pdf, /drawClassListHeader\(page, input, resources, tableWidth, documentX\)/);
+  assert.match(pdf, /drawTableHeader\([^\n]*documentX\)/);
+  assert.match(pdf, /drawRow\([^\n]*documentX\)/);
 });
