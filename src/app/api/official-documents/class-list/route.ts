@@ -5,10 +5,11 @@ import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType, ty
 import { classListDocumentName } from "@/features/documents/server/class-list-document";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialClassListHtml } from "@/features/documents/server/render-official-class-list-html";
-import { renderClassListXlsx } from "@/features/documents/server/render-official-class-list-xlsx";
+import { renderClassListBatchXlsx, renderClassListXlsx } from "@/features/documents/server/render-official-class-list-xlsx";
+import { renderOfficialClassListBatchPdf } from "@/features/documents/server/render-official-class-list-batch-pdf";
 import { renderOfficialClassListPdf } from "@/features/documents/server/render-official-class-list-pdf";
-import { classListColumnIds, type ClassListColumnId, type ClassListConfiguration, type ClassListRosterType } from "@/features/learners/class-list-types";
-import { getClassListWorkspace } from "@/features/learners/server/class-list-workspace";
+import { classListColumnIds, type ClassListColumnId, type ClassListConfiguration, type ClassListRosterType, type ClassListTarget, type ClassListWorkspaceData } from "@/features/learners/class-list-types";
+import { getClassListBatchWorkspace, getClassListWorkspace } from "@/features/learners/server/class-list-workspace";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 export const runtime = "nodejs";
@@ -38,6 +39,36 @@ async function loadClassListLogoBytes(storagePath: string, logoUrl: string): Pro
     }
   }
   return null;
+}
+
+const allowedRosterTypes = new Set<ClassListRosterType>(["register_class", "grade", "subject", "teacher_subject", "teaching_group", "field_group"]);
+
+function parseTargets(url: URL): ClassListTarget[] {
+  return url.searchParams.getAll("target")
+    .flatMap((value) => value.split(","))
+    .map((value) => {
+      const separator = value.indexOf(":");
+      if (separator <= 0) return null;
+      const rosterType = value.slice(0, separator) as ClassListRosterType;
+      const rosterId = value.slice(separator + 1).trim();
+      return allowedRosterTypes.has(rosterType) && rosterId ? { rosterType, rosterId } : null;
+    })
+    .filter((target): target is ClassListTarget => Boolean(target));
+}
+
+function documentInputFor(workspace: ClassListWorkspaceData, header: OfficialDocumentHeaderModel, generatedAt: string) {
+  return {
+    header,
+    academicYear: workspace.academicYear,
+    grade: workspace.grade,
+    registerClass: workspace.className,
+    registerTeacherName: workspace.registerTeacherName,
+    rosterTitle: workspace.title,
+    rows: workspace.learners,
+    columns: workspace.configuration.columns,
+    blankColumns: workspace.configuration.blankColumns,
+    generatedAt,
+  };
 }
 
 function parseColumns(url: URL): ClassListColumnId[] {
@@ -76,20 +107,37 @@ export async function GET(request: Request) {
     }
     if (!workspace.configuration.rosterId) return Response.json({ error: "No roster is available in your active school class-list scope." }, { status: 404 });
 
+    const requestedTargets = parseTargets(url);
+    const batch = requestedTargets.length
+      ? await getClassListBatchWorkspace({
+          membership,
+          academicYear,
+          scope: baseConfiguration.scope ?? "all",
+          targets: requestedTargets,
+          columns: baseConfiguration.columns ?? [],
+          blankColumns: baseConfiguration.blankColumns ?? 0,
+        })
+      : {
+          targets: [{ rosterType: workspace.configuration.rosterType, rosterId: workspace.configuration.rosterId }],
+          lists: [workspace],
+          totalLearners: workspace.learners.length,
+        };
+    if (!batch.lists.length) return Response.json({ error: "No valid class-list targets were supplied." }, { status: 404 });
+
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
     const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("class_list"), provenanceSource: "live_school_profile" });
     const generatedAt = new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "long", year: "numeric" }).format(new Date());
-    const documentInput = {
-      header, academicYear, grade: workspace.grade, registerClass: workspace.className,
-      registerTeacherName: workspace.registerTeacherName, rosterTitle: workspace.title,
-      rows: workspace.learners, columns: workspace.configuration.columns,
-      blankColumns: workspace.configuration.blankColumns, generatedAt,
-    };
-    const fileBase = `${safeFilePart(classListDocumentName(workspace.className, workspace.title))}-${academicYear}`;
+    const documentInputs = batch.lists.map((item) => documentInputFor(item, header, generatedAt));
+    const fileBase = batch.lists.length > 1
+      ? `class-lists-${academicYear}-${batch.lists.length}`
+      : `${safeFilePart(classListDocumentName(batch.lists[0].className, batch.lists[0].title))}-${academicYear}`;
 
     if (format === "xlsx") {
       const logoBytes = await loadClassListLogoBytes(profile.logoStoragePath, profile.logoUrl);
-      return new Response(renderClassListXlsx(workspace, header, logoBytes), { status: 200, headers: {
+      const bytes = batch.lists.length > 1
+        ? renderClassListBatchXlsx(batch.lists, header, logoBytes)
+        : renderClassListXlsx(batch.lists[0], header, logoBytes);
+      return new Response(bytes, { status: 200, headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${fileBase}.xlsx"`,
         "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
       } });
@@ -97,13 +145,16 @@ export async function GET(request: Request) {
     if (format === "pdf") {
       const logoBytes = await loadClassListLogoBytes(profile.logoStoragePath, profile.logoUrl);
       const previewPdf = url.searchParams.get("preview") === "1";
-      const rendered = await renderOfficialClassListPdf({ ...documentInput, logoBytes });
+      const inputsWithLogo = documentInputs.map((item) => ({ ...item, logoBytes }));
+      const rendered = inputsWithLogo.length > 1
+        ? await renderOfficialClassListBatchPdf(inputsWithLogo)
+        : await renderOfficialClassListPdf(inputsWithLogo[0]);
       return new Response(Buffer.from(rendered.bytes), { status: 200, headers: {
         "Content-Type": "application/pdf", "Content-Disposition": `${previewPdf ? "inline" : "attachment"}; filename="${fileBase}.pdf"`,
         "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-ScolaPro-Page-Count": String(rendered.pageCount),
       } });
     }
-    return new Response(renderOfficialClassListHtml(documentInput), { status: 200, headers: {
+    return new Response(renderOfficialClassListHtml(documentInputs[0]), { status: 200, headers: {
       "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `inline; filename="${fileBase}.html"`,
       "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
     } });
