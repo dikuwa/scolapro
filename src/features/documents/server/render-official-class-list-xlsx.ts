@@ -56,7 +56,7 @@ function stylesXml(): string {
     '<border><left style="thin"><color rgb="FFB8BDC7"/></left><right style="thin"><color rgb="FFB8BDC7"/></right><top style="thin"><color rgb="FFB8BDC7"/></top><bottom style="thin"><color rgb="FFB8BDC7"/></bottom><diagonal/></border>' +
     '</borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="7">' +
+    '<cellXfs count="8">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
@@ -64,6 +64,7 @@ function stylesXml(): string {
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
     '</cellXfs>' +
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
     '<dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>' +
@@ -71,7 +72,7 @@ function stylesXml(): string {
 }
 
 function setCellStyle(sheetXml: string, reference: string, styleId: number): string {
-  const pattern = new RegExp('<c([^>]*\\\\br="' + reference + '"[^>]*)>', "g");
+  const pattern = new RegExp('<c([^>]*\\br="' + reference + '"[^>]*)>', "g");
   return sheetXml.replace(pattern, (_match, attributes: string) => {
     const cleaned = attributes.replace(/\\s+s="\\d+"/g, "");
     return '<c' + cleaned + ' s="' + styleId + '">';
@@ -109,6 +110,38 @@ function writePart(CFB: CfbApi, cfb: CfbContainer, path: string, content: Uint8A
   }
 }
 
+function readImageDimensions(bytes: Uint8Array): { width: number; height: number } | null {
+  if (bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+    const width = ((bytes[16] << 24) >>> 0) + (bytes[17] << 16) + (bytes[18] << 8) + bytes[19];
+    const height = ((bytes[20] << 24) >>> 0) + (bytes[21] << 16) + (bytes[22] << 8) + bytes[23];
+    return width > 0 && height > 0 ? { width, height } : null;
+  }
+  if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 9 < bytes.length) {
+      if (bytes[offset] !== 0xff) { offset += 1; continue; }
+      const marker = bytes[offset + 1];
+      const isSof = marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc;
+      if (isSof) {
+        const height = (bytes[offset + 5] << 8) | bytes[offset + 6];
+        const width = (bytes[offset + 7] << 8) | bytes[offset + 8];
+        return width > 0 && height > 0 ? { width, height } : null;
+      }
+      const segmentLength = (bytes[offset + 2] << 8) | bytes[offset + 3];
+      if (segmentLength < 2) break;
+      offset += 2 + segmentLength;
+    }
+  }
+  return null;
+}
+
+function normalizedSex(value: string | null): "M" | "F" | "" {
+  const normalized = value?.trim().toLowerCase();
+  if (normalized === "male" || normalized === "m") return "M";
+  if (normalized === "female" || normalized === "f") return "F";
+  return "";
+}
+
 function embedLogoAndStyles(
   workbookBytes: Buffer,
   logoBytes: Uint8Array | null,
@@ -130,6 +163,9 @@ function embedLogoAndStyles(
 
   const metaColumn = XLSX.utils.encode_col(metaStartColumn);
   sheetXml = setCellStyle(sheetXml, "B1", 1);
+  sheetXml = setCellStyle(sheetXml, "B2", 7);
+  sheetXml = setCellStyle(sheetXml, "B3", 7);
+  sheetXml = setCellStyle(sheetXml, "B4", 7);
   sheetXml = setCellStyle(sheetXml, metaColumn + "1", 2);
   sheetXml = setCellStyle(sheetXml, metaColumn + "2", 3);
   sheetXml = setCellStyle(sheetXml, metaColumn + "3", 3);
@@ -153,16 +189,19 @@ function embedLogoAndStyles(
     const imageRelationshipId = "rIdClassListLogo";
 
     writePart(CFB, cfb, imagePath, logoBytes);
+    const dimensions = readImageDimensions(logoBytes) ?? { width: 1, height: 1 };
+    const targetHeightEmu = 590550;
+    const targetWidthEmu = Math.round(targetHeightEmu * (dimensions.width / dimensions.height));
     writePart(CFB, cfb, "xl/drawings/drawing1.xml",
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
-      '<xdr:twoCellAnchor editAs="oneCell">' +
-      '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>' +
-      '<xdr:to><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>3</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>' +
+      '<xdr:oneCellAnchor>' +
+      '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>19050</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>19050</xdr:rowOff></xdr:from>' +
+      '<xdr:ext cx="' + targetWidthEmu + '" cy="' + targetHeightEmu + '"/>' +
       '<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="School crest"/><xdr:cNvPicPr/></xdr:nvPicPr>' +
       '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="' + imageRelationshipId + '"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>' +
       '<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/>' +
-      '</xdr:twoCellAnchor></xdr:wsDr>');
+      '</xdr:oneCellAnchor></xdr:wsDr>');
     writePart(CFB, cfb, "xl/drawings/_rels/drawing1.xml.rels",
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
@@ -222,17 +261,27 @@ export function renderClassListXlsx(
     ...input.learners.map((learner, index) => columns.map((column) => column.value(learner, index))),
   ];
 
+  const maleCount = input.learners.filter((learner) => normalizedSex(learner.sex) === "M").length;
+  const femaleCount = input.learners.filter((learner) => normalizedSex(learner.sex) === "F").length;
+
   rows[0][1] = header.schoolName;
-  rows[0][metaStartColumn] = input.title;
-  rows[1][metaStartColumn] = input.grade + " · " + input.className + " · " + input.academicYear;
-  rows[2][metaStartColumn] = input.registerTeacherName ? "Register teacher: " + input.registerTeacherName : input.learners.length + " learners";
+  rows[1][1] = "Grade: " + input.grade;
+  rows[2][1] = "Block/Class: " + input.className;
+  rows[3][1] = input.registerTeacherName ? "Register teacher: " + input.registerTeacherName : "";
+
+  rows[0][metaStartColumn] = input.className || input.title;
+  rows[1][metaStartColumn] = "Male: " + maleCount + "   Female: " + femaleCount;
+  rows[2][metaStartColumn] = "Total learners: " + input.learners.length;
 
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
   const lastColumnName = XLSX.utils.encode_col(lastColumn);
   const leftEndColumnName = XLSX.utils.encode_col(leftEndColumn);
   const metaStartColumnName = XLSX.utils.encode_col(metaStartColumn);
   worksheet["!merges"] = [
-    XLSX.utils.decode_range("B1:" + leftEndColumnName + "3"),
+    XLSX.utils.decode_range("B1:" + leftEndColumnName + "1"),
+    XLSX.utils.decode_range("B2:" + leftEndColumnName + "2"),
+    XLSX.utils.decode_range("B3:" + leftEndColumnName + "3"),
+    XLSX.utils.decode_range("B4:" + leftEndColumnName + "4"),
     XLSX.utils.decode_range(metaStartColumnName + "1:" + lastColumnName + "1"),
     XLSX.utils.decode_range(metaStartColumnName + "2:" + lastColumnName + "2"),
     XLSX.utils.decode_range(metaStartColumnName + "3:" + lastColumnName + "3"),
@@ -240,7 +289,7 @@ export function renderClassListXlsx(
   worksheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({
     wch: columns[index] ? excelColumnWidth(columns[index].key) : 12,
   }));
-  worksheet["!rows"] = [{ hpt: 22 }, { hpt: 18 }, { hpt: 18 }, { hpt: 6 }, { hpt: 21 }];
+  worksheet["!rows"] = [{ hpt: 23 }, { hpt: 16 }, { hpt: 16 }, { hpt: 16 }, { hpt: 21 }];
   worksheet["!margins"] = { left: 0.25, right: 0.25, top: 0.25, bottom: 0.35, header: 0.1, footer: 0.1 };
   (worksheet as XLSX.WorkSheet & { "!pageSetup"?: Record<string, unknown> })["!pageSetup"] = {
     orientation: "portrait",
