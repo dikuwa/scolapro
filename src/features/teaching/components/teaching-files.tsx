@@ -582,7 +582,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
           <h2 className="scolapro-section-title">My uploaded professional documents</h2>
         </div>
         <p className="scolapro-section-description">
-          Private teacher-owned evidence and resources. Uploads stay in your owner-scoped private document store and are separate from the authoritative ScolaPro records linked above.
+          Private teacher-owned files, evidence and resources. Uploads stay in your owner-scoped private document store and are separate from the authoritative ScolaPro records linked above.
         </p>
 
         {canUploadProfessionalDocuments && ownerSchoolId && ownerStaffMemberId ? (
