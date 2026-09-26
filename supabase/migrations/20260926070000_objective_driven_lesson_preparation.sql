@@ -177,6 +177,26 @@ begin
     raise exception 'Lesson preparation delivery session exceeds the preparation session count';
   end if;
 
+  if new.teaching_group_id is null then
+    select candidate.teaching_group_id
+      into new.teaching_group_id
+      from (
+        select tga.teaching_group_id
+        from public.teaching_group_allocations tga
+        join public.teaching_groups tg on tg.id=tga.teaching_group_id
+        where tga.teacher_allocation_id=v_schedule.teacher_allocation_id
+          and tga.effective_from<=v_schedule.planned_on
+          and (tga.effective_to is null or tga.effective_to>=v_schedule.planned_on)
+          and tg.status='active'
+          and tg.effective_from<=v_schedule.planned_on
+          and (tg.effective_to is null or tg.effective_to>=v_schedule.planned_on)
+        order by tga.created_at
+        limit 2
+      ) candidate
+      group by candidate.teaching_group_id
+      having count(*)=1;
+  end if;
+
   if new.teaching_group_id is not null then
     select tg.tenant_id,tg.school_id,tg.academic_year,tg.subject_offering_id
       into v_group
@@ -305,7 +325,7 @@ revoke all on public.lesson_preparation_deliveries from anon;
 grant select,insert on public.lesson_preparation_deliveries to authenticated;
 
 comment on table public.lesson_preparation_deliveries is
-'Schedule/group delivery assignments for one reusable canonical lesson preparation. Actual completion/reflection remains authoritative in teaching_actuals.';
+'Schedule/group delivery assignments for one reusable canonical lesson preparation. When a schedule resolves unambiguously through teaching_group_allocations, the canonical Teaching Group is captured automatically. Actual completion/reflection remains authoritative in teaching_actuals.';
 comment on column public.lesson_preparations.selected_competency_ids is
 'Teacher-selected binding basic/specific competencies for this preparation. General objectives remain contextual curriculum snapshot data.';
 comment on column public.lesson_preparations.session_count is
