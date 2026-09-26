@@ -15,6 +15,7 @@ const columnWeights: Record<ClassListColumnId, number> = {
   status: 0.7,
   guardianName: 1.25,
   guardianPhone: 1,
+  guardianAddress: 1.35,
   emergencyContact: 1.5,
 };
 
