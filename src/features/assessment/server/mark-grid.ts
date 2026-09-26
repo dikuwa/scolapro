@@ -16,6 +16,7 @@ export type MarkGridRow = {
 
 export type MarkGridData = {
   instanceId: string;
+  userId: string;
   schoolId: string;
   tenantId: string;
   academicYear: number;
@@ -114,6 +115,7 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
 
   return {
     instanceId: instance.id,
+    userId: context.user.id,
     schoolId: instance.school_id,
     tenantId: instance.tenant_id,
     academicYear: instance.academic_year,
