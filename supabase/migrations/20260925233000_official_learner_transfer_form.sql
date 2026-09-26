@@ -288,7 +288,7 @@ begin
     where n.school_id=v_transfer.source_school_id
       and n.learner_id=v_transfer.learner_id
       and n.sensitivity='routine'
-      and n.note_type in ('general_remark','educational','transfer')
+      and n.note_type in ('general_remark','recommendation','transfer_note')
     order by n.note_date desc,n.id
     limit 4
   )
