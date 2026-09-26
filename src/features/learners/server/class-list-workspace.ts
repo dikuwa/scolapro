@@ -21,6 +21,15 @@ const guardianRoles = new Set(["school_admin", "principal", "deputy_principal", 
 const rosterRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian", "ltsm", "exam_officer", "emis_officer"]);
 const guardianColumns = new Set<ClassListColumnId>(["guardianName", "guardianPhone", "emergencyContact"]);
 const rosterTypes = new Set<ClassListRosterType>(["register_class", "grade", "subject", "teacher_subject", "teaching_group", "field_group"]);
+const POSTGREST_IN_BATCH_SIZE = 40;
+
+function chunkIds(ids: string[]) {
+  const chunks: string[][] = [];
+  for (let index = 0; index < ids.length; index += POSTGREST_IN_BATCH_SIZE) {
+    chunks.push(ids.slice(index, index + POSTGREST_IN_BATCH_SIZE));
+  }
+  return chunks;
+}
 
 type AcademicRows = {
   grades: Array<{ id: string; display_name: string }>;
@@ -73,12 +82,19 @@ async function loadAcademicRows(schoolId: string, academicYear: number): Promise
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,active_from,active_to").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("teaching_group_allocations").select("teaching_group_id,teacher_allocation_id,effective_from,effective_to").eq("school_id", schoolId).eq("academic_year", academicYear),
   ]);
-  for (const result of [grades, classes, offerings, allocations, groupAllocations]) {
+  for (const result of [grades, classes, offerings, allocations]) {
     if (result.error) throw new Error("Unable to load the governed class-list scope.");
+  }
+  if (groupAllocations.error) {
+    console.warn("class-list teaching group allocations unavailable; continuing without allocation links", {
+      schoolId,
+      academicYear,
+      message: groupAllocations.error.message,
+    });
   }
   return {
     grades: grades.data ?? [], classes: classes.data ?? [], offerings: offerings.data ?? [],
-    allocations: allocations.data ?? [], groupAllocations: groupAllocations.data ?? [],
+    allocations: allocations.data ?? [], groupAllocations: groupAllocations.error ? [] : (groupAllocations.data ?? []),
   } as AcademicRows;
 }
 
@@ -155,25 +171,35 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
   const supabase = await createSupabaseServerClient();
   const today = getNamibiaDateKey();
   const learnerIds = rows.map((row) => row.learnerId);
-  const relationships = await supabase.from("learner_guardians")
-    .select("learner_id,guardian_id,is_emergency_contact,priority")
-    .in("learner_id", learnerIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`).order("priority");
-  if (relationships.error) throw new Error("Unable to load authorized guardian details.");
-  const guardianIds = Array.from(new Set((relationships.data ?? []).map((item) => item.guardian_id)));
+  const relationshipRows: Array<{ learner_id: string; guardian_id: string; is_emergency_contact: boolean; priority: number }> = [];
+  for (const batch of chunkIds(learnerIds)) {
+    const relationships = await supabase.from("learner_guardians")
+      .select("learner_id,guardian_id,is_emergency_contact,priority")
+      .in("learner_id", batch).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`).order("priority");
+    if (relationships.error) throw new Error("Unable to load authorized guardian details.");
+    relationshipRows.push(...(relationships.data ?? []));
+  }
+  const guardianIds = Array.from(new Set(relationshipRows.map((item) => item.guardian_id)));
   if (!guardianIds.length) return rows;
-  const [profiles, contacts] = await Promise.all([
-    supabase.from("guardian_profiles").select("id,first_names,surname").in("id", guardianIds),
-    supabase.from("guardian_contacts").select("guardian_id,contact_type,contact_value,is_primary").in("guardian_id", guardianIds).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
-  ]);
-  if (profiles.error || contacts.error) throw new Error("Unable to load authorized guardian details.");
-  const profileById = new Map((profiles.data ?? []).map((item) => [item.id, formatPersonName(`${item.first_names} ${item.surname}`)]));
+  const profileRows: Array<{ id: string; first_names: string; surname: string }> = [];
+  const contactRows: Array<{ guardian_id: string; contact_type: string; contact_value: string; is_primary: boolean }> = [];
+  for (const batch of chunkIds(guardianIds)) {
+    const [profiles, contacts] = await Promise.all([
+      supabase.from("guardian_profiles").select("id,first_names,surname").in("id", batch),
+      supabase.from("guardian_contacts").select("guardian_id,contact_type,contact_value,is_primary").in("guardian_id", batch).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
+    ]);
+    if (profiles.error || contacts.error) throw new Error("Unable to load authorized guardian details.");
+    profileRows.push(...(profiles.data ?? []));
+    contactRows.push(...(contacts.data ?? []));
+  }
+  const profileById = new Map(profileRows.map((item) => [item.id, formatPersonName(`${item.first_names} ${item.surname}`)]));
   const phoneByGuardian = new Map<string, string>();
-  for (const item of contacts.data ?? []) {
+  for (const item of contactRows) {
     if (!["mobile", "phone", "telephone"].includes(item.contact_type)) continue;
     if (!phoneByGuardian.has(item.guardian_id) || item.is_primary) phoneByGuardian.set(item.guardian_id, item.contact_value);
   }
-  const relationshipsByLearner = new Map<string, typeof relationships.data>();
-  for (const link of relationships.data ?? []) relationshipsByLearner.set(link.learner_id, [...(relationshipsByLearner.get(link.learner_id) ?? []), link]);
+  const relationshipsByLearner = new Map<string, typeof relationshipRows>();
+  for (const link of relationshipRows) relationshipsByLearner.set(link.learner_id, [...(relationshipsByLearner.get(link.learner_id) ?? []), link]);
   return rows.map((row) => {
     const links = relationshipsByLearner.get(row.learnerId) ?? [];
     const primary = links[0];
