@@ -249,7 +249,8 @@ test("compact PDF class-list content is horizontally centered on A4", () => {
 
 
 test("Class List headers resolve room and responsible teacher from canonical school data", () => {
-  assert.match(resolver, /register_teacher_staff_id,home_room_id/);
+  assert.match(resolver, /select\("id,grade_id,display_name,register_teacher_staff_id"\)/);
+  assert.match(resolver, /select\("id,home_room_id"\)/);
   assert.match(resolver, /from\("school_rooms"\)\.select\("id,room_code,display_name"\)/);
   assert.match(resolver, /const roomName = room \? \(room\.room_code \|\| room\.display_name\) : null/);
   assert.match(resolver, /subjectTeacherId = allocation\.staff_member_id/);
@@ -268,4 +269,13 @@ test("PDF and Excel share the same balanced room/teacher header hierarchy", () =
   assert.match(xlsx, /"Teacher: " \+ input\.responsibleTeacherName/);
   assert.match(xlsx, /classListDocumentName\(input\.className, input\.title\)/);
   assert.doesNotMatch(xlsx, /Block\/Class|Register teacher:/);
+});
+
+
+test("home-room header enrichment is optional and cannot break Class Lists when local schema lags", () => {
+  assert.match(resolver, /select\("id,grade_id,display_name,register_teacher_staff_id"\)/);
+  assert.match(resolver, /select\("id,home_room_id"\)/);
+  assert.match(resolver, /class-list home-room metadata unavailable; continuing without room labels/);
+  assert.match(resolver, /class-list school-room metadata unavailable; continuing without room labels/);
+  assert.match(resolver, /home_room_id: null as string \| null/);
 });

@@ -78,17 +78,54 @@ export function canAccessClassLists(membership: SchoolMembershipContext) {
 
 async function loadAcademicRows(schoolId: string, academicYear: number): Promise<AcademicRows> {
   const supabase = await createSupabaseServerClient();
-  const [grades, classes, rooms, offerings, allocations, groupAllocations] = await Promise.all([
+  const [grades, baseClasses, offerings, allocations, groupAllocations] = await Promise.all([
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name").order("id"),
-    supabase.from("register_classes").select("id,grade_id,display_name,register_teacher_staff_id,home_room_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
-    supabase.from("school_rooms").select("id,room_code,display_name").eq("school_id", schoolId).order("display_name"),
+    supabase.from("register_classes").select("id,grade_id,display_name,register_teacher_staff_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("subject_offerings").select("id,grade_id,subject_id,subjects(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,active_from,active_to").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("teaching_group_allocations").select("teaching_group_id,teacher_allocation_id,effective_from,effective_to").eq("school_id", schoolId).eq("academic_year", academicYear),
   ]);
-  for (const result of [grades, classes, rooms, offerings, allocations]) {
-    if (result.error) throw new Error("Unable to load the governed class-list scope.");
+
+  for (const result of [grades, baseClasses, offerings, allocations]) {
+    if (result.error) {
+      console.error("class-list governed scope load failed", {
+        schoolId,
+        academicYear,
+        message: result.error.message,
+      });
+      throw new Error("Unable to load the governed class-list scope.");
+    }
   }
+
+  let classes = (baseClasses.data ?? []).map((item) => ({ ...item, home_room_id: null as string | null }));
+  let rooms: Array<{ id: string; room_code: string; display_name: string }> = [];
+
+  const [homeRooms, roomRows] = await Promise.all([
+    supabase.from("register_classes").select("id,home_room_id").eq("school_id", schoolId).eq("academic_year", academicYear),
+    supabase.from("school_rooms").select("id,room_code,display_name").eq("school_id", schoolId).order("display_name"),
+  ]);
+
+  if (homeRooms.error) {
+    console.warn("class-list home-room metadata unavailable; continuing without room labels", {
+      schoolId,
+      academicYear,
+      message: homeRooms.error.message,
+    });
+  } else {
+    const homeRoomByClass = new Map((homeRooms.data ?? []).map((item) => [item.id, item.home_room_id]));
+    classes = classes.map((item) => ({ ...item, home_room_id: homeRoomByClass.get(item.id) ?? null }));
+  }
+
+  if (roomRows.error) {
+    console.warn("class-list school-room metadata unavailable; continuing without room labels", {
+      schoolId,
+      academicYear,
+      message: roomRows.error.message,
+    });
+  } else {
+    rooms = roomRows.data ?? [];
+  }
+
   if (groupAllocations.error) {
     console.warn("class-list teaching group allocations unavailable; continuing without allocation links", {
       schoolId,
@@ -96,9 +133,14 @@ async function loadAcademicRows(schoolId: string, academicYear: number): Promise
       message: groupAllocations.error.message,
     });
   }
+
   return {
-    grades: grades.data ?? [], classes: classes.data ?? [], rooms: rooms.data ?? [], offerings: offerings.data ?? [],
-    allocations: allocations.data ?? [], groupAllocations: groupAllocations.error ? [] : (groupAllocations.data ?? []),
+    grades: grades.data ?? [],
+    classes,
+    rooms,
+    offerings: offerings.data ?? [],
+    allocations: allocations.data ?? [],
+    groupAllocations: groupAllocations.error ? [] : (groupAllocations.data ?? []),
   } as AcademicRows;
 }
 
