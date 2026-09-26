@@ -22,8 +22,13 @@ test("default development resolves credentials from the loopback Supabase stack"
   assert.match(dev, /pnpm local:sync-db/);
 });
 
-test("local Auth provisioning is explicit, password-gated and loopback-only", () => {
+test("local Auth provisioning is password-gated, loopback-only and auto-seeded by local dev when configured", () => {
   assert.match(seed, /SCOLAPRO_LOCAL_ADMIN_PASSWORD/);
+  assert.match(dev, /SCOLAPRO_LOCAL_ADMIN_PASSWORD/);
+  assert.match(dev, /SCOLAPRO_LOCAL_ADMIN_EMAIL/);
+  assert.match(dev, /seedLocalAuthIfConfigured/);
+  assert.match(dev, /seed-local-auth\.mjs/);
+  assert.match(dev, /Local Auth seed skipped/);
   assert.match(seed, /password\.length < 12/);
   assert.match(seed, /Refusing to seed Auth outside the local Supabase stack/);
   assert.match(seed, /role_key: "school_admin"/);
