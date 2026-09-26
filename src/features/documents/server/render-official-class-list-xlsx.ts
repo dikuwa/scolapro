@@ -273,12 +273,12 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
   const femaleCount = input.learners.filter((learner) => normalizedSex(learner.sex) === "F").length;
 
   rows[0][1] = header.schoolName;
-  rows[1][1] = "Grade: " + input.grade;
-  rows[2][1] = "Block/Class: " + input.className;
-  rows[3][1] = input.registerTeacherName ? "Register teacher: " + input.registerTeacherName : "";
+  rows[1][1] = input.roomName ? "Room: " + input.roomName : "";
+  rows[2][1] = input.responsibleTeacherName ? "Teacher: " + input.responsibleTeacherName : "";
+  rows[3][1] = "";
   rows[0][metaStartColumn] = classListDocumentName(input.className, input.title);
-  rows[1][metaStartColumn] = "Male: " + maleCount + "   Female: " + femaleCount;
-  rows[2][metaStartColumn] = "Total learners: " + input.learners.length;
+  rows[1][metaStartColumn] = input.grade + " · " + input.className + " · " + input.academicYear;
+  rows[2][metaStartColumn] = "Male " + maleCount + " · Female " + femaleCount + " · " + input.learners.length + " learners";
 
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
   const lastColumnName = XLSX.utils.encode_col(lastColumn);
@@ -296,7 +296,7 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
   worksheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({
     wch: columns[index] ? excelColumnWidth(columns[index].key) : 12,
   }));
-  worksheet["!rows"] = [{ hpt: 23 }, { hpt: 16 }, { hpt: 16 }, { hpt: 16 }, { hpt: 21 }];
+  worksheet["!rows"] = [{ hpt: 24 }, { hpt: 16 }, { hpt: 16 }, { hpt: 8 }, { hpt: 21 }];
   worksheet["!margins"] = { left: 0.25, right: 0.25, top: 0.25, bottom: 0.35, header: 0.1, footer: 0.1 };
   (worksheet as XLSX.WorkSheet & { "!pageSetup"?: Record<string, unknown> })["!pageSetup"] = {
     orientation: "portrait",
