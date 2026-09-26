@@ -30,6 +30,12 @@ const primaryKeys = new Map([
   ["school_payment_settings", "school_id"]
 ]);
 
+const protectedIdentityColumns = new Map([
+  ["schools", new Set(["id", "tenant_id", "created_at"])],
+  ["learners", new Set(["id", "tenant_id", "created_at"])],
+  ["guardian_profiles", new Set(["id", "tenant_id", "created_at"])]
+]);
+
 function parseEnvFile(filePath) {
   const env = {};
   for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
@@ -111,10 +117,33 @@ async function fetchAll(client, table) {
 async function upsertRows(client, table, rows) {
   if (!rows.length) return;
   const onConflict = primaryKeys.get(table) ?? "id";
+  const protectedColumns = protectedIdentityColumns.get(table);
+
   for (let start = 0; start < rows.length; start += 250) {
     const chunk = rows.slice(start, start + 250).map((row) => rewriteActorIds(table, row));
-    const result = await client.from(table).upsert(chunk, { onConflict });
-    if (result.error) throw new Error("Unable to restore " + table + ": " + result.error.message);
+
+    if (!protectedColumns || onConflict !== "id") {
+      const result = await client.from(table).upsert(chunk, { onConflict });
+      if (result.error) throw new Error("Unable to restore " + table + ": " + result.error.message);
+      continue;
+    }
+
+    const ids = chunk.map((row) => row.id).filter(Boolean);
+    const existingResult = await client.from(table).select("id").in("id", ids);
+    if (existingResult.error) throw new Error("Unable to inspect existing " + table + ": " + existingResult.error.message);
+    const existingIds = new Set((existingResult.data ?? []).map((row) => row.id));
+
+    const inserts = chunk.filter((row) => !existingIds.has(row.id));
+    if (inserts.length) {
+      const insertResult = await client.from(table).insert(inserts);
+      if (insertResult.error) throw new Error("Unable to insert " + table + ": " + insertResult.error.message);
+    }
+
+    for (const row of chunk.filter((item) => existingIds.has(item.id))) {
+      const mutable = Object.fromEntries(Object.entries(row).filter(([key]) => !protectedColumns.has(key)));
+      const updateResult = await client.from(table).update(mutable).eq("id", row.id);
+      if (updateResult.error) throw new Error("Unable to update existing " + table + ": " + updateResult.error.message);
+    }
   }
 }
 
