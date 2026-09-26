@@ -1,11 +1,10 @@
 import { Buffer } from "node:buffer";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import * as XLSX from "xlsx";
-import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
 import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialClassListHtml } from "@/features/documents/server/render-official-class-list-html";
+import { renderClassListXlsx } from "@/features/documents/server/render-official-class-list-xlsx";
 import { renderOfficialClassListPdf } from "@/features/documents/server/render-official-class-list-pdf";
 import { classListColumnIds, type ClassListColumnId, type ClassListConfiguration, type ClassListRosterType } from "@/features/learners/class-list-types";
 import { getClassListWorkspace } from "@/features/learners/server/class-list-workspace";
@@ -43,118 +42,6 @@ async function loadClassListLogoBytes(storagePath: string, logoUrl: string): Pro
 function parseColumns(url: URL): ClassListColumnId[] {
   return Array.from(new Set((url.searchParams.get("columns") ?? "admissionNumber,sex,registerClass,status")
     .split(",").filter((item): item is ClassListColumnId => classListColumnIds.includes(item as ClassListColumnId))));
-}
-
-function xlsxBytes(
-  input: Awaited<ReturnType<typeof getClassListWorkspace>>,
-  header: OfficialDocumentHeaderModel,
-): ArrayBuffer {
-  const columns = buildOfficialClassListColumns(input.configuration.columns, input.configuration.blankColumns);
-  const columnCount = Math.max(columns.length, 6);
-  const rightStart = Math.max(3, columnCount - 2);
-  const blankRow = () => Array.from({ length: columnCount }, () => "");
-  const rows: Array<Array<string | number>> = [
-    blankRow(),
-    blankRow(),
-    blankRow(),
-    blankRow(),
-    blankRow(),
-    blankRow(),
-    columns.map((column) => column.label),
-    ...input.learners.map((learner, index) => columns.map((column) => column.value(learner, index))),
-  ];
-
-  rows[0][0] = header.schoolName;
-  rows[1][0] = header.formerName ? `(${header.formerName})` : "";
-  rows[2][0] = header.contactLines.map((line) => line.text).join(" · ");
-  rows[0][rightStart] = header.postalLines.join("\n");
-  rows[3][0] = input.title;
-  rows[4][0] = `${input.academicYear} · ${input.grade} · ${input.className}`;
-  rows[5][0] = input.registerTeacherName ? `Register teacher: ${input.registerTeacherName}` : "";
-
-  const worksheet = XLSX.utils.aoa_to_sheet(rows);
-  const lastColumn = XLSX.utils.encode_col(columnCount - 1);
-  const leftEndColumn = XLSX.utils.encode_col(Math.max(0, rightStart - 1));
-  const postalStartColumn = XLSX.utils.encode_col(rightStart);
-
-  worksheet["!merges"] = [
-    XLSX.utils.decode_range(`A1:${leftEndColumn}1`),
-    XLSX.utils.decode_range(`A2:${leftEndColumn}2`),
-    XLSX.utils.decode_range(`A3:${leftEndColumn}3`),
-    XLSX.utils.decode_range(`${postalStartColumn}1:${lastColumn}3`),
-    XLSX.utils.decode_range(`A4:${lastColumn}4`),
-    XLSX.utils.decode_range(`A5:${lastColumn}5`),
-    XLSX.utils.decode_range(`A6:${lastColumn}6`),
-  ];
-
-  const preferredWidth = (key: string) => {
-    if (key === "number") return 6;
-    if (key === "admissionNumber") return 14;
-    if (key === "learner") return 28;
-    if (key === "sex") return 7;
-    if (key === "status") return 11;
-    if (key === "registerClass") return 16;
-    if (key === "guardianName") return 24;
-    if (key === "guardianPhone") return 18;
-    if (key === "emergencyContact") return 28;
-    if (key.startsWith("blank-")) return 14;
-    return 14;
-  };
-  worksheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({
-    wch: columns[index] ? preferredWidth(columns[index].key) : 12,
-  }));
-  worksheet["!rows"] = [
-    { hpt: 22 }, { hpt: 15 }, { hpt: 28 }, { hpt: 20 }, { hpt: 17 }, { hpt: 17 }, { hpt: 22 },
-  ];
-  worksheet["!autofilter"] = { ref: `A7:${XLSX.utils.encode_col(columns.length - 1)}${rows.length}` };
-  worksheet["!margins"] = { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.15, footer: 0.15 };
-  (worksheet as XLSX.WorkSheet & { "!pageSetup"?: Record<string, unknown> })["!pageSetup"] = {
-    orientation: "portrait",
-    fitToWidth: 1,
-    fitToHeight: 0,
-    paperSize: 9,
-  };
-
-  const border = {
-    top: { style: "thin", color: { rgb: "B8BDC7" } },
-    bottom: { style: "thin", color: { rgb: "B8BDC7" } },
-    left: { style: "thin", color: { rgb: "B8BDC7" } },
-    right: { style: "thin", color: { rgb: "B8BDC7" } },
-  };
-  const styleCell = (address: string, style: Record<string, unknown>) => {
-    const cell = worksheet[address] as (XLSX.CellObject & { s?: Record<string, unknown> }) | undefined;
-    if (cell) cell.s = style;
-  };
-  styleCell("A1", { font: { bold: true, sz: 16 }, alignment: { vertical: "center" } });
-  styleCell("A2", { font: { italic: true, sz: 9 }, alignment: { vertical: "center" } });
-  styleCell("A3", { font: { sz: 9 }, alignment: { wrapText: true, vertical: "top" } });
-  styleCell(`${postalStartColumn}1`, { font: { sz: 9 }, alignment: { wrapText: true, vertical: "top", horizontal: "right" } });
-  styleCell("A4", { font: { bold: true, sz: 13 }, alignment: { horizontal: "left" } });
-  styleCell("A5", { font: { bold: true, sz: 10 } });
-  styleCell("A6", { font: { sz: 9 } });
-
-  for (let columnIndex = 0; columnIndex < columns.length; columnIndex += 1) {
-    const address = `${XLSX.utils.encode_col(columnIndex)}7`;
-    styleCell(address, {
-      font: { bold: true, sz: 10 },
-      fill: { patternType: "solid", fgColor: { rgb: "E9EDF3" } },
-      alignment: { vertical: "center", horizontal: columns[columnIndex].key === "number" ? "center" : "left" },
-      border,
-    });
-  }
-  for (let rowIndex = 8; rowIndex <= rows.length; rowIndex += 1) {
-    for (let columnIndex = 0; columnIndex < columns.length; columnIndex += 1) {
-      styleCell(`${XLSX.utils.encode_col(columnIndex)}${rowIndex}`, {
-        alignment: { vertical: "center", horizontal: columns[columnIndex].key === "number" ? "center" : "left" },
-        border,
-      });
-    }
-  }
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Class List");
-  workbook.Props = { Title: `${input.title} class list`, Subject: "ScolaPro class list", Author: input.schoolName };
-  return XLSX.write(workbook, { type: "array", bookType: "xlsx", compression: true, cellStyles: true }) as ArrayBuffer;
 }
 
 export async function GET(request: Request) {
@@ -200,7 +87,8 @@ export async function GET(request: Request) {
     const fileBase = `${safeFilePart(workspace.title)}-${academicYear}-class-list`;
 
     if (format === "xlsx") {
-      return new Response(xlsxBytes(workspace, header), { status: 200, headers: {
+      const logoBytes = await loadClassListLogoBytes(profile.logoStoragePath, profile.logoUrl);
+      return new Response(renderClassListXlsx(workspace, header, logoBytes), { status: 200, headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${fileBase}.xlsx"`,
         "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer",
       } });

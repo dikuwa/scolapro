@@ -7,6 +7,7 @@ const resolver = source("src/features/learners/server/class-list-workspace.ts");
 const route = source("src/app/api/official-documents/class-list/route.ts");
 const html = source("src/features/documents/server/render-official-class-list-html.ts");
 const pdf = source("src/features/documents/server/render-official-class-list-pdf.ts");
+const xlsx = source("src/features/documents/server/render-official-class-list-xlsx.ts");
 const workspace = source("src/features/learners/class-list-workspace.tsx");
 const documentActions = source("src/features/learners/class-list-document-actions.tsx");
 const learnerDirectory = source("src/features/learners/learner-directory.tsx");
@@ -45,25 +46,25 @@ test("guardian columns are stripped and hydration is permission controlled", () 
 
 test("preview, print, PDF and real XLSX share one normalized configuration", () => {
   assert.match(route, /application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet/);
-  assert.match(route, /XLSX\.write\(workbook, \{ type: "array", bookType: "xlsx"/);
+  assert.match(route, /renderClassListXlsx\(workspace, header, logoBytes\)/);
   assert.match(route, /documentInput/);
   assert.match(route, /columns: workspace\.configuration\.columns/);
   assert.match(route, /blankColumns: workspace\.configuration\.blankColumns/);
   assert.match(documentActions, /format=xlsx/);
+  assert.match(xlsx, /buildOfficialClassListColumns\(input\.configuration\.columns, input\.configuration\.blankColumns\)/);
   assert.doesNotMatch(route, /text\/csv|\.csv/);
 });
 
-test("official documents use content-fit portrait columns and safe multi-page rows", () => {
-  assert.match(html, /width: auto; max-width: 100%; border-collapse: collapse; table-layout: auto/);
-  assert.match(html, /data-column="admissionNumber"/);
+test("official documents use compact content-fit portrait columns and safe multi-page rows", () => {
+  assert.match(html, /class-document/);
+  assert.match(html, /class-list-header/);
   assert.match(html, /table-header-group/);
-  assert.match(html, /page-break-inside: avoid/);
   assert.match(pdf, /preferredColumnWidth/);
   assert.match(pdf, /fitColumnWidths/);
-  assert.match(pdf, /tableWidth/);
-  assert.match(pdf, /layout: "compact_left"/);
+  assert.match(pdf, /CLASS_LIST_HEADER_HEIGHT = 58/);
+  assert.match(pdf, /ROW_HEIGHT = 13/);
+  assert.match(pdf, /drawClassListHeader/);
   assert.match(pdf, /rowsPerPage/);
-  assert.match(pdf, /drawTableHeader/);
 });
 
 test("presets and recents store configuration only", () => {
@@ -134,21 +135,28 @@ test("official class-list columns place admission before learner and abbreviate 
 });
 
 
-test("class-list exports carry bundled PDF branding and compact Excel document structure", () => {
-  const routeSource = source("src/app/api/official-documents/class-list/route.ts");
-  const profileSource = source("src/features/documents/server/school-document-profile.ts");
-  const pdfHeader = source("src/features/documents/server/official-document-pdf-header.ts");
-  assert.match(profileSource, /\/brand\/schools\/namib-high\/crest\.png/);
-  assert.match(routeSource, /loadClassListLogoBytes/);
-  assert.match(routeSource, /readFile\(join\(process\.cwd\(\), "public"/);
-  assert.match(routeSource, /xlsxBytes\(workspace, header\)/);
-  assert.match(routeSource, /header\.schoolName/);
-  assert.match(routeSource, /header\.postalLines\.join/);
-  assert.match(routeSource, /font: \{ bold: true, sz: 10 \}/);
-  assert.match(routeSource, /orientation: "portrait"/);
-  assert.match(routeSource, /fitToWidth: 1/);
-  assert.match(pdfHeader, /compact_left/);
-  assert.match(pdfHeader, /const logoWidth = compactLeft \? 66 : LOGO_WIDTH/);
+test("class-list exports use a school-only compact header across print, PDF and Excel", () => {
+  assert.match(route, /loadClassListLogoBytes/);
+  assert.match(route, /renderClassListXlsx\(workspace, header, logoBytes\)/);
+
+  assert.match(html, /class-list-header/);
+  assert.match(html, /school-name/);
+  assert.match(html, /class-context/);
+  assert.doesNotMatch(html, /header\.contactLines|header\.postalLines/);
+
+  assert.match(pdf, /drawClassListHeader/);
+  assert.match(pdf, /input\.header\.schoolName/);
+  assert.match(pdf, /Register teacher:/);
+  assert.doesNotMatch(pdf, /contactLines|postalLines/);
+
+  assert.match(xlsx, /embedLogoAndStyles/);
+  assert.match(xlsx, /class-list-logo/);
+  assert.match(xlsx, /School crest/);
+  assert.match(xlsx, /header\.schoolName/);
+  assert.match(xlsx, /Register teacher:/);
+  assert.match(xlsx, /orientation: "portrait"/);
+  assert.match(xlsx, /fitToWidth: 1/);
+  assert.doesNotMatch(xlsx, /!autofilter|postalLines|contactLines/);
 });
 
 
