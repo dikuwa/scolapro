@@ -22,6 +22,7 @@ test("Teaching remains one primary navigation entry while the workspace exposes 
     "/teaching/coverage",
     "/teaching/files",
     "/teaching/reviews",
+    "/teaching/oversight",
   ]) {
     assert.match(teachingPage, new RegExp(href.replaceAll("/", "\\/")));
   }
@@ -30,12 +31,18 @@ test("Teaching remains one primary navigation entry while the workspace exposes 
   assert.match(workspace, /aria-label="Teaching tools"/);
 });
 
-test("Teaching tool entry points are role bounded by the server page", () => {
-  assert.match(teachingPage, /planningRoles\.has\(membership\.roleKey\) \? "\/teaching\/planning" : null/);
-  assert.match(teachingPage, /preparationRoles\.has\(membership\.roleKey\) \? "\/teaching\/preparation" : null/);
-  assert.match(teachingPage, /membership\.staffMemberId \? "\/teaching\/curriculum" : null/);
-  assert.match(teachingPage, /membership\.staffMemberId \? "\/teaching\/files" : null/);
-  assert.match(teachingPage, /reviewRoles\.has\(membership\.roleKey\) \? "\/teaching\/reviews" : null/);
+test("Teaching tool entry points derive capabilities from all current-school memberships", () => {
+  assert.match(teachingPage, /schoolMemberships = context\.memberships\.filter/);
+  assert.match(teachingPage, /roleKeys = new Set\(schoolMemberships\.map/);
+  assert.match(teachingPage, /staffTeachingMembership = schoolMemberships\.find/);
+  assert.match(teachingPage, /preparationMembership = schoolMemberships\.find/);
+  assert.match(teachingPage, /planningHref=\{canPlan \? "\/teaching\/planning" : null\}/);
+  assert.match(teachingPage, /curriculumHref=\{staffTeachingMembership \? "\/teaching\/curriculum" : null\}/);
+  assert.match(teachingPage, /preparationHref=\{preparationMembership \? "\/teaching\/preparation" : null\}/);
+  assert.match(teachingPage, /filesHref=\{staffTeachingMembership \? "\/teaching\/files" : null\}/);
+  assert.match(teachingPage, /reviewHref=\{canReview \? "\/teaching\/reviews" : null\}/);
+  assert.match(teachingPage, /oversightHref=\{canUseOversight \? "\/teaching\/oversight" : null\}/);
+  assert.match(workspace, /label: "Teaching oversight"/);
 });
 
 test("dedicated teaching tools use the governed academic year", () => {

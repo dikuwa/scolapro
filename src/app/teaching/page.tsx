@@ -10,6 +10,7 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
 const reviewRoles = new Set(["school_admin", "principal", "deputy_principal", "hod"]);
 const planningRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
+const staffTeachingRoles = new Set(["hod", "teacher", "class_teacher"]);
 const preparationRoles = new Set(["teacher", "class_teacher"]);
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,19 @@ export default async function TeachingPage() {
 
   const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
+
+  const schoolMemberships = context.memberships.filter((item) => item.schoolId === membership.schoolId);
+  const roleKeys = new Set(schoolMemberships.map((item) => item.roleKey));
+  const staffTeachingMembership = schoolMemberships.find(
+    (item) => Boolean(item.staffMemberId) && staffTeachingRoles.has(item.roleKey),
+  );
+  const preparationMembership = schoolMemberships.find(
+    (item) => Boolean(item.staffMemberId) && preparationRoles.has(item.roleKey),
+  );
+  const canPlan = schoolMemberships.some((item) => planningRoles.has(item.roleKey));
+  const canReview = schoolMemberships.some((item) => reviewRoles.has(item.roleKey));
+  const canUseSubjectFile = Boolean(staffTeachingMembership);
+  const canUseOversight = roleKeys.has("hod");
 
   // The academic year is governed operational state, not the wall clock: a school
   // can be running a configured or activated year that differs from the calendar
@@ -40,16 +54,17 @@ export default async function TeachingPage() {
           <div><h1 className="scolapro-page-title">Teaching</h1>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Year planner, scheme of work, lesson preparation and coverage are views of one connected teaching plan built on your governed allocations for {academicYear}.</p>
           </div>
-          <div className="flex flex-wrap gap-2 self-start sm:self-auto">{membership.staffMemberId && ["hod","teacher","class_teacher"].includes(membership.roleKey) ? <Link href="/teaching/subject-file" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted"><FolderKanban className="size-4" aria-hidden="true" />Subject File</Link> : null}<Link href="/class-lists" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted"><UsersRound className="size-4" aria-hidden="true" />Class Lists</Link></div>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">{canUseSubjectFile ? <Link href="/teaching/subject-file" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted"><FolderKanban className="size-4" aria-hidden="true" />Subject File</Link> : null}<Link href="/class-lists" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-surface px-4 text-sm font-medium shadow-[var(--shadow-xs)] hover:bg-surface-muted"><UsersRound className="size-4" aria-hidden="true" />Class Lists</Link></div>
         </div>
         <TeachingWorkspace
           {...workspace}
-          planningHref={planningRoles.has(membership.roleKey) ? "/teaching/planning" : null}
-          curriculumHref={membership.staffMemberId ? "/teaching/curriculum" : null}
-          preparationHref={preparationRoles.has(membership.roleKey) ? "/teaching/preparation" : null}
+          planningHref={canPlan ? "/teaching/planning" : null}
+          curriculumHref={staffTeachingMembership ? "/teaching/curriculum" : null}
+          preparationHref={preparationMembership ? "/teaching/preparation" : null}
           coverageHref="/teaching/coverage"
-          filesHref={membership.staffMemberId ? "/teaching/files" : null}
-          reviewHref={reviewRoles.has(membership.roleKey) ? "/teaching/reviews" : null}
+          filesHref={staffTeachingMembership ? "/teaching/files" : null}
+          reviewHref={canReview ? "/teaching/reviews" : null}
+          oversightHref={canUseOversight ? "/teaching/oversight" : null}
         />
       </div>
     </AppShell>

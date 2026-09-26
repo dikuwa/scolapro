@@ -329,6 +329,24 @@ test('teaching files route renders the real hub in the membership own staff scop
   assert.match(html, /type="file"/);
 });
 
+test('teaching files route uses the staff-backed owner membership for multi-role users', async () => {
+  const calls = [];
+  const page = filesPage({
+    user: { id: 'multi-role-user' },
+    memberships: [
+      { roleKey: 'school_admin', schoolId: 'school-a', staffMemberId: null },
+      { roleKey: 'teacher', schoolId: 'school-a', staffMemberId: 'staff-teacher' },
+    ],
+    platformMemberships: [],
+  }, calls);
+  const html = renderToStaticMarkup(await page({}));
+
+  assert.match(html, /Teaching files/);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][0].schoolId, 'school-a');
+  assert.equal(calls[0][0].staffMemberId, 'staff-teacher');
+});
+
 test('teaching files route denies ineligible roles before loading hub data', async () => {
   for (const roleKey of ['parent', 'librarian', 'ltsm', 'platform_admin', 'guardian']) {
     const calls = [];

@@ -98,6 +98,7 @@ export type TeachingWorkspaceProps = {
   coverageHref: string | null;
   filesHref: string | null;
   reviewHref: string | null;
+  oversightHref: string | null;
   /** Optional deep-link entry view (e.g. "preparation" from HOD readiness prompts). */
   initialView?: ViewKey;
 };
@@ -318,6 +319,7 @@ export function TeachingWorkspace(props: TeachingWorkspaceProps) {
   if (props.coverageHref) toolLinks.push({ href: props.coverageHref, label: "Coverage & reflection", description: "Record actual teaching without rewriting the plan", icon: BookOpenCheck });
   if (props.filesHref) toolLinks.push({ href: props.filesHref, label: "Teaching files", description: "Open your governed professional-file hub", icon: FolderOpen });
   if (props.reviewHref) toolLinks.push({ href: props.reviewHref, label: "HOD review", description: "Review submissions and readiness exceptions", icon: ShieldCheck });
+  if (props.oversightHref) toolLinks.push({ href: props.oversightHref, label: "Teaching oversight", description: "Inspect connected plans, review evidence and actual teaching for your HOD subject scope", icon: ShieldCheck });
 
   return (
     <div className="space-y-5">
