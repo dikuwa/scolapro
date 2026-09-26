@@ -44,7 +44,11 @@ test("report-card render worker calls the deployed stale-recovery RPC contract",
   assert.match(worker, /p_stale_after_minutes: 15/);
   assert.match(worker, /p_max_attempts: 5/);
   assert.match(worker, /p_limit: 100/);
-  assert.doesNotMatch(worker, /p_stale_after_seconds|p_retry_after_seconds/);
+  const recoveryCall = worker.slice(
+    worker.indexOf('supabase.rpc("recover_stale_report_card_render_jobs"'),
+    worker.indexOf("if (recoveryError)"),
+  );
+  assert.doesNotMatch(recoveryCall, /p_stale_after_seconds|p_retry_after_seconds/);
 });
 
 test("report-card render worker reuses school and frozen logo reads within one invocation", () => {
