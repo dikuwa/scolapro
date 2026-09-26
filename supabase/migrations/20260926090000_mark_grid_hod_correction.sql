@@ -20,15 +20,27 @@ as $$
           p_school_id,
           array['school_admin','principal','deputy_principal']
         )
-        or exists(
-          select 1
-          from public.subject_offerings so
-          where so.id=p_subject_offering_id
-            and so.school_id=p_school_id
-            and app_private.hod_responsible_for_subject(
-              p_school_id,
-              so.subject_id
+        or (
+          app_private.has_school_role(p_school_id,array['hod'])
+          and (
+            exists(
+              select 1
+              from public.subject_offerings so
+              where so.id=p_subject_offering_id
+                and so.school_id=p_school_id
+                and app_private.hod_responsible_for_subject(
+                  p_school_id,
+                  so.subject_id
+                )
             )
+            or not exists(
+              select 1
+              from public.subject_department_responsibilities sdr
+              where sdr.school_id=p_school_id
+                and sdr.effective_from<=current_date
+                and (sdr.effective_to is null or sdr.effective_to>=current_date)
+            )
+          )
         )
       )
     );
@@ -297,6 +309,6 @@ grant execute on function public.reopen_assessment_for_correction(uuid)
 to authenticated;
 
 comment on function app_private.can_review_assessment_subject(uuid,uuid) is
-'Assessment review authority: Platform Admin; current-school School Admin/Principal/Deputy; or current-school HOD only for an explicitly assigned subject portfolio. Platform Support is excluded.';
+'Assessment review authority: Platform Admin; current-school School Admin/Principal/Deputy; current-school HOD scoped to an explicitly assigned subject portfolio once portfolio configuration exists, with legacy school-wide HOD fallback only while the school has no effective portfolio rows. Platform Support is excluded.';
 comment on table public.assessment_correction_requests is
 'Governed correction requests for submitted assessment instances. A reason and audit event are mandatory; locked official-result source data is never silently unlocked.';
