@@ -117,11 +117,11 @@ export function ClassListWorkspace({ data }: { data: ClassListWorkspaceData }) {
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex items-start gap-3 border-b border-border-subtle pb-4">
           <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span>
-          <div><h2 className="scolapro-section-title">Choose roster</h2><p className="scolapro-section-description !mt-0">My Classes is the default. “All” never expands a teacher beyond current allocations and register responsibilities.</p></div>
+          <div><h2 className="scolapro-section-title">Choose roster</h2><p className="scolapro-section-description !mt-0">All active school rosters are available to current staff. Use My Classes when you only need your own allocations or register responsibility.</p></div>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3 md:items-end">
           <Picker label="Scope" value={configuration.scope} onChange={(value) => preview({ ...configuration, scope: value === "all" ? "all" : "my", rosterId: "" })} placeholder="My Classes"
-            options={[{ value: "my", label: "My Classes" }, { value: "all", label: "All", helper: data.canUseAllScope ? "School-wide active scope" : "All within your active teaching scope" }]} />
+            options={[{ value: "my", label: "My Classes" }, { value: "all", label: "All", helper: "School-wide active rosters" }]} />
           <Picker label="Roster type" value={configuration.rosterType} onChange={(value) => patch({ rosterType: value as ClassListRosterType, rosterId: data.options[value as ClassListRosterType][0]?.id ?? "" })} placeholder="Choose roster type" options={rosterTypeOptions} />
           <Picker label="Roster" value={configuration.rosterId} onChange={(value) => patch({ rosterId: value })} placeholder="Choose roster" searchable searchPlaceholder="Search available rosters" options={rosterOptions.map((item) => ({ value: item.id, label: item.label, helper: item.helper }))} />
         </div>

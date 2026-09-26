@@ -18,7 +18,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const managerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const guardianRoles = new Set(["school_admin", "principal", "deputy_principal", "class_teacher", "hod", "counsellor"]);
-const rosterRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
+const rosterRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian", "ltsm", "exam_officer", "emis_officer"]);
 const guardianColumns = new Set<ClassListColumnId>(["guardianName", "guardianPhone", "emergencyContact"]);
 const rosterTypes = new Set<ClassListRosterType>(["register_class", "grade", "subject", "teacher_subject", "teaching_group", "field_group"]);
 
@@ -89,25 +89,25 @@ function buildOptions(
   scope: ClassListScope,
 ) {
   const today = getNamibiaDateKey();
-  const manager = managerRoles.has(membership.roleKey);
+  const schoolWide = canAccessClassLists(membership) && scope === "all";
   const effectiveAllocations = rows.allocations.filter((item) => effectiveOn(today, item.active_from, item.active_to));
   const ownAllocations = membership.staffMemberId
     ? effectiveAllocations.filter((item) => item.staff_member_id === membership.staffMemberId)
     : [];
-  const scopedAllocations = manager && scope === "all" ? effectiveAllocations : ownAllocations;
+  const scopedAllocations = schoolWide ? effectiveAllocations : ownAllocations;
   const classById = new Map(rows.classes.map((item) => [item.id, item]));
   const gradeById = new Map(rows.grades.map((item) => [item.id, item]));
   const offeringById = new Map(rows.offerings.map((item) => [item.id, item]));
   const ownRegisterClassIds = new Set(rows.classes.filter((item) => item.register_teacher_staff_id === membership.staffMemberId).map((item) => item.id));
   const scopedClassIds = new Set(scopedAllocations.map((item) => item.register_class_id));
-  if (!manager || scope === "my") for (const id of ownRegisterClassIds) scopedClassIds.add(id);
-  if (manager && scope === "all") for (const item of rows.classes) scopedClassIds.add(item.id);
+  if (!schoolWide) for (const id of ownRegisterClassIds) scopedClassIds.add(id);
+  if (schoolWide) for (const item of rows.classes) scopedClassIds.add(item.id);
   const scopedOfferingIds = new Set(scopedAllocations.map((item) => item.subject_offering_id));
-  if (manager && scope === "all") for (const item of rows.offerings) scopedOfferingIds.add(item.id);
+  if (schoolWide) for (const item of rows.offerings) scopedOfferingIds.add(item.id);
   const scopedGroupIds = new Set(rows.groupAllocations
     .filter((link) => effectiveOn(today, link.effective_from, link.effective_to) && scopedAllocations.some((allocation) => allocation.id === link.teacher_allocation_id))
     .map((link) => link.teaching_group_id));
-  if (manager && scope === "all") for (const item of groups) scopedGroupIds.add(item.id);
+  if (schoolWide) for (const item of groups) scopedGroupIds.add(item.id);
 
   const registerClass: ClassListRosterOption[] = rows.classes.filter((item) => scopedClassIds.has(item.id)).map((item) => ({
     id: item.id, label: item.display_name, helper: gradeById.get(item.grade_id)?.display_name ?? "Register class",
@@ -195,22 +195,29 @@ export async function getClassListWorkspace(input: {
   configuration: Partial<ClassListConfiguration>;
 }): Promise<ClassListWorkspaceData> {
   if (!canAccessClassLists(input.membership)) throw new Error("Class-list access is not available for this role.");
-  const canUseAllScope = managerRoles.has(input.membership.roleKey);
+  const canUseAllScope = true;
   const canViewGuardianFields = guardianRoles.has(input.membership.roleKey);
   const normalized = normalizeClassListConfiguration(input.configuration, canViewGuardianFields);
-  // "All" is deliberately bounded by buildOptions: leaders receive the active
-  // school scope, while teachers still receive only their current allocations
-  // and register responsibilities.
+  // Class Lists are an operational school utility. Any current staff membership
+  // may use All to reach the active school roster; My remains the personal
+  // allocation/register view. Guardian/contact columns keep separate authority.
   const effectiveScope: ClassListScope = normalized.scope;
   const configuration = { ...normalized, scope: effectiveScope };
   const [academicRows, groups] = await Promise.all([
     loadAcademicRows(input.membership.schoolId, input.academicYear),
-    resolveTeachingGroups({ schoolId: input.membership.schoolId, academicYear: input.academicYear }),
+    resolveTeachingGroups({ schoolId: input.membership.schoolId, academicYear: input.academicYear }).catch((error) => {
+      console.warn("class-list teaching groups unavailable; continuing with register/grade/subject rosters", {
+        schoolId: input.membership.schoolId,
+        academicYear: input.academicYear,
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return [];
+    }),
   ]);
   const scoped = buildOptions(academicRows, groups, input.membership, effectiveScope);
   const selectedOptions = scoped.options[configuration.rosterType];
   const selectedMatch = selectedOptions.find((item) => item.id === configuration.rosterId);
-  if (configuration.rosterId && !selectedMatch) throw new Error("The requested roster is outside your active teaching scope.");
+  if (configuration.rosterId && !selectedMatch) throw new Error("The requested roster is outside your active school class-list scope.");
   const selected = selectedMatch ?? selectedOptions[0] ?? null;
   configuration.rosterId = selected?.id ?? "";
 

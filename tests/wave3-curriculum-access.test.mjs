@@ -64,3 +64,11 @@ test("Wave 3 curriculum access does not edit shared teaching tabs or central nav
   assert.ok(fs.existsSync(path.join(root, "src/features/teaching/teaching-workspace.tsx")));
   assert.ok(fs.existsSync(path.join(root, "src/components/shell/navigation.tsx")));
 });
+
+
+test("curriculum surface renders exactly one Teaching back link", () => {
+  const page = read("src/app/teaching/curriculum/page.tsx");
+  const workspace = read("src/features/teaching/curriculum-access-workspace.tsx");
+  assert.doesNotMatch(page, /href="\/teaching"/);
+  assert.equal((workspace.match(/href="\/teaching"/g) ?? []).length, 1);
+});
