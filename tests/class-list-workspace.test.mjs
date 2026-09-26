@@ -14,7 +14,7 @@ const navigation = source("src/components/shell/navigation.tsx");
 test("class-list targets remain school bounded while current staff can use school-wide scope", () => {
   assert.match(resolver, /rosterRoles = new Set/);
   for (const role of ["school_admin","principal","deputy_principal","hod","teacher","class_teacher","counsellor","learner_support","social_worker","librarian","ltsm","exam_officer","emis_officer"]) {
-    assert.match(resolver, new RegExp(`"\${role}"`));
+    assert.match(resolver, new RegExp(`"${role}"`));
   }
   assert.match(resolver, /schoolWide = canAccessClassLists\(membership\) && scope === "all"/);
   assert.match(resolver, /if \(schoolWide\) for \(const item of rows\.classes\)/);
