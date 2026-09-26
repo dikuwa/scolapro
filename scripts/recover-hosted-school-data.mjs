@@ -256,6 +256,44 @@ async function restoreLateDetentionObligations(client, rows) {
 }
 
 async function deleteDemoRows(client) {
+  const demoBatchItems = await client.from("report_card_batch_items")
+    .delete()
+    .in("enrolment_id", demoEnrolmentIds);
+  if (demoBatchItems.error) {
+    throw new Error("Unable to remove demo report-card batch items: " + demoBatchItems.error.message);
+  }
+
+  const demoSnapshotsResult = await client.from("report_card_snapshots")
+    .select("id")
+    .in("enrolment_id", demoEnrolmentIds);
+  if (demoSnapshotsResult.error) {
+    throw new Error("Unable to inspect demo report-card snapshots: " + demoSnapshotsResult.error.message);
+  }
+  const demoSnapshotIds = (demoSnapshotsResult.data ?? []).map((row) => row.id);
+
+  if (demoSnapshotIds.length) {
+    const renderJobs = await client.from("report_card_render_jobs")
+      .delete()
+      .in("snapshot_id", demoSnapshotIds);
+    if (renderJobs.error) {
+      throw new Error("Unable to remove demo report-card render jobs: " + renderJobs.error.message);
+    }
+
+    const documents = await client.from("report_card_documents")
+      .delete()
+      .in("snapshot_id", demoSnapshotIds);
+    if (documents.error) {
+      throw new Error("Unable to remove demo report-card documents: " + documents.error.message);
+    }
+
+    const snapshots = await client.from("report_card_snapshots")
+      .delete()
+      .in("id", demoSnapshotIds);
+    if (snapshots.error) {
+      throw new Error("Unable to remove demo report-card snapshots: " + snapshots.error.message);
+    }
+  }
+
   const identifiers = await client.from("school_learner_identifiers")
     .delete()
     .eq("school_id", expectedSchoolId)
