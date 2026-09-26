@@ -18,7 +18,7 @@ export default async function ClassListsPage({ searchParams }: { searchParams: P
   const params = await searchParams;
   const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const data = await getClassListWorkspace({ membership, academicYear, configuration: {
-    scope: single(params.scope) === "all" || (!single(params.scope) && !membership.staffMemberId) ? "all" : "my",
+    scope: single(params.scope) === "my" ? "my" : "all",
     rosterType: (single(params.rosterType) ?? "register_class") as ClassListRosterType,
     rosterId: single(params.rosterId) ?? "",
     columns: (single(params.columns) ?? "admissionNumber,sex,registerClass,status").split(",") as ClassListColumnId[],
