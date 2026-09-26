@@ -13,9 +13,9 @@ export function SubjectFileWorkspaceView({data}:{data:SubjectFileWorkspace}) {
             <h2 className="scolapro-section-title">{row.subjectName}</h2>
             <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">{row.accessMode==="hod"?"HOD portfolio":"Teaching access"}</span>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">{row.subjectCode}{row.departmentLabel ? \` · \${row.departmentLabel}\`:""} · {row.gradeNames.join(", ") || "No current grades"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{row.subjectCode}{row.departmentLabel ? ` · ${row.departmentLabel}`:""} · {row.gradeNames.join(", ") || "No current grades"}</p>
         </div>
-        <a href={\`/api/teaching/subject-file/inspection-pack?subjectId=\${encodeURIComponent(row.subjectId)}&year=\${data.academicYear}\`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 text-xs font-medium hover:bg-surface-elevated">
+        <a href={`/api/teaching/subject-file/inspection-pack?subjectId=${encodeURIComponent(row.subjectId)}&year=${data.academicYear}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 text-xs font-medium hover:bg-surface-elevated">
           <Printer className="size-3.5"/>Inspection pack
         </a>
       </div>
