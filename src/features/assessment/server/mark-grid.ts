@@ -42,6 +42,11 @@ export type MarkGridWorkspaceData={
   correctionRequests:Array<{id:string;reason:string;status:string;requestedAt:string}>;
 };
 
+type OfferingRow={id:string;subject_id:string;grade_id:string};
+type NamedRow={id:string;display_name:string};
+type ComponentRow={id:string;component_code:string;display_name:string;raw_max:number|null;weight:number|null;required:boolean;contributes_to_report:boolean;term_numbers:number[]|null};
+type LearnerRow={id:string;first_names:string|null;surname:string|null};
+
 const text=(form:FormData,key:string)=>String(form.get(key)??"").trim();
 
 async function scope(){
@@ -79,9 +84,14 @@ export async function getMarkGridWorkspace(requestedInstanceId?:string|null):Pro
     subjectIds.length?current.db.from("subjects").select("id,display_name").in("id",subjectIds):Promise.resolve({data:[]}),
     gradeIds.length?current.db.from("grades").select("id,display_name").in("id",gradeIds):Promise.resolve({data:[]}),
   ]);
-  const map=<T extends {id:string}>(rows:T[]|null)=>new Map((rows??[]).map((row)=>[row.id,row]));
-  const offeringMap=map(offerings); const classMap=map(classes); const componentMap=map(components);
-  const subjectMap=map(subjects); const gradeMap=map(grades);
+  const map=<T extends {id:string}>(rows:T[])=>new Map(rows.map((row)=>[row.id,row]));
+  const offeringRows=(offerings??[]) as OfferingRow[];
+  const classRows=(classes??[]) as NamedRow[];
+  const componentRows=(components??[]) as ComponentRow[];
+  const subjectRows=(subjects??[]) as NamedRow[];
+  const gradeRows=(grades??[]) as NamedRow[];
+  const offeringMap=map(offeringRows); const classMap=map(classRows); const componentMap=map(componentRows);
+  const subjectMap=map(subjectRows); const gradeMap=map(gradeRows);
 
   const instanceRows:MarkGridInstance[]=(instances??[]).map((row)=>{
     const offering=offeringMap.get(row.subject_offering_id);
@@ -151,7 +161,7 @@ export async function getMarkGridWorkspace(requestedInstanceId?:string|null):Pro
       .in("enrolment_id",enrolmentIds)
     : {data:[]};
 
-  const learnerMap=map(learners);
+  const learnerMap=map((learners??[]) as LearnerRow[]);
   const currentMarkMap=new Map((marks??[]).map((row)=>[row.enrolment_id,row]));
   const instanceByComponent=new Map((relatedInstances??[]).map((row)=>[row.assessment_component_id,row]));
   const relatedMarkMap=new Map((relatedMarks??[]).map((row)=>[`${row.assessment_instance_id}:${row.enrolment_id}`,row]));
