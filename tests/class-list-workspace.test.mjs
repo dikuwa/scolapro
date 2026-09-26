@@ -8,6 +8,8 @@ const route = source("src/app/api/official-documents/class-list/route.ts");
 const html = source("src/features/documents/server/render-official-class-list-html.ts");
 const pdf = source("src/features/documents/server/render-official-class-list-pdf.ts");
 const workspace = source("src/features/learners/class-list-workspace.tsx");
+const documentActions = source("src/features/learners/class-list-document-actions.tsx");
+const learnerDirectory = source("src/features/learners/learner-directory.tsx");
 const page = source("src/app/class-lists/page.tsx");
 const navigation = source("src/components/shell/navigation.tsx");
 
@@ -47,7 +49,7 @@ test("preview, print, PDF and real XLSX share one normalized configuration", () 
   assert.match(route, /documentInput/);
   assert.match(route, /columns: workspace\.configuration\.columns/);
   assert.match(route, /blankColumns: workspace\.configuration\.blankColumns/);
-  assert.match(workspace, /format=xlsx/);
+  assert.match(documentActions, /format=xlsx/);
   assert.doesNotMatch(route, /text\/csv|\.csv/);
 });
 
@@ -147,4 +149,17 @@ test("class-list exports carry bundled PDF branding and compact Excel document s
   assert.match(routeSource, /fitToWidth: 1/);
   assert.match(pdfHeader, /compact_left/);
   assert.match(pdfHeader, /const logoWidth = compactLeft \? 66 : LOGO_WIDTH/);
+});
+
+
+test("all Class List document access points use the shared preview/print/PDF/Excel actions", () => {
+  assert.match(workspace, /ClassListDocumentActions baseHref=\{exportBase\}/);
+  assert.match(learnerDirectory, /ClassListDocumentActions baseHref=\{classListHref\} compact/);
+  assert.match(documentActions, /Preview \/ Print/);
+  assert.match(documentActions, />PDF</);
+  assert.match(documentActions, />Excel</);
+  assert.match(documentActions, /format=pdf/);
+  assert.match(documentActions, /format=xlsx/);
+  assert.doesNotMatch(workspace, /<Printer|<Download|<FileSpreadsheet/);
+  assert.doesNotMatch(learnerDirectory, /Print class list|Download PDF/);
 });
