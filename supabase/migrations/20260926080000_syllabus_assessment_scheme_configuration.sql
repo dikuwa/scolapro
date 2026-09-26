@@ -316,6 +316,14 @@ begin
     from jsonb_array_elements_text(coalesce(v_candidate.candidate->'termNumbers',v_candidate.candidate->'term_numbers','[1,2,3]'::jsonb));
   if not app_private.valid_three_term_array(v_terms) then raise exception 'Candidate term applicability must use terms 1 to 3'; end if;
 
+  update public.assessment_schemes
+     set status='superseded',
+         effective_to=case when effective_from<current_date then current_date-1 else effective_from end,
+         updated_at=now()
+   where subject_offering_id=v_candidate.subject_offering_id
+     and scheme_key=v_scheme_key
+     and status='active';
+
   insert into public.assessment_schemes(
     tenant_id,school_id,subject_offering_id,scheme_key,version,capture_mode,
     effective_from,status,configuration,created_by_user_id,academic_year,
@@ -378,3 +386,119 @@ comment on table public.assessment_scheme_candidates is
 'Human-verifiable candidate assessment configurations bound to one subject offering and authoritative curriculum version. Extraction never publishes automatically.';
 comment on column public.assessment_schemes.term_numbers is
 'Applicable Namibia school terms for this scheme. Current governed configuration is restricted to terms 1-3.';
+
+create or replace function public.calculate_subject_result(
+  p_assessment_scheme_id uuid,
+  p_enrolment_id uuid,
+  p_term_number smallint
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $
+declare
+  v_scheme public.assessment_schemes%rowtype;
+  v_enrolment public.enrolments%rowtype;
+  v_component record;
+  v_mark record;
+  v_total numeric := 0;
+  v_weight_total numeric := 0;
+  v_missing jsonb := '[]'::jsonb;
+  v_non_numeric jsonb := '[]'::jsonb;
+  v_inputs jsonb := '[]'::jsonb;
+  v_raw_max numeric;
+  v_contribution numeric;
+  v_final numeric;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  select * into v_scheme from public.assessment_schemes where id = p_assessment_scheme_id;
+  if not found then raise exception 'Assessment scheme not found'; end if;
+  if not app_private.has_school_role(v_scheme.school_id, array['school_admin','principal','deputy_principal','hod','teacher','class_teacher']) then raise exception 'Permission denied'; end if;
+  if not (p_term_number = any(v_scheme.term_numbers)) then raise exception 'Assessment scheme is not applicable to term %', p_term_number; end if;
+
+  select * into v_enrolment from public.enrolments where id = p_enrolment_id;
+  if not found or v_enrolment.school_id <> v_scheme.school_id then raise exception 'Enrolment is outside the assessment scheme school'; end if;
+
+  for v_component in
+    select ac.*, ai.id as instance_id, ai.raw_max as instance_raw_max
+    from public.assessment_components ac
+    left join public.assessment_instances ai
+      on ai.assessment_component_id = ac.id
+      and ai.assessment_scheme_id = v_scheme.id
+      and ai.register_class_id = v_enrolment.register_class_id
+      and ai.term_number = p_term_number
+      and ai.status <> 'cancelled'
+    where ac.assessment_scheme_id = v_scheme.id
+      and ac.contributes_to_report = true
+      and p_term_number = any(ac.term_numbers)
+    order by ac.sort_order, ac.component_code
+  loop
+    if v_component.instance_id is null then
+      if v_component.required then v_missing := v_missing || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason','assessment_instance_missing')); end if;
+      continue;
+    end if;
+
+    select lm.numeric_mark, lm.mark_status, lm.recorded_at into v_mark
+    from public.learner_marks_current lm
+    where lm.assessment_instance_id = v_component.instance_id and lm.enrolment_id = v_enrolment.id;
+
+    if v_mark.numeric_mark is null and v_mark.mark_status is null then
+      if v_component.required then v_missing := v_missing || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason','mark_missing')); end if;
+      continue;
+    end if;
+
+    if v_mark.mark_status is not null then
+      v_non_numeric := v_non_numeric || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'status',v_mark.mark_status));
+      if v_component.required then v_missing := v_missing || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason',v_mark.mark_status)); end if;
+      continue;
+    end if;
+
+    if v_component.calculation_method='direct' then
+      v_raw_max:=coalesce(v_component.instance_raw_max,v_component.raw_max,100);
+      v_contribution:=(v_mark.numeric_mark/v_raw_max)*coalesce(v_component.weight,100);
+    else
+      v_raw_max:=coalesce(v_component.instance_raw_max,v_component.raw_max);
+      if v_raw_max is null or v_raw_max<=0 then raise exception 'Contributing component % has no valid raw maximum',v_component.component_code; end if;
+      if v_component.weight is null then raise exception 'Contributing component % has no configured weight',v_component.component_code; end if;
+      v_contribution:=(v_mark.numeric_mark/v_raw_max)*v_component.weight;
+    end if;
+
+    v_total:=v_total+v_contribution;
+    v_weight_total:=v_weight_total+coalesce(v_component.weight,100);
+    v_inputs:=v_inputs || jsonb_build_array(jsonb_build_object(
+      'component',v_component.component_code,
+      'assessment_instance_id',v_component.instance_id,
+      'raw_mark',v_mark.numeric_mark,
+      'raw_max',v_raw_max,
+      'weight',coalesce(v_component.weight,100),
+      'calculation_method',v_component.calculation_method,
+      'contribution',v_contribution
+    ));
+  end loop;
+
+  if jsonb_array_length(v_missing)>0 then
+    return jsonb_build_object('complete',false,'result_status','incomplete','missing',v_missing,'non_numeric',v_non_numeric,'inputs',v_inputs,'weight_total',v_weight_total);
+  end if;
+  if v_weight_total<=0 then
+    return jsonb_build_object('complete',false,'result_status','incomplete','missing',jsonb_build_array(jsonb_build_object('reason','no_contributing_weight')),'inputs',v_inputs);
+  end if;
+
+  v_final:=(v_total/v_weight_total)*100;
+  return jsonb_build_object(
+    'complete',true,
+    'result_value',v_final,
+    'weight_total',v_weight_total,
+    'inputs',v_inputs,
+    'assessment_scheme_key',v_scheme.scheme_key,
+    'assessment_scheme_version',v_scheme.version,
+    'curriculum_version_id',v_scheme.curriculum_version_id,
+    'term_number',p_term_number
+  );
+end;
+$;
+
+revoke all on function public.calculate_subject_result(uuid,uuid,smallint) from public,anon;
+grant execute on function public.calculate_subject_result(uuid,uuid,smallint) to authenticated;
+
