@@ -32,7 +32,7 @@ export type LessonPreparationRow = {
 };
 
 export type LessonPreparationTerm = { id: string; name: string; startsOn: string | null; endsOn: string | null };
-export type LessonPreparationWorkspaceData = { schoolId: string; rows: LessonPreparationRow[]; terms: LessonPreparationTerm[] };
+export type LessonPreparationWorkspaceData = { schoolId: string; rows: LessonPreparationRow[]; terms: LessonPreparationTerm[]; reviewCadence: "weekly" | "fortnightly" | "selected" | "term_batch" };
 export type LessonPreparationActionState = { success?: boolean; message: string; updatedAt?: string };
 
 type NamedRow = { id: string; display_name: string };
@@ -146,7 +146,16 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
     .select("id,subject_offering_id,register_class_id,active_from,active_to")
     .eq("school_id", scope.membership.schoolId).eq("staff_member_id", scope.staffId).eq("academic_year", year)
     .lte("active_from", today).or(`active_to.is.null,active_to.gte.${today}`);
-  if (!allocations?.length) return { schoolId: scope.membership.schoolId, rows: [], terms: [] };
+  const { data: reviewPolicy } = await scope.db.from("preparation_review_policies")
+    .select("cadence,effective_from,effective_to")
+    .eq("school_id", scope.membership.schoolId)
+    .lte("effective_from", today)
+    .or(`effective_to.is.null,effective_to.gte.${today}`)
+    .order("effective_from", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const reviewCadence = (reviewPolicy?.cadence ?? "selected") as LessonPreparationWorkspaceData["reviewCadence"];
+  if (!allocations?.length) return { schoolId: scope.membership.schoolId, rows: [], terms: [], reviewCadence };
 
   const allocationIds = allocations.map((row) => row.id);
   const offeringIds = [...new Set(allocations.map((row) => row.subject_offering_id))];
@@ -286,6 +295,7 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
     schoolId: scope.membership.schoolId,
     rows,
     terms: terms.map((term) => ({ id: term.id, name: term.display_name, startsOn: term.starts_on, endsOn: term.ends_on })),
+    reviewCadence,
   };
 }
 
