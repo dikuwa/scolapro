@@ -56,3 +56,12 @@ export function classListColumnPercentages(columns: OfficialClassListColumn[]) {
   return columns.map((column) => (column.weight / total) * 100);
 }
 
+
+
+export function classListDocumentName(registerClass: string, rosterTitle?: string | null): string {
+  const preferred = registerClass && registerClass !== "—" && registerClass !== "Multiple classes"
+    ? registerClass
+    : rosterTitle?.trim() || "Class";
+  const concise = preferred.replace(/^Grade\s+/i, "").trim();
+  return `${concise || "Class"} Classlist`;
+}
