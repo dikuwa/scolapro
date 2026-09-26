@@ -82,6 +82,7 @@ export function PreparationBatchSubmission({data}:{data:LessonPreparationWorkspa
           {value:"fortnight",label:"Fortnight batch"},
           {value:"term",label:"Term batch"},
         ]}
+        placeholder="Choose submission scope"
       />
 
       {mode==="week" || mode==="fortnight" ? <div className="grid gap-3 sm:grid-cols-2">
@@ -107,7 +108,7 @@ export function PreparationBatchSubmission({data}:{data:LessonPreparationWorkspa
             key={row.preparationId}
             label={`${row.plannedOn} · ${row.subject} · ${row.className}`}
             checked={Boolean(row.preparationId && selectedIds.includes(row.preparationId))}
-            onCheckedChange={(checked)=>row.preparationId && setSelectedIds((current)=>checked ? [...new Set([...current,row.preparationId!])] : current.filter((id)=>id!==row.preparationId))}
+            onChange={(event)=>row.preparationId && setSelectedIds((current)=>event.currentTarget.checked ? [...new Set([...current,row.preparationId!])] : current.filter((id)=>id!==row.preparationId))}
           />)}
         </div> : <p className="mt-2 text-xs text-muted-foreground">No prepared or returned lessons are currently available.</p>}
       </div> : null}
