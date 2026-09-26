@@ -150,7 +150,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
       subjectCode:subject.subject_code,
       subjectName:subject.display_name,
       departmentLabel:responsibility?.department_label ?? null,
-      accessMode:hodSubjectIds.has(subjectId) ? "hod" : "teacher",
+      accessMode:(hodSubjectIds.has(subjectId) ? "hod" : "teacher") as SubjectFileAccessMode,
       teacherNames:[...new Set(allocationsForSubject.map((row)=>staffMap.get(row.staff_member_id)).filter((name):name is string=>Boolean(name)))].sort(),
       gradeNames:[...new Set(subjectOfferings.map((row)=>gradeMap.get(row.grade_id)).filter((name):name is string=>Boolean(name)))].sort(),
       allocationCount:allocationsForSubject.length,
