@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, FileSpreadsheet, Printer, Save, Search, UsersRound } from "lucide-react";
+import { Save, Search, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
+import { ClassListDocumentActions } from "@/features/learners/class-list-document-actions";
 import {
   classListColumnIds,
   classListColumnLabels,
@@ -161,11 +161,7 @@ export function ClassListWorkspace({ data }: { data: ClassListWorkspaceData }) {
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]" aria-busy={pending}>
         <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div><h2 className="scolapro-section-title">Preview · {data.title}</h2><p className="scolapro-section-description">{data.academicYear} · {data.grade} · {data.className} · {data.learners.length} learner{data.learners.length === 1 ? "" : "s"}{data.registerTeacherName ? ` · Register teacher: ${data.registerTeacherName}` : ""}</p></div>
-          <div className="flex flex-wrap gap-2">
-            <Link href={exportBase} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium"><Printer className="size-3.5" />Print</Link>
-            <a href={`${exportBase}&format=pdf`} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium"><Download className="size-3.5" />PDF</a>
-            <a href={`${exportBase}&format=xlsx`} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong"><FileSpreadsheet className="size-3.5" />Excel</a>
-          </div>
+          <ClassListDocumentActions baseHref={exportBase} />
         </div>
         {data.learners.length ? <div className="max-h-[60vh] overflow-auto overscroll-contain">
           <table className="w-max min-w-0 table-auto border-collapse text-left text-xs">
