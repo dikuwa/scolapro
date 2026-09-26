@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(16);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fcf00000-0000-4000-8000-000000000001','trf-principal@example.test','authenticated','authenticated',now(),now()),
@@ -123,8 +123,9 @@ select lives_ok(
     'Routine school conduct verified.',
     null,
     'Routine educational information verified.',
-    'Checked against learner, enrolment and CRC records.'
-  )$$,
+    'Checked against learner, enrolment and CRC records.',
+    'English'
+  )$,
   'authorized CRC custodian can save the human-verification draft'
 );
 
@@ -182,6 +183,16 @@ select is(
   'finalized snapshot freezes the human-verified behaviour summary'
 );
 
+select is(
+  (
+    select data_snapshot->'verifiedFields'->>'mediumOfInstruction'
+    from public.learner_transfer_form_snapshots
+    where id=(select snapshot_id from trf_v1)
+  ),
+  'English',
+  'finalized snapshot freezes the prescribed medium-of-instruction field'
+);
+
 reset role;
 
 select throws_ok(
@@ -205,8 +216,9 @@ select lives_ok(
     'Updated verified conduct wording.',
     null,
     'Routine educational information verified.',
-    'Second verification completed before correction revision.'
-  )$$,
+    'Second verification completed before correction revision.',
+    'English'
+  )$,
   'leadership can save a corrected verified draft'
 );
 
