@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Picker } from "@/components/ui/picker";
 import {
@@ -19,6 +19,7 @@ const labels:Record<PreparationReviewPolicy["cadence"],string>={
 
 export function ReviewPolicyPanel({policy}:{policy:PreparationReviewPolicy}) {
   const [state,action,pending]=useActionState(setPreparationReviewPolicy,initialState);
+  const [cadence,setCadence]=useState(policy.cadence);
   return <section className="mb-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
@@ -32,8 +33,8 @@ export function ReviewPolicyPanel({policy}:{policy:PreparationReviewPolicy}) {
         <Picker
           label="School cadence"
           name="cadence"
-          value={policy.cadence}
-          onChange={()=>{}}
+          value={cadence}
+          onChange={(value)=>setCadence(value as PreparationReviewPolicy["cadence"])}
           placeholder="Choose cadence"
           options={[
             {value:"weekly",label:"Weekly"},
