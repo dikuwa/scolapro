@@ -241,20 +241,12 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
   });
 }
 
-export async function getClassListWorkspace(input: {
-  membership: SchoolMembershipContext;
-  academicYear: number;
-  configuration: Partial<ClassListConfiguration>;
-}): Promise<ClassListWorkspaceData> {
-  if (!canAccessClassLists(input.membership)) throw new Error("Class-list access is not available for this role.");
-  const canUseAllScope = true;
-  const canViewGuardianFields = guardianRoles.has(input.membership.roleKey);
-  const normalized = normalizeClassListConfiguration(input.configuration, canViewGuardianFields);
-  // Class Lists are an operational school utility. Any current staff membership
-  // may use All to reach the active school roster; My remains the personal
-  // allocation/register view. Guardian/contact columns keep separate authority.
-  const effectiveScope: ClassListScope = normalized.scope;
-  const configuration = { ...normalized, scope: effectiveScope };
+type SharedClassListResolution = {
+  academicRows: AcademicRows;
+  groups: Awaited<ReturnType<typeof resolveTeachingGroups>>;
+};
+
+async function loadSharedClassListResolution(input: { membership: SchoolMembershipContext; academicYear: number }): Promise<SharedClassListResolution> {
   const [academicRows, groups] = await Promise.all([
     loadAcademicRows(input.membership.schoolId, input.academicYear),
     resolveTeachingGroups({ schoolId: input.membership.schoolId, academicYear: input.academicYear }).catch((error) => {
@@ -266,6 +258,25 @@ export async function getClassListWorkspace(input: {
       return [];
     }),
   ]);
+  return { academicRows, groups };
+}
+
+export async function getClassListWorkspace(input: {
+  membership: SchoolMembershipContext;
+  academicYear: number;
+  configuration: Partial<ClassListConfiguration>;
+}, shared?: SharedClassListResolution): Promise<ClassListWorkspaceData> {
+  if (!canAccessClassLists(input.membership)) throw new Error("Class-list access is not available for this role.");
+  const canUseAllScope = true;
+  const canViewGuardianFields = guardianRoles.has(input.membership.roleKey);
+  const normalized = normalizeClassListConfiguration(input.configuration, canViewGuardianFields);
+  // Class Lists are an operational school utility. Any current staff membership
+  // may use All to reach the active school roster; My remains the personal
+  // allocation/register view. Guardian/contact columns keep separate authority.
+  const effectiveScope: ClassListScope = normalized.scope;
+  const configuration = { ...normalized, scope: effectiveScope };
+  const resolution = shared ?? await loadSharedClassListResolution(input);
+  const { academicRows, groups } = resolution;
   const scoped = buildOptions(academicRows, groups, input.membership, effectiveScope);
   const selectedOptions = scoped.options[configuration.rosterType];
   const selectedMatch = selectedOptions.find((item) => item.id === configuration.rosterId);
@@ -375,6 +386,7 @@ export async function getClassListBatchWorkspace(input: {
     return { targets: [], lists: [], totalLearners: 0 };
   }
 
+  const shared = await loadSharedClassListResolution(input);
   const lists = await Promise.all(uniqueTargets.map((target) =>
     getClassListWorkspace({
       membership: input.membership,
@@ -386,7 +398,7 @@ export async function getClassListBatchWorkspace(input: {
         columns: input.columns,
         blankColumns: input.blankColumns,
       },
-    }),
+    }, shared),
   ));
 
   const selectedWholeGrades = new Set(
