@@ -63,11 +63,12 @@ function drawClassListHeader(
   input: OfficialClassListPdfInput,
   resources: Awaited<ReturnType<typeof createOfficialDocumentPdfResources>>,
   tableWidth: number,
+  documentX: number,
 ): number {
   const { regular, bold, schoolNameFont, logo } = resources;
   const topY = PAGE_HEIGHT - MARGIN;
   page.drawRectangle({
-    x: MARGIN,
+    x: documentX,
     y: topY - CLASS_LIST_HEADER_HEIGHT,
     width: tableWidth,
     height: CLASS_LIST_HEADER_HEIGHT,
@@ -81,7 +82,7 @@ function drawClassListHeader(
     const width = logo.width * scale;
     const height = logo.height * scale;
     page.drawImage(logo, {
-      x: MARGIN + 5 + Math.max(0, (logoBoxWidth - width) / 2),
+      x: documentX + 5 + Math.max(0, (logoBoxWidth - width) / 2),
       y: topY - 50 + Math.max(0, (42 - height) / 2),
       width,
       height,
@@ -89,8 +90,8 @@ function drawClassListHeader(
   }
 
   const metaWidth = Math.min(175, Math.max(135, tableWidth * 0.4));
-  const metaX = MARGIN + tableWidth - metaWidth - 7;
-  const schoolX = MARGIN + 7 + logoBoxWidth;
+  const metaX = documentX + tableWidth - metaWidth - 7;
+  const schoolX = documentX + 7 + logoBoxWidth;
   const schoolWidth = Math.max(90, metaX - schoolX - 8);
   let schoolSize = input.header.schoolNameFont === "old_english" ? 17 : 14;
   while (schoolSize > 10 && schoolNameFont.widthOfTextAtSize(input.header.schoolName, schoolSize) > schoolWidth) schoolSize -= 0.5;
@@ -122,6 +123,7 @@ function preferredColumnWidth(key: string): number {
   if (key === "registerClass") return 78;
   if (key === "guardianName") return 118;
   if (key === "guardianPhone") return 92;
+  if (key === "guardianAddress") return 122;
   if (key === "emergencyContact") return 128;
   if (key.startsWith("blank-")) return 62;
   return 72;
@@ -135,8 +137,8 @@ function fitColumnWidths(keys: string[]): number[] {
   return preferred.map((width) => width * scale);
 }
 
-function drawTableHeader(page: PDFPage, bold: PDFFont, y: number, widths: number[], labels: string[]) {
-  let x = MARGIN;
+function drawTableHeader(page: PDFPage, bold: PDFFont, y: number, widths: number[], labels: string[], documentX: number) {
+  let x = documentX;
   labels.forEach((label, index) => {
     const width = widths[index];
     page.drawRectangle({ x, y: y - TABLE_HEADER_HEIGHT, width, height: TABLE_HEADER_HEIGHT, borderWidth: 0.55, borderColor: LINE });
@@ -145,16 +147,20 @@ function drawTableHeader(page: PDFPage, bold: PDFFont, y: number, widths: number
   });
 }
 
-function drawRow(page: PDFPage, regular: PDFFont, index: number, row: OfficialClassListRow, y: number, widths: number[], values: string[]) {
-  let x = MARGIN;
+function drawRow(page: PDFPage, regular: PDFFont, index: number, row: OfficialClassListRow, y: number, widths: number[], values: string[], documentX: number, rowHeight: number) {
+  let x = documentX;
   values.forEach((value, columnIndex) => {
     const width = widths[columnIndex];
-    page.drawRectangle({ x, y: y - ROW_HEIGHT, width, height: ROW_HEIGHT, borderWidth: 0.45, borderColor: LINE });
-    const rendered = fitOfficialDocumentPdfText(regular, value, 5.9, width - 8);
-    const textX = columnIndex === 0
-      ? x + Math.max(4, (width - regular.widthOfTextAtSize(rendered, 5.9)) / 2)
-      : x + 4;
-    page.drawText(rendered, { x: textX, y: y - 9.3, size: 5.9, font: regular, color: INK });
+    page.drawRectangle({ x, y: y - rowHeight, width, height: rowHeight, borderWidth: 0.45, borderColor: LINE });
+    const lines = value.split(/\r?\n/).filter(Boolean).slice(0, 2);
+    const renderedLines = (lines.length ? lines : [""]).map((line) => fitOfficialDocumentPdfText(regular, line, 5.7, width - 8));
+    renderedLines.forEach((rendered, lineIndex) => {
+      const textX = columnIndex === 0
+        ? x + Math.max(4, (width - regular.widthOfTextAtSize(rendered, 5.7)) / 2)
+        : x + 4;
+      const lineY = rowHeight > ROW_HEIGHT ? y - 8.2 - lineIndex * 8 : y - 9.3;
+      page.drawText(rendered, { x: textX, y: lineY, size: 5.7, font: regular, color: INK });
+    });
     x += width;
   });
 }
@@ -176,26 +182,28 @@ export async function renderOfficialClassListPdf(
   const documentColumns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
   const columns = fitColumnWidths(documentColumns.map((column) => column.key));
   const tableWidth = columns.reduce((sum, width) => sum + width, 0);
+  const documentX = Math.max(MARGIN, (PAGE_WIDTH - tableWidth) / 2);
   const availableRowsHeight = PAGE_HEIGHT - MARGIN * 2 - CLASS_LIST_HEADER_HEIGHT - TABLE_HEADER_HEIGHT - FOOTER_RESERVE;
-  const rowsPerPage = Math.max(1, Math.floor(availableRowsHeight / ROW_HEIGHT));
+  const rowHeight = documentColumns.some((column) => column.key === "guardianAddress") ? 22 : ROW_HEIGHT;
+  const rowsPerPage = Math.max(1, Math.floor(availableRowsHeight / rowHeight));
   const chunks: OfficialClassListRow[][] = [];
   if (!input.rows.length) chunks.push([]);
   for (let index = 0; index < input.rows.length; index += rowsPerPage) chunks.push(input.rows.slice(index, index + rowsPerPage));
 
   for (let pageIndex = 0; pageIndex < chunks.length; pageIndex += 1) {
     const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    let y = drawClassListHeader(page, input, resources, tableWidth);
-    drawTableHeader(page, bold, y, columns, documentColumns.map((column) => column.label));
+    let y = drawClassListHeader(page, input, resources, tableWidth, documentX);
+    drawTableHeader(page, bold, y, columns, documentColumns.map((column) => column.label), documentX);
     y -= TABLE_HEADER_HEIGHT;
     const chunkStart = pageIndex * rowsPerPage;
     const chunk = chunks[pageIndex];
     if (!chunk.length) {
-      page.drawRectangle({ x: MARGIN, y: y - ROW_HEIGHT * 2, width: tableWidth, height: ROW_HEIGHT * 2, borderWidth: 0.45, borderColor: LINE });
-      drawOfficialDocumentPdfCentered(page, regular, "No learners in this class list.", 7, MARGIN, tableWidth, y - 20);
+      page.drawRectangle({ x: documentX, y: y - rowHeight * 2, width: tableWidth, height: rowHeight * 2, borderWidth: 0.45, borderColor: LINE });
+      drawOfficialDocumentPdfCentered(page, regular, "No learners in this class list.", 7, documentX, tableWidth, y - rowHeight - 7);
     } else {
       chunk.forEach((row, index) => {
-        drawRow(page, regular, chunkStart + index, row, y, columns, documentColumns.map((column) => column.value(row, chunkStart + index)));
-        y -= ROW_HEIGHT;
+        drawRow(page, regular, chunkStart + index, row, y, columns, documentColumns.map((column) => column.value(row, chunkStart + index)), documentX, rowHeight);
+        y -= rowHeight;
       });
     }
   }

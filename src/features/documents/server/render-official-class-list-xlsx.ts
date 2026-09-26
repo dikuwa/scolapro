@@ -32,6 +32,7 @@ function excelColumnWidth(key: string): number {
   if (key === "registerClass") return 16;
   if (key === "guardianName") return 24;
   if (key === "guardianPhone") return 18;
+  if (key === "guardianAddress") return 28;
   if (key === "emergencyContact") return 28;
   if (key.startsWith("blank-")) return 14;
   return 14;
@@ -62,7 +63,7 @@ function stylesXml(): string {
     '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
-    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
     '</cellXfs>' +
@@ -149,11 +150,16 @@ function embedLogoAndStyles(
   dataRowCount: number,
   columnCount: number,
   metaStartColumn: number,
+  sheetNumber = 1,
 ): Buffer {
   const CFB = (XLSX as unknown as { CFB?: CfbApi }).CFB;
   if (!CFB) return workbookBytes;
   const cfb = CFB.read(workbookBytes, { type: "buffer" });
-  let sheetXml = readText(CFB, cfb, "xl/worksheets/sheet1.xml");
+  const sheetPath = `xl/worksheets/sheet${sheetNumber}.xml`;
+  const worksheetRelsPath = `xl/worksheets/_rels/sheet${sheetNumber}.xml.rels`;
+  const drawingPath = `xl/drawings/drawing${sheetNumber}.xml`;
+  const drawingRelsPath = `xl/drawings/_rels/drawing${sheetNumber}.xml.rels`;
+  let sheetXml = readText(CFB, cfb, sheetPath);
 
   sheetXml = sheetXml.replace(/<worksheet\\b([^>]*)>/, (match, attributes: string) =>
     attributes.includes("xmlns:r=")
@@ -192,7 +198,7 @@ function embedLogoAndStyles(
     const dimensions = readImageDimensions(logoBytes) ?? { width: 1, height: 1 };
     const targetHeightEmu = 590550;
     const targetWidthEmu = Math.round(targetHeightEmu * (dimensions.width / dimensions.height));
-    writePart(CFB, cfb, "xl/drawings/drawing1.xml",
+    writePart(CFB, cfb, drawingPath,
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
       '<xdr:oneCellAnchor>' +
@@ -202,21 +208,20 @@ function embedLogoAndStyles(
       '<xdr:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="' + imageRelationshipId + '"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>' +
       '<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/>' +
       '</xdr:oneCellAnchor></xdr:wsDr>');
-    writePart(CFB, cfb, "xl/drawings/_rels/drawing1.xml.rels",
+    writePart(CFB, cfb, drawingRelsPath,
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
       '<Relationship Id="' + imageRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/class-list-logo.' + imageExtension + '"/>' +
       '</Relationships>');
 
-    const worksheetRelsPath = "xl/worksheets/_rels/sheet1.xml.rels";
     const existingWorksheetRels = findEntry(CFB, cfb, worksheetRelsPath)
       ? readText(CFB, cfb, worksheetRelsPath)
       : '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
-    const worksheetRels = existingWorksheetRels.includes("../drawings/drawing1.xml")
+    const worksheetRels = existingWorksheetRels.includes(`../drawings/drawing${sheetNumber}.xml`)
       ? existingWorksheetRels
       : existingWorksheetRels.replace(
           "</Relationships>",
-          '<Relationship Id="' + drawingRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>',
+          '<Relationship Id="' + drawingRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing' + sheetNumber + '.xml"/></Relationships>',
         );
     writePart(CFB, cfb, worksheetRelsPath, worksheetRels);
 
@@ -228,24 +233,27 @@ function embedLogoAndStyles(
     if (!contentTypes.includes('Extension="' + imageExtension + '"')) {
       contentTypes = contentTypes.replace("</Types>", '<Default Extension="' + imageExtension + '" ContentType="' + imageContentType + '"/></Types>');
     }
-    if (!contentTypes.includes('PartName="/xl/drawings/drawing1.xml"')) {
+    if (!contentTypes.includes('PartName="/xl/drawings/drawing' + sheetNumber + '.xml"')) {
       contentTypes = contentTypes.replace(
         "</Types>",
-        '<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
+        '<Override PartName="/xl/drawings/drawing' + sheetNumber + '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
       );
     }
     writePart(CFB, cfb, "[Content_Types].xml", contentTypes);
   }
 
-  writePart(CFB, cfb, "xl/worksheets/sheet1.xml", sheetXml);
+  writePart(CFB, cfb, sheetPath, sheetXml);
   return Buffer.from(CFB.write(cfb, { type: "buffer", fileType: "zip", compression: true }));
 }
 
-export function renderClassListXlsx(
-  input: ClassListWorkspaceData,
-  header: OfficialDocumentHeaderModel,
-  logoBytes: Uint8Array | null,
-): ArrayBuffer {
+type BuiltWorksheet = {
+  worksheet: XLSX.WorkSheet;
+  columnCount: number;
+  dataColumnCount: number;
+  metaStartColumn: number;
+};
+
+function buildClassListWorksheet(input: ClassListWorkspaceData, header: OfficialDocumentHeaderModel): BuiltWorksheet {
   const columns = buildOfficialClassListColumns(input.configuration.columns, input.configuration.blankColumns);
   const columnCount = Math.max(columns.length, 6);
   const metaStartColumn = Math.max(3, Math.floor(columnCount * 0.58));
@@ -268,7 +276,6 @@ export function renderClassListXlsx(
   rows[1][1] = "Grade: " + input.grade;
   rows[2][1] = "Block/Class: " + input.className;
   rows[3][1] = input.registerTeacherName ? "Register teacher: " + input.registerTeacherName : "";
-
   rows[0][metaStartColumn] = classListDocumentName(input.className, input.title);
   rows[1][metaStartColumn] = "Male: " + maleCount + "   Female: " + femaleCount;
   rows[2][metaStartColumn] = "Total learners: " + input.learners.length;
@@ -297,11 +304,78 @@ export function renderClassListXlsx(
     fitToHeight: 0,
     paperSize: 9,
   };
+  return { worksheet, columnCount, dataColumnCount: columns.length, metaStartColumn };
+}
 
+function safeWorksheetName(value: string, used: Set<string>): string {
+  const base = value.replace(/[\\/?*\[\]:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 31) || "Class List";
+  let name = base;
+  let suffix = 2;
+  while (used.has(name.toLocaleLowerCase())) {
+    const tail = " " + suffix;
+    name = base.slice(0, Math.max(1, 31 - tail.length)) + tail;
+    suffix += 1;
+  }
+  used.add(name.toLocaleLowerCase());
+  return name;
+}
+
+function arrayBufferFromBuffer(rendered: Buffer): ArrayBuffer {
+  return rendered.buffer.slice(rendered.byteOffset, rendered.byteOffset + rendered.byteLength) as ArrayBuffer;
+}
+
+export function renderClassListXlsx(
+  input: ClassListWorkspaceData,
+  header: OfficialDocumentHeaderModel,
+  logoBytes: Uint8Array | null,
+): ArrayBuffer {
+  const built = buildClassListWorksheet(input, header);
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Class List");
+  XLSX.utils.book_append_sheet(workbook, built.worksheet, "Class List");
   workbook.Props = { Title: classListDocumentName(input.className, input.title), Subject: "ScolaPro class list", Author: input.schoolName };
   const baseBytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
-  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, columns.length, metaStartColumn);
-  return rendered.buffer.slice(rendered.byteOffset, rendered.byteOffset + rendered.byteLength) as ArrayBuffer;
+  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, built.dataColumnCount, built.metaStartColumn);
+  return arrayBufferFromBuffer(rendered);
+}
+
+export function renderClassListBatchXlsx(
+  inputs: ClassListWorkspaceData[],
+  header: OfficialDocumentHeaderModel,
+  logoBytes: Uint8Array | null,
+): ArrayBuffer {
+  if (!inputs.length) throw new Error("At least one class list is required for Excel export.");
+  const workbook = XLSX.utils.book_new();
+  const builtSheets: BuiltWorksheet[] = [];
+  const usedNames = new Set<string>();
+
+  for (const input of inputs) {
+    const built = buildClassListWorksheet(input, header);
+    builtSheets.push(built);
+    XLSX.utils.book_append_sheet(
+      workbook,
+      built.worksheet,
+      safeWorksheetName(classListDocumentName(input.className, input.title), usedNames),
+    );
+  }
+
+  workbook.Props = {
+    Title: inputs.length === 1 ? classListDocumentName(inputs[0].className, inputs[0].title) : `${inputs.length} Class Lists`,
+    Subject: "ScolaPro class-list batch",
+    Author: inputs[0].schoolName,
+  };
+
+  let rendered = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
+  builtSheets.forEach((built, index) => {
+    const input = inputs[index];
+    rendered = embedLogoAndStyles(
+      rendered,
+      logoBytes,
+      5,
+      input.learners.length,
+      built.dataColumnCount,
+      built.metaStartColumn,
+      index + 1,
+    );
+  });
+  return arrayBufferFromBuffer(rendered);
 }

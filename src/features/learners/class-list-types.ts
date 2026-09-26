@@ -5,6 +5,7 @@ export const classListColumnIds = [
   "status",
   "guardianName",
   "guardianPhone",
+  "guardianAddress",
   "emergencyContact",
 ] as const;
 
@@ -17,6 +18,11 @@ export type ClassListRosterType =
   | "teaching_group"
   | "field_group";
 export type ClassListScope = "my" | "all";
+
+export type ClassListTarget = {
+  rosterType: ClassListRosterType;
+  rosterId: string;
+};
 
 export type ClassListConfiguration = {
   scope: ClassListScope;
@@ -41,6 +47,7 @@ export type ClassListLearnerRow = {
   status: string;
   guardianName: string | null;
   guardianPhone: string | null;
+  guardianAddress: string | null;
   emergencyContact: string | null;
 };
 
@@ -59,6 +66,12 @@ export type ClassListWorkspaceData = {
   learners: ClassListLearnerRow[];
 };
 
+export type ClassListBatchWorkspaceData = {
+  targets: ClassListTarget[];
+  lists: ClassListWorkspaceData[];
+  totalLearners: number;
+};
+
 export const classListColumnLabels: Record<ClassListColumnId, string> = {
   admissionNumber: "Admission No.",
   sex: "Sex",
@@ -66,6 +79,7 @@ export const classListColumnLabels: Record<ClassListColumnId, string> = {
   status: "Status",
   guardianName: "Guardian name",
   guardianPhone: "Guardian phone",
+  guardianAddress: "Guardian address",
   emergencyContact: "Emergency contact",
 };
 

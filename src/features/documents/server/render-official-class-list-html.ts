@@ -38,7 +38,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   const columns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
   const rowMarkup = input.rows
     .map(
-      (row, index) => `<tr>${columns.map((column) => `<td class="${column.key === "number" ? "number-cell" : ""}">${escapeOfficialDocumentHtml(column.value(row, index))}</td>`).join("")}</tr>`,
+      (row, index) => `<tr>${columns.map((column) => `<td class="${column.key === "number" ? "number-cell" : ""} column-${column.key}">${escapeOfficialDocumentHtml(column.value(row, index))}</td>`).join("")}</tr>`,
     )
     .join("");
 
@@ -96,6 +96,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   .class-list th, .class-list td { border: 1px solid var(--line); padding: 2.2px 4px; vertical-align: middle; white-space: nowrap; }
   .class-list th { text-align: left; font-size: 7.2px; font-weight: 700; }
   .class-list td { font-size: 7.2px; }
+  .class-list td.column-guardianAddress { min-width: 100px; max-width: 150px; white-space: pre-line; }
   .class-list .number-cell { text-align: center; font-variant-numeric: tabular-nums; }
   .class-list thead { display: table-header-group; }
   .class-list tr { break-inside: avoid; page-break-inside: avoid; }
