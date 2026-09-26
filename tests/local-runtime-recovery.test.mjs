@@ -51,3 +51,15 @@ test("hosted data recovery is pinned to the known source and loopback target", (
   assert.match(recovery, /demoLearnerIds/);
   assert.match(gitignore, /^\.env\.local\.backup-\*$/m);
 });
+
+
+test("hosted recovery preserves immutable core identity provenance on reruns", () => {
+  assert.match(recovery, /protectedIdentityColumns/);
+  assert.match(recovery, /"schools", new Set\(\["id", "tenant_id", "created_at"\]\)/);
+  assert.match(recovery, /"learners", new Set\(\["id", "tenant_id", "created_at"\]\)/);
+  assert.match(recovery, /"guardian_profiles", new Set\(\["id", "tenant_id", "created_at"\]\)/);
+  assert.match(recovery, /existingIds = new Set/);
+  assert.match(recovery, /\.insert\(inserts\)/);
+  assert.match(recovery, /Object\.fromEntries\(Object\.entries\(row\)\.filter/);
+  assert.match(recovery, /\.update\(mutable\)\.eq\("id", row\.id\)/);
+});
