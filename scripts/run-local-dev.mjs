@@ -1,8 +1,59 @@
 import { execFileSync, spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function unquoteEnvValue(value) {
+  const trimmed = value.trim();
+  if (
+    trimmed.length >= 2 &&
+    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'")))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function localAuthSeedEnv() {
+  const selected = {};
+  const envPath = path.join(projectRoot, ".env.local");
+  if (existsSync(envPath)) {
+    for (const rawLine of readFileSync(envPath, "utf8").split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const separator = line.indexOf("=");
+      if (separator <= 0) continue;
+      const key = line.slice(0, separator).trim();
+      if (!["SCOLAPRO_LOCAL_ADMIN_EMAIL", "SCOLAPRO_LOCAL_ADMIN_PASSWORD"].includes(key)) continue;
+      selected[key] = unquoteEnvValue(line.slice(separator + 1));
+    }
+  }
+  return {
+    SCOLAPRO_LOCAL_ADMIN_EMAIL:
+      process.env.SCOLAPRO_LOCAL_ADMIN_EMAIL || selected.SCOLAPRO_LOCAL_ADMIN_EMAIL,
+    SCOLAPRO_LOCAL_ADMIN_PASSWORD:
+      process.env.SCOLAPRO_LOCAL_ADMIN_PASSWORD || selected.SCOLAPRO_LOCAL_ADMIN_PASSWORD,
+  };
+}
+
+function seedLocalAuthIfConfigured() {
+  const authEnv = localAuthSeedEnv();
+  if (!authEnv.SCOLAPRO_LOCAL_ADMIN_PASSWORD) {
+    console.warn(
+      "Local Auth seed skipped: set SCOLAPRO_LOCAL_ADMIN_PASSWORD in .env.local or the shell, then run pnpm dev again.",
+    );
+    return;
+  }
+
+  execFileSync(process.execPath, [path.join(projectRoot, "scripts", "seed-local-auth.mjs")], {
+    cwd: projectRoot,
+    env: { ...process.env, ...authEnv },
+    stdio: "inherit",
+  });
+}
 
 function localSupabaseStatus() {
   try {
@@ -47,6 +98,7 @@ if (!status.PUBLISHABLE_KEY || !status.SERVICE_ROLE_KEY) {
 }
 
 syncLocalSchema();
+seedLocalAuthIfConfigured();
 
 const nextBin = path.join(projectRoot, "node_modules", "next", "dist", "bin", "next");
 const child = spawn(process.execPath, [nextBin, "dev", ...process.argv.slice(2)], {
