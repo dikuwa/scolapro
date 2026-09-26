@@ -60,16 +60,34 @@ With the Supabase CLI installed:
 
 ```bash
 supabase start
-supabase db reset
-SCOLAPRO_LOCAL_ADMIN_PASSWORD='<choose-a-local-password>' pnpm local:seed-auth
+pnpm local:sync-db
+```
+
+Set a local-only Auth seed in `.env.local`:
+
+```dotenv
+SCOLAPRO_LOCAL_ADMIN_EMAIL=local-admin@scolapro.test
+SCOLAPRO_LOCAL_ADMIN_PASSWORD=<choose-a-local-password>
+```
+
+Then start the app:
+
+```bash
 pnpm dev
 ```
 
 `pnpm dev` deliberately reads the running loopback Supabase credentials from
-`supabase status`; it does not use hosted credentials left in `.env.local`.
-Use `pnpm dev:configured` only when you intentionally want the environment
-declared in `.env.local`. Hosted and local sessions are separate, so sign in
-with the seeded local account after switching environments.
+`supabase status`; it does not use hosted Supabase credentials left in
+`.env.local`. When the local admin password is configured, the command
+idempotently creates/updates the deterministic local school-admin Auth user
+before starting Next.js. Do not use `supabase db reset` after recovering real
+school data into the local database.
+
+Use `pnpm dev:configured` only when you intentionally want the Supabase
+environment declared by `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `.env.local`. Hosted and local Auth
+users and sessions are separate, so hosted credentials cannot authenticate
+against `pnpm dev`'s local Supabase stack.
 
 The initial migration establishes the first vertical-slice entities:
 
