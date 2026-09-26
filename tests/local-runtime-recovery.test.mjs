@@ -148,3 +148,23 @@ test("hosted recovery removes synthetic learners in dependency order and verifie
   assert.match(recovery, /requiresExactMatch = table === "learners" \|\| table === "enrolments"/);
   assert.match(recovery, /local !== hosted/);
 });
+
+
+test("demo cleanup removes local report-card dependents before synthetic enrolments", () => {
+  const batchItems = recovery.indexOf('from("report_card_batch_items")');
+  const snapshots = recovery.indexOf('from("report_card_snapshots")');
+  const renderJobs = recovery.indexOf('from("report_card_render_jobs")');
+  const documents = recovery.indexOf('from("report_card_documents")');
+  const identifiers = recovery.indexOf('from("school_learner_identifiers")');
+  const enrolments = recovery.indexOf('from("enrolments").delete().in("id", demoEnrolmentIds)');
+  assert.ok(batchItems >= 0);
+  assert.ok(snapshots > batchItems);
+  assert.ok(renderJobs > snapshots);
+  assert.ok(documents > renderJobs);
+  assert.ok(identifiers > documents);
+  assert.ok(enrolments > identifiers);
+  assert.match(recovery, /Unable to remove demo report-card batch items/);
+  assert.match(recovery, /Unable to remove demo report-card render jobs/);
+  assert.match(recovery, /Unable to remove demo report-card documents/);
+  assert.match(recovery, /Unable to remove demo report-card snapshots/);
+});
