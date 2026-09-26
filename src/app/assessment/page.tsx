@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, BadgeCheck, ClipboardCheck, FileCheck2, Layers3, Settings2 } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, ClipboardCheck, FileCheck2, Layers3, PencilLine, Settings2 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAssessmentWorkspaceOverview } from "@/features/academics/server/workspace-overview";
@@ -31,7 +31,7 @@ export default async function AssessmentPage() {
       <section>
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Assessment</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Assessment schemes, mark capture and approval remain linked to official subject offerings and class allocations for {academicYear}.</p></div>
-          <div className="flex flex-wrap gap-2">{canReview ? <Link href="/assessment/schemes" className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-surface-muted px-4 text-sm font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-subtle"><Settings2 className="size-4" />Configure schemes</Link> : null}<Link href="/reports/report-cards" className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong">Open report cards<ArrowUpRight className="size-4" /></Link></div>
+          <div className="flex flex-wrap gap-2"><Link href="/assessment/marks" className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-surface-muted px-4 text-sm font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-subtle"><PencilLine className="size-4" />Enter marks</Link>{canReview ? <Link href="/assessment/schemes" className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-surface-muted px-4 text-sm font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-subtle"><Settings2 className="size-4" />Configure schemes</Link> : null}<Link href="/reports/report-cards" className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong">Open report cards<ArrowUpRight className="size-4" /></Link></div>
         </div>
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map(({ label, value, icon: Icon }, index) => <article key={label} className={["flex items-center justify-between gap-4 px-4 py-4", index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""].join(" ")}><div><p className="text-xs font-medium text-muted-foreground">{label}</p><p className="mt-1.5 text-xl font-semibold text-foreground">{value}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><Icon className="size-4" /></span></article>)}
