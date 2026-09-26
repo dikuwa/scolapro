@@ -8,6 +8,7 @@ const server=await read("src/features/assessment/server/mark-grid.ts");
 const actions=await read("src/features/assessment/server/mark-grid-actions.ts");
 const queue=await read("src/features/assessment/offline/marks-draft-queue.ts");
 const migration=await read("supabase/migrations/20260926090000_high_speed_mark_grid_hardening.sql");
+const marksPage=await read("src/app/assessment/marks/page.tsx");
 
 test("desktop grid freezes learner identity and supports keyboard navigation",()=>{
   assert.match(workspace,/sticky left-0/);
@@ -66,4 +67,10 @@ test("locked and review states are not ordinary-editable",()=>{
   assert.match(server,/\["open","returned"\]\.includes\(instance\.status\)/);
   assert.match(workspace,/Marks are read-only while this assessment is in review, verified or locked state/);
   assert.match(migration,/v_instance\.status not in \('open','returned'\)/);
+});
+
+
+test("marks entry keeps an explicit back path to Assessment",()=>{
+  assert.match(marksPage,/href="\/assessment"/);
+  assert.match(marksPage,/>Assessment<\/Link>/);
 });
