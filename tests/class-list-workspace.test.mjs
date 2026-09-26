@@ -296,3 +296,12 @@ test("Class List filter controls behave as compact searchable multi-select dropd
   assert.match(workspace, /lg:items-end/);
   assert.match(workspace, /mt-3 border-t border-border-subtle pt-3/);
 });
+
+
+test("Choose details exposes a clear-all action that only clears optional columns", () => {
+  assert.match(workspace, /configuration\.columns\.length \?/);
+  assert.match(workspace, /onClick=\{\(\) => patch\(\{ columns: \[\] \}\)\}/);
+  assert.match(workspace, />\s*Clear all\s*<\/button>/);
+  assert.match(workspace, /No\. <LockKeyhole/);
+  assert.match(workspace, /Learner <LockKeyhole/);
+});
