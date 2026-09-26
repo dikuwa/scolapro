@@ -89,12 +89,24 @@ export function LearnerTransferFormWorkspace({
                 </p>
               </div>
             </div>
-            <div className="max-w-sm rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-xs leading-5 text-muted-foreground">
-              Official print/PDF stays locked until the governed prescribed-form template source is configured. The finalized data snapshot remains immutable.
+            <div className="flex flex-wrap items-center gap-2">
+              <Link
+                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}`}
+                target="_blank"
+                className="scolapro-cta inline-flex min-h-9 items-center rounded-[var(--radius-xs)] bg-surface-muted px-3 text-xs font-medium hover:bg-surface"
+              >
+                Preview / Print
+              </Link>
+              <Link
+                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=pdf`}
+                className="scolapro-cta inline-flex min-h-9 items-center rounded-[var(--radius-xs)] bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong"
+              >
+                Download PDF
+              </Link>
             </div>
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
-            Editing the working fields below does not change this finalized version. Finalizing again creates a new revision and preserves this one.
+            The prescribed two-page government form is rendered from this immutable revision, including the official completion-instructions page. Editing the working fields below does not change this finalized version.
           </p>
         </section>
       ) : null}
