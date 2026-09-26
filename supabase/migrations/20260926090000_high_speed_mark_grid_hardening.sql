@@ -355,3 +355,99 @@ $$;
 
 revoke all on function public.submit_assessment_for_review(uuid,text) from public,anon;
 grant execute on function public.submit_assessment_for_review(uuid,text) to authenticated;
+
+
+create or replace function public.reopen_assessment_for_correction(
+  p_assessment_instance_id uuid,
+  p_reason text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, app_private
+as $$
+declare
+  v_instance public.assessment_instances%rowtype;
+  v_subject_id uuid;
+  v_reason text:=nullif(btrim(coalesce(p_reason,'')),'');
+  v_submission_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if v_reason is null then raise exception 'A correction reason is required'; end if;
+
+  select * into v_instance
+  from public.assessment_instances
+  where id=p_assessment_instance_id
+  for update;
+  if not found then raise exception 'Assessment instance not found'; end if;
+
+  select so.subject_id into v_subject_id
+  from public.subject_offerings so
+  where so.id=v_instance.subject_offering_id;
+
+  if not (
+    app_private.has_platform_role(array['platform_admin'])
+    or (
+      app_private.user_current_school_matches((select auth.uid()),v_instance.school_id)
+      and not app_private.has_platform_role(array['platform_support'])
+      and (
+        app_private.has_school_role(v_instance.school_id,array['school_admin','principal','deputy_principal'])
+        or app_private.hod_responsible_for_subject(v_instance.school_id,v_subject_id)
+      )
+    )
+  ) then
+    raise exception 'Permission denied';
+  end if;
+
+  if v_instance.status not in ('verified','locked') then
+    raise exception 'Only verified or locked assessments can enter governed correction';
+  end if;
+
+  if exists (
+    select 1
+    from public.official_results result
+    join public.enrolments e on e.id=result.enrolment_id
+    where result.school_id=v_instance.school_id
+      and result.subject_offering_id=v_instance.subject_offering_id
+      and result.term_number is not distinct from v_instance.term_number
+      and e.register_class_id=v_instance.register_class_id
+  ) then
+    raise exception 'Official results already exist; use the governed official-result correction workflow';
+  end if;
+
+  select ms.id into v_submission_id
+  from public.mark_submissions ms
+  where ms.assessment_instance_id=v_instance.id
+  order by ms.submitted_at desc
+  limit 1
+  for update;
+
+  if v_submission_id is not null then
+    update public.mark_submissions
+       set status='returned',
+           reviewed_by_user_id=auth.uid(),
+           reviewed_at=now(),
+           review_note=v_reason
+     where id=v_submission_id;
+  end if;
+
+  update public.assessment_instances
+     set status='returned',locked_at=null,updated_at=now()
+   where id=v_instance.id;
+
+  insert into public.audit_events(
+    tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+  ) values(
+    v_instance.tenant_id,v_instance.school_id,auth.uid(),
+    'assessment.reopened_for_correction','assessment_instance',v_instance.id,
+    jsonb_build_object('reason',v_reason,'submission_id',v_submission_id)
+  );
+  return true;
+end;
+$$;
+
+revoke all on function public.reopen_assessment_for_correction(uuid,text) from public,anon;
+grant execute on function public.reopen_assessment_for_correction(uuid,text) to authenticated;
+
+comment on function public.reopen_assessment_for_correction(uuid,text) is
+'Governed assessment correction boundary. Requires a reason and subject-scoped academic authority, records audit history, and refuses to rewrite assessment evidence once immutable official results exist.';
