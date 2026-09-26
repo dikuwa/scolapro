@@ -46,12 +46,25 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isAuthenticated && pathname === "/login") {
-    const destination = request.nextUrl.searchParams.get("next") || "/";
-    const appUrl = request.nextUrl.clone();
-    appUrl.pathname = destination.startsWith("/") ? destination : "/";
-    appUrl.search = "";
+    // A locally verifiable JWT can outlive its backing Auth user (for example
+    // after a local stack/reset/reseed boundary). Do not bounce such a stale
+    // session back into the protected app forever. Validate the actual Auth
+    // user only on the login route before redirecting away from it.
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
 
-    return NextResponse.redirect(appUrl);
+    if (!userError && user?.id === data?.claims?.sub) {
+      const destination = request.nextUrl.searchParams.get("next") || "/";
+      const appUrl = request.nextUrl.clone();
+      appUrl.pathname = destination.startsWith("/") ? destination : "/";
+      appUrl.search = "";
+
+      return NextResponse.redirect(appUrl);
+    }
+
+    return response;
   }
 
   return response;
