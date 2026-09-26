@@ -13,7 +13,7 @@ import {
   renderOfficialDocumentHtmlHeader,
 } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
-import { buildOfficialClassListColumns, classListColumnPercentages } from "@/features/documents/server/class-list-document";
+import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
 import type { ClassListColumnId, ClassListLearnerRow } from "@/features/learners/class-list-types";
 
 export type OfficialClassListRow = ClassListLearnerRow;
@@ -34,7 +34,6 @@ export type OfficialClassListDocumentInput = {
 export function renderOfficialClassListHtml(input: OfficialClassListDocumentInput): string {
   const { header } = input;
   const columns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
-  const widths = classListColumnPercentages(columns);
   const rowMarkup = input.rows
     .map(
       (row, index) => `<tr>
@@ -79,6 +78,13 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   .document-title h2 { margin: 0; font-size: 13px; line-height: 1.15; }
   .document-title .context { margin-top: 4px; font-size: 8px; display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
   .class-list { width: auto; max-width: 100%; border-collapse: collapse; table-layout: auto; }
+  .class-list col[data-column="number"] { width: 34px; }
+  .class-list col[data-column="admissionNumber"] { width: 86px; }
+  .class-list col[data-column="learner"] { width: 170px; }
+  .class-list col[data-column="sex"] { width: 42px; }
+  .class-list col[data-column="status"] { width: 68px; }
+  .class-list col[data-column="registerClass"] { width: 94px; }
+  .class-list col[data-column^="blank-"] { width: 74px; }
   .class-list th, .class-list td { border: 1px solid var(--line); padding: 3px 5px; vertical-align: middle; white-space: nowrap; }
   .class-list th { text-align: left; font-size: 7.3px; font-weight: 700; }
   .class-list td { font-size: 7.5px; }
@@ -86,7 +92,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   .class-list thead { display: table-header-group; }
   .class-list tr { break-inside: avoid; page-break-inside: avoid; }
   .empty-row { text-align: center; color: var(--muted); padding: 14px 6px !important; }
-  .class-summary { display: flex; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-top: 0; padding: 6px 8px; font-size: 7px; }
+  .class-summary { width: fit-content; min-width: 58%; max-width: 100%; display: flex; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-top: 0; padding: 5px 7px; font-size: 7px; }
   ${OFFICIAL_DOCUMENT_METADATA_RULE}
   .document-meta span:last-child { text-align: right; }
   @media print {
@@ -110,7 +116,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   </section>
 
   <table class="class-list">
-    <colgroup>${columns.map((column, index) => `<col data-column="${escapeOfficialDocumentHtml(column.key)}" style="width:${widths[index].toFixed(2)}%" />`).join("")}</colgroup>
+    <colgroup>${columns.map((column) => `<col data-column="${escapeOfficialDocumentHtml(column.key)}" />`).join("")}</colgroup>
     <thead>
       <tr>${columns.map((column) => `<th class="${column.key === "number" ? "number-cell" : ""}">${escapeOfficialDocumentHtml(column.label)}</th>`).join("")}</tr>
     </thead>
