@@ -14,7 +14,7 @@ import {
   officialDocumentPdfSafeText,
 } from "@/features/documents/server/official-document-pdf-header";
 import type { OfficialClassListRow } from "@/features/documents/server/render-official-class-list-html";
-import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
+import { buildOfficialClassListColumns, classListDocumentName } from "@/features/documents/server/class-list-document";
 import type { ClassListColumnId } from "@/features/learners/class-list-types";
 
 export type OfficialClassListPdfInput = {
@@ -104,7 +104,7 @@ function drawClassListHeader(
 
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
-  drawRightAlignedText(page, bold, input.registerClass || input.rosterTitle || "Class List", 10.5, metaX, metaWidth, topY - 16);
+  drawRightAlignedText(page, bold, classListDocumentName(input.registerClass, input.rosterTitle), 10.5, metaX, metaWidth, topY - 16);
   drawRightAlignedText(page, regular, `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`, 6.2, metaX, metaWidth, topY - 29);
   drawRightAlignedText(page, regular, `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`, 5.9, metaX, metaWidth, topY - 40);
   if (input.registerTeacherName) {

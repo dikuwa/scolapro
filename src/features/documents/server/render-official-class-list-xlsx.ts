@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import * as XLSX from "xlsx";
-import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
+import { buildOfficialClassListColumns, classListDocumentName } from "@/features/documents/server/class-list-document";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import type { ClassListWorkspaceData } from "@/features/learners/class-list-types";
 
@@ -269,7 +269,7 @@ export function renderClassListXlsx(
   rows[2][1] = "Block/Class: " + input.className;
   rows[3][1] = input.registerTeacherName ? "Register teacher: " + input.registerTeacherName : "";
 
-  rows[0][metaStartColumn] = input.className || input.title;
+  rows[0][metaStartColumn] = classListDocumentName(input.className, input.title);
   rows[1][metaStartColumn] = "Male: " + maleCount + "   Female: " + femaleCount;
   rows[2][metaStartColumn] = "Total learners: " + input.learners.length;
 
@@ -300,7 +300,7 @@ export function renderClassListXlsx(
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Class List");
-  workbook.Props = { Title: input.title + " class list", Subject: "ScolaPro class list", Author: input.schoolName };
+  workbook.Props = { Title: classListDocumentName(input.className, input.title), Subject: "ScolaPro class list", Author: input.schoolName };
   const baseBytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
   const rendered = embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, columns.length, metaStartColumn);
   return rendered.buffer.slice(rendered.byteOffset, rendered.byteOffset + rendered.byteLength) as ArrayBuffer;

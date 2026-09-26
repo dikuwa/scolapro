@@ -13,6 +13,7 @@ const documentActions = source("src/features/learners/class-list-document-action
 const learnerDirectory = source("src/features/learners/learner-directory.tsx");
 const page = source("src/app/class-lists/page.tsx");
 const navigation = source("src/components/shell/navigation.tsx");
+const documentModel = source("src/features/documents/server/class-list-document.ts");
 
 test("class-list targets remain school bounded while current staff can use school-wide scope", () => {
   assert.match(resolver, /rosterRoles = new Set/);
@@ -181,4 +182,16 @@ test("all Class List document access points use the shared preview/print/PDF/Exc
   assert.match(documentActions, /format=xlsx/);
   assert.doesNotMatch(workspace, /<Printer|<Download|<FileSpreadsheet/);
   assert.doesNotMatch(learnerDirectory, /Print class list|Download PDF/);
+});
+
+
+test("Class List document naming is dynamic and consistent across all Class List outputs", () => {
+  assert.match(documentModel, /function classListDocumentName/);
+  assert.match(documentModel, /replace\(\/\^Grade\\s\+\/i, ""\)/);
+  assert.match(documentModel, /Classlist/);
+  assert.match(pdf, /classListDocumentName\(input\.registerClass, input\.rosterTitle\)/);
+  assert.match(html, /classListDocumentName\(input\.registerClass, input\.rosterTitle\)/);
+  assert.match(xlsx, /classListDocumentName\(input\.className, input\.title\)/);
+  assert.match(route, /classListDocumentName\(workspace\.className, workspace\.title\)/);
+  assert.match(workspace, /classListDocumentName\(data\.className, data\.title\)/);
 });
