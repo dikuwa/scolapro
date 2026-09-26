@@ -66,5 +66,5 @@ export function classListDocumentName(registerClass: string, rosterTitle?: strin
   const rosterIsSameClass = rosterValue && usableClass && rosterValue.localeCompare(classValue, undefined, { sensitivity: "base" }) === 0;
   const preferred = rosterValue && !rosterIsSameClass ? rosterValue : usableClass ? classValue : rosterValue || "Class";
   const concise = preferred.replace(/^Grade\s+/i, "").trim();
-  return `${concise || "Class"} Classlist`;
+  return `${concise || "Class"}: Class List`;
 }

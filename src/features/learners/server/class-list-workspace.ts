@@ -35,7 +35,8 @@ function chunkIds(ids: string[]) {
 
 type AcademicRows = {
   grades: Array<{ id: string; display_name: string }>;
-  classes: Array<{ id: string; grade_id: string; display_name: string; register_teacher_staff_id: string | null }>;
+  classes: Array<{ id: string; grade_id: string; display_name: string; register_teacher_staff_id: string | null; home_room_id: string | null }>;
+  rooms: Array<{ id: string; room_code: string; display_name: string }>;
   offerings: Array<{ id: string; grade_id: string; subject_id: string; subjects: { display_name?: string } | { display_name?: string }[] | null }>;
   allocations: Array<{ id: string; subject_offering_id: string; register_class_id: string; staff_member_id: string; active_from: string; active_to: string | null }>;
   groupAllocations: Array<{ teaching_group_id: string; teacher_allocation_id: string; effective_from: string; effective_to: string | null }>;
@@ -77,14 +78,15 @@ export function canAccessClassLists(membership: SchoolMembershipContext) {
 
 async function loadAcademicRows(schoolId: string, academicYear: number): Promise<AcademicRows> {
   const supabase = await createSupabaseServerClient();
-  const [grades, classes, offerings, allocations, groupAllocations] = await Promise.all([
+  const [grades, classes, rooms, offerings, allocations, groupAllocations] = await Promise.all([
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name").order("id"),
-    supabase.from("register_classes").select("id,grade_id,display_name,register_teacher_staff_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
+    supabase.from("register_classes").select("id,grade_id,display_name,register_teacher_staff_id,home_room_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
+    supabase.from("school_rooms").select("id,room_code,display_name").eq("school_id", schoolId).order("display_name"),
     supabase.from("subject_offerings").select("id,grade_id,subject_id,subjects(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,active_from,active_to").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("teaching_group_allocations").select("teaching_group_id,teacher_allocation_id,effective_from,effective_to").eq("school_id", schoolId).eq("academic_year", academicYear),
   ]);
-  for (const result of [grades, classes, offerings, allocations]) {
+  for (const result of [grades, classes, rooms, offerings, allocations]) {
     if (result.error) throw new Error("Unable to load the governed class-list scope.");
   }
   if (groupAllocations.error) {
@@ -95,7 +97,7 @@ async function loadAcademicRows(schoolId: string, academicYear: number): Promise
     });
   }
   return {
-    grades: grades.data ?? [], classes: classes.data ?? [], offerings: offerings.data ?? [],
+    grades: grades.data ?? [], classes: classes.data ?? [], rooms: rooms.data ?? [], offerings: offerings.data ?? [],
     allocations: allocations.data ?? [], groupAllocations: groupAllocations.error ? [] : (groupAllocations.data ?? []),
   } as AcademicRows;
 }
@@ -286,7 +288,7 @@ export async function getClassListWorkspace(input: {
 
   if (!selected) return {
     academicYear: input.academicYear, schoolName: input.membership.schoolName, canUseAllScope, canViewGuardianFields,
-    effectiveScope, options: scoped.options, configuration, title: "Class list", grade: "—", className: "—", registerTeacherName: null, learners: [],
+    effectiveScope, options: scoped.options, configuration, title: "Class list", grade: "—", className: "—", registerTeacherName: null, roomName: null, responsibleTeacherName: null, learners: [],
   };
 
   const supabase = await createSupabaseServerClient();
@@ -294,6 +296,7 @@ export async function getClassListWorkspace(input: {
   let allowedClassIds = scoped.scopedClassIds;
   let grade = "Multiple grades";
   let className = "Multiple classes";
+  let subjectTeacherId: string | null = null;
 
   if (configuration.rosterType === "register_class") {
     allowedClassIds = new Set([selected.id]);
@@ -309,13 +312,31 @@ export async function getClassListWorkspace(input: {
     if (configuration.rosterType === "field_group") offeringIds = [selected.id];
     if (configuration.rosterType === "teacher_subject") {
       const allocation = scoped.scopedAllocations.find((item) => item.id === selected.id);
-      if (allocation) { offeringIds = [allocation.subject_offering_id]; allowedClassIds = new Set([allocation.register_class_id]); }
+      if (allocation) {
+        offeringIds = [allocation.subject_offering_id];
+        allowedClassIds = new Set([allocation.register_class_id]);
+        subjectTeacherId = allocation.staff_member_id;
+      }
     }
     if (configuration.rosterType === "teaching_group") {
       const members = await resolveTeachingGroupMembers(selected.id, getNamibiaDateKey());
       enrolmentIds = members.map((item) => item.enrolmentId);
       const group = groups.find((item) => item.id === selected.id);
       if (group) offeringIds = [group.subjectOfferingId];
+      const today = getNamibiaDateKey();
+      const groupAllocationIds = new Set(academicRows.groupAllocations
+        .filter((link) => link.teaching_group_id === selected.id && effectiveOn(today, link.effective_from, link.effective_to))
+        .map((link) => link.teacher_allocation_id));
+      const groupTeacherIds = Array.from(new Set(scoped.scopedAllocations
+        .filter((allocation) => groupAllocationIds.has(allocation.id))
+        .map((allocation) => allocation.staff_member_id)));
+      if (groupTeacherIds.length === 1) subjectTeacherId = groupTeacherIds[0];
+    }
+    if (!subjectTeacherId && ["subject", "field_group"].includes(configuration.rosterType) && offeringIds.length) {
+      const candidateTeacherIds = Array.from(new Set(scoped.scopedAllocations
+        .filter((allocation) => offeringIds.includes(allocation.subject_offering_id) && allowedClassIds.has(allocation.register_class_id))
+        .map((allocation) => allocation.staff_member_id)));
+      if (candidateTeacherIds.length === 1) subjectTeacherId = candidateTeacherIds[0];
     }
     if (enrolmentIds === null) {
       const registrations = offeringIds.length
@@ -352,16 +373,27 @@ export async function getClassListWorkspace(input: {
   learners = await hydrateGuardianColumns(learners, canViewGuardianFields && configuration.columns.some((column) => guardianColumns.has(column)));
 
   let registerTeacherName: string | null = null;
+  let responsibleTeacherName: string | null = null;
   const singleClassId = allowedClassIds.size === 1 ? [...allowedClassIds][0] : null;
-  const teacherId = singleClassId ? scoped.classById.get(singleClassId)?.register_teacher_staff_id : null;
-  if (teacherId) {
-    const staff = await supabase.from("staff_members").select("first_name,last_name,initials").eq("id", teacherId).maybeSingle();
-    if (!staff.error) registerTeacherName = displayStaffName(staff.data);
+  const singleClass = singleClassId ? scoped.classById.get(singleClassId) : null;
+  const registerTeacherId = singleClass?.register_teacher_staff_id ?? null;
+  const room = singleClass?.home_room_id ? academicRows.rooms.find((item) => item.id === singleClass.home_room_id) : null;
+  const roomName = room ? (room.room_code || room.display_name) : null;
+  const teacherIds = Array.from(new Set([registerTeacherId, subjectTeacherId].filter((value): value is string => Boolean(value))));
+  if (teacherIds.length) {
+    const staff = await supabase.from("staff_members").select("id,first_name,last_name,initials").in("id", teacherIds);
+    if (!staff.error) {
+      const names = new Map((staff.data ?? []).map((item) => [item.id, displayStaffName(item)]));
+      registerTeacherName = registerTeacherId ? names.get(registerTeacherId) ?? null : null;
+      responsibleTeacherName = subjectTeacherId
+        ? names.get(subjectTeacherId) ?? null
+        : registerTeacherName;
+    }
   }
 
   return {
     academicYear: input.academicYear, schoolName: input.membership.schoolName, canUseAllScope, canViewGuardianFields,
-    effectiveScope, options: scoped.options, configuration, title: selected.label, grade, className, registerTeacherName, learners,
+    effectiveScope, options: scoped.options, configuration, title: selected.label, grade, className, registerTeacherName, roomName, responsibleTeacherName, learners,
   };
 }
 

@@ -63,6 +63,8 @@ export type ClassListWorkspaceData = {
   grade: string;
   className: string;
   registerTeacherName: string | null;
+  roomName: string | null;
+  responsibleTeacherName: string | null;
   learners: ClassListLearnerRow[];
 };
 
