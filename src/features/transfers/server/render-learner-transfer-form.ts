@@ -130,7 +130,6 @@ export function renderOfficialLearnerTransferFormHtml(input:{
 <div class="center republic">REPUBLIC OF NAMIBIA</div>
 <div class="center ministry">MINISTRY OF BASIC EDUCATION AND CULTURE</div>
 <div class="center title">TRANSFER FORM FOR LEARNER (USE ONE FORM FOR EACH LEARNER)</div>
-<div class="source-school">Issuing school: ${escapeHtml(f.source.schoolName)}${f.source.schoolEmisNumber?` · EMIS ${escapeHtml(f.source.schoolEmisNumber)}`:""}</div>
 <div class="fields">
 ${line("1. Name and address of new school:",f.source.newSchool,"tall")}
 ${line("2. Full names and surname of learner:",f.source.learnerName)}
@@ -148,7 +147,7 @@ ${line("11. The following documents are attached",f.verified.documentsAttached,"
 <div class="declaration">12. I hereby declare that this document has been completed without any changes.</div>
 <div class="signature-row"><div class="stamp">SCHOOL STAMP</div><div class="principal"><div class="principal-line">PRINCIPAL</div></div></div>
 </div>
-<div class="meta"><span>${escapeHtml(input.reference)}</span><span>${escapeHtml(input.verificationPath)}</span></div>
+<div class="meta"><span>Issued by ${escapeHtml(f.source.schoolName)} · ${escapeHtml(input.reference)}</span><span>${escapeHtml(input.verificationPath)}</span></div>
 </section>
 <section class="page instructions">
 <h1>INSTRUCTIONS FOR COMPLETION OF TRANSFER FORMS</h1>
@@ -193,8 +192,7 @@ export async function renderOfficialLearnerTransferFormPdf(input:{
   centered(page,bold,"REPUBLIC OF NAMIBIA",9.5,PAGE_HEIGHT-105);
   centered(page,bold,"MINISTRY OF BASIC EDUCATION AND CULTURE",13,PAGE_HEIGHT-128);
   centered(page,bold,"TRANSFER FORM FOR LEARNER (USE ONE FORM FOR EACH LEARNER)",11.5,PAGE_HEIGHT-146);
-  centered(page,regular,`Issuing school: ${input.form.source.schoolName}${input.form.source.schoolEmisNumber?` · EMIS ${input.form.source.schoolEmisNumber}`:""}`,6.6,PAGE_HEIGHT-160);
-  let y=PAGE_HEIGHT-188;
+  let y=PAGE_HEIGHT-178;
   const f=input.form;
   y=field(page,regular,bold,"1.  Name and address of new school:",f.source.newSchool,y,34);
   y=field(page,regular,bold,"2.  Full names and surname of learner:",f.source.learnerName,y,25);
@@ -214,7 +212,7 @@ export async function renderOfficialLearnerTransferFormPdf(input:{
   page.drawText("SCHOOL STAMP",{x:M+45,y:stampY+10,size:8.2,font:bold,color:INK});
   page.drawLine({start:{x:PAGE_WIDTH-M-190,y:stampY+18},end:{x:PAGE_WIDTH-M,y:stampY+18},thickness:.6,color:INK});
   page.drawText("PRINCIPAL",{x:PAGE_WIDTH-M-118,y:stampY+5,size:8,font:regular,color:INK});
-  page.drawText(officialDocumentPdfSafeText(input.reference),{x:M,y:26,size:5.8,font:regular,color:LINE});
+  page.drawText(officialDocumentPdfSafeText(`Issued by ${f.source.schoolName} · ${input.reference}`),{x:M,y:26,size:5.8,font:regular,color:LINE});
   page.drawText(officialDocumentPdfSafeText(input.verificationPath),{x:PAGE_WIDTH-M-160,y:26,size:5.8,font:regular,color:LINE});
 
   const p2=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]);
