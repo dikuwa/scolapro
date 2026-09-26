@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Archive,
@@ -11,6 +12,7 @@ import {
   FileUp,
   FolderOpen,
   Info,
+  LibraryBig,
   ListChecks,
   Paperclip,
   Printer,
@@ -76,6 +78,16 @@ type PreparationRecord = {
   reviewNote: string | null;
 };
 
+type AuthoritativeResource = {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  sourceModule: string;
+  availability: "available" | "no_allocation";
+  exportNote: string | null;
+};
+
 type ProfessionalDocument = {
   id: string;
   originalFilename: string;
@@ -104,6 +116,7 @@ export type TeachingFilesHubProps = {
   officialDocuments: OfficialDocument[];
   preparationRecords: PreparationRecord[];
   professionalDocuments: ProfessionalDocument[];
+  authoritativeResources: AuthoritativeResource[];
   taxonomySourced?: boolean;
   ownerSchoolId: string | null;
   ownerStaffMemberId: string | null;
@@ -170,6 +183,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
     officialDocuments,
     preparationRecords,
     professionalDocuments,
+    authoritativeResources,
     academicYear,
     taxonomySourced = false,
     ownerSchoolId,
@@ -204,8 +218,19 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
 
   const normalized = query.trim().toLocaleLowerCase();
 
+  const visibleAuthoritativeResources = useMemo(() => {
+    if (itemType === "professional" || itemType === "official" || itemType === "records" || allocationId) return [];
+    return authoritativeResources.filter((resource) => {
+      if (!normalized) return true;
+      return [resource.title, resource.description, resource.sourceModule]
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(normalized);
+    });
+  }, [allocationId, authoritativeResources, itemType, normalized]);
+
   const visibleProfessionalDocuments = useMemo(() => {
-    if (itemType === "official" || itemType === "records" || allocationId) return [];
+    if (itemType === "authoritative" || itemType === "official" || itemType === "records" || allocationId) return [];
     return professionalDocuments.filter((document) => {
       if (!normalized) return true;
       return [
@@ -218,7 +243,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
   }, [allocationId, itemType, normalized, professionalDocuments]);
 
   const visibleDocuments = useMemo(() => {
-    if (itemType === "professional" || itemType === "records") return [];
+    if (itemType === "authoritative" || itemType === "professional" || itemType === "records") return [];
     return officialDocuments.filter((document) => {
       if (allocationId) {
         const selected = allocationById.get(allocationId);
@@ -236,7 +261,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
   }, [allocationId, allocationById, itemType, normalized, officialDocuments]);
 
   const visibleRecords = useMemo(() => {
-    if (itemType === "professional" || itemType === "official") return [];
+    if (itemType === "authoritative" || itemType === "professional" || itemType === "official") return [];
     return preparationRecords.filter((record) => {
       if (!scopedAllocationIds.has(record.allocationId)) return false;
       if (allocationId && record.allocationId !== allocationId) return false;
@@ -460,7 +485,8 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         <p className="scolapro-section-description">
           Teacher-owned uploads, official outputs and connected teaching records stay in their governed source models. Uploaded categories are neutral personal labels, not an official Ministry/NIED table of contents.
         </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Stat label="Authoritative links" value={authoritativeResources.length} icon={LibraryBig} />
           <Stat label="My uploads" value={professionalDocuments.length} icon={FileUp} />
           <Stat label="My allocations" value={allocations.length} icon={FolderOpen} />
           <Stat label="Official documents" value={officialDocuments.length} icon={ShieldCheck} />
@@ -494,7 +520,8 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
             value={itemType}
             onChange={setItemType}
             options={[
-              { value: "", label: "All teaching files" },
+              { value: "", label: "All professional-file resources" },
+              { value: "authoritative", label: "Authoritative ScolaPro records" },
               { value: "professional", label: "My uploads only" },
               { value: "official", label: "Official documents only" },
               { value: "records", label: "Teaching records only" },
@@ -517,13 +544,45 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         </div>
       </section>
 
+      {visibleAuthoritativeResources.length ? (
+        <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div className="flex items-center gap-2">
+            <LibraryBig className="size-4 text-brand-strong" aria-hidden="true" />
+            <h2 className="scolapro-section-title">Authoritative ScolaPro records</h2>
+          </div>
+          <p className="scolapro-section-description">
+            These are live links to the records you already maintain in ScolaPro. Opening one takes you to its source module; this hub never copies system records into your uploaded-document store.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {visibleAuthoritativeResources.map((resource) => (
+              <article key={resource.id} className="flex min-h-40 flex-col rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted/55 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">{resource.title}</p>
+                    <p className="mt-1 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">{resource.sourceModule}</p>
+                  </div>
+                  <span className="rounded-[var(--radius-xs)] bg-surface px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {resource.availability === "available" ? "Linked" : "No allocation"}
+                  </span>
+                </div>
+                <p className="mt-3 flex-1 text-xs leading-5 text-muted-foreground">{resource.description}</p>
+                {resource.exportNote ? <p className="mt-2 text-[0.68rem] text-muted-foreground">{resource.exportNote}</p> : null}
+                <Link href={resource.href} className="mt-4 inline-flex min-h-9 items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium hover:bg-surface-elevated">
+                  Open source module <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                </Link>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex items-center gap-2">
           <FileUp className="size-4 text-brand-strong" aria-hidden="true" />
           <h2 className="scolapro-section-title">My uploaded professional documents</h2>
         </div>
         <p className="scolapro-section-description">
-          Private teacher-owned files. Only your current teacher identity can list or open these records; leadership review is not granted by this foundation.
+          Private teacher-owned evidence and resources. Uploads stay in your owner-scoped private document store and are separate from the authoritative ScolaPro records linked above.
         </p>
 
         {canUploadProfessionalDocuments && ownerSchoolId && ownerStaffMemberId ? (
