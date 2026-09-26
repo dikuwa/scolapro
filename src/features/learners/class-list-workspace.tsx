@@ -97,6 +97,12 @@ export function ClassListWorkspace({ data }: { data: ClassListWorkspaceData }) {
     startTransition(() => router.push(`/class-lists?${params.toString()}`, { scroll: false }));
   }
 
+  function clearRecents() {
+    localStorage.removeItem(RECENTS_KEY);
+    setRecents([]);
+    toast.success("Recent class lists cleared.");
+  }
+
   function savePreset() {
     const name = presetName.trim();
     if (!name) { toast.error("Enter a preset name first."); return; }
@@ -144,7 +150,10 @@ export function ClassListWorkspace({ data }: { data: ClassListWorkspaceData }) {
         </div>
         {presets.length || recents.length ? <div className="mt-4 grid gap-4 border-t border-border-subtle pt-4 md:grid-cols-2">
           <div><h3 className="text-xs font-semibold">Saved presets</h3><div className="mt-2 flex flex-wrap gap-2">{presets.length ? presets.map((item) => <button key={item.id} type="button" onClick={() => applyStored(item)} className="rounded-[var(--radius-xs)] bg-brand-soft px-2.5 py-1.5 text-xs font-medium text-brand-strong">{item.name}</button>) : <span className="text-xs text-muted-foreground">No saved presets.</span>}</div></div>
-          <div><h3 className="text-xs font-semibold">Recent lists</h3><div className="mt-2 flex flex-wrap gap-2">{recents.length ? recents.map((item) => <button key={item.id} type="button" onClick={() => applyStored(item)} className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-xs font-medium">{item.name}</button>) : <span className="text-xs text-muted-foreground">No recent lists.</span>}</div></div>
+          <div>
+            <div className="flex items-center justify-between gap-3"><h3 className="text-xs font-semibold">Recent lists</h3>{recents.length ? <button type="button" onClick={clearRecents} className="text-xs font-medium text-muted-foreground hover:text-foreground">Clear</button> : null}</div>
+            <div className="mt-2 flex flex-wrap gap-2">{recents.length ? recents.map((item) => <button key={item.id} type="button" onClick={() => applyStored(item)} className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-xs font-medium">{item.name}</button>) : <span className="text-xs text-muted-foreground">No recent lists.</span>}</div>
+          </div>
         </div> : null}
         <button type="button" disabled={!configuration.rosterId || pending} onClick={() => preview()} className="scolapro-cta mt-4 inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white disabled:opacity-50">{pending ? <Spinner className="size-4 text-white" /> : <Search className="size-4" aria-hidden="true" />}{pending ? "Preparing preview…" : "Preview"}</button>
       </section>
@@ -159,7 +168,12 @@ export function ClassListWorkspace({ data }: { data: ClassListWorkspaceData }) {
           </div>
         </div>
         {data.learners.length ? <div className="max-h-[60vh] overflow-auto overscroll-contain">
-          <table className="min-w-full border-collapse text-left text-xs"><thead className="sticky top-0 z-10 bg-surface-muted"><tr>{previewColumns.map((column) => <th key={column.key} className="whitespace-nowrap border-b border-border-subtle px-3 py-2.5 font-semibold">{column.label || "Blank"}</th>)}</tr></thead><tbody className="divide-y divide-border-subtle">{data.learners.map((learner, index) => <tr key={learner.learnerId} className="hover:bg-surface-muted/55">{previewColumns.map((column) => <td key={column.key} className={`px-3 py-2.5 ${column.key === "learner" ? "min-w-48 font-medium" : "min-w-24 text-muted-foreground"}`}>{column.value(learner, index) || <span aria-label="Blank column">&nbsp;</span>}</td>)}</tr>)}</tbody></table>
+          <table className="w-max min-w-0 table-auto border-collapse text-left text-xs">
+            <thead className="sticky top-0 z-10 bg-surface-muted">
+              <tr>{previewColumns.map((column) => <th key={column.key} className={`whitespace-nowrap border border-border-subtle px-2.5 py-2 font-semibold ${column.key.startsWith("blank-") ? "min-w-28" : ""}`}>{column.label || "Blank"}</th>)}</tr>
+            </thead>
+            <tbody>{data.learners.map((learner, index) => <tr key={learner.learnerId} className="hover:bg-surface-muted/55">{previewColumns.map((column) => <td key={column.key} className={`whitespace-nowrap border border-border-subtle px-2.5 py-2 ${column.key === "learner" ? "font-medium" : "text-muted-foreground"} ${column.key.startsWith("blank-") ? "min-w-28" : ""}`}>{column.value(learner, index) || <span aria-label="Blank column">&nbsp;</span>}</td>)}</tr>)}</tbody>
+          </table>
         </div> : <div className="px-5 py-12 text-center"><UsersRound className="mx-auto size-5 text-muted-foreground" /><h3 className="mt-2 text-sm font-semibold">No learners in this roster</h3><p className="mt-1 text-xs text-muted-foreground">Choose another active roster or verify its current memberships.</p></div>}
       </section>
     </div>
