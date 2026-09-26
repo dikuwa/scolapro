@@ -123,6 +123,16 @@ export type TeachingFileProfessionalDocument = {
   permanentDeleteBlockedReason: string | null;
 };
 
+export type TeachingFileAuthoritativeResource = {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  sourceModule: string;
+  availability: "available" | "no_allocation";
+  exportNote: string | null;
+};
+
 export type TeachingFilesHub = {
   today: string;
   academicYear: number;
@@ -130,6 +140,7 @@ export type TeachingFilesHub = {
   officialDocuments: TeachingFileOfficialDocument[];
   preparationRecords: TeachingFilePreparationRecord[];
   professionalDocuments: TeachingFileProfessionalDocument[];
+  authoritativeResources: TeachingFileAuthoritativeResource[];
 };
 
 function officialClassListHref(grade: string, registerClass: string, academicYear: number, format: "html" | "pdf"): string {
@@ -154,6 +165,7 @@ export async function getTeachingFilesHub(input: {
     officialDocuments: [],
     preparationRecords: [],
     professionalDocuments: [],
+    authoritativeResources: [],
   };
 
   // A membership without a governed staff identity owns no teaching allocation,
@@ -215,7 +227,82 @@ export async function getTeachingFilesHub(input: {
     });
   }
 
-  const allocationIds = allocations.map((allocation) => allocation.allocationId);
+  const authoritativeResources: TeachingFileAuthoritativeResource[] = [
+    {
+      id: "timetable",
+      title: "Timetable",
+      description: "Open the current timetable and governed subject/class allocation schedule.",
+      href: "/timetable",
+      sourceModule: "Timetable",
+      availability: allocations.length ? "available" : "no_allocation",
+      exportNote: null,
+    },
+    {
+      id: "syllabus",
+      title: "Syllabus",
+      description: "Open the curriculum registry for your allocated subjects. The syllabus stays authoritative in its source module.",
+      href: "/teaching/curriculum",
+      sourceModule: "Curriculum registry",
+      availability: allocations.length ? "available" : "no_allocation",
+      exportNote: null,
+    },
+    {
+      id: "year-planner",
+      title: "Year Planner",
+      description: "Open the connected teaching-plan workspace. Year Planner data remains part of the canonical teaching plan.",
+      href: "/teaching/planning",
+      sourceModule: "Teaching planning",
+      availability: allocations.length ? "available" : "no_allocation",
+      exportNote: null,
+    },
+    {
+      id: "scheme",
+      title: "Scheme of Work",
+      description: "Open the same canonical teaching-plan source used for Scheme of Work; no duplicate professional-file copy is created.",
+      href: "/teaching/planning",
+      sourceModule: "Teaching planning",
+      availability: allocations.length ? "available" : "no_allocation",
+      exportNote: null,
+    },
+    {
+      id: "preparations",
+      title: "Lesson Preparations",
+      description: "Open your objective-driven lesson preparations and their governed review state.",
+      href: "/teaching/preparation",
+      sourceModule: "Lesson preparation",
+      availability: allocations.length ? "available" : "no_allocation",
+      exportNote: "Print/PDF follows the existing teaching document path where available.",
+    },
+    {
+      id: "class-lists",
+      title: "Class Lists",
+      description: "Open governed class and teaching-group rosters from the learner source records.",
+      href: "/class-lists",
+      sourceModule: "Class Lists",
+      availability: allocations.length ? "available" : "no_allocation",
+      exportNote: "The source module supports print, PDF and Excel export.",
+    },
+    {
+      id: "assessment",
+      title: "Assessment Records",
+      description: "Open current assessment instances, mark-entry history and governed review/finality states.",
+      href: "/assessment/marks",
+      sourceModule: "Assessment",
+      availability: allocations.length ? "available" : "no_allocation",
+      exportNote: null,
+    },
+    {
+      id: "calendar",
+      title: "Calendar & Reference Dates",
+      description: "Open the governed school academic year, terms and teaching-impact calendar.",
+      href: "/calendar",
+      sourceModule: "School calendar",
+      availability: "available",
+      exportNote: null,
+    },
+  ];
+
+    const allocationIds = allocations.map((allocation) => allocation.allocationId);
 
   // Lesson preparations are reached through the canonical schedule chain; they
   // remain structured teaching records and are never presented as stored files.
@@ -324,5 +411,6 @@ export async function getTeachingFilesHub(input: {
     ),
     preparationRecords,
     professionalDocuments,
+    authoritativeResources,
   };
 }
