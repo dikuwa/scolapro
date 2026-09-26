@@ -28,6 +28,9 @@ export type MarkGridData = {
   rawMax: number | null;
   status: string;
   editable: boolean;
+  canReview: boolean;
+  canReopen: boolean;
+  latestSubmissionId: string | null;
   rows: MarkGridRow[];
 };
 
@@ -72,12 +75,20 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
   ]);
 
   const enrolmentIds=(enrolments ?? []).map((row)=>row.id);
-  const { data: marks } = enrolmentIds.length
-    ? await db.from("learner_marks_current")
+  const [{ data: marks }, { data: latestSubmission }] = await Promise.all([
+    enrolmentIds.length
+    ? db.from("learner_marks_current")
         .select("id,enrolment_id,numeric_mark,mark_status,teacher_note")
         .eq("assessment_instance_id",instance.id)
         .in("enrolment_id",enrolmentIds)
-    : { data: [] };
+    : Promise.resolve({ data: [] }),
+    db.from("mark_submissions")
+      .select("id,status")
+      .eq("assessment_instance_id",instance.id)
+      .order("submitted_at",{ascending:false})
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   const learnerMap=new Map((learners ?? []).map((row)=>[row.id,row]));
   const markMap=new Map((marks ?? []).map((row)=>[row.enrolment_id,row]));
@@ -127,6 +138,9 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
     rawMax: instance.raw_max == null ? (component?.raw_max == null ? null : Number(component.raw_max)) : Number(instance.raw_max),
     status: instance.status,
     editable: ["open","returned"].includes(instance.status),
+    canReview: ["school_admin","principal","deputy_principal","hod"].includes(membership.roleKey),
+    canReopen: ["school_admin","principal","deputy_principal","hod"].includes(membership.roleKey),
+    latestSubmissionId: latestSubmission?.id ?? null,
     rows,
   };
 }
