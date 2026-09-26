@@ -3,6 +3,7 @@ import "server-only";
 import {
   OFFICIAL_DOCUMENT_A4_PAGE_RULE,
   OFFICIAL_DOCUMENT_METADATA_RULE,
+  OFFICIAL_DOCUMENT_PRINT_RULE,
 } from "@/features/documents/server/official-document-chrome";
 import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
 import { escapeOfficialDocumentHtml } from "@/features/documents/server/official-document-html-header";
@@ -100,6 +101,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   @media print {
     body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     .report { padding: 0; }
+    ${OFFICIAL_DOCUMENT_PRINT_RULE}
     .class-document { break-inside: auto; }
     .class-list-header, thead, tr, .document-meta { break-inside: avoid; page-break-inside: avoid; }
   }
