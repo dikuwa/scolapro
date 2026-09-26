@@ -60,9 +60,11 @@ export function classListColumnPercentages(columns: OfficialClassListColumn[]) {
 
 
 export function classListDocumentName(registerClass: string, rosterTitle?: string | null): string {
-  const preferred = registerClass && registerClass !== "—" && registerClass !== "Multiple classes"
-    ? registerClass
-    : rosterTitle?.trim() || "Class";
+  const classValue = registerClass?.trim() ?? "";
+  const rosterValue = rosterTitle?.trim() ?? "";
+  const usableClass = classValue && classValue !== "—" && classValue !== "Multiple classes";
+  const rosterIsSameClass = rosterValue && usableClass && rosterValue.localeCompare(classValue, undefined, { sensitivity: "base" }) === 0;
+  const preferred = rosterValue && !rosterIsSameClass ? rosterValue : usableClass ? classValue : rosterValue || "Class";
   const concise = preferred.replace(/^Grade\s+/i, "").trim();
   return `${concise || "Class"} Classlist`;
 }
