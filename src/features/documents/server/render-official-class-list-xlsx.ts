@@ -206,7 +206,7 @@ export function renderClassListXlsx(
   input: ClassListWorkspaceData,
   header: OfficialDocumentHeaderModel,
   logoBytes: Uint8Array | null,
-): Buffer {
+): ArrayBuffer {
   const columns = buildOfficialClassListColumns(input.configuration.columns, input.configuration.blankColumns);
   const columnCount = Math.max(columns.length, 6);
   const metaStartColumn = Math.max(3, Math.floor(columnCount * 0.58));
@@ -253,5 +253,6 @@ export function renderClassListXlsx(
   XLSX.utils.book_append_sheet(workbook, worksheet, "Class List");
   workbook.Props = { Title: input.title + " class list", Subject: "ScolaPro class list", Author: input.schoolName };
   const baseBytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
-  return embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, columns.length, metaStartColumn);
+  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, columns.length, metaStartColumn);
+  return rendered.buffer.slice(rendered.byteOffset, rendered.byteOffset + rendered.byteLength) as ArrayBuffer;
 }
