@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReviewQueue } from "@/features/teaching/components/review-queue";
 import { ProfessionalFileReviewQueue } from "@/features/teaching/components/professional-file-review-queue";
-import { ReviewPolicyPanel } from "@/features/teaching/components/review-policy-panel";
 import { PreparationReviewPolicyCard } from "@/features/teaching/components/preparation-review-policy-card";
 import { getPreparationReviewPolicy, getReviewQueue, resolveReviewScope } from "@/features/teaching/server/review-queries";
 import { getProfessionalFileReviewQueue } from "@/features/teaching/server/professional-file-review";
@@ -63,7 +62,6 @@ export default async function ReviewsPage() {
 
         {reviewPolicy ? <div className="mb-5"><PreparationReviewPolicyCard policy={reviewPolicy} /></div> : null}
 
-        {reviewPolicy ? <ReviewPolicyPanel policy={reviewPolicy} /> : null}
 
         {readiness.state === "ok" && readiness.exceptions.length > 0 ? (
           <section className="mb-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
