@@ -119,9 +119,10 @@ async function upsertRows(client, table, rows) {
   if (!rows.length) return;
   const onConflict = primaryKeys.get(table) ?? "id";
   const protectedColumns = protectedIdentityColumns.get(table);
+  const chunkSize = protectedColumns ? 40 : 250;
 
-  for (let start = 0; start < rows.length; start += 250) {
-    const chunk = rows.slice(start, start + 250).map((row) => rewriteActorIds(table, row));
+  for (let start = 0; start < rows.length; start += chunkSize) {
+    const chunk = rows.slice(start, start + chunkSize).map((row) => rewriteActorIds(table, row));
 
     if (!protectedColumns || onConflict !== "id") {
       const result = await client.from(table).upsert(chunk, { onConflict });
