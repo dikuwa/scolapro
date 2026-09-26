@@ -58,6 +58,7 @@ export type LearnerTransferFormSource = {
 export type LearnerTransferFormDraft = {
   id: string;
   reasonForDeparture: string;
+  mediumOfInstruction: string;
   documentsAttached: string;
   behaviourSummary: string;
   healthSummary: string;
@@ -153,7 +154,7 @@ export async function getLearnerTransferFormWorkspace(
     supabase.rpc("get_learner_transfer_form_source", { p_transfer_event_id: transferEventId }),
     supabase
       .from("learner_transfer_form_drafts")
-      .select("id,reason_for_departure,documents_attached,behaviour_summary,health_summary,other_relevant_information,verification_note,updated_at")
+      .select("id,reason_for_departure,medium_of_instruction,documents_attached,behaviour_summary,health_summary,other_relevant_information,verification_note,updated_at")
       .eq("transfer_event_id", transferEventId)
       .maybeSingle(),
     supabase.rpc("get_learner_transfer_form_finalization", { p_transfer_event_id: transferEventId }),
@@ -174,6 +175,7 @@ export async function getLearnerTransferFormWorkspace(
       ? {
           id: String(draftRow.id),
           reasonForDeparture: draftRow.reason_for_departure ?? "",
+          mediumOfInstruction: draftRow.medium_of_instruction ?? "",
           documentsAttached: draftRow.documents_attached ?? "",
           behaviourSummary: draftRow.behaviour_summary ?? "",
           healthSummary: draftRow.health_summary ?? "",
