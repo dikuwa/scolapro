@@ -10,7 +10,7 @@ import {
   syncQueuedAssessmentMarkDrafts,
 } from "@/features/assessment/offline/marks-draft-queue";
 import type { MarkGridData, MarkGridRow } from "./server/mark-grid";
-import { submitMarkGrid, validateMarkGrid, type MarkGridActionState } from "./server/mark-grid-actions";
+import { reopenMarkGridForCorrection, reviewMarkGrid, submitMarkGrid, validateMarkGrid, type MarkGridActionState } from "./server/mark-grid-actions";
 
 type RowDraft=MarkGridRow & {
   draftMark:string;
@@ -44,6 +44,8 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
   const [message,setMessage]=useState("");
   const [validateState,validateAction,validatePending]=useActionState(validateMarkGrid,initialActionState);
   const [submitState,submitAction,submitPending]=useActionState(submitMarkGrid,initialActionState);
+  const [reviewState,reviewAction,reviewPending]=useActionState(reviewMarkGrid,initialActionState);
+  const [reopenState,reopenAction,reopenPending]=useActionState(reopenMarkGridForCorrection,initialActionState);
   const inputRefs=useRef<Record<string,HTMLInputElement|null>>({});
   const scope={userId:data.userId,tenantId:data.tenantId,schoolId:data.schoolId};
 
@@ -183,6 +185,30 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
       {validateState.message ? <p className={`mt-3 text-xs ${validateState.success ? "text-success" : "text-muted-foreground"}`}>{validateState.message}</p> : null}
       {submitState.message ? <p className={`mt-2 text-xs ${submitState.success ? "text-success" : "text-danger"}`}>{submitState.message}</p> : null}
     </section>
+
+    {data.status==="review" && data.canReview && data.latestSubmissionId ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <h2 className="scolapro-section-title">HOD / leadership review</h2>
+      <p className="scolapro-section-description">Verify the submitted marks or return them with a reason. HOD authority is limited to the effective subject portfolio.</p>
+      <form action={reviewAction} className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+        <input type="hidden" name="instanceId" value={data.instanceId}/>
+        <input type="hidden" name="submissionId" value={data.latestSubmissionId}/>
+        <label className="text-xs font-medium">Review note<input name="note" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand-soft" placeholder="Required when returning"/></label>
+        <Button type="submit" name="decision" value="return" variant="neutral" loading={reviewPending}>Return</Button>
+        <Button type="submit" name="decision" value="verify" loading={reviewPending}>Verify</Button>
+      </form>
+      {reviewState.message ? <p className={`mt-3 text-xs ${reviewState.success ? "text-success" : "text-danger"}`}>{reviewState.message}</p> : null}
+    </section> : null}
+
+    {["verified","locked"].includes(data.status) && data.canReopen ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <h2 className="scolapro-section-title">Governed correction</h2>
+      <p className="scolapro-section-description">Reopening requires a reason and is blocked once immutable official results exist.</p>
+      <form action={reopenAction} className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <input type="hidden" name="instanceId" value={data.instanceId}/>
+        <label className="text-xs font-medium">Correction reason<input name="reason" required className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand-soft" placeholder="Why must these marks be corrected?"/></label>
+        <Button type="submit" variant="neutral" loading={reopenPending}>Reopen for correction</Button>
+      </form>
+      {reopenState.message ? <p className={`mt-3 text-xs ${reopenState.success ? "text-success" : "text-danger"}`}>{reopenState.message}</p> : null}
+    </section> : null}
 
     <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
       <div className="flex flex-col gap-3 border-b border-border-subtle p-4 sm:flex-row sm:items-end sm:justify-between">
