@@ -51,11 +51,15 @@ test("preview, print, PDF and real XLSX share one normalized configuration", () 
   assert.doesNotMatch(route, /text\/csv|\.csv/);
 });
 
-test("official documents use content-aware columns and safe multi-page rows", () => {
-  assert.match(html, /classListColumnPercentages/);
+test("official documents use content-fit portrait columns and safe multi-page rows", () => {
+  assert.match(html, /width: auto; max-width: 100%; border-collapse: collapse; table-layout: auto/);
+  assert.match(html, /data-column="admissionNumber"/);
   assert.match(html, /table-header-group/);
   assert.match(html, /page-break-inside: avoid/);
-  assert.match(pdf, /totalWeight/);
+  assert.match(pdf, /preferredColumnWidth/);
+  assert.match(pdf, /fitColumnWidths/);
+  assert.match(pdf, /tableWidth/);
+  assert.match(pdf, /layout: "compact_left"/);
   assert.match(pdf, /rowsPerPage/);
   assert.match(pdf, /drawTableHeader/);
 });
@@ -125,4 +129,22 @@ test("official class-list columns place admission before learner and abbreviate 
   assert.ok(document.indexOf('optionalColumn("admissionNumber")') < document.indexOf('key: "learner"'));
   assert.match(document, /normalized === "male" \|\| normalized === "m"\) return "M"/);
   assert.match(document, /normalized === "female" \|\| normalized === "f"\) return "F"/);
+});
+
+
+test("class-list exports carry bundled PDF branding and compact Excel document structure", () => {
+  const routeSource = source("src/app/api/official-documents/class-list/route.ts");
+  const profileSource = source("src/features/documents/server/school-document-profile.ts");
+  const pdfHeader = source("src/features/documents/server/official-document-pdf-header.ts");
+  assert.match(profileSource, /\/brand\/schools\/namib-high\/crest\.png/);
+  assert.match(routeSource, /loadClassListLogoBytes/);
+  assert.match(routeSource, /readFile\(join\(process\.cwd\(\), "public"/);
+  assert.match(routeSource, /xlsxBytes\(workspace, header\)/);
+  assert.match(routeSource, /header\.schoolName/);
+  assert.match(routeSource, /header\.postalLines\.join/);
+  assert.match(routeSource, /font: \{ bold: true, sz: 10 \}/);
+  assert.match(routeSource, /orientation: "portrait"/);
+  assert.match(routeSource, /fitToWidth: 1/);
+  assert.match(pdfHeader, /compact_left/);
+  assert.match(pdfHeader, /const logoWidth = compactLeft \? 66 : LOGO_WIDTH/);
 });
