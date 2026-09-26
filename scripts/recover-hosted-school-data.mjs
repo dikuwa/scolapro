@@ -195,6 +195,86 @@ async function upsertRows(client, table, rows) {
   }
 }
 
+async function restoreLateDetentionObligations(client, rows) {
+  if (!rows.length) return;
+
+  for (const sourceRow of rows) {
+    const existingResult = await client.from("late_detention_obligations")
+      .select("id,status")
+      .eq("id", sourceRow.id)
+      .maybeSingle();
+    if (existingResult.error) {
+      throw new Error("Unable to inspect late_detention_obligations: " + existingResult.error.message);
+    }
+
+    const terminal = sourceRow.status === "completed" || sourceRow.status === "waived";
+    const existing = existingResult.data;
+
+    if (existing?.status === "completed" || existing?.status === "waived") {
+      if (existing.status !== sourceRow.status) {
+        throw new Error(
+          "Local late_detention_obligations terminal state differs from hosted for " + sourceRow.id +
+          ": hosted=" + sourceRow.status + ", local=" + existing.status + ".",
+        );
+      }
+      continue;
+    }
+
+    if (!terminal) {
+      await upsertRows(client, "late_detention_obligations", [sourceRow]);
+      continue;
+    }
+
+    if (!existing) {
+      const pendingPayload = rewriteActorIds("late_detention_obligations", sourceRow);
+      pendingPayload.status = "pending";
+      pendingPayload.completed_at = null;
+      pendingPayload.completed_by_user_id = null;
+      pendingPayload.resolution_note = null;
+      const insertResult = await client.from("late_detention_obligations").insert(pendingPayload);
+      if (insertResult.error) {
+        throw new Error("Unable to insert pending late_detention_obligations recovery row: " + insertResult.error.message);
+      }
+    }
+
+    const resolvedAt = sourceRow.status === "completed"
+      ? (sourceRow.completed_at ?? sourceRow.updated_at ?? sourceRow.created_at)
+      : null;
+    const resolveResult = await client.from("late_detention_obligations")
+      .update({
+        status: sourceRow.status,
+        completed_at: resolvedAt,
+        completed_by_user_id: localAdminUserId,
+        resolution_note: sourceRow.resolution_note ?? null,
+        updated_at: sourceRow.updated_at ?? resolvedAt ?? sourceRow.created_at,
+      })
+      .eq("id", sourceRow.id);
+    if (resolveResult.error) {
+      throw new Error("Unable to resolve late_detention_obligations recovery row: " + resolveResult.error.message);
+    }
+  }
+}
+
+async function deleteDemoRows(client) {
+  const identifiers = await client.from("school_learner_identifiers")
+    .delete()
+    .eq("school_id", expectedSchoolId)
+    .in("learner_id", demoLearnerIds);
+  if (identifiers.error) {
+    throw new Error("Unable to remove demo school learner identifiers: " + identifiers.error.message);
+  }
+
+  const enrolments = await client.from("enrolments").delete().in("id", demoEnrolmentIds);
+  if (enrolments.error) {
+    throw new Error("Unable to remove demo enrolments: " + enrolments.error.message);
+  }
+
+  const learners = await client.from("learners").delete().in("id", demoLearnerIds);
+  if (learners.error) {
+    throw new Error("Unable to remove demo learners: " + learners.error.message);
+  }
+}
+
 async function countRows(client, table) {
   const result = await client.from(table).select("*", { count: "exact", head: true });
   if (result.error) throw new Error("Unable to count " + table + ": " + result.error.message);
@@ -253,15 +333,18 @@ for (const table of optionalTables) {
   try {
     const rows = await fetchAll(source, table);
     sourceCounts.set(table, rows.length);
-    await upsertRows(target, table, rows);
+    if (table === "late_detention_obligations") {
+      await restoreLateDetentionObligations(target, rows);
+    } else {
+      await upsertRows(target, table, rows);
+    }
     console.log("restored " + table + ": " + rows.length);
   } catch (error) {
     console.warn("optional " + table + " skipped: " + (error instanceof Error ? error.message : String(error)));
   }
 }
 
-await target.from("enrolments").delete().in("id", demoEnrolmentIds);
-await target.from("learners").delete().in("id", demoLearnerIds);
+await deleteDemoRows(target);
 
 const verifyTables = ["staff_members","learners","enrolments","register_classes","school_rooms","subjects","teacher_allocations","guardian_profiles"];
 const verification = [];
@@ -269,7 +352,10 @@ for (const table of verifyTables) {
   const hosted = sourceCounts.get(table) ?? await countRows(source, table);
   const local = await countRows(target, table);
   verification.push({ table, hosted, local });
-  if (local < hosted) throw new Error("Recovery verification failed for " + table + ": hosted=" + hosted + ", local=" + local + ".");
+  const requiresExactMatch = table === "learners" || table === "enrolments";
+  if ((requiresExactMatch && local !== hosted) || (!requiresExactMatch && local < hosted)) {
+    throw new Error("Recovery verification failed for " + table + ": hosted=" + hosted + ", local=" + local + ".");
+  }
 }
 console.table(verification);
 console.log("Recovery complete. Restart pnpm dev, sign in as Local Admin, and verify Learners, Staff, Academic setup, Timetable, Class Lists and Room Inventory.");
