@@ -81,7 +81,7 @@ async function loadAcademicRows(schoolId: string, academicYear: number): Promise
   const [grades, classes, rooms, offerings, allocations, groupAllocations] = await Promise.all([
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name").order("id"),
     supabase.from("register_classes").select("id,grade_id,display_name,register_teacher_staff_id,home_room_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
-    supabase.from("school_rooms").select("id,room_code,display_name").eq("school_id", schoolId).eq("status", "active").order("display_name"),
+    supabase.from("school_rooms").select("id,room_code,display_name").eq("school_id", schoolId).order("display_name"),
     supabase.from("subject_offerings").select("id,grade_id,subject_id,subjects(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,active_from,active_to").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("teaching_group_allocations").select("teaching_group_id,teacher_allocation_id,effective_from,effective_to").eq("school_id", schoolId).eq("academic_year", academicYear),
