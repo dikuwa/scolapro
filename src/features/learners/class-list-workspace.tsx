@@ -400,14 +400,25 @@ export function ClassListWorkspace({
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div><h2 className="scolapro-section-title">Choose details</h2><p className="scolapro-section-description">No. and Learner are fixed. Optional fields apply once to the complete batch.</p></div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <span className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">No. <LockKeyhole className="size-3 text-muted-foreground" aria-label="Fixed column" /></span>
-          <span className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">Learner <LockKeyhole className="size-3 text-muted-foreground" aria-label="Fixed column" /></span>
-          {configuration.columns.map((column) => (
-            <button key={column} type="button" onClick={() => patch({ columns: configuration.columns.filter((item) => item !== column) })} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-xs font-medium text-brand-strong">
-              {classListColumnLabels[column]} <X className="size-3" aria-hidden="true" />
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">No. <LockKeyhole className="size-3 text-muted-foreground" aria-label="Fixed column" /></span>
+            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-xs font-medium">Learner <LockKeyhole className="size-3 text-muted-foreground" aria-label="Fixed column" /></span>
+            {configuration.columns.map((column) => (
+              <button key={column} type="button" onClick={() => patch({ columns: configuration.columns.filter((item) => item !== column) })} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-xs font-medium text-brand-strong">
+                {classListColumnLabels[column]} <X className="size-3" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+          {configuration.columns.length ? (
+            <button
+              type="button"
+              onClick={() => patch({ columns: [] })}
+              className="shrink-0 pt-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+            >
+              Clear all
             </button>
-          ))}
+          ) : null}
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-[minmax(14rem,1fr)_12rem] md:items-end">
           <ColumnMultiSelect
