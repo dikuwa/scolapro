@@ -33,7 +33,7 @@ export default async function TeachingFilesPage() {
   const hub = await getTeachingFilesHub({
     schoolId: membership.schoolId,
     academicYear,
-    staffMemberId: membership.staffMemberId,
+    staffMemberId: ownerMembership?.staffMemberId ?? null,
   });
 
   return (
