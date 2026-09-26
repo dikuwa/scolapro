@@ -11,6 +11,8 @@ import {
   type OfflineAssessmentMarkDraftPayload,
 } from "./offline/marks-draft-queue";
 import {
+  reopenAssessmentForCorrection,
+  requestAssessmentCorrection,
   submitMarkGridForReview,
   type MarkGridActionState,
   type MarkGridLearner,
@@ -50,6 +52,8 @@ export function MarkGridWorkspace({data,offlineScope}:{data:MarkGridWorkspaceDat
   const [filter,setFilter]=useState<"all"|"missing"|"errors">("all");
   const [drafts,setDrafts]=useState<Record<string,LocalDraft>>(()=>Object.fromEntries(data.learners.map((row)=>[row.enrolmentId,initialDraft(row)])));
   const [submitState,submitAction,submitPending]=useActionState(submitMarkGridForReview,initialState);
+  const [correctionState,correctionAction,correctionPending]=useActionState(requestAssessmentCorrection,initialState);
+  const [reopenState,reopenAction,reopenPending]=useActionState(reopenAssessmentForCorrection,initialState);
   const timers=useRef(new Map<string,ReturnType<typeof setTimeout>>());
   const inputs=useRef(new Map<string,HTMLInputElement>());
   const editable=Boolean(selected&&["open","returned"].includes(selected.status));
@@ -214,5 +218,20 @@ export function MarkGridWorkspace({data,offlineScope}:{data:MarkGridWorkspaceDat
       {submitState.message?<p className={`mt-2 text-xs ${submitState.success?"text-success":"text-danger"}`}>{submitState.message}</p>:null}
       <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={()=>void syncQueuedAssessmentMarkDrafts(offlineScope)}>Sync queued drafts</Button>
     </section>
+
+    {!editable&&["review","verified","locked"].includes(selected.status)?<section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <h2 className="scolapro-section-title">Governed correction</h2>
+      <p className="scolapro-section-description">Submitted records are never silently unlocked. A correction starts with a reason and audit record. Locked source data stays locked when it already underpins official results.</p>
+      <form action={correctionAction} className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+        <input type="hidden" name="assessmentInstanceId" value={selected.id}/>
+        <label className="text-xs font-medium">Correction reason<input name="reason" minLength={3} required className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand-soft" placeholder="What needs correction and why?"/></label>
+        <Button type="submit" variant="soft" loading={correctionPending}>Request correction</Button>
+      </form>
+      {correctionState.message?<p className={`mt-2 text-xs ${correctionState.success?"text-success":"text-danger"}`}>{correctionState.message}</p>:null}
+      {data.correctionRequests.length?<div className="mt-4 space-y-2">{data.correctionRequests.map((request)=><article key={request.id} className="rounded-[var(--radius-sm)] bg-surface-muted p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-sm font-medium">{request.reason}</p><p className="mt-1 text-xs text-muted-foreground">{request.status} · {new Date(request.requestedAt).toLocaleString()}</p></div>{data.canReview&&request.status==="requested"?<form action={reopenAction}><input type="hidden" name="requestId" value={request.id}/><Button type="submit" size="sm" variant="neutral" loading={reopenPending}>Reopen for correction</Button></form>:null}</div>
+      </article>)}</div>:null}
+      {reopenState.message?<p className={`mt-2 text-xs ${reopenState.success?"text-success":"text-danger"}`}>{reopenState.message}</p>:null}
+    </section>:null}
   </div>;
 }
