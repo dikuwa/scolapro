@@ -244,5 +244,5 @@ test("compact PDF class-list content is horizontally centered on A4", () => {
   assert.match(pdf, /const documentX = Math\.max\(MARGIN, \(PAGE_WIDTH - tableWidth\) \/ 2\)/);
   assert.match(pdf, /drawClassListHeader\(page, input, resources, tableWidth, documentX\)/);
   assert.match(pdf, /drawTableHeader\([^\n]*documentX\)/);
-  assert.match(pdf, /drawRow\([^\n]*documentX\)/);
+  assert.match(pdf, /drawRow\([^\n]*documentX, rowHeight\)/);
 });
