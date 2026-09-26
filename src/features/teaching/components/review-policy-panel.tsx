@@ -33,6 +33,8 @@ export function ReviewPolicyPanel({policy}:{policy:PreparationReviewPolicy}) {
           label="School cadence"
           name="cadence"
           value={policy.cadence}
+          onChange={()=>{}}
+          placeholder="Choose cadence"
           options={[
             {value:"weekly",label:"Weekly"},
             {value:"fortnightly",label:"Fortnightly"},
