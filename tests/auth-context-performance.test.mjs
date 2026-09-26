@@ -19,3 +19,18 @@ test("authenticated user is accepted only when it matches the verified JWT subje
 test("user context remains request-memoized", () => {
   assert.match(context, /export const getUserContext = cache\(async/);
 });
+
+
+test("login redirect validates the backing Auth user before leaving login", () => {
+  assert.match(proxy, /if \(isAuthenticated && pathname === "\/login"\)/);
+  assert.match(proxy, /await supabase\.auth\.getUser\(\)/);
+  assert.match(proxy, /!userError && user\?\.id === data\?\.claims\?\.sub/);
+  assert.match(proxy, /return response;/);
+});
+
+test("normal protected requests still rely on verified claims without a per-request getUser call in proxy", () => {
+  const loginBranch = proxy.indexOf('if (isAuthenticated && pathname === "/login")');
+  const firstGetUser = proxy.indexOf("supabase.auth.getUser()");
+  assert.ok(loginBranch >= 0 && firstGetUser > loginBranch);
+  assert.match(proxy, /const isAuthenticated = Boolean\(data\?\.claims\?\.sub\)/);
+});
