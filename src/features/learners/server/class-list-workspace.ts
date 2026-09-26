@@ -231,6 +231,7 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
   const contactRows: Array<{ guardian_id: string; contact_type: string; contact_value: string; is_primary: boolean }> = [];
   const addressRows: Array<{
     guardian_id: string;
+    address_type: string;
     address_line_1: string;
     address_line_2: string | null;
     suburb_or_locality: string | null;
@@ -244,7 +245,7 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
     const [profiles, contacts, addresses] = await Promise.all([
       supabase.from("guardian_profiles").select("id,first_names,surname").in("id", batch),
       supabase.from("guardian_contacts").select("guardian_id,contact_type,contact_value,is_primary").in("guardian_id", batch).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
-      supabase.from("guardian_addresses").select("guardian_id,address_line_1,address_line_2,suburb_or_locality,town_or_city,region,postal_code,country,is_primary").in("guardian_id", batch).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
+      supabase.from("guardian_addresses").select("guardian_id,address_type,address_line_1,address_line_2,suburb_or_locality,town_or_city,region,postal_code,country,is_primary").in("guardian_id", batch).eq("address_type", "postal").lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
     ]);
     if (profiles.error || contacts.error || addresses.error) throw new Error("Unable to load authorized guardian details.");
     profileRows.push(...(profiles.data ?? []));
@@ -259,19 +260,23 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
   }
   const addressByGuardian = new Map<string, string>();
   for (const item of addressRows) {
+    if (item.address_type !== "postal") continue;
     if (addressByGuardian.has(item.guardian_id) && !item.is_primary) continue;
-    const street = [item.address_line_1, item.address_line_2].filter(Boolean).join(", ");
-    const localityParts = [item.suburb_or_locality, item.town_or_city].filter(Boolean);
-    const locality = Array.from(new Set(localityParts)).join(", ");
-    const regional = [item.region, item.postal_code].filter(Boolean).join(" ");
-    const tail = [locality, regional, item.country && item.country !== "Namibia" ? item.country : null].filter(Boolean).join(", ");
-    addressByGuardian.set(item.guardian_id, [street, tail].filter(Boolean).join("\n"));
+    const line1 = [item.address_line_1, item.address_line_2].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    const place = (item.town_or_city || item.suburb_or_locality || "").trim();
+    const codeCountry = [item.postal_code?.trim(), item.country?.trim()].filter(Boolean).join(" ");
+    const formatted = [line1, place, codeCountry].filter(Boolean).join("\n");
+    if (formatted) addressByGuardian.set(item.guardian_id, formatted);
   }
   const relationshipsByLearner = new Map<string, typeof relationshipRows>();
   for (const link of relationshipRows) relationshipsByLearner.set(link.learner_id, [...(relationshipsByLearner.get(link.learner_id) ?? []), link]);
+  for (const [learnerId, links] of relationshipsByLearner) {
+    relationshipsByLearner.set(learnerId, [...links].sort((left, right) => left.priority - right.priority));
+  }
   return rows.map((row) => {
     const links = relationshipsByLearner.get(row.learnerId) ?? [];
     const primary = links[0];
+    const preferredPostalGuardian = links.find((item) => addressByGuardian.has(item.guardian_id));
     const emergency = links.find((item) => item.is_emergency_contact);
     const emergencyName = emergency ? profileById.get(emergency.guardian_id) : null;
     const emergencyPhone = emergency ? phoneByGuardian.get(emergency.guardian_id) : null;
@@ -279,7 +284,7 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
       ...row,
       guardianName: primary ? profileById.get(primary.guardian_id) ?? null : null,
       guardianPhone: primary ? phoneByGuardian.get(primary.guardian_id) ?? null : null,
-      guardianAddress: primary ? addressByGuardian.get(primary.guardian_id) ?? null : null,
+      guardianAddress: preferredPostalGuardian ? addressByGuardian.get(preferredPostalGuardian.guardian_id) ?? null : null,
       emergencyContact: [emergencyName, emergencyPhone].filter(Boolean).join(" · ") || null,
     };
   });
