@@ -32,6 +32,8 @@ export type MarkGridLearner={
 };
 
 export type MarkGridWorkspaceData={
+  userId:string;
+  tenantId:string;
   schoolId:string;
   instances:MarkGridInstance[];
   selectedInstanceId:string|null;
@@ -97,7 +99,7 @@ export async function getMarkGridWorkspace(requestedInstanceId?:string|null):Pro
     };
   });
   const selected=instanceRows.find((row)=>row.id===requestedInstanceId)??instanceRows.find((row)=>["open","returned"].includes(row.status))??instanceRows[0]??null;
-  if(!selected) return {schoolId:current.membership.schoolId,instances:instanceRows,selectedInstanceId:null,learners:[]};
+  if(!selected) return {userId:current.context.user!.id,tenantId:current.membership.tenantId,schoolId:current.membership.schoolId,instances:instanceRows,selectedInstanceId:null,learners:[]};
 
   const raw=(instances??[]).find((row)=>row.id===selected.id)!;
   let enrolmentQuery=current.db.from("enrolments")
@@ -168,6 +170,8 @@ export async function getMarkGridWorkspace(requestedInstanceId?:string|null):Pro
   }
 
   return {
+    userId:current.context.user!.id,
+    tenantId:current.membership.tenantId,
     schoolId:current.membership.schoolId,
     instances:instanceRows,
     selectedInstanceId:selected.id,
