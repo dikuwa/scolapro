@@ -4,6 +4,25 @@ import { buildOfficialClassListColumns } from "@/features/documents/server/class
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import type { ClassListWorkspaceData } from "@/features/learners/class-list-types";
 
+type CfbEntry = {
+  content?: Uint8Array;
+  size?: number;
+};
+
+type CfbContainer = {
+  FullPaths?: string[];
+  FileIndex: CfbEntry[];
+};
+
+type CfbApi = {
+  read: (data: Buffer, options: { type: "buffer" }) => CfbContainer;
+  write: (cfb: CfbContainer, options: { type: "buffer"; fileType: "zip"; compression: boolean }) => Uint8Array;
+  find: (cfb: CfbContainer, path: string) => CfbEntry | null;
+  utils: {
+    cfb_add: (cfb: CfbContainer, path: string, content: Buffer) => unknown;
+  };
+};
+
 function excelColumnWidth(key: string): number {
   if (key === "number") return 7;
   if (key === "admissionNumber") return 14;
@@ -59,7 +78,7 @@ function setCellStyle(sheetXml: string, reference: string, styleId: number): str
   });
 }
 
-function findEntry(CFB: any, cfb: any, path: string): any {
+function findEntry(CFB: CfbApi, cfb: CfbContainer, path: string): CfbEntry | null {
   const candidates = [path, "/" + path, "Root Entry/" + path, "/Root Entry/" + path];
   for (const candidate of candidates) {
     try {
@@ -73,13 +92,13 @@ function findEntry(CFB: any, cfb: any, path: string): any {
   return index >= 0 ? cfb.FileIndex[index] : null;
 }
 
-function readText(CFB: any, cfb: any, path: string): string {
+function readText(CFB: CfbApi, cfb: CfbContainer, path: string): string {
   const entry = findEntry(CFB, cfb, path);
   if (!entry || !entry.content) throw new Error("Unable to inspect generated Excel part: " + path);
   return Buffer.from(entry.content).toString("utf8");
 }
 
-function writePart(CFB: any, cfb: any, path: string, content: Uint8Array | Buffer | string) {
+function writePart(CFB: CfbApi, cfb: CfbContainer, path: string, content: Uint8Array | Buffer | string) {
   const bytes = typeof content === "string" ? Buffer.from(content, "utf8") : Buffer.from(content);
   const entry = findEntry(CFB, cfb, path);
   if (entry) {
@@ -98,7 +117,7 @@ function embedLogoAndStyles(
   columnCount: number,
   metaStartColumn: number,
 ): Buffer {
-  const CFB = (XLSX as unknown as { CFB: any }).CFB;
+  const CFB = (XLSX as unknown as { CFB?: CfbApi }).CFB;
   if (!CFB) return workbookBytes;
   const cfb = CFB.read(workbookBytes, { type: "buffer" });
   let sheetXml = readText(CFB, cfb, "xl/worksheets/sheet1.xml");
