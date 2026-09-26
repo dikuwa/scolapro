@@ -92,3 +92,12 @@ test("Class Lists are discoverable for school staff but not learner or parent ro
     assert.ok(line && !line.includes('"class_lists"'), `${role} must not receive staff Class Lists navigation`);
   }
 });
+
+
+test("restored school-scale Class Lists use URI-safe guardian batches and tolerate optional group allocation reads", () => {
+  assert.match(resolver, /POSTGREST_IN_BATCH_SIZE = 40/);
+  assert.match(resolver, /for \(const batch of chunkIds\(learnerIds\)\)/);
+  assert.match(resolver, /for \(const batch of chunkIds\(guardianIds\)\)/);
+  assert.match(resolver, /class-list teaching group allocations unavailable; continuing without allocation links/);
+  assert.match(resolver, /groupAllocations\.error \? \[\] : \(groupAllocations\.data \?\? \[\]\)/);
+});
