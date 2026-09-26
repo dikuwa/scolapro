@@ -18,7 +18,7 @@ function safeFilePart(value: string): string {
 
 function exportErrorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "";
-  if (/access|scope|role/i.test(message)) return Response.json({ error: "This class list is outside your active teaching scope." }, { status: 403 });
+  if (/access|scope|role/i.test(message)) return Response.json({ error: "This class list is outside your active school class-list scope." }, { status: 403 });
   console.error("official class-list export failed", { message });
   return Response.json({ error: "Unable to generate the class list." }, { status: 500, headers: { "Cache-Control": "no-store" } });
 }
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
   const academicYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2100 ? requestedYear : new Date().getFullYear();
   const format = url.searchParams.get("format") === "pdf" ? "pdf" : url.searchParams.get("format") === "xlsx" ? "xlsx" : "html";
   const baseConfiguration: Partial<ClassListConfiguration> = {
-    scope: url.searchParams.get("scope") === "all" || (!url.searchParams.has("scope") && !membership.staffMemberId) ? "all" : "my",
+    scope: url.searchParams.get("scope") === "my" ? "my" : "all",
     rosterType: (url.searchParams.get("rosterType") ?? "register_class") as ClassListRosterType,
     rosterId: url.searchParams.get("rosterId") ?? "",
     columns: parseColumns(url),
@@ -73,16 +73,16 @@ export async function GET(request: Request) {
 
   try {
     let workspace = await getClassListWorkspace({ membership, academicYear, configuration: baseConfiguration });
-    // Legacy grade/class links are resolved only against the actor's scoped
-    // options. Arbitrary labels therefore cannot widen a teacher's access.
+    // Legacy grade/class links resolve only inside the current school staff scope.
+    // Arbitrary labels cannot cross the authenticated school boundary.
     if (!url.searchParams.get("rosterId") && url.searchParams.get("class")) {
       const classLabel = url.searchParams.get("class")?.trim();
       const gradeLabel = url.searchParams.get("grade")?.trim();
       const match = workspace.options.register_class.find((option) => option.label === classLabel && (!gradeLabel || option.helper === gradeLabel));
-      if (!match) return Response.json({ error: "This class list is outside your active teaching scope." }, { status: 403 });
+      if (!match) return Response.json({ error: "This class list is outside your active school class-list scope." }, { status: 403 });
       workspace = await getClassListWorkspace({ membership, academicYear, configuration: { ...baseConfiguration, rosterType: "register_class", rosterId: match.id } });
     }
-    if (!workspace.configuration.rosterId) return Response.json({ error: "No roster is available in your active scope." }, { status: 404 });
+    if (!workspace.configuration.rosterId) return Response.json({ error: "No roster is available in your active school class-list scope." }, { status: 404 });
 
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
     const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("class_list"), provenanceSource: "live_school_profile" });
