@@ -232,3 +232,38 @@ export async function getLearnerTransferFormSnapshot(snapshotId: string) {
     dataSnapshot: record(data.data_snapshot),
   };
 }
+
+
+export type LearnerTransferFormRenderSnapshot = {
+  snapshotId: string;
+  transferEventId: string;
+  revision: number;
+  status: string;
+  dataSnapshot: JsonRecord;
+  finalizedAt: string;
+  scolaproReference: string;
+  verificationToken: string;
+  verificationPath: string;
+};
+
+export async function getLearnerTransferFormRenderSnapshot(
+  snapshotId: string,
+): Promise<LearnerTransferFormRenderSnapshot> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_learner_transfer_form_snapshot_for_render", {
+    p_snapshot_id: snapshotId,
+  });
+  const row = (Array.isArray(data) ? data[0] : data) as JsonRecord | undefined;
+  if (error || !row) throw new Error("Learner transfer-form snapshot not found.");
+  return {
+    snapshotId: text(row.snapshot_id),
+    transferEventId: text(row.transfer_event_id),
+    revision: Number(row.revision ?? 0),
+    status: text(row.status),
+    dataSnapshot: record(row.data_snapshot),
+    finalizedAt: text(row.finalized_at),
+    scolaproReference: text(row.scolapro_reference),
+    verificationToken: text(row.verification_token),
+    verificationPath: text(row.verification_path),
+  };
+}
