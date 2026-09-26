@@ -126,3 +126,25 @@ test("hosted recovery reconciles seeded attendance reasons and remaps event fore
   assert.match(recovery, /table === "attendance_events" && next\.reason_id/);
   assert.match(recovery, /attendanceReasonIdMap\.get\(next\.reason_id\) \?\? next\.reason_id/);
 });
+
+
+test("hosted recovery restores terminal detention history through valid lifecycle transitions", () => {
+  assert.match(recovery, /restoreLateDetentionObligations/);
+  assert.match(recovery, /terminal = sourceRow\.status === "completed" \|\| sourceRow\.status === "waived"/);
+  assert.match(recovery, /pendingPayload\.status = "pending"/);
+  assert.match(recovery, /completed_by_user_id: localAdminUserId/);
+  assert.match(recovery, /status: sourceRow\.status/);
+  assert.match(recovery, /Local late_detention_obligations terminal state differs from hosted/);
+});
+
+test("hosted recovery removes synthetic learners in dependency order and verifies exact counts", () => {
+  const identifiers = recovery.indexOf('from("school_learner_identifiers")');
+  const enrolments = recovery.indexOf('from("enrolments").delete().in("id", demoEnrolmentIds)');
+  const learners = recovery.indexOf('from("learners").delete().in("id", demoLearnerIds)');
+  assert.ok(identifiers >= 0 && enrolments > identifiers && learners > enrolments);
+  assert.match(recovery, /Unable to remove demo school learner identifiers/);
+  assert.match(recovery, /Unable to remove demo enrolments/);
+  assert.match(recovery, /Unable to remove demo learners/);
+  assert.match(recovery, /requiresExactMatch = table === "learners" \|\| table === "enrolments"/);
+  assert.match(recovery, /local !== hosted/);
+});
