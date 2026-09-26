@@ -52,7 +52,8 @@ test("validation submission review and correction remain governed server actions
 test("server loader limits grid to current subject-eligible enrolments",()=>{
   assert.match(server,/learner_subject_registrations/);
   assert.match(server,/subject_offering_id===instance\.subject_offering_id/);
-  assert.match(server,/\.eq\("status","current"\)/);
+  assert.match(server,/eligibilityDate/);
+  assert.match(server,/row\.status==="current"/);
 });
 
 test("calculated working summary is read-only",()=>{
