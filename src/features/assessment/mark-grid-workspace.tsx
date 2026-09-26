@@ -149,7 +149,7 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
   async function syncNow() {
     setMessage("Syncing queued mark drafts…");
     const result=await syncQueuedAssessmentMarkDrafts(scope);
-    setMessage(result.pending || result.syncing ? "Some mark drafts are still waiting to sync." : result.conflicted || result.rejected ? "Some queued marks need attention before they can sync." : "Queued mark drafts are synced.");
+    setMessage(result.pending ? "Some mark drafts are still waiting to sync." : result.attention ? "Some queued marks need attention before they can sync." : "Queued mark drafts are synced.");
   }
 
   useEffect(()=>{
