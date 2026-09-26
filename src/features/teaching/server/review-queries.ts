@@ -33,6 +33,8 @@ export type ReviewQueueRow = {
   gradeLabel: string | null;
   classLabel: string | null;
   itemCount: number;
+  preparedCount: number;
+  missingCount: number;
 };
 
 export type ReadinessException = {
@@ -315,6 +317,7 @@ type ReviewSubmissionRow = {
   week_end: string | null;
   status: string;
   submitted_at: string;
+  submitted_by_user_id: string;
   academic_year: number;
   items: ReviewItemRow[] | null;
 };
@@ -335,7 +338,7 @@ type ReviewEventRow = {
 };
 
 const reviewQueueSelect = `
-  id, scope_kind, term_label, week_start, week_end, status, submitted_at, academic_year,
+  id, scope_kind, term_label, week_start, week_end, status, submitted_at, submitted_by_user_id, academic_year,
   items:preparation_submission_items(
     id, lesson_preparation_id, preparation_status_snapshot,
     lesson_preparation:lesson_preparations(
@@ -371,6 +374,8 @@ function toQueueRow(row: ReviewSubmissionRow): ReviewQueueRow {
     gradeLabel: summarize(items.map((item) => stringValue(item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.subject_offering?.grade?.display_name))),
     classLabel: summarize(items.map((item) => stringValue(item.lesson_preparation?.teaching_schedule_item?.register_class?.display_name))),
     itemCount: items.length,
+    preparedCount: items.length,
+    missingCount: 0,
   };
 }
 
@@ -403,7 +408,67 @@ export async function getReviewQueue(academicYear: number): Promise<ReviewQueueR
     return { rows: [], readiness: { state: "unavailable", message: "The preparation review queue could not be loaded." } };
   }
 
-  const rows = ((data ?? []) as unknown as ReviewSubmissionRow[]).map(toQueueRow);
+  const rawRows=(data ?? []) as unknown as ReviewSubmissionRow[];
+  const rows=rawRows.map(toQueueRow);
+
+  const submitterIds=[...new Set(rawRows.map((row)=>row.submitted_by_user_id).filter(Boolean))];
+  const [{data:staffRows},{data:academicYearRow}] = await Promise.all([
+    submitterIds.length
+      ? supabase.from("staff_members").select("id,user_id").in("user_id",submitterIds)
+      : Promise.resolve({data:[]}),
+    supabase.from("academic_years").select("id").eq("school_id",scope.schoolId).eq("year",parsedYear.data).maybeSingle(),
+  ]);
+  const staffIds=(staffRows ?? []).map((row)=>row.id);
+  const [{data:allocationRows},{data:termRows}] = await Promise.all([
+    staffIds.length
+      ? supabase.from("teacher_allocations").select("id,staff_member_id").eq("school_id",scope.schoolId).eq("academic_year",parsedYear.data).in("staff_member_id",staffIds)
+      : Promise.resolve({data:[]}),
+    academicYearRow?.id
+      ? supabase.from("academic_terms").select("display_name,starts_on,ends_on").eq("academic_year_id",academicYearRow.id)
+      : Promise.resolve({data:[]}),
+  ]);
+  const allocationIds=(allocationRows ?? []).map((row)=>row.id);
+  const {data:scheduleRows}=allocationIds.length
+    ? await supabase.from("teaching_schedule_items")
+        .select("teacher_allocation_id,planned_on,status")
+        .eq("school_id",scope.schoolId)
+        .eq("academic_year",parsedYear.data)
+        .in("teacher_allocation_id",allocationIds)
+        .in("status",["planned","prepared","taught","moved"])
+    : {data:[]};
+
+  const staffByUser=new Map((staffRows ?? []).map((row)=>[row.user_id,row.id]));
+  const allocationsByStaff=new Map<string,string[]>();
+  for(const allocation of allocationRows ?? []) {
+    allocationsByStaff.set(allocation.staff_member_id,[...(allocationsByStaff.get(allocation.staff_member_id) ?? []),allocation.id]);
+  }
+  const termsByLabel=new Map((termRows ?? []).map((term)=>[term.display_name,term]));
+
+  for(let index=0;index<rows.length;index++) {
+    const raw=rawRows[index];
+    const row=rows[index];
+    if(raw.scope_kind==="selected_preparations") continue;
+
+    let rangeStart=raw.week_start;
+    let rangeEnd=raw.week_end;
+    if(raw.scope_kind==="term") {
+      const term=raw.term_label ? termsByLabel.get(raw.term_label) : null;
+      rangeStart=term?.starts_on ?? null;
+      rangeEnd=term?.ends_on ?? null;
+    }
+    if(!rangeStart || !rangeEnd) continue;
+
+    const staffId=staffByUser.get(raw.submitted_by_user_id);
+    const teacherAllocationIds=new Set(staffId ? allocationsByStaff.get(staffId) ?? [] : []);
+    if(!teacherAllocationIds.size) continue;
+    const expected=(scheduleRows ?? []).filter((schedule)=>
+      teacherAllocationIds.has(schedule.teacher_allocation_id)
+      && schedule.planned_on>=rangeStart!
+      && schedule.planned_on<=rangeEnd!
+    ).length;
+    row.missingCount=Math.max(0,expected-row.preparedCount);
+  }
+
   const readiness = await getReadinessState(scope, parsedYear.data);
   return { rows, readiness };
 }
