@@ -95,9 +95,10 @@ export async function GET(request: Request) {
     }
     if (format === "pdf") {
       const logoBytes = await loadClassListLogoBytes(profile.logoStoragePath, profile.logoUrl);
+      const previewPdf = url.searchParams.get("preview") === "1";
       const rendered = await renderOfficialClassListPdf({ ...documentInput, logoBytes });
       return new Response(Buffer.from(rendered.bytes), { status: 200, headers: {
-        "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${fileBase}.pdf"`,
+        "Content-Type": "application/pdf", "Content-Disposition": `${previewPdf ? "inline" : "attachment"}; filename="${fileBase}.pdf"`,
         "Cache-Control": "private, no-store, max-age=0", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-ScolaPro-Page-Count": String(rendered.pageCount),
       } });
     }
