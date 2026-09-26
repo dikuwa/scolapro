@@ -35,9 +35,11 @@ export type MarkGridWorkspaceData={
   userId:string;
   tenantId:string;
   schoolId:string;
+  canReview:boolean;
   instances:MarkGridInstance[];
   selectedInstanceId:string|null;
   learners:MarkGridLearner[];
+  correctionRequests:Array<{id:string;reason:string;status:string;requestedAt:string}>;
 };
 
 const text=(form:FormData,key:string)=>String(form.get(key)??"").trim();
@@ -99,7 +101,7 @@ export async function getMarkGridWorkspace(requestedInstanceId?:string|null):Pro
     };
   });
   const selected=instanceRows.find((row)=>row.id===requestedInstanceId)??instanceRows.find((row)=>["open","returned"].includes(row.status))??instanceRows[0]??null;
-  if(!selected) return {userId:current.context.user!.id,tenantId:current.membership.tenantId,schoolId:current.membership.schoolId,instances:instanceRows,selectedInstanceId:null,learners:[]};
+  if(!selected) return {userId:current.context.user!.id,tenantId:current.membership.tenantId,schoolId:current.membership.schoolId,canReview:["school_admin","principal","deputy_principal","hod"].includes(current.membership.roleKey),instances:instanceRows,selectedInstanceId:null,learners:[],correctionRequests:[]};
 
   const raw=(instances??[]).find((row)=>row.id===selected.id)!;
   let enrolmentQuery=current.db.from("enrolments")
@@ -169,10 +171,17 @@ export async function getMarkGridWorkspace(requestedInstanceId?:string|null):Pro
     return weightTotal>0?Math.round((weighted/weightTotal)*10000)/100:null;
   }
 
+  const {data:correctionRequests}=await current.db.from("assessment_correction_requests")
+    .select("id,reason,status,requested_at")
+    .eq("assessment_instance_id",selected.id)
+    .order("requested_at",{ascending:false})
+    .limit(10);
+
   return {
     userId:current.context.user!.id,
     tenantId:current.membership.tenantId,
     schoolId:current.membership.schoolId,
+    canReview:["school_admin","principal","deputy_principal","hod"].includes(current.membership.roleKey),
     instances:instanceRows,
     selectedInstanceId:selected.id,
     learners:(enrolments??[]).map((enrolment)=>{
@@ -189,6 +198,9 @@ export async function getMarkGridWorkspace(requestedInstanceId?:string|null):Pro
         missing:!mark|| (mark.numeric_mark==null&&mark.mark_status==null),
       };
     }).sort((a,b)=>a.name.localeCompare(b.name)),
+    correctionRequests:(correctionRequests??[]).map((row)=>({
+      id:row.id,reason:row.reason,status:row.status,requestedAt:row.requested_at,
+    })),
   };
 }
 
@@ -206,4 +218,42 @@ export async function submitMarkGridForReview(
   if(error) return {message:error.message.includes("Marks are incomplete")?"Complete or explicitly status every required learner before submission.":"Assessment could not be submitted for review."};
   revalidatePath("/assessment/marks");
   return {success:true,message:"Assessment submitted to the governed HOD review queue."};
+}
+
+
+export async function requestAssessmentCorrection(
+  _state:MarkGridActionState,
+  form:FormData,
+):Promise<MarkGridActionState>{
+  const current=await scope();
+  if(!current) return {message:"Assessment access is required."};
+  const assessmentInstanceId=text(form,"assessmentInstanceId");
+  const reason=text(form,"reason");
+  if(!assessmentInstanceId||reason.length<3) return {message:"Enter a correction reason."};
+  const {error}=await current.db.rpc("request_assessment_correction",{
+    p_assessment_instance_id:assessmentInstanceId,
+    p_reason:reason,
+  });
+  if(error) return {message:"Correction request could not be recorded for this assessment."};
+  revalidatePath("/assessment/marks");
+  return {success:true,message:"Correction request recorded with audit provenance."};
+}
+
+export async function reopenAssessmentForCorrection(
+  _state:MarkGridActionState,
+  form:FormData,
+):Promise<MarkGridActionState>{
+  const current=await scope();
+  if(!current) return {message:"Assessment review authority is required."};
+  const requestId=text(form,"requestId");
+  if(!requestId) return {message:"Choose a correction request."};
+  const {error}=await current.db.rpc("reopen_assessment_for_correction",{
+    p_correction_request_id:requestId,
+  });
+  if(error){
+    if(error.message.includes("Locked assessment")) return {message:"This locked assessment already underpins official results and cannot be silently unlocked."};
+    return {message:"Assessment could not be reopened under your current review authority."};
+  }
+  revalidatePath("/assessment/marks");
+  return {success:true,message:"Assessment reopened as returned. Corrections must pass through review again."};
 }
