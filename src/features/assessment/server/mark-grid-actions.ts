@@ -16,7 +16,7 @@ async function scopedInstance(instanceId:string) {
   if (!context.user || context.platformMemberships.length || !context.currentSchoolMembership) return null;
   const db=await createSupabaseServerClient();
   const { data: instance }=await db.from("assessment_instances")
-    .select("id,school_id,status,register_class_id,academic_year,subject_offering_id")
+    .select("id,school_id,status,register_class_id,academic_year,subject_offering_id,assessment_date")
     .eq("id",instanceId).maybeSingle();
   if (!instance || instance.school_id!==context.currentSchoolMembership.schoolId) return null;
   return {context,db,instance};
@@ -32,12 +32,17 @@ export async function validateMarkGrid(
   if (!["open","returned"].includes(scope.instance.status)) return {message:"This assessment is no longer editable."};
 
   const { data: enrolments }=await scope.db.from("enrolments")
-    .select("id")
+    .select("id,enrolled_from,enrolled_to,status")
     .eq("school_id",scope.instance.school_id)
     .eq("academic_year",scope.instance.academic_year)
-    .eq("register_class_id",scope.instance.register_class_id)
-    .eq("status","current");
-  const ids=(enrolments ?? []).map((row)=>row.id);
+    .eq("register_class_id",scope.instance.register_class_id);
+  const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Windhoek",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const eligibilityDate=scope.instance.assessment_date ?? today;
+  const eligibleByDate=(enrolments ?? []).filter((row)=>{
+    const effective=row.enrolled_from<=eligibilityDate && (!row.enrolled_to || row.enrolled_to>=eligibilityDate);
+    return scope.instance.assessment_date ? effective : row.status==="current" && effective;
+  });
+  const ids=eligibleByDate.map((row)=>row.id);
   const [{ data: registrations },{ data: marks }]=await Promise.all([
     ids.length ? scope.db.from("learner_subject_registrations").select("enrolment_id,subject_offering_id,status").in("enrolment_id",ids) : Promise.resolve({data:[]}),
     ids.length ? scope.db.from("learner_marks_current").select("enrolment_id,numeric_mark,mark_status").eq("assessment_instance_id",instanceId).in("enrolment_id",ids) : Promise.resolve({data:[]}),
