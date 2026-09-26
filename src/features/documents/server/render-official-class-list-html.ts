@@ -24,6 +24,8 @@ export type OfficialClassListDocumentInput = {
   rosterTitle?: string | null;
   generatedAt?: string | null;
   registerTeacherName?: string | null;
+  roomName?: string | null;
+  responsibleTeacherName?: string | null;
 };
 
 function normalizedSex(value: string | null): "M" | "F" | "" {
@@ -47,8 +49,11 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
     : "";
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
-  const teacherLine = input.registerTeacherName
-    ? `<div class="teacher">Register teacher: ${escapeOfficialDocumentHtml(input.registerTeacherName)}</div>`
+  const roomLine = input.roomName
+    ? `<div class="room">Room: ${escapeOfficialDocumentHtml(input.roomName)}</div>`
+    : "";
+  const teacherLine = input.responsibleTeacherName
+    ? `<div class="teacher">Teacher: ${escapeOfficialDocumentHtml(input.responsibleTeacherName)}</div>`
     : "";
   const metadataFooter = renderOfficialDocumentHtmlFooter({
     left: `Total learners: ${input.rows.length}`,
@@ -80,11 +85,13 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
     min-height: 55px;
   }
   .school-logo { display: block; width: auto; height: 42px; max-width: 48px; object-fit: contain; }
-  .school-name { min-width: 0; margin: 0; font-size: 18px; line-height: 1; font-weight: 700; white-space: nowrap; }
+  .school-identity { align-self: stretch; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  .school-name { min-width: 0; margin: 0 0 3px; font-size: 18px; line-height: 1; font-weight: 700; white-space: nowrap; }
+  .school-identity .room, .school-identity .teacher { font-size: 7px; line-height: 1.25; color: var(--muted); }
   .school-name.old-english { font-family: "Old English Text MT", "UnifrakturCook", "Lucida Blackletter", "Times New Roman", serif; font-weight: 400; font-size: 22px; }
   .class-context { text-align: right; font-size: 7.5px; line-height: 1.35; white-space: nowrap; }
   .class-context .title { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
-  .class-context .summary, .class-context .teacher { font-size: 6.8px; color: var(--muted); }
+  .class-context .summary, .class-context .room, .class-context .teacher { font-size: 6.8px; color: var(--muted); }
   .class-list { width: auto; max-width: 100%; border-collapse: collapse; table-layout: auto; }
   .class-list col[data-column="number"] { width: 34px; }
   .class-list col[data-column="admissionNumber"] { width: 82px; }
@@ -123,12 +130,15 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   <section class="class-document">
     <header class="class-list-header">
       <div>${logo}</div>
-      <h1 class="school-name ${header.schoolNameFont === "old_english" ? "old-english" : ""}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
+      <div class="school-identity">
+        <h1 class="school-name ${header.schoolNameFont === "old_english" ? "old-english" : ""}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
+        ${roomLine}
+        ${teacherLine}
+      </div>
       <div class="class-context">
         <div class="title">${escapeOfficialDocumentHtml(classListDocumentName(input.registerClass, input.rosterTitle))}</div>
         <div>${escapeOfficialDocumentHtml(input.grade || "—")} · ${escapeOfficialDocumentHtml(input.registerClass || "—")} · ${escapeOfficialDocumentHtml(input.academicYear)}</div>
         <div class="summary">Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners</div>
-        ${teacherLine}
       </div>
     </header>
 

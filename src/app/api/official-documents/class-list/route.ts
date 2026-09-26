@@ -63,6 +63,8 @@ function documentInputFor(workspace: ClassListWorkspaceData, header: OfficialDoc
     grade: workspace.grade,
     registerClass: workspace.className,
     registerTeacherName: workspace.registerTeacherName,
+    roomName: workspace.roomName,
+    responsibleTeacherName: workspace.responsibleTeacherName,
     rosterTitle: workspace.title,
     rows: workspace.learners,
     columns: workspace.configuration.columns,

@@ -153,7 +153,8 @@ test("class-list exports use a school-only compact header across print, PDF and 
 
   assert.match(pdf, /drawClassListHeader/);
   assert.match(pdf, /input\.header\.schoolName/);
-  assert.match(pdf, /Register teacher:/);
+  assert.match(pdf, /Teacher:/);
+  assert.match(pdf, /Room:/);
   assert.doesNotMatch(pdf, /contactLines|postalLines/);
 
   assert.match(xlsx, /embedLogoAndStyles/);
@@ -163,11 +164,10 @@ test("class-list exports use a school-only compact header across print, PDF and 
   assert.match(xlsx, /xdr:oneCellAnchor/);
   assert.doesNotMatch(xlsx, /xdr:twoCellAnchor/);
   assert.match(xlsx, /rows\[0\]\[1\] = header\.schoolName/);
-  assert.match(xlsx, /rows\[1\]\[1\] = "Grade: "/);
-  assert.match(xlsx, /rows\[2\]\[1\] = "Block\/Class: "/);
-  assert.match(xlsx, /rows\[3\]\[1\] = input\.registerTeacherName/);
-  assert.match(xlsx, /"Male: " \+ maleCount \+ "   Female: " \+ femaleCount/);
-  assert.match(xlsx, /"Total learners: " \+ input\.learners\.length/);
+  assert.match(xlsx, /rows\[1\]\[1\] = input\.roomName \? "Room: "/);
+  assert.match(xlsx, /rows\[2\]\[1\] = input\.responsibleTeacherName \? "Teacher: "/);
+  assert.match(xlsx, /input\.grade \+ " · " \+ input\.className \+ " · " \+ input\.academicYear/);
+  assert.match(xlsx, /"Male " \+ maleCount \+ " · Female " \+ femaleCount/);
   assert.match(xlsx, /orientation: "portrait"/);
   assert.match(xlsx, /fitToWidth: 1/);
   assert.doesNotMatch(xlsx, /!autofilter|postalLines|contactLines/);
@@ -193,7 +193,7 @@ test("all Class List document access points use the shared preview/print/PDF/Exc
 test("Class List document naming is dynamic and consistent across all Class List outputs", () => {
   assert.match(documentModel, /function classListDocumentName/);
   assert.match(documentModel, /replace\(\/\^Grade\\s\+\/i, ""\)/);
-  assert.match(documentModel, /Classlist/);
+  assert.match(documentModel, /: Class List/);
   assert.match(pdf, /classListDocumentName\(input\.registerClass, input\.rosterTitle\)/);
   assert.match(html, /classListDocumentName\(input\.registerClass, input\.rosterTitle\)/);
   assert.match(xlsx, /classListDocumentName\(input\.className, input\.title\)/);
@@ -245,4 +245,27 @@ test("compact PDF class-list content is horizontally centered on A4", () => {
   assert.match(pdf, /drawClassListHeader\(page, input, resources, tableWidth, documentX\)/);
   assert.match(pdf, /drawTableHeader\([^\n]*documentX\)/);
   assert.match(pdf, /drawRow\([^\n]*documentX, rowHeight\)/);
+});
+
+
+test("Class List headers resolve room and responsible teacher from canonical school data", () => {
+  assert.match(resolver, /register_teacher_staff_id,home_room_id/);
+  assert.match(resolver, /from\("school_rooms"\)\.select\("id,room_code,display_name"\)/);
+  assert.match(resolver, /const roomName = room \? \(room\.room_code \|\| room\.display_name\) : null/);
+  assert.match(resolver, /subjectTeacherId = allocation\.staff_member_id/);
+  assert.match(resolver, /groupTeacherIds\.length === 1/);
+  assert.match(resolver, /candidateTeacherIds\.length === 1/);
+  assert.match(resolver, /responsibleTeacherName = subjectTeacherId/);
+  assert.match(resolver, /: registerTeacherName/);
+});
+
+test("PDF and Excel share the same balanced room/teacher header hierarchy", () => {
+  assert.match(documentModel, /return `\$\{concise \|\| "Class"\}: Class List`/);
+  assert.match(pdf, /Room: \$\{input\.roomName\}/);
+  assert.match(pdf, /Teacher: \$\{input\.responsibleTeacherName\}/);
+  assert.match(pdf, /\$\{input\.grade \|\| "—"\} · \$\{input\.registerClass \|\| "—"\} · \$\{input\.academicYear\}/);
+  assert.match(xlsx, /"Room: " \+ input\.roomName/);
+  assert.match(xlsx, /"Teacher: " \+ input\.responsibleTeacherName/);
+  assert.match(xlsx, /classListDocumentName\(input\.className, input\.title\)/);
+  assert.doesNotMatch(xlsx, /Block\/Class|Register teacher:/);
 });

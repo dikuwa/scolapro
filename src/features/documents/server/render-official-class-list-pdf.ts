@@ -28,6 +28,8 @@ export type OfficialClassListPdfInput = {
   rosterTitle?: string | null;
   generatedAt?: string | null;
   registerTeacherName?: string | null;
+  roomName?: string | null;
+  responsibleTeacherName?: string | null;
   logoBytes?: Uint8Array | null;
 };
 
@@ -97,7 +99,7 @@ function drawClassListHeader(
   while (schoolSize > 10 && schoolNameFont.widthOfTextAtSize(input.header.schoolName, schoolSize) > schoolWidth) schoolSize -= 0.5;
   page.drawText(fitOfficialDocumentPdfText(schoolNameFont, input.header.schoolName, schoolSize, schoolWidth), {
     x: schoolX,
-    y: topY - 31,
+    y: topY - 18,
     size: schoolSize,
     font: schoolNameFont,
     color: INK,
@@ -105,12 +107,28 @@ function drawClassListHeader(
 
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
+  if (input.roomName) {
+    page.drawText(fitOfficialDocumentPdfText(regular, `Room: ${input.roomName}`, 6.1, schoolWidth), {
+      x: schoolX,
+      y: topY - 31,
+      size: 6.1,
+      font: regular,
+      color: INK,
+    });
+  }
+  if (input.responsibleTeacherName) {
+    page.drawText(fitOfficialDocumentPdfText(regular, `Teacher: ${input.responsibleTeacherName}`, 5.9, schoolWidth), {
+      x: schoolX,
+      y: topY - 42,
+      size: 5.9,
+      font: regular,
+      color: INK,
+    });
+  }
+
   drawRightAlignedText(page, bold, classListDocumentName(input.registerClass, input.rosterTitle), 10.5, metaX, metaWidth, topY - 16);
   drawRightAlignedText(page, regular, `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`, 6.2, metaX, metaWidth, topY - 29);
   drawRightAlignedText(page, regular, `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`, 5.9, metaX, metaWidth, topY - 40);
-  if (input.registerTeacherName) {
-    drawRightAlignedText(page, regular, `Register teacher: ${input.registerTeacherName}`, 5.5, metaX, metaWidth, topY - 50);
-  }
   return topY - CLASS_LIST_HEADER_HEIGHT;
 }
 
