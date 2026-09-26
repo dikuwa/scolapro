@@ -65,7 +65,9 @@ function findEntry(CFB: any, cfb: any, path: string): any {
     try {
       const found = CFB.find(cfb, candidate);
       if (found) return found;
-    } catch {}
+    } catch {
+      // Continue through alternate normalized package paths.
+    }
   }
   const index = (cfb.FullPaths || []).findIndex((value: string) => value === path || value.endsWith("/" + path));
   return index >= 0 ? cfb.FileIndex[index] : null;
