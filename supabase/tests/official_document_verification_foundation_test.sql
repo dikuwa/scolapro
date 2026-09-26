@@ -22,8 +22,8 @@ grant select on test_verifications to anon;
 
 select is(
   (select count(*)::integer from public.official_document_type_registry),
-  2,
-  'the shared registry declares only the two initial architectural consumers'
+  3,
+  'the shared registry declares the current architectural consumers'
 );
 
 select ok(
