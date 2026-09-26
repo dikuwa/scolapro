@@ -540,3 +540,63 @@ export async function recordTeachingActual(_state: LessonPreparationActionState,
   revalidatePath("/teaching/preparation");
   return { success: true, message: "Actual teaching and reflection recorded without changing the planned preparation." };
 }
+
+export async function submitPreparationBatch(
+  _state: LessonPreparationActionState,
+  form: FormData,
+): Promise<LessonPreparationActionState> {
+  const scope = await teacherContext();
+  if (!scope) return { message: "Current teacher authority is required." };
+
+  const preparationIds = form.getAll("preparationId").map(String).filter(Boolean);
+  if (!preparationIds.length) return { message: "Choose at least one prepared lesson." };
+
+  const scopeMode = text(form, "scopeMode");
+  const weekStart = text(form, "weekStart") || null;
+  const weekEnd = text(form, "weekEnd") || null;
+  const termLabel = text(form, "termLabel") || null;
+  const scopeKind = scopeMode === "term" ? "term" : scopeMode === "selected" ? "selected_preparations" : "week";
+
+  if (!["selected","week","fortnight","term"].includes(scopeMode)) {
+    return { message: "Choose a valid submission scope." };
+  }
+  if ((scopeMode === "week" || scopeMode === "fortnight") && (!weekStart || !weekEnd)) {
+    return { message: "Choose the week or fortnight range to submit." };
+  }
+  if (scopeMode === "fortnight" && weekStart && weekEnd) {
+    const days = Math.round((new Date(`${weekEnd}T12:00:00`).getTime()-new Date(`${weekStart}T12:00:00`).getTime())/86400000)+1;
+    if (days !== 14) return { message: "Fortnight submission must cover exactly 14 days." };
+  }
+
+  const { data: ownedPreparations } = await scope.db.from("lesson_preparations")
+    .select("id,status,prepared_by_user_id,school_id")
+    .in("id", preparationIds)
+    .eq("school_id", scope.membership.schoolId)
+    .eq("prepared_by_user_id", scope.context.user!.id);
+  if ((ownedPreparations ?? []).length !== new Set(preparationIds).size) {
+    return { message: "One or more selected preparations are outside your current ownership." };
+  }
+
+  for (const row of ownedPreparations ?? []) {
+    if (!["prepared","returned","submitted"].includes(row.status)) {
+      return { message: "Only prepared or returned work can be submitted." };
+    }
+    if (row.status === "submitted" && await latestPreparationSubmissionStatus(scope.db,row.id) !== "returned") {
+      return { message: "One or more selected preparations are already awaiting review." };
+    }
+  }
+
+  const { error } = await scope.db.rpc("submit_preparations", {
+    p_school_id: scope.membership.schoolId,
+    p_lesson_preparation_ids: [...new Set(preparationIds)],
+    p_scope_kind: scopeKind,
+    p_term_label: scopeMode === "fortnight" ? "Fortnight batch" : termLabel,
+    p_week_start: weekStart,
+    p_week_end: weekEnd,
+  });
+  if (error) return { message: "Batch submission could not be completed. Check the selected preparation states and current allocation." };
+
+  revalidatePath("/teaching/preparation");
+  revalidatePath("/teaching/reviews");
+  return { success: true, message: `${new Set(preparationIds).size} preparation${new Set(preparationIds).size===1?"":"s"} submitted for governed review.` };
+}
