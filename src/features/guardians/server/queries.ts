@@ -34,6 +34,16 @@ export type LearnerGuardian = {
 
 export type ReusableGuardian = { id: string; name: string; contacts: GuardianContact[] };
 
+const POSTGREST_IN_BATCH_SIZE = 40;
+
+function chunkIds(ids: string[]) {
+  const chunks: string[][] = [];
+  for (let index = 0; index < ids.length; index += POSTGREST_IN_BATCH_SIZE) {
+    chunks.push(ids.slice(index, index + POSTGREST_IN_BATCH_SIZE));
+  }
+  return chunks;
+}
+
 export async function getLearnerGuardians(learnerId: string): Promise<LearnerGuardian[]> {
   const supabase = await createSupabaseServerClient();
   const today = getNamibiaDateKey();
@@ -112,14 +122,17 @@ export async function getReusableGuardians(learnerId: string, schoolId: string):
   const candidates = profiles.filter((profile) => !existing.has(profile.id));
   if (!candidates.length) return [];
   const ids = candidates.map((item) => item.id);
-  const { data: contacts, error: contactsError } = await supabase
-    .from("guardian_contacts")
-    .select("id,guardian_id,contact_type,contact_value,is_primary,label")
-    .in("guardian_id", ids)
-    .lte("effective_from", today)
-    .or(`effective_to.is.null,effective_to.gte.${today}`);
-  if (contactsError) throw new Error("Unable to load reusable guardian contacts.");
-  const contactRows = contacts ?? [];
+  const contactRows: Array<{ id: string; guardian_id: string; contact_type: string; contact_value: string; is_primary: boolean; label: string | null }> = [];
+  for (const batch of chunkIds(ids)) {
+    const { data: contacts, error: contactsError } = await supabase
+      .from("guardian_contacts")
+      .select("id,guardian_id,contact_type,contact_value,is_primary,label")
+      .in("guardian_id", batch)
+      .lte("effective_from", today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`);
+    if (contactsError) throw new Error("Unable to load reusable guardian contacts.");
+    contactRows.push(...(contacts ?? []));
+  }
 
   return candidates.map((profile) => ({
     id: profile.id,
