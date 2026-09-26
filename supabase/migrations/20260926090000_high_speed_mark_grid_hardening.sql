@@ -1,6 +1,136 @@
 -- Issue #685: high-speed mark-grid and offline replay hardening.
 -- Keeps learner_marks append-only and preserves the existing offline queue/RPC.
 
+-- HOD assessment access follows the same effective subject-portfolio model as
+-- teaching oversight; HOD role alone is not school-wide marks authority.
+create or replace function app_private.can_manage_assessment_instance_scope(
+  p_school_id uuid,
+  p_academic_year integer,
+  p_subject_offering_id uuid,
+  p_register_class_id uuid,
+  p_teacher_allocation_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, app_private
+as $
+  select (
+    app_private.has_platform_role(array['platform_admin'])
+    or (
+      app_private.user_current_school_matches((select auth.uid()),p_school_id)
+      and not app_private.has_platform_role(array['platform_support'])
+      and (
+        app_private.has_school_role(p_school_id,array['school_admin','principal','deputy_principal'])
+        or exists(
+          select 1
+          from public.subject_offerings so
+          where so.id=p_subject_offering_id
+            and so.school_id=p_school_id
+            and app_private.hod_responsible_for_subject(p_school_id,so.subject_id)
+        )
+        or exists(
+          select 1
+          from public.school_memberships sm
+          join public.staff_members staff
+            on staff.id=sm.staff_member_id
+           and staff.tenant_id=sm.tenant_id
+           and staff.status='active'
+          join public.teacher_allocations ta
+            on ta.id=p_teacher_allocation_id
+           and ta.staff_member_id=staff.id
+           and ta.tenant_id=sm.tenant_id
+           and ta.school_id=p_school_id
+           and ta.academic_year=p_academic_year
+           and ta.subject_offering_id=p_subject_offering_id
+           and ta.register_class_id=p_register_class_id
+           and ta.active_from<=current_date
+           and (ta.active_to is null or ta.active_to>=current_date)
+          where sm.user_id=(select auth.uid())
+            and sm.school_id=p_school_id
+            and sm.role_key in ('teacher','class_teacher','hod')
+            and sm.active_from<=current_date
+            and (sm.active_to is null or sm.active_to>=current_date)
+            and app_private.staff_member_covers_school_period(
+              staff.id,p_school_id,current_date,current_date
+            )
+        )
+      )
+    )
+  );
+$;
+
+revoke all on function app_private.can_manage_assessment_instance_scope(uuid,integer,uuid,uuid,uuid)
+from public,anon;
+grant execute on function app_private.can_manage_assessment_instance_scope(uuid,integer,uuid,uuid,uuid)
+to authenticated;
+
+create or replace function public.review_mark_submission(
+  p_submission_id uuid,
+  p_decision text,
+  p_note text default null
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, app_private
+as $
+declare
+  v_submission public.mark_submissions%rowtype;
+  v_instance public.assessment_instances%rowtype;
+  v_subject_id uuid;
+  v_authorized boolean:=false;
+  v_new_status text;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if p_decision not in ('return','verify') then raise exception 'Decision must be return or verify'; end if;
+
+  select * into v_submission from public.mark_submissions where id=p_submission_id for update;
+  if not found then raise exception 'Mark submission not found'; end if;
+  select * into v_instance from public.assessment_instances where id=v_submission.assessment_instance_id for update;
+
+  select so.subject_id into v_subject_id from public.subject_offerings so where so.id=v_instance.subject_offering_id;
+  v_authorized :=
+    app_private.has_platform_role(array['platform_admin'])
+    or (
+      app_private.user_current_school_matches((select auth.uid()),v_instance.school_id)
+      and not app_private.has_platform_role(array['platform_support'])
+      and (
+        app_private.has_school_role(v_instance.school_id,array['school_admin','principal','deputy_principal'])
+        or app_private.hod_responsible_for_subject(v_instance.school_id,v_subject_id)
+      )
+    );
+  if not v_authorized then raise exception 'Permission denied'; end if;
+  if v_submission.status<>'submitted' then raise exception 'Submission has already been reviewed'; end if;
+  if p_decision='return' and nullif(btrim(coalesce(p_note,'')),'') is null then
+    raise exception 'A return reason is required';
+  end if;
+
+  v_new_status:=case when p_decision='verify' then 'verified' else 'returned' end;
+  update public.mark_submissions
+     set status=v_new_status,reviewed_by_user_id=auth.uid(),reviewed_at=now(),
+         review_note=nullif(btrim(coalesce(p_note,'')),'')
+   where id=v_submission.id;
+  update public.assessment_instances
+     set status=case when p_decision='verify' then 'verified' else 'returned' end,
+         updated_at=now()
+   where id=v_instance.id;
+  insert into public.audit_events(
+    tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+  ) values(
+    v_instance.tenant_id,v_instance.school_id,auth.uid(),'assessment.reviewed',
+    'assessment_instance',v_instance.id,
+    jsonb_build_object(
+      'submission_id',v_submission.id,'decision',p_decision,
+      'note',nullif(btrim(coalesce(p_note,'')),'')
+    )
+  );
+  return true;
+end;
+$;
+
+
 create or replace function public.submit_offline_assessment_mark(
   p_assessment_instance_id uuid,
   p_enrolment_id uuid,
