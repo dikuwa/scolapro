@@ -15,7 +15,7 @@ language sql
 stable
 security definer
 set search_path = pg_catalog, public, app_private
-as $
+as $fn$
   select (
     app_private.has_platform_role(array['platform_admin'])
     or (
@@ -59,7 +59,7 @@ as $
       )
     )
   );
-$;
+$fn$;
 
 revoke all on function app_private.can_manage_assessment_instance_scope(uuid,integer,uuid,uuid,uuid)
 from public,anon;
@@ -75,7 +75,7 @@ returns boolean
 language plpgsql
 security definer
 set search_path = public, app_private
-as $
+as $fn$
 declare
   v_submission public.mark_submissions%rowtype;
   v_instance public.assessment_instances%rowtype;
@@ -128,7 +128,7 @@ begin
   );
   return true;
 end;
-$;
+$fn$;
 
 
 create or replace function public.submit_offline_assessment_mark(
