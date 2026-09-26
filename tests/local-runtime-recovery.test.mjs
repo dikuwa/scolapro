@@ -94,3 +94,19 @@ test("protected identity lookups use URI-safe recovery batches", () => {
   assert.match(recovery, /const chunkSize = protectedColumns \? 40 : 250/);
   assert.match(recovery, /rows\.slice\(start, start \+ chunkSize\)/);
 });
+
+
+test("hosted recovery reconciles auto-created learner identifiers by natural key", () => {
+  assert.match(recovery, /\["school_learner_identifiers", "school_id,learner_id"\]/);
+  assert.match(recovery, /if \(table === "school_learner_identifiers"\) delete next\.id/);
+});
+
+test("guardian relationships are restored before governed guardian contact provenance", () => {
+  const profiles = recovery.indexOf('"guardian_profiles"');
+  const relationships = recovery.indexOf('"learner_guardians"');
+  const contacts = recovery.indexOf('"guardian_contacts"');
+  const addresses = recovery.indexOf('"guardian_addresses"');
+  assert.ok(profiles >= 0 && relationships > profiles);
+  assert.ok(contacts > relationships);
+  assert.ok(addresses > contacts);
+});
