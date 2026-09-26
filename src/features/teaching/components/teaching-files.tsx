@@ -183,7 +183,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
     officialDocuments,
     preparationRecords,
     professionalDocuments,
-    authoritativeResources,
+    authoritativeResources = [],
     academicYear,
     taxonomySourced = false,
     ownerSchoolId,
