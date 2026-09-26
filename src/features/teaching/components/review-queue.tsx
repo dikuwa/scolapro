@@ -71,10 +71,8 @@ export function ReviewQueue({ rows }: { rows: ReviewQueueRow[] }) {
                 <dd className="mt-0.5 break-words font-medium text-foreground">{row.scopeLabel}</dd>
               </div>
               <div className="min-w-0">
-                <dt className="text-muted-foreground">Items</dt>
-                <dd className="mt-0.5 font-medium text-foreground">
-                  {row.itemCount} {row.itemCount === 1 ? "preparation" : "preparations"}
-                </dd>
+                <dt className="text-muted-foreground">Prepared / missing</dt>
+                <dd className="mt-0.5 font-medium text-foreground">{row.preparedCount} / {row.missingCount}</dd>
               </div>
               <div className="min-w-0">
                 <dt className="text-muted-foreground">Submitted</dt>
@@ -101,7 +99,8 @@ export function ReviewQueue({ rows }: { rows: ReviewQueueRow[] }) {
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Teacher</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Subject · grade · class</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Scope</th>
-              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Items</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Prepared</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Missing</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Submitted</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground"><span className="sr-only">Action</span></th>
@@ -113,7 +112,8 @@ export function ReviewQueue({ rows }: { rows: ReviewQueueRow[] }) {
                 <td className="break-words px-4 py-3 text-sm font-medium text-foreground">{row.teacherName ?? "Not recorded"}</td>
                 <td className="break-words px-4 py-3 text-sm text-muted-foreground">{subjectLine(row) || "Not recorded"}</td>
                 <td className="break-words px-4 py-3 text-sm text-muted-foreground">{row.scopeLabel}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{row.itemCount}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{row.preparedCount}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{row.missingCount}</td>
                 <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{row.submittedOn ?? "Not recorded"}</td>
                 <td className="px-4 py-3 text-right">
