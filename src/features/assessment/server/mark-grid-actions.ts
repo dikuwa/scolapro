@@ -78,3 +78,49 @@ export async function submitMarkGrid(
   revalidatePath("/assessment");
   return {success:true,message:"Assessment submitted for HOD/leadership review. Ordinary editing is now locked until returned."};
 }
+
+
+export async function reviewMarkGrid(
+  _state:MarkGridActionState,
+  form:FormData,
+):Promise<MarkGridActionState> {
+  const submissionId=String(form.get("submissionId") ?? "");
+  const instanceId=String(form.get("instanceId") ?? "");
+  const decision=String(form.get("decision") ?? "");
+  const note=String(form.get("note") ?? "").trim();
+  if (!submissionId || !instanceId || !["verify","return"].includes(decision)) return {message:"Review action is invalid."};
+  if (decision==="return" && !note) return {message:"A return reason is required."};
+
+  const scope=await scopedInstance(instanceId);
+  if (!scope) return {message:"Assessment is outside your current authority."};
+  const { error }=await scope.db.rpc("review_mark_submission",{
+    p_submission_id:submissionId,
+    p_decision:decision,
+    p_note:note || null,
+  });
+  if (error) return {message:"Review could not be completed within your current subject portfolio."};
+  revalidatePath(`/assessment/marks/${instanceId}`);
+  revalidatePath("/assessment/marks");
+  revalidatePath("/assessment");
+  return {success:true,message:decision==="verify" ? "Marks verified. Final locking remains part of official result approval." : "Assessment returned to the teacher with the recorded reason."};
+}
+
+export async function reopenMarkGridForCorrection(
+  _state:MarkGridActionState,
+  form:FormData,
+):Promise<MarkGridActionState> {
+  const instanceId=String(form.get("instanceId") ?? "");
+  const reason=String(form.get("reason") ?? "").trim();
+  if (!reason) return {message:"A correction reason is required."};
+  const scope=await scopedInstance(instanceId);
+  if (!scope) return {message:"Assessment is outside your current authority."};
+  const { error }=await scope.db.rpc("reopen_assessment_for_correction",{
+    p_assessment_instance_id:instanceId,
+    p_reason:reason,
+  });
+  if (error) return {message:error.message.includes("Official results already exist") ? "This assessment already has immutable official results. Use the governed official-result correction workflow." : "Assessment could not be reopened within your current authority."};
+  revalidatePath(`/assessment/marks/${instanceId}`);
+  revalidatePath("/assessment/marks");
+  revalidatePath("/assessment");
+  return {success:true,message:"Assessment reopened as Returned. The reason is retained in the audit trail."};
+}
