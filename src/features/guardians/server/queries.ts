@@ -122,7 +122,7 @@ export async function getReusableGuardians(learnerId: string, schoolId: string):
   const candidates = profiles.filter((profile) => !existing.has(profile.id));
   if (!candidates.length) return [];
   const ids = candidates.map((item) => item.id);
-  const contactRows = [];
+  const contactRows: Array<{ id: string; guardian_id: string; contact_type: string; contact_value: string; is_primary: boolean; label: string | null }> = [];
   for (const batch of chunkIds(ids)) {
     const { data: contacts, error: contactsError } = await supabase
       .from("guardian_contacts")
