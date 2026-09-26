@@ -478,7 +478,7 @@ begin
   v_snapshot:=jsonb_build_object(
     'documentType','learner_transfer_form',
     'templateContract','namibia-prescribed-transfer-form',
-    'templateContractVersion','2026-09-22',
+    'templateContractVersion','7-1/0093-source',
     'source',v_source,
     'header',p_header_snapshot,
     'verifiedFields',jsonb_build_object(
@@ -631,3 +631,57 @@ $$;
 
 revoke all on function public.list_learner_transfer_form_candidates() from public,anon;
 grant execute on function public.list_learner_transfer_form_candidates() to authenticated;
+
+
+create or replace function public.get_learner_transfer_form_snapshot_for_render(p_snapshot_id uuid)
+returns table(
+  snapshot_id uuid,
+  transfer_event_id uuid,
+  revision integer,
+  status text,
+  data_snapshot jsonb,
+  finalized_at timestamptz,
+  scolapro_reference text,
+  verification_token text,
+  verification_path text
+)
+language plpgsql
+stable
+security definer
+set search_path=pg_catalog,public,app_private
+as $$
+declare
+  v_transfer_event_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+
+  select s.transfer_event_id into v_transfer_event_id
+  from public.learner_transfer_form_snapshots s
+  where s.id=p_snapshot_id;
+
+  if v_transfer_event_id is null then raise exception 'Learner transfer-form snapshot not found'; end if;
+  if not app_private.can_manage_learner_transfer_form(v_transfer_event_id) then raise exception 'Permission denied'; end if;
+
+  return query
+  select
+    s.id,
+    s.transfer_event_id,
+    s.revision,
+    s.status,
+    s.data_snapshot,
+    s.finalized_at,
+    v.scolapro_reference,
+    v.verification_token,
+    '/verify/'||v.verification_token
+  from public.learner_transfer_form_snapshots s
+  join public.official_document_verifications v
+    on v.id=s.official_document_verification_id
+  where s.id=p_snapshot_id;
+end;
+$$;
+
+revoke all on function public.get_learner_transfer_form_snapshot_for_render(uuid) from public,anon;
+grant execute on function public.get_learner_transfer_form_snapshot_for_render(uuid) to authenticated;
+
+comment on function public.get_learner_transfer_form_snapshot_for_render(uuid) is
+'Authorized immutable learner transfer-form snapshot plus shared verification provenance for HTML/PDF rendering.';
