@@ -46,6 +46,28 @@ const TABLE_HEADER_HEIGHT = 20;
 const ROW_HEIGHT = 16;
 const FOOTER_RESERVE = 36;
 
+function preferredColumnWidth(key: string): number {
+  if (key === "number") return 28;
+  if (key === "admissionNumber") return 68;
+  if (key === "learner") return 150;
+  if (key === "sex") return 34;
+  if (key === "status") return 58;
+  if (key === "registerClass") return 78;
+  if (key === "guardianName") return 118;
+  if (key === "guardianPhone") return 92;
+  if (key === "emergencyContact") return 128;
+  if (key.startsWith("blank-")) return 62;
+  return 72;
+}
+
+function fitColumnWidths(keys: string[]): number[] {
+  const preferred = keys.map(preferredColumnWidth);
+  const total = preferred.reduce((sum, width) => sum + width, 0);
+  if (total <= CONTENT_WIDTH) return preferred;
+  const scale = CONTENT_WIDTH / total;
+  return preferred.map((width) => width * scale);
+}
+
 function drawTableHeader(page: PDFPage, bold: PDFFont, y: number, widths: number[], labels: string[]) {
   let x = MARGIN;
   labels.forEach((label, index) => {
@@ -85,8 +107,8 @@ export async function renderOfficialClassListPdf(
   const { regular, bold } = resources;
 
   const documentColumns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
-  const totalWeight = documentColumns.reduce((sum, column) => sum + column.weight, 0);
-  const columns = documentColumns.map((column) => CONTENT_WIDTH * column.weight / totalWeight);
+  const columns = fitColumnWidths(documentColumns.map((column) => column.key));
+  const tableWidth = columns.reduce((sum, width) => sum + width, 0);
   const availableRowsHeight = PAGE_HEIGHT - MARGIN * 2 - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT - TITLE_HEIGHT - TABLE_HEADER_HEIGHT - FOOTER_RESERVE;
   const rowsPerPage = Math.max(1, Math.floor(availableRowsHeight / ROW_HEIGHT));
   const chunks: OfficialClassListRow[][] = [];
@@ -95,12 +117,12 @@ export async function renderOfficialClassListPdf(
 
   for (let pageIndex = 0; pageIndex < chunks.length; pageIndex += 1) {
     const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    let y = drawOfficialDocumentPdfHeader(page, input.header, resources);
+    let y = drawOfficialDocumentPdfHeader(page, input.header, resources, undefined, { layout: "compact_left" });
 
-    page.drawRectangle({ x: MARGIN, y: y - TITLE_HEIGHT, width: CONTENT_WIDTH, height: TITLE_HEIGHT, borderWidth: 0.55, borderColor: LINE });
-    drawOfficialDocumentPdfCentered(page, bold, input.rosterTitle || "Class List", 10, MARGIN, CONTENT_WIDTH, y - 13);
+    page.drawRectangle({ x: MARGIN, y: y - TITLE_HEIGHT, width: tableWidth, height: TITLE_HEIGHT, borderWidth: 0.55, borderColor: LINE });
+    drawOfficialDocumentPdfCentered(page, bold, input.rosterTitle || "Class List", 10, MARGIN, tableWidth, y - 13);
     const context = `${input.grade} | ${input.registerClass} | ${input.academicYear}${input.registerTeacherName ? ` | Register Teacher: ${input.registerTeacherName}` : ""}`;
-    drawOfficialDocumentPdfCentered(page, regular, context, 6.3, MARGIN, CONTENT_WIDTH, y - 26);
+    drawOfficialDocumentPdfCentered(page, regular, context, 6.3, MARGIN, tableWidth, y - 26);
     y -= TITLE_HEIGHT;
 
     drawTableHeader(page, bold, y, columns, documentColumns.map((column) => column.label));
@@ -108,8 +130,8 @@ export async function renderOfficialClassListPdf(
     const chunkStart = pageIndex * rowsPerPage;
     const chunk = chunks[pageIndex];
     if (!chunk.length) {
-      page.drawRectangle({ x: MARGIN, y: y - ROW_HEIGHT * 2, width: CONTENT_WIDTH, height: ROW_HEIGHT * 2, borderWidth: 0.45, borderColor: LINE });
-      drawOfficialDocumentPdfCentered(page, regular, "No learners in this class list.", 7, MARGIN, CONTENT_WIDTH, y - 20);
+      page.drawRectangle({ x: MARGIN, y: y - ROW_HEIGHT * 2, width: tableWidth, height: ROW_HEIGHT * 2, borderWidth: 0.45, borderColor: LINE });
+      drawOfficialDocumentPdfCentered(page, regular, "No learners in this class list.", 7, MARGIN, tableWidth, y - 20);
     } else {
       chunk.forEach((row, index) => {
         drawRow(page, regular, chunkStart + index, row, y, columns, documentColumns.map((column) => column.value(row, chunkStart + index)));

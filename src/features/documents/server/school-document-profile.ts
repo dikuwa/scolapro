@@ -54,7 +54,7 @@ function bundledSchoolLogoUrl(schoolName: string): string {
   switch (normalizedSchoolName(schoolName)) {
     case "namib high school":
     case "namib high":
-      return "/brand/schools/namib-high/crest.svg";
+      return "/brand/schools/namib-high/crest.png";
     default:
       return "";
   }
