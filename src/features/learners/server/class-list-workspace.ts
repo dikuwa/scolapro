@@ -389,6 +389,19 @@ export async function getClassListBatchWorkspace(input: {
     }),
   ));
 
+  const selectedWholeGrades = new Set(
+    lists
+      .map((list, index) => ({ list, target: uniqueTargets[index] }))
+      .filter(({ target }) => target.rosterType === "grade")
+      .map(({ list }) => list.grade),
+  );
+  const duplicateChild = lists
+    .map((list, index) => ({ list, target: uniqueTargets[index] }))
+    .find(({ list, target }) => target.rosterType === "register_class" && selectedWholeGrades.has(list.grade));
+  if (duplicateChild) {
+    throw new Error("A whole-grade class list and one of its register classes cannot be selected in the same batch.");
+  }
+
   return {
     targets: uniqueTargets,
     lists,
