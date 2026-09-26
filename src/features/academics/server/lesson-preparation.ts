@@ -267,12 +267,12 @@ async function preparationForSchedule(
     .maybeSingle();
   if (delivery?.lesson_preparation_id) {
     return (await db.from("lesson_preparations")
-      .select("id,status,prepared_by_user_id,teaching_schedule_item_id,selected_competency_ids,session_count,updated_at")
+      .select("id,status,prepared_by_user_id,teaching_schedule_item_id,planned_on,selected_competency_ids,session_count,updated_at")
       .eq("id", delivery.lesson_preparation_id)
       .maybeSingle()).data;
   }
   return (await db.from("lesson_preparations")
-    .select("id,status,prepared_by_user_id,teaching_schedule_item_id,selected_competency_ids,session_count,updated_at")
+    .select("id,status,prepared_by_user_id,teaching_schedule_item_id,planned_on,selected_competency_ids,session_count,updated_at")
     .eq("teaching_schedule_item_id", scheduleId)
     .maybeSingle()).data;
 }
@@ -302,7 +302,7 @@ async function savePreparation(
     tenant_id: owned.schedule.tenant_id,
     school_id: owned.schedule.school_id,
     teaching_schedule_item_id: existing?.teaching_schedule_item_id ?? scheduleId,
-    planned_on: owned.schedule.planned_on,
+    planned_on: existing?.planned_on ?? owned.schedule.planned_on,
     academic_year: owned.schedule.academic_year,
     subject_offering_id: owned.allocation.subject_offering_id,
     curriculum_unit_id: snapshot.curriculumUnitId ?? null,
@@ -354,7 +354,7 @@ export async function saveLessonPreparationOffline(form: FormData): Promise<Less
   if (!owned) return { message: "This lesson is outside your current teaching allocation." };
   const preparation = Object.fromEntries([
     "resources", "introduction", "lessonStructure", "teacherActivities", "learnerActivities", "consolidation",
-    "assessment", "homeworkMonitoring", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
+    "assessment", "homeworkMonitoring", "differentiation", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
   ].map((key) => [key, text(form, key)]));
   const selectedCompetencyIds = text(form, "selectedCompetencyIds")
     .split(",").map((value) => value.trim()).filter(Boolean);
