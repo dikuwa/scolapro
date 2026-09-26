@@ -128,3 +128,50 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
     rows,
   };
 }
+
+
+export type MarkGridQueueItem = {
+  id: string;
+  subject: string;
+  className: string;
+  assessmentName: string;
+  status: string;
+  rawMax: number | null;
+  termNumber: number | null;
+};
+
+export async function getMarkGridQueue(): Promise<MarkGridQueueItem[] | null> {
+  const context=await getUserContext();
+  if (!context.user || context.platformMemberships.length || !context.currentSchoolMembership) return null;
+  const membership=context.currentSchoolMembership;
+  const db=await createSupabaseServerClient();
+
+  const { data: instances }=await db.from("assessment_instances")
+    .select("id,subject_offering_id,register_class_id,display_name,status,raw_max,term_number")
+    .eq("school_id",membership.schoolId)
+    .in("status",["open","returned","review","verified","locked"])
+    .order("assessment_date",{ascending:false});
+  const offeringIds=[...new Set((instances ?? []).map((row)=>row.subject_offering_id))];
+  const classIds=[...new Set((instances ?? []).map((row)=>row.register_class_id))];
+  const [{ data: offerings },{ data: classes }]=await Promise.all([
+    offeringIds.length ? db.from("subject_offerings").select("id,subject_id").in("id",offeringIds) : Promise.resolve({data:[]}),
+    classIds.length ? db.from("register_classes").select("id,display_name").in("id",classIds) : Promise.resolve({data:[]}),
+  ]);
+  const subjectIds=[...new Set((offerings ?? []).map((row)=>row.subject_id))];
+  const { data: subjects }=subjectIds.length
+    ? await db.from("subjects").select("id,display_name").in("id",subjectIds)
+    : {data:[]};
+  const subjectMap=new Map((subjects ?? []).map((row)=>[row.id,row.display_name]));
+  const offeringMap=new Map((offerings ?? []).map((row)=>[row.id,subjectMap.get(row.subject_id) ?? "Subject"]));
+  const classMap=new Map((classes ?? []).map((row)=>[row.id,row.display_name]));
+
+  return (instances ?? []).map((row)=>({
+    id:row.id,
+    subject:offeringMap.get(row.subject_offering_id) ?? "Subject",
+    className:classMap.get(row.register_class_id) ?? "Class",
+    assessmentName:row.display_name,
+    status:row.status,
+    rawMax:row.raw_max == null ? null : Number(row.raw_max),
+    termNumber:row.term_number ?? null,
+  }));
+}
