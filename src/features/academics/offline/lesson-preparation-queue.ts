@@ -7,6 +7,8 @@ export type OfflineLessonPreparationPayload = {
   clientMutationId: string;
   expectedUpdatedAt: string | null;
   preparation: Record<string, string>;
+  selectedCompetencyIds: string[];
+  sessionCount: number;
 };
 
 export async function queueLessonPreparationDraft(scope: OfflineScope, payload: OfflineLessonPreparationPayload) {

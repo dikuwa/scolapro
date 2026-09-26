@@ -17,10 +17,17 @@ export type LessonPreparationRow = {
   topic: string | null;
   objectives: string[];
   competencies: string[];
+  competencyOptions: Array<{ id: string; text: string }>;
+  curriculumUnitId: string | null;
+  subjectOfferingId: string | null;
   preparationId: string | null;
   preparationUpdatedAt: string | null;
   preparationStatus: string | null;
+  preparationCurriculumVersion: string | null;
+  curriculumObsolete: boolean;
   preparation: Record<string, string>;
+  selectedCompetencyIds: string[];
+  sessionCount: number;
   actualReflection: string | null;
 };
 
@@ -33,9 +40,19 @@ type PacingRow = { id: string; curriculum_unit_id: string };
 type UnitRow = { id: string; curriculum_version_id: string; theme: string | null; topic: string | null };
 type VersionRow = { id: string; version_key: string };
 type ObjectiveRow = { curriculum_unit_id: string; objective_text: string; sequence_number: number };
-type CompetencyRow = { curriculum_unit_id: string; competency_text: string; sequence_number: number };
+type CompetencyRow = { id: string; curriculum_unit_id: string; competency_text: string; sequence_number: number };
 type SubmissionItemRow = { lesson_preparation_id: string; preparation_submission_id: string };
 type SubmissionRow = { id: string; status: string; submitted_at: string };
+type CurriculumSnapshot = {
+  curriculumVersionId: string | null;
+  curriculumVersion: string | null;
+  curriculumUnitId: string | null;
+  theme: string | null;
+  topic: string | null;
+  generalObjectives: string[];
+  competencies: string[];
+  competencyOptions: Array<{ id: string; text: string }>;
+};
 
 const editableStatuses = new Set(["draft", "prepared", "returned"]);
 const teacherRoles = new Set(["teacher", "class_teacher"]);
@@ -56,15 +73,15 @@ async function ownedSchedule(scheduleId: string) {
   const scope = await teacherContext();
   if (!scope) return null;
   const { data: schedule } = await scope.db.from("teaching_schedule_items")
-    .select("id,tenant_id,school_id,teacher_allocation_id,pacing_plan_item_id,planned_on,planned_period_count,status")
+    .select("id,tenant_id,school_id,academic_year,teacher_allocation_id,pacing_plan_item_id,planned_on,planned_period_count,status")
     .eq("id", scheduleId).maybeSingle();
   if (!schedule || schedule.school_id !== scope.membership.schoolId) return null;
-  const { data: allocation } = await scope.db.from("teacher_allocations").select("id,staff_member_id,active_from,active_to")
+  const { data: allocation } = await scope.db.from("teacher_allocations").select("id,staff_member_id,subject_offering_id,active_from,active_to")
     .eq("id", schedule.teacher_allocation_id).eq("staff_member_id", scope.staffId).maybeSingle();
   if (!allocation) return null;
   const today = new Date().toISOString().slice(0, 10);
   if (allocation.active_from > today || (allocation.active_to && allocation.active_to < today)) return null;
-  return { ...scope, schedule };
+  return { ...scope, schedule, allocation };
 }
 
 async function latestPreparationSubmissionStatus(
@@ -85,15 +102,28 @@ async function latestPreparationSubmissionStatus(
   return submission?.status ?? null;
 }
 
-async function curriculumSnapshot(db: Awaited<ReturnType<typeof createSupabaseServerClient>>, pacingPlanItemId: string) {
+async function curriculumSnapshot(
+  db: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  pacingPlanItemId: string,
+): Promise<CurriculumSnapshot> {
+  const empty: CurriculumSnapshot = {
+    curriculumVersionId: null,
+    curriculumVersion: null,
+    curriculumUnitId: null,
+    theme: null,
+    topic: null,
+    generalObjectives: [],
+    competencies: [],
+    competencyOptions: [],
+  };
   const { data: item } = await db.from("pacing_plan_items").select("curriculum_unit_id").eq("id", pacingPlanItemId).maybeSingle();
-  if (!item?.curriculum_unit_id) return {};
+  if (!item?.curriculum_unit_id) return empty;
   const { data: unit } = await db.from("curriculum_units").select("id,curriculum_version_id,theme,topic").eq("id", item.curriculum_unit_id).maybeSingle();
-  if (!unit) return {};
+  if (!unit) return empty;
   const [{ data: version }, { data: objectives }, { data: competencies }] = await Promise.all([
     db.from("curriculum_versions").select("id,version_key").eq("id", unit.curriculum_version_id).maybeSingle(),
     db.from("curriculum_objectives").select("objective_text,sequence_number").eq("curriculum_unit_id", unit.id).order("sequence_number"),
-    db.from("curriculum_competencies").select("competency_text,sequence_number").eq("curriculum_unit_id", unit.id).order("sequence_number"),
+    db.from("curriculum_competencies").select("id,competency_text,sequence_number").eq("curriculum_unit_id", unit.id).order("sequence_number"),
   ]);
   return {
     curriculumVersionId: version?.id ?? null,
@@ -103,6 +133,7 @@ async function curriculumSnapshot(db: Awaited<ReturnType<typeof createSupabaseSe
     topic: unit.topic ?? null,
     generalObjectives: (objectives ?? []).map((row) => row.objective_text),
     competencies: (competencies ?? []).map((row) => row.competency_text),
+    competencyOptions: (competencies ?? []).map((row) => ({ id: row.id, text: row.competency_text })),
   };
 }
 
@@ -136,7 +167,8 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
   let subjects: NamedRow[] = [];
   let grades: NamedRow[] = [];
   let pacing: PacingRow[] = [];
-  let preparations: Array<{ id: string; teaching_schedule_item_id: string; status: string; preparation: unknown; curriculum_snapshot: unknown; updated_at: string }> = [];
+  let preparations: Array<{ id: string; teaching_schedule_item_id: string; status: string; preparation: unknown; curriculum_snapshot: unknown; updated_at: string; selected_competency_ids: string[] | null; session_count: number | null }> = [];
+  let deliveries: Array<{ lesson_preparation_id: string; teaching_schedule_item_id: string; session_number: number }> = [];
   let actuals: Array<{ teaching_schedule_item_id: string; reflection: string | null; recorded_at: string }> = [];
   let terms: Array<{ id: string; display_name: string; starts_on: string | null; ends_on: string | null; term_number: number }> = [];
 
@@ -144,7 +176,15 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
   if (gradeIds.length) grades = ((await scope.db.from("grades").select("id,display_name").in("id", gradeIds)).data ?? []) as NamedRow[];
   if (pacingIds.length) pacing = ((await scope.db.from("pacing_plan_items").select("id,curriculum_unit_id").in("id", pacingIds)).data ?? []) as PacingRow[];
   if (scheduleIds.length) {
-    preparations = ((await scope.db.from("lesson_preparations").select("id,teaching_schedule_item_id,status,preparation,curriculum_snapshot,updated_at").in("teaching_schedule_item_id", scheduleIds)).data ?? []) as typeof preparations;
+    deliveries = ((await scope.db.from("lesson_preparation_deliveries")
+      .select("lesson_preparation_id,teaching_schedule_item_id,session_number")
+      .in("teaching_schedule_item_id", scheduleIds)).data ?? []) as typeof deliveries;
+    const linkedPreparationIds = [...new Set(deliveries.map((row) => row.lesson_preparation_id))];
+    if (linkedPreparationIds.length) {
+      preparations = ((await scope.db.from("lesson_preparations")
+        .select("id,teaching_schedule_item_id,status,preparation,curriculum_snapshot,updated_at,selected_competency_ids,session_count")
+        .in("id", linkedPreparationIds)).data ?? []) as typeof preparations;
+    }
     actuals = ((await scope.db.from("teaching_actuals").select("teaching_schedule_item_id,reflection,recorded_at").in("teaching_schedule_item_id", scheduleIds).order("recorded_at", { ascending: false })).data ?? []) as typeof actuals;
   }
   if (academicYear) terms = ((await scope.db.from("academic_terms").select("id,display_name,starts_on,ends_on,term_number").eq("academic_year_id", academicYear.id).order("term_number")).data ?? []) as typeof terms;
@@ -173,7 +213,7 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
   if (unitIds.length) {
     units = ((await scope.db.from("curriculum_units").select("id,curriculum_version_id,theme,topic").in("id", unitIds)).data ?? []) as UnitRow[];
     objectives = ((await scope.db.from("curriculum_objectives").select("curriculum_unit_id,objective_text,sequence_number").in("curriculum_unit_id", unitIds).order("sequence_number")).data ?? []) as ObjectiveRow[];
-    competencies = ((await scope.db.from("curriculum_competencies").select("curriculum_unit_id,competency_text,sequence_number").in("curriculum_unit_id", unitIds).order("sequence_number")).data ?? []) as CompetencyRow[];
+    competencies = ((await scope.db.from("curriculum_competencies").select("id,curriculum_unit_id,competency_text,sequence_number").in("curriculum_unit_id", unitIds).order("sequence_number")).data ?? []) as CompetencyRow[];
   }
   const versionIds = [...new Set(units.map((row) => row.curriculum_version_id))];
   if (versionIds.length) versions = ((await scope.db.from("curriculum_versions").select("id,version_key").in("id", versionIds)).data ?? []) as VersionRow[];
@@ -187,7 +227,8 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
   const pacingMap = byId(pacing);
   const unitMap = byId(units);
   const versionMap = byId(versions);
-  const preparationMap = new Map(preparations.map((row) => [row.teaching_schedule_item_id, row]));
+  const preparationById = new Map(preparations.map((row) => [row.id, row]));
+  const preparationMap = new Map(deliveries.map((row) => [row.teaching_schedule_item_id, preparationById.get(row.lesson_preparation_id)] as const));
   const actualMap = new Map<string, string | null>();
   for (const actual of actuals) if (!actualMap.has(actual.teaching_schedule_item_id)) actualMap.set(actual.teaching_schedule_item_id, actual.reflection ?? null);
 
@@ -208,6 +249,11 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
     const unit = unitMap.get(pacingMap.get(schedule.pacing_plan_item_id)?.curriculum_unit_id ?? "");
     const prep = preparationMap.get(schedule.id);
     const submissionStatus = prep ? latestSubmissionStatusByPreparation.get(prep.id) : undefined;
+    const prepSnapshot = prep?.curriculum_snapshot && typeof prep.curriculum_snapshot === "object"
+      ? prep.curriculum_snapshot as Record<string, unknown>
+      : null;
+    const preparationCurriculumVersion = typeof prepSnapshot?.curriculumVersion === "string" ? prepSnapshot.curriculumVersion : null;
+    const currentCurriculumVersion = versionMap.get(unit?.curriculum_version_id ?? "")?.version_key ?? null;
     return {
       scheduleId: schedule.id,
       allocationId: schedule.teacher_allocation_id,
@@ -216,15 +262,22 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
       className: klass?.display_name ?? "Assigned class",
       plannedOn: schedule.planned_on,
       periods: schedule.planned_period_count,
-      curriculumVersion: versionMap.get(unit?.curriculum_version_id ?? "")?.version_key ?? null,
+      curriculumVersion: currentCurriculumVersion,
       theme: unit?.theme ?? null,
       topic: unit?.topic ?? null,
       objectives: objectives.filter((row) => row.curriculum_unit_id === unit?.id).map((row) => row.objective_text),
       competencies: competencies.filter((row) => row.curriculum_unit_id === unit?.id).map((row) => row.competency_text),
+      competencyOptions: competencies.filter((row) => row.curriculum_unit_id === unit?.id).map((row) => ({ id: row.id, text: row.competency_text })),
+      curriculumUnitId: unit?.id ?? null,
+      subjectOfferingId: offering?.id ?? null,
       preparationId: prep?.id ?? null,
       preparationUpdatedAt: prep?.updated_at ?? null,
       preparationStatus: submissionStatus === "returned" ? "returned" : prep?.status ?? null,
+      preparationCurriculumVersion,
+      curriculumObsolete: Boolean(prep && preparationCurriculumVersion && currentCurriculumVersion && preparationCurriculumVersion !== currentCurriculumVersion),
       preparation: (prep?.preparation && typeof prep.preparation === "object" ? prep.preparation : {}) as Record<string, string>,
+      selectedCompetencyIds: prep?.selected_competency_ids ?? [],
+      sessionCount: prep?.session_count ?? 1,
       actualReflection: actualMap.get(schedule.id) ?? null,
     };
   });
@@ -236,28 +289,77 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
   };
 }
 
-async function savePreparation(scheduleId: string, preparation: Record<string, string>, status: "draft" | "prepared") {
+async function preparationForSchedule(
+  db: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  scheduleId: string,
+) {
+  const { data: delivery } = await db.from("lesson_preparation_deliveries")
+    .select("lesson_preparation_id")
+    .eq("teaching_schedule_item_id", scheduleId)
+    .maybeSingle();
+  if (delivery?.lesson_preparation_id) {
+    return (await db.from("lesson_preparations")
+      .select("id,status,prepared_by_user_id,teaching_schedule_item_id,planned_on,selected_competency_ids,session_count,updated_at")
+      .eq("id", delivery.lesson_preparation_id)
+      .maybeSingle()).data;
+  }
+  return (await db.from("lesson_preparations")
+    .select("id,status,prepared_by_user_id,teaching_schedule_item_id,planned_on,selected_competency_ids,session_count,updated_at")
+    .eq("teaching_schedule_item_id", scheduleId)
+    .maybeSingle()).data;
+}
+
+async function savePreparation(
+  scheduleId: string,
+  preparation: Record<string, string>,
+  selectedCompetencyIds: string[],
+  sessionCount: number,
+  status: "draft" | "prepared",
+) {
   const owned = await ownedSchedule(scheduleId);
   if (!owned) return { message: "This lesson is outside your current teaching allocation." };
-  const { data: existing } = await owned.db.from("lesson_preparations").select("id,status").eq("teaching_schedule_item_id", scheduleId).maybeSingle();
+  const existing = await preparationForSchedule(owned.db, scheduleId);
   if (existing && !editableStatuses.has(existing.status)) {
     const latestSubmissionStatus = existing.status === "submitted" ? await latestPreparationSubmissionStatus(owned.db, existing.id) : null;
     if (latestSubmissionStatus !== "returned") return { message: "This preparation is already submitted or reviewed and cannot be changed here." };
   }
   const snapshot = await curriculumSnapshot(owned.db, owned.schedule.pacing_plan_item_id);
+  const normalizedSessionCount = Math.max(1, Math.min(30, sessionCount || 1));
+  const allowedCompetencyIds = new Set((snapshot.competencyOptions ?? []).map((item) => item.id));
+  const selectedIds = [...new Set(selectedCompetencyIds.filter((id) => allowedCompetencyIds.has(id)))];
+  if (!selectedIds.length && (snapshot.competencyOptions ?? []).length) {
+    return { message: "Select at least one specific objective / basic competency for this preparation." };
+  }
   const payload = {
     tenant_id: owned.schedule.tenant_id,
     school_id: owned.schedule.school_id,
-    teaching_schedule_item_id: scheduleId,
-    planned_on: owned.schedule.planned_on,
-    curriculum_snapshot: snapshot,
+    teaching_schedule_item_id: existing?.teaching_schedule_item_id ?? scheduleId,
+    planned_on: existing?.planned_on ?? owned.schedule.planned_on,
+    academic_year: owned.schedule.academic_year,
+    subject_offering_id: owned.allocation.subject_offering_id,
+    curriculum_unit_id: snapshot.curriculumUnitId ?? null,
+    curriculum_version_id: snapshot.curriculumVersionId ?? null,
+    curriculum_snapshot: { ...snapshot, selectedCompetencyIds: selectedIds, sessionCount: normalizedSessionCount },
     preparation,
+    selected_competency_ids: selectedIds,
+    session_count: normalizedSessionCount,
     status,
     prepared_by_user_id: owned.context.user!.id,
     updated_at: new Date().toISOString(),
   };
-  const { error } = await owned.db.from("lesson_preparations").upsert(payload, { onConflict: "teaching_schedule_item_id" });
-  if (error) return { message: "Preparation could not be saved. Check your current allocation and try again." };
+  const { data: saved, error } = existing
+    ? await owned.db.from("lesson_preparations").update(payload).eq("id", existing.id).select("id").single()
+    : await owned.db.from("lesson_preparations").insert(payload).select("id").single();
+  if (error || !saved) return { message: "Preparation could not be saved. Check your current allocation and try again." };
+  await owned.db.from("lesson_preparation_deliveries").insert({
+    tenant_id: owned.schedule.tenant_id,
+    school_id: owned.schedule.school_id,
+    lesson_preparation_id: saved.id,
+    teaching_schedule_item_id: scheduleId,
+    teaching_group_id: null,
+    session_number: 1,
+    assigned_by_user_id: owned.context.user!.id,
+  });
   if (status === "prepared") await owned.db.from("teaching_schedule_items").update({ status: "prepared" }).eq("id", scheduleId);
   revalidatePath("/teaching");
   revalidatePath("/teaching/preparation");
@@ -269,9 +371,11 @@ export async function saveLessonPreparation(_state: LessonPreparationActionState
   if (!scheduleId) return { message: "Choose a scheduled lesson." };
   const preparation = Object.fromEntries([
     "resources", "introduction", "lessonStructure", "teacherActivities", "learnerActivities", "consolidation",
-    "assessment", "homeworkMonitoring", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
+    "assessment", "homeworkMonitoring", "differentiation", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
   ].map((key) => [key, text(form, key)]));
-  return savePreparation(scheduleId, preparation, form.get("intent") === "prepared" ? "prepared" : "draft");
+  const selectedCompetencyIds = form.getAll("selectedCompetencyIds").map(String).filter(Boolean);
+  const sessionCount = Math.max(1, Math.min(30, Number(form.get("sessionCount") ?? 1) || 1));
+  return savePreparation(scheduleId, preparation, selectedCompetencyIds, sessionCount, form.get("intent") === "prepared" ? "prepared" : "draft");
 }
 
 export async function saveLessonPreparationOffline(form: FormData): Promise<LessonPreparationActionState> {
@@ -282,12 +386,16 @@ export async function saveLessonPreparationOffline(form: FormData): Promise<Less
   if (!owned) return { message: "This lesson is outside your current teaching allocation." };
   const preparation = Object.fromEntries([
     "resources", "introduction", "lessonStructure", "teacherActivities", "learnerActivities", "consolidation",
-    "assessment", "homeworkMonitoring", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
+    "assessment", "homeworkMonitoring", "differentiation", "englishAcrossCurriculum", "compensatoryTeaching", "reflectionAmendments",
   ].map((key) => [key, text(form, key)]));
+  const selectedCompetencyIds = text(form, "selectedCompetencyIds")
+    .split(",").map((value) => value.trim()).filter(Boolean);
+  const sessionCount = Math.max(1, Math.min(30, Number(form.get("sessionCount") ?? 1) || 1));
+  const snapshot = await curriculumSnapshot(owned.db, owned.schedule.pacing_plan_item_id);
   const { data, error } = await owned.db.rpc("save_lesson_preparation_offline_draft", {
     p_schedule_id: scheduleId,
     p_preparation: preparation,
-    p_curriculum_snapshot: await curriculumSnapshot(owned.db, owned.schedule.pacing_plan_item_id),
+    p_curriculum_snapshot: { ...snapshot, selectedCompetencyIds, sessionCount },
     p_client_mutation_id: clientMutationId,
     p_expected_updated_at: text(form, "expectedUpdatedAt") || null,
   });
@@ -315,7 +423,7 @@ export async function prepareLessonRange(_state: LessonPreparationActionState, f
   for (const schedule of schedules ?? []) {
     const owned = await ownedSchedule(schedule.id);
     if (!owned) continue;
-    const { data: existing } = await owned.db.from("lesson_preparations").select("id").eq("teaching_schedule_item_id", schedule.id).maybeSingle();
+    const existing = await preparationForSchedule(owned.db, schedule.id);
     if (existing) continue;
     const snapshot = await curriculumSnapshot(owned.db, owned.schedule.pacing_plan_item_id);
     const { error } = await owned.db.from("lesson_preparations").insert({
@@ -323,8 +431,14 @@ export async function prepareLessonRange(_state: LessonPreparationActionState, f
       school_id: owned.schedule.school_id,
       teaching_schedule_item_id: schedule.id,
       planned_on: owned.schedule.planned_on,
-      curriculum_snapshot: snapshot,
+      academic_year: owned.schedule.academic_year,
+      subject_offering_id: owned.allocation.subject_offering_id,
+      curriculum_unit_id: snapshot.curriculumUnitId ?? null,
+      curriculum_version_id: snapshot.curriculumVersionId ?? null,
+      curriculum_snapshot: { ...snapshot, selectedCompetencyIds: [], sessionCount: 1 },
       preparation: {},
+      selected_competency_ids: [],
+      session_count: 1,
       status: "draft",
       prepared_by_user_id: owned.context.user!.id,
     });
@@ -338,10 +452,7 @@ export async function submitLessonPreparation(_state: LessonPreparationActionSta
   const scheduleId = text(form, "scheduleId");
   const owned = await ownedSchedule(scheduleId);
   if (!owned) return { message: "This lesson is outside your current teaching allocation." };
-  const { data: existing } = await owned.db.from("lesson_preparations")
-    .select("id,status,prepared_by_user_id")
-    .eq("teaching_schedule_item_id", scheduleId)
-    .maybeSingle();
+  const existing = await preparationForSchedule(owned.db, scheduleId);
   if (!existing || existing.prepared_by_user_id !== owned.context.user!.id) return { message: "Only your own preparation can be submitted." };
 
   const latestSubmissionStatus = existing.status === "submitted" ? await latestPreparationSubmissionStatus(owned.db, existing.id) : null;
@@ -359,6 +470,51 @@ export async function submitLessonPreparation(_state: LessonPreparationActionSta
   if (error) return { message: "Preparation could not be submitted. Check your current allocation and submission state." };
   revalidatePath("/teaching/preparation");
   return { success: true, message: "Preparation submitted to the governed HOD review queue." };
+}
+
+
+export async function reuseLessonPreparation(_state: LessonPreparationActionState, form: FormData): Promise<LessonPreparationActionState> {
+  const preparationId = text(form, "preparationId");
+  const targetScheduleId = text(form, "targetScheduleId");
+  const sessionNumber = Math.max(1, Math.min(30, Number(form.get("sessionNumber") ?? 1) || 1));
+  const owned = await ownedSchedule(targetScheduleId);
+  if (!owned || !preparationId) return { message: "Choose a valid target lesson in your current allocation." };
+
+  const { data: preparation } = await owned.db.from("lesson_preparations")
+    .select("id,status,prepared_by_user_id,subject_offering_id,curriculum_unit_id,session_count")
+    .eq("id", preparationId)
+    .maybeSingle();
+  if (!preparation || preparation.prepared_by_user_id !== owned.context.user!.id) {
+    return { message: "Only your own preparation can be reused." };
+  }
+  if (["reviewed","archived"].includes(preparation.status)) {
+    return { message: "Reviewed or archived preparation cannot receive new delivery assignments." };
+  }
+  if (sessionNumber > (preparation.session_count ?? 1)) {
+    return { message: "Choose a session within the preparation session count." };
+  }
+
+  const snapshot = await curriculumSnapshot(owned.db, owned.schedule.pacing_plan_item_id);
+  if (preparation.subject_offering_id !== owned.allocation.subject_offering_id
+      || preparation.curriculum_unit_id !== (snapshot.curriculumUnitId ?? null)) {
+    return { message: "Reuse is limited to the same subject offering and curriculum topic." };
+  }
+
+  const existing = await preparationForSchedule(owned.db, targetScheduleId);
+  if (existing) return { message: "The target lesson already has a preparation assigned." };
+
+  const { error } = await owned.db.from("lesson_preparation_deliveries").insert({
+    tenant_id: owned.schedule.tenant_id,
+    school_id: owned.schedule.school_id,
+    lesson_preparation_id: preparation.id,
+    teaching_schedule_item_id: targetScheduleId,
+    teaching_group_id: null,
+    session_number: sessionNumber,
+    assigned_by_user_id: owned.context.user!.id,
+  });
+  if (error) return { message: "Preparation could not be assigned to that delivery." };
+  revalidatePath("/teaching/preparation");
+  return { success: true, message: "Preparation reused for the selected lesson. Delivery completion and reflection remain independent." };
 }
 
 export async function recordTeachingActual(_state: LessonPreparationActionState, form: FormData): Promise<LessonPreparationActionState> {
