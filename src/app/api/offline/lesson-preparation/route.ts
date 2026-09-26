@@ -8,6 +8,8 @@ const schema = z.object({
   payload: z.object({
     scheduleId: z.string().uuid(), clientMutationId: z.string().uuid(),
     expectedUpdatedAt: z.string().datetime().nullable(), preparation: z.record(z.string(), z.string()),
+    selectedCompetencyIds: z.array(z.string().uuid()).default([]),
+    sessionCount: z.number().int().min(1).max(30).default(1),
   }),
 });
 
@@ -24,6 +26,8 @@ export async function POST(request: Request) {
   form.set("scheduleId", parsed.data.payload.scheduleId);
   form.set("clientMutationId", parsed.data.payload.clientMutationId);
   form.set("expectedUpdatedAt", parsed.data.payload.expectedUpdatedAt ?? "");
+  form.set("selectedCompetencyIds", parsed.data.payload.selectedCompetencyIds.join(","));
+  form.set("sessionCount", String(parsed.data.payload.sessionCount));
   for (const [key, value] of Object.entries(parsed.data.payload.preparation)) form.set(key, value);
   const result = await saveLessonPreparationOffline(form);
   return result.success ? NextResponse.json(result) : NextResponse.json(result, { status: 409 });
