@@ -4,6 +4,7 @@ import test from "node:test";
 
 const dev = readFileSync("scripts/run-local-dev.mjs", "utf8");
 const seed = readFileSync("scripts/seed-local-auth.mjs", "utf8");
+const recovery = readFileSync("scripts/recover-hosted-school-data.mjs", "utf8");
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
 const tsconfig = JSON.parse(readFileSync("tsconfig.json", "utf8"));
 const gitignore = readFileSync(".gitignore", "utf8");
@@ -36,4 +37,17 @@ test("Next 16 generated types are stable without tracking generated next-env", (
   assert.equal(tsconfig.compilerOptions.jsx, "react-jsx");
   assert.ok(tsconfig.include.includes(".next/dev/types/**/*.ts"));
   assert.match(gitignore, /^next-env\.d\.ts$/m);
+});
+
+
+test("hosted data recovery is pinned to the known source and loopback target", () => {
+  assert.equal(packageJson.scripts["local:recover-hosted-data"], "node scripts/recover-hosted-school-data.mjs");
+  assert.match(recovery, /jhgumnvhoxmapmgotchu/);
+  assert.match(recovery, /Refusing recovery because target is not loopback/);
+  assert.match(recovery, /SCOLAPRO_RECOVERY_SOURCE_ENV/);
+  assert.match(recovery, /\.env\.local\.backup-/);
+  assert.match(recovery, /source\.from\("schools"\)/);
+  assert.match(recovery, /localAdminUserId/);
+  assert.match(recovery, /demoLearnerIds/);
+  assert.match(gitignore, /^\.env\.local\.backup-\*$/m);
 });
