@@ -220,7 +220,7 @@ function embedLogoAndStyles(
       ? existingWorksheetRels
       : existingWorksheetRels.replace(
           "</Relationships>",
-          '<Relationship Id="' + drawingRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target=`../drawings/drawing${sheetNumber}.xml`/></Relationships>',
+          '<Relationship Id="' + drawingRelationshipId + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing' + sheetNumber + '.xml"/></Relationships>',
         );
     writePart(CFB, cfb, worksheetRelsPath, worksheetRels);
 
@@ -232,10 +232,10 @@ function embedLogoAndStyles(
     if (!contentTypes.includes('Extension="' + imageExtension + '"')) {
       contentTypes = contentTypes.replace("</Types>", '<Default Extension="' + imageExtension + '" ContentType="' + imageContentType + '"/></Types>');
     }
-    if (!contentTypes.includes('PartName="/xl/drawings/drawing${sheetNumber}.xml"')) {
+    if (!contentTypes.includes('PartName="/xl/drawings/drawing' + sheetNumber + '.xml"')) {
       contentTypes = contentTypes.replace(
         "</Types>",
-        '<Override PartName="/xl/drawings/drawing${sheetNumber}.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
+        '<Override PartName="/xl/drawings/drawing' + sheetNumber + '.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>',
       );
     }
     writePart(CFB, cfb, "[Content_Types].xml", contentTypes);
