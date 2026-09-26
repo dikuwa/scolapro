@@ -5,7 +5,7 @@ import { CheckCircle2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { reviewSubmission, type ReviewActionState } from "@/features/teaching/server/review-actions";
+import { commentOnSubmission, reviewSubmission, type ReviewActionState } from "@/features/teaching/server/review-actions";
 import type { ReviewDetail as ReviewDetailData, ReviewSubmissionItem } from "@/features/teaching/server/review-queries";
 
 const initialState: ReviewActionState = { success: false, message: "" };
@@ -211,6 +211,29 @@ function ReviewHistory({ events }: { events: ReviewDetailData["events"] }) {
   );
 }
 
+function CommentOnlyAction({submissionId}:{submissionId:string}) {
+  const [state,action,pending]=useActionState(commentOnSubmission,initialState);
+
+  useEffect(()=>{
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  },[state]);
+
+  return (
+    <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <h2 className="scolapro-section-title">Comment only</h2>
+      <p className="scolapro-section-description">Add guidance without changing submission state. The comment is appended to review history and teacher content remains untouched.</p>
+      <form action={action} className="mt-4 space-y-3">
+        <input type="hidden" name="submissionId" value={submissionId}/>
+        <textarea name="comment" required rows={3} maxLength={2000} className="min-h-[84px] w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 py-2 text-sm outline-none focus:border-brand focus:ring-4 focus:ring-brand-soft" placeholder="Add review guidance or a note…"/>
+        <div className="flex justify-end"><Button type="submit" variant="neutral" loading={pending}>Add comment</Button></div>
+        {state.message ? <p className={cn("text-xs",state.success ? "text-success" : "text-danger")}>{state.message}</p> : null}
+      </form>
+    </section>
+  );
+}
+
 function ReviewActions({ submissionId, status }: { submissionId: string; status: string }) {
   const [state, action, pending] = useActionState(reviewSubmission, initialState);
 
@@ -298,6 +321,7 @@ export function ReviewDetail({ data }: { data: ReviewDetailData }) {
       </section>
 
       <ReviewHistory events={data.events} />
+      <CommentOnlyAction submissionId={data.submission.id} />
       <ReviewActions submissionId={data.submission.id} status={data.submission.status} />
     </div>
   );
