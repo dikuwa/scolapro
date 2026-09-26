@@ -317,7 +317,6 @@ type ReviewSubmissionRow = {
   week_end: string | null;
   status: string;
   submitted_at: string;
-  submitted_by_user_id: string;
   academic_year: number;
   items: ReviewItemRow[] | null;
 };
@@ -338,7 +337,7 @@ type ReviewEventRow = {
 };
 
 const reviewQueueSelect = `
-  id, scope_kind, term_label, week_start, week_end, status, submitted_at, submitted_by_user_id, academic_year,
+  id, scope_kind, term_label, week_start, week_end, status, submitted_at, academic_year,
   items:preparation_submission_items(
     id, lesson_preparation_id, preparation_status_snapshot,
     lesson_preparation:lesson_preparations(
@@ -411,37 +410,23 @@ export async function getReviewQueue(academicYear: number): Promise<ReviewQueueR
   const rawRows=(data ?? []) as unknown as ReviewSubmissionRow[];
   const rows=rawRows.map(toQueueRow);
 
-  const submitterIds=[...new Set(rawRows.map((row)=>row.submitted_by_user_id).filter(Boolean))];
-  const [{data:staffRows},{data:academicYearRow}] = await Promise.all([
-    submitterIds.length
-      ? supabase.from("staff_members").select("id,user_id").in("user_id",submitterIds)
+  const allocationIds=[...new Set(rawRows.flatMap((row)=>
+    (row.items ?? []).map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.id).filter((id):id is string=>Boolean(id))
+  ))];
+  const [{data:scheduleRows},{data:academicYearRow}] = await Promise.all([
+    allocationIds.length
+      ? supabase.from("teaching_schedule_items")
+          .select("teacher_allocation_id,planned_on,status")
+          .eq("school_id",scope.schoolId)
+          .eq("academic_year",parsedYear.data)
+          .in("teacher_allocation_id",allocationIds)
+          .in("status",["planned","prepared","taught","moved"])
       : Promise.resolve({data:[]}),
     supabase.from("academic_years").select("id").eq("school_id",scope.schoolId).eq("year",parsedYear.data).maybeSingle(),
   ]);
-  const staffIds=(staffRows ?? []).map((row)=>row.id);
-  const [{data:allocationRows},{data:termRows}] = await Promise.all([
-    staffIds.length
-      ? supabase.from("teacher_allocations").select("id,staff_member_id").eq("school_id",scope.schoolId).eq("academic_year",parsedYear.data).in("staff_member_id",staffIds)
-      : Promise.resolve({data:[]}),
-    academicYearRow?.id
-      ? supabase.from("academic_terms").select("display_name,starts_on,ends_on").eq("academic_year_id",academicYearRow.id)
-      : Promise.resolve({data:[]}),
-  ]);
-  const allocationIds=(allocationRows ?? []).map((row)=>row.id);
-  const {data:scheduleRows}=allocationIds.length
-    ? await supabase.from("teaching_schedule_items")
-        .select("teacher_allocation_id,planned_on,status")
-        .eq("school_id",scope.schoolId)
-        .eq("academic_year",parsedYear.data)
-        .in("teacher_allocation_id",allocationIds)
-        .in("status",["planned","prepared","taught","moved"])
+  const {data:termRows}=academicYearRow?.id
+    ? await supabase.from("academic_terms").select("display_name,starts_on,ends_on").eq("academic_year_id",academicYearRow.id)
     : {data:[]};
-
-  const staffByUser=new Map((staffRows ?? []).map((row)=>[row.user_id,row.id]));
-  const allocationsByStaff=new Map<string,string[]>();
-  for(const allocation of allocationRows ?? []) {
-    allocationsByStaff.set(allocation.staff_member_id,[...(allocationsByStaff.get(allocation.staff_member_id) ?? []),allocation.id]);
-  }
   const termsByLabel=new Map((termRows ?? []).map((term)=>[term.display_name,term]));
 
   for(let index=0;index<rows.length;index++) {
@@ -458,11 +443,14 @@ export async function getReviewQueue(academicYear: number): Promise<ReviewQueueR
     }
     if(!rangeStart || !rangeEnd) continue;
 
-    const staffId=staffByUser.get(raw.submitted_by_user_id);
-    const teacherAllocationIds=new Set(staffId ? allocationsByStaff.get(staffId) ?? [] : []);
-    if(!teacherAllocationIds.size) continue;
+    const submissionAllocationIds=new Set(
+      (raw.items ?? [])
+        .map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.id)
+        .filter((id):id is string=>Boolean(id))
+    );
+    if(!submissionAllocationIds.size) continue;
     const expected=(scheduleRows ?? []).filter((schedule)=>
-      teacherAllocationIds.has(schedule.teacher_allocation_id)
+      submissionAllocationIds.has(schedule.teacher_allocation_id)
       && schedule.planned_on>=rangeStart!
       && schedule.planned_on<=rangeEnd!
     ).length;
