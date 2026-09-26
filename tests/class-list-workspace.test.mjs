@@ -107,3 +107,22 @@ test("class-list grade ordering only uses canonical grade columns", () => {
   assert.doesNotMatch(resolver, /\.order\("sort_order"\)/);
   assert.match(resolver, /from\("grades"\)[\s\S]*\.order\("display_name"\)\.order\("id"\)/);
 });
+
+
+test("class-list preview uses compact spreadsheet layout and clearable recents", () => {
+  assert.match(workspace, /w-max min-w-0 table-auto border-collapse/);
+  assert.match(workspace, /border border-border-subtle px-2\.5 py-2/);
+  assert.match(workspace, /function clearRecents\(\)/);
+  assert.match(workspace, /localStorage\.removeItem\(RECENTS_KEY\)/);
+  assert.match(workspace, />Clear<\/button>/);
+});
+
+test("official class-list columns place admission before learner and abbreviate sex", () => {
+  const document = source("src/features/documents/server/class-list-document.ts");
+  assert.match(document, /hasAdmissionNumber/);
+  assert.match(document, /optionalColumn\("admissionNumber"\)/);
+  assert.match(document, /key: "learner"/);
+  assert.ok(document.indexOf('optionalColumn("admissionNumber")') < document.indexOf('key: "learner"'));
+  assert.match(document, /normalized === "male" \|\| normalized === "m"\) return "M"/);
+  assert.match(document, /normalized === "female" \|\| normalized === "f"\) return "F"/);
+});
