@@ -3,12 +3,14 @@ import "server-only";
 import { resolveTeachingGroupMembers, resolveTeachingGroups } from "@/features/academics/server/teaching-groups";
 import {
   classListColumnIds,
+  type ClassListBatchWorkspaceData,
   type ClassListColumnId,
   type ClassListConfiguration,
   type ClassListLearnerRow,
   type ClassListRosterOption,
   type ClassListRosterType,
   type ClassListScope,
+  type ClassListTarget,
   type ClassListWorkspaceData,
 } from "@/features/learners/class-list-types";
 import type { SchoolMembershipContext } from "@/lib/auth/get-user-context";
@@ -19,7 +21,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 const managerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const guardianRoles = new Set(["school_admin", "principal", "deputy_principal", "class_teacher", "hod", "counsellor"]);
 const rosterRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian", "ltsm", "exam_officer", "emis_officer"]);
-const guardianColumns = new Set<ClassListColumnId>(["guardianName", "guardianPhone", "emergencyContact"]);
+const guardianColumns = new Set<ClassListColumnId>(["guardianName", "guardianPhone", "guardianAddress", "emergencyContact"]);
 const rosterTypes = new Set<ClassListRosterType>(["register_class", "grade", "subject", "teacher_subject", "teaching_group", "field_group"]);
 const POSTGREST_IN_BATCH_SIZE = 40;
 
@@ -183,20 +185,43 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
   if (!guardianIds.length) return rows;
   const profileRows: Array<{ id: string; first_names: string; surname: string }> = [];
   const contactRows: Array<{ guardian_id: string; contact_type: string; contact_value: string; is_primary: boolean }> = [];
+  const addressRows: Array<{
+    guardian_id: string;
+    address_line_1: string;
+    address_line_2: string | null;
+    suburb_or_locality: string | null;
+    town_or_city: string | null;
+    region: string | null;
+    postal_code: string | null;
+    country: string;
+    is_primary: boolean;
+  }> = [];
   for (const batch of chunkIds(guardianIds)) {
-    const [profiles, contacts] = await Promise.all([
+    const [profiles, contacts, addresses] = await Promise.all([
       supabase.from("guardian_profiles").select("id,first_names,surname").in("id", batch),
       supabase.from("guardian_contacts").select("guardian_id,contact_type,contact_value,is_primary").in("guardian_id", batch).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
+      supabase.from("guardian_addresses").select("guardian_id,address_line_1,address_line_2,suburb_or_locality,town_or_city,region,postal_code,country,is_primary").in("guardian_id", batch).lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`),
     ]);
-    if (profiles.error || contacts.error) throw new Error("Unable to load authorized guardian details.");
+    if (profiles.error || contacts.error || addresses.error) throw new Error("Unable to load authorized guardian details.");
     profileRows.push(...(profiles.data ?? []));
     contactRows.push(...(contacts.data ?? []));
+    addressRows.push(...(addresses.data ?? []));
   }
   const profileById = new Map(profileRows.map((item) => [item.id, formatPersonName(`${item.first_names} ${item.surname}`)]));
   const phoneByGuardian = new Map<string, string>();
   for (const item of contactRows) {
     if (!["mobile", "phone", "telephone"].includes(item.contact_type)) continue;
     if (!phoneByGuardian.has(item.guardian_id) || item.is_primary) phoneByGuardian.set(item.guardian_id, item.contact_value);
+  }
+  const addressByGuardian = new Map<string, string>();
+  for (const item of addressRows) {
+    if (addressByGuardian.has(item.guardian_id) && !item.is_primary) continue;
+    const street = [item.address_line_1, item.address_line_2].filter(Boolean).join(", ");
+    const localityParts = [item.suburb_or_locality, item.town_or_city].filter(Boolean);
+    const locality = Array.from(new Set(localityParts)).join(", ");
+    const regional = [item.region, item.postal_code].filter(Boolean).join(" ");
+    const tail = [locality, regional, item.country && item.country !== "Namibia" ? item.country : null].filter(Boolean).join(", ");
+    addressByGuardian.set(item.guardian_id, [street, tail].filter(Boolean).join("\n"));
   }
   const relationshipsByLearner = new Map<string, typeof relationshipRows>();
   for (const link of relationshipRows) relationshipsByLearner.set(link.learner_id, [...(relationshipsByLearner.get(link.learner_id) ?? []), link]);
@@ -210,6 +235,7 @@ async function hydrateGuardianColumns(rows: ClassListLearnerRow[], canView: bool
       ...row,
       guardianName: primary ? profileById.get(primary.guardian_id) ?? null : null,
       guardianPhone: primary ? phoneByGuardian.get(primary.guardian_id) ?? null : null,
+      guardianAddress: primary ? addressByGuardian.get(primary.guardian_id) ?? null : null,
       emergencyContact: [emergencyName, emergencyPhone].filter(Boolean).join(" · ") || null,
     };
   });
@@ -309,7 +335,7 @@ export async function getClassListWorkspace(input: {
       sex: learner?.sex ?? null,
       registerClass: registerClass?.display_name ?? "Unassigned",
       status: item.status,
-      guardianName: null, guardianPhone: null, emergencyContact: null,
+      guardianName: null, guardianPhone: null, guardianAddress: null, emergencyContact: null,
     };
   }).sort((a, b) => a.learnerName.localeCompare(b.learnerName, undefined, { sensitivity: "base" }));
   learners = await hydrateGuardianColumns(learners, canViewGuardianFields && configuration.columns.some((column) => guardianColumns.has(column)));
@@ -325,5 +351,47 @@ export async function getClassListWorkspace(input: {
   return {
     academicYear: input.academicYear, schoolName: input.membership.schoolName, canUseAllScope, canViewGuardianFields,
     effectiveScope, options: scoped.options, configuration, title: selected.label, grade, className, registerTeacherName, learners,
+  };
+}
+
+
+export async function getClassListBatchWorkspace(input: {
+  membership: SchoolMembershipContext;
+  academicYear: number;
+  scope: ClassListScope;
+  targets: ClassListTarget[];
+  columns: ClassListColumnId[];
+  blankColumns: number;
+}): Promise<ClassListBatchWorkspaceData> {
+  const uniqueTargets = Array.from(
+    new Map(
+      input.targets
+        .filter((target) => rosterTypes.has(target.rosterType) && target.rosterId.trim())
+        .map((target) => [`${target.rosterType}:${target.rosterId}`, target]),
+    ).values(),
+  ).slice(0, 20);
+
+  if (!uniqueTargets.length) {
+    return { targets: [], lists: [], totalLearners: 0 };
+  }
+
+  const lists = await Promise.all(uniqueTargets.map((target) =>
+    getClassListWorkspace({
+      membership: input.membership,
+      academicYear: input.academicYear,
+      configuration: {
+        scope: input.scope,
+        rosterType: target.rosterType,
+        rosterId: target.rosterId,
+        columns: input.columns,
+        blankColumns: input.blankColumns,
+      },
+    }),
+  ));
+
+  return {
+    targets: uniqueTargets,
+    lists,
+    totalLearners: lists.reduce((sum, item) => sum + item.learners.length, 0),
   };
 }
