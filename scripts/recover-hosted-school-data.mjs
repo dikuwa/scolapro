@@ -89,10 +89,11 @@ function rewriteActorIds(table, row) {
     if ("reconciled_by_user_id" in next) next.reconciled_by_user_id = null;
   }
   const requiredLocalActorTables = new Set([
-    "staff_school_assignments","room_inventory_items","room_inventory_custodians",
-    "attendance_register_submissions","attendance_events","school_late_arrival_events",
-    "detention_sessions","detention_session_supervisors","room_inventory_events",
-    "room_inventory_verifications","school_payment_settings"
+    "school_settings","staff_school_assignments","guardian_contacts","guardian_addresses",
+    "room_inventory_items","room_inventory_custodians","attendance_register_submissions",
+    "attendance_events","school_late_arrival_policies","school_late_arrival_events",
+    "detention_sessions","detention_session_supervisors","detention_supervision_preferences",
+    "room_inventory_events","room_inventory_verifications","school_payment_settings"
   ]);
   for (const key of ["created_by_user_id","assigned_by_user_id","recorded_by_user_id","verified_by_user_id","actor_user_id","updated_by_user_id"]) {
     if (!(key in next)) continue;

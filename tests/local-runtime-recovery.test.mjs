@@ -63,3 +63,28 @@ test("hosted recovery preserves immutable core identity provenance on reruns", (
   assert.match(recovery, /Object\.fromEntries\(Object\.entries\(row\)\.filter/);
   assert.match(recovery, /\.update\(mutable\)\.eq\("id", row\.id\)/);
 });
+
+
+test("hosted recovery remaps governed provenance actors to Local Admin", () => {
+  for (const table of [
+    "school_settings",
+    "staff_school_assignments",
+    "guardian_contacts",
+    "guardian_addresses",
+    "room_inventory_items",
+    "room_inventory_custodians",
+    "attendance_register_submissions",
+    "attendance_events",
+    "school_late_arrival_policies",
+    "school_late_arrival_events",
+    "detention_sessions",
+    "detention_session_supervisors",
+    "detention_supervision_preferences",
+    "room_inventory_events",
+    "room_inventory_verifications",
+    "school_payment_settings",
+  ]) {
+    assert.match(recovery, new RegExp('"' + table + '"'));
+  }
+  assert.match(recovery, /requiredLocalActorTables\.has\(table\) \? localAdminUserId : null/);
+});
