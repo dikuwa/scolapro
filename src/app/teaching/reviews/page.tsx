@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReviewQueue } from "@/features/teaching/components/review-queue";
 import { ProfessionalFileReviewQueue } from "@/features/teaching/components/professional-file-review-queue";
-import { getReviewQueue, resolveReviewScope } from "@/features/teaching/server/review-queries";
+import { PreparationReviewPolicyCard } from "@/features/teaching/components/preparation-review-policy-card";
+import { getPreparationReviewPolicy, getReviewQueue, resolveReviewScope } from "@/features/teaching/server/review-queries";
 import { getProfessionalFileReviewQueue } from "@/features/teaching/server/professional-file-review";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -38,9 +39,10 @@ export default async function ReviewsPage() {
   if (!scope) redirect("/");
 
   const academicYear = await getGovernedAcademicYear(scope.schoolId);
-  const [{ rows, readiness }, professionalFileRows] = await Promise.all([
+  const [{ rows, readiness }, professionalFileRows, reviewPolicy] = await Promise.all([
     getReviewQueue(academicYear),
     getProfessionalFileReviewQueue(),
+    getPreparationReviewPolicy(),
   ]);
   const withoutAuthority = readiness.state === "denied" && rows.length === 0;
 
@@ -57,6 +59,8 @@ export default async function ReviewsPage() {
             Preparation submissions awaiting your review at {context.currentSchoolMembership?.schoolName ?? "your school"} for {academicYear}.
           </p>
         </div>
+
+        {reviewPolicy ? <div className="mb-5"><PreparationReviewPolicyCard policy={reviewPolicy} /></div> : null}
 
         {readiness.state === "ok" && readiness.exceptions.length > 0 ? (
           <section className="mb-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">

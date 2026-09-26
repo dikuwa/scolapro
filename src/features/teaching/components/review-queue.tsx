@@ -67,14 +67,16 @@ export function ReviewQueue({ rows }: { rows: ReviewQueueRow[] }) {
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
               <div className="min-w-0">
-                <dt className="text-muted-foreground">Scope</dt>
+                <dt className="text-muted-foreground">Week / scope</dt>
                 <dd className="mt-0.5 break-words font-medium text-foreground">{row.scopeLabel}</dd>
               </div>
               <div className="min-w-0">
-                <dt className="text-muted-foreground">Items</dt>
-                <dd className="mt-0.5 font-medium text-foreground">
-                  {row.itemCount} {row.itemCount === 1 ? "preparation" : "preparations"}
-                </dd>
+                <dt className="text-muted-foreground">Prepared / missing</dt>
+                <dd className="mt-0.5 font-medium text-foreground">{row.preparedCount} / {row.missingCount}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-muted-foreground">Submission state</dt>
+                <dd className="mt-0.5 font-medium capitalize text-foreground">{row.status}</dd>
               </div>
               <div className="min-w-0">
                 <dt className="text-muted-foreground">Submitted</dt>
@@ -100,9 +102,10 @@ export function ReviewQueue({ rows }: { rows: ReviewQueueRow[] }) {
             <tr className="border-b border-border-subtle bg-surface-muted">
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Teacher</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Subject · grade · class</th>
-              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Scope</th>
-              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Items</th>
-              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Week / scope</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Prepared</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Missing</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Submission state</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground">Submitted</th>
               <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted-foreground"><span className="sr-only">Action</span></th>
             </tr>
@@ -113,7 +116,8 @@ export function ReviewQueue({ rows }: { rows: ReviewQueueRow[] }) {
                 <td className="break-words px-4 py-3 text-sm font-medium text-foreground">{row.teacherName ?? "Not recorded"}</td>
                 <td className="break-words px-4 py-3 text-sm text-muted-foreground">{subjectLine(row) || "Not recorded"}</td>
                 <td className="break-words px-4 py-3 text-sm text-muted-foreground">{row.scopeLabel}</td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">{row.itemCount}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{row.preparedCount}</td>
+                <td className="px-4 py-3 text-sm text-muted-foreground">{row.missingCount}</td>
                 <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{row.submittedOn ?? "Not recorded"}</td>
                 <td className="px-4 py-3 text-right">

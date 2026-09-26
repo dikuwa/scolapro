@@ -33,6 +33,8 @@ export type ReviewQueueRow = {
   gradeLabel: string | null;
   classLabel: string | null;
   itemCount: number;
+  preparedCount: number;
+  missingCount: number;
 };
 
 export type ReadinessException = {
@@ -371,6 +373,8 @@ function toQueueRow(row: ReviewSubmissionRow): ReviewQueueRow {
     gradeLabel: summarize(items.map((item) => stringValue(item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.subject_offering?.grade?.display_name))),
     classLabel: summarize(items.map((item) => stringValue(item.lesson_preparation?.teaching_schedule_item?.register_class?.display_name))),
     itemCount: items.length,
+    preparedCount: items.length,
+    missingCount: 0,
   };
 }
 
@@ -403,7 +407,56 @@ export async function getReviewQueue(academicYear: number): Promise<ReviewQueueR
     return { rows: [], readiness: { state: "unavailable", message: "The preparation review queue could not be loaded." } };
   }
 
-  const rows = ((data ?? []) as unknown as ReviewSubmissionRow[]).map(toQueueRow);
+  const rawRows=(data ?? []) as unknown as ReviewSubmissionRow[];
+  const rows=rawRows.map(toQueueRow);
+
+  const allocationIds=[...new Set(rawRows.flatMap((row)=>
+    (row.items ?? []).map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.id).filter((id):id is string=>Boolean(id))
+  ))];
+  const [{data:scheduleRows},{data:academicYearRow}] = await Promise.all([
+    allocationIds.length
+      ? supabase.from("teaching_schedule_items")
+          .select("teacher_allocation_id,planned_on,status")
+          .eq("school_id",scope.schoolId)
+          .eq("academic_year",parsedYear.data)
+          .in("teacher_allocation_id",allocationIds)
+          .in("status",["planned","prepared","taught","moved"])
+      : Promise.resolve({data:[]}),
+    supabase.from("academic_years").select("id").eq("school_id",scope.schoolId).eq("year",parsedYear.data).maybeSingle(),
+  ]);
+  const {data:termRows}=academicYearRow?.id
+    ? await supabase.from("academic_terms").select("display_name,starts_on,ends_on").eq("academic_year_id",academicYearRow.id)
+    : {data:[]};
+  const termsByLabel=new Map((termRows ?? []).map((term)=>[term.display_name,term]));
+
+  for(let index=0;index<rows.length;index++) {
+    const raw=rawRows[index];
+    const row=rows[index];
+    if(raw.scope_kind==="selected_preparations") continue;
+
+    let rangeStart=raw.week_start;
+    let rangeEnd=raw.week_end;
+    if(raw.scope_kind==="term") {
+      const term=raw.term_label ? termsByLabel.get(raw.term_label) : null;
+      rangeStart=term?.starts_on ?? null;
+      rangeEnd=term?.ends_on ?? null;
+    }
+    if(!rangeStart || !rangeEnd) continue;
+
+    const submissionAllocationIds=new Set(
+      (raw.items ?? [])
+        .map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.id)
+        .filter((id):id is string=>Boolean(id))
+    );
+    if(!submissionAllocationIds.size) continue;
+    const expected=(scheduleRows ?? []).filter((schedule)=>
+      submissionAllocationIds.has(schedule.teacher_allocation_id)
+      && schedule.planned_on>=rangeStart!
+      && schedule.planned_on<=rangeEnd!
+    ).length;
+    row.missingCount=Math.max(0,expected-row.preparedCount);
+  }
+
   const readiness = await getReadinessState(scope, parsedYear.data);
   return { rows, readiness };
 }
@@ -544,5 +597,31 @@ export async function getReviewDetail(submissionId: string): Promise<ReviewDetai
     },
     items,
     events,
+  };
+}
+
+export type PreparationReviewPolicy = {
+  cadence: "weekly" | "fortnightly" | "selected" | "term_batch";
+  effectiveFrom: string;
+  canManage: boolean;
+};
+
+export async function getPreparationReviewPolicy(): Promise<PreparationReviewPolicy | null> {
+  const scope=await resolveReviewScope();
+  if (!scope) return null;
+  const supabase=await createSupabaseServerClient();
+  const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Windhoek",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const { data }=await supabase.from("preparation_review_policies")
+    .select("cadence,effective_from")
+    .eq("school_id",scope.schoolId)
+    .lte("effective_from",today)
+    .or(`effective_to.is.null,effective_to.gte.${today}`)
+    .order("effective_from",{ascending:false})
+    .limit(1)
+    .maybeSingle();
+  return {
+    cadence:(data?.cadence ?? "selected") as PreparationReviewPolicy["cadence"],
+    effectiveFrom:data?.effective_from ?? today,
+    canManage:["school_admin","principal","deputy_principal"].includes(scope.roleKey),
   };
 }

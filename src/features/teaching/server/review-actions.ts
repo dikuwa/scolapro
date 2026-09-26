@@ -81,3 +81,49 @@ export async function reviewSubmission(
         : "Submission returned for revision. The teacher can update and resubmit it.",
   };
 }
+
+
+export async function commentOnSubmission(
+  _state: ReviewActionState,
+  formData: FormData,
+): Promise<ReviewActionState> {
+  const submissionId=String(formData.get("submissionId") ?? "");
+  const comment=String(formData.get("comment") ?? "").trim();
+  if (!z.string().uuid().safeParse(submissionId).success || !comment) {
+    return { success:false,message:"Enter a comment before posting." };
+  }
+  const context=await getUserContext();
+  if (!context.user) return {success:false,message:"Your session has ended. Sign in again to continue."};
+  const supabase=await createSupabaseServerClient();
+  const { error }=await supabase.rpc("comment_on_preparation_submission",{
+    p_submission_id:submissionId,
+    p_comment:comment,
+  });
+  if (error) return {success:false,message:/permission denied/i.test(error.message ?? "") ? "You do not have current review authority for this submission." : "The comment could not be recorded."};
+  revalidatePath("/teaching/reviews");
+  revalidatePath(`/teaching/reviews/${submissionId}`);
+  return {success:true,message:"Comment recorded without changing submission state or teacher content."};
+}
+
+export async function setPreparationReviewPolicy(
+  _state: ReviewActionState,
+  formData: FormData,
+): Promise<ReviewActionState> {
+  const cadence=String(formData.get("cadence") ?? "");
+  if (!["weekly","fortnightly","selected","term_batch"].includes(cadence)) {
+    return {success:false,message:"Choose a valid review cadence."};
+  }
+  const context=await getUserContext();
+  const membership=context.currentSchoolMembership;
+  if (!context.user || !membership) return {success:false,message:"Current school authority is required."};
+  const supabase=await createSupabaseServerClient();
+  const { error }=await supabase.rpc("set_preparation_review_policy",{
+    p_school_id:membership.schoolId,
+    p_cadence:cadence,
+    p_effective_from:new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Windhoek",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date()),
+  });
+  if (error) return {success:false,message:/permission denied/i.test(error.message ?? "") ? "Only current school leadership can change review cadence." : "Review cadence could not be saved."};
+  revalidatePath("/teaching/reviews");
+  revalidatePath("/teaching/preparation");
+  return {success:true,message:"Preparation review cadence updated."};
+}
