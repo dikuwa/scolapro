@@ -81,7 +81,8 @@ as $$
     and cardinality(p_terms)=cardinality(array(select distinct x from unnest(p_terms) x));
 $$;
 
-revoke all on function app_private.valid_three_term_array(smallint[]) from public,anon,authenticated;
+revoke all on function app_private.valid_three_term_array(smallint[]) from public,anon;
+grant execute on function app_private.valid_three_term_array(smallint[]) to authenticated;
 
 alter table public.assessment_schemes
   drop constraint if exists assessment_schemes_three_term_check,
@@ -127,10 +128,7 @@ begin
   end if;
 
   if tg_op='UPDATE' and (
-    new.tenant_id is distinct from old.tenant_id
-    or new.school_id is distinct from old.school_id
-    or new.subject_offering_id is distinct from old.subject_offering_id
-    or new.academic_year is distinct from old.academic_year
+    new.academic_year is distinct from old.academic_year
     or new.curriculum_version_id is distinct from old.curriculum_version_id
   ) then
     raise exception 'Assessment scheme subject/grade/version provenance is immutable';
@@ -143,7 +141,8 @@ $$;
 revoke all on function app_private.enforce_assessment_scheme_curriculum_binding() from public,anon,authenticated;
 
 drop trigger if exists assessment_scheme_curriculum_binding_trg on public.assessment_schemes;
-create trigger assessment_scheme_curriculum_binding_trg
+drop trigger if exists zz_assessment_scheme_curriculum_binding_trg on public.assessment_schemes;
+create trigger zz_assessment_scheme_curriculum_binding_trg
 before insert or update on public.assessment_schemes
 for each row execute function app_private.enforce_assessment_scheme_curriculum_binding();
 
@@ -413,78 +412,78 @@ declare
   v_final numeric;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  select * into v_scheme from public.assessment_schemes where id = p_assessment_scheme_id;
+  select * into v_scheme from public.assessment_schemes where id=p_assessment_scheme_id;
   if not found then raise exception 'Assessment scheme not found'; end if;
-  if not app_private.has_school_role(v_scheme.school_id, array['school_admin','principal','deputy_principal','hod','teacher','class_teacher']) then raise exception 'Permission denied'; end if;
-  if not (p_term_number = any(v_scheme.term_numbers)) then raise exception 'Assessment scheme is not applicable to term %', p_term_number; end if;
+  select * into v_enrolment from public.enrolments where id=p_enrolment_id;
+  if not found or v_enrolment.school_id<>v_scheme.school_id then raise exception 'Enrolment is outside the assessment scheme school'; end if;
 
-  select * into v_enrolment from public.enrolments where id = p_enrolment_id;
-  if not found or v_enrolment.school_id <> v_scheme.school_id then raise exception 'Enrolment is outside the assessment scheme school'; end if;
+  -- Preserve the latest relationship-aware/current-school read boundary from
+  -- assessment current-scope hardening; term/version support must not weaken it.
+  if not app_private.can_read_official_result(
+    v_scheme.school_id,
+    v_enrolment.id,
+    v_scheme.subject_offering_id
+  ) then
+    raise exception 'Permission denied';
+  end if;
+
+  if not (p_term_number = any(v_scheme.term_numbers)) then
+    raise exception 'Assessment scheme is not applicable to term %',p_term_number;
+  end if;
 
   for v_component in
-    select ac.*, ai.id as instance_id, ai.raw_max as instance_raw_max
+    select ac.*,ai.id as instance_id,ai.raw_max as instance_raw_max
     from public.assessment_components ac
     left join public.assessment_instances ai
-      on ai.assessment_component_id = ac.id
-      and ai.assessment_scheme_id = v_scheme.id
-      and ai.register_class_id = v_enrolment.register_class_id
-      and ai.term_number = p_term_number
-      and ai.status <> 'cancelled'
-    where ac.assessment_scheme_id = v_scheme.id
-      and ac.contributes_to_report = true
+      on ai.assessment_component_id=ac.id
+     and ai.assessment_scheme_id=v_scheme.id
+     and ai.register_class_id=v_enrolment.register_class_id
+     and ai.term_number=p_term_number
+     and ai.status<>'cancelled'
+    where ac.assessment_scheme_id=v_scheme.id
+      and ac.contributes_to_report=true
       and p_term_number = any(ac.term_numbers)
-    order by ac.sort_order, ac.component_code
+    order by ac.sort_order,ac.component_code
   loop
     if v_component.instance_id is null then
-      if v_component.required then v_missing := v_missing || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason','assessment_instance_missing')); end if;
+      if v_component.required then v_missing:=v_missing||jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason','assessment_instance_missing')); end if;
       continue;
     end if;
-
-    select lm.numeric_mark, lm.mark_status, lm.recorded_at into v_mark
+    select lm.numeric_mark,lm.mark_status,lm.recorded_at into v_mark
     from public.learner_marks_current lm
-    where lm.assessment_instance_id = v_component.instance_id and lm.enrolment_id = v_enrolment.id;
-
+    where lm.assessment_instance_id=v_component.instance_id and lm.enrolment_id=v_enrolment.id;
     if v_mark.numeric_mark is null and v_mark.mark_status is null then
-      if v_component.required then v_missing := v_missing || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason','mark_missing')); end if;
+      if v_component.required then v_missing:=v_missing||jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason','mark_missing')); end if;
       continue;
     end if;
-
     if v_mark.mark_status is not null then
-      v_non_numeric := v_non_numeric || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'status',v_mark.mark_status));
-      if v_component.required then v_missing := v_missing || jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason',v_mark.mark_status)); end if;
+      v_non_numeric:=v_non_numeric||jsonb_build_array(jsonb_build_object('component',v_component.component_code,'status',v_mark.mark_status));
+      if v_component.required then v_missing:=v_missing||jsonb_build_array(jsonb_build_object('component',v_component.component_code,'reason',v_mark.mark_status)); end if;
       continue;
     end if;
 
-    if v_component.calculation_method='direct' then
-      v_raw_max:=coalesce(v_component.instance_raw_max,v_component.raw_max,100);
-      v_contribution:=(v_mark.numeric_mark/v_raw_max)*coalesce(v_component.weight,100);
-    else
-      v_raw_max:=coalesce(v_component.instance_raw_max,v_component.raw_max);
-      if v_raw_max is null or v_raw_max<=0 then raise exception 'Contributing component % has no valid raw maximum',v_component.component_code; end if;
-      if v_component.weight is null then raise exception 'Contributing component % has no configured weight',v_component.component_code; end if;
-      v_contribution:=(v_mark.numeric_mark/v_raw_max)*v_component.weight;
-    end if;
-
+    v_raw_max:=coalesce(v_component.instance_raw_max,v_component.raw_max);
+    if v_raw_max is null or v_raw_max<=0 then raise exception 'Contributing component % has no valid raw maximum',v_component.component_code; end if;
+    if v_component.weight is null then raise exception 'Contributing component % has no configured weight',v_component.component_code; end if;
+    v_contribution:=(v_mark.numeric_mark/v_raw_max)*v_component.weight;
     v_total:=v_total+v_contribution;
-    v_weight_total:=v_weight_total+coalesce(v_component.weight,100);
-    v_inputs:=v_inputs || jsonb_build_array(jsonb_build_object(
+    v_weight_total:=v_weight_total+v_component.weight;
+    v_inputs:=v_inputs||jsonb_build_array(jsonb_build_object(
       'component',v_component.component_code,
       'assessment_instance_id',v_component.instance_id,
       'raw_mark',v_mark.numeric_mark,
       'raw_max',v_raw_max,
-      'weight',coalesce(v_component.weight,100),
+      'weight',v_component.weight,
       'calculation_method',v_component.calculation_method,
       'contribution',v_contribution
     ));
   end loop;
-
   if jsonb_array_length(v_missing)>0 then
     return jsonb_build_object('complete',false,'result_status','incomplete','missing',v_missing,'non_numeric',v_non_numeric,'inputs',v_inputs,'weight_total',v_weight_total);
   end if;
   if v_weight_total<=0 then
     return jsonb_build_object('complete',false,'result_status','incomplete','missing',jsonb_build_array(jsonb_build_object('reason','no_contributing_weight')),'inputs',v_inputs);
   end if;
-
   v_final:=(v_total/v_weight_total)*100;
   return jsonb_build_object(
     'complete',true,
