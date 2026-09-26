@@ -33,13 +33,21 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
   const profile = record(root.document_profile);
   const logoStoragePath = String(profile.logo_storage_path ?? "").trim();
   let signedLogoUrl = "";
+  let resolvedLogoStoragePath = logoStoragePath;
 
   if (logoStoragePath) {
     const { data: signedLogo, error: logoError } = await supabase.storage
       .from("school-document-assets")
       .createSignedUrl(logoStoragePath, 3600);
-    if (logoError) throw new Error("Unable to load the school document logo.");
-    signedLogoUrl = signedLogo?.signedUrl ?? "";
+    if (logoError) {
+      console.warn("school document logo unavailable; continuing with profile or bundled fallback", {
+        schoolId,
+        message: logoError.message,
+      });
+      resolvedLogoStoragePath = "";
+    } else {
+      signedLogoUrl = signedLogo?.signedUrl ?? "";
+    }
   }
 
   return buildSchoolDocumentProfile({
@@ -53,7 +61,7 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
     schoolDocumentProfile: {
       ...profile,
       logo_url: signedLogoUrl || profile.logo_url,
-      logo_storage_path: logoStoragePath,
+      logo_storage_path: resolvedLogoStoragePath,
     },
   });
 }
