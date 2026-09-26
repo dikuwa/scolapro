@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CurriculumAccessWorkspace } from "@/features/teaching/curriculum-access-workspace";
@@ -31,13 +29,6 @@ export default async function TeachingCurriculumPage() {
   return (
     <AppShell>
       <section className="pb-10">
-        <Link
-          href="/teaching"
-          className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Teaching
-        </Link>
         <CurriculumAccessWorkspace data={data} />
       </section>
     </AppShell>
