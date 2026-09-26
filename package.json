@@ -18,7 +18,8 @@
     "validate:navigation": "node scripts/validate-navigation-role-visibility.mjs",
     "check": "pnpm lint && pnpm typecheck && pnpm validate:report-font && pnpm validate:navigation && pnpm build",
     "bench:report-cards": "node scripts/benchmark-report-card-worker.mjs",
-    "local:sync-db": "supabase migration up --local"
+    "local:sync-db": "supabase migration up --local",
+    "local:recover-hosted-data": "node scripts/recover-hosted-school-data.mjs"
   },
   "dependencies": {
     "@fontsource/unifrakturcook": "^5.3.0",
