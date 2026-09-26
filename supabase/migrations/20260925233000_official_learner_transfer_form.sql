@@ -77,9 +77,9 @@ language sql
 stable
 security definer
 set search_path=pg_catalog,public,app_private
-as $
+as $$
   select app_private.can_manage_learner_transfer_form(p_transfer_event_id);
-$;
+$$;
 
 revoke all on function app_private.can_read_learner_transfer_form_for_rls(uuid)
 from public,anon;
