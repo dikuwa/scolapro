@@ -230,6 +230,17 @@ security definer
 set search_path = pg_catalog, public
 as $$
 begin
+  -- Legacy/minimal test or historical rows may not yet resolve the newer
+  -- curriculum binding. Preserve them without fabricating a reusable delivery;
+  -- canonical server writes populate these fields and therefore receive the
+  -- anchor relation automatically.
+  if new.academic_year is null
+     or new.subject_offering_id is null
+     or new.curriculum_unit_id is null
+     or new.curriculum_version_id is null then
+    return new;
+  end if;
+
   insert into public.lesson_preparation_deliveries(
     tenant_id,school_id,lesson_preparation_id,teaching_schedule_item_id,
     teaching_group_id,session_number,assigned_by_user_id
@@ -376,7 +387,7 @@ begin
     return;
   end if;
 
-  if v_existing.id is not null and v_existing.status<>'draft' then
+  if v_existing.id is not null and v_existing.status <> 'draft' then
     raise exception 'This preparation is no longer an editable draft';
   end if;
   if v_existing.id is not null
