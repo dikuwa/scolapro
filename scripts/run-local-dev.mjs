@@ -18,6 +18,25 @@ function localSupabaseStatus() {
   }
 }
 
+function syncLocalSchema() {
+  try {
+    execFileSync("supabase", ["migration", "up", "--local"], {
+      cwd: projectRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    const stderr = error && typeof error === "object" && "stderr" in error ? String(error.stderr ?? "").trim() : "";
+    throw new Error(
+      [
+        "Local Supabase migrations are not current, so the app cannot safely start.",
+        "Run `pnpm local:sync-db` and resolve the reported migration error before retrying `pnpm dev`.",
+        stderr ? `Supabase: ${stderr}` : null,
+      ].filter(Boolean).join("\n"),
+    );
+  }
+}
+
 const status = localSupabaseStatus();
 const apiUrl = new URL(status.API_URL);
 if (!["localhost", "127.0.0.1", "::1"].includes(apiUrl.hostname)) {
@@ -26,6 +45,8 @@ if (!["localhost", "127.0.0.1", "::1"].includes(apiUrl.hostname)) {
 if (!status.PUBLISHABLE_KEY || !status.SERVICE_ROLE_KEY) {
   throw new Error("Local Supabase did not report the required application keys.");
 }
+
+syncLocalSchema();
 
 const nextBin = path.join(projectRoot, "node_modules", "next", "dist", "bin", "next");
 const child = spawn(process.execPath, [nextBin, "dev", ...process.argv.slice(2)], {

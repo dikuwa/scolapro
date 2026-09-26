@@ -15,6 +15,10 @@ test("default development resolves credentials from the loopback Supabase stack"
   assert.match(dev, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status\.PUBLISHABLE_KEY/);
   assert.match(dev, /SUPABASE_SERVICE_ROLE_KEY: status\.SERVICE_ROLE_KEY/);
   assert.match(dev, /Refusing to use a non-loopback Supabase URL/);
+  assert.equal(packageJson.scripts["local:sync-db"], "supabase migration up --local");
+  assert.match(dev, /execFileSync\("supabase", \["migration", "up", "--local"\]/);
+  assert.match(dev, /Local Supabase migrations are not current/);
+  assert.match(dev, /pnpm local:sync-db/);
 });
 
 test("local Auth provisioning is explicit, password-gated and loopback-only", () => {
