@@ -16,6 +16,7 @@ export type TransferFormActionState = {
 const draftSchema = z.object({
   transferEventId: z.string().uuid(),
   reasonForDeparture: z.string().trim().min(1, "Reason for departure is required.").max(4000),
+  mediumOfInstruction: z.string().trim().max(500).optional(),
   documentsAttached: z.string().trim().max(4000).optional(),
   behaviourSummary: z.string().trim().max(4000).optional(),
   healthSummary: z.string().trim().max(4000).optional(),
@@ -30,6 +31,7 @@ export async function saveLearnerTransferFormDraft(
   const parsed = draftSchema.safeParse({
     transferEventId: String(formData.get("transferEventId") ?? ""),
     reasonForDeparture: String(formData.get("reasonForDeparture") ?? ""),
+    mediumOfInstruction: String(formData.get("mediumOfInstruction") ?? ""),
     documentsAttached: String(formData.get("documentsAttached") ?? ""),
     behaviourSummary: String(formData.get("behaviourSummary") ?? ""),
     healthSummary: String(formData.get("healthSummary") ?? ""),
@@ -50,6 +52,7 @@ export async function saveLearnerTransferFormDraft(
     p_health_summary: parsed.data.healthSummary || null,
     p_other_relevant_information: parsed.data.otherRelevantInformation || null,
     p_verification_note: parsed.data.verificationNote || null,
+    p_medium_of_instruction: parsed.data.mediumOfInstruction || null,
   });
 
   if (error) {
