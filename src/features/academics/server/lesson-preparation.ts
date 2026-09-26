@@ -23,6 +23,8 @@ export type LessonPreparationRow = {
   preparationId: string | null;
   preparationUpdatedAt: string | null;
   preparationStatus: string | null;
+  preparationCurriculumVersion: string | null;
+  curriculumObsolete: boolean;
   preparation: Record<string, string>;
   selectedCompetencyIds: string[];
   sessionCount: number;
@@ -247,6 +249,11 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
     const unit = unitMap.get(pacingMap.get(schedule.pacing_plan_item_id)?.curriculum_unit_id ?? "");
     const prep = preparationMap.get(schedule.id);
     const submissionStatus = prep ? latestSubmissionStatusByPreparation.get(prep.id) : undefined;
+    const prepSnapshot = prep?.curriculum_snapshot && typeof prep.curriculum_snapshot === "object"
+      ? prep.curriculum_snapshot as Record<string, unknown>
+      : null;
+    const preparationCurriculumVersion = typeof prepSnapshot?.curriculumVersion === "string" ? prepSnapshot.curriculumVersion : null;
+    const currentCurriculumVersion = versionMap.get(unit?.curriculum_version_id ?? "")?.version_key ?? null;
     return {
       scheduleId: schedule.id,
       allocationId: schedule.teacher_allocation_id,
@@ -255,7 +262,7 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
       className: klass?.display_name ?? "Assigned class",
       plannedOn: schedule.planned_on,
       periods: schedule.planned_period_count,
-      curriculumVersion: versionMap.get(unit?.curriculum_version_id ?? "")?.version_key ?? null,
+      curriculumVersion: currentCurriculumVersion,
       theme: unit?.theme ?? null,
       topic: unit?.topic ?? null,
       objectives: objectives.filter((row) => row.curriculum_unit_id === unit?.id).map((row) => row.objective_text),
@@ -266,6 +273,8 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
       preparationId: prep?.id ?? null,
       preparationUpdatedAt: prep?.updated_at ?? null,
       preparationStatus: submissionStatus === "returned" ? "returned" : prep?.status ?? null,
+      preparationCurriculumVersion,
+      curriculumObsolete: Boolean(prep && preparationCurriculumVersion && currentCurriculumVersion && preparationCurriculumVersion !== currentCurriculumVersion),
       preparation: (prep?.preparation && typeof prep.preparation === "object" ? prep.preparation : {}) as Record<string, string>,
       selectedCompetencyIds: prep?.selected_competency_ids ?? [],
       sessionCount: prep?.session_count ?? 1,
