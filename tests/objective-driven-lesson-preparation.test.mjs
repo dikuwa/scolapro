@@ -31,6 +31,8 @@ test("multi-session preparation can be reused without cross-completing deliverie
   assert.match(workspace, /Reuse this preparation/);
   assert.match(workspace, /Each delivery keeps its own taught status and reflection/);
   assert.match(server, /teaching_actuals/);
+  assert.match(migration, /teaching_group_allocations/);
+  assert.match(migration, /having count\(\*\)=1/);
 });
 
 test("reuse is bounded to the same subject offering and curriculum unit", () => {
