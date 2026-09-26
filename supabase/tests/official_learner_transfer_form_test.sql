@@ -121,15 +121,15 @@ select lives_ok(
     'Routine educational information verified.',
     'Checked against learner, enrolment and CRC records.',
     'English'
-  )$,
+  )$$,
   'authorized CRC custodian can save the human-verification draft'
 );
 
 select throws_ok(
-  $select public.finalize_learner_transfer_form(
+  $$select public.finalize_learner_transfer_form(
     'fcf20000-0000-4000-8000-000000000001'::uuid,
     '{}'::jsonb
-  )$,
+  )$$,
   null,
   'delegated custodian cannot replace source-school leadership finalization'
 );
@@ -211,7 +211,7 @@ select lives_ok(
     'Routine educational information verified.',
     'Second verification completed before correction revision.',
     'English'
-  )$,
+  )$$,
   'leadership can save a corrected verified draft'
 );
 
