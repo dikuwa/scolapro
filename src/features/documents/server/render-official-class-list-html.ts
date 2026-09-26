@@ -8,7 +8,7 @@ import {
 import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
 import { escapeOfficialDocumentHtml } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
-import { buildOfficialClassListColumns } from "@/features/documents/server/class-list-document";
+import { buildOfficialClassListColumns, classListDocumentName } from "@/features/documents/server/class-list-document";
 import type { ClassListColumnId, ClassListLearnerRow } from "@/features/learners/class-list-types";
 
 export type OfficialClassListRow = ClassListLearnerRow;
@@ -60,7 +60,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>${escapeOfficialDocumentHtml(header.schoolName)} - ${escapeOfficialDocumentHtml(input.registerClass)} Class List</title>
+<title>${escapeOfficialDocumentHtml(header.schoolName)} - ${escapeOfficialDocumentHtml(classListDocumentName(input.registerClass, input.rosterTitle))}</title>
 <style>
   ${OFFICIAL_DOCUMENT_A4_PAGE_RULE}
   * { box-sizing: border-box; }
@@ -124,7 +124,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
       <div>${logo}</div>
       <h1 class="school-name ${header.schoolNameFont === "old_english" ? "old-english" : ""}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
       <div class="class-context">
-        <div class="title">${escapeOfficialDocumentHtml(input.registerClass || input.rosterTitle || "Class List")}</div>
+        <div class="title">${escapeOfficialDocumentHtml(classListDocumentName(input.registerClass, input.rosterTitle))}</div>
         <div>${escapeOfficialDocumentHtml(input.grade || "—")} · ${escapeOfficialDocumentHtml(input.registerClass || "—")} · ${escapeOfficialDocumentHtml(input.academicYear)}</div>
         <div class="summary">Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners</div>
         ${teacherLine}
