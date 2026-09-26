@@ -39,6 +39,18 @@ test("report-card render worker bounds claims and uses limited parallel executio
   assert.doesNotMatch(worker, /for \(const job of jobs\)/);
 });
 
+test("report-card render worker calls the deployed stale-recovery RPC contract", () => {
+  assert.match(worker, /recover_stale_report_card_render_jobs/);
+  assert.match(worker, /p_stale_after_minutes: 15/);
+  assert.match(worker, /p_max_attempts: 5/);
+  assert.match(worker, /p_limit: 100/);
+  const recoveryCall = worker.slice(
+    worker.indexOf('supabase.rpc("recover_stale_report_card_render_jobs"'),
+    worker.indexOf("if (recoveryError)"),
+  );
+  assert.doesNotMatch(recoveryCall, /p_stale_after_seconds|p_retry_after_seconds/);
+});
+
 test("report-card render worker reuses school and frozen logo reads within one invocation", () => {
   assert.match(worker, /schoolCache = new Map/);
   assert.match(worker, /logoCache = new Map/);
