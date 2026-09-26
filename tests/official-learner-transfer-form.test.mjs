@@ -11,6 +11,8 @@ const actions = read("src/features/transfers/server/actions.ts");
 const query = read("src/features/transfers/server/transfer-form.ts");
 const custodyPage = read("src/app/school/crc-custody/page.tsx");
 const custodyWorkspace = read("src/features/crc/crc-custody-workspace.tsx");
+const renderer = read("src/features/transfers/server/render-learner-transfer-form.ts");
+const exportRoute = read("src/app/api/official-documents/learner-transfer-form/[snapshotId]/route.ts");
 
 test("transfer form derives authoritative learner and transfer fields rather than duplicating identity", () => {
   assert.match(migration, /public\.transfer_events/);
@@ -68,8 +70,29 @@ test("CRC Transfers view exposes governed official transfer-form queue", () => {
   assert.match(page, /getLearnerTransferFormWorkspace/);
 });
 
-test("prescribed-form rendering remains explicitly gated instead of inventing missing official instructions", () => {
-  assert.match(workspace, /Official print\/PDF stays locked until the governed prescribed-form template source is configured/);
-  assert.doesNotMatch(workspace, /api\/official-documents\/learner-transfer-form/);
-  assert.doesNotMatch(migration, /Instructions for transfer|Instruction page|Ministry transfer instructions/i);
+test("prescribed government transfer-form rendering matches the governed source contract", () => {
+  assert.match(renderer, /7-1\/0093/);
+  assert.match(renderer, /MINISTRY OF BASIC EDUCATION AND CULTURE/);
+  assert.match(renderer, /TRANSFER FORM FOR LEARNER \(USE ONE FORM FOR EACH LEARNER\)/);
+  assert.match(renderer, /Medium of instruction \(only grades 1, 2 & 3\)/);
+  assert.match(renderer, /SCHOOL STAMP/);
+  assert.match(renderer, /PRINCIPAL/);
+  assert.match(renderer, /INSTRUCTIONS FOR COMPLETION OF TRANSFER FORMS/);
+  assert.match(renderer, /must complete this form in triplicate/);
+  assert.match(renderer, /certified post/);
+  assert.match(renderer, /clear, legible writing/);
+  assert.match(workspace, /Preview \/ Print/);
+  assert.match(workspace, /Download PDF/);
+  assert.match(workspace, /api\/official-documents\/learner-transfer-form/);
+  assert.match(exportRoute, /renderOfficialLearnerTransferFormHtml/);
+  assert.match(exportRoute, /renderOfficialLearnerTransferFormPdf/);
+  assert.match(exportRoute, /X-ScolaPro-Page-Count/);
+});
+
+test("prescribed medium-of-instruction field remains human verified and frozen", () => {
+  assert.match(workspace, /Medium of instruction \(only grades 1, 2 &amp; 3\)/);
+  assert.match(actions, /p_medium_of_instruction/);
+  assert.match(migration, /medium_of_instruction/);
+  assert.match(migration, /'mediumOfInstruction',v_draft\.medium_of_instruction/);
+  assert.match(renderer, /verified\.mediumOfInstruction/);
 });
