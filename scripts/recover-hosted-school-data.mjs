@@ -14,7 +14,7 @@ const demoEnrolmentIds = ["60000000-0000-4000-8000-000000000001","60000000-0000-
 const requiredTables = [
   "tenants","schools","school_settings","grades","subjects","staff_members","staff_school_assignments",
   "school_rooms","register_classes","subject_offerings","teacher_allocations","learners","enrolments",
-  "school_learner_identifiers","guardian_profiles","guardian_contacts","guardian_addresses","learner_guardians",
+  "school_learner_identifiers","guardian_profiles","learner_guardians","guardian_contacts","guardian_addresses",
   "attendance_reasons","room_inventory_items","room_inventory_custodians","school_late_arrival_policies",
   "school_day_overrides","school_payment_settings"
 ];
@@ -27,7 +27,8 @@ const optionalTables = [
 
 const primaryKeys = new Map([
   ["school_late_arrival_policies", "school_id"],
-  ["school_payment_settings", "school_id"]
+  ["school_payment_settings", "school_id"],
+  ["school_learner_identifiers", "school_id,learner_id"]
 ]);
 
 const protectedIdentityColumns = new Map([
@@ -84,6 +85,7 @@ function assertLocalTarget(apiUrl) {
 
 function rewriteActorIds(table, row) {
   const next = { ...row };
+  if (table === "school_learner_identifiers") delete next.id;
   if (table === "staff_members") {
     if ("user_id" in next) next.user_id = null;
     if ("reconciled_by_user_id" in next) next.reconciled_by_user_id = null;
