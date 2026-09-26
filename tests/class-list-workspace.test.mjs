@@ -305,3 +305,16 @@ test("Choose details exposes a clear-all action that only clears optional column
   assert.match(workspace, /No\. <LockKeyhole/);
   assert.match(workspace, /Learner <LockKeyhole/);
 });
+
+
+test("guardian postal address prefers parent priority order and stays mail-merge ready", () => {
+  assert.match(resolver, /\.eq\("address_type", "postal"\)/);
+  assert.match(resolver, /links\.sort\(\(left, right\) => left\.priority - right\.priority\)/);
+  assert.match(resolver, /preferredPostalGuardian = links\.find\(\(item\) => addressByGuardian\.has\(item\.guardian_id\)\)/);
+  assert.match(resolver, /const line1 = \[item\.address_line_1, item\.address_line_2\]/);
+  assert.match(resolver, /const place = \(item\.town_or_city \|\| item\.suburb_or_locality \|\| ""\)\.trim\(\)/);
+  assert.match(resolver, /const codeCountry = \[item\.postal_code\?\.trim\(\), item\.country\?\.trim\(\)\]/);
+  assert.match(resolver, /join\("\\n"\)/);
+  assert.match(xlsx, /wrapText="1"/);
+  assert.match(xlsx, /addressSelected \? 42 : 18/);
+});
