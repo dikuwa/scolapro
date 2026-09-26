@@ -88,3 +88,9 @@ test("hosted recovery remaps governed provenance actors to Local Admin", () => {
   }
   assert.match(recovery, /requiredLocalActorTables\.has\(table\) \? localAdminUserId : null/);
 });
+
+
+test("protected identity lookups use URI-safe recovery batches", () => {
+  assert.match(recovery, /const chunkSize = protectedColumns \? 40 : 250/);
+  assert.match(recovery, /rows\.slice\(start, start \+ chunkSize\)/);
+});
