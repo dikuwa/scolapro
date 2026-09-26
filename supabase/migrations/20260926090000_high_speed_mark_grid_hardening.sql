@@ -257,3 +257,101 @@ $$;
 
 comment on function public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid) is
 'Offline-safe append-only working-mark replay for open or governed-returned assessments. Enforces current class/year/learner identity, populated subject registration, numeric bounds, optimistic versioning and finality.';
+
+
+create or replace function public.submit_assessment_for_review(
+  p_assessment_instance_id uuid,
+  p_calculation_version text default 'weighted-v1'
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public, app_private
+as $$
+declare
+  v_instance public.assessment_instances%rowtype;
+  v_expected integer;
+  v_captured integer;
+  v_submission_id uuid;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+
+  select * into v_instance
+  from public.assessment_instances
+  where id=p_assessment_instance_id
+  for update;
+  if not found then raise exception 'Assessment instance not found'; end if;
+  if not app_private.can_access_assessment_instance(v_instance.id) then raise exception 'Permission denied'; end if;
+  if v_instance.status not in ('open','returned') then raise exception 'Assessment is not open for submission'; end if;
+
+  select count(*) into v_expected
+  from public.enrolments e
+  where e.school_id=v_instance.school_id
+    and e.register_class_id=v_instance.register_class_id
+    and e.academic_year=v_instance.academic_year
+    and e.status='current'
+    and (
+      not exists (
+        select 1 from public.learner_subject_registrations any_lsr
+        where any_lsr.enrolment_id=e.id
+      )
+      or exists (
+        select 1 from public.learner_subject_registrations lsr
+        where lsr.enrolment_id=e.id
+          and lsr.subject_offering_id=v_instance.subject_offering_id
+          and lsr.status='active'
+      )
+    );
+
+  select count(*) into v_captured
+  from public.learner_marks_current lm
+  join public.enrolments e on e.id=lm.enrolment_id
+  where lm.assessment_instance_id=v_instance.id
+    and e.school_id=v_instance.school_id
+    and e.register_class_id=v_instance.register_class_id
+    and e.academic_year=v_instance.academic_year
+    and e.status='current'
+    and (
+      not exists (
+        select 1 from public.learner_subject_registrations any_lsr
+        where any_lsr.enrolment_id=e.id
+      )
+      or exists (
+        select 1 from public.learner_subject_registrations lsr
+        where lsr.enrolment_id=e.id
+          and lsr.subject_offering_id=v_instance.subject_offering_id
+          and lsr.status='active'
+      )
+    );
+
+  if v_expected=0 then raise exception 'Assessment class has no eligible learners'; end if;
+  if v_captured<v_expected then
+    raise exception 'Marks are incomplete: % of % eligible learners captured',v_captured,v_expected;
+  end if;
+
+  insert into public.mark_submissions(
+    tenant_id,school_id,assessment_instance_id,submitted_by_user_id,
+    completeness,calculation_version
+  ) values(
+    v_instance.tenant_id,v_instance.school_id,v_instance.id,auth.uid(),
+    jsonb_build_object('expected',v_expected,'captured',v_captured,'eligibility','subject-registration-aware'),
+    p_calculation_version
+  ) returning id into v_submission_id;
+
+  update public.assessment_instances
+     set status='review',updated_at=now()
+   where id=v_instance.id;
+
+  insert into public.audit_events(
+    tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+  ) values(
+    v_instance.tenant_id,v_instance.school_id,auth.uid(),'assessment.submitted',
+    'assessment_instance',v_instance.id,
+    jsonb_build_object('submission_id',v_submission_id,'expected',v_expected,'captured',v_captured)
+  );
+  return v_submission_id;
+end;
+$$;
+
+revoke all on function public.submit_assessment_for_review(uuid,text) from public,anon;
+grant execute on function public.submit_assessment_for_review(uuid,text) to authenticated;
