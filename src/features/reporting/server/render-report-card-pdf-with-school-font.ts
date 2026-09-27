@@ -12,7 +12,7 @@ import {
 } from "@/features/documents/server/official-document-header";
 import { buildOfficialDocumentMetadata } from "@/features/documents/server/official-document-metadata";
 import {
-  OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
+  INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT,
   createOfficialDocumentPdfResources,
   drawOfficialDocumentPdfHeader,
 } from "@/features/documents/server/official-document-pdf-header";
@@ -73,12 +73,12 @@ export async function renderReportCardPdfWithSchoolFont(
   const firstPage = pdf.getPage(0);
   firstPage.drawRectangle({
     x: MARGIN - 1,
-    y: PAGE_HEIGHT - MARGIN - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT - 1,
+    y: PAGE_HEIGHT - MARGIN - INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT - 1,
     width: CONTENT_WIDTH + 2,
-    height: OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT + 2,
+    height: INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT + 2,
     color: rgb(1, 1, 1),
   });
-  drawOfficialDocumentPdfHeader(firstPage, header, resources);
+  drawOfficialDocumentPdfHeader(firstPage, header, resources, undefined, {\n    context: {\n      title: "PROGRESS REPORT",\n      primaryContext: `${model.currentTermName}${model.academicYear ? ` · ${model.academicYear}` : ""}`,\n      summary: [model.grade, model.registerClass].filter(Boolean).join(" · "),\n    },\n  });
 
   return {
     bytes: await pdf.save(),
