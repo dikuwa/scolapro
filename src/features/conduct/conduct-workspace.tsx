@@ -285,7 +285,7 @@ export function ConductWorkspace({
           </div>
         ) : canRecord && !roster.length ? (
           <div className="mt-4 rounded-[var(--radius-sm)] bg-info-soft px-4 py-3.5">
-            <p className="text-sm font-medium text-[color:var(--info)]">No learners are in scope for the current date and filters.</p>
+            <p className="text-sm font-medium text-[color:var(--info)]">No learners are enrolled in your current scope for the selected date and filters.</p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">Change the roster date or clear grade/class filters.</p>
           </div>
         ) : null}
