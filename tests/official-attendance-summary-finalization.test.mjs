@@ -5,6 +5,7 @@ import test from "node:test";
 const migration = readFileSync("supabase/migrations/20260924131000_official_attendance_summary_finalization.sql", "utf8");
 const route = readFileSync("src/app/api/official-documents/attendance-summary/route.ts", "utf8");
 const pdfRenderer = readFileSync("src/features/documents/server/render-official-attendance-summary-pdf.ts", "utf8");
+const htmlRenderer = readFileSync("src/features/documents/server/render-official-attendance-summary-html.ts", "utf8");
 const actions = readFileSync("src/features/attendance/server/actions.ts", "utf8");
 const verifyFoundation = readFileSync("supabase/migrations/20260924090000_official_document_verification_foundation.sql", "utf8");
 const page = readFileSync("src/app/attendance/page.tsx", "utf8");
@@ -95,4 +96,19 @@ test("term mode is wired into the official attendance view", () => {
   assert.match(page, /mode: "week" \| "term" = requestedMode === "term" \? "term" : "week"/);
   assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, mode, date/);
   assert.match(page, /getOfficialAttendanceSummaryFinalization\(/);
+});
+
+
+test("official attendance outputs use the universal internal-school header without changing aggregate hierarchy", () => {
+  assert.match(htmlRenderer, /renderOfficialDocumentHtmlHeader/);
+  assert.match(htmlRenderer, /title: "OFFICIAL ATTENDANCE SUMMARY"/);
+  assert.match(htmlRenderer, /primaryContext: titleText/);
+  assert.match(pdfRenderer, /INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT/);
+  assert.match(pdfRenderer, /title: "OFFICIAL ATTENDANCE SUMMARY"/);
+  assert.doesNotMatch(pdfRenderer, /TITLE_HEIGHT/);
+  assert.match(route, /contact\.get\("address"\)/);
+  assert.match(route, /contact\.get\("telephone"\)/);
+  assert.match(route, /contact\.get\("fax"\)/);
+  assert.match(route, /contact\.get\("email"\)/);
+  assert.match(route, /storedLogoBytes/);
 });
