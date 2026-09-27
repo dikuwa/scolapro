@@ -166,10 +166,10 @@ function embedLogoAndStyles(
       ? match
       : '<worksheet' + attributes + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
   );
-  sheetXml = sheetXml.replace(/<sheetView\\b([^>]*)>/, (_match, attributes: string) => {
-    const normalized = attributes.replace(/\\s+showGridLines="[^"]*"/g, "");
-    const selfClosing = /\\/\\s*$/.test(normalized);
-    const cleaned = selfClosing ? normalized.replace(/\\/\\s*$/, "") : normalized;
+  sheetXml = sheetXml.replace(/<sheetView\b([^>]*)>/, (_match, attributes: string) => {
+    const normalized = attributes.replace(/\s+showGridLines="[^"]*"/g, "");
+    const selfClosing = /\/\s*$/.test(normalized);
+    const cleaned = selfClosing ? normalized.replace(/\/\s*$/, "") : normalized;
     return '<sheetView' + cleaned + ' showGridLines="0"' + (selfClosing ? '/>' : '>');
   });
 
