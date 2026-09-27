@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -237,12 +237,12 @@ export function ConductWorkspace({
   const quickRecognition = recognitionItems.slice(0, 4);
   const addDisabled = !activeConductItems.length || !roster.length || pending;
 
-  const summary = useMemo(() => ({
+  const summary = {
     recognitions: recognitionItems.length,
     violations: violationItems.length,
     learners: roster.length,
     recent: eventGroups.size,
-  }), [recognitionItems.length, violationItems.length, roster.length, eventGroups.size]);
+  };
 
   function openRecorder(categoryId?: string) {
     setQuickCategoryId(categoryId);
