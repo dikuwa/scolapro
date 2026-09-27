@@ -320,28 +320,55 @@ export function SportsHousesWorkspace({
       </div>
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="mb-4">
-          <h2 className="scolapro-section-title">Houses</h2>
-          <p className="scolapro-section-description">School-defined names, codes, stored colours, display order and activation state.</p>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="scolapro-section-title">Houses</h2>
+            <p className="scolapro-section-description">Configured houses stay readable; editing opens only when requested.</p>
+          </div>
+          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setAddingHouse((open) => !open)}><Plus className="size-4" />{addingHouse ? "Close add house" : "Add house"}</Button> : null}
         </div>
-        <div className="space-y-3">
-          {houses.length ? houses.map((house) => <HouseForm key={house.id} schoolId={schoolId} house={house} canManage={canManage} />) : (
-            <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center"><p className="text-sm font-medium">No houses configured</p><p className="mt-1 text-xs text-muted-foreground">{canManage ? "Add the first school-defined house below." : "School management has not configured houses yet."}</p></div>
+        <div className="space-y-2">
+          {houses.length ? houses.map((house) => {
+            const editing = editingHouseId === house.id;
+            return <div key={house.id} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated">
+              <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2"><Swatch color={house.colorHex} /><p className="scolapro-record-title">{house.name}</p>{house.shortCode ? <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-0.5 text-[0.68rem] font-medium text-muted-foreground">{house.shortCode}</span> : null}<span className="text-[0.68rem] capitalize text-muted-foreground">{house.status}</span></div>
+                  <p className="mt-1 text-xs text-muted-foreground">Display order {house.sortOrder} · Created {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(house.createdAt))}</p>
+                </div>
+                {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingHouseId(editing ? null : house.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
+              </div>
+              {editing ? <div className="border-t border-border-subtle p-3 sm:p-4"><HouseForm schoolId={schoolId} house={house} canManage={canManage} /></div> : null}
+            </div>;
+          }) : (
+            <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center"><p className="text-sm font-medium">No houses configured</p><p className="mt-1 text-xs text-muted-foreground">{canManage ? "Use Add house to configure the first house." : "School management has not configured houses yet."}</p></div>
           )}
-          <HouseForm schoolId={schoolId} canManage={canManage} />
+          {addingHouse ? <HouseForm schoolId={schoolId} canManage={canManage} /> : null}
         </div>
       </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="mb-4">
-          <h2 className="scolapro-section-title">Age groups</h2>
-          <p className="scolapro-section-description">Inclusive school-defined ranges. Active groups cannot overlap; backend validation is shown directly.</p>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="scolapro-section-title">Age groups</h2>
+            <p className="scolapro-section-description">Configured age bands stay compact until you choose to edit them.</p>
+          </div>
+          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setAddingAgeGroup((open) => !open)}><Plus className="size-4" />{addingAgeGroup ? "Close add group" : "Add age group"}</Button> : null}
         </div>
-        <div className="space-y-3">
-          {ageGroups.length ? ageGroups.map((group) => <AgeGroupForm key={group.id} schoolId={schoolId} group={group} canManage={canManage} />) : (
+        <div className="space-y-2">
+          {ageGroups.length ? ageGroups.map((group) => {
+            const editing = editingAgeGroupId === group.id;
+            return <div key={group.id} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated">
+              <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                <div><p className="scolapro-record-title">{group.label}</p><p className="mt-1 text-xs text-muted-foreground">Ages {group.minAge}–{group.maxAge} · Display order {group.sortOrder}</p></div>
+                {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingAgeGroupId(editing ? null : group.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
+              </div>
+              {editing ? <div className="border-t border-border-subtle p-3 sm:p-4"><AgeGroupForm schoolId={schoolId} group={group} canManage={canManage} /></div> : null}
+            </div>;
+          }) : (
             <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center"><p className="text-sm font-medium">No age groups configured</p><p className="mt-1 text-xs text-muted-foreground">Age bands remain school-defined rather than system defaults.</p></div>
           )}
-          <AgeGroupForm schoolId={schoolId} canManage={canManage} />
+          {addingAgeGroup ? <AgeGroupForm schoolId={schoolId} canManage={canManage} /> : null}
         </div>
       </section>
 
