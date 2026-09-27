@@ -75,3 +75,19 @@ test("shared official chrome includes visible subtle backdrop and universal inte
   assert.match(pdf, /opacity: 0\.05/);
   assert.match(pdf, /loadPublicBrandBytes/);
 });
+
+
+test("internal header leaves the crest bay open, enlarges the crest, and compacts document context", () => {
+  assert.match(chrome, /school-header\.internal-school \{ border-top:0;/);
+  assert.match(chrome, /background-size:calc\(100% - 76px\) 1px/);
+  assert.match(chrome, /max-width:62px; max-height:66px/);
+  assert.match(chrome, /internal-document-context \{[^}]*line-height:1\.05/);
+  assert.match(chrome, /document-context-title \{ margin-bottom:1px/);
+  assert.match(chrome, /document-context-summary \{ margin-top:0/);
+  assert.match(pdf, /top rule begins only where school identity starts/);
+  assert.match(pdf, /start: \{ x: x \+ logoColumn, y: topY \}/);
+  assert.match(pdf, /maxLogoWidth = Math\.max\(48, logoColumn - 4\)/);
+  assert.match(pdf, /64 \/ logo\.height/);
+  assert.match(pdf, /let contextY = topY - 29/);
+  assert.match(pdf, /contextY -= 8/);
+});
