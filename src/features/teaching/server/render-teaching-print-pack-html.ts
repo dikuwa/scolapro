@@ -61,9 +61,6 @@ ${OFFICIAL_DOCUMENT_A4_PAGE_RULE}
 body{font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:9px;line-height:1.35}
 ${OFFICIAL_DOCUMENT_FRAME_RULE}
 ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
-.logo-wrap{display:flex;align-items:center;justify-content:center;height:76px}.school-logo{max-width:76px;max-height:76px;object-fit:contain}.logo-placeholder{min-height:60px}
-.school-identity{text-align:center}.school-name{margin:0;font-size:24px}.school-name.old-english{font-family:"Old English Text MT","Times New Roman",serif;font-weight:400;font-size:28px}.former-name{font-size:8px}.school-contact{margin-top:6px;font-size:7px;display:inline-block;text-align:left}.postal{font-size:8px;align-self:end}.emis{font-size:7px;color:var(--muted)}
-.title{border:1px solid var(--line);border-top:0;padding:8px;text-align:center}.title h2{margin:0;font-size:13px}.meta{margin-top:4px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
 .notice{margin:7px 0;border:1px solid var(--line);padding:6px;font-size:7px}.section-title{margin:8px 0 4px;font-size:10px;border-bottom:1px solid var(--line);padding-bottom:3px;break-after:avoid;page-break-after:avoid}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:5px}.field{border:1px solid #aaa;padding:6px;break-inside:avoid}.field h3{margin:0 0 3px;font-size:7px;text-transform:uppercase}.field p{margin:0;white-space:pre-wrap}
 table{width:100%;border-collapse:collapse;font-size:7px}th,td{border:1px solid var(--line);padding:3px 4px;vertical-align:top}th{text-align:left}ul{margin:3px 0 0;padding-left:16px}.muted{color:var(--muted)}
@@ -71,15 +68,7 @@ table{width:100%;border-collapse:collapse;font-size:7px}th,td{border:1px solid v
 ${OFFICIAL_DOCUMENT_METADATA_RULE}
 @media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}${OFFICIAL_DOCUMENT_PRINT_RULE}}
 </style></head><body><main class="report">
-${renderOfficialDocumentHtmlHeader(header)}
-<section class="title document-title"><h2>Teaching Print Pack</h2><div class="meta">
-<span><strong>Teacher:</strong> ${escapeOfficialDocumentHtml(pack.teacherName)}</span>
-<span><strong>Subject:</strong> ${escapeOfficialDocumentHtml(pack.subjectName)}</span>
-<span><strong>Class:</strong> ${escapeOfficialDocumentHtml(pack.gradeName)} · ${escapeOfficialDocumentHtml(pack.className)}</span>
-<span><strong>Year:</strong> ${pack.academicYear}</span>
-${pack.termName ? `<span><strong>Term:</strong> ${escapeOfficialDocumentHtml(pack.termName)}</span>` : ""}
-<span><strong>Lesson:</strong> ${escapeOfficialDocumentHtml(pack.plannedOn)}</span>
-</div></section>
+${renderOfficialDocumentHtmlHeader(header, undefined, { context: { title: "Teaching Print Pack", primaryContext: `${pack.teacherName} · ${pack.subjectName}`, secondaryContext: `${pack.gradeName} · ${pack.className} · ${pack.academicYear}${pack.termName ? ` · ${pack.termName}` : ""}`, summary: `Lesson ${pack.plannedOn} · ${pack.plannedPeriods} period(s) · ${pack.preparationStatus}` } })}
 <div class="notice">ScolaPro teaching record export. This layout is not presented as an official NIED or Ministry form. Content is derived from governed teaching records and does not change preparation, review, readiness or coverage state.</div>
 <h2 class="section-title">Lesson preparation</h2>
 <p><strong>Theme / topic:</strong> ${escapeOfficialDocumentHtml([pack.theme,pack.topic].filter(Boolean).join(" · ") || "—")} · <strong>Curriculum version:</strong> ${escapeOfficialDocumentHtml(pack.curriculumVersion || "—")} · <strong>Status:</strong> ${escapeOfficialDocumentHtml(pack.preparationStatus)}</p>
