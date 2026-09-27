@@ -183,14 +183,21 @@ begin
     return new;
   end if;
 
-  select c1.*,g1.*
-  into c,g
+  select c1.* into c
   from public.conduct_policy_categories c1
-  join public.conduct_policy_groups g1 on g1.id=c1.group_id
   where c1.id=new.category_id
-  for share of c1,g1;
+  for share;
 
-  if c.id is null
+  if c.id is null then
+    raise exception 'Category is not active in this school and domain';
+  end if;
+
+  select g1.* into g
+  from public.conduct_policy_groups g1
+  where g1.id=c.group_id
+  for share;
+
+  if g.id is null
     or c.school_id<>new.school_id
     or c.tenant_id<>new.tenant_id
     or c.domain<>(case when tg_table_name='conduct_events' then 'conduct' else 'achievement' end)
