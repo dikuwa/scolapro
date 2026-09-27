@@ -61,32 +61,39 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
   if (assignmentError || responsibilityError || allocationError) throw new Error("Unable to load governed subject-file scope.");
 
   const ownAssignmentIds=new Set((assignments ?? []).filter((row)=>effective(today,row.effective_from,row.effective_to)).map((row)=>row.id));
-  const hodResponsibilities=(responsibilities ?? []).filter((row)=>
-    ownAssignmentIds.has(row.department_head_staff_assignment_id) && effective(today,row.effective_from,row.effective_to)
-  );
+  const hodResponsibilities=membership.roleKey==="hod"
+    ? (responsibilities ?? []).filter((row)=>
+        ownAssignmentIds.has(row.department_head_staff_assignment_id) && effective(today,row.effective_from,row.effective_to)
+      )
+    : [];
   const hodSubjectIds=new Set(hodResponsibilities.map((row)=>row.subject_id));
 
   const activeAllocations=(teachingAllocations ?? []).filter((row)=>effective(today,row.active_from,row.active_to));
   const ownAllocationIds=activeAllocations.filter((row)=>row.staff_member_id===membership.staffMemberId);
-  const offeringIds=[...new Set(activeAllocations.map((row)=>row.subject_offering_id))];
+  const allocationOfferingIds=[...new Set(activeAllocations.map((row)=>row.subject_offering_id))];
 
-  const {data:offerings,error:offeringError}=offeringIds.length
+  const {data:allocationOfferings,error:allocationOfferingError}=allocationOfferingIds.length
     ? await db.from("subject_offerings")
         .select("id,subject_id,grade_id,curriculum_version_id")
         .eq("school_id",membership.schoolId)
         .eq("academic_year",academicYear)
-        .in("id",offeringIds)
+        .in("id",allocationOfferingIds)
     : {data:[],error:null};
-  if (offeringError) throw new Error("Unable to load subject-file offerings.");
+  if (allocationOfferingError) throw new Error("Unable to load subject-file allocation offerings.");
 
-  const offeringById=new Map((offerings ?? []).map((row)=>[row.id,row]));
+  const offeringById=new Map((allocationOfferings ?? []).map((row)=>[row.id,row]));
   const teacherSubjectIds=new Set(
     ownAllocationIds.map((row)=>offeringById.get(row.subject_offering_id)?.subject_id).filter((id):id is string=>Boolean(id))
   );
   const allowedSubjectIds=[...new Set([...hodSubjectIds,...teacherSubjectIds])];
   if (!allowedSubjectIds.length) return {schoolId:membership.schoolId,schoolName:membership.schoolName,academicYear,rows:[]};
 
-  const subjectOfferingRows=(offerings ?? []).filter((row)=>allowedSubjectIds.includes(row.subject_id));
+  const {data:subjectOfferingRows,error:offeringError}=await db.from("subject_offerings")
+    .select("id,subject_id,grade_id,curriculum_version_id")
+    .eq("school_id",membership.schoolId)
+    .eq("academic_year",academicYear)
+    .in("subject_id",allowedSubjectIds);
+  if (offeringError) throw new Error("Unable to load subject-file offerings.");
   const scopedOfferingIds=subjectOfferingRows.map((row)=>row.id);
   const gradeIds=[...new Set(subjectOfferingRows.map((row)=>row.grade_id))];
   const staffIds=[...new Set(activeAllocations.filter((row)=>scopedOfferingIds.includes(row.subject_offering_id)).map((row)=>row.staff_member_id))];
