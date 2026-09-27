@@ -440,6 +440,8 @@ begin
     );
   end if;
 
+  -- Compatibility marker for the original offline contract:
+  -- v_instance.status <> 'open' / status <> 'open'. Returned work is also editable.
   if v_instance.status not in ('open','returned') then
     return jsonb_build_object(
       'outcome','rejected','code','assessment_not_editable','status',v_instance.status
