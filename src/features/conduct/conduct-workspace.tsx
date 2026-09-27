@@ -7,8 +7,8 @@ import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
+import { SearchableSelect, type SearchableSelectBulkActionGroup } from "@/components/ui/searchable-select";
 import { Spinner } from "@/components/ui/spinner";
-import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { ConductDialog, ConductForm, fieldClass, useConductFormPending } from "./controls";
 import { recordConductEvent } from "./server/actions";
 import type { ConductCategory, ConductDomain, ConductEvent, ConductHistory, ConductLearner, ConductPolicyGroup, ConductPolicyType } from "./types";
@@ -46,7 +46,6 @@ function EventForm({
   const initialGroup = groups.find((group) => group.id === initialCategory?.group_id && group.active);
   const [date, setDate] = useState(on);
   const [selected, setSelected] = useState<string[]>(initialLearnerId ? [initialLearnerId] : []);
-  const [adding, setAdding] = useState(!initialLearnerId);
   const [type, setType] = useState<ConductPolicyType>(initialGroup?.type ?? "violation");
   const [groupId, setGroupId] = useState(initialGroup?.id ?? "");
   const [categoryId, setCategoryId] = useState(initialCategory?.id ?? "");
@@ -62,6 +61,69 @@ function EventForm({
   const group = groups.find((item) => item.id === groupId);
   const canSubmit = selected.length > 0 && Boolean(categoryId) && Boolean(groupId) && Boolean(date) && date <= today;
 
+  function toggleMany(ids: string[]) {
+    setSelected((current) => {
+      const currentSet = new Set(current);
+      const uniqueIds = [...new Set(ids)];
+      const allSelected = uniqueIds.length > 0 && uniqueIds.every((id) => currentSet.has(id));
+      if (allSelected) return current.filter((id) => !uniqueIds.includes(id));
+      const room = Math.max(0, 200 - current.length);
+      const additions = uniqueIds.filter((id) => !currentSet.has(id)).slice(0, room);
+      return [...current, ...additions];
+    });
+  }
+
+  const gradeGroups = [...new Map(
+    learners
+      .filter((learner) => learner.grade_id && learner.grade_name)
+      .map((learner) => [learner.grade_id!, { id: learner.grade_id!, label: learner.grade_name! }]),
+  ).values()];
+  const classGroups = [...new Map(
+    learners
+      .filter((learner) => learner.class_id && learner.class_name)
+      .map((learner) => [learner.class_id!, { id: learner.class_id!, label: learner.class_name! }]),
+  ).values()];
+
+  const learnerBulkActions: SearchableSelectBulkActionGroup[] = [
+    {
+      label: "Selection",
+      actions: [
+        {
+          label: "Select all",
+          onClick: () => toggleMany(learners.map((learner) => learner.learner_id)),
+          active: learners.length > 0 && learners.every((learner) => selected.includes(learner.learner_id)),
+        },
+        {
+          label: "Clear",
+          onClick: () => setSelected([]),
+          disabled: selected.length === 0,
+        },
+      ],
+    },
+    ...(gradeGroups.length ? [{
+      label: "Grades",
+      actions: gradeGroups.map((grade) => {
+        const ids = learners.filter((learner) => learner.grade_id === grade.id).map((learner) => learner.learner_id);
+        return {
+          label: grade.label,
+          onClick: () => toggleMany(ids),
+          active: ids.length > 0 && ids.every((id) => selected.includes(id)),
+        };
+      }),
+    }] : []),
+    ...(classGroups.length ? [{
+      label: "Classes",
+      actions: classGroups.map((registerClass) => {
+        const ids = learners.filter((learner) => learner.class_id === registerClass.id).map((learner) => learner.learner_id);
+        return {
+          label: registerClass.label,
+          onClick: () => toggleMany(ids),
+          active: ids.length > 0 && ids.every((id) => selected.includes(id)),
+        };
+      }),
+    }] : []),
+  ];
+
   function changeType(next: ConductPolicyType) {
     setType(next);
     setGroupId("");
@@ -76,48 +138,39 @@ function EventForm({
       <DateField label="Event date" name="date" value={date} onChange={setDate} max={today} required />
 
       <div>
-        <p className={formFieldLabelClass}>Learner(s)</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {selected.map((id) => {
-            const learner = learners.find((item) => item.learner_id === id);
-            return (
-              <span key={id} className="inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-1.5 text-sm">
-                <input type="hidden" name="learnerIds" value={id} />
-                {learner?.learner_name ?? "Selected learner"}
-                <button
-                  type="button"
-                  aria-label={`Remove ${learner?.learner_name ?? "learner"}`}
-                  onClick={() => { setSelected(selected.filter((value) => value !== id)); setAdding(true); }}
-                  className="grid size-7 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
-                >
-                  ×
-                </button>
-              </span>
-            );
-          })}
+        {selected.map((id) => <input key={id} type="hidden" name="learnerIds" value={id} />)}
+        <SearchableSelect
+          label="Learner(s)"
+          value=""
+          options={learners.map((learner) => ({
+            value: learner.learner_id,
+            label: learner.learner_name,
+            helper: [learner.grade_name, learner.class_name].filter(Boolean).join(" · ") || "No class",
+            group: learner.class_name ?? learner.grade_name ?? "Other learners",
+            searchText: [learner.grade_name, learner.class_name].filter(Boolean).join(" "),
+          }))}
+          placeholder="Choose one or more learners"
+          searchPlaceholder="Type learner name, grade or class"
+          multiple
+          multipleLabel="learner"
+          selectedValues={selected}
+          onToggle={(id) => {
+            setSelected((current) => {
+              if (current.includes(id)) return current.filter((value) => value !== id);
+              if (current.length >= 200) return current;
+              return [...current, id];
+            });
+          }}
+          bulkActionGroups={learnerBulkActions}
+        />
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">{selected.length} of 200 learners selected</span>
+          {selected.length ? (
+            <button type="button" onClick={() => setSelected([])} className="text-xs font-medium text-brand-strong hover:underline">
+              Clear selection
+            </button>
+          ) : null}
         </div>
-        {adding ? (
-          <div className="mt-2">
-            <Picker
-              label="Choose learner"
-              value=""
-              onChange={(id) => { if (id) { setSelected([...selected, id]); setAdding(false); } }}
-              options={learners.filter((learner) => !selected.includes(learner.learner_id)).map((learner) => ({
-                value: learner.learner_id,
-                label: learner.learner_name,
-                helper: learner.class_name ?? "No class",
-              }))}
-              searchable
-              searchPlaceholder="Type learner name"
-              placeholder="Find learner"
-            />
-          </div>
-        ) : (
-          <Button type="button" variant="soft" size="sm" className="mt-2" disabled={selected.length >= 200} onClick={() => setAdding(true)}>
-            <Plus className="size-4" aria-hidden="true" />
-            Add another learner
-          </Button>
-        )}
       </div>
 
       <div>
@@ -261,6 +314,15 @@ export function ConductWorkspace({
         <div className="border-t border-border-subtle px-4 py-4 lg:border-l lg:border-t-0 sm:px-5"><p className="text-xs font-medium text-muted-foreground">Recent groups</p><p className="mt-1.5 text-2xl font-semibold">{summary.recent}</p></div>
       </section>
 
+      <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5" aria-label="Conduct filters">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <DateField label="Roster / event date" name="rosterDate" value={filters.on} onChange={(on) => { if (on) change({ on, gradeId: "", classId: "" }); }} max={today} />
+          <Picker label="Grade" value={filters.gradeId} onChange={(gradeId) => change({ gradeId, classId: "", learnerId: "" })} options={[{ value: "", label: "All grades" }, ...unique("grade_id", "grade_name", learners)]} placeholder="All grades" disabled={pending} />
+          <Picker label="Class" value={filters.classId} onChange={(classId) => change({ classId, learnerId: "" })} options={[{ value: "", label: "All classes" }, ...unique("class_id", "class_name", learners.filter((learner) => !filters.gradeId || learner.grade_id === filters.gradeId))]} placeholder="All classes" disabled={pending} />
+          <Picker label="Learner" value={filters.learnerId} onChange={(learnerId) => change({ learnerId, classId: "", gradeId: "" })} searchable searchPlaceholder="Type learner name" options={[{ value: "", label: "All learners" }, ...learners.map((learner) => ({ value: learner.learner_id, label: learner.learner_name, helper: learner.class_name ?? learner.grade_name ?? "No class" }))]} placeholder="All learners" disabled={pending} />
+        </div>
+      </section>
+
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -346,14 +408,6 @@ export function ConductWorkspace({
         ) : null}
       </section>
 
-      <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5" aria-label="Conduct filters">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <DateField label="Roster / event date" name="rosterDate" value={filters.on} onChange={(on) => { if (on) change({ on, gradeId: "", classId: "" }); }} max={today} />
-          <Picker label="Grade" value={filters.gradeId} onChange={(gradeId) => change({ gradeId, classId: "", learnerId: "" })} options={[{ value: "", label: "All grades" }, ...unique("grade_id", "grade_name", learners)]} placeholder="All grades" disabled={pending} />
-          <Picker label="Class" value={filters.classId} onChange={(classId) => change({ classId, learnerId: "" })} options={[{ value: "", label: "All classes" }, ...unique("class_id", "class_name", learners.filter((learner) => !filters.gradeId || learner.grade_id === filters.gradeId))]} placeholder="All classes" disabled={pending} />
-          <Picker label="Learner history" value={filters.learnerId} onChange={(learnerId) => change({ learnerId, classId: "", gradeId: "" })} searchable searchPlaceholder="Type learner name" options={[{ value: "", label: "All learners" }, ...learners.map((learner) => ({ value: learner.learner_id, label: learner.learner_name, helper: learner.class_name ?? learner.grade_name ?? "No class" }))]} placeholder="All learners" disabled={pending} />
-        </div>
-      </section>
 
       {pending ? <div className="flex items-center justify-center gap-2 py-1 text-xs text-muted-foreground" role="status"><Spinner className="size-4" /><span>Updating view…</span></div> : null}
 
