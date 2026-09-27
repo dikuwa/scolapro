@@ -22,7 +22,7 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
   const page = Math.max(0, Math.min(10000, Math.floor(Number(params.page) || 0)));
   const filters = { domain, learnerId: uuid(params.learner), classId: uuid(params.class), gradeId: uuid(params.grade), on, page };
   const workspace = await getConductWorkspace(membership.schoolId, on, domain, filters.learnerId || null, filters.classId || null, filters.gradeId || null, page);
-  const canManage = ["school_admin", "principal"].includes(membership.roleKey);
+  const canManage = ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey);
 
   return (
     <AppShell>
@@ -33,8 +33,8 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Record incidents and celebrate achievements using your school’s policy.</p>
           </div>
           {canManage ? (
-            <CompactActionLink href="/school/setup#conduct-categories" tone="brand" className="self-start sm:self-auto">
-              Configure conduct policy
+            <CompactActionLink href="/conduct/policy" tone="brand" className="self-start sm:self-auto">
+              Conduct policy
               <ArrowUpRight aria-hidden="true" className="size-3.5" />
             </CompactActionLink>
           ) : null}
