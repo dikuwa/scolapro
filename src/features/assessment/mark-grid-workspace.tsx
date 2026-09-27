@@ -149,6 +149,13 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
   async function syncNow() {
     setMessage("Syncing queued mark drafts…");
     const result=await syncQueuedAssessmentMarkDrafts(scope);
+    const syncedEntries=Object.entries(result.syncedVersions ?? {});
+    if (syncedEntries.length) {
+      setRows((current)=>current.map((row)=>{
+        const version=result.syncedVersions?.[row.enrolmentId];
+        return version ? {...row,version,saveState:"saved",error:null} : row;
+      }));
+    }
     setMessage(result.pending ? "Some mark drafts are still waiting to sync." : result.attention ? "Some queued marks need attention before they can sync." : "Queued mark drafts are synced.");
   }
 
