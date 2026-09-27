@@ -17,24 +17,25 @@ export const OFFICIAL_DOCUMENT_HEADER_RULE =
   ".school-header { display: grid; grid-template-columns: 68px minmax(0,1fr) minmax(150px,36%); gap: 8px; align-items: center; border: 1px solid var(--line); padding: 6px 8px; min-height: 76px; }";
 
 export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
-  "@media (max-width: 640px) { .school-header.internal-school { grid-template-columns: 58px minmax(0,1fr); align-items: start; } .school-header.internal-school > .logo-wrap { grid-row: 1; } .school-header.internal-school > .school-identity { grid-column: 2; } .school-header.internal-school > .internal-document-context { grid-column: 1 / -1; text-align: left; border-top: 1px solid var(--line); padding-top: 5px; } }";
+  "@media (max-width: 640px) { .school-header.internal-school { grid-template-columns: 58px minmax(0,1fr); align-items: start; background-size:calc(100% - 66px) 1px; } .school-header.internal-school > .logo-wrap { grid-row: 1; } .school-header.internal-school > .school-identity { grid-column: 2; } .school-header.internal-school > .internal-document-context { grid-column: 1 / -1; text-align: left; border-top: 1px solid var(--line); padding-top: 4px; } }";
 
 export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
   `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}
   .report { position: relative; isolation: isolate; }
   .report::before { content: "ScolaPro"; position: absolute; left: 50%; top: 49%; transform: translate(-50%,-50%) rotate(-28deg); z-index: 0; color: #2548d8; opacity: .055; font: 700 52px/1 Arial,sans-serif; letter-spacing: .08em; pointer-events: none; user-select: none; white-space: nowrap; }
   .report > * { position: relative; z-index: 1; }
-  .school-header .logo-wrap { display:flex; align-items:center; justify-content:center; min-height:62px; }
-  .school-header .school-logo { display:block; max-width:58px; max-height:62px; object-fit:contain; }
+  .school-header.internal-school { border-top:0; background-image:linear-gradient(var(--line),var(--line)); background-repeat:no-repeat; background-position:top right; background-size:calc(100% - 76px) 1px; }
+  .school-header .logo-wrap { display:flex; align-items:center; justify-content:center; min-height:66px; }
+  .school-header .school-logo { display:block; max-width:62px; max-height:66px; object-fit:contain; }
   .school-header .school-identity { min-width:0; text-align:left; align-self:center; }
   .school-header .school-name { margin:0 0 2px; font-size:17px; line-height:1; font-weight:700; white-space:normal; }
   .school-name.old-english { font-family: "UnifrakturCook","Old English Text MT","Lucida Blackletter","Times New Roman",serif; font-weight: 700; letter-spacing: 0; }
   .school-header .former-name { margin:0 0 1px; font-size:6.2px; line-height:1.08; }
   .school-header .school-contact { font-size:6.1px; line-height:1.08; }
   .school-header .school-contact strong { font-weight:700; }
-  .school-header.internal-school .internal-document-context { min-width:0; text-align:right; font-size:6.6px; line-height:1.12; }
-  .school-header.internal-school .document-context-title { margin-bottom:2px; font-size:11.5px; line-height:1.05; font-weight:700; letter-spacing:.01em; }
-  .school-header.internal-school .document-context-summary { margin-top:1px; }
+  .school-header.internal-school .internal-document-context { min-width:0; text-align:right; font-size:6.6px; line-height:1.05; }
+  .school-header.internal-school .document-context-title { margin-bottom:1px; font-size:11.5px; line-height:1; font-weight:700; letter-spacing:.01em; }
+  .school-header.internal-school .document-context-summary { margin-top:0; }
   .school-header.compact-left { min-height:76px; }
   .school-header.external-correspondence { grid-template-columns: 88px minmax(0,1fr) 88px; min-height:92px; padding:8px 10px; }
   .external-correspondence .coat-of-arms-wrap,
