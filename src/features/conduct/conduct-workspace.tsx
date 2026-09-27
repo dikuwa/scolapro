@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
@@ -211,6 +211,8 @@ export function ConductWorkspace({
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [quickCategoryId, setQuickCategoryId] = useState<string | undefined>();
+  const [quickType, setQuickType] = useState<ConductPolicyType>("recognition");
+  const [expandedQuickViolationGroups, setExpandedQuickViolationGroups] = useState<string[]>([]);
 
   function change(patch: Partial<Filters>) {
     const next = { ...filters, domain: "conduct" as const, page: 0, ...patch };
@@ -235,7 +237,7 @@ export function ConductWorkspace({
   const activeConductItems = categories.filter((item) => item.active && item.domain === "conduct" && item.group_id && activeGroups.some((group) => group.id === item.group_id));
   const recognitionItems = activeConductItems.filter((item) => item.direction === "positive");
   const violationItems = activeConductItems.filter((item) => item.direction === "negative");
-  const quickRecognition = recognitionItems.slice(0, 4);
+  const violationGroups = activeGroups.filter((group) => group.type === "violation");
   const addDisabled = !activeConductItems.length || !roster.length || pending;
 
   const summary = {
@@ -268,14 +270,66 @@ export function ConductWorkspace({
           {canRecord ? <Button type="button" onClick={() => openRecorder()} disabled={addDisabled}><Plus className="size-4" />Record conduct</Button> : null}
         </div>
 
-        {quickRecognition.length ? (
+        {activeConductItems.length ? (
           <div className="mt-4 border-t border-border-subtle pt-4">
-            <p className="text-xs font-medium text-muted-foreground">Quick Recognition</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {quickRecognition.map((item) => (
-                <Button key={item.id} type="button" variant="soft" size="sm" disabled={addDisabled} onClick={() => openRecorder(item.id)}>+ {item.display_name}</Button>
+            <div className="inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-sm)] bg-surface-muted p-1" role="group" aria-label="Quick conduct type">
+              {(["recognition", "violation"] as const).map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={quickType === value}
+                  onClick={() => setQuickType(value)}
+                  className={`min-h-8 rounded-[var(--radius-xs)] px-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft ${quickType === value ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {value === "recognition" ? "Quick Recognition" : "Quick Violation"}
+                </button>
               ))}
             </div>
+
+            {quickType === "recognition" ? (
+              <div className="mt-3">
+                <p className="text-xs leading-5 text-muted-foreground">Choose any Recognition item to open the recorder with that policy item preselected.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {recognitionItems.map((item) => (
+                    <Button key={item.id} type="button" variant="soft" size="sm" disabled={addDisabled} onClick={() => openRecorder(item.id)}>
+                      + {item.display_name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
+                {violationGroups.map((group) => {
+                  const items = violationItems.filter((item) => item.group_id === group.id);
+                  const expanded = expandedQuickViolationGroups.includes(group.id);
+                  return (
+                    <div key={group.id} className="px-3 py-2.5">
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 text-left focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"
+                        aria-expanded={expanded}
+                        onClick={() => setExpandedQuickViolationGroups((current) => current.includes(group.id) ? current.filter((id) => id !== group.id) : [...current, group.id])}
+                      >
+                        <span>
+                          <span className="block text-sm font-medium text-foreground">{group.display_name}</span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">{items.length} active item{items.length === 1 ? "" : "s"} · {signed(group.default_points)} default{group.default_severity ? ` · ${group.default_severity}` : ""}</span>
+                        </span>
+                        <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+                      </button>
+                      {expanded ? (
+                        <div className="mt-2 flex flex-wrap gap-2 border-t border-border-subtle pt-2">
+                          {items.map((item) => (
+                            <Button key={item.id} type="button" variant="soft" size="sm" disabled={addDisabled} onClick={() => openRecorder(item.id)}>
+                              + {item.display_name}
+                            </Button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         ) : null}
 

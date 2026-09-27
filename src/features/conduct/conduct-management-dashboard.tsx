@@ -68,24 +68,31 @@ export function ConductManagementDashboard({
 
         <div className="mt-4 grid gap-3 border-t border-border-subtle pt-4 md:grid-cols-2 xl:grid-cols-[minmax(14rem,1fr)_12rem_14rem_auto_auto]">
           <form
-            className="relative"
+            className="block"
             onSubmit={(event) => {
               event.preventDefault();
               change({ query });
             }}
           >
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search learner"
-              className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] pl-9 pr-3 text-sm outline-none"
-            />
+            <span className="mb-1.5 block text-xs font-medium text-foreground">Learner</span>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search learner"
+                className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] pl-9 pr-3 text-sm outline-none"
+              />
+            </div>
           </form>
           <Picker label="Grade" value={filters.gradeId} onChange={(gradeId) => change({ gradeId, classId: "" })} options={[{ value: "", label: "All grades" }, ...gradeOptions]} placeholder="All grades" />
           <Picker label="Class" value={filters.classId} onChange={(classId) => change({ classId })} options={[{ value: "", label: "All classes" }, ...classes.map(({ value, label }) => ({ value, label }))]} placeholder="All classes" />
-          <Button type="button" variant={filters.attentionOnly ? "soft" : "neutral"} onClick={() => change({ attentionOnly: !filters.attentionOnly })}>Attention only</Button>
-          <Button type="button" variant={filters.repeatedOnly ? "soft" : "neutral"} onClick={() => change({ repeatedOnly: !filters.repeatedOnly })}>Repeated only</Button>
+          <div className="flex items-end">
+            <Button className="min-h-10 w-full" type="button" variant={filters.attentionOnly ? "soft" : "neutral"} onClick={() => change({ attentionOnly: !filters.attentionOnly })}>Attention only</Button>
+          </div>
+          <div className="flex items-end">
+            <Button className="min-h-10 w-full" type="button" variant={filters.repeatedOnly ? "soft" : "neutral"} onClick={() => change({ repeatedOnly: !filters.repeatedOnly })}>Repeated only</Button>
+          </div>
         </div>
 
         {pending ? <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Spinner className="size-4" />Updating view…</div> : null}
@@ -111,8 +118,14 @@ export function ConductManagementDashboard({
                     <p className="mt-1 text-xs text-muted-foreground">{learner.grade_name ?? "No grade"}</p>
                   </td>
                   <td className="px-3 py-3 text-muted-foreground">{learner.class_name ?? "No class"}</td>
-                  <td className="px-3 py-3"><span className="font-medium">{learner.recognition_count}</span><span className="ml-2 text-xs text-muted-foreground">{signed(learner.recognition_points)}</span></td>
-                  <td className="px-3 py-3"><span className="font-medium">{learner.violation_count}</span><span className="ml-2 text-xs text-muted-foreground">{signed(learner.violation_points)}</span></td>
+                  <td className="px-3 py-3">
+                    <span className="font-medium">{learner.recognition_count} event{learner.recognition_count === 1 ? "" : "s"}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{signed(learner.recognition_points)} pts</span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="font-medium">{learner.violation_count} event{learner.violation_count === 1 ? "" : "s"}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{signed(learner.violation_points)} pts</span>
+                  </td>
                   <td className="px-3 py-3 font-medium">{signed(learner.net_points)}</td>
                   <td className="px-3 py-3">
                     <div className="flex flex-wrap gap-1.5">
