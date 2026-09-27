@@ -1,5 +1,3 @@
-import { ConductCategorySettings } from "@/features/conduct/category-settings";
-import { getConductCategories } from "@/features/conduct/server/queries";
 import { BookOpenCheck, School, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
@@ -23,10 +21,9 @@ export default async function SchoolSetupPage() {
 
   const canManageAcademicStructure = membership.roleKey === "school_admin";
   const academicYear = getNamibiaCalendarYear();
-  const [structure, rooms, conductCategories, hodScope] = await Promise.all([
+  const [structure, rooms, hodScope] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
-    getConductCategories(membership.schoolId),
     getHodScopeConfiguration(membership.schoolId),
   ]);
 
@@ -59,7 +56,6 @@ export default async function SchoolSetupPage() {
           />
         </div>
 
-        <ConductCategorySettings schoolId={membership.schoolId} categories={conductCategories} />
 
         <HodScopeConfiguration
           schoolId={membership.schoolId}
