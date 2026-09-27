@@ -234,7 +234,7 @@ export function SearchableSelect({
           {multiple && bulkActionGroups.length ? (
             <div className="mt-1 space-y-1.5 rounded-[var(--radius-xs)] bg-surface-muted/55 p-2">
               {bulkActionGroups.map((group) => (
-                <div key={group.label} className="flex flex-wrap items-center gap-1.5">
+                <div key={group.label} className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
                   <span className="mr-1 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</span>
                   {group.actions.map((action) => (
                     <button
@@ -243,7 +243,7 @@ export function SearchableSelect({
                       disabled={action.disabled}
                       onClick={action.onClick}
                       className={cn(
-                        "min-h-7 rounded-[var(--radius-xs)] border border-border-subtle bg-surface px-2 text-[0.68rem] font-medium text-foreground transition hover:border-border hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-45",
+                        "min-h-7 shrink-0 rounded-[var(--radius-xs)] border border-border-subtle bg-surface px-2 text-[0.68rem] font-medium text-foreground transition hover:border-border hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-45",
                         action.active && "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong",
                       )}
                     >
