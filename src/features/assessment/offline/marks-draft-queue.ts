@@ -36,7 +36,8 @@ export async function queueAssessmentMarkDraft(
 }
 
 export async function syncQueuedAssessmentMarkDrafts(scope: OfflineScope) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return offlineQueueSummary(scope);
+  const syncedVersions: Record<string, string> = {};
+  if (typeof navigator !== "undefined" && !navigator.onLine) return { ...(await offlineQueueSummary(scope)), syncedVersions };
 
   const records = await listOfflineMutations<OfflineAssessmentMarkDraftPayload>(
     scope,
@@ -55,7 +56,7 @@ export async function syncQueuedAssessmentMarkDrafts(scope: OfflineScope) {
           payload: record.payload,
         }),
       });
-      const body = (await response.json().catch(() => ({}))) as { message?: string; code?: string };
+      const body = (await response.json().catch(() => ({}))) as { message?: string; code?: string; version?: string };
       const safeMessage = body.code === "stale_version"
         ? "A newer mark draft already exists. Review the current mark before trying again."
         : body.code === "assessment_not_editable"
@@ -63,7 +64,10 @@ export async function syncQueuedAssessmentMarkDrafts(scope: OfflineScope) {
           : body.code === "idempotency_payload_mismatch"
             ? "This offline mark change no longer matches its original queued draft."
             : body.message;
-      if (response.ok) await removeOfflineMutation(record.id);
+      if (response.ok) {
+        if (body.version) syncedVersions[record.payload.enrolmentId] = body.version;
+        await removeOfflineMutation(record.id);
+      }
       else if (response.status === 409) {
         await updateOfflineMutation(record.id, {
           status: body.code === "assessment_not_editable" ? "rejected" : "conflicted",
@@ -90,7 +94,7 @@ export async function syncQueuedAssessmentMarkDrafts(scope: OfflineScope) {
     }
   }
   window.dispatchEvent(new Event("scolapro-offline-queue-changed"));
-  return offlineQueueSummary(scope);
+  return { ...(await offlineQueueSummary(scope)), syncedVersions };
 }
 
 export async function cacheAssessmentMarkDraftReference(

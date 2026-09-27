@@ -68,7 +68,7 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
     learnerIds.length ? db.from("learners").select("id,first_names,surname,preferred_name").in("id",learnerIds) : Promise.resolve({ data: [] }),
     (enrolments ?? []).length
       ? db.from("learner_subject_registrations")
-          .select("enrolment_id,subject_offering_id,status")
+          .select("enrolment_id,subject_offering_id,status,registered_at,withdrawn_at")
           .in("enrolment_id",(enrolments ?? []).map((row)=>row.id))
       : Promise.resolve({ data: [] }),
   ]);
@@ -91,7 +91,7 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
 
   const learnerMap=new Map((learners ?? []).map((row)=>[row.id,row]));
   const markMap=new Map((marks ?? []).map((row)=>[row.enrolment_id,row]));
-  const registrationsByEnrolment=new Map<string,Array<{subject_offering_id:string;status:string}>>();
+  const registrationsByEnrolment=new Map<string,Array<{subject_offering_id:string;status:string;registered_at:string;withdrawn_at:string|null}>>();
   for (const row of registrations ?? []) {
     const list=registrationsByEnrolment.get(row.enrolment_id) ?? [];
     list.push(row);
@@ -107,7 +107,13 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
       if (!lifecycleOk) return false;
       const registrationsForLearner=registrationsByEnrolment.get(row.id) ?? [];
       return !registrationsForLearner.length
-        || registrationsForLearner.some((item)=>item.subject_offering_id===instance.subject_offering_id && item.status==="active");
+        || registrationsForLearner.some((item)=>{
+          if (item.subject_offering_id!==instance.subject_offering_id) return false;
+          if (!instance.assessment_date) return item.status==="active";
+          const registeredOn=item.registered_at.slice(0,10);
+          const withdrawnOn=item.withdrawn_at?.slice(0,10) ?? null;
+          return registeredOn<=eligibilityDate && (!withdrawnOn || withdrawnOn>=eligibilityDate);
+        });
     })
     .map((row)=>{
       const learner=learnerMap.get(row.learner_id);

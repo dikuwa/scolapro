@@ -8,6 +8,7 @@ const server=await read("src/features/assessment/server/mark-grid.ts");
 const actions=await read("src/features/assessment/server/mark-grid-actions.ts");
 const queue=await read("src/features/assessment/offline/marks-draft-queue.ts");
 const migration=await read("supabase/migrations/20260926090000_high_speed_mark_grid_hardening.sql");
+const remediation=await read("supabase/migrations/20260927014500_assessment_review_remediation.sql");
 const marksPage=await read("src/app/assessment/marks/page.tsx");
 
 test("desktop grid freezes learner identity and supports keyboard navigation",()=>{
@@ -50,11 +51,11 @@ test("validation submission review and correction remain governed server actions
   assert.match(workspace,/Governed correction/);
 });
 
-test("server loader limits grid to current subject-eligible enrolments",()=>{
+test("server loader limits grid to subject-eligible enrolments at the correct reference date",()=>{
   assert.match(server,/learner_subject_registrations/);
-  assert.match(server,/subject_offering_id===instance\.subject_offering_id/);
+  assert.match(server,/subject_offering_id!==instance\.subject_offering_id/);
   assert.match(server,/eligibilityDate/);
-  assert.match(server,/row\.status==="current"/);
+  assert.match(server,/instance\.assessment_date \? effective : row\.status==="current" && effective/);
 });
 
 test("calculated working summary is read-only",()=>{
@@ -73,4 +74,16 @@ test("locked and review states are not ordinary-editable",()=>{
 test("marks entry keeps an explicit back path to Assessment",()=>{
   assert.match(marksPage,/href="\/assessment"/);
   assert.match(marksPage,/>Assessment<\/Link>/);
+});
+
+
+test("dated mark eligibility and offline replay preserve historical correctness",()=>{
+  assert.match(server,/registered_at,withdrawn_at/);
+  assert.match(server,/registeredOn<=eligibilityDate/);
+  assert.match(queue,/syncedVersions/);
+  assert.match(workspace,/result\.syncedVersions/);
+  assert.match(remediation,/v_reference_date/);
+  assert.match(remediation,/learner_subject_registered_on/);
+  assert.match(remediation,/v_max:=v_instance\.raw_max/);
+  assert.match(remediation,/lm\.numeric_mark is not null\s+or lm\.mark_status is not null/);
 });

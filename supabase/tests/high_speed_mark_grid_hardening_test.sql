@@ -46,8 +46,10 @@ select ok(
 
 select ok(
   pg_get_functiondef('public.submit_assessment_for_review(uuid,text)'::regprocedure)
-    ilike '%subject-registration-aware%',
-  'submission completeness counts subject-eligible learners'
+    ilike '%dated-enrolment-and-subject-registration%'
+  and pg_get_functiondef('public.submit_assessment_for_review(uuid,text)'::regprocedure)
+    ilike '%lm.numeric_mark is not null or lm.mark_status is not null%',
+  'submission completeness counts dated subject-eligible learners with non-blank current marks'
 );
 
 select ok(
