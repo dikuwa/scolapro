@@ -123,11 +123,8 @@ export function RoomInventoryWorkspace({
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
-  useEffect(() => {
-    if (!roomId || !rooms.some((candidate) => candidate.id === roomId)) setRoomId(preferredRoomId);
-  }, [preferredRoomId, roomId, rooms]);
-
-  const room = rooms.find((candidate) => candidate.id === roomId);
+  const activeRoomId = rooms.some((candidate) => candidate.id === roomId) ? roomId : preferredRoomId;
+  const room = rooms.find((candidate) => candidate.id === activeRoomId);
   const selectedRoomIsMine = Boolean(room?.custodianId && viewerStaff.has(room.custodianId));
   const myRoomCount = rooms.filter((candidate) => candidate.custodianId && viewerStaff.has(candidate.custodianId)).length;
   const attentionConditions = new Set(["poor", "damaged", "lost"]);
@@ -151,19 +148,19 @@ export function RoomInventoryWorkspace({
     () =>
       items.filter(
         (item) =>
-          (!roomId || item.roomId === roomId) &&
+          (!activeRoomId || item.roomId === activeRoomId) &&
           (!ownership || item.ownership === ownership) &&
           (!condition || item.condition === condition) &&
           (!q ||
             item.name.toLowerCase().includes(q.toLowerCase()) ||
             (item.assetNumber ?? "").toLowerCase().includes(q.toLowerCase())),
       ),
-    [items, roomId, ownership, condition, q],
+    [items, activeRoomId, ownership, condition, q],
   );
 
   const selectedRoomVerifications = useMemo(
-    () => verifications.filter((entry) => entry.roomId === roomId),
-    [roomId, verifications],
+    () => verifications.filter((entry) => entry.roomId === activeRoomId),
+    [activeRoomId, verifications],
   );
 
   const createAndClose = async (previous: RoomInventoryActionState, data: FormData) => {
@@ -265,7 +262,7 @@ export function RoomInventoryWorkspace({
           {filteredRooms.map((candidate) => {
             const isMine = Boolean(candidate.custodianId && viewerStaff.has(candidate.custodianId));
             const attention = roomAttentionCount(candidate.id);
-            const selected = candidate.id === roomId;
+            const selected = candidate.id === activeRoomId;
             return (
               <button
                 key={candidate.id}
