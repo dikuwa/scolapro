@@ -78,7 +78,13 @@ export async function renderReportCardPdfWithSchoolFont(
     height: INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT + 2,
     color: rgb(1, 1, 1),
   });
-  drawOfficialDocumentPdfHeader(firstPage, header, resources, undefined, {\n    context: {\n      title: "PROGRESS REPORT",\n      primaryContext: `${model.currentTermName}${model.academicYear ? ` · ${model.academicYear}` : ""}`,\n      summary: [model.grade, model.registerClass].filter(Boolean).join(" · "),\n    },\n  });
+  drawOfficialDocumentPdfHeader(firstPage, header, resources, undefined, {
+    context: {
+      title: "PROGRESS REPORT",
+      primaryContext: `${model.currentTermName}${model.academicYear ? ` · ${model.academicYear}` : ""}`,
+      summary: [model.grade, model.registerClass].filter(Boolean).join(" · "),
+    },
+  });
 
   return {
     bytes: await pdf.save(),
