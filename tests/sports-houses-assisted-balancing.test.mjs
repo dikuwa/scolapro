@@ -34,7 +34,7 @@ test("learner and staff balancing remain separate and manager-only in the worksp
   assert.match(panel,/value: "learner"/);
   assert.match(panel,/value: "staff"/);
   assert.match(panel,/Staff are balanced separately/);
-  assert.match(workspace,/canManage \? <AssistedBalancingPanel/);
+  assert.match(workspace,/balanceOpen \? <div className="mt-4 border-t border-border-subtle pt-4"><AssistedBalancingPanel/);
   assert.match(page,/platformSupport/);
   assert.match(page,/platformAdmin/);
   assert.match(page,/managerRoles/);
@@ -52,4 +52,11 @@ test("Phase 2 stays bounded to houses and allocation",()=>{
   assert.doesNotMatch(panel,/fixtures|medals|tournaments|score entry|athletics events/i);
   assert.doesNotMatch(actions,/fixture|medal|tournament|sports_score/i);
   assert.match(workspace,/Fixtures, events, scores, medals, records and tournaments remain outside this workspace/);
+});
+
+
+test("assisted balancing stays collapsed until explicitly opened",()=>{
+  assert.match(workspace,/const \[balanceOpen, setBalanceOpen\]/);
+  assert.match(workspace,/Preview deterministic learner balancing only when you need it/);
+  assert.match(workspace,/setBalanceOpen/);
 });

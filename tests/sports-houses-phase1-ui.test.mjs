@@ -68,3 +68,29 @@ test("workspace exposes responsive phone tablet desktop source breakpoints and p
   assert.match(workspace,/unassigned/i);
   assert.match(workspace,/House leader/);
 });
+
+
+test("configured houses and age groups are read-first with explicit edit and add controls",()=>{
+  assert.match(workspace,/Configured houses stay readable/);
+  assert.match(workspace,/Configured age bands stay compact/);
+  assert.match(workspace,/editingHouseId/);
+  assert.match(workspace,/editingAgeGroupId/);
+  assert.match(workspace,/Add house/);
+  assert.match(workspace,/Add age group/);
+  assert.match(workspace,/Manage allocation/);
+  assert.match(workspace,/Close allocation/);
+  assert.match(workspace,/max-h-\[34rem\] overflow-auto/);
+});
+
+
+test("configured houses and age groups are read-first with explicit edit and add controls",()=>{
+  assert.match(workspace,/Configured houses stay readable/);
+  assert.match(workspace,/Configured age bands stay compact/);
+  assert.match(workspace,/editingHouseId/);
+  assert.match(workspace,/editingAgeGroupId/);
+  assert.match(workspace,/Add house/);
+  assert.match(workspace,/Add age group/);
+  assert.match(workspace,/Manage allocation/);
+  assert.match(workspace,/Close allocation/);
+  assert.match(workspace,/max-h-\[34rem\] overflow-auto/);
+});
