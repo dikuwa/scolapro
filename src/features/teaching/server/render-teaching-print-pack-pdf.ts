@@ -10,7 +10,6 @@ import type { OfficialDocumentHeaderModel } from "@/features/documents/server/of
 import {
   createOfficialDocumentPdfResources,
   type OfficialDocumentPdfResources,
-  drawOfficialDocumentPdfCentered,
   drawOfficialDocumentPdfHeader,
   officialDocumentPdfSafeText,
 } from "@/features/documents/server/official-document-pdf-header";
@@ -52,13 +51,16 @@ type Writer = {
   pages: PDFPage[];
   page: PDFPage;
   y: number;
+  context: { title: string; primaryContext: string; secondaryContext: string; summary: string };
 };
 
 function newPage(writer: Writer) {
   const page = writer.pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   writer.page = page;
   writer.pages.push(page);
-  writer.y = drawOfficialDocumentPdfHeader(page, writer.header, writer.resources) - 8;
+  writer.y = drawOfficialDocumentPdfHeader(page, writer.header, writer.resources, undefined, {
+    context: writer.context,
+  }) - 8;
 }
 
 function ensure(writer: Writer, height: number) {
@@ -117,13 +119,21 @@ export async function renderTeachingPrintPackPdf(input: {
     bold: resources.bold,
     pages: [first],
     page: first,
-    y: drawOfficialDocumentPdfHeader(first, input.header, resources) - 8,
+    context: {
+      title: "Teaching Print Pack",
+      primaryContext: `${input.pack.teacherName} · ${input.pack.subjectName}`,
+      secondaryContext: `${input.pack.gradeName} · ${input.pack.className} · ${input.pack.academicYear}${input.pack.termName ? ` · ${input.pack.termName}` : ""}`,
+      summary: `Lesson ${input.pack.plannedOn} · ${input.pack.plannedPeriods} period(s) · ${input.pack.preparationStatus}`,
+    },
+    y: drawOfficialDocumentPdfHeader(first, input.header, resources, undefined, {
+      context: {
+        title: "Teaching Print Pack",
+        primaryContext: `${input.pack.teacherName} · ${input.pack.subjectName}`,
+        secondaryContext: `${input.pack.gradeName} · ${input.pack.className} · ${input.pack.academicYear}${input.pack.termName ? ` · ${input.pack.termName}` : ""}`,
+        summary: `Lesson ${input.pack.plannedOn} · ${input.pack.plannedPeriods} period(s) · ${input.pack.preparationStatus}`,
+      },
+    }) - 8,
   };
-
-  drawOfficialDocumentPdfCentered(writer.page, writer.bold, "Teaching Print Pack", 12, MARGIN, CONTENT_WIDTH, writer.y);
-  writer.y -= 18;
-  paragraph(writer, "", `${input.pack.teacherName} | ${input.pack.subjectName} | ${input.pack.gradeName} · ${input.pack.className} | ${input.pack.academicYear}${input.pack.termName ? ` | ${input.pack.termName}` : ""}`);
-  paragraph(writer, "", `Lesson ${input.pack.plannedOn} | ${input.pack.plannedPeriods} period(s) | status ${input.pack.preparationStatus}`);
   paragraph(writer, "", "ScolaPro teaching record export. This is not presented as an official NIED or Ministry form.");
 
   heading(writer, "Lesson preparation");
