@@ -66,14 +66,15 @@ const navigation = [
   { key: "contributions", label: "Contributions", href: "/school/contributions", icon: Coins },
   { key: "absence_reviews", label: "Absence reviews", href: "/school/absence-reviews", icon: FileText },
   { key: "calendar", label: "Calendar", href: "/calendar", icon: CalendarDays },
+  { key: "correspondence", label: "Correspondence", href: "/correspondence", icon: FilePenLine },
 ] as const;
 
 const enabledKeysByRole: Record<string, readonly string[]> = {
   platform_admin: ["today", "tenants", "invitations", "school_directory"],
   platform_support: ["today", "tenants", "school_directory"],
-  school_admin: ["today", "school_directory", "conduct", "sports_houses", "school_invitations", "school_settings", "crc_custody", "setup", "imports", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists"],
-  principal: ["today", "school_directory", "conduct", "sports_houses", "setup", "school_settings", "crc_custody", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists"],
-  deputy_principal: ["today", "school_directory", "conduct", "sports_houses", "school_settings", "crc_custody", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists"],
+  school_admin: ["today", "school_directory", "conduct", "sports_houses", "school_invitations", "school_settings", "crc_custody", "setup", "imports", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists", "correspondence"],
+  principal: ["today", "school_directory", "conduct", "sports_houses", "setup", "school_settings", "crc_custody", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists", "correspondence"],
+  deputy_principal: ["today", "school_directory", "conduct", "sports_houses", "school_settings", "crc_custody", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists", "correspondence"],
   emis_officer: ["today", "statutory", "school_directory", "class_lists"],
   exam_officer: ["today", "dnea_readiness", "school_directory", "class_lists"],
   circuit_officer: ["today", "dnea_readiness", "statutory", "crc_escalations", "school_directory"],
