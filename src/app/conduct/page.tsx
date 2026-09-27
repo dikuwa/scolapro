@@ -22,7 +22,8 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
   const page = Math.max(0, Math.min(10000, Math.floor(Number(params.page) || 0)));
   const filters = { domain, learnerId: uuid(params.learner), classId: uuid(params.class), gradeId: uuid(params.grade), on, page };
   const workspace = await getConductWorkspace(membership.schoolId, on, domain, filters.learnerId || null, filters.classId || null, filters.gradeId || null, page);
-  const canManage = ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey);
+  const canManagePolicy = ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey);
+  const canViewManagement = ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey);
 
   return (
     <AppShell>
@@ -32,20 +33,24 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
             <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Conduct</h1>
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Record Recognition and Violations quickly from your school’s conduct policy.</p>
           </div>
-          {canManage ? (
+          {canViewManagement || canManagePolicy ? (
             <div className="flex flex-wrap gap-2 self-start sm:self-auto">
-              <CompactActionLink href="/conduct/manage" tone="brand">
-                Management
-                <ArrowUpRight aria-hidden="true" className="size-3.5" />
-              </CompactActionLink>
-              <CompactActionLink href="/conduct/policy" tone="brand">
-                Conduct policy
-                <ArrowUpRight aria-hidden="true" className="size-3.5" />
-              </CompactActionLink>
+              {canViewManagement ? (
+                <CompactActionLink href="/conduct/manage" tone="brand">
+                  Management
+                  <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                </CompactActionLink>
+              ) : null}
+              {canManagePolicy ? (
+                <CompactActionLink href="/conduct/policy" tone="brand">
+                  Conduct policy
+                  <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                </CompactActionLink>
+              ) : null}
             </div>
           ) : null}
         </div>
-        <ConductWorkspace {...workspace} schoolId={membership.schoolId} filters={filters} today={today} canRecord canManage={canManage} />
+        <ConductWorkspace {...workspace} schoolId={membership.schoolId} filters={filters} today={today} canRecord canManage={canManagePolicy} />
       </section>
     </AppShell>
   );
