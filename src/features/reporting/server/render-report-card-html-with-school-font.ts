@@ -52,7 +52,7 @@ export async function renderReportCardHtmlWithSchoolFont(
   }
   html = html.replace(schoolHeaderPattern, sharedHeader);
 
-  const reportTitlePattern = /<section class="report-title">[\\s\\S]*?<\\/section>/;
+  const reportTitlePattern = /<section class="report-title">[\s\S]*?<\/section>/;
   if (!reportTitlePattern.test(html)) {
     throw new Error("Report-card HTML renderer did not expose the expected report title block.");
   }
