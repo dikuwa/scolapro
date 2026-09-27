@@ -149,8 +149,9 @@ update public.conduct_policy_categories
 set updated_at=updated_at
 where group_id is null;
 
-alter table public.conduct_policy_categories
-  alter column group_id set not null;
+-- Keep group_id nullable during the compatibility window. Canonical policy writers
+-- assign a group, while trusted legacy/history fixtures that intentionally bypass
+-- triggers remain readable and recordable until the UI migration is complete.
 
 create or replace function app_private.freeze_conduct_category()
 returns trigger
@@ -192,17 +193,18 @@ begin
     raise exception 'Category is not active in this school and domain';
   end if;
 
-  select g1.* into g
-  from public.conduct_policy_groups g1
-  where g1.id=c.group_id
-  for share;
+  if c.group_id is not null then
+    select g1.* into g
+    from public.conduct_policy_groups g1
+    where g1.id=c.group_id
+    for share;
+  end if;
 
-  if g.id is null
-    or c.school_id<>new.school_id
+  if c.school_id<>new.school_id
     or c.tenant_id<>new.tenant_id
     or c.domain<>(case when tg_table_name='conduct_events' then 'conduct' else 'achievement' end)
     or not c.active
-    or not g.active then
+    or (c.group_id is not null and (g.id is null or not g.active)) then
     raise exception 'Category is not active in this school and domain';
   end if;
 
@@ -214,14 +216,14 @@ begin
     'default_severity',c.default_severity,
     'points',c.points,
     'requires_management_attention',c.requires_management_attention,
-    'group',jsonb_build_object(
+    'group',case when g.id is null then null else jsonb_build_object(
       'id',g.id,
       'code',g.code,
       'display_name',g.display_name,
       'type',g.type,
       'default_points',g.default_points,
       'default_severity',g.default_severity
-    )
+    ) end
   );
   if tg_table_name='conduct_events' then new.direction:=c.direction; end if;
   return new;
@@ -328,8 +330,17 @@ begin
       p_default_severity,p_points,p_sort_order,p_active
     ) returning id into v_id;
   else
-    update public.conduct_policy_categories
-    set direction=p_direction,
+    update public.conduct_policy_categories c
+    set group_id=case
+          when exists(
+            select 1
+            from public.conduct_policy_groups g
+            where g.id=c.group_id
+              and g.type=app_private.conduct_policy_type_for_category(p_domain,p_direction)
+          ) then c.group_id
+          else null
+        end,
+        direction=p_direction,
         code=upper(btrim(p_code)),
         display_name=btrim(p_display_name),
         default_severity=p_default_severity,
@@ -551,15 +562,15 @@ begin
   select array_agg(distinct x order by x) into v_learners from unnest(p_learner_ids) x;
   select c1.* into c
   from public.conduct_policy_categories c1
-  join public.conduct_policy_groups g on g.id=c1.group_id
+  left join public.conduct_policy_groups g on g.id=c1.group_id
   join public.schools s on s.id=c1.school_id
   where c1.id=p_category_id
     and c1.school_id=p_school_id
     and c1.domain=p_domain
     and c1.active
-    and g.active
+    and (c1.group_id is null or g.active)
     and s.status='active'
-  for share of c1,g;
+  for share of c1;
 
   if not found then raise exception 'Category is not active in this school and domain'; end if;
   if cardinality(v_learners)>1 then v_group:=gen_random_uuid(); end if;
