@@ -154,6 +154,8 @@ export async function getTeachingFilesHub(input: {
   academicYear: number;
   /** The signed-in member's own staff identity; ownership boundary for this hub. */
   staffMemberId: string | null;
+  /** Route capability: /teaching/preparation admits teacher/class_teacher only. */
+  canOpenLessonPreparations: boolean;
 }): Promise<TeachingFilesHub> {
   const today = getNamibiaDateKey();
   const supabase = await createSupabaseServerClient();
@@ -264,7 +266,7 @@ export async function getTeachingFilesHub(input: {
       availability: allocations.length ? "available" : "no_allocation",
       exportNote: null,
     },
-    {
+    ...(input.canOpenLessonPreparations ? [{
       id: "preparations",
       title: "Lesson Preparations",
       description: "Open your objective-driven lesson preparations and their governed review state.",
@@ -272,7 +274,7 @@ export async function getTeachingFilesHub(input: {
       sourceModule: "Lesson preparation",
       availability: allocations.length ? "available" : "no_allocation",
       exportNote: "Print/PDF follows the existing teaching document path where available.",
-    },
+    } satisfies TeachingFileAuthoritativeResource] : []),
     {
       id: "class-lists",
       title: "Class Lists",
