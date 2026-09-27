@@ -45,10 +45,9 @@ function normalizedSchoolName(value: unknown): string {
 }
 
 /**
- * Repository-bundled branding is a last-resort fallback only. An explicit
- * frozen logo_url or logo_storage_path from the document snapshot always wins.
- * Keeping this resolver here makes known-school defaults reusable across all
- * official document families without hard-coding a school inside a renderer.
+ * Repository-bundled branding is the governed source for known school marks.
+ * This prevents stale/expired remote logo URLs from breaking official output.
+ * Unknown schools still honor explicit frozen logo URLs/storage paths.
  */
 function bundledSchoolLogoUrl(schoolName: string): string {
   switch (normalizedSchoolName(schoolName)) {
@@ -73,12 +72,14 @@ export function buildSchoolDocumentProfile(input: BuildSchoolDocumentProfileInpu
   const schoolName = text(identity.name) || text(input.fallbackSchoolName);
   const logoStoragePath = text(profile.logo_storage_path);
   const explicitLogoUrl = text(profile.logo_url);
+  const bundledLogoUrl = bundledSchoolLogoUrl(schoolName);
+  const isNamibHigh = normalizedSchoolName(schoolName) === "namib high school" || normalizedSchoolName(schoolName) === "namib high";
 
   return {
     schoolName,
     schoolEmisNumber: text(identity.emis_number) || text(input.fallbackSchoolEmisNumber),
     formerName: text(profile.former_name),
-    logoUrl: explicitLogoUrl || (logoStoragePath ? "" : bundledSchoolLogoUrl(schoolName)),
+    logoUrl: bundledLogoUrl || explicitLogoUrl || (logoStoragePath ? "" : bundledSchoolLogoUrl(schoolName)),
     logoStoragePath,
     physicalAddress: text(profile.physical_address),
     telephone: text(profile.telephone || profile.phone),
@@ -86,6 +87,6 @@ export function buildSchoolDocumentProfile(input: BuildSchoolDocumentProfileInpu
     email: text(profile.email),
     postalAddress: text(profile.postal_address),
     town: text(profile.town) || text(identity.town),
-    schoolNameFont: text(profile.school_name_font).toLowerCase() === "old_english" ? "old_english" : "default",
+    schoolNameFont: isNamibHigh || text(profile.school_name_font).toLowerCase() === "old_english" ? "old_english" : "default",
   };
 }
