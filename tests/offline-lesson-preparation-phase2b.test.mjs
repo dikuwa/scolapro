@@ -41,3 +41,8 @@ test("offline scope is bounded to the current preparation and reconnect", () => 
   assert.match(center, /Lesson preparation/);
   assert.match(queue, /expectedUpdatedAt: body\.updatedAt/);
 });
+
+test("offline restore reapplies competency selection and session count", () => {
+  assert.match(workspace, /cached\.selectedCompetencyIds\.includes\(control\.value\)/);
+  assert.match(workspace, /sessionControl\.value = String\(cached\.sessionCount\)/);
+});
