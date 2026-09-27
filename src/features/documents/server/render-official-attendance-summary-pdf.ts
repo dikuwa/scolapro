@@ -9,7 +9,7 @@ import {
 import { drawOfficialDocumentPdfFooter } from "@/features/documents/server/official-document-pdf-footer";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import {
-  OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
+  INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT,
   createOfficialDocumentPdfResources,
   drawOfficialDocumentPdfCentered,
   drawOfficialDocumentPdfHeader,
@@ -41,7 +41,6 @@ const LINE = rgb(0.28, 0.28, 0.28);
 const MUTED = rgb(0.38, 0.38, 0.38);
 const TINT = rgb(0.95, 0.96, 0.98);
 const TINT_STRONG = rgb(0.9, 0.93, 0.97);
-const TITLE_HEIGHT = 40;
 const META_HEIGHT = 16;
 const TABLE_HEADER_HEIGHT = 20;
 const ROW_HEIGHT = 16;
@@ -128,7 +127,7 @@ export async function renderOfficialAttendanceSummaryPdf(
     : ["Register class", "Boys absent", "Girls absent", "Total absent"];
 
   const availableRowsHeight =
-    PAGE_HEIGHT - MARGIN * 2 - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT - TITLE_HEIGHT - META_HEIGHT - TABLE_HEADER_HEIGHT - FOOTER_RESERVE;
+    PAGE_HEIGHT - MARGIN * 2 - INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT - META_HEIGHT - TABLE_HEADER_HEIGHT - FOOTER_RESERVE;
   const rowsPerPage = Math.max(1, Math.floor(availableRowsHeight / ROW_HEIGHT));
 
   const dataRows: { values: string[]; tint: boolean; bold: boolean }[] = [];
@@ -178,12 +177,13 @@ export async function renderOfficialAttendanceSummaryPdf(
 
   for (let pageIndex = 0; pageIndex < chunks.length; pageIndex += 1) {
     const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    let y = drawOfficialDocumentPdfHeader(page, input.header, resources);
-
-    page.drawRectangle({ x: MARGIN, y: y - TITLE_HEIGHT, width: CONTENT_WIDTH, height: TITLE_HEIGHT, borderWidth: 0.55, borderColor: LINE });
-    drawOfficialDocumentPdfCentered(page, bold, "OFFICIAL ATTENDANCE SUMMARY", 11, MARGIN, CONTENT_WIDTH, y - 14);
-    drawOfficialDocumentPdfCentered(page, regular, officialDocumentPdfSafeText(titleText), 6.6, MARGIN, CONTENT_WIDTH, y - 26);
-    y -= TITLE_HEIGHT;
+    let y = drawOfficialDocumentPdfHeader(page, input.header, resources, undefined, {
+      context: {
+        title: "OFFICIAL ATTENDANCE SUMMARY",
+        primaryContext: officialDocumentPdfSafeText(titleText),
+        summary: `${officialDocumentPdfSafeText(summary.scopeStart)} · ${officialDocumentPdfSafeText(summary.scopeEnd)}`,
+      },
+    });
 
     page.drawText(`Reporting period: ${scopeLabel}`, { x: MARGIN, y: y - 11, size: 6.2, font: regular, color: MUTED });
     drawOfficialDocumentPdfCentered(
