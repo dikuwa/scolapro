@@ -8,7 +8,9 @@ const page = readFileSync("src/app/school/room-inventory/page.tsx", "utf8");
 test("room inventory is summary-first and uses room cards instead of a primary room form", () => {
   assert.match(source, /Rooms in scope/);
   assert.match(source, /Scan responsibility, verification and inventory health before opening a room/);
-  assert.match(source, /Search rooms/);
+  assert.match(source, /placeholder="Find a room"/);
+  assert.match(source, /searchable/);
+  assert.match(source, /Type room, block or custodian/);
   assert.match(source, /aria-pressed=\{selected\}/);
   assert.doesNotMatch(source, /<Picker\s+label="Room"/);
 });
@@ -66,12 +68,22 @@ test("verified rooms retain preview print and PDF actions", () => {
 });
 
 
-test("selecting a room jumps directly to the current inventory section", () => {
-  assert.match(source, /useRef<HTMLElement \| null>\(null\)/);
-  assert.match(source, /inventorySectionRef\.current/);
-  assert.match(source, /scrollIntoView\(\{ behavior: reduceMotion \? "auto" : "smooth", block: "start" \}\)/);
-  assert.match(source, /prefers-reduced-motion: reduce/);
-  assert.match(source, /ref=\{inventorySectionRef\}/);
-  assert.match(source, /scroll-mt-24/);
-  assert.match(source, /tabIndex=\{-1\}/);
+test("selecting a room opens a responsive room workspace overlay", () => {
+  assert.match(source, /const \[overlayOpen, setOverlayOpen\] = useState\(false\)/);
+  assert.match(source, /setOverlayOpen\(true\)/);
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /aria-modal="true"/);
+  assert.match(source, /sm:max-w-6xl/);
+  assert.match(source, /h-full w-full/);
+  assert.match(source, /Close room workspace/);
+  assert.match(source, /document\.body\.style\.overflow = "hidden"/);
+  assert.match(source, /event\.key === "Escape"/);
+  assert.doesNotMatch(source, /scrollIntoView/);
+});
+
+test("room finder uses the shared searchable Picker and opens the selected room", () => {
+  assert.match(source, /ariaLabel="Find a room"/);
+  assert.match(source, /searchPlaceholder="Type room, block or custodian"/);
+  assert.match(source, /helper: \[candidate\.block, candidate\.custodianName\]/);
+  assert.match(source, /if \(value\) selectRoom\(value\)/);
 });
