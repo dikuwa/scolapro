@@ -20,6 +20,8 @@ insert into public.learners(id,tenant_id,first_names,surname) values
 insert into public.enrolments(id,tenant_id,school_id,learner_id,academic_year,enrolled_from,status) values
 ('d5400000-0000-4000-8000-000000000001','d5100000-0000-4000-8000-000000000001','d5200000-0000-4000-8000-000000000001','d5300000-0000-4000-8000-000000000001',extract(year from current_date)::integer,current_date-20,'current');
 
+set local session_replication_role = replica;
+
 insert into public.conduct_events(
   tenant_id,school_id,learner_id,enrolment_id,occurred_on,direction,category_code,
   severity,summary,category_snapshot,recorded_by_user_id
@@ -48,6 +50,8 @@ insert into public.conduct_events(
   '{"display_name":"Disruptive behaviour","points":-3,"requires_management_attention":false,"group":{"display_name":"Level 2","type":"violation"}}'::jsonb,
   'd5000000-0000-4000-8000-000000000001'
 );
+
+set local session_replication_role = origin;
 
 set local role authenticated;
 select set_config('request.jwt.claim.role','authenticated',true);
