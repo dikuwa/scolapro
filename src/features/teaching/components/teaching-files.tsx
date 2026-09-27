@@ -567,8 +567,8 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
                 </div>
                 <p className="mt-3 flex-1 text-xs leading-5 text-muted-foreground">{resource.description}</p>
                 {resource.exportNote ? <p className="mt-2 text-[0.68rem] text-muted-foreground">{resource.exportNote}</p> : null}
-                <Link href={resource.href} className="mt-4 inline-flex min-h-9 items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium hover:bg-surface-elevated">
-                  Open source module <ArrowUpRight className="size-3.5" aria-hidden="true" />
+                <Link href={resource.href} className="scolapro-cta mt-4 inline-flex min-h-9 items-center gap-1.5 self-start rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium hover:bg-surface-elevated">
+                  Open source module <ArrowUpRight className="scolapro-cta-icon size-3.5" aria-hidden="true" />
                 </Link>
               </article>
             ))}

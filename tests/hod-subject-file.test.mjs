@@ -69,3 +69,21 @@ test("workspace retains responsive source primitives",()=>{
   assert.match(workspace,/lg:grid-cols-4/);
   assert.match(workspace,/xl:grid-cols-3/);
 });
+
+
+test("HOD-wide subject access requires a current HOD membership",()=>{
+  assert.match(server,/membership\.roleKey==="hod"/);
+  assert.match(server,/hodResponsibilities/);
+});
+
+test("HOD-owned subjects load configured offerings even without active teacher allocation",()=>{
+  assert.match(server,/\.in\("subject_id",allowedSubjectIds\)/);
+  assert.match(server,/subjectOfferingRows/);
+});
+
+test("schedule and preparation evidence is paged beyond the Supabase row cap",()=>{
+  assert.match(server,/SUBJECT_FILE_PAGE_SIZE=1000/);
+  assert.match(server,/loadAllScheduleRows/);
+  assert.match(server,/loadAllPreparationRows/);
+  assert.match(server,/\.range\(from,from\+SUBJECT_FILE_PAGE_SIZE-1\)/);
+});
