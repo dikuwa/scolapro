@@ -1,6 +1,6 @@
 # Control Room status — 27 September 2026
 
-Authoritative main: `501962946647210bdab7eca6cfb2834adb88e59b`.
+Authoritative main: `dcefec012bbb0cedadf17f72f8fc4f2fd6845aa4`.
 
 This is the current delta over the 20 September release-hardening baseline. Use it with `CONTROL-ROOM.md` and `IMPLEMENTATION-STATUS.md`; do not reopen integrated work merely because those older documents contain historical sequencing language.
 
@@ -10,11 +10,14 @@ This is the current delta over the 20 September release-hardening baseline. Use 
 - #666 — **OPEN / ENVIRONMENT-GATED**. Production report-card worker/RPC acceptance is complete. The remaining multi-school/end-of-term throughput and recovery benchmark requires an isolated non-production fixture environment. Supabase branching was not started because the connected organization is not on a branching-capable plan; no billable infrastructure is authorized.
 - #682–#687 — **OPEN / SOURCE-INTEGRATED / RESPONSIVE-LIVE-QA-GATED**. Exact-head CI/source acceptance has already been completed and merged. Remaining acceptance is authenticated browser QA at 390 / 768 / 1440 only. Do not create duplicate implementation streams unless that QA exposes a concrete defect.
 - #693 — umbrella Control Room programme remains open until the remaining acceptance gates above are dispositioned.
-- #787 — this docs-only reconciliation issue.
+- #789 — **CLOSED / ACCEPTED**. Fresh Vercel Preview on #802 reached Ready after Preview Supabase public environment variables were corrected; current production main also reports Vercel success.
+- #800 — **CLOSED / ACCEPTED**. Correspondence/document branding and Room Inventory header/QR refinements merged via #802.
+- #801 — **CLOSED / ACCEPTED**. Sports/Houses summary-first expandable UX merged via #803.
+- #804 — this docs-only reconciliation issue.
 
 ## Post-brainstorm implementation state
 
-Integrated work includes the canonical Teaching Group foundation, class-list workspace and later batch/multi-select refinements, teaching planning/preparation, HOD review, assessment configuration and mark grid, Professional Files, HOD Subject File, CRC lifecycle, transfer form, letterhead/correspondence and finalized-document communications.
+Integrated work includes the canonical Teaching Group foundation, class-list workspace and later batch/multi-select refinements, teaching planning/preparation, HOD review, assessment configuration and mark grid, Professional Files, HOD Subject File, CRC lifecycle, transfer form, letterhead/correspondence and finalized-document communications. The 27 September follow-up also integrated correspondence performance/branding/Room Inventory document refinements (#800/#802) and Sports/Houses summary-first UX (#801/#803).
 
 The Class List multi-roster request is already integrated. Relevant follow-up work includes #770/#771, #776/#777, #778/#779 and #780/#781. Do not open a parallel roster implementation.
 
@@ -42,7 +45,7 @@ Required viewport widths: 390, 768 and 1440.
 
 ## Control Room decision
 
-Remote-safe implementation work is currently exhausted. New code is justified only by:
+Remote-safe implementation work is currently exhausted again. Vercel Preview and production deployment are green on current main. New code is justified only by:
 1. a concrete responsive/browser defect from #682–#687;
 2. a future isolated environment that unlocks #666 benchmarking; or
 3. new authoritative requirements/source material for existing gated roadmap items.
