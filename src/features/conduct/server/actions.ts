@@ -47,21 +47,38 @@ export async function archiveConductCategory(_state: ConductActionState, form: F
   const { error } = await db.rpc("retire_conduct_policy_category", { p_category_id: categoryId.data });
   return error ? { message: "Category could not be archived." } : saved("Category archived. Existing history is preserved.");
 }
-const eventSchema = z.object({ schoolId: z.string().uuid(), categoryId: z.string().uuid(), domain: z.enum(["conduct", "achievement"]), date: z.string().date(), title: z.string().trim().min(1).max(240), details: z.string().trim().max(10000), severity: z.enum(["routine", "moderate", "serious", "critical"]), level: z.enum(["class", "school", "circuit", "regional", "national", "international", "other"]), learnerIds: z.array(z.string().uuid()).min(1).max(200) });
+const eventSchema = z.object({
+  schoolId: z.string().uuid(),
+  categoryId: z.string().uuid(),
+  type: z.enum(["recognition", "violation"]),
+  date: z.string().date(),
+  note: z.string().trim().max(10000),
+  learnerIds: z.array(z.string().uuid()).min(1).max(200),
+});
 export async function recordConductEvent(_state: ConductActionState, form: FormData): Promise<ConductActionState> {
-  const parsed = eventSchema.safeParse({ schoolId: form.get("schoolId"), categoryId: form.get("categoryId"), domain: form.get("domain"), date: form.get("date"), title: form.get("title"), details: form.get("details") ?? "", severity: form.get("severity") ?? "routine", level: form.get("level") ?? "school", learnerIds: form.getAll("learnerIds") });
-  if (!parsed.success) return { message: "Choose learners and a category, then check the date and required text." };
+  const parsed = eventSchema.safeParse({
+    schoolId: form.get("schoolId"),
+    categoryId: form.get("categoryId"),
+    type: form.get("type"),
+    date: form.get("date"),
+    note: form.get("note") ?? "",
+    learnerIds: form.getAll("learnerIds"),
+  });
+  if (!parsed.success) return { message: "Choose learner(s), Recognition or Violation, a group and a conduct item." };
   const v = parsed.data;
-  if (!await allowed(v.schoolId, conductRoles.filter(r => v.domain === "conduct" || r !== "counsellor"))) return { message: "You cannot record this event." };
+  if (!await allowed(v.schoolId, conductRoles)) return { message: "You cannot record conduct for this school." };
   const db = await createSupabaseServerClient();
-  const common = { p_school_id: v.schoolId, p_category_id: v.categoryId, p_learner_ids: [...new Set(v.learnerIds)] };
-  const { error } = v.domain === "conduct"
-    ? await db.rpc("create_conduct_event_group", { ...common, p_severity: v.severity, p_summary: v.title, p_details: v.details, p_occurred_on: v.date })
-    : await db.rpc("create_achievement_event_group", { ...common, p_title: v.title, p_description: v.details, p_level: v.level, p_achieved_on: v.date });
-  if (error) return { message: "Event could not be saved. Check your learner access, enrolment date and whether the category is still active." };
-  return saved(v.domain === "conduct" ? "Incident recorded." : "Achievement recorded.");
+  const { error } = await db.rpc("record_conduct_policy_item_group", {
+    p_school_id: v.schoolId,
+    p_category_id: v.categoryId,
+    p_type: v.type,
+    p_date: v.date,
+    p_note: v.note,
+    p_learner_ids: [...new Set(v.learnerIds)],
+  });
+  if (error) return { message: "Conduct could not be saved. Check your learner scope, event date and whether the policy item is still active." };
+  return saved(v.type === "recognition" ? "Recognition recorded." : "Violation recorded.");
 }
-
 
 const groupSchema = z.object({
   schoolId: z.string().uuid(),
