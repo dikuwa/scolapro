@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const read=(path)=>readFile(new URL(`../${path}`,import.meta.url),"utf8");
 const migration=await read("supabase/migrations/20260926080000_syllabus_assessment_scheme_configuration.sql");
+const remediation=await read("supabase/migrations/20260927014500_assessment_review_remediation.sql");
 const server=await read("src/features/assessment/server/scheme-configuration.ts");
 const workspace=await read("src/features/assessment/scheme-configuration-workspace.tsx");
 const page=await read("src/app/assessment/schemes/page.tsx");
@@ -49,4 +50,15 @@ test("existing mark lifecycle remains downstream of canonical schemes",()=>{
   assert.match(migration,/assessment_components/);
   assert.match(migration,/calculate_subject_result/);
   assert.doesNotMatch(migration,/create table if not exists public\.learner_marks/);
+});
+
+
+test("remediation keeps scheme publication calculable and currently authorized",()=>{
+  assert.match(remediation,/can_manage_current_assessment_school/);
+  assert.match(remediation,/Final result/);
+  assert.match(remediation,/100,100,true,true/);
+  assert.match(remediation,/Unsupported assessment component calculation method/);
+  assert.match(remediation,/positive weight/);
+  assert.match(remediation,/status not in \('active','superseded'\)/);
+  assert.match(remediation,/new\.status:='candidate'/);
 });
