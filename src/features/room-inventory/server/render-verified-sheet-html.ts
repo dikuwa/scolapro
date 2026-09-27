@@ -66,12 +66,6 @@ export function renderVerifiedRoomInventoryHtml(input: {
   body { margin:0; padding:10mm 12mm; font-family:Helvetica,Arial,sans-serif; color:#111; background:#fff; }
   .report { width:100%; border:1.2px solid var(--line); padding:7mm 7mm 5mm; min-height:270mm; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
-  .school-name { margin:0; font-size:18px; text-align:center; }
-  .former-name,.school-contact,.emis,.postal { font-size:7px; line-height:1.35; }
-  .school-contact span { font-weight:700; }
-  .document-title { margin:12px 0 8px; text-align:center; }
-  .document-title h2 { margin:0; font-size:15px; letter-spacing:.06em; }
-  .document-title p { margin:3px 0 0; font-size:9px; color:var(--muted); }
   .summary { display:grid; grid-template-columns:1fr 1fr; gap:5px 16px; margin:9px 0; padding:8px; border:1px solid var(--line); font-size:8px; }
   .summary strong { display:inline-block; min-width:112px; }
   table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:7px; }
@@ -99,11 +93,13 @@ export function renderVerifiedRoomInventoryHtml(input: {
 </head>
 <body>
 <article class="report">
-  ${renderOfficialDocumentHtmlHeader(input.header, undefined, { layout: "compact_left" })}
-  <section class="document-title">
-    <h2>VERIFIED ROOM INVENTORY SHEET</h2>
-    <p>${escapeOfficialDocumentHtml(input.sheet.roomDisplayName)}</p>
-  </section>
+  ${renderOfficialDocumentHtmlHeader(input.header, undefined, {
+    context: {
+      title: "VERIFIED ROOM INVENTORY SHEET",
+      primaryContext: `Room ${input.sheet.roomDisplayName}`,
+      summary: `Verified ${input.sheet.verifiedOn}`,
+    },
+  })}
 
   <section class="summary">
     <div><strong>Room:</strong> ${escapeOfficialDocumentHtml(input.sheet.roomDisplayName)}</div>
