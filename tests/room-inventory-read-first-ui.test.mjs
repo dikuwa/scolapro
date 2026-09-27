@@ -64,3 +64,14 @@ test("verified rooms retain preview print and PDF actions", () => {
   assert.match(source, /&print=1/);
   assert.match(source, /&format=pdf/);
 });
+
+
+test("selecting a room jumps directly to the current inventory section", () => {
+  assert.match(source, /useRef<HTMLElement \| null>\(null\)/);
+  assert.match(source, /inventorySectionRef\.current/);
+  assert.match(source, /scrollIntoView\(\{ behavior: reduceMotion \? "auto" : "smooth", block: "start" \}\)/);
+  assert.match(source, /prefers-reduced-motion: reduce/);
+  assert.match(source, /ref=\{inventorySectionRef\}/);
+  assert.match(source, /scroll-mt-24/);
+  assert.match(source, /tabIndex=\{-1\}/);
+});
