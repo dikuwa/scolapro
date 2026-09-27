@@ -43,3 +43,13 @@ test("obsolete curriculum reuse is surfaced before submission", () => {
   assert.match(workspace, /Curriculum update detected/);
   assert.match(workspace, /Review the selected competencies before reuse or submission/);
 });
+
+
+test("AI drafting requires effective tenant entitlement and protects teacher-authored text", () => {
+  assert.match(route, /tenant_features/);
+  assert.match(route, /ai_lesson_preparation/);
+  assert.match(route, /allow_teacher_text_to_provider/);
+  assert.match(route, /AI lesson drafting is not enabled for this tenant/);
+  assert.match(route, /allowTeacherTextToProvider \? parsed\.data\.existingText : undefined/);
+  assert.match(workspace, /data\.aiDraftingEnabled/);
+});

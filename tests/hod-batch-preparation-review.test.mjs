@@ -65,3 +65,23 @@ test("HOD queue exposes teacher subject grade week prepared missing and submissi
   assert.match(reviewQueries,/preparedCount/);
   assert.match(reviewQueries,/missingCount/);
 });
+
+
+test("batch submission splits mixed teacher work into governed subject batches",()=>{
+  assert.match(preparation,/subject_offering_id/);
+  assert.match(preparation,/preparationIdsBySubject/);
+  assert.match(preparation,/for \(const ids of preparationIdsBySubject\.values\(\)\)/);
+  assert.match(preparation,/governed subject batch/);
+});
+
+test("missing counts use complete teacher subject scope rather than submitted items only",()=>{
+  assert.match(reviewQueries,/governedAllocations/);
+  assert.match(reviewQueries,/submissionTeacherIds/);
+  assert.match(reviewQueries,/submissionSubjectIds/);
+  assert.match(reviewQueries,/expectedAllocationIds/);
+});
+
+test("preparation effective dates use the Namibia school timezone",()=>{
+  assert.match(preparation,/todayInNamibia/);
+  assert.match(preparation,/Africa\/Windhoek/);
+});
