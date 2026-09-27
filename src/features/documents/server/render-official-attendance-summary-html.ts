@@ -1,9 +1,12 @@
 import "server-only";
 
 import type { OfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
+import { OFFICIAL_DOCUMENT_HTML_HEADER_RULE } from "@/features/documents/server/official-document-chrome";
+import { renderOfficialDocumentHtmlHeader } from "@/features/documents/server/official-document-html-header";
+import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 
 export type OfficialAttendanceSummaryHtmlInput = {
-  schoolName: string;
+  header: OfficialDocumentHeaderModel;
   summary: OfficialAttendanceSummary;
   revision: number;
   scolaproReference: string;
@@ -74,14 +77,13 @@ export function renderOfficialAttendanceSummaryHtml(input: OfficialAttendanceSum
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Official Attendance Summary — ${escapeHtml(input.schoolName)}</title>
+<title>Official Attendance Summary — ${escapeHtml(input.header.schoolName)}</title>
 <style>
   :root { --ink:#171717; --muted:#5b5b5b; --line:#c9ccd2; --tint:#eef2f7; --tintStrong:#e2e8f1; }
   * { box-sizing: border-box; }
   body { font-family: Helvetica, Arial, sans-serif; color: var(--ink); margin: 0; padding: 24px; background:#fff; }
   .sheet { max-width: 760px; margin: 0 auto; border:1px solid var(--line); padding: 20px 22px; }
-  h1 { font-size: 16px; letter-spacing:.04em; margin:0 0 2px; text-align:center; }
-  .subtitle { text-align:center; color: var(--muted); font-size: 12px; margin:0 0 10px; }
+  ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   .meta { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:11px; color:var(--muted); border-top:1px solid var(--line); border-bottom:1px solid var(--line); padding:8px 0; margin-bottom:12px; }
   table { width:100%; border-collapse: collapse; font-size: 11px; }
   th, td { border:1px solid var(--line); padding:5px 7px; text-align:left; }
@@ -98,8 +100,7 @@ export function renderOfficialAttendanceSummaryHtml(input: OfficialAttendanceSum
 </head>
 <body>
   <div class="sheet">
-    <h1>OFFICIAL ATTENDANCE SUMMARY</h1>
-    <p class="subtitle">${escapeHtml(input.schoolName)} — ${escapeHtml(titleText)}</p>
+    ${renderOfficialDocumentHtmlHeader(input.header, undefined, { context: { title: "OFFICIAL ATTENDANCE SUMMARY", primaryContext: titleText, summary: `${summary.scopeStart} · ${summary.scopeEnd}` } })}
     <div class="meta">
       <span>Reporting period: ${escapeHtml(summary.scopeStart)} – ${escapeHtml(summary.scopeEnd)}</span>
       <span>Revision ${input.revision} · Ref ${escapeHtml(input.scolaproReference)}</span>
