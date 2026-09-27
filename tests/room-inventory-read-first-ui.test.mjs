@@ -3,40 +3,64 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const source = readFileSync("src/features/room-inventory/room-inventory-workspace.tsx", "utf8");
+const page = readFileSync("src/app/school/room-inventory/page.tsx", "utf8");
 
-test("room inventory uses display-name-first room labels", () => {
-  assert.match(source, /label: `\$\{r\.block \? `\$\{r\.block\} · ` : ""\}\$\{r\.name\}`/);
-  assert.doesNotMatch(source, /\$\{r\.code\} · \$\{r\.name\}/);
-  assert.match(source, /<h2 className="mt-1 font-semibold">\{room\.name\}<\/h2>/);
+test("room inventory is summary-first and uses room cards instead of a primary room form", () => {
+  assert.match(source, /Rooms in scope/);
+  assert.match(source, /Scan responsibility, verification and inventory health before opening a room/);
+  assert.match(source, /Search rooms/);
+  assert.match(source, /aria-pressed=\{selected\}/);
+  assert.doesNotMatch(source, /<Picker\s+label="Room"/);
 });
 
-test("room inventory keeps add form collapsed until requested", () => {
+test("custodian view is owner-first and manager controls remain separate", () => {
+  assert.match(page, /My Room Inventory/);
+  assert.match(page, /viewerStaffMemberIds/);
+  assert.match(source, /Your room/);
+  assert.match(source, /Responsible custodian/);
+  assert.match(source, /Manage responsibility/);
+  assert.match(source, /canAssign && responsibilityOpen/);
+});
+
+test("room assignment and verification forms stay collapsed until requested", () => {
+  assert.match(source, /const \[responsibilityOpen, setResponsibilityOpen\] = useState\(false\)/);
+  assert.match(source, /const \[verifyOpen, setVerifyOpen\] = useState\(false\)/);
+  assert.match(source, /Verify inventory/);
+  assert.match(source, /Close verification/);
+  assert.match(source, /Manage responsibility/);
+  assert.match(source, /action=\{verify\}/);
+  assert.match(source, /action=\{assign\}/);
+});
+
+test("room inventory keeps add and change forms on demand", () => {
   assert.match(source, /const \[addOpen, setAddOpen\] = useState\(false\)/);
-  assert.match(source, /\{addOpen \? \(/);
   assert.match(source, /\+ Add inventory item/);
-  assert.match(source, /const createAndClose = async[\s\S]*if \(result\.success\)[\s\S]*setAddOpen\(false\)/);
-});
-
-test("room inventory exposes one edit-on-demand item editor", () => {
   assert.match(source, /const \[editingItemId, setEditingItemId\] = useState<string \| null>\(null\)/);
-  assert.match(source, /expanded=\{editingItemId === i\.id\}/);
+  assert.match(source, /Record change/);
   assert.match(source, /aria-expanded=\{expanded\}/);
-  assert.match(source, /\{expanded \? \(/);
-  assert.match(source, /const changeAndClose = async[\s\S]*if \(result\.success\) setEditingItemId\(null\)/);
 });
 
-test("room inventory preserves filters and clear-filter convention", () => {
-  assert.match(source, /label="Room"/);
+test("inventory filters are scoped to the selected room and keep clear-filter convention", () => {
+  assert.match(source, /Search item \/ asset no\./);
+  assert.match(source, /Search this room/);
   assert.match(source, /label="Ownership"/);
   assert.match(source, /label="Condition"/);
-  assert.match(source, /Search item \/ asset no\./);
   assert.match(source, /Clear filters/);
-  assert.match(source, /\{visible\.length\} \{visible\.length === 1 \? "item" : "items"\}/);
+  assert.match(source, /max-h-\[34rem\].*overflow-auto/);
 });
 
-test("room inventory preserves custodian provenance and verification workflow", () => {
+test("room cards surface health, verification and custodian provenance", () => {
+  assert.match(source, /Needs attention/);
+  assert.match(source, /Never verified/);
+  assert.match(source, /No flagged items/);
   assert.match(source, /Home room default/);
   assert.match(source, /Manual override/);
-  assert.match(source, /action=\{verify\}/);
   assert.match(source, /Verification history/);
+});
+
+test("verified rooms retain preview print and PDF actions", () => {
+  assert.match(source, /room\.lastVerified \? <>/);
+  assert.match(source, /Preview sheet/);
+  assert.match(source, /&print=1/);
+  assert.match(source, /&format=pdf/);
 });
