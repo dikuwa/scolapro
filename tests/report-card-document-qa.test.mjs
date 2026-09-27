@@ -41,7 +41,7 @@ test("report-card generated timestamp comes from the frozen snapshot record", ()
   assert.match(worker, /generatedAt: snapshot\.generated_at/);
   assert.match(htmlShared, /Generated \$\{model\.generatedAt\}/);
   assert.match(pdfShared, /Generated \$\{model\.generatedAt\}/);
-  assert.match(version, /SCOLAPRO_TERM_REPORT_RENDERER_V10/);
+  assert.match(version, /SCOLAPRO_TERM_REPORT_RENDERER_V11/);
 });
 
 test("report-card export remains authorization-bound and does not change publication/finality state", () => {
@@ -65,12 +65,28 @@ test("official class-list output keeps long-table continuation and provenance", 
 
 
 test("report-card HTML shared chrome validation checks block presence before replacement", () => {
+  assert.match(htmlShared, /title: "PROGRESS REPORT"/);
+  assert.match(htmlShared, /primaryContext/);
   assert.match(htmlShared, /schoolHeaderPattern = \/<header class="school-header">/);
   assert.match(htmlShared, /if \(!schoolHeaderPattern\.test\(html\)\)/);
   assert.match(htmlShared, /html = html\.replace\(schoolHeaderPattern, sharedHeader\)/);
+  assert.match(htmlShared, /reportTitlePattern = \/<section class="report-title">/);
+  assert.match(htmlShared, /html = html\.replace\(reportTitlePattern, ""\)/);
   assert.match(htmlShared, /documentMetaPattern = \/<footer class="document-meta">/);
   assert.match(htmlShared, /if \(!documentMetaPattern\.test\(html\)\)/);
   assert.match(htmlShared, /return html\.replace\(documentMetaPattern, footer\)/);
   assert.doesNotMatch(htmlShared, /withSharedHeader === html/);
   assert.doesNotMatch(htmlShared, /withSharedFooter === html/);
+});
+
+
+test("report-card PDF preserves single-page geometry while using universal internal header context", () => {
+  assert.match(pdfBase, /const headerHeight = 72/);
+  assert.doesNotMatch(pdfBase, /const titleHeight = 30/);
+  assert.match(pdfBase, /PROGRESS REPORT/);
+  assert.match(pdfShared, /INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT/);
+  assert.match(pdfShared, /title: "PROGRESS REPORT"/);
+  assert.match(pdfShared, /primaryContext/);
+  assert.match(pdfBase, /minimumRowHeight = 9\.2/);
+  assert.match(pdfBase, /cannot fit safely on the configured single-page PDF template/);
 });
