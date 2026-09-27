@@ -284,9 +284,11 @@ type ReviewLessonRow = {
     register_class: NamedRow;
     teacher_allocation: {
       id: string;
+      staff_member_id: string;
       teacher: StaffNameRow;
       subject_offering: {
         id: string;
+        subject_id: string;
         grade: NamedRow;
         subject: NamedRow;
       } | null;
@@ -346,10 +348,10 @@ const reviewQueueSelect = `
         id, planned_on, planned_period_count, status,
         register_class:register_classes(display_name),
         teacher_allocation:teacher_allocations(
-          id,
+          id, staff_member_id,
           teacher:staff_members(first_name, last_name),
           subject_offering:subject_offerings(
-            id,
+            id, subject_id,
             grade:grades(display_name),
             subject:subjects(display_name)
           )
@@ -410,20 +412,28 @@ export async function getReviewQueue(academicYear: number): Promise<ReviewQueueR
   const rawRows=(data ?? []) as unknown as ReviewSubmissionRow[];
   const rows=rawRows.map(toQueueRow);
 
-  const allocationIds=[...new Set(rawRows.flatMap((row)=>
-    (row.items ?? []).map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.id).filter((id):id is string=>Boolean(id))
+  const submittedTeacherIds=[...new Set(rawRows.flatMap((row)=>
+    (row.items ?? []).map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.staff_member_id).filter((id):id is string=>Boolean(id))
   ))];
-  const [{data:scheduleRows},{data:academicYearRow}] = await Promise.all([
-    allocationIds.length
-      ? supabase.from("teaching_schedule_items")
-          .select("teacher_allocation_id,planned_on,status")
+  const [{data:governedAllocations},{data:academicYearRow}] = await Promise.all([
+    submittedTeacherIds.length
+      ? supabase.from("teacher_allocations")
+          .select("id,staff_member_id,subject_offering:subject_offerings(subject_id)")
           .eq("school_id",scope.schoolId)
           .eq("academic_year",parsedYear.data)
-          .in("teacher_allocation_id",allocationIds)
-          .in("status",["planned","prepared","taught","moved"])
+          .in("staff_member_id",submittedTeacherIds)
       : Promise.resolve({data:[]}),
     supabase.from("academic_years").select("id").eq("school_id",scope.schoolId).eq("year",parsedYear.data).maybeSingle(),
   ]);
+  const governedAllocationIds=(governedAllocations ?? []).map((allocation)=>allocation.id);
+  const {data:scheduleRows}=governedAllocationIds.length
+    ? await supabase.from("teaching_schedule_items")
+        .select("teacher_allocation_id,planned_on,status")
+        .eq("school_id",scope.schoolId)
+        .eq("academic_year",parsedYear.data)
+        .in("teacher_allocation_id",governedAllocationIds)
+        .in("status",["planned","prepared","taught","moved"])
+    : {data:[]};
   const {data:termRows}=academicYearRow?.id
     ? await supabase.from("academic_terms").select("display_name,starts_on,ends_on").eq("academic_year_id",academicYearRow.id)
     : {data:[]};
@@ -443,14 +453,29 @@ export async function getReviewQueue(academicYear: number): Promise<ReviewQueueR
     }
     if(!rangeStart || !rangeEnd) continue;
 
-    const submissionAllocationIds=new Set(
+    const submissionTeacherIds=new Set(
       (raw.items ?? [])
-        .map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.id)
+        .map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.staff_member_id)
         .filter((id):id is string=>Boolean(id))
     );
-    if(!submissionAllocationIds.size) continue;
+    const submissionSubjectIds=new Set(
+      (raw.items ?? [])
+        .map((item)=>item.lesson_preparation?.teaching_schedule_item?.teacher_allocation?.subject_offering?.subject_id)
+        .filter((id):id is string=>Boolean(id))
+    );
+    const expectedAllocationIds=new Set(
+      (governedAllocations ?? [])
+        .filter((allocation)=>{
+          const subjectOffering=Array.isArray(allocation.subject_offering) ? allocation.subject_offering[0] : allocation.subject_offering;
+          return submissionTeacherIds.has(allocation.staff_member_id)
+            && Boolean(subjectOffering?.subject_id)
+            && submissionSubjectIds.has(subjectOffering!.subject_id);
+        })
+        .map((allocation)=>allocation.id)
+    );
+    if(!expectedAllocationIds.size) continue;
     const expected=(scheduleRows ?? []).filter((schedule)=>
-      submissionAllocationIds.has(schedule.teacher_allocation_id)
+      expectedAllocationIds.has(schedule.teacher_allocation_id)
       && schedule.planned_on>=rangeStart!
       && schedule.planned_on<=rangeEnd!
     ).length;
