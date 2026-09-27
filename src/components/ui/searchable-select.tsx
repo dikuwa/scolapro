@@ -12,6 +12,16 @@ export type SearchableSelectOption = {
   searchText?: string;
 };
 
+export type SearchableSelectBulkActionGroup = {
+  label: string;
+  actions: Array<{
+    label: string;
+    onClick: () => void;
+    active?: boolean;
+    disabled?: boolean;
+  }>;
+};
+
 const ROW_HEIGHT = 48;
 const OVERSCAN = 8;
 const VIEWPORT_HEIGHT = 288;
@@ -49,6 +59,8 @@ export function SearchableSelect({
   multiple = false,
   selectedValues = [],
   onToggle,
+  multipleLabel = "subjects",
+  bulkActionGroups = [],
 }: {
   label?: string;
   ariaLabel?: string;
@@ -68,6 +80,8 @@ export function SearchableSelect({
   multiple?: boolean;
   selectedValues?: string[];
   onToggle?: (value: string) => void;
+  multipleLabel?: string;
+  bulkActionGroups?: SearchableSelectBulkActionGroup[];
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -186,7 +200,7 @@ export function SearchableSelect({
           <span className={cn("min-w-0 truncate", multiple || selected ? "text-foreground" : "text-muted-foreground")}>
             {multiple
               ? selectedValues.length
-                ? `${selectedValues.length} subject${selectedValues.length === 1 ? "" : "s"} selected`
+                ? `${selectedValues.length} ${multipleLabel}${selectedValues.length === 1 ? "" : "s"} selected`
                 : placeholder
               : selected?.label ?? placeholder}
           </span>
@@ -217,6 +231,30 @@ export function SearchableSelect({
             {query ? <button type="button" onClick={() => updateQuery("")} aria-label="Clear search" className="grid size-6 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-3" /></button> : null}
           </label>
 
+          {multiple && bulkActionGroups.length ? (
+            <div className="mt-1 space-y-1.5 rounded-[var(--radius-xs)] bg-surface-muted/55 p-2">
+              {bulkActionGroups.map((group) => (
+                <div key={group.label} className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                  <span className="mr-1 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</span>
+                  {group.actions.map((action) => (
+                    <button
+                      key={action.label}
+                      type="button"
+                      disabled={action.disabled}
+                      onClick={action.onClick}
+                      className={cn(
+                        "min-h-7 shrink-0 rounded-[var(--radius-xs)] border border-border-subtle bg-surface px-2 text-[0.68rem] font-medium text-foreground transition hover:border-border hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-45",
+                        action.active && "border-[color:var(--brand)]/35 bg-brand-soft text-brand-strong",
+                      )}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
           {loading ? (
             <p className="px-2.5 py-4 text-center text-xs text-muted-foreground">Searching…</p>
           ) : filtered.length ? (
@@ -237,12 +275,23 @@ export function SearchableSelect({
                       className={cn("absolute left-0 right-0 flex h-12 items-center gap-2 rounded-[var(--radius-xs)] px-2.5 text-left transition", activeIndex === index ? "bg-surface-muted" : "hover:bg-surface-muted/75", (multiple ? selectedSet.has(option.value) : option.value === value) && "text-brand-strong")}
                       style={{ top: index * ROW_HEIGHT }}
                     >
+                      {multiple ? (
+                        <span
+                          aria-hidden="true"
+                          className={cn(
+                            "grid size-4 shrink-0 place-items-center rounded-[0.25rem] border border-border bg-surface",
+                            selectedSet.has(option.value) && "border-[color:var(--brand)] bg-brand text-white",
+                          )}
+                        >
+                          {selectedSet.has(option.value) ? <Check className="size-3" /> : null}
+                        </span>
+                      ) : null}
                       <span className="min-w-0 flex-1">
                         {showGroup ? <span className="mb-0.5 block truncate text-[0.58rem] font-semibold uppercase tracking-wide text-muted-foreground">{option.group}</span> : null}
                         <span className="block truncate text-sm font-medium">{highlightMatch(option.label, query)}</span>
                         {!showGroup && option.helper ? <span className="block truncate text-[0.64rem] text-muted-foreground">{highlightMatch(option.helper, query)}</span> : null}
                       </span>
-                      {(multiple ? selectedSet.has(option.value) : option.value === value) ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
+                      {!multiple && option.value === value ? <Check className="size-4 shrink-0" aria-hidden="true" /> : null}
                     </button>
                   );
                 })}
