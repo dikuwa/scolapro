@@ -72,3 +72,11 @@ test("exports remain private and resist MIME sniffing", () => {
   assert.match(route, /X-Content-Type-Options":"nosniff/);
   assert.match(route, /Content-Security-Policy/);
 });
+
+
+test("rich-text typing is isolated from full correspondence page state", () => {
+  assert.match(editor, /useRef\(document\.body\)/);
+  assert.match(editor, /bodyRef\.current = value/);
+  assert.match(editor, /JSON\.stringify\(bodyRef\.current\)/);
+  assert.doesNotMatch(editor, /const \[body, setBody\]/);
+});
