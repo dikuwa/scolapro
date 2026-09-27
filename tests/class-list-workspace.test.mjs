@@ -58,11 +58,11 @@ test("preview, print, PDF and real XLSX share one normalized configuration", () 
 
 test("official documents use compact content-fit portrait columns and safe multi-page rows", () => {
   assert.match(html, /class-document/);
-  assert.match(html, /class-list-header/);
+  assert.match(html, /renderOfficialDocumentHtmlHeader/);
   assert.match(html, /table-header-group/);
   assert.match(pdf, /preferredColumnWidth/);
   assert.match(pdf, /fitColumnWidths/);
-  assert.match(pdf, /CLASS_LIST_HEADER_HEIGHT = 58/);
+  assert.match(pdf, /CLASS_LIST_HEADER_RESERVE = 88/);
   assert.match(pdf, /ROW_HEIGHT = 13/);
   assert.match(pdf, /drawClassListHeader/);
   assert.match(pdf, /rowsPerPage/);
@@ -142,20 +142,20 @@ test("official class-list columns place admission before learner and abbreviate 
 });
 
 
-test("class-list exports use a school-only compact header across print, PDF and Excel", () => {
+test("class-list exports use the universal internal header across print, PDF and Excel", () => {
   assert.match(route, /loadClassListLogoBytes/);
   assert.match(route, /renderClassListXlsx\(batch\.lists\[0\], header, logoBytes\)/);
 
-  assert.match(html, /class-list-header/);
-  assert.match(html, /school-name/);
-  assert.match(html, /class-context/);
-  assert.doesNotMatch(html, /header\.contactLines|header\.postalLines/);
+  assert.match(html, /renderOfficialDocumentHtmlHeader/);
+  assert.match(html, /class-operational-meta/);
+  assert.match(html, /Responsible teacher:/);
+  assert.match(html, /Male \$\{maleCount\} · Female \$\{femaleCount\}/);
 
-  assert.match(pdf, /drawClassListHeader/);
-  assert.match(pdf, /input\.header\.schoolName/);
-  assert.match(pdf, /Teacher:/);
+  assert.match(pdf, /drawOfficialDocumentPdfHeader/);
+  assert.match(pdf, /documentX/);
+  assert.match(pdf, /documentWidth: tableWidth/);
+  assert.match(pdf, /Responsible teacher:/);
   assert.match(pdf, /Room:/);
-  assert.doesNotMatch(pdf, /contactLines|postalLines/);
 
   assert.match(xlsx, /embedLogoAndStyles/);
   assert.match(xlsx, /class-list-logo/);
@@ -164,13 +164,16 @@ test("class-list exports use a school-only compact header across print, PDF and 
   assert.match(xlsx, /xdr:oneCellAnchor/);
   assert.doesNotMatch(xlsx, /xdr:twoCellAnchor/);
   assert.match(xlsx, /rows\[0\]\[1\] = header\.schoolName/);
-  assert.match(xlsx, /rows\[1\]\[1\] = input\.roomName \? "Room: "/);
-  assert.match(xlsx, /rows\[2\]\[1\] = input\.responsibleTeacherName \? "Teacher: "/);
+  assert.match(xlsx, /contact\.get\("address"\)/);
+  assert.match(xlsx, /contact\.get\("telephone"\)/);
+  assert.match(xlsx, /contact\.get\("fax"\)/);
+  assert.match(xlsx, /contact\.get\("email"\)/);
+  assert.match(xlsx, /Responsible teacher:/);
   assert.match(xlsx, /input\.grade \+ " · " \+ input\.className \+ " · " \+ input\.academicYear/);
   assert.match(xlsx, /"Male " \+ maleCount \+ " · Female " \+ femaleCount/);
   assert.match(xlsx, /orientation: "portrait"/);
   assert.match(xlsx, /fitToWidth: 1/);
-  assert.doesNotMatch(xlsx, /!autofilter|postalLines|contactLines/);
+  assert.doesNotMatch(xlsx, /!autofilter|postalLines/);
 });
 
 
@@ -262,11 +265,11 @@ test("Class List headers resolve room and responsible teacher from canonical sch
 
 test("PDF and Excel share the same balanced room/teacher header hierarchy", () => {
   assert.match(documentModel, /return `\$\{concise \|\| "Class"\}: Class List`/);
-  assert.match(pdf, /Room: \$\{input\.roomName\}/);
-  assert.match(pdf, /Teacher: \$\{input\.responsibleTeacherName\}/);
+  assert.match(pdf, /Room:/);
+  assert.match(pdf, /Responsible teacher:/);
   assert.match(pdf, /\$\{input\.grade \|\| "—"\} · \$\{input\.registerClass \|\| "—"\} · \$\{input\.academicYear\}/);
   assert.match(xlsx, /"Room: " \+ input\.roomName/);
-  assert.match(xlsx, /"Teacher: " \+ input\.responsibleTeacherName/);
+  assert.match(xlsx, /"Responsible teacher: " \+ input\.responsibleTeacherName/);
   assert.match(xlsx, /classListDocumentName\(input\.className, input\.title\)/);
   assert.doesNotMatch(xlsx, /Block\/Class|Register teacher:/);
 });
