@@ -54,8 +54,8 @@ export default async function ConductManagementPage({
     getRegistrationOptions(membership.schoolId, academicYear),
   ]);
 
-  const gradeOptions = registration.map((grade) => ({ value: grade.gradeId, label: grade.gradeName }));
-  const classOptions = registration.flatMap((grade) => grade.classes.map((item) => ({ value: item.id, label: item.name, gradeId: grade.gradeId })));
+  const gradeOptions = registration.map((grade) => ({ value: grade.id, label: grade.label }));
+  const classOptions = registration.flatMap((grade) => grade.classes.map((item) => ({ value: item.id, label: item.label, gradeId: grade.id })));
 
   return (
     <AppShell>
