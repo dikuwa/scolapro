@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NumberStepper } from "@/components/ui/number-stepper";
@@ -15,7 +15,7 @@ import {
   verifyInventory,
   type RoomInventoryActionState,
 } from "@/features/room-inventory/server/actions";
-import { Boxes, ChevronDown, ChevronRight, DoorOpen, Search, ShieldCheck, TriangleAlert, Undo2, UserRound } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, DoorOpen, ShieldCheck, TriangleAlert, Undo2, UserRound, X } from "lucide-react";
 import type {
   RoomCustodianSource,
   RoomInventoryItem,
@@ -113,7 +113,8 @@ export function RoomInventoryWorkspace({
   const [itemOwnership, setItemOwnership] = useState("government");
   const [itemCondition, setItemCondition] = useState("good");
   const [roomId, setRoomId] = useState(preferredRoomId);
-  const [roomSearch, setRoomSearch] = useState("");
+  const [roomPickerValue, setRoomPickerValue] = useState("");
+  const [overlayOpen, setOverlayOpen] = useState(false);
   const [ownership, setOwnership] = useState("");
   const [condition, setCondition] = useState("");
   const [q, setQ] = useState("");
@@ -122,7 +123,6 @@ export function RoomInventoryWorkspace({
   const [responsibilityOpen, setResponsibilityOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const inventorySectionRef = useRef<HTMLElement | null>(null);
 
   const activeRoomId = rooms.some((candidate) => candidate.id === roomId) ? roomId : preferredRoomId;
   const room = rooms.find((candidate) => candidate.id === activeRoomId);
@@ -135,15 +135,6 @@ export function RoomInventoryWorkspace({
   const neverVerifiedCount = rooms.filter((candidate) => !candidate.lastVerified).length;
   const totalItemLines = rooms.reduce((sum, candidate) => sum + candidate.itemCount, 0);
 
-  const filteredRooms = useMemo(() => {
-    const needle = roomSearch.trim().toLowerCase();
-    if (!needle) return rooms;
-    return rooms.filter((candidate) =>
-      [candidate.name, candidate.code, candidate.block, candidate.custodianName]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(needle)),
-    );
-  }, [roomSearch, rooms]);
 
   const visible = useMemo(
     () =>
@@ -193,6 +184,7 @@ export function RoomInventoryWorkspace({
 
   const selectRoom = (nextRoomId: string) => {
     setRoomId(nextRoomId);
+    setRoomPickerValue(nextRoomId);
     setStaffId("");
     setOwnership("");
     setCondition("");
@@ -202,15 +194,30 @@ export function RoomInventoryWorkspace({
     setResponsibilityOpen(false);
     setVerifyOpen(false);
     setHistoryOpen(false);
-
-    requestAnimationFrame(() => {
-      const target = inventorySectionRef.current;
-      if (!target) return;
-      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-      target.focus({ preventScroll: true });
-    });
+    setOverlayOpen(true);
   };
+
+  const closeRoomWorkspace = () => {
+    setOverlayOpen(false);
+    setRoomPickerValue("");
+  };
+
+  useEffect(() => {
+    if (!overlayOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOverlayOpen(false);
+        setRoomPickerValue("");
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [overlayOpen]);
 
   const clearFilters = () => {
     setOwnership("");
@@ -255,23 +262,29 @@ export function RoomInventoryWorkspace({
               {canAssign ? "Scan responsibility, verification and inventory health before opening a room." : "Open a room to review the inventory you are responsible for."}
             </p>
           </div>
-          <label className="relative block w-full sm:max-w-xs">
-            <span className="sr-only">Search rooms</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={roomSearch}
-              onChange={(event) => setRoomSearch(event.target.value)}
-              placeholder="Search rooms"
-              className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] pl-9 pr-3 text-sm outline-none"
-            />
-          </label>
+          <Picker
+            ariaLabel="Find a room"
+            value={roomPickerValue}
+            onChange={(value) => {
+              if (value) selectRoom(value);
+            }}
+            searchable
+            searchPlaceholder="Type room, block or custodian"
+            placeholder="Find a room"
+            className="w-full sm:max-w-xs"
+            options={rooms.map((candidate) => ({
+              value: candidate.id,
+              label: candidate.name,
+              helper: [candidate.block, candidate.custodianName].filter(Boolean).join(" · "),
+            }))}
+          />
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {filteredRooms.map((candidate) => {
+          {rooms.map((candidate) => {
             const isMine = Boolean(candidate.custodianId && viewerStaff.has(candidate.custodianId));
             const attention = roomAttentionCount(candidate.id);
-            const selected = candidate.id === activeRoomId;
+            const selected = overlayOpen && candidate.id === activeRoomId;
             return (
               <button
                 key={candidate.id}
@@ -306,11 +319,33 @@ export function RoomInventoryWorkspace({
             );
           })}
         </div>
-        {!filteredRooms.length ? <p className="mt-4 text-sm text-muted-foreground">No rooms match your search.</p> : null}
       </section>
 
-      {room ? (
-        <>
+      {room && overlayOpen ? (
+        <div
+          className="fixed inset-0 z-[90] bg-black/35 backdrop-blur-[1px] sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.currentTarget === event.target) closeRoomWorkspace();
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="room-inventory-dialog-title"
+            className="flex h-full w-full flex-col overflow-hidden bg-surface shadow-2xl sm:mx-auto sm:h-[calc(100dvh-2rem)] sm:max-w-6xl sm:rounded-[var(--radius-lg)] sm:border sm:border-border-subtle"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border-subtle bg-surface/95 px-4 py-3 backdrop-blur sm:px-5">
+              <div className="min-w-0">
+                <p className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">{selectedRoomIsMine ? "Your room" : "Room inventory"}</p>
+                <h2 id="room-inventory-dialog-title" className="truncate text-lg font-semibold text-foreground">{room.name}</h2>
+              </div>
+              <Button type="button" variant="neutral" size="sm" onClick={closeRoomWorkspace} aria-label="Close room workspace">
+                <X className="size-4" />Close
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
+              <div className="space-y-4">
           <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
@@ -419,11 +454,7 @@ export function RoomInventoryWorkspace({
             ) : null}
           </section>
 
-          <section
-            ref={inventorySectionRef}
-            tabIndex={-1}
-            className="scroll-mt-24 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 outline-none sm:p-5"
-          >
+          <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="scolapro-section-title">Current inventory</h2>
@@ -517,7 +548,11 @@ export function RoomInventoryWorkspace({
               </div>
             ) : null}
           </section>
-        </>
+
+              </div>
+            </div>
+          </section>
+        </div>
       ) : null}
     </div>
   );
