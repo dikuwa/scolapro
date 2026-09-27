@@ -9,11 +9,12 @@ Before changing code, read:
 1. `AGENTS.md`
 2. `docs/11-roadmap/CONTROL-ROOM.md`
 3. `docs/11-roadmap/COORDINATED-DELIVERY-LEDGER.md`
-4. `docs/11-roadmap/IMPLEMENTATION-STATUS.md`
-5. relevant domain/architecture/design documents referenced by `AGENTS.md`
-6. `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md` when working on absenteeism or LTSM/library operational UI.
+4. `docs/11-roadmap/2026-09-27-CONTROL-ROOM-STATUS.md`
+5. `docs/11-roadmap/IMPLEMENTATION-STATUS.md`
+6. relevant domain/architecture/design documents referenced by `AGENTS.md`
+7. `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md` when working on absenteeism or LTSM/library operational UI.
 
-Current authoritative main: `7744537797170fb1d3fcea744bb6aa7ba89b42d7` (20 September 2026). Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion remains tracked in Issue #602.
+Current authoritative main: `501962946647210bdab7eca6cfb2834adb88e59b` (27 September 2026). For current acceptance gates and post-brainstorm implementation state, use `docs/11-roadmap/2026-09-27-CONTROL-ROOM-STATUS.md`; older sequencing below is retained as historical context.
 
 ## 2. Product principle
 
