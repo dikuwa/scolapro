@@ -74,3 +74,15 @@ test("marks entry keeps an explicit back path to Assessment",()=>{
   assert.match(marksPage,/href="\/assessment"/);
   assert.match(marksPage,/>Assessment<\/Link>/);
 });
+
+
+test("dated mark eligibility and offline replay preserve historical correctness",()=>{
+  assert.match(server,/registered_at,withdrawn_at/);
+  assert.match(server,/registeredOn<=eligibilityDate/);
+  assert.match(queue,/syncedVersions/);
+  assert.match(workspace,/result\.syncedVersions/);
+  assert.match(migration,/v_reference_date/);
+  assert.match(migration,/learner_subject_registered_on/);
+  assert.match(migration,/v_max:=v_instance\.raw_max/);
+  assert.match(migration,/lm\.numeric_mark is not null or lm\.mark_status is not null/);
+});
