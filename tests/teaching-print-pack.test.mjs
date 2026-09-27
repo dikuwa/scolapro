@@ -55,8 +55,11 @@ test("lesson preparation UI exposes print view and PDF only after a canonical pr
 });
 
 
-test("browser print keeps teaching headings and bounded provenance blocks with their content", () => {
-  assert.match(html, /class="title document-title"/);
+test("browser print uses the universal internal header and keeps bounded provenance blocks", () => {
+  assert.match(html, /renderOfficialDocumentHtmlHeader/);
+  assert.match(html, /title: "Teaching Print Pack"/);
+  assert.match(html, /primaryContext/);
+  assert.doesNotMatch(html, /class="title document-title"/);
   assert.match(html, /section-title[^\n]*break-after:avoid;page-break-after:avoid/);
   assert.match(html, /class="coverage remarks"/);
   assert.match(html, /<section class="remarks"><h2 class="section-title">Review provenance/);
@@ -69,4 +72,13 @@ test("PDF pagination rechecks the shared footer reserve for every wrapped line",
   assert.match(pdf, /lines\.forEach\(\(line\) => \{[\s\S]*ensure\(writer, LINE_HEIGHT \+ 2\)/);
   assert.doesNotMatch(pdf, /ensure\(writer, lines\.length \* LINE_HEIGHT \+ 4\)/);
   assert.match(pdf, /drawOfficialDocumentPdfFooter/);
+});
+
+
+test("teaching print-pack PDF repeats the same universal header context on continuation pages", () => {
+  assert.match(pdf, /context: \{ title: string; primaryContext: string; secondaryContext: string; summary: string \}/);
+  assert.match(pdf, /context: writer\.context/);
+  assert.match(pdf, /title: "Teaching Print Pack"/);
+  assert.match(pdf, /primaryContext: `\$\{input\.pack\.teacherName\} · \$\{input\.pack\.subjectName\}`/);
+  assert.doesNotMatch(pdf, /drawOfficialDocumentPdfCentered/);
 });
