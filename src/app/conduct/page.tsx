@@ -33,10 +33,16 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
             <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Record Recognition and Violations quickly from your school’s conduct policy.</p>
           </div>
           {canManage ? (
-            <CompactActionLink href="/conduct/policy" tone="brand" className="self-start sm:self-auto">
-              Conduct policy
-              <ArrowUpRight aria-hidden="true" className="size-3.5" />
-            </CompactActionLink>
+            <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+              <CompactActionLink href="/conduct/manage" tone="brand">
+                Management
+                <ArrowUpRight aria-hidden="true" className="size-3.5" />
+              </CompactActionLink>
+              <CompactActionLink href="/conduct/policy" tone="brand">
+                Conduct policy
+                <ArrowUpRight aria-hidden="true" className="size-3.5" />
+              </CompactActionLink>
+            </div>
           ) : null}
         </div>
         <ConductWorkspace {...workspace} schoolId={membership.schoolId} filters={filters} today={today} canRecord canManage={canManage} />
