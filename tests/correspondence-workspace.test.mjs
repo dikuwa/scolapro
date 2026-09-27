@@ -11,6 +11,8 @@ const richText = await read("src/features/correspondence/rich-text.ts");
 const html = await read("src/features/correspondence/server/render-correspondence-html.ts");
 const pdf = await read("src/features/correspondence/server/render-correspondence-pdf.ts");
 const route = await read("src/app/api/official-documents/correspondence/[documentId]/route.ts");
+const aiRoute = await read("src/app/api/correspondence/ai/route.ts");
+const aiProvider = await read("src/features/correspondence/server/correspondence-ai.ts");
 
 test("correspondence is current-school leadership only and excludes platform roles", () => {
   assert.match(migration, /user_current_school_matches/);
@@ -79,4 +81,31 @@ test("rich-text typing is isolated from full correspondence page state", () => {
   assert.match(editor, /bodyRef\.current = value/);
   assert.match(editor, /JSON\.stringify\(bodyRef\.current\)/);
   assert.doesNotMatch(editor, /const \[body, setBody\]/);
+});
+
+
+test("correspondence AI reuses the configured provider and current leadership boundary", () => {
+  assert.match(aiProvider, /SCOLAPRO_AI_BASE_URL/);
+  assert.match(aiProvider, /SCOLAPRO_AI_API_KEY/);
+  assert.match(aiProvider, /SCOLAPRO_AI_MODEL/);
+  assert.match(aiRoute, /school_admin/);
+  assert.match(aiRoute, /principal/);
+  assert.match(aiRoute, /deputy_principal/);
+  assert.match(aiRoute, /platformMemberships\.length/);
+});
+
+test("AI assist is explicit, bounded and never finalizes correspondence", () => {
+  for (const label of ["AI assist", "Draft", "Improve & formalize", "Simplify", "Proofread", "Shorten"]) assert.match(editor, new RegExp(label.replace(/[.*+?^$()|[\]\\]/g, "\\$&")));
+  assert.match(editor, /Existing text is sent to the configured AI provider only when you click an editing action/);
+  assert.match(aiRoute, /max\(12000\)/);
+  assert.match(aiRoute, /max\(3000\)/);
+  assert.match(aiProvider, /never imply that it is approved, signed, sent or finalized/);
+  assert.doesNotMatch(aiProvider, /finalizeCorrespondenceDocument/);
+});
+
+test("AI assist rewrites a selection when present and otherwise returns editable body text", () => {
+  assert.match(editor, /textBetween\(from, to/);
+  assert.match(editor, /insertContentAt\(range, body\.text\.trim\(\)\)/);
+  assert.match(editor, /setContent\(plainTextDocument\(body\.text\.trim\(\)\)\)/);
+  assert.match(editor, /Review it before saving/);
 });
