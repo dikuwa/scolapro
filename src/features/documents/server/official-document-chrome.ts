@@ -26,6 +26,16 @@ export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
 
 export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
   `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}
+  .report { position: relative; isolation: isolate; }
+  .report::before { content: "ScolaPro"; position: absolute; left: 50%; top: 49%; transform: translate(-50%,-50%) rotate(-28deg); z-index: 0; color: #2548d8; opacity: .055; font: 700 52px/1 Arial,sans-serif; letter-spacing: .08em; pointer-events: none; user-select: none; white-space: nowrap; }
+  .report > * { position: relative; z-index: 1; }
+  .school-name.old-english { font-family: "UnifrakturCook","Old English Text MT","Lucida Blackletter","Times New Roman",serif; font-weight: 700; letter-spacing: 0; }
+  .school-header.compact-left { grid-template-columns: 66px minmax(0,1fr) 128px; gap: 8px; min-height: 82px; }
+  .school-header.compact-left .logo-wrap { display:flex; align-items:center; justify-content:center; }
+  .school-header.compact-left .school-logo { display:block; max-width:54px; max-height:56px; object-fit:contain; }
+  .school-header.compact-left .school-identity,
+  .school-header.compact-left .school-contact { text-align:left; }
+  .school-header.compact-left .postal { text-align:right; align-self:center; }
   .school-header.external-correspondence { grid-template-columns: 88px minmax(0,1fr) 88px; }
   .external-correspondence .coat-of-arms-wrap,
   .external-correspondence .school-logo-right,
@@ -43,6 +53,12 @@ export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
     .external-correspondence .school-contact,
     .external-correspondence .external-postal,
     .external-correspondence .emis { font-size: 6.5px; }
+    .school-header.compact-left { grid-template-columns: 54px minmax(0,1fr); }
+    .school-header.compact-left > .logo-wrap { grid-row: 1 / span 2; }
+    .school-header.compact-left > .school-identity,
+    .school-header.compact-left > .postal { grid-column: 2; }
+    .school-header.compact-left .postal { text-align:left; }
+    .report::before { font-size: 38px; }
   }`;
 
 export const OFFICIAL_DOCUMENT_METADATA_RULE =
