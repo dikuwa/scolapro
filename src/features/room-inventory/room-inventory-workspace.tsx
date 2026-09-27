@@ -321,11 +321,13 @@ export function RoomInventoryWorkspace({
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 <Button type="button" onClick={() => setVerifyOpen((open) => !open)}>{verifyOpen ? "Close verification" : "Verify inventory"}</Button>
                 {canAssign ? <Button type="button" variant="neutral" onClick={() => setResponsibilityOpen((open) => !open)}>{responsibilityOpen ? "Close responsibility" : "Manage responsibility"}</Button> : null}
-                {room.lastVerified ? <>
-                  <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}`, "_blank", "noopener,noreferrer")}>Preview sheet</Button>
-                  <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&print=1`, "_blank", "noopener,noreferrer")}>Print</Button>
-                  <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&format=pdf`, "_blank", "noopener,noreferrer")}>PDF</Button>
-                </> : null}
+                {room.lastVerified ? (
+                  <>
+                    <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}`, "_blank", "noopener,noreferrer")}>Preview sheet</Button>
+                    <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&print=1`, "_blank", "noopener,noreferrer")}>Print</Button>
+                    <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&format=pdf`, "_blank", "noopener,noreferrer")}>PDF</Button>
+                  </>
+                ) : null}
               </div>
             </div>
 
@@ -361,7 +363,7 @@ export function RoomInventoryWorkspace({
                 {room.custodianSource === "ambiguous" ? (
                   <p role="status" className="mb-3 flex items-start gap-1.5 rounded-[var(--radius-xs)] bg-warning-soft/60 px-2.5 py-1.5 text-[0.68rem] leading-5 text-[color:var(--warning)]">
                     <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                    <span>{room.homeRoomClasses.length} register classes share this room and name different register teachers. Choose a custodian below.</span>
+                    <span>{room.homeRoomClasses.length} register classes share this room and name different register teachers. Choose a custodian below — nothing is picked automatically.</span>
                   </p>
                 ) : null}
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_220px_auto] lg:items-end">
@@ -374,7 +376,12 @@ export function RoomInventoryWorkspace({
                     placeholder="Choose staff"
                     options={staff.map((member) => ({ value: member.id, label: member.name }))}
                   />
-                  <DateField label="Effective from" name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} />
+                  <div>
+                    <DateField label="Effective from" name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} />
+                    {!staffId && room.custodianSource === "inherited" && room.inheritedCustodianId ? (
+                      <p className="mt-1 text-[0.68rem] text-muted-foreground">Prefilled from the home room default. Assigning records it as the explicit custodian.</p>
+                    ) : null}
+                  </div>
                   <Button type="submit" loading={p1} disabled={p1 || !(staffId || room.custodianId || room.inheritedCustodianId)}>
                     {room.custodianSource === "inherited" ? "Assign as custodian" : "Assign custodian"}
                   </Button>
@@ -396,7 +403,7 @@ export function RoomInventoryWorkspace({
                     >
                       <Undo2 className="size-3.5" aria-hidden="true" />Clear override
                     </Button>
-                    <span className="text-[0.68rem] text-muted-foreground">Restores the home-room default while preserving assignment history.</span>
+                    <span className="text-[0.68rem] text-muted-foreground">Clearing the override restores the home room default and keeps this assignment in the custodian history.</span>
                   </div>
                 ) : null}
               </form>
