@@ -1,6 +1,8 @@
 import "server-only";
 
 import { Buffer } from "node:buffer";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 
 export function escapeOfficialDocumentHtml(value: string | number | null | undefined): string {
@@ -12,6 +14,8 @@ export function escapeOfficialDocumentHtml(value: string | number | null | undef
     .replaceAll("'", "&#039;");
 }
 
+const publicAssetCache = new Map<string, string>();
+
 function logoDataUrl(bytes: Uint8Array | null | undefined): string {
   if (!bytes?.length) return "";
   const isPng = bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
@@ -20,6 +24,21 @@ function logoDataUrl(bytes: Uint8Array | null | undefined): string {
   const isSvg = prefix.startsWith("<svg") || prefix.startsWith("<?xml") || prefix.includes("<svg");
   const mime = isPng ? "image/png" : isJpeg ? "image/jpeg" : isSvg ? "image/svg+xml" : "";
   return mime ? `data:${mime};base64,${Buffer.from(bytes).toString("base64")}` : "";
+}
+
+function localPublicAssetDataUrl(url: string): string {
+  if (!url.startsWith("/brand/")) return "";
+  const cached = publicAssetCache.get(url);
+  if (cached !== undefined) return cached;
+  try {
+    const bytes = new Uint8Array(readFileSync(join(process.cwd(), "public", ...url.split("/").filter(Boolean))));
+    const dataUrl = logoDataUrl(bytes);
+    publicAssetCache.set(url, dataUrl);
+    return dataUrl;
+  } catch {
+    publicAssetCache.set(url, "");
+    return "";
+  }
 }
 
 /**
@@ -32,12 +51,14 @@ function logoDataUrl(bytes: Uint8Array | null | undefined): string {
 export function renderOfficialDocumentHtmlHeader(
   header: OfficialDocumentHeaderModel,
   logoBytes?: Uint8Array | null,
+  options: { layout?: "standard" | "compact_left" } = {},
 ): string {
-  const resolvedLogoUrl = logoDataUrl(logoBytes) || header.logoUrl;
+  const resolvedLogoUrl = logoDataUrl(logoBytes) || localPublicAssetDataUrl(header.logoUrl) || header.logoUrl;
   const schoolLogoMarkup = resolvedLogoUrl
     ? `<div class="logo-wrap"><img class="school-logo" src="${escapeOfficialDocumentHtml(resolvedLogoUrl)}" alt="${escapeOfficialDocumentHtml(header.schoolName)} logo" /></div>`
     : `<div class="logo-wrap logo-placeholder"></div>`;
-  const coatOfArmsMarkup = `<div class="coat-of-arms-wrap"><img class="governed-coat-of-arms" src="${escapeOfficialDocumentHtml(header.governedCoatOfArms.url)}" alt="${escapeOfficialDocumentHtml(header.governedCoatOfArms.alt)}" /></div>`;
+  const resolvedCoatOfArmsUrl = localPublicAssetDataUrl(header.governedCoatOfArms.url) || header.governedCoatOfArms.url;
+  const coatOfArmsMarkup = `<div class="coat-of-arms-wrap"><img class="governed-coat-of-arms" src="${escapeOfficialDocumentHtml(resolvedCoatOfArmsUrl)}" alt="${escapeOfficialDocumentHtml(header.governedCoatOfArms.alt)}" /></div>`;
   const nameClass = header.schoolNameFont === "old_english" ? " old-english" : "";
   const contactMarkup = header.contactLines
     .map((line) => `<div><span>${escapeOfficialDocumentHtml(line.label)}:</span> ${escapeOfficialDocumentHtml(line.value)}</div>`)
@@ -60,7 +81,8 @@ export function renderOfficialDocumentHtmlHeader(
   </header>`;
   }
 
-  return `<header class="school-header">
+  const layoutClass = options.layout === "compact_left" ? " compact-left" : "";
+  return `<header class="school-header${layoutClass}">
     ${schoolLogoMarkup}
     <div class="school-identity">
       <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
