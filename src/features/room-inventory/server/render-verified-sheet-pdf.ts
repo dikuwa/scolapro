@@ -2,6 +2,7 @@ import "server-only";
 
 import { Buffer } from "node:buffer";
 import QRCode from "qrcode";
+import { buildOfficialDocumentVerificationPayload } from "@/features/documents/official-document-verification-payload";
 import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import {
@@ -73,7 +74,7 @@ export async function renderVerifiedRoomInventoryPdf(input: {
   const newPage = () => {
     const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     pages.push(page);
-    let y = drawOfficialDocumentPdfHeader(page, input.header, resources);
+    let y = drawOfficialDocumentPdfHeader(page, input.header, resources, undefined, { layout: "compact_left" });
     const title = "VERIFIED ROOM INVENTORY SHEET";
     const titleWidth = bold.widthOfTextAtSize(title, 12);
     page.drawText(title, { x: (PAGE_WIDTH - titleWidth) / 2, y: y - 22, size: 12, font: bold, color: INK });
@@ -145,7 +146,11 @@ export async function renderVerifiedRoomInventoryPdf(input: {
   page.drawLine({ start: { x: MARGIN + 270, y: y - 20 }, end: { x: MARGIN + 450, y: y - 20 }, thickness: 0.5, color: LINE });
   page.drawText("Management verification / date", { x: MARGIN + 270, y: y - 30, size: 6.2, font: regular, color: INK });
 
-  const qrDataUrl = await QRCode.toDataURL(input.verificationUrl, { errorCorrectionLevel: "M", margin: 1, width: 180 });
+  const qrPayload = buildOfficialDocumentVerificationPayload({
+    token: input.sheet.verificationToken,
+    origin: new URL(input.verificationUrl).origin,
+  });
+  const qrDataUrl = await QRCode.toDataURL(qrPayload, { errorCorrectionLevel: "M", margin: 1, width: 180 });
   const qrBytes = Buffer.from(qrDataUrl.split(",")[1], "base64");
   const qr = await pdf.embedPng(qrBytes);
   const qrY = Math.max(54, y - 112);

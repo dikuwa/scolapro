@@ -3,7 +3,7 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
 import {
   OFFICIAL_DOCUMENT_PDF_GEOMETRY,
   officialDocumentPdfContentWidth,
@@ -71,12 +71,17 @@ async function embedOfficialDocumentLogo(pdf: PDFDocument, bytes: Uint8Array | n
   }
 }
 
-async function loadGovernedCoatOfArmsBytes(): Promise<Uint8Array | null> {
+async function loadPublicBrandBytes(url: string): Promise<Uint8Array | null> {
+  if (!url.startsWith("/brand/")) return null;
   try {
-    return new Uint8Array(await readFile(join(process.cwd(), "public", "brand", "governed", "namibia-coat-of-arms.png")));
+    return new Uint8Array(await readFile(join(process.cwd(), "public", ...url.split("/").filter(Boolean))));
   } catch {
     return null;
   }
+}
+
+async function loadGovernedCoatOfArmsBytes(): Promise<Uint8Array | null> {
+  return loadPublicBrandBytes("/brand/governed/namibia-coat-of-arms.png");
 }
 
 export async function createOfficialDocumentPdfResources(
@@ -95,7 +100,10 @@ export async function createOfficialDocumentPdfResources(
     regular,
     bold,
     schoolNameFont,
-    logo: await embedOfficialDocumentLogo(pdf, logoBytes),
+    logo: await embedOfficialDocumentLogo(
+      pdf,
+      logoBytes?.length ? logoBytes : await loadPublicBrandBytes(header.logoUrl),
+    ),
     coatOfArms: header.mode === "external_correspondence"
       ? await embedOfficialDocumentLogo(pdf, await loadGovernedCoatOfArmsBytes())
       : null,
@@ -110,8 +118,20 @@ export function drawOfficialDocumentPdfHeader(
   topY = PAGE_HEIGHT - MARGIN,
   options: { layout?: "standard" | "compact_left" } = {},
 ): number {
-  const { regular, schoolNameFont, logo, coatOfArms } = resources;
+  const { regular, bold, schoolNameFont, logo, coatOfArms } = resources;
   const compactLeft = options.layout === "compact_left" && header.mode === "internal_school";
+  const backdrop = "ScolaPro";
+  const backdropSize = 52;
+  const backdropWidth = bold.widthOfTextAtSize(backdrop, backdropSize);
+  page.drawText(backdrop, {
+    x: (PAGE_WIDTH - backdropWidth) / 2,
+    y: PAGE_HEIGHT / 2 - 16,
+    size: backdropSize,
+    font: bold,
+    color: rgb(0.14, 0.28, 0.84),
+    opacity: 0.05,
+    rotate: degrees(-28),
+  });
   page.drawRectangle({
     x: MARGIN,
     y: topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,

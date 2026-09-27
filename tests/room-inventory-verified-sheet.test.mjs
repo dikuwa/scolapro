@@ -58,3 +58,13 @@ test("room inventory workspace exposes Preview Print PDF only after verification
   assert.match(workspace, /Print/);
   assert.match(workspace, /PDF/);
 });
+
+
+test("room inventory uses compact-left school header and token-derived QR verification", () => {
+  assert.match(html, /layout: "compact_left"/);
+  assert.match(pdf, /layout: "compact_left"/);
+  assert.match(pdf, /buildOfficialDocumentVerificationPayload/);
+  assert.match(pdf, /verificationToken/);
+  assert.match(route, /renderOfficialDocumentVerificationQrSvg/);
+  assert.match(route, /verificationToken/);
+});

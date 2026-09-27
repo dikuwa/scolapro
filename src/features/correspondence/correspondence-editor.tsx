@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
@@ -115,7 +115,8 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
   const [recipient, setRecipient] = useState(document.recipient);
   const [attention, setAttention] = useState(document.attention);
   const [subject, setSubject] = useState(document.subject);
-  const [body, setBody] = useState(document.body);
+  const [bodySeed, setBodySeed] = useState(document.body);
+  const bodyRef = useRef(document.body);
   const [closing, setClosing] = useState(document.closing);
   const [signatoryName, setSignatoryName] = useState(document.signatoryName);
   const [signatoryPosition, setSignatoryPosition] = useState(document.signatoryPosition);
@@ -127,7 +128,7 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
   const [emailDestination, setEmailDestination] = useState("");
   const attachments = useMemo(() => attachmentsText.split("\n").map((item) => item.trim()).filter(Boolean), [attachmentsText]);
 
-  const payload = () => ({ documentId: document.id, templateKey, documentDate, recipient, attention, subject, body: JSON.stringify(body), closing, signatoryName, signatoryPosition, includeSignatureBlock, attachments });
+  const payload = () => ({ documentId: document.id, templateKey, documentDate, recipient, attention, subject, body: JSON.stringify(bodyRef.current), closing, signatoryName, signatoryPosition, includeSignatureBlock, attachments });
   const save = async () => {
     const result = await saveCorrespondenceDraft(payload());
     if (result.success) toast.success(result.message);
@@ -202,13 +203,13 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
         <span className={`w-fit rounded-[var(--radius-xs)] px-2 py-1 text-xs font-medium ${readOnly ? "bg-success-soft text-[color:var(--success)]" : "bg-warning-soft text-[color:var(--warning)]"}`}>{readOnly ? `Finalized · ${document.referenceNumber}` : "Draft"}</span>
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
-        <Picker label="Template" value={templateKey} disabled={readOnly} onChange={(value) => { const next = value as CorrespondenceTemplateKey; setTemplateKey(next); const template = CORRESPONDENCE_TEMPLATES.find((item) => item.key === next); if (template && !subject.trim()) setSubject(template.subject); if (template) setBody(templateContent(next)); }} placeholder="Choose template" options={CORRESPONDENCE_TEMPLATES.map((item) => ({ value: item.key, label: item.label }))} />
+        <Picker label="Template" value={templateKey} disabled={readOnly} onChange={(value) => { const next = value as CorrespondenceTemplateKey; setTemplateKey(next); const template = CORRESPONDENCE_TEMPLATES.find((item) => item.key === next); if (template && !subject.trim()) setSubject(template.subject); if (template) { const nextBody = templateContent(next); bodyRef.current = nextBody; setBodySeed(nextBody); } }} placeholder="Choose template" options={CORRESPONDENCE_TEMPLATES.map((item) => ({ value: item.key, label: item.label }))} />
         {readOnly ? <label className="min-w-0"><span className={labelClass}>Date</span><input disabled value={documentDate} className={inputClass} /></label> : <DateField label="Date" name="documentDate" value={documentDate} onChange={setDocumentDate} required />}
         <label className="min-w-0"><span className={labelClass}>Recipient / To</span><input disabled={readOnly} value={recipient} onChange={(event) => setRecipient(event.target.value)} className={inputClass} maxLength={500} /></label>
         <label className="min-w-0"><span className={labelClass}>Attention</span><input disabled={readOnly} value={attention} onChange={(event) => setAttention(event.target.value)} className={inputClass} maxLength={500} /></label>
         <label className="min-w-0 md:col-span-2"><span className={labelClass}>Subject / Re</span><input disabled={readOnly} value={subject} onChange={(event) => setSubject(event.target.value)} className={inputClass} maxLength={500} /></label>
       </div>
-      <div className="mt-4"><p className={labelClass}>Body</p><div className="mt-1.5"><RichTextEditor value={body} onChange={setBody} readOnly={readOnly} onSignature={() => setIncludeSignatureBlock(true)} /></div></div>
+      <div className="mt-4"><p className={labelClass}>Body</p><div className="mt-1.5"><RichTextEditor key={templateKey} value={bodySeed} onChange={(value) => { bodyRef.current = value; }} readOnly={readOnly} onSignature={() => setIncludeSignatureBlock(true)} /></div></div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <label><span className={labelClass}>Closing</span><input disabled={readOnly} value={closing} onChange={(event) => setClosing(event.target.value)} className={inputClass} maxLength={200} /></label>
         <div className="md:col-span-2 grid gap-4 sm:grid-cols-2"><label><span className={labelClass}>Name</span><input disabled={readOnly} value={signatoryName} onChange={(event) => setSignatoryName(event.target.value)} className={inputClass} maxLength={200} /></label><label><span className={labelClass}>Position</span><input disabled={readOnly} value={signatoryPosition} onChange={(event) => setSignatoryPosition(event.target.value)} className={inputClass} maxLength={200} /></label></div>
