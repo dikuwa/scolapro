@@ -61,10 +61,17 @@ test("known Namib High branding is local, blackletter and resilient to stale rem
   assert.match(html, /readFileSync/);
 });
 
-test("shared official chrome includes visible subtle backdrop and compact-left header", () => {
+test("shared official chrome includes visible subtle backdrop and universal internal header", () => {
+  assert.match(model, /InternalSchoolDocumentHeaderContext/);
+  assert.match(model, /normalizeInternalSchoolDocumentHeaderContext/);
+  assert.match(html, /internal-document-context/);
+  assert.match(html, /school-contact/);
+  assert.match(chrome, /school-header\.internal-school/);
+  assert.match(chrome, /document-context-title/);
   assert.match(chrome, /report::before/);
   assert.match(chrome, /opacity: \.055/);
-  assert.match(chrome, /school-header\.compact-left/);
+  assert.match(pdf, /drawInternalHeader/);
+  assert.match(pdf, /INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT = 72/);
   assert.match(pdf, /opacity: 0\.05/);
   assert.match(pdf, /loadPublicBrandBytes/);
 });
