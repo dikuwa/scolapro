@@ -50,11 +50,11 @@ test("validation submission review and correction remain governed server actions
   assert.match(workspace,/Governed correction/);
 });
 
-test("server loader limits grid to current subject-eligible enrolments",()=>{
+test("server loader limits grid to subject-eligible enrolments at the correct reference date",()=>{
   assert.match(server,/learner_subject_registrations/);
   assert.match(server,/subject_offering_id===instance\.subject_offering_id/);
   assert.match(server,/eligibilityDate/);
-  assert.match(server,/row\.status==="current"/);
+  assert.match(server,/instance\.assessment_date \? effective : row\.status==="current" && effective/);
 });
 
 test("calculated working summary is read-only",()=>{
@@ -84,5 +84,5 @@ test("dated mark eligibility and offline replay preserve historical correctness"
   assert.match(migration,/v_reference_date/);
   assert.match(migration,/learner_subject_registered_on/);
   assert.match(migration,/v_max:=v_instance\.raw_max/);
-  assert.match(migration,/lm\.numeric_mark is not null or lm\.mark_status is not null/);
+  assert.match(migration,/lm\.numeric_mark is not null\s+or lm\.mark_status is not null/);
 });
