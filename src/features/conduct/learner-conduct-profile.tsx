@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import type { LearnerConductProfile } from "./server/profile";
 
 function signed(value: number) {
@@ -115,8 +114,22 @@ export function LearnerConductProfileView({
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-border-subtle pt-4">
           <span className="text-xs text-muted-foreground">Page {page + 1}</span>
           <div className="flex gap-2">
-            <Button asChild variant="neutral" size="sm" disabled={page === 0}><Link aria-disabled={page === 0} href={page === 0 ? "#" : `?page=${page - 1}`}>Previous</Link></Button>
-            <Button asChild variant="neutral" size="sm" disabled={!profile.hasMore}><Link aria-disabled={!profile.hasMore} href={!profile.hasMore ? "#" : `?page=${page + 1}`}>Next</Link></Button>
+            <Link
+              aria-disabled={page === 0}
+              tabIndex={page === 0 ? -1 : undefined}
+              href={page === 0 ? "#" : `?page=${page - 1}`}
+              className={`inline-flex min-h-9 items-center justify-center rounded-[var(--radius-sm)] border border-border-subtle px-3 text-sm font-medium ${page === 0 ? "pointer-events-none opacity-50" : "hover:bg-surface-muted"}`}
+            >
+              Previous
+            </Link>
+            <Link
+              aria-disabled={!profile.hasMore}
+              tabIndex={!profile.hasMore ? -1 : undefined}
+              href={!profile.hasMore ? "#" : `?page=${page + 1}`}
+              className={`inline-flex min-h-9 items-center justify-center rounded-[var(--radius-sm)] border border-border-subtle px-3 text-sm font-medium ${!profile.hasMore ? "pointer-events-none opacity-50" : "hover:bg-surface-muted"}`}
+            >
+              Next
+            </Link>
           </div>
         </div>
       </section>
