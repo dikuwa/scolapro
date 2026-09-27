@@ -372,14 +372,20 @@ export function SportsHousesWorkspace({
         </div>
       </section>
 
-      {canManage ? <AssistedBalancingPanel schoolId={schoolId} academicYear={academicYear} operationId={balanceOperationId} /> : null}
+      {canManage ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <button type="button" onClick={() => setBalanceOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 text-left">
+          <div><h2 className="scolapro-section-title">Assisted balancing</h2><p className="scolapro-section-description">Preview deterministic learner balancing only when you need it.</p></div>
+          {balanceOpen ? <ChevronDown className="size-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="size-4 shrink-0 text-muted-foreground" />}
+        </button>
+        {balanceOpen ? <div className="mt-4 border-t border-border-subtle pt-4"><AssistedBalancingPanel schoolId={schoolId} academicYear={academicYear} operationId={balanceOperationId} /></div> : null}
+      </section> : null}
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div><h2 className="scolapro-section-title">Learner allocation</h2><p className="scolapro-section-description">{learnerAssignedCount} assigned · {learnerUnassignedCount} unassigned in {academicYear}.</p></div>
-          {!canManage ? <span className="text-xs font-medium text-muted-foreground">Read-only</span> : null}
+          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setLearnerAllocationOpen((open) => !open)}>{learnerAllocationOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}{learnerAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
         </div>
-        {canManage ? <LearnerAssignmentForm schoolId={schoolId} academicYear={academicYear} learners={learners} houses={houses} /> : null}
+        {canManage && learnerAllocationOpen ? <div className="mb-4"><LearnerAssignmentForm schoolId={schoolId} academicYear={academicYear} learners={learners} houses={houses} /></div> : null}
         <div className="mt-4 max-h-[34rem] overflow-auto">
           {learners.length ? <div className="divide-y divide-border-subtle">
             {learners.map((learner) => (
@@ -394,11 +400,11 @@ export function SportsHousesWorkspace({
       </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div><h2 className="scolapro-section-title">Staff allocation & house leaders</h2><p className="scolapro-section-description">{staffAssignedCount} assigned · {staffUnassignedCount} unassigned · {leaders.length} house {leaders.length === 1 ? "leader" : "leaders"} in {academicYear}.</p></div>
-          {!canManage ? <span className="text-xs font-medium text-muted-foreground">Read-only</span> : null}
+          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setStaffAllocationOpen((open) => !open)}>{staffAllocationOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}{staffAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
         </div>
-        {canManage ? <StaffAssignmentForm schoolId={schoolId} academicYear={academicYear} staff={staff} houses={houses} /> : null}
+        {canManage && staffAllocationOpen ? <div className="mb-4"><StaffAssignmentForm schoolId={schoolId} academicYear={academicYear} staff={staff} houses={houses} /></div> : null}
         <div className="mt-4 max-h-[34rem] overflow-auto">
           {staff.length ? <div className="divide-y divide-border-subtle">
             {staff.map((person) => (
