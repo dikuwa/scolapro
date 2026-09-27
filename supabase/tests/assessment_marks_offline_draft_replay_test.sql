@@ -1,6 +1,6 @@
 begin;
 
-select plan(11);
+select plan(15);
 
 select has_function(
   'public',
@@ -75,6 +75,32 @@ select ok(
   pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%status <> ''open''%'
   and pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%p_expected_version%',
   'replay requires both an editable window and an expected version'
+);
+
+select ok(
+  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)'))
+    ilike '%v_reference_date%'
+  and pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)'))
+    ilike '%assessment_date%',
+  'offline mark eligibility resolves against the assessment date when present'
+);
+
+select ok(
+  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)'))
+    ilike '%learner_subject_registered_on%',
+  'offline mark eligibility resolves historical subject registration'
+);
+
+select ok(
+  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)'))
+    ilike '%v_max:=v_instance.raw_max%',
+  'instance raw maximum is enforced even without a component'
+);
+
+select ok(
+  pg_get_functiondef(to_regprocedure('public.submit_assessment_for_review(uuid,text)'))
+    ilike '%lm.numeric_mark is not null or lm.mark_status is not null%',
+  'blank current mark revisions do not satisfy completeness'
 );
 
 select * from finish();
