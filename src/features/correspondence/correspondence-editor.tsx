@@ -127,7 +127,7 @@ function RichTextEditor({
       if (!response.ok || !body.text?.trim()) throw new Error(body.message || "AI assistance could not complete this request.");
 
       if (mode !== "draft" && selection && range.from !== range.to) {
-        editor.chain().focus().insertContentAt(range, body.text.trim()).run();
+        editor.chain().focus().insertContentAt(range, { type: "text", text: body.text.trim() }).run();
         setAiMessage("AI suggestion applied to the selected text. Review it before saving.");
       } else {
         editor.commands.setContent(plainTextDocument(body.text.trim()));
