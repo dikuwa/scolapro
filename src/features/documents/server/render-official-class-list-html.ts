@@ -2,11 +2,15 @@ import "server-only";
 
 import {
   OFFICIAL_DOCUMENT_A4_PAGE_RULE,
+  OFFICIAL_DOCUMENT_HTML_HEADER_RULE,
   OFFICIAL_DOCUMENT_METADATA_RULE,
   OFFICIAL_DOCUMENT_PRINT_RULE,
 } from "@/features/documents/server/official-document-chrome";
 import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
-import { escapeOfficialDocumentHtml } from "@/features/documents/server/official-document-html-header";
+import {
+  escapeOfficialDocumentHtml,
+  renderOfficialDocumentHtmlHeader,
+} from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { buildOfficialClassListColumns, classListDocumentName } from "@/features/documents/server/class-list-document";
 import type { ClassListColumnId, ClassListLearnerRow } from "@/features/learners/class-list-types";
@@ -44,17 +48,12 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
     )
     .join("");
 
-  const logo = header.logoUrl
-    ? `<img class="school-logo" src="${escapeOfficialDocumentHtml(header.logoUrl)}" alt="" />`
-    : "";
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
-  const roomLine = input.roomName
-    ? `<div class="room">Room: ${escapeOfficialDocumentHtml(input.roomName)}</div>`
-    : "";
-  const teacherLine = input.responsibleTeacherName
-    ? `<div class="teacher">Teacher: ${escapeOfficialDocumentHtml(input.responsibleTeacherName)}</div>`
-    : "";
+  const operationalMeta = [
+    input.roomName ? `<span><strong>Room:</strong> ${escapeOfficialDocumentHtml(input.roomName)}</span>` : "",
+    input.responsibleTeacherName ? `<span><strong>Responsible teacher:</strong> ${escapeOfficialDocumentHtml(input.responsibleTeacherName)}</span>` : "",
+  ].filter(Boolean).join("");
   const metadataFooter = renderOfficialDocumentHtmlFooter({
     left: `Total learners: ${input.rows.length}`,
     right: `${input.registerClass} · ${input.academicYear}`,
@@ -74,24 +73,9 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 9px; line-height: 1.2; }
   .report { padding: 6mm 7mm 5mm; }
   .class-document { display: table; width: auto; max-width: 100%; }
-  .class-list-header {
-    display: grid;
-    grid-template-columns: auto minmax(130px,1fr) minmax(140px,auto);
-    align-items: center;
-    gap: 7px;
-    width: 100%;
-    border: 1px solid var(--line);
-    padding: 5px 7px;
-    min-height: 55px;
-  }
-  .school-logo { display: block; width: auto; height: 42px; max-width: 48px; object-fit: contain; }
-  .school-identity { align-self: stretch; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
-  .school-name { min-width: 0; margin: 0 0 3px; font-size: 18px; line-height: 1; font-weight: 700; white-space: nowrap; }
-  .school-identity .room, .school-identity .teacher { font-size: 7px; line-height: 1.25; color: var(--muted); }
-  .school-name.old-english { font-family: "Old English Text MT", "UnifrakturCook", "Lucida Blackletter", "Times New Roman", serif; font-weight: 400; font-size: 22px; }
-  .class-context { text-align: right; font-size: 7.5px; line-height: 1.35; white-space: nowrap; }
-  .class-context .title { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
-  .class-context .summary, .class-context .room, .class-context .teacher { font-size: 6.8px; color: var(--muted); }
+  ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
+  .class-operational-meta { display:flex; align-items:center; gap:16px; min-height:16px; border:1px solid var(--line); border-top:0; padding:2px 7px; font-size:6.5px; line-height:1.1; }
+  .class-operational-meta strong { font-weight:700; }
   .class-list { width: auto; max-width: 100%; border-collapse: collapse; table-layout: auto; }
   .class-list col[data-column="number"] { width: 34px; }
   .class-list col[data-column="admissionNumber"] { width: 82px; }
@@ -112,35 +96,28 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   .document-meta { width: 100%; font-size: 5.7px; }
   .document-meta span:last-child { text-align: right; }
   @media (max-width: 640px) {
-    .class-list-header { grid-template-columns: auto minmax(0,1fr); }
-    .class-context { grid-column: 1 / -1; text-align: left; white-space: normal; }
-    .school-name { white-space: normal; }
+    .class-operational-meta { align-items:flex-start; flex-direction:column; gap:2px; }
   }
   @media print {
     body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     .report { padding: 0; }
     ${OFFICIAL_DOCUMENT_PRINT_RULE}
     .class-document { break-inside: auto; }
-    .class-list-header, thead, tr, .document-meta { break-inside: avoid; page-break-inside: avoid; }
+    .school-header, .class-operational-meta, thead, tr, .document-meta { break-inside: avoid; page-break-inside: avoid; }
   }
 </style>
 </head>
 <body>
 <main class="report">
   <section class="class-document">
-    <header class="class-list-header">
-      <div>${logo}</div>
-      <div class="school-identity">
-        <h1 class="school-name ${header.schoolNameFont === "old_english" ? "old-english" : ""}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
-        ${roomLine}
-        ${teacherLine}
-      </div>
-      <div class="class-context">
-        <div class="title">${escapeOfficialDocumentHtml(classListDocumentName(input.registerClass, input.rosterTitle))}</div>
-        <div>${escapeOfficialDocumentHtml(input.grade || "—")} · ${escapeOfficialDocumentHtml(input.registerClass || "—")} · ${escapeOfficialDocumentHtml(input.academicYear)}</div>
-        <div class="summary">Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners</div>
-      </div>
-    </header>
+    ${renderOfficialDocumentHtmlHeader(header, undefined, {
+      context: {
+        title: classListDocumentName(input.registerClass, input.rosterTitle),
+        primaryContext: `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`,
+        summary: `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`,
+      },
+    })}
+    ${operationalMeta ? `<div class="class-operational-meta">${operationalMeta}</div>` : ""}
 
     <table class="class-list">
       <colgroup>${columns.map((column) => `<col data-column="${escapeOfficialDocumentHtml(column.key)}" />`).join("")}</colgroup>
