@@ -31,6 +31,31 @@ export async function POST(request: Request) {
   if (!membership) return NextResponse.json({ message: "Teacher access is required." }, { status: 403 });
 
   const db = await createSupabaseServerClient();
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Windhoek",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const { data: aiFeature } = await db.from("tenant_features")
+    .select("enabled,configuration,effective_from,effective_to")
+    .eq("tenant_id", membership.tenantId)
+    .eq("feature_key", "ai_lesson_preparation")
+    .lte("effective_from", today)
+    .or(`effective_to.is.null,effective_to.gte.${today}`)
+    .order("effective_from", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (aiFeature?.enabled !== true) {
+    return NextResponse.json({ message: "AI lesson drafting is not enabled for this tenant." }, { status: 403 });
+  }
+  const featureConfig = aiFeature.configuration && typeof aiFeature.configuration === "object" && !Array.isArray(aiFeature.configuration)
+    ? aiFeature.configuration as Record<string, unknown>
+    : {};
+  const allowTeacherTextToProvider = featureConfig.allow_teacher_text_to_provider === true;
+  if (parsed.data.existingText && ["shorten", "practical"].includes(parsed.data.mode) && !allowTeacherTextToProvider) {
+    return NextResponse.json({ message: "This tenant has not enabled sending teacher-authored text to the AI provider." }, { status: 403 });
+  }
   const { data: staff } = await db.from("staff_members").select("id").eq("user_id", context.user.id).maybeSingle();
   if (!staff) return NextResponse.json({ message: "Teacher identity is not connected." }, { status: 403 });
 
@@ -75,7 +100,7 @@ export async function POST(request: Request) {
       generalObjectives: (objectives ?? []).map((row) => row.objective_text),
       selectedCompetencies: selected,
       sessionCount: parsed.data.sessionCount,
-      existingText: parsed.data.existingText,
+      existingText: allowTeacherTextToProvider ? parsed.data.existingText : undefined,
     });
     return NextResponse.json({ text });
   } catch (error) {
