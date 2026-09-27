@@ -166,6 +166,12 @@ function embedLogoAndStyles(
       ? match
       : '<worksheet' + attributes + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">',
   );
+  sheetXml = sheetXml.replace(/<sheetView\\b([^>]*)>/, (_match, attributes: string) => {
+    const normalized = attributes.replace(/\\s+showGridLines="[^"]*"/g, "");
+    const selfClosing = /\\/\\s*$/.test(normalized);
+    const cleaned = selfClosing ? normalized.replace(/\\/\\s*$/, "") : normalized;
+    return '<sheetView' + cleaned + ' showGridLines="0"' + (selfClosing ? '/>' : '>');
+  });
 
   const metaColumn = XLSX.utils.encode_col(metaStartColumn);
   sheetXml = setCellStyle(sheetXml, "B1", 1);
@@ -198,7 +204,7 @@ function embedLogoAndStyles(
 
     writePart(CFB, cfb, imagePath, logoBytes);
     const dimensions = readImageDimensions(logoBytes) ?? { width: 1, height: 1 };
-    const targetHeightEmu = 650000;
+    const targetHeightEmu = 700000;
     const targetWidthEmu = Math.round(targetHeightEmu * (dimensions.width / dimensions.height));
     writePart(CFB, cfb, drawingPath,
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -314,12 +320,12 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
   }));
   const addressSelected = input.configuration.columns.includes("guardianAddress");
   worksheet["!rows"] = [
-    { hpt: 23 },
-    { hpt: 10 },
-    { hpt: 10 },
-    { hpt: 10 },
-    { hpt: 10 },
-    { hpt: 12 },
+    { hpt: 22 },
+    { hpt: 9 },
+    { hpt: 9 },
+    { hpt: 9 },
+    { hpt: 9 },
+    { hpt: 11 },
     { hpt: 21 },
     ...input.learners.map(() => ({ hpt: addressSelected ? 42 : 18 })),
   ];
