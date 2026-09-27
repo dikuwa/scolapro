@@ -15,6 +15,7 @@ export function escapeOfficialDocumentHtml(value: string | number | null | undef
 }
 
 const publicAssetCache = new Map<string, string>();
+let oldEnglishFontDataUrl: string | null = null;
 
 function logoDataUrl(bytes: Uint8Array | null | undefined): string {
   if (!bytes?.length) return "";
@@ -39,6 +40,27 @@ function localPublicAssetDataUrl(url: string): string {
     publicAssetCache.set(url, "");
     return "";
   }
+}
+
+function officialOldEnglishFontFace(): string {
+  if (oldEnglishFontDataUrl === null) {
+    try {
+      const bytes = readFileSync(join(
+        process.cwd(),
+        "node_modules",
+        "@fontsource",
+        "unifrakturcook",
+        "files",
+        "unifrakturcook-latin-700-normal.woff",
+      ));
+      oldEnglishFontDataUrl = `data:font/woff;base64,${Buffer.from(bytes).toString("base64")}`;
+    } catch {
+      oldEnglishFontDataUrl = "";
+    }
+  }
+  return oldEnglishFontDataUrl
+    ? `<style>@font-face{font-family:"ScolaPro Old English";src:url(${oldEnglishFontDataUrl}) format("woff");font-style:normal;font-weight:700;font-display:block}.school-name.old-english{font-family:"ScolaPro Old English","Old English Text MT","UnifrakturCook","Lucida Blackletter","Times New Roman",serif}</style>`
+    : "";
 }
 
 /**
@@ -67,8 +89,10 @@ export function renderOfficialDocumentHtmlHeader(
     .map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`)
     .join("");
 
+  const fontFace = header.schoolNameFont === "old_english" ? officialOldEnglishFontFace() : "";
+
   if (header.mode === "external_correspondence") {
-    return `<header class="school-header external-correspondence">
+    return `${fontFace}<header class="school-header external-correspondence">
     ${coatOfArmsMarkup}
     <div class="school-identity">
       <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
@@ -82,7 +106,7 @@ export function renderOfficialDocumentHtmlHeader(
   }
 
   const layoutClass = options.layout === "compact_left" ? " compact-left" : "";
-  return `<header class="school-header${layoutClass}">
+  return `${fontFace}<header class="school-header${layoutClass}">
     ${schoolLogoMarkup}
     <div class="school-identity">
       <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
