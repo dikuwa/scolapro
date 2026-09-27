@@ -4,14 +4,13 @@ import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { OFFICIAL_DOCUMENT_PDF_GEOMETRY, officialDocumentPdfContentWidth } from "@/features/documents/server/official-document-chrome";
 import { drawOfficialDocumentPdfFooter } from "@/features/documents/server/official-document-pdf-footer";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
-import { createOfficialDocumentPdfResources, drawOfficialDocumentPdfCentered, drawOfficialDocumentPdfHeader, officialDocumentPdfSafeText } from "@/features/documents/server/official-document-pdf-header";
+import { createOfficialDocumentPdfResources, drawOfficialDocumentPdfHeader, officialDocumentPdfSafeText } from "@/features/documents/server/official-document-pdf-header";
 import type { TeachingPlanDocument } from "./teaching-plan-document";
 
 const { pageWidth: PAGE_WIDTH, pageHeight: PAGE_HEIGHT, margin: MARGIN } = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
 const CONTENT_WIDTH = officialDocumentPdfContentWidth();
 const INK = rgb(0.08, 0.08, 0.08);
 const LINE = rgb(0.28, 0.28, 0.28);
-const TITLE_HEIGHT = 40;
 const HEADER_HEIGHT = 22;
 const FOOTER_TOP = 42;
 
@@ -58,11 +57,15 @@ export async function renderTeachingPlanPdf(input: { header: OfficialDocumentHea
   let y = 0;
   const addPage = () => {
     page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    y = drawOfficialDocumentPdfHeader(page, input.header, resources);
-    page.drawRectangle({ x: MARGIN, y: y - TITLE_HEIGHT, width: CONTENT_WIDTH, height: TITLE_HEIGHT, borderWidth: 0.55, borderColor: LINE });
-    drawOfficialDocumentPdfCentered(page, bold, yearPlanner ? "Year Planner" : "Scheme of Work", 10, MARGIN, CONTENT_WIDTH, y - 14);
-    drawOfficialDocumentPdfCentered(page, regular, `${input.document.subject} | ${input.document.grade} | ${input.document.academicYear} | Classes: ${input.document.classes.join(", ") || "-"}`, 6, MARGIN, CONTENT_WIDTH, y - 28);
-    y -= TITLE_HEIGHT;
+    y = drawOfficialDocumentPdfHeader(page, input.header, resources, undefined, {
+      context: {
+        title: yearPlanner ? "Year Planner" : "Scheme of Work",
+        primaryContext: `${input.document.subject} · ${input.document.grade} · ${input.document.academicYear}`,
+        secondaryContext: `Classes: ${input.document.classes.join(", ") || "No current class allocation"}`,
+        summary: input.document.curriculumVersion ? `Curriculum ${input.document.curriculumVersion}` : input.document.status,
+      },
+    });
+    y -= 6;
     let x = MARGIN;
     headings.forEach((heading, index) => { drawCell(page, bold, heading, x, y, widths[index], HEADER_HEIGHT, 5.5); x += widths[index]; });
     y -= HEADER_HEIGHT;

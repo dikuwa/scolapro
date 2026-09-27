@@ -61,15 +61,21 @@ test("year planner and scheme expose the required columns from one read model", 
   assert.match(documentQuery, /teacher_allocations/);
 });
 
-test("preview print and PDF use dedicated A4 output with repeated headers", () => {
+test("preview print and PDF use the universal internal header with repeated document tables", () => {
   assert.match(workspace, /> Preview</);
   assert.match(workspace, /> Print</);
   assert.match(workspace, /> PDF</);
   assert.match(html, /OFFICIAL_DOCUMENT_A4_PAGE_RULE/);
   assert.match(html, /OFFICIAL_DOCUMENT_PRINT_RULE/);
+  assert.match(html, /renderOfficialDocumentHtmlHeader/);
+  assert.match(html, /title: yearPlanner \? "Year Planner" : "Scheme of Work"/);
+  assert.match(html, /primaryContext/);
+  assert.doesNotMatch(html, /<section class="title document-title">/);
   assert.match(html, /window\.print/);
+  assert.match(pdf, /drawOfficialDocumentPdfHeader/);
+  assert.match(pdf, /title: yearPlanner \? "Year Planner" : "Scheme of Work"/);
+  assert.doesNotMatch(pdf, /TITLE_HEIGHT|drawOfficialDocumentPdfCentered/);
   assert.match(pdf, /addPage/);
-  assert.match(pdf, /Page/);
   assert.match(pdf, /input\.document\.events/);
   assert.match(pdf, /Planning events and notes/);
   assert.match(route, /Content-Type": "application\/pdf"/);
