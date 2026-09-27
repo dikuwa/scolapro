@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
@@ -329,7 +330,13 @@ export function ConductWorkspace({
                     {event.category_snapshot?.points !== undefined ? <><span aria-hidden="true">·</span><span>{signed(event.category_snapshot.points)}</span></> : null}
                     {policyType === "violation" && event.severity ? <><span aria-hidden="true">·</span><span className="capitalize">{event.severity}</span></> : null}
                   </div>
-                  <p className="text-sm text-foreground">{events.map((row) => row.learner_name).join(", ")}</p>
+                  <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm">
+                    {events.map((row) => (
+                      <Link key={row.id} href={`/conduct/learners/${row.learner_id}`} className="font-medium text-brand-strong hover:underline">
+                        {row.learner_name}
+                      </Link>
+                    ))}
+                  </div>
                   {event.details ? <p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{event.details}</p> : null}
                 </article>
               );
