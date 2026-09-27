@@ -34,6 +34,9 @@ export default async function TeachingFilesPage() {
     schoolId: membership.schoolId,
     academicYear,
     staffMemberId: ownerMembership?.staffMemberId ?? null,
+    canOpenLessonPreparations: context.memberships.some(
+      (item) => item.schoolId === membership.schoolId && ["teacher", "class_teacher"].includes(item.roleKey),
+    ),
   });
 
   return (
