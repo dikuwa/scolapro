@@ -50,3 +50,16 @@ test("existing ownership and unsourced taxonomy guardrails remain",()=>{
   assert.match(page,/ownerStaffMemberId/);
   assert.match(page,/canUploadProfessionalDocuments/);
 });
+
+
+test("lesson preparation link follows route capability instead of staff identity alone",()=>{
+  assert.match(page,/canOpenLessonPreparations/);
+  assert.match(page,/teacher/);
+  assert.match(page,/class_teacher/);
+  assert.match(queries,/input\.canOpenLessonPreparations/);
+});
+
+test("authoritative source links use the shared CTA treatment",()=>{
+  assert.match(workspace,/scolapro-cta/);
+  assert.match(workspace,/scolapro-cta-icon/);
+});
