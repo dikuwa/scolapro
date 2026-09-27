@@ -27,7 +27,7 @@ test("multi learner recording and pending duplicate submit protection remain", (
   assert.match(workspace,/name="learnerIds"/);
   assert.match(workspace,/multipleLabel="learner"/);
   assert.match(workspace,/selectedValues=\{selected\}/);
-  assert.match(workspace,/selected\.length >= 1000/);
+  assert.match(workspace,/of 1000 learners selected/);
   assert.match(workspace,/loading=\{pending\}/);
 });
 
