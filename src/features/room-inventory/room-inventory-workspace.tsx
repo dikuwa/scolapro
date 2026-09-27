@@ -207,7 +207,10 @@ export function RoomInventoryWorkspace({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeRoomWorkspace();
+      if (event.key === "Escape") {
+        setOverlayOpen(false);
+        setRoomPickerValue("");
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -281,7 +284,7 @@ export function RoomInventoryWorkspace({
           {rooms.map((candidate) => {
             const isMine = Boolean(candidate.custodianId && viewerStaff.has(candidate.custodianId));
             const attention = roomAttentionCount(candidate.id);
-            const selected = candidate.id === activeRoomId;
+            const selected = overlayOpen && candidate.id === activeRoomId;
             return (
               <button
                 key={candidate.id}
@@ -334,8 +337,8 @@ export function RoomInventoryWorkspace({
           >
             <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border-subtle bg-surface/95 px-4 py-3 backdrop-blur sm:px-5">
               <div className="min-w-0">
-                <p className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">${selectedRoomIsMine ? "Your room" : "Room inventory"}</p>
-                <h2 id="room-inventory-dialog-title" className="truncate text-lg font-semibold text-foreground">${room.name}</h2>
+                <p className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">{selectedRoomIsMine ? "Your room" : "Room inventory"}</p>
+                <h2 id="room-inventory-dialog-title" className="truncate text-lg font-semibold text-foreground">{room.name}</h2>
               </div>
               <Button type="button" variant="neutral" size="sm" onClick={closeRoomWorkspace} aria-label="Close room workspace">
                 <X className="size-4" />Close
