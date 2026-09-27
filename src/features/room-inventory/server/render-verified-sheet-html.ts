@@ -99,7 +99,7 @@ export function renderVerifiedRoomInventoryHtml(input: {
 </head>
 <body>
 <article class="report">
-  ${renderOfficialDocumentHtmlHeader(input.header)}
+  ${renderOfficialDocumentHtmlHeader(input.header, undefined, { layout: "compact_left" })}
   <section class="document-title">
     <h2>VERIFIED ROOM INVENTORY SHEET</h2>
     <p>${escapeOfficialDocumentHtml(input.sheet.roomDisplayName)}</p>
