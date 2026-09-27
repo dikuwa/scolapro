@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { LockKeyhole, ShieldCheck, UsersRound } from "lucide-react";
+import { ChevronDown, ChevronRight, LockKeyhole, Pencil, Plus, ShieldCheck, UsersRound } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -282,6 +282,13 @@ export function SportsHousesWorkspace({
 }) {
   const activeHouses = useMemo(() => houses.filter((house) => house.status === "active"), [houses]);
   const leaders = staff.filter((item) => item.roleKey === "leader");
+  const [editingHouseId, setEditingHouseId] = useState<string | null>(null);
+  const [addingHouse, setAddingHouse] = useState(false);
+  const [editingAgeGroupId, setEditingAgeGroupId] = useState<string | null>(null);
+  const [addingAgeGroup, setAddingAgeGroup] = useState(false);
+  const [balanceOpen, setBalanceOpen] = useState(false);
+  const [learnerAllocationOpen, setLearnerAllocationOpen] = useState(false);
+  const [staffAllocationOpen, setStaffAllocationOpen] = useState(false);
 
   return (
     <div className="space-y-5">
