@@ -53,7 +53,7 @@ const eventSchema = z.object({
   type: z.enum(["recognition", "violation"]),
   date: z.string().date(),
   note: z.string().trim().max(10000),
-  learnerIds: z.array(z.string().uuid()).min(1).max(200),
+  learnerIds: z.array(z.string().uuid()).min(1).max(1000),
 });
 export async function recordConductEvent(_state: ConductActionState, form: FormData): Promise<ConductActionState> {
   const parsed = eventSchema.safeParse({
