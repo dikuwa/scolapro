@@ -321,3 +321,12 @@ test("guardian postal address prefers parent priority order and stays mail-merge
   assert.match(xlsx, /wrapText="1"/);
   assert.match(xlsx, /addressSelected \? 42 : 18/);
 });
+
+
+test("Class List Excel keeps an open crest bay and compact header geometry", () => {
+  assert.match(xlsx, /showGridLines="0"/);
+  assert.match(xlsx, /targetHeightEmu = 700000/);
+  assert.match(xlsx, /\{ hpt: 22 \}/);
+  assert.match(xlsx, /\{ hpt: 9 \}/);
+  assert.match(xlsx, /\{ hpt: 11 \}/);
+});
