@@ -10,6 +10,7 @@ import type { OfficialDocumentHeaderModel } from "@/features/documents/server/of
 import {
   createOfficialDocumentPdfResources,
   drawOfficialDocumentPdfCentered,
+  drawOfficialDocumentPdfHeader,
   fitOfficialDocumentPdfText,
   officialDocumentPdfSafeText,
 } from "@/features/documents/server/official-document-pdf-header";
@@ -41,23 +42,16 @@ const {
 const CONTENT_WIDTH = officialDocumentPdfContentWidth();
 const INK = rgb(0.08, 0.08, 0.08);
 const LINE = rgb(0.28, 0.28, 0.28);
-const CLASS_LIST_HEADER_HEIGHT = 58;
+const CLASS_LIST_HEADER_RESERVE = 88;
 const TABLE_HEADER_HEIGHT = 18;
 const ROW_HEIGHT = 13;
 const FOOTER_RESERVE = 28;
-
 
 function normalizedSex(value: string | null): "M" | "F" | "" {
   const normalized = value?.trim().toLowerCase();
   if (normalized === "male" || normalized === "m") return "M";
   if (normalized === "female" || normalized === "f") return "F";
   return "";
-}
-
-function drawRightAlignedText(page: PDFPage, font: PDFFont, value: string, size: number, x: number, width: number, y: number) {
-  const rendered = fitOfficialDocumentPdfText(font, value, size, width);
-  const renderedWidth = font.widthOfTextAtSize(rendered, size);
-  page.drawText(rendered, { x: x + Math.max(0, width - renderedWidth), y, size, font, color: INK });
 }
 
 function drawClassListHeader(
@@ -67,69 +61,57 @@ function drawClassListHeader(
   tableWidth: number,
   documentX: number,
 ): number {
-  const { regular, bold, schoolNameFont, logo } = resources;
-  const topY = PAGE_HEIGHT - MARGIN;
-  page.drawRectangle({
-    x: documentX,
-    y: topY - CLASS_LIST_HEADER_HEIGHT,
-    width: tableWidth,
-    height: CLASS_LIST_HEADER_HEIGHT,
-    borderWidth: 0.65,
-    borderColor: LINE,
-  });
-
-  const logoBoxWidth = logo ? 48 : 0;
-  if (logo) {
-    const scale = Math.min(40 / logo.width, 42 / logo.height);
-    const width = logo.width * scale;
-    const height = logo.height * scale;
-    page.drawImage(logo, {
-      x: documentX + 5 + Math.max(0, (logoBoxWidth - width) / 2),
-      y: topY - 50 + Math.max(0, (42 - height) / 2),
-      width,
-      height,
-    });
-  }
-
-  const metaWidth = Math.min(175, Math.max(135, tableWidth * 0.4));
-  const metaX = documentX + tableWidth - metaWidth - 7;
-  const schoolX = documentX + 7 + logoBoxWidth;
-  const schoolWidth = Math.max(90, metaX - schoolX - 8);
-  let schoolSize = input.header.schoolNameFont === "old_english" ? 17 : 14;
-  while (schoolSize > 10 && schoolNameFont.widthOfTextAtSize(input.header.schoolName, schoolSize) > schoolWidth) schoolSize -= 0.5;
-  page.drawText(fitOfficialDocumentPdfText(schoolNameFont, input.header.schoolName, schoolSize, schoolWidth), {
-    x: schoolX,
-    y: topY - 18,
-    size: schoolSize,
-    font: schoolNameFont,
-    color: INK,
-  });
-
+  const { regular, bold } = resources;
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
-  if (input.roomName) {
-    page.drawText(fitOfficialDocumentPdfText(regular, `Room: ${input.roomName}`, 6.1, schoolWidth), {
-      x: schoolX,
-      y: topY - 31,
-      size: 6.1,
-      font: regular,
-      color: INK,
+  let y = drawOfficialDocumentPdfHeader(page, input.header, resources, PAGE_HEIGHT - MARGIN, {
+    documentX,
+    documentWidth: tableWidth,
+    context: {
+      title: classListDocumentName(input.registerClass, input.rosterTitle),
+      primaryContext: `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`,
+      summary: `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`,
+    },
+  });
+
+  if (input.roomName || input.responsibleTeacherName) {
+    const stripHeight = 14;
+    page.drawRectangle({
+      x: documentX,
+      y: y - stripHeight,
+      width: tableWidth,
+      height: stripHeight,
+      borderWidth: 0.55,
+      borderColor: LINE,
     });
-  }
-  if (input.responsibleTeacherName) {
-    page.drawText(fitOfficialDocumentPdfText(regular, `Teacher: ${input.responsibleTeacherName}`, 5.9, schoolWidth), {
-      x: schoolX,
-      y: topY - 42,
-      size: 5.9,
-      font: regular,
-      color: INK,
-    });
+    const half = tableWidth / 2;
+    if (input.roomName) {
+      page.drawText("Room:", { x: documentX + 5, y: y - 9.5, size: 5.7, font: bold, color: INK });
+      page.drawText(fitOfficialDocumentPdfText(regular, input.roomName, 5.7, half - 34), {
+        x: documentX + 31,
+        y: y - 9.5,
+        size: 5.7,
+        font: regular,
+        color: INK,
+      });
+    }
+    if (input.responsibleTeacherName) {
+      const label = "Responsible teacher:";
+      const labelWidth = bold.widthOfTextAtSize(label, 5.7);
+      const x = documentX + half;
+      page.drawText(label, { x: x + 5, y: y - 9.5, size: 5.7, font: bold, color: INK });
+      page.drawText(fitOfficialDocumentPdfText(regular, input.responsibleTeacherName, 5.7, half - labelWidth - 14), {
+        x: x + 8 + labelWidth,
+        y: y - 9.5,
+        size: 5.7,
+        font: regular,
+        color: INK,
+      });
+    }
+    y -= stripHeight;
   }
 
-  drawRightAlignedText(page, bold, classListDocumentName(input.registerClass, input.rosterTitle), 10.5, metaX, metaWidth, topY - 16);
-  drawRightAlignedText(page, regular, `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`, 6.2, metaX, metaWidth, topY - 29);
-  drawRightAlignedText(page, regular, `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`, 5.9, metaX, metaWidth, topY - 40);
-  return topY - CLASS_LIST_HEADER_HEIGHT;
+  return y;
 }
 
 function preferredColumnWidth(key: string): number {
@@ -201,7 +183,7 @@ export async function renderOfficialClassListPdf(
   const columns = fitColumnWidths(documentColumns.map((column) => column.key));
   const tableWidth = columns.reduce((sum, width) => sum + width, 0);
   const documentX = Math.max(MARGIN, (PAGE_WIDTH - tableWidth) / 2);
-  const availableRowsHeight = PAGE_HEIGHT - MARGIN * 2 - CLASS_LIST_HEADER_HEIGHT - TABLE_HEADER_HEIGHT - FOOTER_RESERVE;
+  const availableRowsHeight = PAGE_HEIGHT - MARGIN * 2 - CLASS_LIST_HEADER_RESERVE - TABLE_HEADER_HEIGHT - FOOTER_RESERVE;
   const rowHeight = documentColumns.some((column) => column.key === "guardianAddress") ? 22 : ROW_HEIGHT;
   const rowsPerPage = Math.max(1, Math.floor(availableRowsHeight / rowHeight));
   const chunks: OfficialClassListRow[][] = [];

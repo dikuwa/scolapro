@@ -3,7 +3,11 @@ import "server-only";
 import { Buffer } from "node:buffer";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import {
+  normalizeInternalSchoolDocumentHeaderContext,
+  type InternalSchoolDocumentHeaderContext,
+  type OfficialDocumentHeaderModel,
+} from "@/features/documents/server/official-document-header";
 
 export function escapeOfficialDocumentHtml(value: string | number | null | undefined): string {
   return String(value ?? "")
@@ -63,17 +67,13 @@ function officialOldEnglishFontFace(): string {
     : "";
 }
 
-/**
- * Canonical school-identity markup for official HTML documents.
- *
- * Document families own their title/body/footer, while the school logo,
- * identity, contact order, EMIS line, and postal block are rendered from the
- * shared official header model in one place.
- */
 export function renderOfficialDocumentHtmlHeader(
   header: OfficialDocumentHeaderModel,
   logoBytes?: Uint8Array | null,
-  options: { layout?: "standard" | "compact_left" } = {},
+  options: {
+    layout?: "standard" | "compact_left";
+    context?: InternalSchoolDocumentHeaderContext;
+  } = {},
 ): string {
   const resolvedLogoUrl = logoDataUrl(logoBytes) || localPublicAssetDataUrl(header.logoUrl) || header.logoUrl;
   const schoolLogoMarkup = resolvedLogoUrl
@@ -83,12 +83,9 @@ export function renderOfficialDocumentHtmlHeader(
   const coatOfArmsMarkup = `<div class="coat-of-arms-wrap"><img class="governed-coat-of-arms" src="${escapeOfficialDocumentHtml(resolvedCoatOfArmsUrl)}" alt="${escapeOfficialDocumentHtml(header.governedCoatOfArms.alt)}" /></div>`;
   const nameClass = header.schoolNameFont === "old_english" ? " old-english" : "";
   const contactMarkup = header.contactLines
-    .map((line) => `<div><span>${escapeOfficialDocumentHtml(line.label)}:</span> ${escapeOfficialDocumentHtml(line.value)}</div>`)
+    .map((line) => `<div><strong>${escapeOfficialDocumentHtml(line.label)}:</strong> ${escapeOfficialDocumentHtml(line.value)}</div>`)
     .join("");
-  const postalMarkup = header.postalLines
-    .map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`)
-    .join("");
-
+  const postalMarkup = header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`).join("");
   const fontFace = header.schoolNameFont === "old_english" ? officialOldEnglishFontFace() : "";
 
   if (header.mode === "external_correspondence") {
@@ -105,15 +102,24 @@ export function renderOfficialDocumentHtmlHeader(
   </header>`;
   }
 
+  const context = options.context ? normalizeInternalSchoolDocumentHeaderContext(options.context) : null;
   const layoutClass = options.layout === "compact_left" ? " compact-left" : "";
-  return `${fontFace}<header class="school-header${layoutClass}">
+  const contextMarkup = context
+    ? `<div class="internal-document-context">
+        <div class="document-context-title">${escapeOfficialDocumentHtml(context.title)}</div>
+        ${context.primaryContext ? `<div>${escapeOfficialDocumentHtml(context.primaryContext)}</div>` : ""}
+        ${context.secondaryContext ? `<div>${escapeOfficialDocumentHtml(context.secondaryContext)}</div>` : ""}
+        ${context.summary ? `<div class="document-context-summary">${escapeOfficialDocumentHtml(context.summary)}</div>` : ""}
+      </div>`
+    : '<div class="internal-document-context"></div>';
+
+  return `${fontFace}<header class="school-header internal-school${layoutClass}">
     ${schoolLogoMarkup}
     <div class="school-identity">
       <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
       ${header.formerName ? `<div class="former-name">(${escapeOfficialDocumentHtml(header.formerName)})</div>` : ""}
       ${contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : ""}
-      ${header.schoolEmisNumber ? `<div class="emis">EMIS: ${escapeOfficialDocumentHtml(header.schoolEmisNumber)}</div>` : ""}
     </div>
-    <div class="postal">${postalMarkup}</div>
+    ${contextMarkup}
   </header>`;
 }

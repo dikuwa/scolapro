@@ -36,6 +36,13 @@ export type OfficialDocumentHeaderContactLine = {
   text: string;
 };
 
+export type InternalSchoolDocumentHeaderContext = {
+  title: string;
+  primaryContext?: string | null;
+  secondaryContext?: string | null;
+  summary?: string | null;
+};
+
 export type OfficialDocumentHeaderModel = {
   mode: OfficialDocumentHeaderMode;
   schoolName: string;
@@ -80,13 +87,24 @@ function contactLine(
   return { key, label, value: normalized, text: `${label}: ${normalized}` };
 }
 
+export function normalizeInternalSchoolDocumentHeaderContext(
+  context: InternalSchoolDocumentHeaderContext,
+): Required<InternalSchoolDocumentHeaderContext> {
+  return {
+    title: context.title.trim(),
+    primaryContext: context.primaryContext?.trim() ?? "",
+    secondaryContext: context.secondaryContext?.trim() ?? "",
+    summary: context.summary?.trim() ?? "",
+  };
+}
+
 /**
  * Shared semantic header contract for ScolaPro official school documents.
  *
  * The frozen SchoolDocumentProfile remains authoritative. This layer only
  * normalizes how the same identity/contact fields are presented so HTML, PDF,
- * class lists, report cards, and later official document families cannot drift
- * into different labels or field ordering.
+ * XLSX and later official document families cannot drift into different labels
+ * or field ordering.
  */
 export function buildOfficialDocumentHeaderModel(
   profile: OfficialDocumentHeaderProfile,

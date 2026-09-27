@@ -74,13 +74,14 @@ export async function renderVerifiedRoomInventoryPdf(input: {
   const newPage = () => {
     const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
     pages.push(page);
-    let y = drawOfficialDocumentPdfHeader(page, input.header, resources, undefined, { layout: "compact_left" });
-    const title = "VERIFIED ROOM INVENTORY SHEET";
-    const titleWidth = bold.widthOfTextAtSize(title, 12);
-    page.drawText(title, { x: (PAGE_WIDTH - titleWidth) / 2, y: y - 22, size: 12, font: bold, color: INK });
-    const room = fitOfficialDocumentPdfText(regular, input.sheet.roomDisplayName, 8, CONTENT_WIDTH);
-    page.drawText(room, { x: MARGIN + (CONTENT_WIDTH - regular.widthOfTextAtSize(room, 8)) / 2, y: y - 35, size: 8, font: regular, color: INK });
-    y -= 48;
+    let y = drawOfficialDocumentPdfHeader(page, input.header, resources, undefined, {
+      context: {
+        title: "VERIFIED ROOM INVENTORY SHEET",
+        primaryContext: `Room ${input.sheet.roomDisplayName}`,
+        summary: `Verified ${input.sheet.verifiedOn}`,
+      },
+    });
+    y -= 10;
     return { page, y };
   };
 
@@ -101,10 +102,13 @@ export async function renderVerifiedRoomInventoryPdf(input: {
     [`Room: ${input.sheet.roomDisplayName}`, `Block / section: ${input.sheet.blockName || "—"}`],
     [`Linked register class: ${classLabel}`, `Responsible custodian: ${input.sheet.custodian.staffName || "Not assigned"}`],
     [`Custodian source: ${sourceLabel}`, `Verified: ${input.sheet.verifiedOn} · ${input.sheet.verificationStatus.replaceAll("_", " ")}`],
+    [`Revision: ${input.sheet.revision}`, ""],
   ];
   for (const [left, right] of meta) {
     page.drawText(fitOfficialDocumentPdfText(regular, left, 6.5, CONTENT_WIDTH / 2 - 8), { x: MARGIN, y, size: 6.5, font: regular, color: INK });
-    page.drawText(fitOfficialDocumentPdfText(regular, right, 6.5, CONTENT_WIDTH / 2 - 8), { x: MARGIN + CONTENT_WIDTH / 2, y, size: 6.5, font: regular, color: INK });
+    if (right) {
+      page.drawText(fitOfficialDocumentPdfText(regular, right, 6.5, CONTENT_WIDTH / 2 - 8), { x: MARGIN + CONTENT_WIDTH / 2, y, size: 6.5, font: regular, color: INK });
+    }
     y -= 11;
   }
   y -= 4;

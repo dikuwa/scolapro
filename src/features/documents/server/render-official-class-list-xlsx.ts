@@ -172,6 +172,8 @@ function embedLogoAndStyles(
   sheetXml = setCellStyle(sheetXml, "B2", 7);
   sheetXml = setCellStyle(sheetXml, "B3", 7);
   sheetXml = setCellStyle(sheetXml, "B4", 7);
+  sheetXml = setCellStyle(sheetXml, "B5", 7);
+  sheetXml = setCellStyle(sheetXml, "B6", 7);
   sheetXml = setCellStyle(sheetXml, metaColumn + "1", 2);
   sheetXml = setCellStyle(sheetXml, metaColumn + "2", 3);
   sheetXml = setCellStyle(sheetXml, metaColumn + "3", 3);
@@ -196,7 +198,7 @@ function embedLogoAndStyles(
 
     writePart(CFB, cfb, imagePath, logoBytes);
     const dimensions = readImageDimensions(logoBytes) ?? { width: 1, height: 1 };
-    const targetHeightEmu = 590550;
+    const targetHeightEmu = 650000;
     const targetWidthEmu = Math.round(targetHeightEmu * (dimensions.width / dimensions.height));
     writePart(CFB, cfb, drawingPath,
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
@@ -265,6 +267,8 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
     blankRow(),
     blankRow(),
     blankRow(),
+    blankRow(),
+    blankRow(),
     columns.map((column) => column.label),
     ...input.learners.map((learner, index) => columns.map((column) => column.value(learner, index))),
   ];
@@ -272,10 +276,20 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
   const maleCount = input.learners.filter((learner) => normalizedSex(learner.sex) === "M").length;
   const femaleCount = input.learners.filter((learner) => normalizedSex(learner.sex) === "F").length;
 
+  const contact = new Map(header.contactLines.map((line) => [line.key, line]));
+  const address = contact.get("address");
+  const telephone = contact.get("telephone");
+  const fax = contact.get("fax");
+  const email = contact.get("email");
   rows[0][1] = header.schoolName;
-  rows[1][1] = input.roomName ? "Room: " + input.roomName : "";
-  rows[2][1] = input.responsibleTeacherName ? "Teacher: " + input.responsibleTeacherName : "";
-  rows[3][1] = "";
+  rows[1][1] = header.formerName ? "(" + header.formerName + ")" : "";
+  rows[2][1] = address ? address.label + ": " + address.value : "";
+  rows[3][1] = [telephone ? telephone.label + ": " + telephone.value : "", fax ? fax.label + ": " + fax.value : ""].filter(Boolean).join("   ");
+  rows[4][1] = email ? email.label + ": " + email.value : "";
+  rows[5][1] = [
+    input.roomName ? "Room: " + input.roomName : "",
+    input.responsibleTeacherName ? "Responsible teacher: " + input.responsibleTeacherName : "",
+  ].filter(Boolean).join("   ");
   rows[0][metaStartColumn] = classListDocumentName(input.className, input.title);
   rows[1][metaStartColumn] = input.grade + " · " + input.className + " · " + input.academicYear;
   rows[2][metaStartColumn] = "Male " + maleCount + " · Female " + femaleCount + " · " + input.learners.length + " learners";
@@ -289,6 +303,8 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
     XLSX.utils.decode_range("B2:" + leftEndColumnName + "2"),
     XLSX.utils.decode_range("B3:" + leftEndColumnName + "3"),
     XLSX.utils.decode_range("B4:" + leftEndColumnName + "4"),
+    XLSX.utils.decode_range("B5:" + leftEndColumnName + "5"),
+    XLSX.utils.decode_range("B6:" + leftEndColumnName + "6"),
     XLSX.utils.decode_range(metaStartColumnName + "1:" + lastColumnName + "1"),
     XLSX.utils.decode_range(metaStartColumnName + "2:" + lastColumnName + "2"),
     XLSX.utils.decode_range(metaStartColumnName + "3:" + lastColumnName + "3"),
@@ -298,10 +314,12 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
   }));
   const addressSelected = input.configuration.columns.includes("guardianAddress");
   worksheet["!rows"] = [
-    { hpt: 24 },
-    { hpt: 16 },
-    { hpt: 16 },
-    { hpt: 8 },
+    { hpt: 23 },
+    { hpt: 10 },
+    { hpt: 10 },
+    { hpt: 10 },
+    { hpt: 10 },
+    { hpt: 12 },
     { hpt: 21 },
     ...input.learners.map(() => ({ hpt: addressSelected ? 42 : 18 })),
   ];
@@ -342,7 +360,7 @@ export function renderClassListXlsx(
   XLSX.utils.book_append_sheet(workbook, built.worksheet, "Class List");
   workbook.Props = { Title: classListDocumentName(input.className, input.title), Subject: "ScolaPro class list", Author: input.schoolName };
   const baseBytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
-  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 5, input.learners.length, built.dataColumnCount, built.metaStartColumn);
+  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 7, input.learners.length, built.dataColumnCount, built.metaStartColumn);
   return arrayBufferFromBuffer(rendered);
 }
 
@@ -378,7 +396,7 @@ export function renderClassListBatchXlsx(
     rendered = embedLogoAndStyles(
       rendered,
       logoBytes,
-      5,
+      7,
       input.learners.length,
       built.dataColumnCount,
       built.metaStartColumn,

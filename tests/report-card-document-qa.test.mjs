@@ -21,7 +21,7 @@ test("report-card HTML uses shared browser-print pagination and repeated result 
   assert.match(chrome, /thead \{ display: table-header-group; \}/);
   assert.match(chrome, /\.report \{ break-inside: auto; \}/);
   assert.match(chrome, /@media \(max-width: 640px\)/);
-  assert.match(chrome, /\.school-header > \.postal/);
+  assert.match(chrome, /\.school-header\.internal-school > \.internal-document-context/);
   assert.match(htmlBase, /<table class="results-table">/);
   assert.match(htmlBase, /<thead>/);
   assert.match(htmlBase, /html, body \{ margin: 0; padding: 0; background: #fff; color: var\(--ink\); \}/);
