@@ -17,7 +17,7 @@ export default async function RoomInventoryPage() {
   const currentSchoolId = context.currentSchoolMembership?.schoolId ?? null;
   if (!currentSchoolId) redirect("/");
 
-  const managerMembership = context.memberships.find((membership) => managerRoles.has(membership.roleKey));
+  const managerMembership = context.memberships.find((membership) => membership.schoolId === currentSchoolId && managerRoles.has(membership.roleKey));
   let canAccess = Boolean(managerMembership);
 
   if (!canAccess) {
