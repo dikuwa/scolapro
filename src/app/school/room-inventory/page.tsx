@@ -17,7 +17,7 @@ export default async function RoomInventoryPage() {
   const currentSchoolId = context.currentSchoolMembership?.schoolId ?? null;
   if (!currentSchoolId) redirect("/");
 
-  const managerMembership = context.memberships.find((membership) => managerRoles.has(membership.roleKey));
+  const managerMembership = context.memberships.find((membership) => membership.schoolId === currentSchoolId && managerRoles.has(membership.roleKey));
   let canAccess = Boolean(managerMembership);
 
   if (!canAccess) {
@@ -40,16 +40,31 @@ export default async function RoomInventoryPage() {
   if (!canAccess) redirect("/");
 
   const workspace = await getRoomInventoryWorkspace(currentSchoolId);
+  const viewerStaffMemberIds = [...new Set(
+    context.memberships
+      .filter((membership) => membership.schoolId === currentSchoolId)
+      .map((membership) => membership.staffMemberId)
+      .filter((staffMemberId): staffMemberId is string => Boolean(staffMemberId)),
+  )];
+  const isManager = Boolean(managerMembership);
+
   return (
     <AppShell>
       <div className="space-y-5">
         <div>
-          <h1 className="scolapro-page-title">Room Inventory</h1>
+          <h1 className="scolapro-page-title">{isManager ? "Room Inventory" : "My Room Inventory"}</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Persistent room asset register with GRN, school and personal ownership, responsible staff and no-change verification. Official census mappings remain source-gated.
+            {isManager
+              ? "Scan rooms first, open one when you need detail, and keep assignments or changes out of the way until they are needed."
+              : "Review the room inventory you are responsible for, record changes when needed, and confirm the room after checking it."}
           </p>
         </div>
-        <RoomInventoryWorkspace {...workspace} today={getNamibiaDateKey()} canAssign={Boolean(managerMembership)} />
+        <RoomInventoryWorkspace
+          {...workspace}
+          today={getNamibiaDateKey()}
+          canAssign={isManager}
+          viewerStaffMemberIds={viewerStaffMemberIds}
+        />
       </div>
     </AppShell>
   );
