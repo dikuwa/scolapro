@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { SearchableSelect, type SearchableSelectBulkActionGroup } from "@/components/ui/searchable-select";
+import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Spinner } from "@/components/ui/spinner";
 import { ConductDialog, ConductForm, fieldClass, useConductFormPending } from "./controls";
 import { recordConductEvent } from "./server/actions";
@@ -67,7 +68,7 @@ function EventForm({
       const uniqueIds = [...new Set(ids)];
       const allSelected = uniqueIds.length > 0 && uniqueIds.every((id) => currentSet.has(id));
       if (allSelected) return current.filter((id) => !uniqueIds.includes(id));
-      const room = Math.max(0, 200 - current.length);
+      const room = Math.max(0, 1000 - current.length);
       const additions = uniqueIds.filter((id) => !currentSet.has(id)).slice(0, room);
       return [...current, ...additions];
     });
@@ -157,14 +158,14 @@ function EventForm({
           onToggle={(id) => {
             setSelected((current) => {
               if (current.includes(id)) return current.filter((value) => value !== id);
-              if (current.length >= 200) return current;
+              if (current.length >= 1000) return current;
               return [...current, id];
             });
           }}
           bulkActionGroups={learnerBulkActions}
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">{selected.length} of 200 learners selected</span>
+          <span className="text-xs text-muted-foreground">{selected.length} of 1000 learners selected</span>
           {selected.length ? (
             <button type="button" onClick={() => setSelected([])} className="text-xs font-medium text-brand-strong hover:underline">
               Clear selection
@@ -319,7 +320,7 @@ export function ConductWorkspace({
           <DateField label="Roster / event date" name="rosterDate" value={filters.on} onChange={(on) => { if (on) change({ on, gradeId: "", classId: "" }); }} max={today} />
           <Picker label="Grade" value={filters.gradeId} onChange={(gradeId) => change({ gradeId, classId: "", learnerId: "" })} options={[{ value: "", label: "All grades" }, ...unique("grade_id", "grade_name", learners)]} placeholder="All grades" disabled={pending} />
           <Picker label="Class" value={filters.classId} onChange={(classId) => change({ classId, learnerId: "" })} options={[{ value: "", label: "All classes" }, ...unique("class_id", "class_name", learners.filter((learner) => !filters.gradeId || learner.grade_id === filters.gradeId))]} placeholder="All classes" disabled={pending} />
-          <Picker label="Learner" value={filters.learnerId} onChange={(learnerId) => change({ learnerId, classId: "", gradeId: "" })} searchable searchPlaceholder="Type learner name" options={[{ value: "", label: "All learners" }, ...learners.map((learner) => ({ value: learner.learner_id, label: learner.learner_name, helper: learner.class_name ?? learner.grade_name ?? "No class" }))]} placeholder="All learners" disabled={pending} />
+          <Picker label="Learner" value={filters.learnerId} onChange={(learnerId) => change({ learnerId })} searchable searchPlaceholder="Type learner name" options={[{ value: "", label: "All learners" }, ...roster.map((learner) => ({ value: learner.learner_id, label: learner.learner_name, helper: learner.class_name ?? learner.grade_name ?? "No class" }))]} placeholder="All learners" disabled={pending} />
         </div>
       </section>
 
