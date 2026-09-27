@@ -14,29 +14,29 @@ export const OFFICIAL_DOCUMENT_FRAME_RULE =
   ".report { width: 100%; border: 1.2px solid var(--line); padding: 7mm 7mm 5mm; min-height: 270mm; }";
 
 export const OFFICIAL_DOCUMENT_HEADER_RULE =
-  ".school-header { display: grid; grid-template-columns: 88px minmax(0,1fr) 128px; gap: 10px; align-items: center; border: 1px solid var(--line); padding: 8px 10px; min-height: 92px; }";
+  ".school-header { display: grid; grid-template-columns: 68px minmax(0,1fr) minmax(150px,36%); gap: 8px; align-items: center; border: 1px solid var(--line); padding: 6px 8px; min-height: 76px; }";
 
-/**
- * Keep the official header readable when an HTML print view is inspected on
- * a phone-sized viewport. The fixed postal column otherwise overlaps the
- * school's contact block once the identity column becomes too narrow.
- */
 export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
-  "@media (max-width: 640px) { .school-header { grid-template-columns: 76px minmax(0,1fr); align-items: start; } .school-header > .logo-wrap { grid-row: 1 / span 2; } .school-header > .school-identity, .school-header > .postal { grid-column: 2; } .school-header > .postal { align-self: start; padding-bottom: 0; } }";
+  "@media (max-width: 640px) { .school-header.internal-school { grid-template-columns: 58px minmax(0,1fr); align-items: start; } .school-header.internal-school > .logo-wrap { grid-row: 1; } .school-header.internal-school > .school-identity { grid-column: 2; } .school-header.internal-school > .internal-document-context { grid-column: 1 / -1; text-align: left; border-top: 1px solid var(--line); padding-top: 5px; } }";
 
 export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
   `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}
   .report { position: relative; isolation: isolate; }
   .report::before { content: "ScolaPro"; position: absolute; left: 50%; top: 49%; transform: translate(-50%,-50%) rotate(-28deg); z-index: 0; color: #2548d8; opacity: .055; font: 700 52px/1 Arial,sans-serif; letter-spacing: .08em; pointer-events: none; user-select: none; white-space: nowrap; }
   .report > * { position: relative; z-index: 1; }
+  .school-header .logo-wrap { display:flex; align-items:center; justify-content:center; min-height:62px; }
+  .school-header .school-logo { display:block; max-width:58px; max-height:62px; object-fit:contain; }
+  .school-header .school-identity { min-width:0; text-align:left; align-self:center; }
+  .school-header .school-name { margin:0 0 2px; font-size:17px; line-height:1; font-weight:700; white-space:normal; }
   .school-name.old-english { font-family: "UnifrakturCook","Old English Text MT","Lucida Blackletter","Times New Roman",serif; font-weight: 700; letter-spacing: 0; }
-  .school-header.compact-left { grid-template-columns: 66px minmax(0,1fr) 128px; gap: 8px; min-height: 82px; }
-  .school-header.compact-left .logo-wrap { display:flex; align-items:center; justify-content:center; }
-  .school-header.compact-left .school-logo { display:block; max-width:54px; max-height:56px; object-fit:contain; }
-  .school-header.compact-left .school-identity,
-  .school-header.compact-left .school-contact { text-align:left; }
-  .school-header.compact-left .postal { text-align:right; align-self:center; }
-  .school-header.external-correspondence { grid-template-columns: 88px minmax(0,1fr) 88px; }
+  .school-header .former-name { margin:0 0 1px; font-size:6.2px; line-height:1.08; }
+  .school-header .school-contact { font-size:6.1px; line-height:1.08; }
+  .school-header .school-contact strong { font-weight:700; }
+  .school-header.internal-school .internal-document-context { min-width:0; text-align:right; font-size:6.6px; line-height:1.12; }
+  .school-header.internal-school .document-context-title { margin-bottom:2px; font-size:11.5px; line-height:1.05; font-weight:700; letter-spacing:.01em; }
+  .school-header.internal-school .document-context-summary { margin-top:1px; }
+  .school-header.compact-left { min-height:76px; }
+  .school-header.external-correspondence { grid-template-columns: 88px minmax(0,1fr) 88px; min-height:92px; padding:8px 10px; }
   .external-correspondence .coat-of-arms-wrap,
   .external-correspondence .school-logo-right,
   .external-correspondence .school-logo-wrap { display: flex; align-items: center; justify-content: center; min-height: 76px; }
@@ -53,11 +53,6 @@ export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
     .external-correspondence .school-contact,
     .external-correspondence .external-postal,
     .external-correspondence .emis { font-size: 6.5px; }
-    .school-header.compact-left { grid-template-columns: 54px minmax(0,1fr); }
-    .school-header.compact-left > .logo-wrap { grid-row: 1 / span 2; }
-    .school-header.compact-left > .school-identity,
-    .school-header.compact-left > .postal { grid-column: 2; }
-    .school-header.compact-left .postal { text-align:left; }
     .report::before { font-size: 38px; }
   }`;
 
@@ -73,7 +68,7 @@ export const OFFICIAL_DOCUMENT_PDF_GEOMETRY = Object.freeze({
   pageWidth: 595.28,
   pageHeight: 841.89,
   margin: 34,
-  logoColumnWidth: 82,
+  logoColumnWidth: 68,
   postalColumnWidth: 116,
   metadataClearanceY: 5,
   metadataClearanceHeight: 24,
@@ -101,11 +96,6 @@ const CHROME_REPLACEMENTS: ChromeReplacement[] = [
   { name: "metadata footer", legacy: OFFICIAL_DOCUMENT_METADATA_RULE, shared: OFFICIAL_DOCUMENT_METADATA_RULE },
 ];
 
-/**
- * Verifies that a renderer exposes the shared chrome integration points.
- * Renderer-owned legacy CSS is upgraded here so renderer revision/versioning
- * semantics remain untouched while shared document print behavior can evolve.
- */
 export function applyOfficialDocumentHtmlChrome(html: string): string {
   let output = html;
 
