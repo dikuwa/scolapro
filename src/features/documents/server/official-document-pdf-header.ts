@@ -155,22 +155,21 @@ function drawInternalHeader(
   const identityWidth = Math.max(90, width - logoColumn - contextWidth - 12);
   const contextX = x + width - contextWidth - 6;
 
-  page.drawRectangle({
-    x,
-    y: topY - height,
-    width,
-    height,
-    borderWidth: 0.75,
-    borderColor: LINE,
-  });
+  const bottomY = topY - height;
+  page.drawLine({ start: { x, y: topY }, end: { x, y: bottomY }, thickness: 0.75, color: LINE });
+  page.drawLine({ start: { x: x + width, y: topY }, end: { x: x + width, y: bottomY }, thickness: 0.75, color: LINE });
+  page.drawLine({ start: { x, y: bottomY }, end: { x: x + width, y: bottomY }, thickness: 0.75, color: LINE });
+  // Keep the crest bay visually open: the top rule begins only where school identity starts.
+  page.drawLine({ start: { x: x + logoColumn, y: topY }, end: { x: x + width, y: topY }, thickness: 0.75, color: LINE });
 
   if (logo) {
-    const scale = Math.min(58 / logo.width, 60 / logo.height);
+    const maxLogoWidth = Math.max(48, logoColumn - 4);
+    const scale = Math.min(maxLogoWidth / logo.width, 64 / logo.height);
     const imageWidth = logo.width * scale;
     const imageHeight = logo.height * scale;
     page.drawImage(logo, {
-      x: x + Math.max(4, (logoColumn - imageWidth) / 2),
-      y: topY - height + Math.max(5, (height - imageHeight) / 2),
+      x: x + Math.max(2, (logoColumn - imageWidth) / 2),
+      y: bottomY + Math.max(4, (height - imageHeight) / 2),
       width: imageWidth,
       height: imageHeight,
     });
@@ -217,9 +216,18 @@ function drawInternalHeader(
   if (options.context) {
     const context = normalizeInternalSchoolDocumentHeaderContext(options.context);
     drawRightAligned(page, bold, context.title, 10.2, contextX, contextWidth, topY - 17);
-    if (context.primaryContext) drawRightAligned(page, regular, context.primaryContext, 6.2, contextX, contextWidth, topY - 30);
-    if (context.secondaryContext) drawRightAligned(page, regular, context.secondaryContext, 5.9, contextX, contextWidth, topY - 41);
-    if (context.summary) drawRightAligned(page, regular, context.summary, 5.8, contextX, contextWidth, topY - 52);
+    let contextY = topY - 29;
+    if (context.primaryContext) {
+      drawRightAligned(page, regular, context.primaryContext, 6.2, contextX, contextWidth, contextY);
+      contextY -= 8;
+    }
+    if (context.secondaryContext) {
+      drawRightAligned(page, regular, context.secondaryContext, 5.9, contextX, contextWidth, contextY);
+      contextY -= 8;
+    }
+    if (context.summary) {
+      drawRightAligned(page, regular, context.summary, 5.8, contextX, contextWidth, contextY);
+    }
   }
 
   return topY - height;
