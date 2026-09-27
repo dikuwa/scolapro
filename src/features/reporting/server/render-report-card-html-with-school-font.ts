@@ -38,12 +38,12 @@ export async function renderReportCardHtmlWithSchoolFont(
       );
   }
 
-  const sharedHeader = renderOfficialDocumentHtmlHeader(header, input.logoBytes);
+  const sharedHeader = renderOfficialDocumentHtmlHeader(header, input.logoBytes, {\n    context: {\n      title: "PROGRESS REPORT",\n      primaryContext: `${model.currentTermName}${model.academicYear ? ` · ${model.academicYear}` : ""}`,\n      summary: [model.grade, model.registerClass].filter(Boolean).join(" · "),\n    },\n  });
   const schoolHeaderPattern = /<header class="school-header">[\s\S]*?<\/header>/;
   if (!schoolHeaderPattern.test(html)) {
     throw new Error("Report-card HTML renderer did not expose the expected school header block.");
   }
-  html = html.replace(schoolHeaderPattern, sharedHeader);
+  html = html.replace(schoolHeaderPattern, sharedHeader);\n\n  const reportTitlePattern = /<section class="report-title">[\\s\\S]*?<\\/section>/;\n  if (!reportTitlePattern.test(html)) {\n    throw new Error("Report-card HTML renderer did not expose the expected report title block.");\n  }\n  html = html.replace(reportTitlePattern, "");
 
   const metadata = buildOfficialDocumentMetadata({
     snapshotVersion: model.snapshotVersion,
