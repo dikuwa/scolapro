@@ -32,7 +32,7 @@ export type LessonPreparationRow = {
 };
 
 export type LessonPreparationTerm = { id: string; name: string; startsOn: string | null; endsOn: string | null };
-export type LessonPreparationWorkspaceData = { schoolId: string; rows: LessonPreparationRow[]; terms: LessonPreparationTerm[]; reviewCadence: "weekly" | "fortnightly" | "selected" | "term_batch" };
+export type LessonPreparationWorkspaceData = { schoolId: string; rows: LessonPreparationRow[]; terms: LessonPreparationTerm[]; reviewCadence: "weekly" | "fortnightly" | "selected" | "term_batch"; aiDraftingEnabled: boolean };
 export type LessonPreparationActionState = { success?: boolean; message: string; updatedAt?: string };
 
 type NamedRow = { id: string; display_name: string };
@@ -57,6 +57,7 @@ type CurriculumSnapshot = {
 const editableStatuses = new Set(["draft", "prepared", "returned"]);
 const teacherRoles = new Set(["teacher", "class_teacher"]);
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
+const todayInNamibia = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
 async function teacherContext() {
   const context = await getUserContext();
@@ -79,7 +80,7 @@ async function ownedSchedule(scheduleId: string) {
   const { data: allocation } = await scope.db.from("teacher_allocations").select("id,staff_member_id,subject_offering_id,active_from,active_to")
     .eq("id", schedule.teacher_allocation_id).eq("staff_member_id", scope.staffId).maybeSingle();
   if (!allocation) return null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInNamibia();
   if (allocation.active_from > today || (allocation.active_to && allocation.active_to < today)) return null;
   return { ...scope, schedule, allocation };
 }
@@ -140,22 +141,34 @@ async function curriculumSnapshot(
 export async function getLessonPreparationWorkspace(): Promise<LessonPreparationWorkspaceData | null> {
   const scope = await teacherContext();
   if (!scope) return null;
-  const year = new Date().getFullYear();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInNamibia();
+  const year = Number(today.slice(0, 4));
   const { data: allocations } = await scope.db.from("teacher_allocations")
     .select("id,subject_offering_id,register_class_id,active_from,active_to")
     .eq("school_id", scope.membership.schoolId).eq("staff_member_id", scope.staffId).eq("academic_year", year)
     .lte("active_from", today).or(`active_to.is.null,active_to.gte.${today}`);
-  const { data: reviewPolicy } = await scope.db.from("preparation_review_policies")
-    .select("cadence,effective_from,effective_to")
-    .eq("school_id", scope.membership.schoolId)
-    .lte("effective_from", today)
-    .or(`effective_to.is.null,effective_to.gte.${today}`)
-    .order("effective_from", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: reviewPolicy }, { data: aiFeature }] = await Promise.all([
+    scope.db.from("preparation_review_policies")
+      .select("cadence,effective_from,effective_to")
+      .eq("school_id", scope.membership.schoolId)
+      .lte("effective_from", today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`)
+      .order("effective_from", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    scope.db.from("tenant_features")
+      .select("enabled,effective_from,effective_to")
+      .eq("tenant_id", scope.membership.tenantId)
+      .eq("feature_key", "ai_lesson_preparation")
+      .lte("effective_from", today)
+      .or(`effective_to.is.null,effective_to.gte.${today}`)
+      .order("effective_from", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   const reviewCadence = (reviewPolicy?.cadence ?? "selected") as LessonPreparationWorkspaceData["reviewCadence"];
-  if (!allocations?.length) return { schoolId: scope.membership.schoolId, rows: [], terms: [], reviewCadence };
+  const aiDraftingEnabled = aiFeature?.enabled === true;
+  if (!allocations?.length) return { schoolId: scope.membership.schoolId, rows: [], terms: [], reviewCadence, aiDraftingEnabled };
 
   const allocationIds = allocations.map((row) => row.id);
   const offeringIds = [...new Set(allocations.map((row) => row.subject_offering_id))];
@@ -296,6 +309,7 @@ export async function getLessonPreparationWorkspace(): Promise<LessonPreparation
     rows,
     terms: terms.map((term) => ({ id: term.id, name: term.display_name, startsOn: term.starts_on, endsOn: term.ends_on })),
     reviewCadence,
+    aiDraftingEnabled,
   };
 }
 
@@ -579,7 +593,7 @@ export async function submitPreparationBatch(
   }
 
   const { data: ownedPreparations } = await scope.db.from("lesson_preparations")
-    .select("id,status,prepared_by_user_id,school_id")
+    .select("id,status,prepared_by_user_id,school_id,subject_offering_id")
     .in("id", preparationIds)
     .eq("school_id", scope.membership.schoolId)
     .eq("prepared_by_user_id", scope.context.user!.id);
@@ -596,17 +610,38 @@ export async function submitPreparationBatch(
     }
   }
 
-  const { error } = await scope.db.rpc("submit_preparations", {
-    p_school_id: scope.membership.schoolId,
-    p_lesson_preparation_ids: [...new Set(preparationIds)],
-    p_scope_kind: scopeKind,
-    p_term_label: scopeMode === "fortnight" ? "Fortnight batch" : termLabel,
-    p_week_start: weekStart,
-    p_week_end: weekEnd,
-  });
-  if (error) return { message: "Batch submission could not be completed. Check the selected preparation states and current allocation." };
+  const offeringIds = [...new Set((ownedPreparations ?? []).map((row) => row.subject_offering_id).filter(Boolean))];
+  const { data: offerings, error: offeringError } = offeringIds.length
+    ? await scope.db.from("subject_offerings").select("id,subject_id").in("id", offeringIds)
+    : { data: [], error: null };
+  if (offeringError || (offerings ?? []).length !== offeringIds.length) {
+    return { message: "Batch submission could not confirm the governed subject scope." };
+  }
+  const subjectByOffering = new Map((offerings ?? []).map((row) => [row.id, row.subject_id]));
+  const preparationIdsBySubject = new Map<string, string[]>();
+  for (const row of ownedPreparations ?? []) {
+    const subjectId = subjectByOffering.get(row.subject_offering_id);
+    if (!subjectId) return { message: "Batch submission could not confirm the governed subject scope." };
+    preparationIdsBySubject.set(subjectId, [...(preparationIdsBySubject.get(subjectId) ?? []), row.id]);
+  }
+
+  for (const ids of preparationIdsBySubject.values()) {
+    const { error } = await scope.db.rpc("submit_preparations", {
+      p_school_id: scope.membership.schoolId,
+      p_lesson_preparation_ids: ids,
+      p_scope_kind: scopeKind,
+      p_term_label: scopeMode === "fortnight" ? "Fortnight batch" : termLabel,
+      p_week_start: weekStart,
+      p_week_end: weekEnd,
+    });
+    if (error) return { message: "Batch submission could not be completed. Check the selected preparation states and current allocation." };
+  }
 
   revalidatePath("/teaching/preparation");
   revalidatePath("/teaching/reviews");
-  return { success: true, message: `${new Set(preparationIds).size} preparation${new Set(preparationIds).size===1?"":"s"} submitted for governed review.` };
+  const batchCount = preparationIdsBySubject.size;
+  return {
+    success: true,
+    message: `${new Set(preparationIds).size} preparation${new Set(preparationIds).size===1?"":"s"} submitted in ${batchCount} governed subject batch${batchCount===1?"":"es"}.`,
+  };
 }
