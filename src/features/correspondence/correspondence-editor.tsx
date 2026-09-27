@@ -8,7 +8,7 @@ import { TableKit } from "@tiptap/extension-table";
 import { FontFamily, FontSize, TextStyle } from "@tiptap/extension-text-style";
 import {
   AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Download, Eye, Heading2, Italic, Link2,
-  List, ListOrdered, Mail, PenLine, Printer, Redo2, Rows3, Save, Share2, Signature, Underline as UnderlineIcon, Undo2,
+  List, ListOrdered, Mail, PenLine, Printer, Redo2, Rows3, Save, Share2, Signature, Sparkles, Underline as UnderlineIcon, Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -36,9 +36,25 @@ function ToolButton({ label, active = false, disabled = false, onPress, children
   return <Tooltip title={label}>{button}</Tooltip>;
 }
 
-function RichTextEditor({ value, onChange, readOnly, onSignature }: { value: CorrespondenceDocument["body"]; onChange: (value: CorrespondenceDocument["body"]) => void; readOnly: boolean; onSignature: () => void }) {
+function RichTextEditor({
+  value,
+  onChange,
+  readOnly,
+  onSignature,
+  aiContext,
+}: {
+  value: CorrespondenceDocument["body"];
+  onChange: (value: CorrespondenceDocument["body"]) => void;
+  readOnly: boolean;
+  onSignature: () => void;
+  aiContext: { subject: string; recipient: string; attention: string };
+}) {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiInstruction, setAiInstruction] = useState("");
+  const [aiPending, setAiPending] = useState(false);
+  const [aiMessage, setAiMessage] = useState("");
   const editor = useEditor({
     immediatelyRender: false,
     editable: !readOnly,
@@ -63,6 +79,68 @@ function RichTextEditor({ value, onChange, readOnly, onSignature }: { value: Cor
     setLinkOpen(false); setLinkUrl("");
   };
 
+  const fullText = () => editor.getText({ blockSeparator: "\n\n" }).trim();
+  const selectedText = () => {
+    const { from, to } = editor.state.selection;
+    return from === to ? "" : editor.state.doc.textBetween(from, to, "\n\n").trim();
+  };
+  const plainTextDocument = (text: string) => ({
+    type: "doc",
+    content: text
+      .split(/\n{2,}/)
+      .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").trim())
+      .filter(Boolean)
+      .map((paragraph) => ({ type: "paragraph", content: [{ type: "text", text: paragraph }] })),
+  });
+
+  const runAi = async (mode: "draft" | "improve" | "formalize" | "simplify" | "proofread" | "shorten") => {
+    const range = { from: editor.state.selection.from, to: editor.state.selection.to };
+    const selection = selectedText();
+    const existingText = selection || fullText();
+    if (mode === "draft" && !aiInstruction.trim()) {
+      setAiMessage("Tell AI what the correspondence should say first.");
+      return;
+    }
+    if (mode !== "draft" && !existingText) {
+      setAiMessage("Add some correspondence text first, or use Draft from instruction.");
+      return;
+    }
+
+    setAiPending(true);
+    setAiMessage("");
+    try {
+      const response = await fetch("/api/correspondence/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({
+          mode,
+          instruction: aiInstruction.trim() || undefined,
+          existingText: mode === "draft" ? undefined : existingText,
+          subject: aiContext.subject || undefined,
+          recipient: aiContext.recipient || undefined,
+          attention: aiContext.attention || undefined,
+        }),
+      });
+      const body = await response.json().catch(() => ({})) as { text?: string; message?: string };
+      if (!response.ok || !body.text?.trim()) throw new Error(body.message || "AI assistance could not complete this request.");
+
+      if (mode !== "draft" && selection && range.from !== range.to) {
+        editor.chain().focus().insertContentAt(range, body.text.trim()).run();
+        setAiMessage("AI suggestion applied to the selected text. Review it before saving.");
+      } else {
+        editor.commands.setContent(plainTextDocument(body.text.trim()));
+        editor.commands.focus("end");
+        setAiMessage("AI suggestion applied to the body. Review it before saving or finalizing.");
+      }
+    } catch (error) {
+      setAiMessage(error instanceof Error ? error.message : "AI assistance could not complete this request.");
+    } finally {
+      setAiPending(false);
+    }
+  };
+
   return <div className="overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated shadow-[var(--shadow-xs)]">
     {!readOnly ? <div className="border-b border-border-subtle bg-surface-muted p-2">
       <div className="flex max-w-full items-center gap-1 overflow-x-auto pb-1" role="toolbar" aria-label="Text formatting">
@@ -82,12 +160,26 @@ function RichTextEditor({ value, onChange, readOnly, onSignature }: { value: Cor
         <ToolButton label="Insert 3 by 3 table" onPress={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}><Rows3 className="size-4" /></ToolButton>
         <ToolButton label="Add link" active={editor.isActive("link")} onPress={() => setLinkOpen((current) => !current)}><Link2 className="size-4" /></ToolButton>
         <ToolButton label="Use signature block" onPress={onSignature}><Signature className="size-4" /></ToolButton>
+        <span className="mx-1 h-6 w-px shrink-0 bg-border-subtle" />
+        <ToolButton label="AI assist" active={aiOpen} onPress={() => setAiOpen((current) => !current)}><Sparkles className="size-4" /></ToolButton>
       </div>
       <div className="mt-1 grid gap-2 sm:grid-cols-2">
         <Picker ariaLabel="Approved font" value={String(editor.getAttributes("textStyle").fontFamily ?? "Aptos")} onChange={(font) => editor.chain().focus().setFontFamily(font).run()} placeholder="Approved font" options={CORRESPONDENCE_FONTS.map((font) => ({ value: font, label: font }))} />
         <Picker ariaLabel="Approved font size" value={String(editor.getAttributes("textStyle").fontSize ?? "11pt")} onChange={(fontSize) => editor.chain().focus().setFontSize(fontSize).run()} placeholder="Font size" options={CORRESPONDENCE_FONT_SIZES.map((size) => ({ value: size, label: size }))} />
       </div>
       {linkOpen ? <div className="mt-2 flex flex-col gap-2 rounded-[var(--radius-sm)] bg-surface-elevated p-2 sm:flex-row"><input autoFocus type="url" value={linkUrl} onChange={(event) => setLinkUrl(event.target.value)} placeholder="https://example.org" aria-label="Link URL" className="min-h-9 min-w-0 flex-1 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-sm outline-none focus:ring-4 focus:ring-brand-soft" /><Button size="sm" onClick={setLink}>Apply link</Button><Button size="sm" variant="ghost" onClick={() => { editor.chain().focus().unsetLink().run(); setLinkOpen(false); }}>Remove link</Button></div> : null}
+      {aiOpen ? <div className="mt-2 rounded-[var(--radius-sm)] border border-brand/15 bg-[color:var(--brand-soft)]/35 p-3">
+        <div className="flex items-start gap-2"><Sparkles className="mt-0.5 size-4 shrink-0 text-brand-strong" /><div><p className="text-xs font-semibold text-foreground">AI writing assist</p><p className="mt-0.5 text-[0.68rem] leading-5 text-muted-foreground">Select text to rewrite only that part. With no selection, actions apply to the full body. Existing text is sent to the configured AI provider only when you click an editing action; AI never saves or finalizes the document.</p></div></div>
+        <textarea value={aiInstruction} onChange={(event) => setAiInstruction(event.target.value)} placeholder="Example: Draft a polite letter inviting parents to a Grade 11 academic meeting next Thursday at 17:30." className="mt-3 min-h-20 w-full resize-y rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 py-2 text-sm text-foreground outline-none focus:ring-4 focus:ring-brand-soft" maxLength={3000} />
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button type="button" size="sm" loading={aiPending} disabled={aiPending} onClick={() => void runAi("draft")}><Sparkles className="size-3.5" />Draft</Button>
+          <Button type="button" size="sm" variant="neutral" disabled={aiPending} onClick={() => void runAi("formalize")}>Improve & formalize</Button>
+          <Button type="button" size="sm" variant="neutral" disabled={aiPending} onClick={() => void runAi("simplify")}>Simplify</Button>
+          <Button type="button" size="sm" variant="neutral" disabled={aiPending} onClick={() => void runAi("proofread")}>Proofread</Button>
+          <Button type="button" size="sm" variant="neutral" disabled={aiPending} onClick={() => void runAi("shorten")}>Shorten</Button>
+        </div>
+        {aiMessage ? <p className="mt-2 text-xs leading-5 text-muted-foreground" role="status">{aiMessage}</p> : null}
+      </div> : null}
     </div> : null}
     <EditorContent editor={editor} />
     <style jsx global>{`
@@ -209,7 +301,7 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
         <label className="min-w-0"><span className={labelClass}>Attention</span><input disabled={readOnly} value={attention} onChange={(event) => setAttention(event.target.value)} className={inputClass} maxLength={500} /></label>
         <label className="min-w-0 md:col-span-2"><span className={labelClass}>Subject / Re</span><input disabled={readOnly} value={subject} onChange={(event) => setSubject(event.target.value)} className={inputClass} maxLength={500} /></label>
       </div>
-      <div className="mt-4"><p className={labelClass}>Body</p><div className="mt-1.5"><RichTextEditor key={templateKey} value={bodySeed} onChange={(value) => { bodyRef.current = value; }} readOnly={readOnly} onSignature={() => setIncludeSignatureBlock(true)} /></div></div>
+      <div className="mt-4"><p className={labelClass}>Body</p><div className="mt-1.5"><RichTextEditor key={templateKey} value={bodySeed} onChange={(value) => { bodyRef.current = value; }} readOnly={readOnly} onSignature={() => setIncludeSignatureBlock(true)} aiContext={{ subject, recipient, attention }} /></div></div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <label><span className={labelClass}>Closing</span><input disabled={readOnly} value={closing} onChange={(event) => setClosing(event.target.value)} className={inputClass} maxLength={200} /></label>
         <div className="md:col-span-2 grid gap-4 sm:grid-cols-2"><label><span className={labelClass}>Name</span><input disabled={readOnly} value={signatoryName} onChange={(event) => setSignatoryName(event.target.value)} className={inputClass} maxLength={200} /></label><label><span className={labelClass}>Position</span><input disabled={readOnly} value={signatoryPosition} onChange={(event) => setSignatoryPosition(event.target.value)} className={inputClass} maxLength={200} /></label></div>
