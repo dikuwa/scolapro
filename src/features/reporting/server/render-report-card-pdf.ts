@@ -185,40 +185,84 @@ export async function renderReportCardPdf(input: ReportCardRenderInput): Promise
   const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
   let y = PAGE_HEIGHT - MARGIN;
 
-  // Base header: render-report-card-pdf-with-school-font replaces this entire
-  // region with the canonical shared official header, but keeping a complete
-  // fallback makes direct renderer use deterministic and self-contained.
-  const headerHeight = 84;
+  // Base fallback mirrors the universal internal-school header geometry.
+  // The shared wrapper replaces this region with the canonical frozen-profile
+  // header while direct renderer use remains deterministic and self-contained.
+  const headerHeight = 72;
   drawBox(page, MARGIN, y, CONTENT_WIDTH, headerHeight);
-  const logoWidth = 82;
-  const postalWidth = 116;
-  const centreX = MARGIN + logoWidth;
-  const centreWidth = CONTENT_WIDTH - logoWidth - postalWidth;
-  const logoX = MARGIN + 8;
-  const logoY = y - 72;
-  const logoDrawn = await drawSchoolLogo(pdf, page, input.logoBytes, logoX + 4, logoY + 4, 58, 56);
-  if (!logoDrawn) drawCentered(page, regular, model.logoStoragePath || model.logoUrl ? "School logo" : "Logo", 5.5, logoX, 66, y - 43);
-  drawCentered(page, schoolDisplayFont, model.schoolName, model.schoolNameFont === "old_english" ? 19 : 16, centreX, centreWidth, y - 22);
-  if (model.formerName) drawCentered(page, regular, `(${model.formerName})`, 6.5, centreX, centreWidth, y - 34);
-  const contacts = [
-    model.physicalAddress,
-    model.telephone ? `Tel. ${model.telephone}` : "",
-    model.fax ? `Fax ${model.fax}` : "",
-    model.email ? `E-mail: ${model.email}` : "",
-  ].filter(Boolean);
-  contacts.slice(0, 4).forEach((line, index) => drawCentered(page, regular, line, 5.7, centreX, centreWidth, y - 47 - index * 8));
-  if (model.schoolEmisNumber) drawCentered(page, regular, `EMIS: ${model.schoolEmisNumber}`, 5.3, centreX, centreWidth, y - 78);
-  const postalX = PAGE_WIDTH - MARGIN - postalWidth + 8;
-  [model.postalAddress, model.town].filter(Boolean).forEach((line, index) => {
-    page.drawText(fitText(regular, line, 6.1, postalWidth - 16), { x: postalX, y: y - 48 - index * 9, size: 6.1, font: regular, color: INK });
-  });
-  y -= headerHeight;
+  const logoWidth = 68;
+  const contextWidth = 176;
+  const identityX = MARGIN + logoWidth;
+  const identityWidth = CONTENT_WIDTH - logoWidth - contextWidth - 10;
+  const contextX = MARGIN + CONTENT_WIDTH - contextWidth - 5;
+  const logoDrawn = await drawSchoolLogo(pdf, page, input.logoBytes, MARGIN + 6, y - headerHeight + 6, 56, 60);
+  if (!logoDrawn) drawCentered(page, regular, model.logoStoragePath || model.logoUrl ? "School logo" : "Logo", 5.5, MARGIN + 4, logoWidth - 8, y - 42);
 
-  const titleHeight = 30;
-  drawBox(page, MARGIN, y, CONTENT_WIDTH, titleHeight, true);
-  drawCentered(page, bold, "PROGRESS REPORT", 10.5, MARGIN, CONTENT_WIDTH, y - 12);
-  drawCentered(page, bold, `${model.currentTermName}${model.academicYear ? ` - ${model.academicYear}` : ""}`, 6.4, MARGIN, CONTENT_WIDTH, y - 23);
-  y -= titleHeight;
+  const schoolNameSize = model.schoolNameFont === "old_english" ? 17 : 14;
+  page.drawText(fitText(schoolDisplayFont, model.schoolName, schoolNameSize, identityWidth), {
+    x: identityX + 2,
+    y: y - 17,
+    size: schoolNameSize,
+    font: schoolDisplayFont,
+    color: INK,
+  });
+  let identityY = y - 29;
+  if (model.formerName) {
+    page.drawText(fitText(regular, `(${model.formerName})`, 5.8, identityWidth), {
+      x: identityX + 2,
+      y: identityY,
+      size: 5.8,
+      font: regular,
+      color: INK,
+    });
+    identityY -= 8;
+  }
+  const contacts = [
+    model.physicalAddress ? `Address: ${model.physicalAddress}` : "",
+    model.telephone ? `Tel: ${model.telephone}` : "",
+    model.fax ? `Fax: ${model.fax}` : "",
+    model.email ? `Email: ${model.email}` : "",
+  ].filter(Boolean);
+  contacts.slice(0, 4).forEach((line, index) => {
+    page.drawText(fitText(regular, line, 5.6, identityWidth), {
+      x: identityX + 2,
+      y: identityY - index * 7,
+      size: 5.6,
+      font: regular,
+      color: INK,
+    });
+  });
+
+  const reportTitle = "PROGRESS REPORT";
+  const reportTitleWidth = bold.widthOfTextAtSize(reportTitle, 10.2);
+  page.drawText(reportTitle, {
+    x: contextX + Math.max(0, contextWidth - reportTitleWidth),
+    y: y - 17,
+    size: 10.2,
+    font: bold,
+    color: INK,
+  });
+  const termLine = `${model.currentTermName}${model.academicYear ? ` · ${model.academicYear}` : ""}`;
+  const safeTermLine = fitText(regular, termLine, 6.2, contextWidth);
+  page.drawText(safeTermLine, {
+    x: contextX + Math.max(0, contextWidth - regular.widthOfTextAtSize(safeTermLine, 6.2)),
+    y: y - 31,
+    size: 6.2,
+    font: regular,
+    color: INK,
+  });
+  const classLine = [model.grade, model.registerClass].filter(Boolean).join(" · ");
+  if (classLine) {
+    const safeClassLine = fitText(regular, classLine, 5.8, contextWidth);
+    page.drawText(safeClassLine, {
+      x: contextX + Math.max(0, contextWidth - regular.widthOfTextAtSize(safeClassLine, 5.8)),
+      y: y - 43,
+      size: 5.8,
+      font: regular,
+      color: INK,
+    });
+  }
+  y -= headerHeight;
 
   const detailHeight = 24;
   const half = CONTENT_WIDTH / 2;
