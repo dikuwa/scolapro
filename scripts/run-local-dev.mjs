@@ -71,7 +71,7 @@ function localSupabaseStatus() {
 
 function syncLocalSchema() {
   try {
-    execFileSync("supabase", ["migration", "up", "--local"], {
+    execFileSync("supabase", ["migration", "up", "--local", "--include-all"], {
       cwd: projectRoot,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
@@ -81,7 +81,7 @@ function syncLocalSchema() {
     throw new Error(
       [
         "Local Supabase migrations are not current, so the app cannot safely start.",
-        "Run `pnpm local:sync-db` and resolve the reported migration error before retrying `pnpm dev`.",
+        "Run `pnpm local:sync-db` and resolve the reported migration error before retrying `pnpm dev`. This command applies all pending local migrations, including newly-added backdated versions.",
         stderr ? `Supabase: ${stderr}` : null,
       ].filter(Boolean).join("\n"),
     );
