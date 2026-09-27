@@ -8,6 +8,7 @@ const html = read("src/features/documents/server/official-document-html-header.t
 const chrome = read("src/features/documents/server/official-document-chrome.ts");
 const pdf = read("src/features/documents/server/official-document-pdf-header.ts");
 const live = read("src/features/documents/server/live-school-document-profile.ts");
+const profile = read("src/features/documents/server/school-document-profile.ts");
 const classRoute = read("src/app/api/official-documents/class-list/route.ts");
 const teachingRoute = read("src/app/api/official-documents/teaching-pack/route.ts");
 const reportHtml = read("src/features/reporting/server/render-report-card-html-with-school-font.ts");
@@ -49,4 +50,21 @@ test("governed asset is bundled and not school-configurable", () => {
   assert.equal(existsSync("public/brand/governed/namibia-coat-of-arms.png"), true);
   assert.match(read("public/brand/governed/namibia-coat-of-arms.svg"), /Platform-governed asset/);
   assert.doesNotMatch(model, /profile\.coatOfArms|profile\.coat_of_arms/);
+});
+
+
+test("known Namib High branding is local, blackletter and resilient to stale remote URLs", () => {
+  assert.match(profile, /bundledLogoUrl \|\| explicitLogoUrl/);
+  assert.match(profile, /isNamibHigh/);
+  assert.match(profile, /schoolNameFont: isNamibHigh/);
+  assert.match(html, /localPublicAssetDataUrl/);
+  assert.match(html, /readFileSync/);
+});
+
+test("shared official chrome includes visible subtle backdrop and compact-left header", () => {
+  assert.match(chrome, /report::before/);
+  assert.match(chrome, /opacity: \.055/);
+  assert.match(chrome, /school-header\.compact-left/);
+  assert.match(pdf, /opacity: 0\.05/);
+  assert.match(pdf, /loadPublicBrandBytes/);
 });
