@@ -105,7 +105,7 @@ test("AI assist is explicit, bounded and never finalizes correspondence", () => 
 
 test("AI assist rewrites a selection when present and otherwise returns editable body text", () => {
   assert.match(editor, /textBetween\(from, to/);
-  assert.match(editor, /insertContentAt\(range, body\.text\.trim\(\)\)/);
+  assert.match(editor, /insertContentAt\(range, \{ type: "text", text: body\.text\.trim\(\) \}\)/);
   assert.match(editor, /setContent\(plainTextDocument\(body\.text\.trim\(\)\)\)/);
   assert.match(editor, /Review it before saving/);
 });
