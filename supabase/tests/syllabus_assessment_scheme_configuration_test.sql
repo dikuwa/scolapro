@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(18);
 
 select has_table('public','assessment_scheme_candidates','assessment scheme candidate lifecycle exists');
 select has_column('public','assessment_schemes','curriculum_version_id','schemes bind curriculum version provenance');
@@ -52,6 +52,46 @@ select ok(
   pg_get_functiondef('app_private.enforce_assessment_scheme_curriculum_binding()'::regprocedure)
     ilike '%subject/grade/version provenance is immutable%',
   'published assessment scheme provenance cannot silently change'
+);
+
+select ok(
+  pg_get_functiondef('public.publish_assessment_scheme_candidate(uuid)'::regprocedure)
+    ilike '%Final result%'
+  and pg_get_functiondef('public.publish_assessment_scheme_candidate(uuid)'::regprocedure)
+    ilike '%100,100,true,true%',
+  'final-result publication creates one calculable canonical component'
+);
+
+select ok(
+  pg_get_functiondef('public.publish_assessment_scheme_candidate(uuid)'::regprocedure)
+    ilike '%Unsupported assessment component calculation method%',
+  'publication rejects unsupported calculation methods'
+);
+
+select ok(
+  pg_get_functiondef('public.publish_assessment_scheme_candidate(uuid)'::regprocedure)
+    ilike '%positive weight%',
+  'publication rejects missing or zero contributing weights'
+);
+
+select ok(
+  pg_get_functiondef('public.verify_assessment_scheme_candidate(uuid,text)'::regprocedure)
+    ilike '%can_manage_current_assessment_school%',
+  'candidate verification preserves current-school assessment authority'
+);
+
+select ok(
+  pg_get_functiondef('app_private.enforce_assessment_scheme_candidate_integrity()'::regprocedure)
+    ilike '%new.status:=''candidate''%'
+  and pg_get_functiondef('app_private.enforce_assessment_scheme_candidate_integrity()'::regprocedure)
+    ilike '%new.verified_by_user_id:=null%',
+  'candidate payload changes invalidate prior verification'
+);
+
+select ok(
+  pg_get_functiondef('public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure)
+    ilike '%(''active'',''superseded'')%',
+  'historical superseded schemes can finish already-started result approval'
 );
 
 select * from finish();
