@@ -179,8 +179,11 @@ for (const target of [shellSource, roomInventoryPageSource]) {
     throw new Error("Room Inventory custodian capability must require an effective current assignment");
   }
 }
-if (!roomInventoryPageSource.includes("context.currentSchoolMembership?.schoolId") || !roomInventoryPageSource.includes("context.memberships.find((membership) => managerRoles.has(membership.roleKey))")) {
-  throw new Error("Room Inventory route must use the #411 current-school membership boundary and same-school composed manager roles");
+if (
+  !roomInventoryPageSource.includes("context.currentSchoolMembership?.schoolId") ||
+  !roomInventoryPageSource.includes("context.memberships.find((membership) => membership.schoolId === currentSchoolId && managerRoles.has(membership.roleKey))")
+) {
+  throw new Error("Room Inventory route must bind leadership manager mode to the deterministic current school");
 }
 if (!shellSource.includes('extraNavigationKeys.push("room_inventory")')) {
   throw new Error("Effective current Room Inventory custodians must receive route visibility");
