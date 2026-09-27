@@ -44,11 +44,11 @@ async function getRoster(schoolId: string, on: string): Promise<ConductLearner[]
 }
 export async function getConductWorkspace(schoolId: string, on: string, domain: ConductDomain, learnerId: string | null, classId: string | null, gradeId: string | null, page: number) {
   const db = await createSupabaseServerClient();
-  const [categories, roster, history] = await Promise.all([
-    getConductCategories(schoolId),
+  const [policy, roster, history] = await Promise.all([
+    getConductPolicy(schoolId),
     getRoster(schoolId, on),
     db.rpc("list_conduct_history", { p_school_id: schoolId, p_domain: domain, p_learner_id: learnerId, p_class_id: classId, p_grade_id: gradeId, p_page: page }),
   ]);
   if (history.error) throw new Error("Unable to load conduct history.");
-  return { categories, learners: roster, history: history.data as ConductHistory };
+  return { groups: policy.groups, categories: policy.categories, learners: roster, history: history.data as ConductHistory };
 }
