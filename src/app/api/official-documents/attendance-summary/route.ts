@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import * as XLSX from "xlsx";
-import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { buildOfficialDocumentHeaderModel, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialAttendanceSummaryPdf } from "@/features/documents/server/render-official-attendance-summary-pdf";
 import { renderOfficialAttendanceSummaryHtml } from "@/features/documents/server/render-official-attendance-summary-html";
@@ -23,15 +23,30 @@ function exportErrorResponse(error: unknown) {
   return Response.json({ error: "Unable to generate the official attendance summary." }, { status: 500, headers: { "Cache-Control": "no-store" } });
 }
 
+async function storedLogoBytes(storagePath: string, signedUrl: string): Promise<Uint8Array | null> {
+  if (!storagePath || !signedUrl) return null;
+  const response = await fetch(signedUrl, { cache: "no-store" });
+  return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+}
+
 function formatPercent(value: number | null) {
   return value === null ? "—" : `${value.toFixed(1)}%`;
 }
 
-function xlsxBytes(summary: OfficialAttendanceSummary, meta: { schoolName: string; revision: number; scolaproReference: string; finalizedLabel: string }): ArrayBuffer {
+function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialDocumentHeaderModel; revision: number; scolaproReference: string; finalizedLabel: string }): ArrayBuffer {
   const isTerm = summary.mode === "term";
+  const contact = new Map(meta.header.contactLines.map((line) => [line.key, line]));
+  const address = contact.get("address");
+  const telephone = contact.get("telephone");
+  const fax = contact.get("fax");
+  const email = contact.get("email");
   const metaRows: Array<Array<string | number>> = [
-    [meta.schoolName],
-    ["Official Attendance Summary"],
+    [meta.header.schoolName],
+    [meta.header.formerName ? `(${meta.header.formerName})` : ""],
+    [address ? `${address.label}: ${address.value}` : ""],
+    [[telephone ? `${telephone.label}: ${telephone.value}` : "", fax ? `${fax.label}: ${fax.value}` : ""].filter(Boolean).join("   ")],
+    [email ? `${email.label}: ${email.value}` : ""],
+    ["OFFICIAL ATTENDANCE SUMMARY"],
     [isTerm ? (summary.term ? `Term Summary — ${summary.term.displayName}` : "Term Summary") : "Weekly Summary"],
     ["Reporting period", `${summary.scopeStart} – ${summary.scopeEnd}`],
     ["Revision", meta.revision],
@@ -133,11 +148,9 @@ export async function GET(request: Request) {
 
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
     const header = buildOfficialDocumentHeaderModel(profile, { mode: "internal_school", provenanceSource: "live_school_profile" });
-    const schoolName = header.schoolName;
-
     if (format === "xlsx") {
       const bytes = xlsxBytes(summary, {
-        schoolName,
+        header,
         revision: finalization.revision,
         scolaproReference: finalization.scolaproReference,
         finalizedLabel,
@@ -163,7 +176,7 @@ export async function GET(request: Request) {
         verificationToken: finalization.verificationToken,
         verificationUrl,
         finalizedAt: finalization.finalizedAt,
-        logoBytes: null,
+        logoBytes: await storedLogoBytes(profile.logoStoragePath, profile.logoUrl),
       });
       return new Response(Buffer.from(rendered.bytes), {
         status: 200,
@@ -180,7 +193,7 @@ export async function GET(request: Request) {
 
     const qrSvg = await renderOfficialDocumentVerificationQrSvg({ token: finalization.verificationToken, origin });
     const html = renderOfficialAttendanceSummaryHtml({
-      schoolName: header.schoolName,
+      header,
       summary,
       revision: finalization.revision,
       scolaproReference: finalization.scolaproReference,
