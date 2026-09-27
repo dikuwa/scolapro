@@ -31,19 +31,32 @@ export async function renderReportCardHtmlWithSchoolFont(
     const fontFace = `@font-face { font-family: "ScolaPro Old English"; src: url(data:font/woff;base64,${fontBase64}) format("woff"); font-style: normal; font-weight: 700; font-display: block; }`;
 
     html = html
-      .replace("<style>", `<style>\n  ${fontFace}`)
+      .replace("<style>", `<style>
+  ${fontFace}`)
       .replace(
         'font-family: "Old English Text MT", "UnifrakturCook", "Lucida Blackletter", "Times New Roman", serif;',
         'font-family: "ScolaPro Old English", "Old English Text MT", "UnifrakturCook", "Lucida Blackletter", "Times New Roman", serif;',
       );
   }
 
-  const sharedHeader = renderOfficialDocumentHtmlHeader(header, input.logoBytes, {\n    context: {\n      title: "PROGRESS REPORT",\n      primaryContext: `${model.currentTermName}${model.academicYear ? ` · ${model.academicYear}` : ""}`,\n      summary: [model.grade, model.registerClass].filter(Boolean).join(" · "),\n    },\n  });
+  const sharedHeader = renderOfficialDocumentHtmlHeader(header, input.logoBytes, {
+    context: {
+      title: "PROGRESS REPORT",
+      primaryContext: `${model.currentTermName}${model.academicYear ? ` · ${model.academicYear}` : ""}`,
+      summary: [model.grade, model.registerClass].filter(Boolean).join(" · "),
+    },
+  });
   const schoolHeaderPattern = /<header class="school-header">[\s\S]*?<\/header>/;
   if (!schoolHeaderPattern.test(html)) {
     throw new Error("Report-card HTML renderer did not expose the expected school header block.");
   }
-  html = html.replace(schoolHeaderPattern, sharedHeader);\n\n  const reportTitlePattern = /<section class="report-title">[\\s\\S]*?<\\/section>/;\n  if (!reportTitlePattern.test(html)) {\n    throw new Error("Report-card HTML renderer did not expose the expected report title block.");\n  }\n  html = html.replace(reportTitlePattern, "");
+  html = html.replace(schoolHeaderPattern, sharedHeader);
+
+  const reportTitlePattern = /<section class="report-title">[\\s\\S]*?<\\/section>/;
+  if (!reportTitlePattern.test(html)) {
+    throw new Error("Report-card HTML renderer did not expose the expected report title block.");
+  }
+  html = html.replace(reportTitlePattern, "");
 
   const metadata = buildOfficialDocumentMetadata({
     snapshotVersion: model.snapshotVersion,
