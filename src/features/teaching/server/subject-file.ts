@@ -36,6 +36,48 @@ function effective(date:string,from:string,to:string|null) {
   return from<=date && (!to || to>=date);
 }
 
+const SUBJECT_FILE_PAGE_SIZE=1000;
+
+async function loadAllScheduleRows(
+  db:Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  schoolId:string,
+  academicYear:number,
+) {
+  const rows:Array<{id:string;teacher_allocation_id:string;status:string}>=[];
+  for (let from=0;;from+=SUBJECT_FILE_PAGE_SIZE) {
+    const {data,error}=await db.from("teaching_schedule_items")
+      .select("id,teacher_allocation_id,status")
+      .eq("school_id",schoolId)
+      .eq("academic_year",academicYear)
+      .range(from,from+SUBJECT_FILE_PAGE_SIZE-1);
+    if (error) throw new Error("Unable to load subject-file schedule evidence.");
+    const page=data ?? [];
+    rows.push(...page);
+    if (page.length<SUBJECT_FILE_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
+async function loadAllPreparationRows(
+  db:Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  schoolId:string,
+  academicYear:number,
+) {
+  const rows:Array<{id:string;teaching_schedule_item_id:string;status:string}>=[];
+  for (let from=0;;from+=SUBJECT_FILE_PAGE_SIZE) {
+    const {data,error}=await db.from("lesson_preparations")
+      .select("id,teaching_schedule_item_id,status")
+      .eq("school_id",schoolId)
+      .eq("academic_year",academicYear)
+      .range(from,from+SUBJECT_FILE_PAGE_SIZE-1);
+    if (error) throw new Error("Unable to load subject-file preparation evidence.");
+    const page=data ?? [];
+    rows.push(...page);
+    if (page.length<SUBJECT_FILE_PAGE_SIZE) break;
+  }
+  return rows;
+}
+
 export async function getSubjectFileWorkspace(academicYear:number):Promise<SubjectFileWorkspace|null> {
   const context=await getUserContext();
   if (!context.user || context.platformMemberships.length) return null;
@@ -103,30 +145,30 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
     {data:grades,error:gradeError},
     {data:staff,error:staffError},
     {data:plans,error:planError},
-    {data:schedules,error:scheduleError},
     {data:schemes,error:schemeError},
     {data:instances,error:instanceError},
+    schedules,
+    preparations,
   ]=await Promise.all([
     db.from("subjects").select("id,subject_code,display_name").eq("school_id",membership.schoolId).in("id",allowedSubjectIds),
     gradeIds.length ? db.from("grades").select("id,display_name").in("id",gradeIds) : Promise.resolve({data:[],error:null}),
     staffIds.length ? db.from("staff_members").select("id,first_name,last_name").in("id",staffIds) : Promise.resolve({data:[],error:null}),
     scopedOfferingIds.length ? db.from("pacing_plans").select("id,subject_offering_id,status").eq("school_id",membership.schoolId).eq("academic_year",academicYear).in("subject_offering_id",scopedOfferingIds) : Promise.resolve({data:[],error:null}),
-    db.from("teaching_schedule_items").select("id,teacher_allocation_id,status").eq("school_id",membership.schoolId).eq("academic_year",academicYear),
     scopedOfferingIds.length ? db.from("assessment_schemes").select("id,subject_offering_id,status").eq("school_id",membership.schoolId).eq("academic_year",academicYear).in("subject_offering_id",scopedOfferingIds) : Promise.resolve({data:[],error:null}),
     scopedOfferingIds.length ? db.from("assessment_instances").select("id,subject_offering_id,assessment_component_id,status").eq("school_id",membership.schoolId).eq("academic_year",academicYear).in("subject_offering_id",scopedOfferingIds) : Promise.resolve({data:[],error:null}),
+    loadAllScheduleRows(db,membership.schoolId,academicYear),
+    loadAllPreparationRows(db,membership.schoolId,academicYear),
   ]);
-  if (subjectError || gradeError || staffError || planError || scheduleError || schemeError || instanceError) {
+  if (subjectError || gradeError || staffError || planError || schemeError || instanceError) {
     throw new Error("Unable to assemble the governed subject dossier.");
   }
 
-  const scheduleIds=(schedules ?? []).filter((row)=>{
+  const scheduleIds=schedules.filter((row)=>{
     const allocation=activeAllocations.find((item)=>item.id===row.teacher_allocation_id);
     return Boolean(allocation && scopedOfferingIds.includes(allocation.subject_offering_id));
   }).map((row)=>row.id);
-  const {data:preparations,error:preparationError}=scheduleIds.length
-    ? await db.from("lesson_preparations").select("id,teaching_schedule_item_id,status").in("teaching_schedule_item_id",scheduleIds)
-    : {data:[],error:null};
-  if (preparationError) throw new Error("Unable to load subject-file preparation evidence.");
+  const scheduleIdSet=new Set(scheduleIds);
+  const scopedPreparations=preparations.filter((row)=>scheduleIdSet.has(row.teaching_schedule_item_id));
 
   const componentIds=[...new Set((instances ?? []).map((row)=>row.assessment_component_id).filter((id):id is string=>Boolean(id)))];
   const {data:components,error:componentError}=componentIds.length
@@ -138,7 +180,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
   const gradeMap=new Map((grades ?? []).map((row)=>[row.id,row.display_name]));
   const staffMap=new Map((staff ?? []).map((row)=>[row.id,`${row.first_name} ${row.last_name}`.trim()]));
   const moderationByComponent=new Map((components ?? []).map((row)=>[row.id,row.moderation_required]));
-  const preparationScheduleIds=new Set((preparations ?? []).map((row)=>row.teaching_schedule_item_id));
+  const preparationScheduleIds=new Set(scopedPreparations.map((row)=>row.teaching_schedule_item_id));
 
   const rows:SubjectFileRow[]=allowedSubjectIds.flatMap((subjectId)=>{
     const subject=subjectMap.get(subjectId);
@@ -147,7 +189,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
     const ids=new Set(subjectOfferings.map((row)=>row.id));
     const allocationsForSubject=activeAllocations.filter((row)=>ids.has(row.subject_offering_id));
     const allocationIdSet=new Set(allocationsForSubject.map((row)=>row.id));
-    const scheduleRows=(schedules ?? []).filter((row)=>allocationIdSet.has(row.teacher_allocation_id));
+    const scheduleRows=schedules.filter((row)=>allocationIdSet.has(row.teacher_allocation_id));
     const schemeRows=(schemes ?? []).filter((row)=>ids.has(row.subject_offering_id));
     const instanceRows=(instances ?? []).filter((row)=>ids.has(row.subject_offering_id));
     const responsibility=hodResponsibilities.find((row)=>row.subject_id===subjectId);
