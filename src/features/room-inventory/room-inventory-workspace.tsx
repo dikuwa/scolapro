@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { NumberStepper } from "@/components/ui/number-stepper";
@@ -122,6 +122,7 @@ export function RoomInventoryWorkspace({
   const [responsibilityOpen, setResponsibilityOpen] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const inventorySectionRef = useRef<HTMLElement | null>(null);
 
   const activeRoomId = rooms.some((candidate) => candidate.id === roomId) ? roomId : preferredRoomId;
   const room = rooms.find((candidate) => candidate.id === activeRoomId);
@@ -201,6 +202,14 @@ export function RoomInventoryWorkspace({
     setResponsibilityOpen(false);
     setVerifyOpen(false);
     setHistoryOpen(false);
+
+    requestAnimationFrame(() => {
+      const target = inventorySectionRef.current;
+      if (!target) return;
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      target.focus({ preventScroll: true });
+    });
   };
 
   const clearFilters = () => {
@@ -410,7 +419,11 @@ export function RoomInventoryWorkspace({
             ) : null}
           </section>
 
-          <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
+          <section
+            ref={inventorySectionRef}
+            tabIndex={-1}
+            className="scroll-mt-24 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 outline-none sm:p-5"
+          >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="scolapro-section-title">Current inventory</h2>
