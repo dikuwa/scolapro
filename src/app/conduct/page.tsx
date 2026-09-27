@@ -18,7 +18,7 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const date = z.string().date().safeParse(params.on);
   const on = date.success && date.data <= today ? date.data : today;
-  const domain: ConductDomain = params.tab === "achievement" ? "achievement" : "conduct";
+  const domain: ConductDomain = "conduct";
   const page = Math.max(0, Math.min(10000, Math.floor(Number(params.page) || 0)));
   const filters = { domain, learnerId: uuid(params.learner), classId: uuid(params.class), gradeId: uuid(params.grade), on, page };
   const workspace = await getConductWorkspace(membership.schoolId, on, domain, filters.learnerId || null, filters.classId || null, filters.gradeId || null, page);
@@ -30,7 +30,7 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Conduct</h1>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Record incidents and celebrate achievements using your school’s policy.</p>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Record Recognition and Violations quickly from your school’s conduct policy.</p>
           </div>
           {canManage ? (
             <CompactActionLink href="/conduct/policy" tone="brand" className="self-start sm:self-auto">
@@ -39,7 +39,7 @@ export default async function ConductPage({ searchParams }: { searchParams: Prom
             </CompactActionLink>
           ) : null}
         </div>
-        <ConductWorkspace {...workspace} schoolId={membership.schoolId} filters={filters} today={today} canRecord={domain === "conduct" || membership.roleKey !== "counsellor"} canManage={canManage} />
+        <ConductWorkspace {...workspace} schoolId={membership.schoolId} filters={filters} today={today} canRecord canManage={canManage} />
       </section>
     </AppShell>
   );
