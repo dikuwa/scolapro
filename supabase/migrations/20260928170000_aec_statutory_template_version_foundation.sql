@@ -87,31 +87,42 @@ returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $$
+as $
 declare
-  v_version_id uuid;
-  v_status text;
+  v_old_status text;
+  v_new_status text;
 begin
-  v_version_id := case
-    when tg_op = 'DELETE' then old.form_version_id
-    else new.form_version_id
-  end;
+  if tg_op in ('UPDATE','DELETE') then
+    select status into v_old_status
+    from public.statutory_form_versions
+    where id = old.form_version_id;
 
-  select status into v_status
-  from public.statutory_form_versions
-  where id = v_version_id;
+    if v_old_status is null then
+      raise exception 'Statutory form version not found';
+    end if;
 
-  if v_status is null then
-    raise exception 'Statutory form version not found';
+    if v_old_status <> 'draft' then
+      raise exception 'Finalized statutory form structure is immutable; create a new form version';
+    end if;
   end if;
 
-  if v_status <> 'draft' then
-    raise exception 'Finalized statutory form structure is immutable; create a new form version';
+  if tg_op in ('INSERT','UPDATE') then
+    select status into v_new_status
+    from public.statutory_form_versions
+    where id = new.form_version_id;
+
+    if v_new_status is null then
+      raise exception 'Statutory form version not found';
+    end if;
+
+    if v_new_status <> 'draft' then
+      raise exception 'Finalized statutory form structure is immutable; create a new form version';
+    end if;
   end if;
 
   return case when tg_op = 'DELETE' then old else new end;
 end;
-$$;
+$;
 
 revoke all on function app_private.enforce_statutory_form_structure_finality()
 from public, anon, authenticated;
