@@ -209,7 +209,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $set_finality$
 begin
   if tg_op = 'DELETE' then
     if old.status <> 'draft' then
@@ -245,14 +245,14 @@ begin
 
   return new;
 end;
-$;
+$set_finality$;
 
 create or replace function app_private.enforce_statutory_code_finality()
 returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $code_finality$
 declare
   v_old_set public.statutory_code_sets%rowtype;
   v_new_set public.statutory_code_sets%rowtype;
@@ -326,7 +326,7 @@ begin
 
   return new;
 end;
-$;
+$code_finality$;
 
 revoke all on function app_private.enforce_statutory_code_set_finality()
 from public, anon, authenticated;
