@@ -204,6 +204,147 @@ revoke all on function app_private.statutory_target_matches_scope(text,uuid,uuid
 grant execute on function app_private.can_read_statutory_code_registry() to authenticated;
 grant execute on function app_private.can_read_statutory_code_mapping(uuid) to authenticated;
 
+create or replace function app_private.enforce_statutory_code_set_finality()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $
+begin
+  if tg_op = 'DELETE' then
+    if old.status <> 'draft' then
+      raise exception 'Finalized statutory code-set versions cannot be deleted';
+    end if;
+    return old;
+  end if;
+
+  if old.status <> 'draft' then
+    if new.id is distinct from old.id
+       or new.set_key is distinct from old.set_key
+       or new.authority is distinct from old.authority
+       or new.version_key is distinct from old.version_key
+       or new.effective_from is distinct from old.effective_from
+       or new.effective_to is distinct from old.effective_to
+       or new.source_reference is distinct from old.source_reference
+       or new.source_metadata is distinct from old.source_metadata
+       or new.created_at is distinct from old.created_at then
+      raise exception 'Finalized statutory code-set identity, effective period, and provenance are immutable';
+    end if;
+
+    if old.status = 'published'
+       and new.status not in ('published','superseded','withdrawn') then
+      raise exception 'Published statutory code-set lifecycle may only remain published or move to superseded/withdrawn';
+    elsif old.status = 'superseded'
+       and new.status not in ('superseded','withdrawn') then
+      raise exception 'Superseded statutory code-set lifecycle may only remain superseded or move to withdrawn';
+    elsif old.status = 'withdrawn'
+       and new.status <> 'withdrawn' then
+      raise exception 'Withdrawn statutory code-set versions cannot be reactivated';
+    end if;
+  end if;
+
+  return new;
+end;
+$;
+
+create or replace function app_private.enforce_statutory_code_finality()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $
+declare
+  v_old_set public.statutory_code_sets%rowtype;
+  v_new_set public.statutory_code_sets%rowtype;
+  v_replacement public.statutory_codes%rowtype;
+  v_replacement_set public.statutory_code_sets%rowtype;
+begin
+  select * into v_old_set
+  from public.statutory_code_sets
+  where id = old.code_set_id;
+
+  if tg_op = 'DELETE' then
+    if found and v_old_set.status <> 'draft' then
+      raise exception 'Codes belonging to finalized statutory code-set versions cannot be deleted';
+    end if;
+    return old;
+  end if;
+
+  select * into v_new_set
+  from public.statutory_code_sets
+  where id = new.code_set_id;
+  if not found then
+    raise exception 'Statutory code set does not exist';
+  end if;
+
+  if v_old_set.status <> 'draft' then
+    if new.id is distinct from old.id
+       or new.code_set_id is distinct from old.code_set_id
+       or new.code is distinct from old.code
+       or new.label is distinct from old.label
+       or new.source_metadata is distinct from old.source_metadata
+       or new.created_at is distinct from old.created_at then
+      raise exception 'Codes in finalized statutory code-set versions have immutable set identity, code, label, and provenance';
+    end if;
+
+    if old.status = 'active'
+       and new.status not in ('active','inactive','superseded') then
+      raise exception 'Active statutory code lifecycle may only remain active or move to inactive/superseded';
+    elsif old.status = 'inactive'
+       and new.status not in ('inactive','superseded') then
+      raise exception 'Inactive statutory code lifecycle may only remain inactive or move to superseded';
+    elsif old.status = 'superseded'
+       and new.status <> 'superseded' then
+      raise exception 'Superseded statutory codes cannot be reactivated';
+    end if;
+  end if;
+
+  if new.superseded_by_code_id is not null then
+    if new.status <> 'superseded' then
+      raise exception 'A statutory replacement code may only be recorded when the code is superseded';
+    end if;
+
+    select * into v_replacement
+    from public.statutory_codes
+    where id = new.superseded_by_code_id;
+    if not found then
+      raise exception 'Replacement statutory code does not exist';
+    end if;
+
+    select * into v_replacement_set
+    from public.statutory_code_sets
+    where id = v_replacement.code_set_id;
+    if not found
+       or v_replacement_set.set_key <> v_new_set.set_key
+       or v_replacement_set.id = v_new_set.id
+       or v_replacement_set.effective_from <= v_new_set.effective_from
+       or v_replacement_set.status not in ('published','superseded')
+       or v_replacement.status not in ('active','superseded') then
+      raise exception 'Replacement statutory code must belong to a later compatible finalized version of the same code set';
+    end if;
+  end if;
+
+  return new;
+end;
+$;
+
+revoke all on function app_private.enforce_statutory_code_set_finality()
+from public, anon, authenticated;
+revoke all on function app_private.enforce_statutory_code_finality()
+from public, anon, authenticated;
+
+drop trigger if exists statutory_code_set_finality_trg
+on public.statutory_code_sets;
+create trigger statutory_code_set_finality_trg
+before update or delete on public.statutory_code_sets
+for each row execute function app_private.enforce_statutory_code_set_finality();
+
+drop trigger if exists statutory_code_finality_trg
+on public.statutory_codes;
+create trigger statutory_code_finality_trg
+before update or delete on public.statutory_codes
+for each row execute function app_private.enforce_statutory_code_finality();
+
 create or replace function app_private.enforce_statutory_code_mapping_integrity()
 returns trigger
 language plpgsql
@@ -290,7 +431,7 @@ create policy "school actors read published statutory code sets"
 on public.statutory_code_sets for select to authenticated
 using (
   app_private.has_platform_role(array['platform_admin'])
-  or (status = 'published' and app_private.can_read_statutory_code_registry())
+  or (status in ('published','superseded','withdrawn') and app_private.can_read_statutory_code_registry())
 );
 
 create policy "platform admins manage statutory code sets"
@@ -309,7 +450,7 @@ using (
       select 1
       from public.statutory_code_sets s
       where s.id = statutory_codes.code_set_id
-        and s.status = 'published'
+        and s.status in ('published','superseded','withdrawn')
     )
   )
 );
@@ -370,7 +511,7 @@ begin
   select s.id, s.version_key, s.effective_from, s.effective_to, s.source_reference, s.source_metadata
   from public.statutory_code_sets s
   where s.set_key = btrim(p_set_key)
-    and s.status = 'published'
+    and s.status in ('published','superseded','withdrawn')
     and s.effective_from <= p_as_of
     and (s.effective_to is null or s.effective_to >= p_as_of)
   order by s.effective_from desc, s.version_key desc, s.id
