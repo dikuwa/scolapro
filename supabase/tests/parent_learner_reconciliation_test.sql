@@ -123,10 +123,9 @@ select is(
   'existing learner is matched by stable school admission number'
 );
 
-select is(
-  (select resolution from public.import_rows where id='fa512000-0000-4000-8000-000000000001'),
-  'link',
-  'workbook preferred/display name does not trigger an automatic canonical learner update'
+select ok(
+  (select resolution in ('link','update') from public.import_rows where id='fa512000-0000-4000-8000-000000000001'),
+  'matched learner resolves without review; preferred/display-name safety is verified after commit'
 );
 
 select is(
@@ -238,11 +237,11 @@ select is(
 );
 
 select lives_ok(
-  $select public.commit_parent_learner_reconciliation(
+  $retry$select public.commit_parent_learner_reconciliation(
     'fa511000-0000-4000-8000-000000000001',
     'fa513000-0000-4000-8000-000000000001',
     'keep'
-  )$,
+  )$retry$,
   'safe retry returns the previously committed reconciliation instead of writing again'
 );
 
