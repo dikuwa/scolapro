@@ -63,24 +63,24 @@ insert into public.import_batches(
 );
 
 select throws_ok(
-  $select public.reconcile_existing_learner_roster_batch('fa523000-0000-4000-8000-000000000001',2026)$,
+  $q$select public.reconcile_existing_learner_roster_batch('fa523000-0000-4000-8000-000000000001',2026)$q$,
   'P0001',
   'Permission denied',
   'cross-school learner reconciliation is denied'
 );
 
 select throws_ok(
-  $select public.reconcile_existing_learner_roster_batch('fa524000-0000-4000-8000-000000000001',2026)$,
+  $q$select public.reconcile_existing_learner_roster_batch('fa524000-0000-4000-8000-000000000001',2026)$q$,
   'P0001',
   'Permission denied',
   'cross-tenant learner reconciliation is denied'
 );
 
 select throws_ok(
-  $select public.parent_learner_reconciliation_summary(
+  $q$select public.parent_learner_reconciliation_summary(
     'fa523000-0000-4000-8000-000000000001',
     'fa523000-0000-4000-8000-000000000002'
-  )$,
+  )$q$,
   'P0001',
   'Permission denied',
   'stale-relationship reconciliation summary is denied outside the actor school'
