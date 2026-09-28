@@ -104,6 +104,6 @@ test("governed document art is bundled and the Namib High crest matches the supp
   assert.equal(existsSync(crestPath), true);
   assert.equal(existsSync(backdropPath), true);
   assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "b5c608fb23f728546d70e4846c182e7fc1414e2b3e0b78b0c2c5d68cf434d7c8");
-  assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "5dd9f86b6d09f07706c35e44317b8dce1321f7be55e2e7d101614d038a9fee24");
+  assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "f3b18566997fdb00e4393cfad78e47cfcc9c1aa50b01a55c353fcd564ff557a6");
   assert.match(profile, /\/brand\/schools\/namib-high\/crest\.png/);
 });
