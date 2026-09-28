@@ -22,8 +22,8 @@ test("Issue #560 target surfaces retain bounded responsive, state and focus cont
   assert.match(conduct, /No conduct records found/);
   assert.match(loading, /aria-busy="true"/);
   assert.match(loading, /RouteLoadingIndicator/);
-  assert.match(error, /Try again/);
-  assert.match(error, /onClick=\{reset\}/);
+  assert.match(error, /RouteErrorState/);
+  assert.match(error, /reset=\{reset\}/);
 });
 
 test("Issue #560 route loader is transparent and uses the shared brand token", () => {
