@@ -325,22 +325,56 @@ begin
     );
 
   select coalesce(sum(
-    (case when nullif(btrim(coalesce(ir.normalized_data->>'email','')),'') is not null then 1 else 0 end)+
-    (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'mobile',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)+
-    (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'whatsapp',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)+
-    (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'home_phone',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)+
-    (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'work_phone',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)
+    case
+      when ir.resolution='create' then
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'email','')),'') is not null then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'mobile',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'whatsapp',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'home_phone',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'work_phone',''),'[^0-9]+','','g'),'') is not null then 1 else 0 end)
+      when ir.resolution='link' and ir.matched_entity_type='guardian' and ir.matched_entity_id is not null then
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'email','')),'') is not null
+          and not exists(select 1 from public.guardian_contacts gc where gc.guardian_id=ir.matched_entity_id and gc.contact_type='email' and lower(btrim(gc.contact_value))=lower(btrim(ir.normalized_data->>'email')) and gc.effective_from<=current_date and (gc.effective_to is null or gc.effective_to>=current_date))
+          then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'mobile',''),'[^0-9]+','','g'),'') is not null
+          and not exists(select 1 from public.guardian_contacts gc where gc.guardian_id=ir.matched_entity_id and gc.contact_type in ('mobile','phone','whatsapp') and regexp_replace(gc.contact_value,'[^0-9]+','','g')=regexp_replace(ir.normalized_data->>'mobile','[^0-9]+','','g') and gc.effective_from<=current_date and (gc.effective_to is null or gc.effective_to>=current_date))
+          then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'whatsapp',''),'[^0-9]+','','g'),'') is not null
+          and not exists(select 1 from public.guardian_contacts gc where gc.guardian_id=ir.matched_entity_id and gc.contact_type in ('mobile','phone','whatsapp') and regexp_replace(gc.contact_value,'[^0-9]+','','g')=regexp_replace(ir.normalized_data->>'whatsapp','[^0-9]+','','g') and gc.effective_from<=current_date and (gc.effective_to is null or gc.effective_to>=current_date))
+          then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'home_phone',''),'[^0-9]+','','g'),'') is not null
+          and not exists(select 1 from public.guardian_contacts gc where gc.guardian_id=ir.matched_entity_id and gc.contact_type in ('mobile','phone','whatsapp') and regexp_replace(gc.contact_value,'[^0-9]+','','g')=regexp_replace(ir.normalized_data->>'home_phone','[^0-9]+','','g') and gc.effective_from<=current_date and (gc.effective_to is null or gc.effective_to>=current_date))
+          then 1 else 0 end)+
+        (case when nullif(regexp_replace(coalesce(ir.normalized_data->>'work_phone',''),'[^0-9]+','','g'),'') is not null
+          and not exists(select 1 from public.guardian_contacts gc where gc.guardian_id=ir.matched_entity_id and gc.contact_type in ('mobile','phone','whatsapp') and regexp_replace(gc.contact_value,'[^0-9]+','','g')=regexp_replace(ir.normalized_data->>'work_phone','[^0-9]+','','g') and gc.effective_from<=current_date and (gc.effective_to is null or gc.effective_to>=current_date))
+          then 1 else 0 end)
+      else 0
+    end
   ),0)::integer into v_contact_adds
   from public.import_rows ir
-  where ir.batch_id=gb.id and ir.resolution='create';
+  where ir.batch_id=gb.id and ir.resolution in ('create','link');
 
   select coalesce(sum(
-    (case when nullif(btrim(coalesce(ir.normalized_data->>'physical_address','')),'') is not null then 1 else 0 end)+
-    (case when nullif(btrim(coalesce(ir.normalized_data->>'postal_address','')),'') is not null then 1 else 0 end)+
-    (case when nullif(btrim(coalesce(ir.normalized_data->>'work_address','')),'') is not null then 1 else 0 end)
+    case
+      when ir.resolution='create' then
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'physical_address','')),'') is not null then 1 else 0 end)+
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'postal_address','')),'') is not null then 1 else 0 end)+
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'work_address','')),'') is not null then 1 else 0 end)
+      when ir.resolution='link' and ir.matched_entity_type='guardian' and ir.matched_entity_id is not null then
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'physical_address','')),'') is not null
+          and not exists(select 1 from public.guardian_addresses ga where ga.guardian_id=ir.matched_entity_id and ga.address_type='physical' and lower(btrim(ga.address_line_1))=lower(btrim(ir.normalized_data->>'physical_address')) and ga.effective_from<=current_date and (ga.effective_to is null or ga.effective_to>=current_date))
+          then 1 else 0 end)+
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'postal_address','')),'') is not null
+          and not exists(select 1 from public.guardian_addresses ga where ga.guardian_id=ir.matched_entity_id and ga.address_type='postal' and lower(btrim(ga.address_line_1))=lower(btrim(ir.normalized_data->>'postal_address')) and ga.effective_from<=current_date and (ga.effective_to is null or ga.effective_to>=current_date))
+          then 1 else 0 end)+
+        (case when nullif(btrim(coalesce(ir.normalized_data->>'work_address','')),'') is not null
+          and not exists(select 1 from public.guardian_addresses ga where ga.guardian_id=ir.matched_entity_id and ga.address_type='work' and lower(btrim(ga.address_line_1))=lower(btrim(ir.normalized_data->>'work_address')) and ga.effective_from<=current_date and (ga.effective_to is null or ga.effective_to>=current_date))
+          then 1 else 0 end)
+      else 0
+    end
   ),0)::integer into v_address_adds
   from public.import_rows ir
-  where ir.batch_id=gb.id and ir.resolution='create';
+  where ir.batch_id=gb.id and ir.resolution in ('create','link');
 
   return jsonb_build_object(
     'source_learners',(select count(*) from public.import_rows where batch_id=lb.id),
@@ -524,6 +558,35 @@ begin
         and lower(regexp_replace(btrim(concat_ws(' ',gp.first_names,gp.surname)),'\s+',' ','g'))
             =lower(regexp_replace(btrim(concat_ws(' ',ir.normalized_data->>'first_names',ir.normalized_data->>'surname')),'\s+',' ','g'))
     );
+
+  -- The NHS source only says PARENT 1 / PARENT 2. When a linked existing
+  -- guardian already has a more specific relationship or verified permissions,
+  -- preserve those facts instead of downgrading them to generic parent/false flags.
+  update public.import_rows ir
+  set normalized_data=ir.normalized_data||jsonb_build_object(
+        'relationship_type',rel.relationship_type,
+        'is_legal_guardian',rel.is_legal_guardian,
+        'is_emergency_contact',rel.is_emergency_contact,
+        'is_pickup_authorized',rel.is_pickup_authorized
+      ),
+      updated_at=now()
+  from public.school_learner_identifiers sli
+  join lateral (
+    select lg.relationship_type,lg.is_legal_guardian,lg.is_emergency_contact,lg.is_pickup_authorized
+    from public.learner_guardians lg
+    where lg.learner_id=sli.learner_id
+      and lg.guardian_id=ir.matched_entity_id
+      and lg.effective_from<=current_date
+      and (lg.effective_to is null or lg.effective_to>=current_date)
+    order by lg.priority,lg.created_at
+    limit 1
+  ) rel on true
+  where ir.batch_id=gb.id
+    and ir.resolution='link'
+    and ir.matched_entity_type='guardian'
+    and ir.matched_entity_id is not null
+    and sli.school_id=gb.school_id
+    and upper(btrim(sli.admission_number))=upper(btrim(ir.normalized_data->>'learner_admission_number'));
 
   v_learner_result:=public.commit_existing_learner_roster_batch(lb.id);
   v_guardian_result:=public.commit_guardian_import_batch(gb.id);
