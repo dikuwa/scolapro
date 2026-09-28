@@ -10,6 +10,8 @@ import "server-only";
  */
 export const OFFICIAL_DOCUMENT_A4_PAGE_RULE = "@page { size: A4 portrait; margin: 10mm 12mm; }";
 
+export const OFFICIAL_DOCUMENT_BACKDROP_URL = "/brand/governed/scolapro-document-backdrop.png";
+
 export const OFFICIAL_DOCUMENT_FRAME_RULE =
   ".report { width: 100%; border: 1.2px solid var(--line); padding: 7mm 7mm 5mm; min-height: 270mm; }";
 
@@ -22,7 +24,7 @@ export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
 export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
   `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}
   .report { position: relative; isolation: isolate; }
-  .report::before { content: "ScolaPro"; position: absolute; left: 50%; top: 49%; transform: translate(-50%,-50%) rotate(-28deg); z-index: 0; color: #2548d8; opacity: .055; font: 700 52px/1 Arial,sans-serif; letter-spacing: .08em; pointer-events: none; user-select: none; white-space: nowrap; }
+  .report::before { content:""; position:absolute; inset:0; z-index:0; background:url("${OFFICIAL_DOCUMENT_BACKDROP_URL}") center / cover no-repeat; opacity:1; pointer-events:none; user-select:none; }
   .report > * { position: relative; z-index: 1; }
   .school-header.internal-school { border-top:0; background-image:linear-gradient(var(--line),var(--line)); background-repeat:no-repeat; background-position:top right; background-size:calc(100% - 76px) 1px; }
   .school-header .logo-wrap { display:flex; align-items:center; justify-content:center; min-height:66px; }
@@ -54,7 +56,6 @@ export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
     .external-correspondence .school-contact,
     .external-correspondence .external-postal,
     .external-correspondence .emis { font-size: 6.5px; }
-    .report::before { font-size: 38px; }
   }`;
 
 export const OFFICIAL_DOCUMENT_METADATA_RULE =

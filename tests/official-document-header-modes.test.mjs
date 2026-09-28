@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import test from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
@@ -61,18 +62,22 @@ test("known Namib High branding is local, blackletter and resilient to stale rem
   assert.match(html, /readFileSync/);
 });
 
-test("shared official chrome includes visible subtle backdrop and universal internal header", () => {
+test("shared official chrome uses the governed A4 backdrop and universal internal header", () => {
   assert.match(model, /InternalSchoolDocumentHeaderContext/);
   assert.match(model, /normalizeInternalSchoolDocumentHeaderContext/);
   assert.match(html, /internal-document-context/);
   assert.match(html, /school-contact/);
-  assert.match(chrome, /school-header\.internal-school/);
-  assert.match(chrome, /document-context-title/);
+  assert.match(chrome, /OFFICIAL_DOCUMENT_BACKDROP_URL/);
+  assert.match(chrome, /scolapro-document-backdrop\.png/);
   assert.match(chrome, /report::before/);
-  assert.match(chrome, /opacity: \.055/);
+  assert.match(chrome, /background:url/);
+  assert.match(chrome, /opacity:1/);
+  assert.doesNotMatch(chrome, /content: "ScolaPro"/);
   assert.match(pdf, /drawInternalHeader/);
   assert.match(pdf, /INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT = 72/);
-  assert.match(pdf, /opacity: 0\.05/);
+  assert.match(pdf, /resources\.backdrop/);
+  assert.match(pdf, /opacity: 1/);
+  assert.doesNotMatch(pdf, /const backdrop = "ScolaPro"/);
   assert.match(pdf, /loadPublicBrandBytes/);
 });
 
@@ -90,4 +95,15 @@ test("internal header leaves the crest bay open, enlarges the crest, and compact
   assert.match(pdf, /64 \/ logo\.height/);
   assert.match(pdf, /let contextY = topY - 29/);
   assert.match(pdf, /contextY -= 8/);
+});
+
+
+test("governed document art is bundled and the Namib High crest matches the supplied replacement", () => {
+  const crestPath = "public/brand/schools/namib-high/crest.png";
+  const backdropPath = "public/brand/governed/scolapro-document-backdrop.png";
+  assert.equal(existsSync(crestPath), true);
+  assert.equal(existsSync(backdropPath), true);
+  assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "b5c608fb23f728546d70e4846c182e7fc1414e2b3e0b78b0c2c5d68cf434d7c8");
+  assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "f3b18566997fdb00e4393cfad78e47cfcc9c1aa50b01a55c353fcd564ff557a6");
+  assert.match(profile, /\/brand\/schools\/namib-high\/crest\.png/);
 });

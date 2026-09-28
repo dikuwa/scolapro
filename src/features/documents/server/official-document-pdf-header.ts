@@ -3,8 +3,9 @@ import "server-only";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, StandardFonts, degrees, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
 import {
+  OFFICIAL_DOCUMENT_BACKDROP_URL,
   OFFICIAL_DOCUMENT_PDF_GEOMETRY,
   officialDocumentPdfContentWidth,
 } from "@/features/documents/server/official-document-chrome";
@@ -35,6 +36,7 @@ export type OfficialDocumentPdfResources = {
   schoolNameFont: PDFFont;
   logo: PDFImage | null;
   coatOfArms: PDFImage | null;
+  backdrop: PDFImage | null;
 };
 
 export function officialDocumentPdfSafeText(value: unknown): string {
@@ -131,6 +133,7 @@ export async function createOfficialDocumentPdfResources(
     coatOfArms: header.mode === "external_correspondence"
       ? await embedOfficialDocumentLogo(pdf, await loadGovernedCoatOfArmsBytes())
       : null,
+    backdrop: await embedOfficialDocumentLogo(pdf, await loadPublicBrandBytes(OFFICIAL_DOCUMENT_BACKDROP_URL)),
   };
 }
 
@@ -297,19 +300,15 @@ export function drawOfficialDocumentPdfHeader(
     documentWidth?: number;
   } = {},
 ): number {
-  const { bold } = resources;
-  const backdrop = "ScolaPro";
-  const backdropSize = 52;
-  const backdropWidth = bold.widthOfTextAtSize(backdrop, backdropSize);
-  page.drawText(backdrop, {
-    x: (PAGE_WIDTH - backdropWidth) / 2,
-    y: PAGE_HEIGHT / 2 - 16,
-    size: backdropSize,
-    font: bold,
-    color: rgb(0.14, 0.28, 0.84),
-    opacity: 0.05,
-    rotate: degrees(-28),
-  });
+  if (resources.backdrop) {
+    page.drawImage(resources.backdrop, {
+      x: 0,
+      y: 0,
+      width: PAGE_WIDTH,
+      height: PAGE_HEIGHT,
+      opacity: 1,
+    });
+  }
 
   if (header.mode === "external_correspondence") {
     return drawExternalHeader(page, header, resources, topY);
