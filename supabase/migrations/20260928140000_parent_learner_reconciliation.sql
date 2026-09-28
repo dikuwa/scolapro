@@ -535,7 +535,7 @@ begin
       and ae.entity_type='import_batch'
       and ae.entity_id=lb.id
       and ae.metadata->>'guardian_batch_id'=gb.id::text
-    order by ae.created_at desc
+    order by ae.occurred_at desc
     limit 1;
     if v_learner_result is null or v_guardian_result is null then
       raise exception 'Completed batches are not a recorded reconciliation pair';
@@ -552,7 +552,7 @@ begin
           and ae.entity_type='import_batch'
           and ae.entity_id=lb.id
           and ae.metadata->>'guardian_batch_id'=gb.id::text
-        order by ae.created_at desc
+        order by ae.occurred_at desc
         limit 1
       ),0),
       'already_completed',true
