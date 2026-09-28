@@ -215,6 +215,8 @@ begin
   if not found then raise exception 'Import batch not found'; end if;
   if b.import_type<>'learners' then raise exception 'Existing-roster reconciliation requires a learner batch'; end if;
   if not app_private.can_manage_school_imports(b.school_id) then raise exception 'Permission denied'; end if;
+  if b.status='ready' then return true; end if;
+  if b.status<>'review' then raise exception 'Only a reviewed learner reconciliation batch can be marked ready'; end if;
   if exists(select 1 from public.import_rows where batch_id=b.id and resolution in ('create','review','error')) then
     raise exception 'Resolve every unmatched/review/error learner row before marking the reconciliation ready';
   end if;
@@ -419,6 +421,15 @@ begin
   if not found then raise exception 'Import batch not found'; end if;
   if b.import_type<>'learners' then raise exception 'Existing-roster reconciliation requires a learner batch'; end if;
   if not app_private.can_manage_school_imports(b.school_id) then raise exception 'Permission denied'; end if;
+  if b.status='completed' then
+    return jsonb_build_object(
+      'batch_id',b.id,
+      'updated',(select count(*) from public.import_commit_results where batch_id=b.id and outcome='updated'),
+      'linked',(select count(*) from public.import_commit_results where batch_id=b.id and outcome='linked'),
+      'skipped',(select count(*) from public.import_commit_results where batch_id=b.id and outcome='skipped'),
+      'already_completed',true
+    );
+  end if;
   if b.status<>'ready' then raise exception 'Learner reconciliation batch must be ready'; end if;
   if exists(select 1 from public.import_rows where batch_id=b.id and resolution in ('create','review','error')) then
     raise exception 'Learner reconciliation still has unresolved rows';
@@ -515,6 +526,40 @@ begin
   if lb.id is null or gb.id is null then raise exception 'Both reconciliation batches are required'; end if;
   if lb.school_id<>gb.school_id or lb.tenant_id<>gb.tenant_id then raise exception 'Reconciliation batches must belong to the same school and tenant'; end if;
   if not app_private.can_manage_school_imports(lb.school_id) then raise exception 'Permission denied'; end if;
+
+  if lb.status='completed' and gb.status='completed' then
+    select ae.metadata->'learner_result',ae.metadata->'guardian_result'
+      into v_learner_result,v_guardian_result
+    from public.audit_events ae
+    where ae.school_id=lb.school_id
+      and ae.event_type='import.parent_learner_reconciliation.committed'
+      and ae.entity_type='import_batch'
+      and ae.entity_id=lb.id
+      and ae.metadata->>'guardian_batch_id'=gb.id::text
+    order by ae.created_at desc
+    limit 1;
+    if v_learner_result is null or v_guardian_result is null then
+      raise exception 'Completed batches are not a recorded reconciliation pair';
+    end if;
+    return jsonb_build_object(
+      'learner_result',v_learner_result,
+      'guardian_result',v_guardian_result,
+      'stale_relationship_action','already_completed',
+      'stale_relationship_candidates',coalesce((
+        select (ae.metadata->>'stale_relationship_candidates')::integer
+        from public.audit_events ae
+        where ae.school_id=lb.school_id
+          and ae.event_type='import.parent_learner_reconciliation.committed'
+          and ae.entity_type='import_batch'
+          and ae.entity_id=lb.id
+          and ae.metadata->>'guardian_batch_id'=gb.id::text
+        order by ae.created_at desc
+        limit 1
+      ),0),
+      'already_completed',true
+    );
+  end if;
+
   if lb.status<>'ready' or gb.status<>'ready' then raise exception 'Both reconciliation batches must be ready'; end if;
 
   v_summary:=public.parent_learner_reconciliation_summary(lb.id,gb.id);
