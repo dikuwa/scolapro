@@ -491,9 +491,11 @@ test('school settings renders the new public directory contact fields with publi
   const load = loader({
     'next/navigation': navigation,
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
-    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'u' }, memberships: [{ roleKey: 'deputy_principal', schoolId: 'school-a', schoolName: 'Alpha Directory School' }] }) },
+    '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'u' }, memberships: [{ roleKey: 'deputy_principal', schoolId: 'school-a', schoolName: 'Alpha Directory School' }], currentSchoolMembership: { roleKey: 'deputy_principal', schoolId: 'school-a', schoolName: 'Alpha Directory School' } }) },
     '@/features/reporting/server/settings': { getReportCardSchoolSettings: async () => ({ documentProfile: { formerName: '', logoUrl: '', logoStoragePath: '', physicalAddress: '', telephone: '', fax: '', email: '', postalAddress: '', town: '', schoolNameFont: 'default' }, reportCardSettings: { showPercentages: false, showNonPromotionalSubjects: true, showPassMarkLegend: true, remarksMode: 'manual', defaultRemark: '' }, subjects: [] }) },
+    '@/features/statutory/server/school-profile': { getSchoolStatutoryEmisProfile: async () => ({ school: { id: 'school-a', name: 'Alpha Directory School', emisNumber: '90001', town: 'Swakopmund' }, network: { regionName: 'Erongo', circuitName: 'Swakopmund Circuit', clusterName: '' }, contact: { physicalAddress: '', postalAddress: '', telephone: '', email: '', cellphone: '' }, hostel: { configured: false, activeCount: 0, types: [] }, profile: { payPoint: '', constituency: '', schoolClassification: '', ownership: '', urbanRural: '', isSatelliteSchool: false, satelliteSchoolInformation: '', isClusterCentre: false } }) },
     '@/features/school-directory/server/queries': { getSchoolDirectoryContact: async () => ({ cellphone: '+264 81 000 0000', principalPublicEmail: 'principal.public@alpha.test' }) },
+    '@/features/statutory/school-statutory-profile-panel': { SchoolStatutoryEmisProfilePanel: () => null },
     '@/lib/supabase/server': { createSupabaseServerClient: async () => ({ from() { return { select() { return { eq() { return { maybeSingle: async () => ({ data: { id: 'school-a', name: 'Alpha Directory School', emis_number: '90001', region: 'Erongo', town: 'Swakopmund', status: 'active' } }) } } } } } } }) },
   })('@/app/school/settings/page').default;
   const html = renderToStaticMarkup(await load({ searchParams: Promise.resolve({}) }));
