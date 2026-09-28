@@ -86,15 +86,31 @@ async function loadAcademicRows(schoolId: string, academicYear: number): Promise
     supabase.from("teaching_group_allocations").select("teaching_group_id,teacher_allocation_id,effective_from,effective_to").eq("school_id", schoolId).eq("academic_year", academicYear),
   ]);
 
-  for (const result of [grades, baseClasses, offerings, allocations]) {
+  for (const result of [grades, baseClasses]) {
     if (result.error) {
-      console.error("class-list governed scope load failed", {
+      console.error("class-list governed core scope load failed", {
         schoolId,
         academicYear,
         message: result.error.message,
       });
       throw new Error("Unable to load the governed class-list scope.");
     }
+  }
+
+  if (offerings.error) {
+    console.warn("class-list subject offerings unavailable; continuing with register/grade rosters", {
+      schoolId,
+      academicYear,
+      message: offerings.error.message,
+    });
+  }
+
+  if (allocations.error) {
+    console.warn("class-list teacher allocations unavailable; continuing without teacher-subject rosters", {
+      schoolId,
+      academicYear,
+      message: allocations.error.message,
+    });
   }
 
   let classes = (baseClasses.data ?? []).map((item) => ({ ...item, home_room_id: null as string | null }));
@@ -138,8 +154,8 @@ async function loadAcademicRows(schoolId: string, academicYear: number): Promise
     grades: grades.data ?? [],
     classes,
     rooms,
-    offerings: offerings.data ?? [],
-    allocations: allocations.data ?? [],
+    offerings: offerings.error ? [] : (offerings.data ?? []),
+    allocations: allocations.error ? [] : (allocations.data ?? []),
     groupAllocations: groupAllocations.error ? [] : (groupAllocations.data ?? []),
   } as AcademicRows;
 }

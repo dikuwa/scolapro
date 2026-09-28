@@ -337,3 +337,14 @@ test("Class List Excel keeps compact header geometry and bold contact labels", (
   assert.match(xlsx, /\{ hpt: 9 \}/);
   assert.match(xlsx, /\{ hpt: 11 \}/);
 });
+
+
+test("optional academic roster sources cannot take down core register and grade Class Lists", () => {
+  assert.match(resolver, /for \(const result of \[grades, baseClasses\]\)/);
+  assert.match(resolver, /class-list subject offerings unavailable; continuing with register\/grade rosters/);
+  assert.match(resolver, /class-list teacher allocations unavailable; continuing without teacher-subject rosters/);
+  assert.match(resolver, /offerings: offerings\.error \? \[\] : \(offerings\.data \?\? \[\]\)/);
+  assert.match(resolver, /allocations: allocations\.error \? \[\] : \(allocations\.data \?\? \[\]\)/);
+  assert.match(resolver, /class-list teaching group allocations unavailable; continuing without allocation links/);
+  assert.match(resolver, /class-list teaching groups unavailable; continuing with register\/grade\/subject rosters/);
+});

@@ -1,13 +1,13 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { RouteErrorState } from "@/components/ui/route-error-state";
 
 export default function SchoolDirectoryError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <section className="rounded-[var(--radius-md)] bg-surface p-5 shadow-[var(--shadow-xs)]">
-      <h2 className="scolapro-section-title">School Directory could not load</h2>
-      <p className="scolapro-section-description">The directory could not load school contact details. Your data was not changed.</p>
-      <Button type="button" variant="neutral" onClick={reset} className="mt-4">Try again</Button>
-    </section>
+    <RouteErrorState
+      title="School Directory could not load"
+      description="The directory could not load school contact details. Your data was not changed."
+      reset={reset}
+    />
   );
 }

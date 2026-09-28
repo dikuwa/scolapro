@@ -298,8 +298,10 @@ test('coverage loading skeleton uses aria-busy and aria-label', () => {
 test('coverage error boundary exports a default client component with reset', () => {
   assert.match(coverageError, /["']use client["']/,
     'error.tsx must be a client component');
-  assert.match(coverageError, /reset\s*\(/,
-    'error boundary must call reset() to retry');
-  assert.match(coverageError, /ArrowLeft|href=["']\/teaching["']/,
+  assert.match(coverageError, /RouteErrorState/,
+    'error boundary must use the shared centered route error state');
+  assert.match(coverageError, /reset=\{reset\}/,
+    'error boundary must pass reset to the shared retry action');
+  assert.match(coverageError, /secondaryHref=["']\/teaching["']/,
     'error boundary must provide a back link to /teaching');
 });
