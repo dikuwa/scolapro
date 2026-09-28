@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(17);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fa510000-0000-4000-8000-000000000001','nhs-reconciliation-admin@example.test','authenticated','authenticated',now(),now());
