@@ -7,6 +7,8 @@ import { PaymentSettingsForm } from "@/features/finance/finance-workspace";
 import { getSchoolPaymentSettings } from "@/features/finance/server/queries";
 import { ReportCardSettingsPanel } from "@/features/reporting/report-card-settings-panel";
 import { getReportCardSchoolSettings } from "@/features/reporting/server/settings";
+import { SchoolStatutoryEmisProfilePanel } from "@/features/statutory/school-statutory-profile-panel";
+import { getSchoolStatutoryEmisProfile } from "@/features/statutory/server/school-profile";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -17,10 +19,10 @@ export default async function SchoolSettingsPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/school/settings");
 
-  const membership = context.memberships.find((item) => settingsRoles.has(item.roleKey));
-  if (!membership) redirect("/");
+  const membership = context.currentSchoolMembership;
+  if (!membership || !settingsRoles.has(membership.roleKey)) redirect("/");
 
-  const [reportCardSettings, paymentSettings, schoolRow, directoryContact] = await Promise.all([
+  const [reportCardSettings, paymentSettings, schoolRow, directoryContact, statutoryEmisProfile] = await Promise.all([
     getReportCardSchoolSettings(membership.schoolId),
     financeSettingsRoles.has(membership.roleKey) ? getSchoolPaymentSettings(membership.schoolId) : Promise.resolve(null),
     (async () => {
@@ -33,6 +35,7 @@ export default async function SchoolSettingsPage() {
       return data;
     })(),
     getSchoolDirectoryContact(membership.schoolId),
+    getSchoolStatutoryEmisProfile(membership.schoolId),
   ]);
 
   const emis = schoolRow?.emis_number ?? null;
@@ -54,6 +57,7 @@ export default async function SchoolSettingsPage() {
 
         {financeSettingsRoles.has(membership.roleKey) ? <div className="mt-6"><PaymentSettingsForm schoolId={membership.schoolId} settings={paymentSettings} /></div> : null}
         <div className="mt-6"><DirectoryContactSettingsPanel schoolId={membership.schoolId} cellphone={directoryContact.cellphone} principalPublicEmail={directoryContact.principalPublicEmail} /></div>
+        <SchoolStatutoryEmisProfilePanel schoolId={membership.schoolId} data={statutoryEmisProfile} />
         <ReportCardSettingsPanel schoolId={membership.schoolId} schoolName={membership.schoolName} settings={reportCardSettings} />
       </section>
     </AppShell>
