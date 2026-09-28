@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 
 function arg(name) {
   const index = process.argv.indexOf(name);
