@@ -306,7 +306,7 @@ export function drawOfficialDocumentPdfHeader(
       y: 0,
       width: PAGE_WIDTH,
       height: PAGE_HEIGHT,
-      opacity: 0.12,
+      opacity: 1,
     });
   }
 
