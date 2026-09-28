@@ -80,6 +80,34 @@ function setCellStyle(sheetXml: string, reference: string, styleId: number): str
   });
 }
 
+function escapeExcelXmlText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+function setCellRichText(
+  sheetXml: string,
+  reference: string,
+  runs: Array<{ text: string; bold?: boolean }>,
+): string {
+  const pattern = new RegExp('<c([^>]*\\br="' + reference + '"[^>]*)>[\\s\\S]*?<\\/c>');
+  return sheetXml.replace(pattern, (_match, attributes: string) => {
+    const cleaned = attributes.replace(/\\s+t="[^"]*"/g, "");
+    const richText = runs
+      .filter((run) => run.text.length > 0)
+      .map((run) =>
+        '<r>' +
+        '<rPr><rFont val="Aptos"/><sz val="10"/>' + (run.bold ? '<b/>' : '') + '</rPr>' +
+        '<t xml:space="preserve">' + escapeExcelXmlText(run.text) + '</t>' +
+        '</r>',
+      )
+      .join("");
+    return '<c' + cleaned + ' t="inlineStr"><is>' + richText + '</is></c>';
+  });
+}
+
 function findEntry(CFB: CfbApi, cfb: CfbContainer, path: string): CfbEntry | null {
   const candidates = [path, "/" + path, "Root Entry/" + path, "/Root Entry/" + path];
   for (const candidate of candidates) {
@@ -150,6 +178,7 @@ function embedLogoAndStyles(
   dataRowCount: number,
   columnCount: number,
   metaStartColumn: number,
+  header: OfficialDocumentHeaderModel,
   sheetNumber = 1,
 ): Buffer {
   const CFB = (XLSX as unknown as { CFB?: CfbApi }).CFB;
@@ -180,6 +209,32 @@ function embedLogoAndStyles(
   sheetXml = setCellStyle(sheetXml, "B4", 7);
   sheetXml = setCellStyle(sheetXml, "B5", 7);
   sheetXml = setCellStyle(sheetXml, "B6", 7);
+
+  const contact = new Map(header.contactLines.map((line) => [line.key, line]));
+  const address = contact.get("address");
+  const telephone = contact.get("telephone");
+  const fax = contact.get("fax");
+  const email = contact.get("email");
+  if (address) {
+    sheetXml = setCellRichText(sheetXml, "B3", [
+      { text: address.label + ":", bold: true },
+      { text: " " + address.value },
+    ]);
+  }
+  if (telephone || fax) {
+    sheetXml = setCellRichText(sheetXml, "B4", [
+      ...(telephone ? [{ text: telephone.label + ":", bold: true }, { text: " " + telephone.value }] : []),
+      ...(telephone && fax ? [{ text: "   " }] : []),
+      ...(fax ? [{ text: fax.label + ":", bold: true }, { text: " " + fax.value }] : []),
+    ]);
+  }
+  if (email) {
+    sheetXml = setCellRichText(sheetXml, "B5", [
+      { text: email.label + ":", bold: true },
+      { text: " " + email.value },
+    ]);
+  }
+
   sheetXml = setCellStyle(sheetXml, metaColumn + "1", 2);
   sheetXml = setCellStyle(sheetXml, metaColumn + "2", 3);
   sheetXml = setCellStyle(sheetXml, metaColumn + "3", 3);
@@ -366,7 +421,7 @@ export function renderClassListXlsx(
   XLSX.utils.book_append_sheet(workbook, built.worksheet, "Class List");
   workbook.Props = { Title: classListDocumentName(input.className, input.title), Subject: "ScolaPro class list", Author: input.schoolName };
   const baseBytes = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
-  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 7, input.learners.length, built.dataColumnCount, built.metaStartColumn);
+  const rendered = embedLogoAndStyles(baseBytes, logoBytes, 7, input.learners.length, built.dataColumnCount, built.metaStartColumn, header);
   return arrayBufferFromBuffer(rendered);
 }
 
@@ -406,6 +461,7 @@ export function renderClassListBatchXlsx(
       input.learners.length,
       built.dataColumnCount,
       built.metaStartColumn,
+      header,
       index + 1,
     );
   });
