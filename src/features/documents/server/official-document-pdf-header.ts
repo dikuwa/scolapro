@@ -10,6 +10,7 @@ import {
   officialDocumentPdfContentWidth,
 } from "@/features/documents/server/official-document-chrome";
 import { loadOfficialOldEnglishFontBytes } from "@/features/documents/server/official-document-fonts";
+import { isBoundedDecodablePng } from "@/features/documents/server/official-document-png";
 import {
   normalizeInternalSchoolDocumentHeaderContext,
   type InternalSchoolDocumentHeaderContext,
@@ -84,16 +85,31 @@ function drawRightAligned(
   });
 }
 
-async function embedOfficialDocumentLogo(pdf: PDFDocument, bytes: Uint8Array | null | undefined): Promise<PDFImage | null> {
+async function embedOfficialDocumentLogo(
+  pdf: PDFDocument,
+  bytes: Uint8Array | null | undefined,
+  asset: "logo" | "coat-of-arms" | "backdrop",
+): Promise<PDFImage | null> {
   if (!bytes?.length) return null;
-  try {
-    return await pdf.embedPng(bytes);
-  } catch {
+
+  // The bundled PNG decoder can loop forever on a truncated or geometry-mismatched
+  // payload, which stalls the request and blocks the Node.js event loop (#863).
+  // Prove the payload is complete before handing it over; a rejected asset falls
+  // back to the JPEG path and then to "no logo" instead of hanging.
+  if (isBoundedDecodablePng(bytes)) {
     try {
-      return await pdf.embedJpg(bytes);
+      return await pdf.embedPng(bytes);
     } catch {
-      return null;
+      // Fall through: a PNG-signature asset can still be an embedded JPEG payload.
     }
+  } else {
+    console.warn("official document PNG asset skipped: payload is not decodable within bounds", { asset });
+  }
+
+  try {
+    return await pdf.embedJpg(bytes);
+  } catch {
+    return null;
   }
 }
 
@@ -129,11 +145,12 @@ export async function createOfficialDocumentPdfResources(
     logo: await embedOfficialDocumentLogo(
       pdf,
       logoBytes?.length ? logoBytes : await loadPublicBrandBytes(header.logoUrl),
+      "logo",
     ),
     coatOfArms: header.mode === "external_correspondence"
-      ? await embedOfficialDocumentLogo(pdf, await loadGovernedCoatOfArmsBytes())
+      ? await embedOfficialDocumentLogo(pdf, await loadGovernedCoatOfArmsBytes(), "coat-of-arms")
       : null,
-    backdrop: await embedOfficialDocumentLogo(pdf, await loadPublicBrandBytes(OFFICIAL_DOCUMENT_BACKDROP_URL)),
+    backdrop: await embedOfficialDocumentLogo(pdf, await loadPublicBrandBytes(OFFICIAL_DOCUMENT_BACKDROP_URL), "backdrop"),
   };
 }
 

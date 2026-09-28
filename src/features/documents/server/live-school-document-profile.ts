@@ -8,6 +8,39 @@ import {
 import { buildSchoolDocumentProfile, type SchoolDocumentProfile } from "@/features/documents/server/school-document-profile";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+/**
+ * Bound on optional-asset retrieval from private document storage (issue #863).
+ * The signed URL only decorates the header; it must never hold the export
+ * request hostage. Any failure or stall falls through to bundled/no logo.
+ */
+const SCHOOL_DOCUMENT_SIGNING_TIMEOUT_MS = 4000;
+
+function withAssetTimeout<T>(operation: Promise<T>, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), SCHOOL_DOCUMENT_SIGNING_TIMEOUT_MS);
+    operation.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(fallback);
+      },
+    );
+  });
+}
+
+type SignedLogoResult = {
+  data: { signedUrl: string } | null;
+  error: { message: string } | null;
+};
+
+const SIGNED_LOGO_UNAVAILABLE: SignedLogoResult = {
+  data: null,
+  error: { message: "Optional school logo is unavailable." },
+};
+
 type JsonRecord = Record<string, unknown>;
 
 function record(value: unknown): JsonRecord {
@@ -36,9 +69,13 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
   let resolvedLogoStoragePath = logoStoragePath;
 
   if (logoStoragePath) {
-    const { data: signedLogo, error: logoError } = await supabase.storage
-      .from("school-document-assets")
-      .createSignedUrl(logoStoragePath, 3600);
+    const signedLogo = await withAssetTimeout(
+      supabase.storage
+        .from("school-document-assets")
+        .createSignedUrl(logoStoragePath, 3600),
+      SIGNED_LOGO_UNAVAILABLE,
+    );
+    const logoError = signedLogo.error;
     if (logoError) {
       console.warn("school document logo unavailable; continuing with profile or bundled fallback", {
         schoolId,
@@ -46,7 +83,7 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
       });
       resolvedLogoStoragePath = "";
     } else {
-      signedLogoUrl = signedLogo?.signedUrl ?? "";
+      signedLogoUrl = signedLogo.data?.signedUrl ?? "";
     }
   }
 

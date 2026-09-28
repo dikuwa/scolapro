@@ -8,7 +8,7 @@ import { renderOfficialClassListHtml } from "@/features/documents/server/render-
 import { renderClassListBatchXlsx, renderClassListXlsx } from "@/features/documents/server/render-official-class-list-xlsx";
 import { renderOfficialClassListBatchPdf } from "@/features/documents/server/render-official-class-list-batch-pdf";
 import { renderOfficialClassListPdf } from "@/features/documents/server/render-official-class-list-pdf";
-import { classListColumnIds, type ClassListColumnId, type ClassListConfiguration, type ClassListRosterType, type ClassListTarget, type ClassListWorkspaceData } from "@/features/learners/class-list-types";
+import { classListColumnIds, type ClassListBatchWorkspaceData, type ClassListColumnId, type ClassListConfiguration, type ClassListRosterType, type ClassListTarget, type ClassListWorkspaceData } from "@/features/learners/class-list-types";
 import { getClassListBatchWorkspace, getClassListWorkspace } from "@/features/learners/server/class-list-workspace";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -26,10 +26,33 @@ function exportErrorResponse(error: unknown) {
   return Response.json({ error: "Unable to generate the class list." }, { status: 500, headers: { "Cache-Control": "no-store" } });
 }
 
+/**
+ * Bound on remote optional-asset retrieval (issue #863). The school mark is
+ * optional to document generation: a stalled/slow signed storage URL must fall
+ * back to bundled/no logo instead of leaving the export request pending.
+ */
+const CLASS_LIST_LOGO_FETCH_TIMEOUT_MS = 3000;
+/** Remote school marks are small identity art; anything larger is not a logo. */
+const CLASS_LIST_LOGO_MAX_BYTES = 5 * 1024 * 1024;
+
 async function loadClassListLogoBytes(storagePath: string, logoUrl: string): Promise<Uint8Array | null> {
   if (storagePath && /^https:\/\//i.test(logoUrl)) {
-    const response = await fetch(logoUrl, { cache: "no-store" });
-    if (response.ok) return new Uint8Array(await response.arrayBuffer());
+    try {
+      const response = await fetch(logoUrl, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(CLASS_LIST_LOGO_FETCH_TIMEOUT_MS),
+      });
+      if (response.ok) {
+        const declared = Number(response.headers.get("content-length") ?? "");
+        if (!Number.isNaN(declared) && declared > CLASS_LIST_LOGO_MAX_BYTES) return null;
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (bytes.length && bytes.length <= CLASS_LIST_LOGO_MAX_BYTES) return bytes;
+      }
+    } catch (error) {
+      console.warn("class-list remote logo unavailable; continuing with bundled or no logo", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
   if (logoUrl.startsWith("/brand/")) {
     try {
@@ -97,33 +120,53 @@ export async function GET(request: Request) {
   };
 
   try {
-    let workspace = await getClassListWorkspace({ membership, academicYear, configuration: baseConfiguration });
-    // Legacy grade/class links resolve only inside the current school staff scope.
-    // Arbitrary labels cannot cross the authenticated school boundary.
-    if (!url.searchParams.get("rosterId") && url.searchParams.get("class")) {
-      const classLabel = url.searchParams.get("class")?.trim();
-      const gradeLabel = url.searchParams.get("grade")?.trim();
-      const match = workspace.options.register_class.find((option) => option.label === classLabel && (!gradeLabel || option.helper === gradeLabel));
-      if (!match) return Response.json({ error: "This class list is outside your active school class-list scope." }, { status: 403 });
-      workspace = await getClassListWorkspace({ membership, academicYear, configuration: { ...baseConfiguration, rosterType: "register_class", rosterId: match.id } });
-    }
-    if (!workspace.configuration.rosterId) return Response.json({ error: "No roster is available in your active school class-list scope." }, { status: 404 });
-
+    // Parse explicit multi-select targets before any roster resolution. When targets
+    // are present, the batch resolution below performs exactly one shared
+    // school/roster resolution for the whole request (issue #863). The previous
+    // standalone workspace resolution plus a second batch resolution duplicated
+    // potentially expensive school/roster work on every targeted export.
     const requestedTargets = parseTargets(url);
-    const batch = requestedTargets.length
-      ? await getClassListBatchWorkspace({
-          membership,
-          academicYear,
-          scope: baseConfiguration.scope ?? "all",
-          targets: requestedTargets,
-          columns: baseConfiguration.columns ?? [],
-          blankColumns: baseConfiguration.blankColumns ?? 0,
-        })
-      : {
+    let batch: ClassListBatchWorkspaceData;
+    if (requestedTargets.length) {
+      batch = await getClassListBatchWorkspace({
+        membership,
+        academicYear,
+        scope: baseConfiguration.scope ?? "all",
+        targets: requestedTargets,
+        columns: baseConfiguration.columns ?? [],
+        blankColumns: baseConfiguration.blankColumns ?? 0,
+      });
+      // Preserve the previous authorization outcome when a mismatched rosterId is
+      // supplied alongside valid targets: only school-scoped targets are served.
+      const requestedRosterId = url.searchParams.get("rosterId");
+      if (requestedRosterId && !batch.targets.some((target) => target.rosterId === requestedRosterId)) {
+        return Response.json({ error: "This class list is outside your active school class-list scope." }, { status: 403 });
+      }
+    } else {
+      const workspace = await getClassListWorkspace({ membership, academicYear, configuration: baseConfiguration });
+      // Legacy grade/class links resolve only inside the current school staff scope.
+      // Arbitrary labels cannot cross the authenticated school boundary.
+      if (!url.searchParams.get("rosterId") && url.searchParams.get("class")) {
+        const classLabel = url.searchParams.get("class")?.trim();
+        const gradeLabel = url.searchParams.get("grade")?.trim();
+        const match = workspace.options.register_class.find((option) => option.label === classLabel && (!gradeLabel || option.helper === gradeLabel));
+        if (!match) return Response.json({ error: "This class list is outside your active school class-list scope." }, { status: 403 });
+        const resolved = await getClassListWorkspace({ membership, academicYear, configuration: { ...baseConfiguration, rosterType: "register_class", rosterId: match.id } });
+        if (!resolved.configuration.rosterId) return Response.json({ error: "No roster is available in your active school class-list scope." }, { status: 404 });
+        batch = {
+          targets: [{ rosterType: resolved.configuration.rosterType, rosterId: resolved.configuration.rosterId }],
+          lists: [resolved],
+          totalLearners: resolved.learners.length,
+        };
+      } else {
+        if (!workspace.configuration.rosterId) return Response.json({ error: "No roster is available in your active school class-list scope." }, { status: 404 });
+        batch = {
           targets: [{ rosterType: workspace.configuration.rosterType, rosterId: workspace.configuration.rosterId }],
           lists: [workspace],
           totalLearners: workspace.learners.length,
         };
+      }
+    }
     if (!batch.lists.length) return Response.json({ error: "No valid class-list targets were supplied." }, { status: 404 });
 
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
