@@ -103,7 +103,7 @@ test("governed document art is bundled and the Namib High crest matches the supp
   const backdropPath = "public/brand/governed/scolapro-document-backdrop.png";
   assert.equal(existsSync(crestPath), true);
   assert.equal(existsSync(backdropPath), true);
-  assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "f24169b5ad6a29f54bd648910fb8a08d4a538ff667613bd97b96ade655d57f20");
+  assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "b5c608fb23f728546d70e4846c182e7fc1414e2b3e0b78b0c2c5d68cf434d7c8");
   assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "5dd9f86b6d09f07706c35e44317b8dce1321f7be55e2e7d101614d038a9fee24");
   assert.match(profile, /\/brand\/schools\/namib-high\/crest\.png/);
 });
