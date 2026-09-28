@@ -206,78 +206,78 @@ reset role;
 select set_config('request.jwt.claim.sub','858a0000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 select lives_ok(
-  $insert into public.statutory_code_sets(set_key,authority,version_key,effective_from,status,source_reference)
-    values('PLATFORM_GOVERNED','Test Authority','v1','2026-01-01','draft','platform governed fixture')$,
+  $q$1 into public.statutory_code_sets(set_key,authority,version_key,effective_from,status,source_reference)
+    values('PLATFORM_GOVERNED','Test Authority','v1','2026-01-01','draft','platform governed fixture')$q$,
   'Platform Admin may create a governed statutory code-set version'
 );
 
 select lives_ok(
-  $update public.statutory_code_sets
+  $q$1 public.statutory_code_sets
     set authority='Updated Test Authority',
         source_reference='updated draft fixture'
-    where set_key='PLATFORM_GOVERNED' and version_key='v1'$,
+    where set_key='PLATFORM_GOVERNED' and version_key='v1'$q$,
   'draft statutory code-set identity and source metadata remain editable before publication'
 );
 
 select throws_ok(
-  $update public.statutory_codes
+  $q$1 public.statutory_codes
     set code='REWRITTEN'
-    where id='858f0000-0000-4000-8000-000000000001'$,
+    where id='858f0000-0000-4000-8000-000000000001'$q$,
   'P0001',
   'Codes in finalized statutory code-set versions have immutable set identity, code, label, and provenance',
   'published statutory code value cannot be rewritten'
 );
 
 select throws_ok(
-  $update public.statutory_codes
+  $q$1 public.statutory_codes
     set label='Different historical meaning'
-    where id='858f0000-0000-4000-8000-000000000001'$,
+    where id='858f0000-0000-4000-8000-000000000001'$q$,
   'P0001',
   'Codes in finalized statutory code-set versions have immutable set identity, code, label, and provenance',
   'published statutory code label and historical meaning cannot be rewritten'
 );
 
 select throws_ok(
-  $update public.statutory_code_sets
+  $q$1 public.statutory_code_sets
     set set_key='REWRITTEN_SET'
-    where id='858e0000-0000-4000-8000-000000000001'$,
+    where id='858e0000-0000-4000-8000-000000000001'$q$,
   'P0001',
   'Finalized statutory code-set identity, effective period, and provenance are immutable',
   'published statutory code-set identity cannot be rewritten'
 );
 
 select throws_ok(
-  $update public.statutory_code_sets
+  $q$1 public.statutory_code_sets
     set source_reference='rewritten historical source'
-    where id='858e0000-0000-4000-8000-000000000001'$,
+    where id='858e0000-0000-4000-8000-000000000001'$q$,
   'P0001',
   'Finalized statutory code-set identity, effective period, and provenance are immutable',
   'published statutory code-set authoritative source cannot be rewritten'
 );
 
 select throws_ok(
-  $update public.statutory_code_sets
+  $q$1 public.statutory_code_sets
     set source_metadata='{"rewritten":true}'::jsonb
-    where id='858e0000-0000-4000-8000-000000000001'$,
+    where id='858e0000-0000-4000-8000-000000000001'$q$,
   'P0001',
   'Finalized statutory code-set identity, effective period, and provenance are immutable',
   'published statutory code-set provenance metadata cannot be rewritten'
 );
 
 select throws_ok(
-  $update public.statutory_codes
+  $q$1 public.statutory_codes
     set status='superseded',
         superseded_by_code_id='858f0000-0000-4000-8000-000000000003'
-    where id='858f0000-0000-4000-8000-000000000001'$,
+    where id='858f0000-0000-4000-8000-000000000001'$q$,
   'P0001',
   'Replacement statutory code must belong to a later compatible finalized version of the same code set',
   'superseded_by cannot point to an unrelated code set'
 );
 
 select lives_ok(
-  $update public.statutory_code_sets
+  $q$1 public.statutory_code_sets
     set status='superseded', updated_at=now()
-    where id='858e0000-0000-4000-8000-000000000001'$,
+    where id='858e0000-0000-4000-8000-000000000001'$q$,
   'published statutory code-set may move through the controlled superseded lifecycle'
 );
 
