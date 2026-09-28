@@ -565,7 +565,7 @@ begin
   select s.* into v_set
   from public.statutory_code_sets s
   where s.set_key = btrim(p_set_key)
-    and s.status = 'published'
+    and s.status in ('published','superseded','withdrawn')
     and s.effective_from <= p_as_of
     and (s.effective_to is null or s.effective_to >= p_as_of)
   order by s.effective_from desc, s.version_key desc, s.id
