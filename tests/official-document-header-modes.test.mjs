@@ -108,3 +108,11 @@ test("governed document art is bundled and the Namib High crest matches the supp
   assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "f3b18566997fdb00e4393cfad78e47cfcc9c1aa50b01a55c353fcd564ff557a6");
   assert.match(profile, /\/brand\/schools\/namib-high\/crest\.png/);
 });
+
+
+test("internal PDF header repaints the full top rule after the opaque crest", () => {
+  assert.match(pdf, /repaint the top edge/);
+  assert.match(pdf, /start: \{ x, y: topY \}/);
+  assert.match(pdf, /end: \{ x: x \+ width, y: topY \}/);
+  assert.match(pdf, /thickness: 0\.75/);
+});
