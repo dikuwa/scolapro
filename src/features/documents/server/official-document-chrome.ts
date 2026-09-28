@@ -24,7 +24,7 @@ export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
 export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
   `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}
   .report { position: relative; isolation: isolate; }
-  .report::before { content:""; position:absolute; inset:0; z-index:0; background:url("${OFFICIAL_DOCUMENT_BACKDROP_URL}") center / cover no-repeat; opacity:.12; pointer-events:none; user-select:none; }
+  .report::before { content:""; position:absolute; inset:0; z-index:0; background:url("${OFFICIAL_DOCUMENT_BACKDROP_URL}") center / cover no-repeat; opacity:1; pointer-events:none; user-select:none; }
   .report > * { position: relative; z-index: 1; }
   .school-header.internal-school { border-top:0; background-image:linear-gradient(var(--line),var(--line)); background-repeat:no-repeat; background-position:top right; background-size:calc(100% - 76px) 1px; }
   .school-header .logo-wrap { display:flex; align-items:center; justify-content:center; min-height:66px; }
