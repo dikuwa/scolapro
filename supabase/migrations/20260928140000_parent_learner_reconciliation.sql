@@ -251,11 +251,6 @@ begin
   if not app_private.can_manage_school_imports(lb.school_id) then raise exception 'Permission denied'; end if;
 
   with source_learners as (
-    select distinct ir.matched_entity_id learner_id
-    from public.import_rows ir
-    where ir.batch_id=gb.id and ir.matched_entity_id is not null
-      and ir.matched_entity_type in ('learner','guardian')
-    union
     select distinct sli.learner_id
     from public.import_rows ir
     join public.school_learner_identifiers sli
