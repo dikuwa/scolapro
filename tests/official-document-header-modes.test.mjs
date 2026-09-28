@@ -71,12 +71,12 @@ test("shared official chrome uses the governed A4 backdrop and universal interna
   assert.match(chrome, /scolapro-document-backdrop\.png/);
   assert.match(chrome, /report::before/);
   assert.match(chrome, /background:url/);
-  assert.match(chrome, /opacity:\.12/);
+  assert.match(chrome, /opacity:1/);
   assert.doesNotMatch(chrome, /content: "ScolaPro"/);
   assert.match(pdf, /drawInternalHeader/);
   assert.match(pdf, /INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT = 72/);
   assert.match(pdf, /resources\.backdrop/);
-  assert.match(pdf, /opacity: 0\.12/);
+  assert.match(pdf, /opacity: 1/);
   assert.doesNotMatch(pdf, /const backdrop = "ScolaPro"/);
   assert.match(pdf, /loadPublicBrandBytes/);
 });
