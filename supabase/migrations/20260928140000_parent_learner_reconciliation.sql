@@ -253,12 +253,12 @@ begin
   if not app_private.can_manage_school_imports(lb.school_id) then raise exception 'Permission denied'; end if;
 
   with source_learners as (
-    select distinct sli.learner_id
+    select distinct ir.matched_entity_id learner_id
     from public.import_rows ir
-    join public.school_learner_identifiers sli
-      on sli.school_id=gb.school_id
-     and upper(btrim(sli.admission_number))=upper(btrim(ir.normalized_data->>'learner_admission_number'))
-    where ir.batch_id=gb.id
+    where ir.batch_id=lb.id
+      and ir.matched_entity_type='learner'
+      and ir.matched_entity_id is not null
+      and ir.resolution<>'skip'
   ),
   covered as (
     select distinct sli.learner_id, ir.matched_entity_id guardian_id
@@ -466,7 +466,6 @@ begin
     if r.resolution='update' then
       update public.learners
       set surname=coalesce(nullif(btrim(r.normalized_data->>'surname'),''),surname),
-          preferred_name=coalesce(nullif(btrim(r.normalized_data->>'preferred_name'),''),preferred_name),
           date_of_birth=coalesce(nullif(r.normalized_data->>'date_of_birth','')::date,date_of_birth),
           sex=coalesce(nullif(lower(btrim(r.normalized_data->>'sex')),''),sex),
           updated_at=now()
@@ -479,7 +478,7 @@ begin
       where id=v_enrolment.id;
 
       insert into public.import_commit_results(batch_id,import_row_id,entity_type,entity_id,outcome,message)
-      values(b.id,r.id,'learner',v_learner.id,'updated','Reconciled existing learner profile/current class while preserving learner UUID and legal first_names')
+      values(b.id,r.id,'learner',v_learner.id,'updated','Reconciled approved existing learner fields/current class while preserving learner UUID, legal first_names, preferred_name, and identity documents')
       on conflict(import_row_id) do nothing;
       v_updated:=v_updated+1;
     else
@@ -566,12 +565,12 @@ begin
   if coalesce((v_summary->>'blocked_rows')::integer,0)>0 then raise exception 'Reconciliation has blocked rows'; end if;
 
   with source_learners as (
-    select distinct sli.learner_id
+    select distinct ir.matched_entity_id learner_id
     from public.import_rows ir
-    join public.school_learner_identifiers sli
-      on sli.school_id=gb.school_id
-     and upper(btrim(sli.admission_number))=upper(btrim(ir.normalized_data->>'learner_admission_number'))
-    where ir.batch_id=gb.id
+    where ir.batch_id=lb.id
+      and ir.matched_entity_type='learner'
+      and ir.matched_entity_id is not null
+      and ir.resolution<>'skip'
   ),
   covered as (
     select distinct sli.learner_id, ir.matched_entity_id guardian_id
@@ -607,6 +606,28 @@ begin
   -- The NHS source only says PARENT 1 / PARENT 2. When a linked existing
   -- guardian already has a more specific relationship or verified permissions,
   -- preserve those facts instead of downgrading them to generic parent/false flags.
+  with existing_rel as (
+    select distinct on (ir.id)
+      ir.id import_row_id,
+      lg.relationship_type,
+      lg.is_legal_guardian,
+      lg.is_emergency_contact,
+      lg.is_pickup_authorized
+    from public.import_rows ir
+    join public.school_learner_identifiers sli
+      on sli.school_id=gb.school_id
+     and upper(btrim(sli.admission_number))=upper(btrim(ir.normalized_data->>'learner_admission_number'))
+    join public.learner_guardians lg
+      on lg.learner_id=sli.learner_id
+     and lg.guardian_id=ir.matched_entity_id
+     and lg.effective_from<=current_date
+     and (lg.effective_to is null or lg.effective_to>=current_date)
+    where ir.batch_id=gb.id
+      and ir.resolution='link'
+      and ir.matched_entity_type='guardian'
+      and ir.matched_entity_id is not null
+    order by ir.id,lg.priority,lg.created_at
+  )
   update public.import_rows ir
   set normalized_data=ir.normalized_data||jsonb_build_object(
         'relationship_type',rel.relationship_type,
@@ -615,23 +636,8 @@ begin
         'is_pickup_authorized',rel.is_pickup_authorized
       ),
       updated_at=now()
-  from public.school_learner_identifiers sli
-  join lateral (
-    select lg.relationship_type,lg.is_legal_guardian,lg.is_emergency_contact,lg.is_pickup_authorized
-    from public.learner_guardians lg
-    where lg.learner_id=sli.learner_id
-      and lg.guardian_id=ir.matched_entity_id
-      and lg.effective_from<=current_date
-      and (lg.effective_to is null or lg.effective_to>=current_date)
-    order by lg.priority,lg.created_at
-    limit 1
-  ) rel on true
-  where ir.batch_id=gb.id
-    and ir.resolution='link'
-    and ir.matched_entity_type='guardian'
-    and ir.matched_entity_id is not null
-    and sli.school_id=gb.school_id
-    and upper(btrim(sli.admission_number))=upper(btrim(ir.normalized_data->>'learner_admission_number'));
+  from existing_rel rel
+  where ir.id=rel.import_row_id;
 
   v_learner_result:=public.commit_existing_learner_roster_batch(lb.id);
   v_guardian_result:=public.commit_guardian_import_batch(gb.id);
