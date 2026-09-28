@@ -236,6 +236,15 @@ function drawInternalHeader(
     }
   }
 
+  // The crest asset has an opaque white background, so repaint the top edge
+  // after all header content to guarantee one continuous visible frame.
+  page.drawLine({
+    start: { x, y: topY },
+    end: { x: x + width, y: topY },
+    thickness: 0.75,
+    color: LINE,
+  });
+
   return topY - height;
 }
 
