@@ -1,6 +1,6 @@
 begin;
 
-select plan(25);
+select plan(26);
 
 select has_table('public','statutory_code_sets','versioned statutory code sets exist');
 select has_table('public','statutory_codes','statutory codes exist');
