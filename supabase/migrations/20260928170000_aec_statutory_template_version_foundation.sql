@@ -87,7 +87,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path = pg_catalog, public
-as $
+as $body$
 declare
   v_old_status text;
   v_new_status text;
@@ -122,7 +122,7 @@ begin
 
   return case when tg_op = 'DELETE' then old else new end;
 end;
-$;
+$body$;
 
 revoke all on function app_private.enforce_statutory_form_structure_finality()
 from public, anon, authenticated;
