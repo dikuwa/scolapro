@@ -233,7 +233,10 @@ begin
   end if;
 
   if new.effective_from < v_set.effective_from
-     or (v_set.effective_to is not null and coalesce(new.effective_to, new.effective_from) > v_set.effective_to) then
+     or (
+       v_set.effective_to is not null
+       and (new.effective_to is null or new.effective_to > v_set.effective_to)
+     ) then
     raise exception 'Statutory mapping effective period falls outside the code-set version';
   end if;
 
