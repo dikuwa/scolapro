@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(16);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fa510000-0000-4000-8000-000000000001','nhs-reconciliation-admin@example.test','authenticated','authenticated',now(),now());
@@ -237,6 +237,28 @@ select is(
      and (lg.effective_to is null or lg.effective_to>=current_date)),
   1,
   'guardian relationship is created once for the reconciled learner'
+);
+
+select lives_ok(
+  $select public.commit_parent_learner_reconciliation(
+    'fa511000-0000-4000-8000-000000000001',
+    'fa513000-0000-4000-8000-000000000001',
+    'keep'
+  )$,
+  'safe retry returns the previously committed reconciliation instead of writing again'
+);
+
+select is(
+  (select count(*)::integer
+   from public.learner_guardians lg
+   join public.guardian_profiles gp on gp.id=lg.guardian_id
+   where lg.learner_id=current_setting('qa.recon_learner_id')::uuid
+     and gp.first_names='Parent'
+     and gp.surname='Example'
+     and lg.effective_from<=current_date
+     and (lg.effective_to is null or lg.effective_to>=current_date)),
+  1,
+  'idempotent reconciliation retry does not duplicate guardian relationships'
 );
 
 select * from finish();
