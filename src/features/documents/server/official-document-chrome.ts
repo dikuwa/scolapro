@@ -19,17 +19,20 @@ export const OFFICIAL_DOCUMENT_HEADER_RULE =
   ".school-header { display: grid; grid-template-columns: 68px minmax(0,1fr) minmax(150px,36%); gap: 8px; align-items: center; border: 1px solid var(--line); padding: 6px 8px; min-height: 76px; }";
 
 export const OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE =
-  "@media (max-width: 640px) { .school-header.internal-school { grid-template-columns: 58px minmax(0,1fr); align-items: start; background-size:calc(100% - 66px) 1px; } .school-header.internal-school > .logo-wrap { grid-row: 1; } .school-header.internal-school > .school-identity { grid-column: 2; } .school-header.internal-school > .internal-document-context { grid-column: 1 / -1; text-align: left; border-top: 1px solid var(--line); padding-top: 4px; } }";
+  "@media (max-width: 640px) { .school-header.internal-school { grid-template-columns: 58px minmax(0,1fr); align-items: start; } .school-header.internal-school > .logo-wrap { grid-row: 1; } .school-header.internal-school > .school-identity { grid-column: 2; } .school-header.internal-school > .internal-document-context { grid-column: 1 / -1; text-align: left; border-top: 1px solid var(--line); padding-top: 4px; } }";
 
 export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
   `${OFFICIAL_DOCUMENT_HEADER_RULE} ${OFFICIAL_DOCUMENT_RESPONSIVE_HEADER_RULE}
   .report { position: relative; isolation: isolate; }
   .report::before { content:""; position:absolute; inset:0; z-index:0; background:url("${OFFICIAL_DOCUMENT_BACKDROP_URL}") center / cover no-repeat; opacity:1; pointer-events:none; user-select:none; }
   .report > * { position: relative; z-index: 1; }
-  .school-header.internal-school { border-top:0; background-image:linear-gradient(var(--line),var(--line)); background-repeat:no-repeat; background-position:top right; background-size:calc(100% - 76px) 1px; }
-  .school-header .logo-wrap { display:flex; align-items:center; justify-content:center; min-height:66px; }
-  .school-header .school-logo { display:block; max-width:62px; max-height:66px; object-fit:contain; }
-  .school-header .school-identity { min-width:0; text-align:left; align-self:center; }
+  .school-header.internal-school { align-items:start; border-top:1px solid var(--line); }
+  .school-header.internal-school > .logo-wrap { align-self:start; padding-top:1px; }
+  .school-header.internal-school > .school-identity { align-self:start; padding-top:1px; }
+  .school-header.internal-school > .internal-document-context { align-self:start; padding-top:4px; }
+  .school-header .logo-wrap { display:flex; align-items:flex-start; justify-content:center; min-height:66px; }
+  .school-header .school-logo { display:block; max-width:62px; max-height:64px; object-fit:contain; }
+  .school-header .school-identity { min-width:0; text-align:left; }
   .school-header .school-name { margin:0 0 2px; font-size:17px; line-height:1; font-weight:700; white-space:normal; }
   .school-name.old-english { font-family: "UnifrakturCook","Old English Text MT","Lucida Blackletter","Times New Roman",serif; font-weight: 700; letter-spacing: 0; }
   .school-header .former-name { margin:0 0 1px; font-size:6.2px; line-height:1.08; }
