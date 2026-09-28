@@ -289,37 +289,37 @@ select throws_ok(
 );
 
 select throws_ok(
-  $update public.statutory_form_fields
+  $q$update public.statutory_form_fields
     set label='Rewritten published field'
-    where id='f8574000-0000-4000-8000-000000000003'$,
+    where id='f8574000-0000-4000-8000-000000000003'$q$,
   'P0001',
   'Finalized statutory form structure is immutable; create a new form version',
   'published field structure cannot be rewritten'
 );
 
 select throws_ok(
-  $update public.statutory_form_sections
+  $q$update public.statutory_form_sections
     set form_version_id='f8572000-0000-4000-8000-000000000004'
-    where id='f8573000-0000-4000-8000-000000000001'$,
+    where id='f8573000-0000-4000-8000-000000000001'$q$,
   'P0001',
   'Finalized statutory form structure is immutable; create a new form version',
   'finalized section cannot be moved into a draft version'
 );
 
 select throws_ok(
-  $update public.statutory_form_fields
+  $q$update public.statutory_form_fields
     set form_version_id='f8572000-0000-4000-8000-000000000004',
         section_id='f8573000-0000-4000-8000-000000000005'
-    where id='f8574000-0000-4000-8000-000000000003'$,
+    where id='f8574000-0000-4000-8000-000000000003'$q$,
   'P0001',
   'Finalized statutory form structure is immutable; create a new form version',
   'finalized field cannot be moved into a draft version or draft section'
 );
 
 select lives_ok(
-  $update public.statutory_form_fields
+  $q$update public.statutory_form_fields
     set label='Draft existing field edited'
-    where id='f8574000-0000-4000-8000-000000000005'$,
+    where id='f8574000-0000-4000-8000-000000000005'$q$,
   'draft structure remains normally editable'
 );
 
