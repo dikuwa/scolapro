@@ -323,9 +323,16 @@ test("guardian postal address prefers parent priority order and stays mail-merge
 });
 
 
-test("Class List Excel keeps an open crest bay and compact header geometry", () => {
+test("Class List Excel keeps compact header geometry and bold contact labels", () => {
   assert.match(xlsx, /showGridLines="0"/);
   assert.match(xlsx, /targetHeightEmu = 700000/);
+  assert.match(xlsx, /setCellRichText/);
+  assert.match(xlsx, /address\.label \+ ":", bold: true/);
+  assert.match(xlsx, /telephone\.label \+ ":", bold: true/);
+  assert.match(xlsx, /fax\.label \+ ":", bold: true/);
+  assert.match(xlsx, /email\.label \+ ":", bold: true/);
+  assert.match(xlsx, /t="inlineStr"/);
+  assert.match(xlsx, /<b\/>/);
   assert.match(xlsx, /\{ hpt: 22 \}/);
   assert.match(xlsx, /\{ hpt: 9 \}/);
   assert.match(xlsx, /\{ hpt: 11 \}/);
