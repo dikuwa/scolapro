@@ -97,13 +97,13 @@ test("source-grounded I&C hierarchy is represented without generalizing it",()=>
     migration.includes("'promotion-marks-three-years','Promotion marks for previous three years + evaluation',160,'results'"),
     "promotion marks source item must remain exact and ordered"
   );
-  assert.match(migration,/National Subject Policy Guide for Information and Communication, Grades 4-12 \\(NIED, 2021\\)/);
+  assert.ok(migration.includes("National Subject Policy Guide for Information and Communication, Grades 4-12 (NIED, 2021)"));
 });
 
 test("grade RPC contract uses integer consistently and model rejects non-integer grades",()=>{
   assert.match(migration,/p_grade integer/);
   assert.match(migration,/p_grade\s+integer\s*,/);
   assert.ok(migration.includes("public.resolve_operational_file_template(text,integer,date)"));
-  assert.match(model,/Number\\.isInteger\\(input\\.grade\\)/);
+  assert.ok(model.includes("Number.isInteger(input.grade)"));
   assert.doesNotMatch(model,/mapTemplate\\(row: any\\)/);
 });
