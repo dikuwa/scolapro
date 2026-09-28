@@ -159,11 +159,14 @@ function drawInternalHeader(
   const contextX = x + width - contextWidth - 6;
 
   const bottomY = topY - height;
-  page.drawLine({ start: { x, y: topY }, end: { x, y: bottomY }, thickness: 0.75, color: LINE });
-  page.drawLine({ start: { x: x + width, y: topY }, end: { x: x + width, y: bottomY }, thickness: 0.75, color: LINE });
-  page.drawLine({ start: { x, y: bottomY }, end: { x: x + width, y: bottomY }, thickness: 0.75, color: LINE });
-  // Keep the crest bay visually open: the top rule begins only where school identity starts.
-  page.drawLine({ start: { x: x + logoColumn, y: topY }, end: { x: x + width, y: topY }, thickness: 0.75, color: LINE });
+  page.drawRectangle({
+    x,
+    y: bottomY,
+    width,
+    height,
+    borderWidth: 0.75,
+    borderColor: LINE,
+  });
 
   if (logo) {
     const maxLogoWidth = Math.max(48, logoColumn - 4);
@@ -172,7 +175,7 @@ function drawInternalHeader(
     const imageHeight = logo.height * scale;
     page.drawImage(logo, {
       x: x + Math.max(2, (logoColumn - imageWidth) / 2),
-      y: bottomY + Math.max(4, (height - imageHeight) / 2),
+      y: topY - 4 - imageHeight,
       width: imageWidth,
       height: imageHeight,
     });
@@ -184,13 +187,13 @@ function drawInternalHeader(
   }
   page.drawText(fitOfficialDocumentPdfText(schoolNameFont, header.schoolName, schoolFontSize, identityWidth), {
     x: identityX + 2,
-    y: topY - 17,
+    y: topY - 16,
     size: schoolFontSize,
     font: schoolNameFont,
     color: INK,
   });
 
-  let lineY = topY - 28;
+  let lineY = topY - 27;
   if (header.formerName) {
     page.drawText(fitOfficialDocumentPdfText(regular, `(${header.formerName})`, 5.8, identityWidth), {
       x: identityX + 2,
