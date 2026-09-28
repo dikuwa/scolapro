@@ -127,8 +127,8 @@ select is(
 
 select is(
   (select resolution from public.import_rows where id='fa512000-0000-4000-8000-000000000001'),
-  'update',
-  'preferred-name difference is a bounded update without replacing legal first names'
+  'link',
+  'workbook preferred/display name does not trigger an automatic canonical learner update'
 );
 
 select is(
@@ -222,8 +222,8 @@ select is(
 
 select is(
   (select preferred_name from public.learners where id=current_setting('qa.recon_learner_id')::uuid),
-  'New Preferred',
-  'approved preferred-name reconciliation is applied'
+  'Old Preferred',
+  'workbook preferred/display name does not overwrite the canonical learner preferred name'
 );
 
 select is(
