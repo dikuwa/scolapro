@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(20);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values('fa510000-0000-4000-8000-000000000001','nhs-reconciliation-admin@example.test','authenticated','authenticated',now(),now());
@@ -10,6 +10,81 @@ values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fa510000-0000-4000-8000-000000000001',true);
+
+insert into public.schools(id,tenant_id,name,emis_number,status)
+values(
+  'fa520000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  'Issue 851 Same Tenant Other School',
+  'ISSUE851-OTHER',
+  'active'
+);
+
+insert into public.tenants(id,name,slug,status)
+values(
+  'fa521000-0000-4000-8000-000000000001',
+  'Issue 851 Other Tenant',
+  'issue-851-other-tenant',
+  'active'
+);
+
+insert into public.schools(id,tenant_id,name,emis_number,status)
+values(
+  'fa522000-0000-4000-8000-000000000001',
+  'fa521000-0000-4000-8000-000000000001',
+  'Issue 851 Cross Tenant School',
+  'ISSUE851-XTENANT',
+  'active'
+);
+
+insert into public.import_batches(
+  id,tenant_id,school_id,import_type,source_file_name,source_file_sha256,status,created_by_user_id
+) values
+(
+  'fa523000-0000-4000-8000-000000000001',
+  '11111111-1111-4111-8111-111111111111',
+  'fa520000-0000-4000-8000-000000000001',
+  'learners','cross-school-learners.csv','cross-school-sha','review',
+  'fa510000-0000-4000-8000-000000000001'
+),
+(
+  'fa523000-0000-4000-8000-000000000002',
+  '11111111-1111-4111-8111-111111111111',
+  'fa520000-0000-4000-8000-000000000001',
+  'guardians','cross-school-guardians.csv','cross-school-guardian-sha','review',
+  'fa510000-0000-4000-8000-000000000001'
+),
+(
+  'fa524000-0000-4000-8000-000000000001',
+  'fa521000-0000-4000-8000-000000000001',
+  'fa522000-0000-4000-8000-000000000001',
+  'learners','cross-tenant-learners.csv','cross-tenant-sha','review',
+  'fa510000-0000-4000-8000-000000000001'
+);
+
+select throws_ok(
+  $select public.reconcile_existing_learner_roster_batch('fa523000-0000-4000-8000-000000000001',2026)$,
+  'P0001',
+  'Permission denied',
+  'cross-school learner reconciliation is denied'
+);
+
+select throws_ok(
+  $select public.reconcile_existing_learner_roster_batch('fa524000-0000-4000-8000-000000000001',2026)$,
+  'P0001',
+  'Permission denied',
+  'cross-tenant learner reconciliation is denied'
+);
+
+select throws_ok(
+  $select public.parent_learner_reconciliation_summary(
+    'fa523000-0000-4000-8000-000000000001',
+    'fa523000-0000-4000-8000-000000000002'
+  )$,
+  'P0001',
+  'Permission denied',
+  'stale-relationship reconciliation summary is denied outside the actor school'
+);
 select set_config(
   'qa.recon_class_id',
   (select rc.id::text from public.register_classes rc
