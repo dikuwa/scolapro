@@ -112,7 +112,7 @@ export function SchoolStatutoryEmisProfilePanel({
         <div>
           <h3 className="text-sm font-semibold">Reusable statutory profile</h3>
           <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
-            Enter the school's known descriptive values. Do not enter invented Ministry codes; official code mapping is owned by the statutory code registry.
+            Enter the school&apos;s known descriptive values. Do not enter invented Ministry codes; official code mapping is owned by the statutory code registry.
           </p>
         </div>
 
