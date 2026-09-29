@@ -40,3 +40,11 @@ test("official analysis resolves class from the historical result enrolment rath
   assert.match(source, /from\("register_classes"\)/);
   assert.match(source, /className:/);
 });
+
+test("teacher attribution comes from historical assessment allocations and preserves handovers", () => {
+  assert.match(source, /from\("assessment_instances"\)/);
+  assert.match(source, /from\("teacher_allocations"\)/);
+  assert.match(source, /from\("staff_members"\)/);
+  assert.match(source, /multiple_assessment_allocations/);
+  assert.match(source, /teacherAttribution/);
+});
