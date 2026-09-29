@@ -300,7 +300,6 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
       templateItemIds:items.map((item)=>item.id),
       academicYear,
       effectiveOn:today,
-      grade:grades[0],
     });
 
     const phaseLabels=template.phases
@@ -320,7 +319,12 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
         id:section.id,
         title:section.title,
         items:section.items.map((item)=>{
-          const shared=sharedByItem.get(item.id) ?? [];
+          const shared=(sharedByItem.get(item.id) ?? []).filter((resource)=>
+            grades.some((grade)=>
+              (resource.gradeFrom===null || grade>=resource.gradeFrom) &&
+              (resource.gradeTo===null || grade<=resource.gradeTo)
+            )
+          );
           const firstShared=shared.find((resource)=>resource.externalUrl);
           if (item.resolverType==="shared_resource" && shared.length) {
             return {
