@@ -29,3 +29,13 @@ test("folder selection drives the existing governed requirement view", () => {
   assert.match(source, /OperationalFileDocumentBindingForm/);
   assert.match(source, /OperationalFileExternalReferenceForm/);
 });
+
+const resolver = await readFile(new URL("../src/features/teaching/server/operational-file-resolvers.ts", import.meta.url), "utf8");
+const workspace = await readFile(new URL("../src/features/teaching/server/operational-files-workspace.ts", import.meta.url), "utf8");
+
+test("multi-subject evidence preserves allocation scope", () => {
+  assert.match(workspace, /allocationIdsForItems/);
+  assert.match(workspace, /allocationIds: allocationIdsForItems/);
+  assert.match(resolver, /preparationRecords\.filter\(\(record\) => record\.allocationId === input\.allocationId\)/);
+  assert.match(resolver, /allocationId: input\.allocationIds\?\.\[index\]/);
+});
