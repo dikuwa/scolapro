@@ -2,6 +2,7 @@ import "server-only";
 
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
 
 export type AcademicAnalysisBasis = "official" | "provisional";
 
@@ -227,6 +228,24 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   const subjectMap = new Map((subjects ?? []).map((row) => [row.id, row.display_name]));
   const gradeMap = new Map((grades ?? []).map((row) => [row.id, row.display_name]));
   const offeringMap = new Map((offerings ?? []).map((row) => [row.id, row]));
+
+  // HOD analysis is governed by the same subject-responsibility registry used by Academics.
+  // RLS remains defense-in-depth, but the read model must not treat HOD as whole-school authority.
+  let authorizedOfferingIds: Set<string> | null = null;
+  if (membership.roleKey === "hod") {
+    const hodScope = await getHodScopeConfiguration(membership.schoolId);
+    const activeResponsibilitySubjectIds = new Set(
+      hodScope.responsibilities
+        .filter((row) => row.effectiveFrom <= hodScope.today && (!row.effectiveTo || row.effectiveTo >= hodScope.today))
+        .map((row) => row.subjectId),
+    );
+    authorizedOfferingIds = new Set(
+      (offerings ?? [])
+        .filter((offering) => activeResponsibilitySubjectIds.has(offering.subject_id))
+        .map((offering) => offering.id),
+    );
+    typedResults = typedResults.filter((row) => authorizedOfferingIds?.has(row.subject_offering_id));
+  }
 
   const { data: instances, error: instanceError } = offeringIds.length
     ? await db.from("assessment_instances")
