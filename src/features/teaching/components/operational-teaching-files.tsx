@@ -200,6 +200,8 @@ export function OperationalTeachingFiles({
 
   if (!workspace.allocations.length && !workspace.unsupportedAllocations.length) return null;
 
+  const hasGovernedFiles = workspace.allocations.length > 0;
+
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -223,7 +225,7 @@ export function OperationalTeachingFiles({
         </a>
       </div>
 
-      {workspace.allocations.length ? (
+      {hasGovernedFiles ? (
         <div className="mt-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {teacherFileFolders.map((folder, index) => {
@@ -267,9 +269,13 @@ export function OperationalTeachingFiles({
             </Link>
           </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-3 text-xs text-muted-foreground">
+          Your current teaching allocations do not yet have a verified operational-file template. Your canonical professional files and teaching records remain available below.
+        </div>
+      )}
 
-      {workspace.allocations.length ? (
+      {hasGovernedFiles ? (
         <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted/55 p-3">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <label className="block text-xs font-medium leading-4">
@@ -474,13 +480,13 @@ export function OperationalTeachingFiles({
             </article>
           ))}
         </div>
-      ) : workspace.allocations.length ? (
+      ) : hasGovernedFiles ? (
         <p className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-4 text-sm text-muted-foreground">
           No operational-file requirements match the current filters.
         </p>
       ) : null}
 
-      {workspace.unsupportedAllocations.length ? (
+      {workspace.unsupportedAllocations.length && hasGovernedFiles ? (
         <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-3 sm:p-4">
           <div className="flex items-center gap-2">
             <CircleAlert className="size-4 text-muted-foreground" aria-hidden="true" />
