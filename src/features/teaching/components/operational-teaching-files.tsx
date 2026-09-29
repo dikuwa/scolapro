@@ -440,8 +440,9 @@ export function OperationalTeachingFiles({
                                     </div>
                                   ) : null}
 
-                                  {item.evidence.status === "missing" && item.resolverType === "external_link" ? (
-                                    <div className="mt-2"><p className="mb-1 text-[0.68rem] text-muted-foreground">Add a governed official/reference link; this does not mark the requirement complete unless the evidence resolver accepts it.</p><OperationalFileExternalReferenceForm templateItemId={item.id} title={item.label} /></div>
+                                  {item.evidence.status === "missing" &&
+                                  ["shared_resource", "external_link"].includes(item.resolverType) ? (
+                                    <div className="mt-2"><p className="mb-1 text-[0.68rem] text-muted-foreground">Add a governed reference for this missing shared/official resource; completion still depends on the evidence resolver.</p><OperationalFileExternalReferenceForm templateItemId={item.id} title={item.label} /></div>
                                   ) : null}
 
                                   {item.evidence.status === "missing" && item.resolverType === "teacher_document" ? (
