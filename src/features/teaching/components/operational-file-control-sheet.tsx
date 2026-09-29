@@ -139,15 +139,29 @@ export function OperationalFileControlSheetView({
         <p className="mt-1 text-xs text-muted-foreground">
           Preparation review uses the existing preparation submission lifecycle. Uploaded professional evidence uses the existing professional-file review lifecycle.
         </p>
+        {controlSheet.preparationUnavailable || controlSheet.professionalFileUnavailable ? (
+          <div className="mt-3 space-y-2">
+            {controlSheet.preparationUnavailable ? (
+              <p className="rounded-[var(--radius-sm)] bg-[color:var(--warning-soft)] px-3 py-3 text-sm text-[color:var(--warning)]">
+                {controlSheet.preparationUnavailable}
+              </p>
+            ) : null}
+            {controlSheet.professionalFileUnavailable ? (
+              <p className="rounded-[var(--radius-sm)] bg-[color:var(--warning-soft)] px-3 py-3 text-sm text-[color:var(--warning)]">
+                {controlSheet.professionalFileUnavailable}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {reviewRows.length ? (
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
             {reviewRows.map((row) => <ReviewRow key={`${row.source}:${row.id}`} row={row} />)}
           </div>
-        ) : (
+        ) : !controlSheet.preparationUnavailable && !controlSheet.professionalFileUnavailable ? (
           <p className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3 text-sm text-muted-foreground">
             No existing review submissions are recorded for this teacher in the current scope.
           </p>
-        )}
+        ) : null}
       </div>
     </section>
   );
