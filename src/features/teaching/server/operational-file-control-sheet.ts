@@ -110,11 +110,16 @@ export async function getOperationalFileControlSheet(
     return { preparationRows: [], professionalFileRows: [] };
   }
 
-  const membership = context.currentSchoolMembership;
-  if (
-    !membership?.staffMemberId ||
-    !["teacher", "class_teacher", "hod"].includes(membership.roleKey)
-  ) {
+  const current = context.currentSchoolMembership;
+  if (!current) return { preparationRows: [], professionalFileRows: [] };
+
+  const ownerMembership = context.memberships.find(
+    (item) =>
+      item.schoolId === current.schoolId &&
+      item.staffMemberId &&
+      ["teacher", "class_teacher", "hod"].includes(item.roleKey),
+  );
+  if (!ownerMembership?.staffMemberId) {
     return { preparationRows: [], professionalFileRows: [] };
   }
 
@@ -127,7 +132,7 @@ export async function getOperationalFileControlSheet(
         items:preparation_submission_items(id),
         events:preparation_review_events(id,event_kind,actor_role_snapshot,comment,occurred_at)
       `)
-      .eq("school_id", membership.schoolId)
+      .eq("school_id", current.schoolId)
       .eq("academic_year", academicYear)
       .eq("submitted_by_user_id", context.user.id)
       .order("submitted_at", { ascending: false })
@@ -140,8 +145,8 @@ export async function getOperationalFileControlSheet(
         document:teacher_professional_documents(title,original_filename),
         events:teacher_professional_document_review_events(id,event_kind,actor_role_snapshot,comment,occurred_at)
       `)
-      .eq("school_id", membership.schoolId)
-      .eq("owner_staff_member_id", membership.staffMemberId)
+      .eq("school_id", current.schoolId)
+      .eq("owner_staff_member_id", ownerMembership.staffMemberId)
       .eq("submitted_by_user_id", context.user.id)
       .order("submitted_at", { ascending: false })
       .limit(50),
