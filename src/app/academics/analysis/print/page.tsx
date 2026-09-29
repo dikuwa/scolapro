@@ -2,12 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
 
-export default async function AcademicAnalysisPrintPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string; basis?: string; grade?: string; class?: string; teacher?: string }> }) {
+export default async function AcademicAnalysisPrintPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string; basis?: string; grade?: string; class?: string; subject?: string; teacher?: string }> }) {
   const params = await searchParams;
   const academicYear = Number(params.year) || new Date().getFullYear();
   const termNumber = Math.min(3, Math.max(1, Number(params.term) || 1));
   const basis = params.basis === "provisional" ? "provisional" : "official";
-  const workspace = await getAcademicAnalysisWorkspace({ academicYear, termNumber, basis, grade: params.grade, className: params.class, teacher: params.teacher });
+  const workspace = await getAcademicAnalysisWorkspace({ academicYear, termNumber, basis, grade: params.grade, className: params.class, subjectOfferingId: params.subject, teacher: params.teacher });
   if (!workspace) redirect("/");
 
   return <main className="mx-auto max-w-[1100px] space-y-4 bg-white p-6 text-black print:max-w-none print:p-0">
