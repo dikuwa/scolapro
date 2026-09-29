@@ -243,7 +243,10 @@ function candidateEvidence(row, learner) {
     firstNameMatch,
     initialsMatch,
     dobMatch,
-    strong: preferredExact || dobMatch || (firstNameMatch && initialsMatch),
+    strong:
+      preferredExact ||
+      (firstNameMatch && (dobMatch || initialsMatch)) ||
+      (dobMatch && initialsMatch),
   };
 }
 
