@@ -109,7 +109,9 @@ test("governed document art is bundled and the Namib High crest matches the supp
   // deflate payload stalled the bundled PNG decoder on every official-document
   // PDF export.
   assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "69fe007cb344a712a7e6723e6b6aaa83c05c464be248e12331e26a9273cadc49");
-  assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "f3b18566997fdb00e4393cfad78e47cfcc9c1aa50b01a55c353fcd564ff557a6");
+  // #865 restores the authoritative ScolaPro document backdrop from
+  // dikuwa/martinmukoya:public/assets/backgrounds/PNG/document-backdrop.png.
+  assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "7b5993206844eddf410930f358e9f1b75172dd201e8fd71d94323d6970229892");
   assert.match(profile, /\/brand\/schools\/namib-high\/crest\.png/);
 });
 

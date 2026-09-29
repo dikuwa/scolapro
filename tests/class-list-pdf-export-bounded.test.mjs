@@ -34,7 +34,7 @@ test("the PNG gate accepts complete payloads and refuses truncated ones", async 
   assert.equal(gateModule.isBoundedDecodablePng(asset("brand/governed/namibia-coat-of-arms.png")), true);
   assert.equal(gateModule.isBoundedDecodablePng(asset("brand/scolapro/icon-512.png")), true);
 
-  assert.equal(gateModule.isBoundedDecodablePng(asset("brand/governed/scolapro-document-backdrop.png")), false);
+  assert.equal(gateModule.isBoundedDecodablePng(asset("brand/governed/scolapro-document-backdrop.png")), true);
   assert.equal(gateModule.isBoundedDecodablePng(asset("brand/schools/namib-high/crest.png").subarray(0, 4000)), false);
   assert.equal(gateModule.isBoundedDecodablePng(new Uint8Array(0)), false);
   assert.equal(gateModule.isBoundedDecodablePng(null), false);
