@@ -64,6 +64,16 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
       </section> : null}
 
       {workspace.rows.length ? <section className="space-y-3">
+        <div><h2 className="scolapro-section-title">Grade analysis</h2><p className="scolapro-section-description">Selected-basis performance grouped by grade.</p></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{workspace.gradeSummaries.map((row) => <article key={row.key} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4"><h3 className="font-medium">{row.key}</h3><p className="mt-2 text-sm">{row.summary.assessedLearners} assessed · Average {row.summary.average ?? "—"} · Median {row.summary.median ?? "—"}</p><p className="mt-1 text-xs text-muted-foreground">Pass {row.summary.passRate == null ? "—" : row.summary.passRate + "%"} · Fail {row.summary.failRate == null ? "—" : row.summary.failRate + "%"}</p></article>)}</div>
+      </section> : null}
+
+      {workspace.rows.length ? <section className="space-y-3">
+        <div><h2 className="scolapro-section-title">Class analysis</h2><p className="scolapro-section-description">Selected-basis performance grouped by historical register class.</p></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{workspace.classSummaries.map((row) => <article key={row.key} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4"><h3 className="font-medium">{row.key}</h3><p className="mt-2 text-sm">{row.summary.assessedLearners} assessed · Average {row.summary.average ?? "—"} · Median {row.summary.median ?? "—"}</p><p className="mt-1 text-xs text-muted-foreground">Pass {row.summary.passRate == null ? "—" : row.summary.passRate + "%"} · Fail {row.summary.failRate == null ? "—" : row.summary.failRate + "%"}</p></article>)}</div>
+      </section> : null}
+
+      {workspace.rows.length ? <section className="space-y-3">
         <div><h2 className="scolapro-section-title">Teacher–subject analysis</h2><p className="scolapro-section-description">Descriptive results by historical teacher attribution. No ranking or competence score is applied.</p></div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{workspace.teacherSummaries.map((row) => <article key={row.key} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4"><h3 className="font-medium">{row.key}</h3><dl className="mt-3 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-xs text-muted-foreground">Assessed</dt><dd>{row.summary.assessedLearners}</dd></div><div><dt className="text-xs text-muted-foreground">Average</dt><dd>{row.summary.average ?? "—"}</dd></div><div><dt className="text-xs text-muted-foreground">Pass %</dt><dd>{row.summary.passRate == null ? "—" : row.summary.passRate + "%"}</dd></div></dl></article>)}</div>
       </section> : null}
