@@ -48,3 +48,9 @@ test("teacher attribution comes from historical assessment allocations and prese
   assert.match(source, /multiple_assessment_allocations/);
   assert.match(source, /teacherAttribution/);
 });
+
+test("shared scope drives subject grade class and teacher aggregates", () => {
+  for (const token of ["subjectSummaries", "gradeSummaries", "classSummaries", "teacherSummaries", "aggregateBy", "subjectOfferingId?:", "grade?:", "className?:", "teacher?:"]) assert.match(source, new RegExp(token.replace(/[?]/g, "\\\?")));
+  assert.match(source, /weightedAverage/);
+  assert.match(source, /passRate: rate\(passed, classified\)/);
+});
