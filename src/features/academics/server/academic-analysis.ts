@@ -9,6 +9,10 @@ export type AcademicAnalysisScope = {
   academicYear: number;
   termNumber: number;
   basis?: AcademicAnalysisBasis;
+  subjectOfferingId?: string;
+  grade?: string;
+  className?: string;
+  teacher?: string;
 };
 
 export type SymbolBandCount = {
@@ -49,11 +53,21 @@ export type AcademicAnalysisRow = {
   summary: PerformanceSummary;
 };
 
+export type AcademicAnalysisAggregate = {
+  key: string;
+  label: string;
+  summary: PerformanceSummary;
+};
+
 export type AcademicAnalysisWorkspace = {
   basis: AcademicAnalysisBasis;
   academicYear: number;
   termNumber: number;
   rows: AcademicAnalysisRow[];
+  subjectSummaries: AcademicAnalysisAggregate[];
+  gradeSummaries: AcademicAnalysisAggregate[];
+  classSummaries: AcademicAnalysisAggregate[];
+  teacherSummaries: AcademicAnalysisAggregate[];
   qualityConfigured: false;
 };
 
@@ -103,7 +117,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   // Phase 1A deliberately starts with immutable official results. Provisional analysis
   // will be enabled only after the same authority and denominator contract is proven.
   if (basis !== "official") {
-    return { basis, academicYear: scope.academicYear, termNumber: scope.termNumber, rows: [], qualityConfigured: false };
+    return { basis, academicYear: scope.academicYear, termNumber: scope.termNumber, rows: [], subjectSummaries: [], gradeSummaries: [], classSummaries: [], teacherSummaries: [], qualityConfigured: false };
   }
 
   const db = await createSupabaseServerClient();
@@ -233,11 +247,61 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     });
   }
 
+  const filteredRows = rows
+    .filter((row) => !scope.subjectOfferingId || row.subjectOfferingId === scope.subjectOfferingId)
+    .filter((row) => !scope.grade || row.grade === scope.grade)
+    .filter((row) => !scope.className || row.className === scope.className)
+    .filter((row) => !scope.teacher || row.teacher?.includes(scope.teacher));
+
+  function aggregateBy(select: (row: AcademicAnalysisRow) => string | null): AcademicAnalysisAggregate[] {
+    const groups = new Map<string, AcademicAnalysisRow[]>();
+    for (const row of filteredRows) {
+      const key = select(row);
+      if (!key) continue;
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    }
+    return [...groups.entries()].map(([label, group]) => {
+      const numericWeight = group.reduce((sum, row) => sum + row.summary.numericResults, 0);
+      const classified = group.reduce((sum, row) => sum + row.summary.classifiedResults, 0);
+      const passed = group.reduce((sum, row) => sum + row.summary.passed, 0);
+      const failed = group.reduce((sum, row) => sum + row.summary.failed, 0);
+      const weightedAverage = numericWeight
+        ? group.reduce((sum, row) => sum + ((row.summary.average ?? 0) * row.summary.numericResults), 0) / numericWeight
+        : null;
+      return {
+        key: label,
+        label,
+        summary: {
+          eligibleLearners: group.reduce((sum, row) => sum + row.summary.eligibleLearners, 0),
+          assessedLearners: group.reduce((sum, row) => sum + row.summary.assessedLearners, 0),
+          numericResults: numericWeight,
+          classifiedResults: classified,
+          average: weightedAverage == null ? null : rounded(weightedAverage),
+          median: null,
+          minimum: null,
+          maximum: null,
+          standardDeviation: null,
+          passed,
+          failed,
+          passRate: rate(passed, classified),
+          failRate: rate(failed, classified),
+          qualityCount: null,
+          qualityRate: null,
+          symbolDistribution: [],
+        },
+      };
+    }).sort((a, b) => a.label.localeCompare(b.label));
+  }
+
   return {
     basis,
     academicYear: scope.academicYear,
     termNumber: scope.termNumber,
-    rows: rows.sort((a, b) => a.grade.localeCompare(b.grade) || a.subject.localeCompare(b.subject)),
+    rows: filteredRows.sort((a, b) => a.grade.localeCompare(b.grade) || a.subject.localeCompare(b.subject)),
+    subjectSummaries: aggregateBy((row) => row.subject),
+    gradeSummaries: aggregateBy((row) => row.grade),
+    classSummaries: aggregateBy((row) => row.className),
+    teacherSummaries: aggregateBy((row) => row.teacher),
     qualityConfigured: false,
   };
 }
