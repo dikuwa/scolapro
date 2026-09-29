@@ -187,7 +187,7 @@ export function OperationalTeachingFiles({
       .flat();
   }, [workspace.allocations, query, fileType, subject, phase, sourceType, evidenceStatus]);
 
-  const filtersActive = Boolean(query || fileType || subject || phase || sourceType || evidenceStatus);
+  const filtersActive = Boolean(query || subject || phase || sourceType || evidenceStatus || (fileType && fileType !== "preparation"));
 
   function clearFilters() {
     setQuery("");
@@ -425,7 +425,7 @@ export function OperationalTeachingFiles({
                                             className="scolapro-cta inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-2.5 text-[0.68rem] font-medium hover:bg-surface-muted"
                                           >
                                             <Link2 className="size-3" aria-hidden="true" />
-                                            {reference.label}
+                                            {item.evidence.status === "external" ? "Official source" : "Open"} · {reference.label}
                                             <ArrowUpRight className="size-3" aria-hidden="true" />
                                           </Link>
                                         ) : (
@@ -440,16 +440,18 @@ export function OperationalTeachingFiles({
                                     </div>
                                   ) : null}
 
-                                  {item.evidence.status === "missing" &&
-                                  ["shared_resource", "external_link"].includes(item.resolverType) ? (
-                                    <OperationalFileExternalReferenceForm templateItemId={item.id} title={item.label} />
+                                  {item.evidence.status === "missing" && item.resolverType === "external_link" ? (
+                                    <div className="mt-2"><p className="mb-1 text-[0.68rem] text-muted-foreground">Add a governed official/reference link; this does not mark the requirement complete unless the evidence resolver accepts it.</p><OperationalFileExternalReferenceForm templateItemId={item.id} title={item.label} /></div>
                                   ) : null}
 
                                   {item.evidence.status === "missing" && item.resolverType === "teacher_document" ? (
-                                    <OperationalFileDocumentBindingForm
+                                    <div className="mt-2">
+                                      <p className="mb-1 text-[0.68rem] text-muted-foreground">Upload/select teacher-supplied evidence only for this requirement.</p>
+                                      <OperationalFileDocumentBindingForm
                                       templateItemId={item.id}
                                       documents={professionalDocuments}
-                                    />
+                                      />
+                                    </div>
                                   ) : null}
                                 </li>
                               ))}
