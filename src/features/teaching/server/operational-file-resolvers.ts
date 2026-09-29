@@ -29,13 +29,22 @@ export type OperationalFileEvidenceResult = {
   reason: string | null;
 };
 
+type ResolverItem = Pick<
+  OperationalFileTemplateItem,
+  "itemKey" | "label" | "resolverType" | "resolverMetadata"
+>;
+
 type ResolveInput = {
   academicYear: number;
-  item: Pick<
-    OperationalFileTemplateItem,
-    "itemKey" | "label" | "resolverType" | "resolverMetadata"
-  >;
+  item: ResolverItem;
 };
+
+type ResolveBatchInput = {
+  academicYear: number;
+  items: ResolverItem[];
+};
+
+type TeachingFilesHub = Awaited<ReturnType<typeof getTeachingFilesHub>>;
 
 function resourceResult(
   resolverType: OperationalFileResolverType,
@@ -73,27 +82,13 @@ function safeExternalHref(value: unknown): string | null {
   return href;
 }
 
-export async function resolveOperationalFileEvidence(
-  input: ResolveInput,
-): Promise<OperationalFileEvidenceResult> {
-  const context = await getUserContext();
-  if (!context.user || context.platformMemberships.length) {
-    return unavailable(input.item.resolverType, "School membership required.");
-  }
-
-  const membership = context.currentSchoolMembership;
-  if (!membership) {
-    return unavailable(input.item.resolverType, "School membership required.");
-  }
-
-  const hub = await getTeachingFilesHub({
-    schoolId: membership.schoolId,
-    academicYear: input.academicYear,
-    staffMemberId: membership.staffMemberId ?? null,
-    canOpenLessonPreparations: ["teacher", "class_teacher"].includes(membership.roleKey),
-  });
-
-  const resourceById = new Map(hub.authoritativeResources.map((item) => [item.id, item]));
+function resolveWithHub(input: {
+  academicYear: number;
+  item: ResolverItem;
+  hub: TeachingFilesHub;
+  ownerStaffMemberId: string | null;
+}): OperationalFileEvidenceResult {
+  const resourceById = new Map(input.hub.authoritativeResources.map((item) => [item.id, item]));
   const resource = (
     key: string,
     resolverType: OperationalFileResolverType,
@@ -123,14 +118,14 @@ export async function resolveOperationalFileEvidence(
       return resource("scheme", "scheme");
 
     case "lesson_preparation": {
-      if (!hub.preparationRecords.length) {
+      if (!input.hub.preparationRecords.length) {
         return missing("lesson_preparation", "No canonical lesson preparation exists in the current teaching scope.");
       }
       return {
         resolverType: "lesson_preparation",
         status: "resolved",
         reason: null,
-        references: hub.preparationRecords.map((record) => ({
+        references: input.hub.preparationRecords.map((record) => ({
           id: record.id,
           label: `Lesson preparation · ${record.plannedOn}`,
           href: "/teaching/preparation",
@@ -146,14 +141,14 @@ export async function resolveOperationalFileEvidence(
     }
 
     case "class_list": {
-      if (!hub.officialDocuments.length) {
+      if (!input.hub.officialDocuments.length) {
         return missing("class_list", "No governed class list exists in the current teaching scope.");
       }
       return {
         resolverType: "class_list",
         status: "resolved",
         reason: null,
-        references: hub.officialDocuments.map((document) => ({
+        references: input.hub.officialDocuments.map((document) => ({
           id: document.id,
           label: `${document.grade} · ${document.registerClass}`,
           href: document.pdfHref,
@@ -174,20 +169,20 @@ export async function resolveOperationalFileEvidence(
       return resource("calendar", "calendar");
 
     case "teacher_document": {
-      if (!hub.professionalDocuments.length) {
+      if (!input.hub.professionalDocuments.length) {
         return missing("teacher_document", "No teacher-owned professional document exists for this actor.");
       }
       return {
         resolverType: "teacher_document",
         status: "resolved",
         reason: null,
-        references: hub.professionalDocuments.map((document) => ({
+        references: input.hub.professionalDocuments.map((document) => ({
           id: document.id,
           label: document.title?.trim() || document.originalFilename,
           href: document.viewHref,
           sourceModule: "Teacher professional documents",
           provenance: {
-            ownerStaffMemberId: membership.staffMemberId,
+            ownerStaffMemberId: input.ownerStaffMemberId,
             status: document.status,
             reviewStatus: document.reviewStatus,
             downloadHref: document.downloadHref,
@@ -232,4 +227,46 @@ export async function resolveOperationalFileEvidence(
         "No canonical resolver is proven for this source yet; no evidence was inferred.",
       );
   }
+}
+
+export async function resolveOperationalFileEvidenceBatch(
+  input: ResolveBatchInput,
+): Promise<OperationalFileEvidenceResult[]> {
+  if (!input.items.length) return [];
+
+  const context = await getUserContext();
+  if (!context.user || context.platformMemberships.length) {
+    return input.items.map((item) => unavailable(item.resolverType, "School membership required."));
+  }
+
+  const membership = context.currentSchoolMembership;
+  if (!membership) {
+    return input.items.map((item) => unavailable(item.resolverType, "School membership required."));
+  }
+
+  const hub = await getTeachingFilesHub({
+    schoolId: membership.schoolId,
+    academicYear: input.academicYear,
+    staffMemberId: membership.staffMemberId ?? null,
+    canOpenLessonPreparations: ["teacher", "class_teacher"].includes(membership.roleKey),
+  });
+
+  return input.items.map((item) =>
+    resolveWithHub({
+      academicYear: input.academicYear,
+      item,
+      hub,
+      ownerStaffMemberId: membership.staffMemberId ?? null,
+    }),
+  );
+}
+
+export async function resolveOperationalFileEvidence(
+  input: ResolveInput,
+): Promise<OperationalFileEvidenceResult> {
+  const [result] = await resolveOperationalFileEvidenceBatch({
+    academicYear: input.academicYear,
+    items: [input.item],
+  });
+  return result;
 }
