@@ -146,7 +146,7 @@ test("register-class evidence prevents a same-name learner in another class from
 
 test("same-surname candidates require identity evidence beyond DOB alone", () => {
   const result = reconcileLearners({
-    sourceRows: [source({ surname: "MOUTON", preferredName: "Liandro O", initials: "LO", sourceReference: "100824" })],
+    sourceRows: [source({ surname: "MOUTON", preferredName: "Liandro O", initials: "LO", sourceReference: "100824", registerClass: "10B" })],
     learners: [
       learner({
         id: "learner-liandro",
