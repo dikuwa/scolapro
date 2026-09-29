@@ -13,6 +13,7 @@ export async function GET(request: Request) {
     basis,
     grade: url.searchParams.get("grade") || undefined,
     className: url.searchParams.get("class") || undefined,
+    subjectOfferingId: url.searchParams.get("subject") || undefined,
     teacher: url.searchParams.get("teacher") || undefined,
   });
   if (!workspace) return NextResponse.json({ error: "Not authorized." }, { status: 403 });
