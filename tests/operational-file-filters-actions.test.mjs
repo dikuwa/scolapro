@@ -14,8 +14,12 @@ test("operational files keep hierarchy while adding search and governed filters"
   assert.match(ui, /Search requirements/);
   assert.match(ui, /SearchableSelect/);
   assert.match(ui, /label="File"/);
+  assert.match(ui, /label="Subject"/);
+  assert.match(ui, /label="Phase"/);
   assert.match(ui, /label="Source type"/);
   assert.match(ui, /label="Status"/);
+  assert.match(ui, /subject && allocation\.subjectName !== subject/);
+  assert.match(ui, /phase && allocation\.phaseLabel !== phase/);
   assert.match(ui, /Clear filters/);
   assert.match(ui, /allocation\.fileTypes\.flatMap/);
   assert.match(ui, /currentFileType\.sections\.flatMap/);
