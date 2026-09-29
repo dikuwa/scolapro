@@ -40,9 +40,9 @@ test("multi-subject evidence preserves allocation scope", () => {
   assert.match(resolver, /allocationId: input\.allocationIds\?\.\[index\]/);
 });
 
-test("evidence actions distinguish official links from teacher-supplied uploads", () => {
+test("evidence actions distinguish governed references from teacher-supplied uploads", () => {
   assert.match(source, /Official source/);
-  assert.match(source, /item\.resolverType === "external_link"/);
+  assert.match(source, /\["shared_resource", "external_link"\]\.includes\(item\.resolverType\)/);
+  assert.match(source, /completion still depends on the evidence resolver/);
   assert.match(source, /teacher-supplied evidence only for this requirement/);
-  assert.doesNotMatch(source, /\["shared_resource", "external_link"\]\.includes\(item\.resolverType\)/);
 });
