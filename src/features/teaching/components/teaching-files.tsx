@@ -906,7 +906,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         <p className="scolapro-section-description">
           {taxonomySourced
             ? "An authoritative teacher-file taxonomy is recorded, so verified categories may be mapped against it."
-            : "The official teacher-file taxonomy is not yet sourced. Uploaded category labels remain neutral teacher-defined labels or Uncategorised; no Ministry/NIED table of contents has been invented."}
+            : "The official teacher-file taxonomy is not yet sourced across subjects, so no Ministry/NIED table of contents has been invented. Subject-specific operational templates are shown only where an authoritative policy is recorded; uploaded category labels remain neutral teacher-defined labels or Uncategorised."}
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
           HOD review is opt-in per professional document and subject. Only explicitly submitted files enter the governed review workspace; ordinary HOD browsing across teacher files remains prohibited.
