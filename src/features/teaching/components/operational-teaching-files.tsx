@@ -7,6 +7,7 @@ import {
   FileQuestion,
   FolderKanban,
   Link2,
+  Printer,
 } from "lucide-react";
 import type { OperationalTeachingFilesWorkspace } from "@/features/teaching/server/operational-files-workspace";
 
@@ -41,14 +42,25 @@ export function OperationalTeachingFiles({
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex items-start gap-2">
-        <FolderKanban className="mt-0.5 size-4 shrink-0 text-brand-strong" aria-hidden="true" />
-        <div>
-          <h2 className="scolapro-section-title">My operational files</h2>
-          <p className="scolapro-section-description">
-            Policy-grounded file requirements linked to the authoritative ScolaPro record wherever one already exists.
-          </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-2">
+          <FolderKanban className="mt-0.5 size-4 shrink-0 text-brand-strong" aria-hidden="true" />
+          <div>
+            <h2 className="scolapro-section-title">My operational files</h2>
+            <p className="scolapro-section-description">
+              Policy-grounded file requirements linked to the authoritative ScolaPro record wherever one already exists.
+            </p>
+          </div>
         </div>
+        <a
+          href="/api/teaching/files/inspection-pack"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="scolapro-cta inline-flex min-h-9 w-fit shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 text-xs font-medium hover:bg-surface-elevated"
+        >
+          <Printer className="size-3.5" aria-hidden="true" />
+          Inspection pack
+        </a>
       </div>
 
       {workspace.allocations.length ? (
