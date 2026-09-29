@@ -95,3 +95,10 @@ test("historical grading scales and bands are bulk-resolved outside the offering
   assert.doesNotMatch(rowsLoop, /await db\.from\("grading_scales"\)/);
   assert.doesNotMatch(rowsLoop, /await db\.from\("grading_scale_bands"\)/);
 });
+
+test("analysis rows partition each subject offering by historical register class", () => {
+  assert.match(source, /cohortClassKeys/);
+  assert.match(source, /for \(const cohortClassKey of cohortClassKeys\)/);
+  assert.match(source, /className: cohortClassKey === "unassigned"/);
+  assert.doesNotMatch(source, /"Multiple classes"/);
+});
