@@ -17,7 +17,8 @@ export function renderAcademicAnalysisXlsx(workspace: AcademicAnalysisWorkspace)
     "Fail %": row.failRate,
     Symbols: row.symbols,
   }));
-  const sheet = XLSX.utils.json_to_sheet(rows, { origin: "A5" });
+  const sheet = XLSX.utils.aoa_to_sheet([[], [], [], []]);
+  XLSX.utils.sheet_add_json(sheet, rows, { origin: "A5" });
   XLSX.utils.sheet_add_aoa(sheet, [
     ["ScolaPro Academic Analysis"],
     [`Academic year ${workspace.academicYear} · Term ${workspace.termNumber}`],
