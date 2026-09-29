@@ -102,3 +102,10 @@ test("analysis rows partition each subject offering by historical register class
   assert.match(source, /className: cohortClassKey === "unassigned"/);
   assert.doesNotMatch(source, /"Multiple classes"/);
 });
+
+test("aggregate median and spread derive from resolved numeric results, not row averages", () => {
+  assert.match(source, /numericValues: number\[\]/);
+  assert.match(source, /aggregateNumericValues = group\.flatMap/);
+  assert.match(source, /summarizeNumericValues\(aggregateNumericValues\)/);
+  assert.doesNotMatch(source, /weightedAverage/);
+});
