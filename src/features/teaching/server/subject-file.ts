@@ -396,7 +396,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
   const moderationByComponent=new Map((components ?? []).map((row)=>[row.id,row.moderation_required]));
   const preparationScheduleIds=new Set(scopedPreparations.map((row)=>row.teaching_schedule_item_id));
 
-  const rows:SubjectFileRow[]=allowedSubjectIds.flatMap((subjectId)=>{
+  const rowGroups=await Promise.all(allowedSubjectIds.map(async (subjectId)=>{
     const subject=subjectMap.get(subjectId);
     if (!subject) return [];
     const subjectOfferings=subjectOfferingRows.filter((row)=>row.subject_id===subjectId);
@@ -459,7 +459,8 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
       policyHierarchy:policy.hierarchy,
       policyHierarchyReason:policy.reason,
     }];
-  }).sort((a,b)=>a.subjectName.localeCompare(b.subjectName));
+  }));
+  const rows:SubjectFileRow[]=rowGroups.flat().sort((a,b)=>a.subjectName.localeCompare(b.subjectName));
 
   return {schoolId:membership.schoolId,schoolName:membership.schoolName,academicYear,rows};
 }
