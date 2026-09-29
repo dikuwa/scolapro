@@ -67,5 +67,6 @@ test("provisional calculation scope is bounded to assessment-instance classes be
   assert.match(source, /classesByScheme/);
   assert.match(source, /eligibleClasses\.has\(enrolment\.register_class_id\)/);
   assert.match(source, /Promise\.all\(calculations\)/);
-  assert.match(source, /if \(!eligibleClasses\.has\(enrolment\.register_class_id\)\) continue;/);\n  assert.doesNotMatch(source, /await db\.rpc\("calculate_subject_result"[\s\S]{0,800}await db\.rpc\("calculate_subject_result"/);
+  assert.match(source, /if \(!eligibleClasses\.has\(enrolment\.register_class_id\)\) continue;/);
+  assert.doesNotMatch(source, /await db\.rpc\("calculate_subject_result"[\s\S]{0,800}await db\.rpc\("calculate_subject_result"/);
 });
