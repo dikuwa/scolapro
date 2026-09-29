@@ -51,6 +51,8 @@ export function OperationalTeachingFiles({
 }) {
   const [query, setQuery] = useState("");
   const [fileType, setFileType] = useState("");
+  const [subject, setSubject] = useState("");
+  const [phase, setPhase] = useState("");
   const [sourceType, setSourceType] = useState("");
   const [evidenceStatus, setEvidenceStatus] = useState("");
 
@@ -61,6 +63,22 @@ export function OperationalTeachingFiles({
     }
     return [...options].map(([value, label]) => ({ value, label }));
   }, [workspace.allocations]);
+
+  const subjectOptions = useMemo(
+    () =>
+      [...new Set(workspace.allocations.map((allocation) => allocation.subjectName))]
+        .sort((a, b) => a.localeCompare(b))
+        .map((value) => ({ value, label: value })),
+    [workspace.allocations],
+  );
+
+  const phaseOptions = useMemo(
+    () =>
+      [...new Set(workspace.allocations.map((allocation) => allocation.phaseLabel).filter((value): value is string => Boolean(value)))]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .map((value) => ({ value, label: value })),
+    [workspace.allocations],
+  );
 
   const sourceOptions = useMemo(() => {
     const values = new Set<string>();
@@ -81,6 +99,9 @@ export function OperationalTeachingFiles({
 
     return workspace.allocations
       .map((allocation) => {
+        if (subject && allocation.subjectName !== subject) return [];
+        if (phase && allocation.phaseLabel !== phase) return [];
+
         const allocationText = [
           allocation.subjectName,
           allocation.gradeName,
@@ -138,13 +159,15 @@ export function OperationalTeachingFiles({
         return fileTypes.length ? [{ ...allocation, fileTypes }] : [];
       })
       .flat();
-  }, [workspace.allocations, query, fileType, sourceType, evidenceStatus]);
+  }, [workspace.allocations, query, fileType, subject, phase, sourceType, evidenceStatus]);
 
-  const filtersActive = Boolean(query || fileType || sourceType || evidenceStatus);
+  const filtersActive = Boolean(query || fileType || subject || phase || sourceType || evidenceStatus);
 
   function clearFilters() {
     setQuery("");
     setFileType("");
+    setSubject("");
+    setPhase("");
     setSourceType("");
     setEvidenceStatus("");
   }
@@ -176,7 +199,7 @@ export function OperationalTeachingFiles({
 
       {workspace.allocations.length ? (
         <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted/55 p-3">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <label className="block text-xs font-medium leading-4">
               Search requirements
               <span className="relative mt-1.5 block">
@@ -199,6 +222,26 @@ export function OperationalTeachingFiles({
               searchPlaceholder="Search file types…"
               clearable
               onClear={() => setFileType("")}
+            />
+            <SearchableSelect
+              label="Subject"
+              value={subject}
+              onChange={setSubject}
+              options={subjectOptions}
+              placeholder="All subjects"
+              searchPlaceholder="Search subjects…"
+              clearable
+              onClear={() => setSubject("")}
+            />
+            <SearchableSelect
+              label="Phase"
+              value={phase}
+              onChange={setPhase}
+              options={phaseOptions}
+              placeholder="All phases"
+              searchPlaceholder="Search phases…"
+              clearable
+              onClear={() => setPhase("")}
             />
             <SearchableSelect
               label="Source type"
