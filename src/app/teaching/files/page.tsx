@@ -66,7 +66,7 @@ export default async function TeachingFilesPage() {
             allocations.
           </p>
         </div>
-        <OperationalTeachingFiles workspace={operationalWorkspace} />
+        <OperationalTeachingFiles workspace={operationalWorkspace} professionalDocuments={hub.professionalDocuments} />
         <OperationalFileControlSheetView workspace={operationalWorkspace} controlSheet={controlSheet} />
         <TeachingFilesHub
           {...hub}

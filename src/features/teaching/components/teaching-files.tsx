@@ -576,7 +576,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         </section>
       ) : null}
 
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <section id="professional-files-upload" className="scroll-mt-20 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex items-center gap-2">
           <FileUp className="size-4 text-brand-strong" aria-hidden="true" />
           <h2 className="scolapro-section-title">My uploaded professional documents</h2>
