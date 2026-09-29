@@ -51,11 +51,11 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
           <div className="overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-surface-muted text-xs text-muted-foreground">
-                <tr><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Assessed</th><th className="px-3 py-2">Average</th><th className="px-3 py-2">Median</th><th className="px-3 py-2">Pass %</th><th className="px-3 py-2">Fail %</th><th className="px-3 py-2">Symbols</th></tr>
+                <tr><th className="px-3 py-2">Grade</th><th className="px-3 py-2">Class</th><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Assessed</th><th className="px-3 py-2">Average</th><th className="px-3 py-2">Median</th><th className="px-3 py-2">Pass %</th><th className="px-3 py-2">Fail %</th><th className="px-3 py-2">Symbols</th></tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
                 {workspace.rows.map((row) => <tr key={row.subjectOfferingId}>
-                  <td className="px-3 py-2">{row.grade}</td><td className="px-3 py-2 font-medium">{row.subject}</td>
+                  <td className="px-3 py-2">{row.grade}</td><td className="px-3 py-2">{row.className ?? "—"}</td><td className="px-3 py-2 font-medium">{row.subject}</td>
                   <td className="px-3 py-2">{row.summary.assessedLearners}</td><td className="px-3 py-2">{row.summary.average ?? "—"}</td>
                   <td className="px-3 py-2">{row.summary.median ?? "—"}</td><td className="px-3 py-2">{row.summary.passRate == null ? "—" : row.summary.passRate + "%"}</td>
                   <td className="px-3 py-2">{row.summary.failRate == null ? "—" : row.summary.failRate + "%"}</td>
