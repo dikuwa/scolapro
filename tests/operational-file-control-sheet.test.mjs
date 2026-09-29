@@ -59,3 +59,11 @@ test("Teaching Files integrates the read-only control sheet alongside operationa
   assert.match(page, /<OperationalTeachingFiles workspace=\{operationalWorkspace\}/);
   assert.match(page, /<TeachingFilesHub/);
 });
+
+
+test("review query failures remain unavailable rather than looking like empty history", () => {
+  assert.match(server, /Preparation review history could not be loaded\./);
+  assert.match(server, /Professional-file review history could not be loaded\./);
+  assert.match(ui, /controlSheet\.preparationUnavailable/);
+  assert.match(ui, /controlSheet\.professionalFileUnavailable/);
+});
