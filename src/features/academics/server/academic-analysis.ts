@@ -81,6 +81,53 @@ type NumericResult = {
   grading_scale_version: string | null;
 };
 
+type ProvisionalResult = NumericResult & {
+  assessment_scheme_id: string;
+};
+
+async function loadProvisionalResults(
+  db: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  schoolId: string,
+  academicYear: number,
+  termNumber: number,
+): Promise<ProvisionalResult[]> {
+  const { data: schemes, error: schemeError } = await db.from("assessment_schemes")
+    .select("id,subject_offering_id,scheme_key,version")
+    .eq("school_id", schoolId)
+    .eq("status", "active");
+  if (schemeError) throw new Error("Unable to load provisional assessment schemes.");
+
+  const { data: enrolments, error: enrolmentError } = await db.from("enrolments")
+    .select("id,learner_id,register_class_id")
+    .eq("school_id", schoolId)
+    .eq("academic_year", academicYear)
+    .eq("status", "current");
+  if (enrolmentError) throw new Error("Unable to load provisional analysis enrolments.");
+
+  const rows: ProvisionalResult[] = [];
+  for (const scheme of schemes ?? []) {
+    for (const enrolment of enrolments ?? []) {
+      const { data: calculated, error } = await db.rpc("calculate_subject_result", {
+        p_assessment_scheme_id: scheme.id,
+        p_enrolment_id: enrolment.id,
+        p_term_number: termNumber,
+      });
+      if (error || !calculated || calculated.complete !== true || calculated.result_value == null) continue;
+      rows.push({
+        result_value: Number(calculated.result_value),
+        result_status: null,
+        symbol: null,
+        subject_offering_id: scheme.subject_offering_id,
+        enrolment_id: enrolment.id,
+        grading_scale_key: null,
+        grading_scale_version: null,
+        assessment_scheme_id: scheme.id,
+      });
+    }
+  }
+  return rows;
+}
+
 function rounded(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -114,21 +161,19 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   if (!["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"].includes(membership.roleKey)) return null;
 
   const basis = scope.basis ?? "official";
-  // Phase 1A deliberately starts with immutable official results. Provisional analysis
-  // will be enabled only after the same authority and denominator contract is proven.
-  if (basis !== "official") {
-    return { basis, academicYear: scope.academicYear, termNumber: scope.termNumber, rows: [], subjectSummaries: [], gradeSummaries: [], classSummaries: [], teacherSummaries: [], qualityConfigured: false };
-  }
-
   const db = await createSupabaseServerClient();
-  const { data: results, error } = await db.from("official_results")
-    .select("result_value,result_status,symbol,subject_offering_id,enrolment_id,grading_scale_key,grading_scale_version")
-    .eq("school_id", membership.schoolId)
-    .eq("academic_year", scope.academicYear)
-    .eq("term_number", scope.termNumber);
-  if (error) throw new Error("Unable to load academic analysis results.");
-
-  const typedResults = (results ?? []) as NumericResult[];
+  let typedResults: NumericResult[];
+  if (basis === "official") {
+    const { data: results, error } = await db.from("official_results")
+      .select("result_value,result_status,symbol,subject_offering_id,enrolment_id,grading_scale_key,grading_scale_version")
+      .eq("school_id", membership.schoolId)
+      .eq("academic_year", scope.academicYear)
+      .eq("term_number", scope.termNumber);
+    if (error) throw new Error("Unable to load academic analysis results.");
+    typedResults = (results ?? []) as NumericResult[];
+  } else {
+    typedResults = await loadProvisionalResults(db, membership.schoolId, scope.academicYear, scope.termNumber);
+  }
   const offeringIds = [...new Set(typedResults.map((row) => row.subject_offering_id))];
   const { data: offerings, error: offeringError } = offeringIds.length
     ? await db.from("subject_offerings").select("id,subject_id,grade_id").in("id", offeringIds)
