@@ -98,7 +98,7 @@ async function loadProvisionalResults(
       .eq("school_id", schoolId)
       .eq("status", "active"),
     db.from("assessment_instances")
-      .select("assessment_scheme_id,register_class_id")
+      .select("assessment_scheme_id,subject_offering_id,register_class_id,assessment_date")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
       .eq("term_number", termNumber)
@@ -110,13 +110,33 @@ async function loadProvisionalResults(
   const classIds = [...new Set((instances ?? []).map((row) => row.register_class_id))];
   const { data: enrolments, error: enrolmentError } = classIds.length
     ? await db.from("enrolments")
-        .select("id,learner_id,register_class_id")
+        .select("id,learner_id,register_class_id,enrolled_from,enrolled_to,status")
         .eq("school_id", schoolId)
         .eq("academic_year", academicYear)
-        .eq("status", "current")
         .in("register_class_id", classIds)
     : { data: [], error: null };
   if (enrolmentError) throw new Error("Unable to load provisional analysis enrolments.");
+
+  const enrolmentIds = (enrolments ?? []).map((row) => row.id);
+  const { data: registrations, error: registrationError } = enrolmentIds.length
+    ? await db.from("learner_subject_registrations")
+        .select("enrolment_id,subject_offering_id,status,registered_at,withdrawn_at")
+        .in("enrolment_id", enrolmentIds)
+    : { data: [], error: null };
+  if (registrationError) throw new Error("Unable to load provisional subject registrations.");
+  const registrationsByEnrolment = new Map<string, typeof registrations>();
+  for (const registration of registrations ?? []) {
+    const list = registrationsByEnrolment.get(registration.enrolment_id) ?? [];
+    list.push(registration);
+    registrationsByEnrolment.set(registration.enrolment_id, list);
+  }
+
+  const instancesByScheme = new Map<string, Array<{ subject_offering_id: string; register_class_id: string; assessment_date: string | null }>>();
+  for (const instance of instances ?? []) {
+    const list = instancesByScheme.get(instance.assessment_scheme_id) ?? [];
+    list.push(instance);
+    instancesByScheme.set(instance.assessment_scheme_id, list);
+  }
 
   const classesByScheme = new Map<string, Set<string>>();
   for (const instance of instances ?? []) {
@@ -131,6 +151,26 @@ async function loadProvisionalResults(
     if (!eligibleClasses?.size) continue;
     for (const enrolment of enrolments ?? []) {
       if (!eligibleClasses.has(enrolment.register_class_id)) continue;
+      const relevantInstances = (instancesByScheme.get(scheme.id) ?? [])
+        .filter((instance) => instance.register_class_id === enrolment.register_class_id);
+      if (!relevantInstances.length) continue;
+      const datedInstances = relevantInstances.filter((instance) => Boolean(instance.assessment_date));
+      const eligibilityDate = datedInstances.length
+        ? datedInstances.map((instance) => instance.assessment_date!).sort()[0]
+        : null;
+      const enrolmentEffective = eligibilityDate
+        ? enrolment.enrolled_from <= eligibilityDate && (!enrolment.enrolled_to || enrolment.enrolled_to >= eligibilityDate)
+        : enrolment.status === "current";
+      if (!enrolmentEffective) continue;
+      const subjectRegistrations = registrationsByEnrolment.get(enrolment.id) ?? [];
+      const subjectEligible = !subjectRegistrations.length || subjectRegistrations.some((registration) => {
+        if (registration.subject_offering_id !== scheme.subject_offering_id) return false;
+        if (!eligibilityDate) return registration.status === "active";
+        const registeredOn = registration.registered_at.slice(0, 10);
+        const withdrawnOn = registration.withdrawn_at?.slice(0, 10) ?? null;
+        return registeredOn <= eligibilityDate && (!withdrawnOn || withdrawnOn >= eligibilityDate);
+      });
+      if (!subjectEligible) continue;
       calculations.push((async () => {
         const { data: calculated, error } = await db.rpc("calculate_subject_result", {
           p_assessment_scheme_id: scheme.id,
