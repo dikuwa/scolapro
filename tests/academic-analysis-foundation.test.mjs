@@ -11,7 +11,7 @@ test("academic analysis is a read layer over canonical official results", () => 
 
 test("analysis preserves official and provisional basis without silently mixing", () => {
   assert.match(source, /type AcademicAnalysisBasis = "official" \| "provisional"/);
-  assert.match(source, /if \(basis !== "official"\)/);
+  assert.match(source, /if \(basis === "official"\)/);\n  assert.match(source, /typedResults = await loadProvisionalResults/);
 });
 
 test("symbol distribution resolves historical grading scale bands", () => {
