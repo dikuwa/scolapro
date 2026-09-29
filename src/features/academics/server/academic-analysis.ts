@@ -52,6 +52,7 @@ export type AcademicAnalysisRow = {
   gradingScaleKey: string | null;
   gradingScaleVersion: string | null;
   summary: PerformanceSummary;
+  numericValues: number[];
 };
 
 export type AcademicAnalysisAggregate = {
@@ -373,6 +374,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       teacherAttribution: historicalTeacherNames.length === 1 ? "assessment_allocation" : historicalTeacherNames.length > 1 ? "multiple_assessment_allocations" : "unavailable",
       gradingScaleKey: scaleKey,
       gradingScaleVersion: scaleVersion,
+      numericValues: numeric,
       summary: {
         eligibleLearners: cohort.length,
         assessedLearners: cohort.filter((row) => row.result_value != null || row.result_status != null).length,
@@ -409,9 +411,8 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       const classified = group.reduce((sum, row) => sum + row.summary.classifiedResults, 0);
       const passed = group.reduce((sum, row) => sum + row.summary.passed, 0);
       const failed = group.reduce((sum, row) => sum + row.summary.failed, 0);
-      const weightedAverage = numericWeight
-        ? group.reduce((sum, row) => sum + ((row.summary.average ?? 0) * row.summary.numericResults), 0) / numericWeight
-        : null;
+      const aggregateNumericValues = group.flatMap((row) => row.numericValues);
+      const numericSummary = summarizeNumericValues(aggregateNumericValues);
       return {
         key: label,
         label,
@@ -420,11 +421,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
           assessedLearners: group.reduce((sum, row) => sum + row.summary.assessedLearners, 0),
           numericResults: numericWeight,
           classifiedResults: classified,
-          average: weightedAverage == null ? null : rounded(weightedAverage),
-          median: null,
-          minimum: null,
-          maximum: null,
-          standardDeviation: null,
+          ...numericSummary,
           passed,
           failed,
           passRate: rate(passed, classified),
