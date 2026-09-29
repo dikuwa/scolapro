@@ -109,3 +109,9 @@ test("aggregate median and spread derive from resolved numeric results, not row 
   assert.match(source, /summarizeNumericValues\(aggregateNumericValues\)/);
   assert.doesNotMatch(source, /weightedAverage/);
 });
+
+test("exports are projected from the same filtered analysis rows", () => {
+  assert.match(source, /exportRows: AcademicAnalysisExportRow\[\]/);
+  assert.match(source, /exportRows: filteredRows\.map/);
+  assert.match(source, /symbols: row\.summary\.symbolDistribution/);
+});
