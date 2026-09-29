@@ -33,3 +33,10 @@ test("phase 1 calculations include average median spread and classified denomina
     assert.match(source, new RegExp(token));
   }
 });
+
+test("official analysis resolves class from the historical result enrolment rather than current allocation", () => {
+  assert.match(source, /enrolment_id/);
+  assert.match(source, /from\("enrolments"\)/);
+  assert.match(source, /from\("register_classes"\)/);
+  assert.match(source, /className:/);
+});
