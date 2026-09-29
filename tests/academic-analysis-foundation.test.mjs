@@ -54,3 +54,10 @@ test("shared scope drives subject grade class and teacher aggregates", () => {
   assert.match(source, /weightedAverage/);
   assert.match(source, /passRate: rate\(passed, classified\)/);
 });
+
+test("provisional analysis uses the canonical calculation RPC and never mixes official rows", () => {
+  assert.match(source, /loadProvisionalResults/);
+  assert.match(source, /rpc\("calculate_subject_result"/);
+  assert.match(source, /if \(basis === "official"\)/);
+  assert.match(source, /else \{\s*typedResults = await loadProvisionalResults/);
+});
