@@ -141,3 +141,16 @@ test("phase-one subject and teacher reports stay descriptive and unranked", () =
   assert.match(pageSource, /No ranking or competence score is applied/);
   assert.doesNotMatch(pageSource, /Best teacher|Worst teacher|Teacher rank|Teacher score/);
 });
+
+test("phase-one grade and class reports use shared governed aggregates", () => {
+  assert.match(pageSource, /Grade analysis/);
+  assert.match(pageSource, /workspace\.gradeSummaries\.map/);
+  assert.match(pageSource, /Class analysis/);
+  assert.match(pageSource, /workspace\.classSummaries\.map/);
+  assert.match(pageSource, /historical register class/);
+});
+
+test("management analysis does not expose learner or parent routes", () => {
+  assert.doesNotMatch(pageSource, /parent|guardian/i);
+  assert.doesNotMatch(pageSource, /learnerId|learner_id/);
+});
