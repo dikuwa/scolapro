@@ -19,9 +19,9 @@ const statusLabel = {
 } as const;
 
 function statusClass(status: keyof typeof statusLabel) {
-  if (status === "resolved") return "bg-success-soft text-[color:var(--success)]";
+  if (status === "resolved") return "bg-[color:var(--success-soft)] text-[color:var(--success)]";
   if (status === "external") return "bg-brand-soft text-brand-strong";
-  if (status === "missing") return "bg-warning-soft text-[color:var(--warning)]";
+  if (status === "missing") return "bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
   return "bg-surface-muted text-muted-foreground";
 }
 
