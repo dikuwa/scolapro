@@ -365,10 +365,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       subjectOfferingId: offeringId,
       subject: subjectMap.get(offering?.subject_id) ?? "Subject",
       grade: gradeMap.get(offering?.grade_id) ?? "Grade",
-      className: (() => {
-        const names = [...new Set(cohort.map((result) => classMap.get(enrolmentClassMap.get(result.enrolment_id) ?? "")).filter(Boolean))];
-        return names.length === 1 ? names[0] ?? null : names.length > 1 ? "Multiple classes" : null;
-      })(),
+      className: cohortClassKey === "unassigned" ? null : classMap.get(cohortClassKey) ?? null,
       teacher: historicalTeacherNames.length === 1 ? historicalTeacherNames[0] ?? null : historicalTeacherNames.length > 1 ? historicalTeacherNames.join(" · ") : null,
       teacherAttribution: historicalTeacherNames.length === 1 ? "assessment_allocation" : historicalTeacherNames.length > 1 ? "multiple_assessment_allocations" : "unavailable",
       gradingScaleKey: scaleKey,
@@ -388,6 +385,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
         symbolDistribution: distribution,
       },
     });
+    }
   }
 
   const filteredRows = rows
