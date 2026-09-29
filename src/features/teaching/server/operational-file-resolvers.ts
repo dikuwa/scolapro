@@ -99,9 +99,10 @@ function resolveWithHub(input: {
   ): OperationalFileEvidenceResult | null => {
     if (!input.sharedResources.length) return null;
 
-    const documentById = new Map(
-      input.hub.professionalDocuments.map((document) => [document.id, document]),
-    );
+    const documentById = new Map<string, TeachingFilesHub["professionalDocuments"][number]>();
+    for (const document of input.hub.professionalDocuments) {
+      documentById.set(document.id, document);
+    }
     const references = input.sharedResources.flatMap((shared) => {
       const ownedDocument = shared.teacherDocumentId
         ? documentById.get(shared.teacherDocumentId)
