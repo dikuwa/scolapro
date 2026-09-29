@@ -3,8 +3,43 @@ import "server-only";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
+import { resolveOperationalFileTemplate } from "@/features/teaching/server/operational-file-templates";
+import { getOperationalFileSharedResourceReferences } from "@/features/teaching/server/operational-file-shared-resources";
 
 export type SubjectFileAccessMode = "hod" | "teacher";
+
+export type SubjectFilePolicyItem = {
+  id: string;
+  itemKey: string;
+  label: string;
+  resolverType: string;
+  status: "resolved" | "missing" | "unavailable" | "manual" | "external";
+  references: Array<{
+    id: string;
+    label: string;
+    href: string;
+    sourceModule: string;
+    authorityLabel?: string;
+    provider?: string;
+  }>;
+  reason: string | null;
+};
+
+export type SubjectFilePolicySection = {
+  id: string;
+  title: string;
+  sequenceNumber: number;
+  items: SubjectFilePolicyItem[];
+};
+
+export type SubjectFilePolicyHierarchy = {
+  templateId: string;
+  sourceTitle: string;
+  authority: string;
+  templateVersion: number;
+  phaseLabels: string[];
+  sections: SubjectFilePolicySection[];
+};
 
 export type SubjectFileRow = {
   subjectId: string;
@@ -23,6 +58,8 @@ export type SubjectFileRow = {
   moderationRequiredCount: number;
   sourceLinks: Array<{ label: string; href: string; description: string }>;
   unavailableSources: string[];
+  policyHierarchy: SubjectFilePolicyHierarchy | null;
+  policyHierarchyReason: string | null;
 };
 
 export type SubjectFileWorkspace = {
@@ -76,6 +113,183 @@ async function loadAllPreparationRows(
     if (page.length<SUBJECT_FILE_PAGE_SIZE) break;
   }
   return rows;
+}
+
+
+function normalizeSubject(value:string) {
+  return value.trim().toLocaleLowerCase().replace(/&/g," and ").replace(/[^a-z0-9]+/g," ").trim().replace(/\s+/g," ");
+}
+
+function gradeNumber(value:string) {
+  const match=value.match(/\b(\d{1,2})\b/);
+  if (!match) return null;
+  const grade=Number(match[1]);
+  return Number.isInteger(grade) && grade>=0 && grade<=20 ? grade : null;
+}
+
+function policyReference(
+  id:string,
+  label:string,
+  href:string,
+  sourceModule:string,
+):SubjectFilePolicyItem["references"][number] {
+  return {id,label,href,sourceModule};
+}
+
+async function loadSubjectPolicyHierarchy(input:{
+  subjectName:string;
+  subjectId:string;
+  gradeNames:string[];
+  academicYear:number;
+  today:string;
+  allocationCount:number;
+  planningCount:number;
+  preparationCount:number;
+  assessmentSchemeCount:number;
+  assessmentInstanceCount:number;
+  teacherCount:number;
+}):Promise<{hierarchy:SubjectFilePolicyHierarchy|null;reason:string|null}> {
+  if (normalizeSubject(input.subjectName)!=="information and communication") {
+    return {
+      hierarchy:null,
+      reason:"No authoritative Subject File hierarchy is recorded for this subject. ScolaPro does not reuse the Information & Communication taxonomy for unrelated subjects.",
+    };
+  }
+
+  const grades=input.gradeNames.map(gradeNumber).filter((grade):grade is number=>grade!==null);
+  if (!grades.length) {
+    return {hierarchy:null,reason:"No current grade could be matched to the authoritative Subject File template."};
+  }
+
+  const resolved=await Promise.all(grades.map((grade)=>resolveOperationalFileTemplate({
+    subjectKey:"information-communication",
+    grade,
+    effectiveOn:input.today,
+  })));
+  const template=resolved.find((item)=>item!==null) ?? null;
+  if (!template) {
+    return {hierarchy:null,reason:"No effective authoritative Subject File template is available for this subject and grade scope."};
+  }
+
+  const subjectFile=template.fileTypes.find((item)=>item.fileTypeKey==="subject");
+  if (!subjectFile) {
+    return {hierarchy:null,reason:"The active policy template does not define a Subject File."};
+  }
+
+  const itemIds=subjectFile.sections.flatMap((section)=>section.items.map((item)=>item.id));
+  const sharedByItem=await getOperationalFileSharedResourceReferences({
+    templateItemIds:itemIds,
+    academicYear:input.academicYear,
+    effectiveOn:input.today,
+  });
+
+  const canonical=(resolverType:string):SubjectFilePolicyItem["references"]=>{
+    switch(resolverType) {
+      case "curriculum":
+        return [policyReference("curriculum","Curriculum / syllabus","/teaching/curriculum","Curriculum")];
+      case "scheme":
+        return input.planningCount>0
+          ? [policyReference("scheme","Year Planner & Scheme","/teaching/planning","Teaching Planning")]
+          : [];
+      case "staff_profile":
+        return input.teacherCount>0
+          ? [policyReference("teaching-team","Teaching team & allocations","/teaching/subject-file","Subject File")]
+          : [];
+      default:
+        return [];
+    }
+  };
+
+  const phaseLabels=template.phases
+    .filter((phase)=>grades.some((grade)=>
+      (phase.gradeFrom===null || grade>=phase.gradeFrom) &&
+      (phase.gradeTo===null || grade<=phase.gradeTo)
+    ))
+    .map((phase)=>phase.phaseLabel);
+
+  return {
+    hierarchy:{
+      templateId:template.id,
+      sourceTitle:template.sourceTitle,
+      authority:template.authority,
+      templateVersion:template.templateVersion,
+      phaseLabels:[...new Set(phaseLabels)],
+      sections:subjectFile.sections.map((section)=>({
+        id:section.id,
+        title:section.title,
+        sequenceNumber:section.sequenceNumber,
+        items:section.items.map((item)=>{
+          const shared=(sharedByItem.get(item.id) ?? []).map((resource)=>({
+            id:resource.id,
+            label:resource.title,
+            href:resource.externalUrl ?? "",
+            sourceModule:
+              resource.scopeType==="national" ? "National resource"
+              : resource.scopeType==="school" ? "School resource"
+              : resource.scopeType==="subject_phase" ? "Subject resource"
+              : "Teacher resource",
+            authorityLabel:resource.authorityLabel,
+            provider:resource.provider,
+          })).filter((reference)=>Boolean(reference.href));
+
+          if (item.resolverType==="shared_resource" || item.resolverType==="external_link") {
+            return {
+              id:item.id,
+              itemKey:item.itemKey,
+              label:item.label,
+              resolverType:item.resolverType,
+              status:shared.length ? (item.resolverType==="external_link" ? "external" : "resolved") : "missing",
+              references:shared,
+              reason:shared.length ? null : "No applicable governed shared resource or external reference is recorded.",
+            } satisfies SubjectFilePolicyItem;
+          }
+
+          if (item.resolverType==="manual") {
+            return {
+              id:item.id,itemKey:item.itemKey,label:item.label,resolverType:item.resolverType,
+              status:"manual",references:[],reason:"This requirement is policy-defined but intentionally has no canonical resolver.",
+            } satisfies SubjectFilePolicyItem;
+          }
+
+          if (item.resolverType==="teacher_document") {
+            return {
+              id:item.id,itemKey:item.itemKey,label:item.label,resolverType:item.resolverType,
+              status:"unavailable",references:[],
+              reason:"Private teacher evidence is not exposed through the shared Subject File. Existing Professional File Review remains authoritative.",
+            } satisfies SubjectFilePolicyItem;
+          }
+
+          if (item.resolverType==="room_inventory") {
+            return {
+              id:item.id,itemKey:item.itemKey,label:item.label,resolverType:item.resolverType,
+              status:"unavailable",references:[],
+              reason:"Room Inventory is school/room scoped; ScolaPro does not infer a subject-to-room relationship.",
+            } satisfies SubjectFilePolicyItem;
+          }
+
+          if (item.resolverType==="results") {
+            return {
+              id:item.id,itemKey:item.itemKey,label:item.label,resolverType:item.resolverType,
+              status:"unavailable",references:[],
+              reason:"A governed Subject File resolver for historical promotion results is not proven yet.",
+            } satisfies SubjectFilePolicyItem;
+          }
+
+          const references=canonical(item.resolverType);
+          return {
+            id:item.id,
+            itemKey:item.itemKey,
+            label:item.label,
+            resolverType:item.resolverType,
+            status:references.length ? "resolved" : "missing",
+            references,
+            reason:references.length ? null : "No canonical evidence is available in the current subject scope.",
+          } satisfies SubjectFilePolicyItem;
+        }),
+      })),
+    },
+    reason:null,
+  };
 }
 
 export async function getSubjectFileWorkspace(academicYear:number):Promise<SubjectFileWorkspace|null> {
@@ -194,20 +408,40 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
     const instanceRows=(instances ?? []).filter((row)=>ids.has(row.subject_offering_id));
     const responsibility=hodResponsibilities.find((row)=>row.subject_id===subjectId);
 
+    const teacherNames=[...new Set(allocationsForSubject.map((row)=>staffMap.get(row.staff_member_id)).filter((name):name is string=>Boolean(name)))].sort();
+    const gradeNames=[...new Set(subjectOfferings.map((row)=>gradeMap.get(row.grade_id)).filter((name):name is string=>Boolean(name)))].sort();
+    const planningCount=(plans ?? []).filter((row)=>ids.has(row.subject_offering_id)).length;
+    const preparationCount=scheduleRows.filter((row)=>preparationScheduleIds.has(row.id)).length;
+    const assessmentSchemeCount=schemeRows.length;
+    const assessmentInstanceCount=instanceRows.length;
+    const policy=await loadSubjectPolicyHierarchy({
+      subjectName:subject.display_name,
+      subjectId,
+      gradeNames,
+      academicYear,
+      today,
+      allocationCount:allocationsForSubject.length,
+      planningCount,
+      preparationCount,
+      assessmentSchemeCount,
+      assessmentInstanceCount,
+      teacherCount:teacherNames.length,
+    });
+
     return [{
       subjectId,
       subjectCode:subject.subject_code,
       subjectName:subject.display_name,
       departmentLabel:responsibility?.department_label ?? null,
       accessMode:(hodSubjectIds.has(subjectId) ? "hod" : "teacher") as SubjectFileAccessMode,
-      teacherNames:[...new Set(allocationsForSubject.map((row)=>staffMap.get(row.staff_member_id)).filter((name):name is string=>Boolean(name)))].sort(),
-      gradeNames:[...new Set(subjectOfferings.map((row)=>gradeMap.get(row.grade_id)).filter((name):name is string=>Boolean(name)))].sort(),
+      teacherNames,
+      gradeNames,
       allocationCount:allocationsForSubject.length,
-      planningCount:(plans ?? []).filter((row)=>ids.has(row.subject_offering_id)).length,
+      planningCount,
       scheduledLessonCount:scheduleRows.length,
-      preparationCount:scheduleRows.filter((row)=>preparationScheduleIds.has(row.id)).length,
-      assessmentSchemeCount:schemeRows.length,
-      assessmentInstanceCount:instanceRows.length,
+      preparationCount,
+      assessmentSchemeCount,
+      assessmentInstanceCount,
       moderationRequiredCount:instanceRows.filter((row)=>row.assessment_component_id && moderationByComponent.get(row.assessment_component_id)).length,
       sourceLinks:[
         {label:"Curriculum / syllabus",href:"/teaching/curriculum",description:"Authoritative curriculum registry and syllabus context."},
@@ -219,9 +453,11 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
         {label:"Room Inventory",href:"/school/room-inventory",description:"School inventory source where subject facilities overlap."},
       ],
       unavailableSources:[
-        "Department minutes/circulars/resources have no canonical subject-linked repository model yet; no parallel file store is fabricated here.",
+        policy.reason ?? "Policy hierarchy is source-grounded; unresolved requirements remain explicit.",
         "Inventory is school/room scoped; no subject-to-room ownership is inferred.",
       ],
+      policyHierarchy:policy.hierarchy,
+      policyHierarchyReason:policy.reason,
     }];
   }).sort((a,b)=>a.subjectName.localeCompare(b.subjectName));
 
