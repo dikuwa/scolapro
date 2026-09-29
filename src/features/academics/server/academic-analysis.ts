@@ -43,6 +43,7 @@ export type AcademicAnalysisRow = {
   grade: string;
   className: string | null;
   teacher: string | null;
+  teacherAttribution: "assessment_allocation" | "multiple_assessment_allocations" | "unavailable";
   gradingScaleKey: string | null;
   gradingScaleVersion: string | null;
   summary: PerformanceSummary;
@@ -143,6 +144,30 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   const gradeMap = new Map((grades ?? []).map((row) => [row.id, row.display_name]));
   const offeringMap = new Map((offerings ?? []).map((row) => [row.id, row]));
 
+  const { data: instances, error: instanceError } = offeringIds.length
+    ? await db.from("assessment_instances")
+        .select("subject_offering_id,register_class_id,teacher_allocation_id")
+        .eq("school_id", membership.schoolId)
+        .eq("academic_year", scope.academicYear)
+        .eq("term_number", scope.termNumber)
+        .in("subject_offering_id", offeringIds)
+        .neq("status", "cancelled")
+    : { data: [], error: null };
+  if (instanceError) throw new Error("Unable to resolve historical assessment teacher attribution.");
+
+  const allocationIds = [...new Set((instances ?? []).map((row) => row.teacher_allocation_id).filter(Boolean))];
+  const { data: allocations, error: allocationError } = allocationIds.length
+    ? await db.from("teacher_allocations").select("id,staff_member_id").in("id", allocationIds)
+    : { data: [], error: null };
+  if (allocationError) throw new Error("Unable to resolve historical teacher allocations.");
+  const staffIds = [...new Set((allocations ?? []).map((row) => row.staff_member_id).filter(Boolean))];
+  const { data: staff, error: staffError } = staffIds.length
+    ? await db.from("staff_members").select("id,first_name,last_name").in("id", staffIds)
+    : { data: [], error: null };
+  if (staffError) throw new Error("Unable to resolve historical teacher identities.");
+  const staffNameMap = new Map((staff ?? []).map((row) => [row.id, [row.first_name, row.last_name].filter(Boolean).join(" ").trim() || "Staff member"]));
+  const allocationStaffMap = new Map((allocations ?? []).map((row) => [row.id, row.staff_member_id]));
+
   const rows: AcademicAnalysisRow[] = [];
   for (const offeringId of offeringIds) {
     const cohort = typedResults.filter((row) => row.subject_offering_id === offeringId);
@@ -170,6 +195,15 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       return { bandId: band.id, symbol: band.symbol, count, percentage: rate(count, classified.length) };
     });
     const offering = offeringMap.get(offeringId);
+    const cohortClassIds = [...new Set(cohort.map((result) => enrolmentClassMap.get(result.enrolment_id)).filter(Boolean))];
+    const historicalAllocationIds = [...new Set((instances ?? [])
+      .filter((instance) => instance.subject_offering_id === offeringId && cohortClassIds.includes(instance.register_class_id))
+      .map((instance) => instance.teacher_allocation_id)
+      .filter(Boolean))];
+    const historicalTeacherNames = [...new Set(historicalAllocationIds
+      .map((allocationId) => staffNameMap.get(allocationStaffMap.get(allocationId) ?? ""))
+      .filter(Boolean))];
+
     rows.push({
       subjectOfferingId: offeringId,
       subject: subjectMap.get(offering?.subject_id) ?? "Subject",
@@ -178,7 +212,8 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
         const names = [...new Set(cohort.map((result) => classMap.get(enrolmentClassMap.get(result.enrolment_id) ?? "")).filter(Boolean))];
         return names.length === 1 ? names[0] ?? null : names.length > 1 ? "Multiple classes" : null;
       })(),
-      teacher: null,
+      teacher: historicalTeacherNames.length === 1 ? historicalTeacherNames[0] ?? null : historicalTeacherNames.length > 1 ? historicalTeacherNames.join(" · ") : null,
+      teacherAttribution: historicalTeacherNames.length === 1 ? "assessment_allocation" : historicalTeacherNames.length > 1 ? "multiple_assessment_allocations" : "unavailable",
       gradingScaleKey: scaleKey,
       gradingScaleVersion: scaleVersion,
       summary: {
