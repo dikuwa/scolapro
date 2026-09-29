@@ -1,6 +1,7 @@
 import "server-only";
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { isBoundedDecodablePng } from "@/features/documents/server/official-document-png";
 import {
   buildReportCardTemplateModel,
   isFailingResult,
@@ -145,9 +146,17 @@ async function drawSchoolLogo(
 ) {
   if (!bytes?.length) return false;
   let image;
-  try {
-    image = await pdf.embedPng(bytes);
-  } catch {
+  // Same bound as official documents: the bundled PNG decoder can loop forever on
+  // a truncated payload, so an undecodable logo is skipped instead of stalling the
+  // worker (issue #863).
+  if (isBoundedDecodablePng(bytes)) {
+    try {
+      image = await pdf.embedPng(bytes);
+    } catch {
+      image = undefined;
+    }
+  }
+  if (!image) {
     try {
       image = await pdf.embedJpg(bytes);
     } catch {

@@ -104,7 +104,11 @@ test("governed document art is bundled and the Namib High crest matches the supp
   const backdropPath = "public/brand/governed/scolapro-document-backdrop.png";
   assert.equal(existsSync(crestPath), true);
   assert.equal(existsSync(backdropPath), true);
-  assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "b5c608fb23f728546d70e4846c182e7fc1414e2b3e0b78b0c2c5d68cf434d7c8");
+  // #863 regenerated the Namib High crest raster from the intact committed
+  // crest.svg (358x432 viewBox); the #844 raster was a truncated file whose
+  // deflate payload stalled the bundled PNG decoder on every official-document
+  // PDF export.
+  assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "69fe007cb344a712a7e6723e6b6aaa83c05c464be248e12331e26a9273cadc49");
   assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "f3b18566997fdb00e4393cfad78e47cfcc9c1aa50b01a55c353fcd564ff557a6");
   assert.match(profile, /\/brand\/schools\/namib-high\/crest\.png/);
 });
