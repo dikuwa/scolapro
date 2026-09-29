@@ -115,3 +115,8 @@ test("exports are projected from the same filtered analysis rows", () => {
   assert.match(source, /exportRows: filteredRows\.map/);
   assert.match(source, /symbols: row\.summary\.symbolDistribution/);
 });
+
+test("analysis workspace exposes a filtered Excel export action", () => {
+  assert.match(pageSource, /export\.xlsx/);
+  assert.match(pageSource, /exportParams/);
+});
