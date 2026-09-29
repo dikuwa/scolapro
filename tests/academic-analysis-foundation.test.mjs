@@ -134,3 +134,10 @@ test("subject and teacher filters remain in the governed analysis scope and expo
   assert.match(source, /subjectOfferingId\?:/);
   assert.match(source, /teacher\?:/);
 });
+
+test("phase-one subject and teacher reports stay descriptive and unranked", () => {
+  assert.match(pageSource, /Subject summary/);
+  assert.match(pageSource, /Teacher–subject analysis/);
+  assert.match(pageSource, /No ranking or competence score is applied/);
+  assert.doesNotMatch(pageSource, /Best teacher|Worst teacher|Teacher rank|Teacher score/);
+});
