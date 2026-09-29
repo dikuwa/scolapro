@@ -63,8 +63,8 @@ create index operational_file_resource_bindings_item_idx
 alter table public.operational_file_resources enable row level security;
 alter table public.operational_file_resource_bindings enable row level security;
 
-revoke all on public.operational_file_resources from anon;
-revoke all on public.operational_file_resource_bindings from anon;
+revoke all on public.operational_file_resources from anon, authenticated;
+revoke all on public.operational_file_resource_bindings from anon, authenticated;
 grant select on public.operational_file_resources to authenticated;
 grant select on public.operational_file_resource_bindings to authenticated;
 
