@@ -2,8 +2,10 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { OperationalTeachingFiles } from "@/features/teaching/components/operational-teaching-files";
 import { TeachingFilesHub } from "@/features/teaching/components/teaching-files";
 import { getTeachingFilesHub, OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED } from "@/features/teaching/server/file-queries";
+import { getOperationalTeachingFilesWorkspace } from "@/features/teaching/server/operational-files-workspace";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -38,6 +40,11 @@ export default async function TeachingFilesPage() {
       (item) => item.schoolId === membership.schoolId && ["teacher", "class_teacher"].includes(item.roleKey),
     ),
   });
+  const operationalWorkspace = await getOperationalTeachingFilesWorkspace({
+    academicYear,
+    effectiveOn: hub.today,
+    allocations: hub.allocations,
+  });
 
   return (
     <AppShell>
@@ -56,6 +63,7 @@ export default async function TeachingFilesPage() {
             allocations.
           </p>
         </div>
+        <OperationalTeachingFiles workspace={operationalWorkspace} />
         <TeachingFilesHub
           {...hub}
           taxonomySourced={OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED}
