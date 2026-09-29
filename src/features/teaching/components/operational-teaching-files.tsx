@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -8,7 +11,13 @@ import {
   FolderKanban,
   Link2,
   Printer,
+  Search,
+  X,
 } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { OperationalFileDocumentBindingForm } from "@/features/teaching/components/operational-file-document-binding-form";
+import { OperationalFileExternalReferenceForm } from "@/features/teaching/components/operational-file-external-reference-form";
+import type { TeachingFileProfessionalDocument } from "@/features/teaching/server/file-queries";
 import type { OperationalTeachingFilesWorkspace } from "@/features/teaching/server/operational-files-workspace";
 
 const statusLabel = {
@@ -35,9 +44,111 @@ function StatusIcon({ status }: { status: keyof typeof statusLabel }) {
 
 export function OperationalTeachingFiles({
   workspace,
+  professionalDocuments,
 }: {
   workspace: OperationalTeachingFilesWorkspace;
+  professionalDocuments: TeachingFileProfessionalDocument[];
 }) {
+  const [query, setQuery] = useState("");
+  const [fileType, setFileType] = useState("");
+  const [sourceType, setSourceType] = useState("");
+  const [evidenceStatus, setEvidenceStatus] = useState("");
+
+  const fileTypeOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    for (const allocation of workspace.allocations) {
+      for (const item of allocation.fileTypes) options.set(item.fileTypeKey, item.displayName);
+    }
+    return [...options].map(([value, label]) => ({ value, label }));
+  }, [workspace.allocations]);
+
+  const sourceOptions = useMemo(() => {
+    const values = new Set<string>();
+    for (const allocation of workspace.allocations) {
+      for (const item of allocation.fileTypes) {
+        for (const section of item.sections) {
+          for (const requirement of section.items) values.add(requirement.resolverType);
+        }
+      }
+    }
+    return [...values]
+      .sort()
+      .map((value) => ({ value, label: value.replaceAll("_", " ") }));
+  }, [workspace.allocations]);
+
+  const visibleAllocations = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+
+    return workspace.allocations
+      .map((allocation) => {
+        const allocationText = [
+          allocation.subjectName,
+          allocation.gradeName,
+          allocation.className ?? "",
+          allocation.sourceTitle,
+          allocation.authority,
+          allocation.phaseLabel ?? "",
+        ]
+          .join(" ")
+          .toLocaleLowerCase();
+
+        const fileTypes = allocation.fileTypes.flatMap((currentFileType) => {
+          if (fileType && currentFileType.fileTypeKey !== fileType) return [];
+
+          if (!currentFileType.sections.length) {
+            const queryMatch =
+              !needle ||
+              `${allocationText} ${currentFileType.displayName}`
+                .toLocaleLowerCase()
+                .includes(needle);
+            if (!queryMatch || sourceType || evidenceStatus) return [];
+            return [currentFileType];
+          }
+
+          const sections = currentFileType.sections.flatMap((section) => {
+            const items = section.items.filter((item) => {
+              if (sourceType && item.resolverType !== sourceType) return false;
+              if (evidenceStatus && item.evidence.status !== evidenceStatus) return false;
+
+              if (!needle) return true;
+              const referenceText = item.evidence.references
+                .map((reference) => reference.label)
+                .join(" ");
+              const haystack = [
+                allocationText,
+                currentFileType.displayName,
+                section.title,
+                item.label,
+                item.resolverType,
+                item.evidence.status,
+                referenceText,
+                item.evidence.reason ?? "",
+              ]
+                .join(" ")
+                .toLocaleLowerCase();
+              return haystack.includes(needle);
+            });
+
+            return items.length ? [{ ...section, items }] : [];
+          });
+
+          return sections.length ? [{ ...currentFileType, sections }] : [];
+        });
+
+        return fileTypes.length ? [{ ...allocation, fileTypes }] : [];
+      })
+      .flat();
+  }, [workspace.allocations, query, fileType, sourceType, evidenceStatus]);
+
+  const filtersActive = Boolean(query || fileType || sourceType || evidenceStatus);
+
+  function clearFilters() {
+    setQuery("");
+    setFileType("");
+    setSourceType("");
+    setEvidenceStatus("");
+  }
+
   if (!workspace.allocations.length && !workspace.unsupportedAllocations.length) return null;
 
   return (
@@ -64,8 +175,70 @@ export function OperationalTeachingFiles({
       </div>
 
       {workspace.allocations.length ? (
+        <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted/55 p-3">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="block text-xs font-medium leading-4">
+              Search requirements
+              <span className="relative mt-1.5 block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="File, section, item, subject…"
+                  className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] pl-9 pr-3 text-sm outline-none"
+                />
+              </span>
+            </label>
+            <SearchableSelect
+              label="File"
+              value={fileType}
+              onChange={setFileType}
+              options={fileTypeOptions}
+              placeholder="All files"
+              searchPlaceholder="Search file types…"
+              clearable
+              onClear={() => setFileType("")}
+            />
+            <SearchableSelect
+              label="Source type"
+              value={sourceType}
+              onChange={setSourceType}
+              options={sourceOptions}
+              placeholder="All source types"
+              searchPlaceholder="Search source types…"
+              clearable
+              onClear={() => setSourceType("")}
+            />
+            <SearchableSelect
+              label="Status"
+              value={evidenceStatus}
+              onChange={setEvidenceStatus}
+              options={Object.entries(statusLabel).map(([value, label]) => ({ value, label }))}
+              placeholder="All statuses"
+              searchPlaceholder="Search statuses…"
+              clearable
+              onClear={() => setEvidenceStatus("")}
+            />
+          </div>
+          {filtersActive ? (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="scolapro-cta inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-2.5 text-[0.68rem] font-medium hover:bg-surface-elevated"
+              >
+                <X className="size-3" aria-hidden="true" />
+                Clear filters
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {visibleAllocations.length ? (
         <div className="mt-4 space-y-5">
-          {workspace.allocations.map((allocation) => (
+          {visibleAllocations.map((allocation) => (
             <article
               key={allocation.allocationId}
               className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3 sm:p-4"
@@ -87,18 +260,18 @@ export function OperationalTeachingFiles({
               </div>
 
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                {allocation.fileTypes.map((fileType) => (
+                {allocation.fileTypes.map((currentFileType) => (
                   <section
-                    key={fileType.id}
+                    key={currentFileType.id}
                     className="rounded-[var(--radius-sm)] bg-surface-muted/55 p-3"
                   >
                     <h4 className="text-xs font-semibold uppercase tracking-wide">
-                      {fileType.displayName}
+                      {currentFileType.displayName}
                     </h4>
 
-                    {fileType.sections.length ? (
+                    {currentFileType.sections.length ? (
                       <div className="mt-3 space-y-3">
-                        {fileType.sections.map((section) => (
+                        {currentFileType.sections.map((section) => (
                           <div key={section.id}>
                             <p className="text-xs font-medium">{section.title}</p>
                             <ul className="mt-1.5 divide-y divide-border-subtle">
@@ -151,6 +324,18 @@ export function OperationalTeachingFiles({
                                       )}
                                     </div>
                                   ) : null}
+
+                                  {item.evidence.status === "missing" &&
+                                  ["shared_resource", "external_link"].includes(item.resolverType) ? (
+                                    <OperationalFileExternalReferenceForm templateItemId={item.id} title={item.label} />
+                                  ) : null}
+
+                                  {item.evidence.status === "missing" && item.resolverType === "teacher_document" ? (
+                                    <OperationalFileDocumentBindingForm
+                                      templateItemId={item.id}
+                                      documents={professionalDocuments}
+                                    />
+                                  ) : null}
                                 </li>
                               ))}
                             </ul>
@@ -171,6 +356,10 @@ export function OperationalTeachingFiles({
             </article>
           ))}
         </div>
+      ) : workspace.allocations.length ? (
+        <p className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-4 text-sm text-muted-foreground">
+          No operational-file requirements match the current filters.
+        </p>
       ) : null}
 
       {workspace.unsupportedAllocations.length ? (
