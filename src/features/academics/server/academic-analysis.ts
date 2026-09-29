@@ -91,41 +91,66 @@ async function loadProvisionalResults(
   academicYear: number,
   termNumber: number,
 ): Promise<ProvisionalResult[]> {
-  const { data: schemes, error: schemeError } = await db.from("assessment_schemes")
-    .select("id,subject_offering_id,scheme_key,version")
-    .eq("school_id", schoolId)
-    .eq("status", "active");
+  const [{ data: schemes, error: schemeError }, { data: instances, error: instanceError }] = await Promise.all([
+    db.from("assessment_schemes")
+      .select("id,subject_offering_id,scheme_key,version")
+      .eq("school_id", schoolId)
+      .eq("status", "active"),
+    db.from("assessment_instances")
+      .select("assessment_scheme_id,register_class_id")
+      .eq("school_id", schoolId)
+      .eq("academic_year", academicYear)
+      .eq("term_number", termNumber)
+      .neq("status", "cancelled"),
+  ]);
   if (schemeError) throw new Error("Unable to load provisional assessment schemes.");
+  if (instanceError) throw new Error("Unable to load provisional assessment scope.");
 
-  const { data: enrolments, error: enrolmentError } = await db.from("enrolments")
-    .select("id,learner_id,register_class_id")
-    .eq("school_id", schoolId)
-    .eq("academic_year", academicYear)
-    .eq("status", "current");
+  const classIds = [...new Set((instances ?? []).map((row) => row.register_class_id))];
+  const { data: enrolments, error: enrolmentError } = classIds.length
+    ? await db.from("enrolments")
+        .select("id,learner_id,register_class_id")
+        .eq("school_id", schoolId)
+        .eq("academic_year", academicYear)
+        .eq("status", "current")
+        .in("register_class_id", classIds)
+    : { data: [], error: null };
   if (enrolmentError) throw new Error("Unable to load provisional analysis enrolments.");
 
-  const rows: ProvisionalResult[] = [];
+  const classesByScheme = new Map<string, Set<string>>();
+  for (const instance of instances ?? []) {
+    const classes = classesByScheme.get(instance.assessment_scheme_id) ?? new Set<string>();
+    classes.add(instance.register_class_id);
+    classesByScheme.set(instance.assessment_scheme_id, classes);
+  }
+
+  const calculations: Array<Promise<ProvisionalResult | null>> = [];
   for (const scheme of schemes ?? []) {
+    const eligibleClasses = classesByScheme.get(scheme.id);
+    if (!eligibleClasses?.size) continue;
     for (const enrolment of enrolments ?? []) {
-      const { data: calculated, error } = await db.rpc("calculate_subject_result", {
-        p_assessment_scheme_id: scheme.id,
-        p_enrolment_id: enrolment.id,
-        p_term_number: termNumber,
-      });
-      if (error || !calculated || calculated.complete !== true || calculated.result_value == null) continue;
-      rows.push({
-        result_value: Number(calculated.result_value),
-        result_status: null,
-        symbol: null,
-        subject_offering_id: scheme.subject_offering_id,
-        enrolment_id: enrolment.id,
-        grading_scale_key: null,
-        grading_scale_version: null,
-        assessment_scheme_id: scheme.id,
-      });
+      if (!eligibleClasses.has(enrolment.register_class_id)) continue;
+      calculations.push((async () => {
+        const { data: calculated, error } = await db.rpc("calculate_subject_result", {
+          p_assessment_scheme_id: scheme.id,
+          p_enrolment_id: enrolment.id,
+          p_term_number: termNumber,
+        });
+        if (error || !calculated || calculated.complete !== true || calculated.result_value == null) return null;
+        return {
+          result_value: Number(calculated.result_value),
+          result_status: null,
+          symbol: null,
+          subject_offering_id: scheme.subject_offering_id,
+          enrolment_id: enrolment.id,
+          grading_scale_key: null,
+          grading_scale_version: null,
+          assessment_scheme_id: scheme.id,
+        };
+      })());
     }
   }
-  return rows;
+  return (await Promise.all(calculations)).filter((row): row is ProvisionalResult => row !== null);
 }
 
 function rounded(value: number): number {
