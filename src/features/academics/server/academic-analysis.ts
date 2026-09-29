@@ -336,7 +336,10 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
 
   const rows: AcademicAnalysisRow[] = [];
   for (const offeringId of offeringIds) {
-    const cohort = typedResults.filter((row) => row.subject_offering_id === offeringId);
+    const offeringResults = typedResults.filter((row) => row.subject_offering_id === offeringId);
+    const cohortClassKeys = [...new Set(offeringResults.map((row) => enrolmentClassMap.get(row.enrolment_id) ?? "unassigned"))];
+    for (const cohortClassKey of cohortClassKeys) {
+    const cohort = offeringResults.filter((row) => (enrolmentClassMap.get(row.enrolment_id) ?? "unassigned") === cohortClassKey);
     const numeric = cohort.filter((row) => row.result_value != null).map((row) => Number(row.result_value));
     const scaleKey = cohort.find((row) => row.grading_scale_key)?.grading_scale_key ?? null;
     const scaleVersion = cohort.find((row) => row.grading_scale_version)?.grading_scale_version ?? null;
