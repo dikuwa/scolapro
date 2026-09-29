@@ -21,8 +21,8 @@ export default async function TeachingFilesPage() {
   if (!context.user) redirect("/login?next=/teaching/files");
   if (context.platformMemberships.length) redirect("/");
 
-  const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
-  if (!membership) redirect("/");
+  const membership = context.currentSchoolMembership;
+  if (!membership || !allowedRoles.has(membership.roleKey)) redirect("/");
 
   const ownerMembership = context.memberships.find(
     (item) =>
