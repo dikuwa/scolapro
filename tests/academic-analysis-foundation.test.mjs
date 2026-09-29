@@ -70,3 +70,10 @@ test("provisional calculation scope is bounded to assessment-instance classes be
   assert.match(source, /if \(!eligibleClasses\.has\(enrolment\.register_class_id\)\) continue;/);
   assert.doesNotMatch(source, /await db\.rpc\("calculate_subject_result"[\s\S]{0,800}await db\.rpc\("calculate_subject_result"/);
 });
+
+test("HOD analysis uses governed subject responsibilities instead of whole-school application scope", () => {
+  assert.match(source, /getHodScopeConfiguration/);
+  assert.match(source, /membership\.roleKey === "hod"/);
+  assert.match(source, /activeResponsibilitySubjectIds/);
+  assert.match(source, /typedResults = typedResults\.filter/);
+});
