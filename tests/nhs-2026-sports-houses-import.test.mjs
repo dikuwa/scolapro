@@ -144,6 +144,32 @@ test("register-class evidence prevents a same-name learner in another class from
   assert.equal(result.classification, "learner_not_found");
 });
 
+test("same-surname candidates require identity evidence beyond DOB alone", () => {
+  const result = reconcileLearners({
+    sourceRows: [source({ surname: "MOUTON", preferredName: "Liandro O", initials: "LO", sourceReference: "100824" })],
+    learners: [
+      learner({
+        id: "learner-liandro",
+        surname: "Mouton",
+        preferredName: "Liandro",
+        firstNames: "Liandro Owen",
+        dateOfBirth: "2010-08-24",
+      }),
+      learner({
+        id: "learner-other",
+        surname: "Mouton",
+        preferredName: "Liane",
+        firstNames: "Liane Chloe",
+        dateOfBirth: "2010-08-24",
+      }),
+    ],
+    houses: houses(),
+  })[0];
+
+  assert.equal(result.classification, "safe_learner_match");
+  assert.equal(result.learnerId, "learner-liandro");
+});
+
 test("ambiguous learners are rejected rather than auto-assigned", () => {
   const result = reconcileLearners({
     sourceRows: [source({ preferredName: "Dawid", sourceReference: "" })],
@@ -318,13 +344,19 @@ test("apply uses only governed Sports/Houses RPCs with import provenance and loc
   ].includes(call.name)));
 
   const learnerCall = calls.find((call) => call.name === "assign_learners_sports_house");
+  assert.equal(learnerCall.args.p_school_id, "school-1");
   assert.equal(learnerCall.args.p_academic_year, ACADEMIC_YEAR);
   assert.equal(learnerCall.args.p_assignment_source, "import");
   assert.equal(learnerCall.args.p_is_locked, true);
 
   const staffCalls = calls.filter((call) => call.name === "assign_staff_sports_house");
   assert.equal(staffCalls.length, 3);
-  assert.ok(staffCalls.every((call) => call.args.p_assignment_source === "import" && call.args.p_is_locked === true));
+  assert.ok(staffCalls.every((call) =>
+    call.args.p_school_id === "school-1" &&
+    call.args.p_academic_year === ACADEMIC_YEAR &&
+    call.args.p_assignment_source === "import" &&
+    call.args.p_is_locked === true
+  ));
   assert.equal(calls.some((call) => /learner|identity|national/i.test(call.name) && !call.name.includes("sports_house")), false);
   assert.equal(calls.some((call) => call.name.includes("age_group")), false);
 });
