@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { getAcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
-export default async function AcademicAnalysisPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string; basis?: string; grade?: string; class?: string; teacher?: string }> }) {
+export default async function AcademicAnalysisPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string; basis?: string; grade?: string; class?: string; subject?: string; teacher?: string }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
   if (context.platformMemberships.length || !context.currentSchoolMembership) redirect("/");
@@ -15,11 +15,12 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
   const year = Number(params.year) || new Date().getFullYear();
   const term = Math.min(6, Math.max(1, Number(params.term) || 1));
   const basis = params.basis === "provisional" ? "provisional" : "official";
-  const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis, grade: params.grade, className: params.class, teacher: params.teacher });
+  const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis, grade: params.grade, className: params.class, subjectOfferingId: params.subject, teacher: params.teacher });
   if (!workspace) redirect("/");
   const exportParams = new URLSearchParams({ year: String(year), term: String(term), basis });
   if (params.grade) exportParams.set("grade", params.grade);
   if (params.class) exportParams.set("class", params.class);
+  if (params.subject) exportParams.set("subject", params.subject);
   if (params.teacher) exportParams.set("teacher", params.teacher);
 
   return (
@@ -42,12 +43,12 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
         </div>
       </section>
 
-      <form className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 sm:grid-cols-2 lg:grid-cols-6">
+      <form className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 sm:grid-cols-2 lg:grid-cols-7">
         <label className="text-xs font-medium">Year<input name="year" defaultValue={year} inputMode="numeric" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label>
         <label className="text-xs font-medium">Term<select name="term" defaultValue={term} className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm">{[1,2,3].map((value) => <option key={value} value={value}>Term {value}</option>)}</select></label>
         <label className="text-xs font-medium">Basis<select name="basis" defaultValue={basis} className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm"><option value="official">Official</option><option value="provisional">Provisional</option></select></label>
         <label className="text-xs font-medium">Grade<input name="grade" defaultValue={params.grade ?? ""} placeholder="All grades" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label>
-        <label className="text-xs font-medium">Class<input name="class" defaultValue={params.class ?? ""} placeholder="All classes" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label>
+        <label className="text-xs font-medium">Class<input name="class" defaultValue={params.class ?? ""} placeholder="All classes" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label><label className="text-xs font-medium">Subject offering<input name="subject" defaultValue={params.subject ?? ""} placeholder="All subjects" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label>
         <div className="flex items-end gap-2"><button className="min-h-10 rounded-[var(--radius-xs)] bg-brand px-4 text-sm font-medium text-white">Apply</button><Link href="/academics/analysis" className="min-h-10 rounded-[var(--radius-xs)] border border-border px-4 py-2 text-sm">Clear</Link></div>
       </form>
 
