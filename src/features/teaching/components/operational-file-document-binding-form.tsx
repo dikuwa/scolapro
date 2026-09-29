@@ -30,7 +30,6 @@ export function OperationalFileDocumentBindingForm({
     if (!state.message) return;
     if (state.success) {
       toast.success(state.message);
-      setDocumentId("");
     } else {
       toast.error(state.message);
     }
