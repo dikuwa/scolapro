@@ -106,17 +106,17 @@ select is(
 );
 
 select throws_ok(
-  $update public.operational_file_templates
+  $$update public.operational_file_templates
     set source_title='Teacher rewrite'
-    where id='85500000-0000-4000-8000-000000000001'$,
+    where id='85500000-0000-4000-8000-000000000001'$$,
   '42501',
   'permission denied for table operational_file_templates',
   'teacher cannot mutate policy templates: table privileges deny before immutability trigger'
 );
 
 select throws_ok(
-  $delete from public.operational_file_template_items
-    where section_id='85520000-0000-4000-8000-000000000001' and item_key='personal-timetable'$,
+  $$delete from public.operational_file_template_items
+    where section_id='85520000-0000-4000-8000-000000000001' and item_key='personal-timetable'$$,
   '42501',
   'permission denied for table operational_file_template_items',
   'teacher cannot delete policy template items: table privileges deny before immutability trigger'
