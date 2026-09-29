@@ -53,3 +53,10 @@ test("existing Subject File print privacy and read-only behavior remains intact"
   assert.match(subjectRoute, /read-only dossier/);
   assert.doesNotMatch(subjectRoute, /insert\(|update\(|delete\(/i);
 });
+
+
+test("inspection pack does not collapse unavailable review sources into empty history", () => {
+  assert.match(operationalRoute, /controlSheet\.preparationUnavailable/);
+  assert.match(operationalRoute, /controlSheet\.professionalFileUnavailable/);
+  assert.match(operationalRoute, /unavailableReviewSources/);
+});
