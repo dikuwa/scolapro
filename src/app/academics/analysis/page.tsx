@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { getAcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
-export default async function AcademicAnalysisPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string }> }) {
+export default async function AcademicAnalysisPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string; grade?: string; class?: string; teacher?: string }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
   if (context.platformMemberships.length || !context.currentSchoolMembership) redirect("/");
@@ -14,7 +14,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
   const params = await searchParams;
   const year = Number(params.year) || new Date().getFullYear();
   const term = Math.min(6, Math.max(1, Number(params.term) || 1));
-  const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis: "official" });
+  const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis: "official", grade: params.grade, className: params.class, teacher: params.teacher });
   if (!workspace) redirect("/");
 
   return (
@@ -36,6 +36,23 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
           <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">OFFICIAL</span>
         </div>
       </section>
+
+      <form className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5">
+        <label className="text-xs font-medium">Year<input name="year" defaultValue={year} inputMode="numeric" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label>
+        <label className="text-xs font-medium">Term<select name="term" defaultValue={term} className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm">{[1,2,3].map((value) => <option key={value} value={value}>Term {value}</option>)}</select></label>
+        <label className="text-xs font-medium">Grade<input name="grade" defaultValue={params.grade ?? ""} placeholder="All grades" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label>
+        <label className="text-xs font-medium">Class<input name="class" defaultValue={params.class ?? ""} placeholder="All classes" className="mt-1 w-full rounded-[var(--radius-xs)] border border-border bg-background px-3 py-2 text-sm" /></label>
+        <div className="flex items-end gap-2"><button className="min-h-10 rounded-[var(--radius-xs)] bg-brand px-4 text-sm font-medium text-white">Apply</button><Link href="/academics/analysis" className="min-h-10 rounded-[var(--radius-xs)] border border-border px-4 py-2 text-sm">Clear</Link></div>
+      </form>
+
+      {workspace.rows.length ? <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["Subjects", workspace.subjectSummaries.length],
+          ["Grades", workspace.gradeSummaries.length],
+          ["Classes", workspace.classSummaries.length],
+          ["Teachers", workspace.teacherSummaries.length],
+        ].map(([label, value]) => <div key={label} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}
+      </section> : null}
 
       {!workspace.rows.length ? (
         <section className="rounded-[var(--radius-sm)] border border-dashed border-border p-6 text-center">
