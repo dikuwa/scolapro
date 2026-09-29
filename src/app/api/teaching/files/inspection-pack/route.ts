@@ -122,7 +122,13 @@ ${files}
     ...controlSheet.preparationRows,
     ...controlSheet.professionalFileRows,
   ];
-  const reviewHtml = reviewRows.length
+  const unavailableReviewSources = [
+    controlSheet.preparationUnavailable,
+    controlSheet.professionalFileUnavailable,
+  ].filter((message): message is string => Boolean(message));
+  const reviewHtml = (unavailableReviewSources.length
+    ? `<div class="notice">${unavailableReviewSources.map((message)=>escapeHtml(message)).join("<br>")}</div>`
+    : "") + (reviewRows.length
     ? reviewRows
         .map((row) => {
           const eventRows = row.events.length
@@ -142,7 +148,9 @@ ${row.reviewNote ? `<p><b>Review note:</b> ${escapeHtml(row.reviewNote)}</p>` : 
 </section>`;
         })
         .join("")
-    : `<p class="muted">No existing review submissions are recorded for this teacher in the current scope.</p>`;
+    : unavailableReviewSources.length
+      ? ""
+      : `<p class="muted">No existing review submissions are recorded for this teacher in the current scope.</p>`);
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Teaching Files Inspection Pack</title>
