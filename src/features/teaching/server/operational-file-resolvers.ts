@@ -95,7 +95,7 @@ function resolveWithHub(input: {
 }): OperationalFileEvidenceResult {
   const resourceById = new Map(input.hub.authoritativeResources.map((item) => [item.id, item]));
   const sharedResourceResult = (
-    resolverType: "shared_resource" | "external_link",
+    resolverType: "shared_resource" | "external_link" | "teacher_document",
   ): OperationalFileEvidenceResult | null => {
     if (!input.sharedResources.length) return null;
 
@@ -221,26 +221,11 @@ function resolveWithHub(input: {
       return resource("calendar", "calendar");
 
     case "teacher_document": {
-      if (!input.hub.professionalDocuments.length) {
-        return missing("teacher_document", "No teacher-owned professional document exists for this actor.");
-      }
-      return {
-        resolverType: "teacher_document",
-        status: "resolved",
-        reason: null,
-        references: input.hub.professionalDocuments.map((document) => ({
-          id: document.id,
-          label: document.title?.trim() || document.originalFilename,
-          href: document.viewHref,
-          sourceModule: "Teacher professional documents",
-          provenance: {
-            ownerStaffMemberId: input.ownerStaffMemberId,
-            status: document.status,
-            reviewStatus: document.reviewStatus,
-            downloadHref: document.downloadHref,
-          },
-        })),
-      };
+      const bound = sharedResourceResult("teacher_document");
+      return bound ?? missing(
+        "teacher_document",
+        "No teacher-owned professional document is bound to this operational-file requirement.",
+      );
     }
 
     case "external_link": {
