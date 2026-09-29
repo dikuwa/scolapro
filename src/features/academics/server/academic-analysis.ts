@@ -311,6 +311,29 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   const staffNameMap = new Map((staff ?? []).map((row) => [row.id, [row.first_name, row.last_name].filter(Boolean).join(" ").trim() || "Staff member"]));
   const allocationStaffMap = new Map((allocations ?? []).map((row) => [row.id, row.staff_member_id]));
 
+  const scaleRefs = [...new Map(typedResults
+    .filter((row) => row.grading_scale_key && row.grading_scale_version)
+    .map((row) => [`${row.grading_scale_key}::${row.grading_scale_version}`, { key: row.grading_scale_key!, version: row.grading_scale_version! }])).values()];
+  const scaleKeys = [...new Set(scaleRefs.map((ref) => ref.key))];
+  const { data: resolvedScales, error: scaleError } = scaleKeys.length
+    ? await db.from("grading_scales").select("id,scale_key,version").eq("school_id", membership.schoolId).in("scale_key", scaleKeys)
+    : { data: [], error: null };
+  if (scaleError) throw new Error("Unable to resolve historical grading scales.");
+  const wantedScaleRefs = new Set(scaleRefs.map((ref) => `${ref.key}::${ref.version}`));
+  const scales = (resolvedScales ?? []).filter((scale) => wantedScaleRefs.has(`${scale.scale_key}::${scale.version}`));
+  const scaleIds = scales.map((scale) => scale.id);
+  const { data: resolvedBands, error: bandError } = scaleIds.length
+    ? await db.from("grading_scale_bands").select("id,grading_scale_id,symbol,pass_classification,sort_order").in("grading_scale_id", scaleIds).order("sort_order")
+    : { data: [], error: null };
+  if (bandError) throw new Error("Unable to resolve historical grading bands.");
+  const scaleIdByRef = new Map(scales.map((scale) => [`${scale.scale_key}::${scale.version}`, scale.id]));
+  const bandsByScaleId = new Map<string, Array<{ id: string; symbol: string; pass_classification: string | null; sort_order: number }>>();
+  for (const band of resolvedBands ?? []) {
+    const list = bandsByScaleId.get(band.grading_scale_id) ?? [];
+    list.push(band);
+    bandsByScaleId.set(band.grading_scale_id, list);
+  }
+
   const rows: AcademicAnalysisRow[] = [];
   for (const offeringId of offeringIds) {
     const cohort = typedResults.filter((row) => row.subject_offering_id === offeringId);
@@ -318,17 +341,8 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     const scaleKey = cohort.find((row) => row.grading_scale_key)?.grading_scale_key ?? null;
     const scaleVersion = cohort.find((row) => row.grading_scale_version)?.grading_scale_version ?? null;
 
-    let bands: Array<{ id: string; symbol: string; pass_classification: string | null; sort_order: number }> = [];
-    if (scaleKey && scaleVersion) {
-      const { data: scales } = await db.from("grading_scales")
-        .select("id").eq("school_id", membership.schoolId).eq("scale_key", scaleKey).eq("version", scaleVersion).limit(1);
-      const scaleId = scales?.[0]?.id;
-      if (scaleId) {
-        const { data } = await db.from("grading_scale_bands")
-          .select("id,symbol,pass_classification,sort_order").eq("grading_scale_id", scaleId).order("sort_order");
-        bands = data ?? [];
-      }
-    }
+    const scaleId = scaleKey && scaleVersion ? scaleIdByRef.get(`${scaleKey}::${scaleVersion}`) : null;
+    const bands = scaleId ? bandsByScaleId.get(scaleId) ?? [] : [];
     const bandMap = new Map(bands.map((band) => [band.symbol, band]));
     const classified = cohort.filter((row) => row.symbol && bandMap.has(row.symbol));
     const passed = classified.filter((row) => bandMap.get(row.symbol!)?.pass_classification === "pass").length;
