@@ -28,6 +28,8 @@ export type OperationalControlSheetRow = {
 export type OperationalFileControlSheet = {
   preparationRows: OperationalControlSheetRow[];
   professionalFileRows: OperationalControlSheetRow[];
+  preparationUnavailable: string | null;
+  professionalFileUnavailable: string | null;
 };
 
 type EventRow = {
@@ -107,11 +109,11 @@ export async function getOperationalFileControlSheet(
 ): Promise<OperationalFileControlSheet> {
   const context = await getUserContext();
   if (!context.user || context.platformMemberships.length) {
-    return { preparationRows: [], professionalFileRows: [] };
+    return { preparationRows: [], professionalFileRows: [], preparationUnavailable: null, professionalFileUnavailable: null };
   }
 
   const current = context.currentSchoolMembership;
-  if (!current) return { preparationRows: [], professionalFileRows: [] };
+  if (!current) return { preparationRows: [], professionalFileRows: [], preparationUnavailable: null, professionalFileUnavailable: null };
 
   const ownerMembership = context.memberships.find(
     (item) =>
@@ -120,7 +122,7 @@ export async function getOperationalFileControlSheet(
       ["teacher", "class_teacher", "hod"].includes(item.roleKey),
   );
   if (!ownerMembership?.staffMemberId) {
-    return { preparationRows: [], professionalFileRows: [] };
+    return { preparationRows: [], professionalFileRows: [], preparationUnavailable: null, professionalFileUnavailable: null };
   }
 
   const db = await createSupabaseServerClient();
@@ -188,5 +190,14 @@ export async function getOperationalFileControlSheet(
         };
       });
 
-  return { preparationRows, professionalFileRows };
+  return {
+    preparationRows,
+    professionalFileRows,
+    preparationUnavailable: preparationsResult.error
+      ? "Preparation review history could not be loaded."
+      : null,
+    professionalFileUnavailable: professionalResult.error
+      ? "Professional-file review history could not be loaded."
+      : null,
+  };
 }
