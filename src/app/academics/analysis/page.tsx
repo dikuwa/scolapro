@@ -63,6 +63,11 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
         ].map(([label, value]) => <div key={label} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-2xl font-semibold">{value}</p></div>)}
       </section> : null}
 
+      {workspace.rows.length ? <section className="space-y-3">
+        <div><h2 className="scolapro-section-title">Subject summary</h2><p className="scolapro-section-description">Descriptive performance by subject from the selected analysis basis.</p></div>
+        <div className="overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle"><table className="w-full min-w-[620px] text-left text-sm"><thead className="bg-surface-muted text-xs text-muted-foreground"><tr><th className="px-3 py-2">Subject</th><th className="px-3 py-2">Assessed</th><th className="px-3 py-2">Average</th><th className="px-3 py-2">Median</th><th className="px-3 py-2">Pass %</th><th className="px-3 py-2">Fail %</th></tr></thead><tbody className="divide-y divide-border-subtle">{workspace.subjectSummaries.map((row) => <tr key={row.key}><td className="px-3 py-2 font-medium">{row.key}</td><td className="px-3 py-2">{row.summary.assessedLearners}</td><td className="px-3 py-2">{row.summary.average ?? "—"}</td><td className="px-3 py-2">{row.summary.median ?? "—"}</td><td className="px-3 py-2">{row.summary.passRate == null ? "—" : row.summary.passRate + "%"}</td><td className="px-3 py-2">{row.summary.failRate == null ? "—" : row.summary.failRate + "%"}</td></tr>)}</tbody></table></div>
+      </section> : null}
+
       {!workspace.rows.length ? (
         <section className="rounded-[var(--radius-sm)] border border-dashed border-border p-6 text-center">
           <h2 className="scolapro-section-title">No official results available</h2>
