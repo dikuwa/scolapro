@@ -55,6 +55,19 @@ export type AcademicAnalysisRow = {
   numericValues: number[];
 };
 
+export type AcademicAnalysisExportRow = {
+  grade: string;
+  className: string;
+  subject: string;
+  teacher: string;
+  assessed: number;
+  average: number | null;
+  median: number | null;
+  passRate: number | null;
+  failRate: number | null;
+  symbols: string;
+};
+
 export type AcademicAnalysisAggregate = {
   key: string;
   label: string;
@@ -71,6 +84,7 @@ export type AcademicAnalysisWorkspace = {
   classSummaries: AcademicAnalysisAggregate[];
   teacherSummaries: AcademicAnalysisAggregate[];
   qualityConfigured: false;
+  exportRows: AcademicAnalysisExportRow[];
 };
 
 type NumericResult = {
@@ -444,5 +458,17 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     classSummaries: aggregateBy((row) => row.className),
     teacherSummaries: aggregateBy((row) => row.teacher),
     qualityConfigured: false,
+    exportRows: filteredRows.map((row) => ({
+      grade: row.grade,
+      className: row.className ?? "",
+      subject: row.subject,
+      teacher: row.teacher ?? "",
+      assessed: row.summary.assessedLearners,
+      average: row.summary.average,
+      median: row.summary.median,
+      passRate: row.summary.passRate,
+      failRate: row.summary.failRate,
+      symbols: row.summary.symbolDistribution.map((band) => `${band.symbol} ${band.count}`).join(" · "),
+    })),
   };
 }
