@@ -19,10 +19,11 @@ test("control sheet projects existing review foundations rather than creating a 
 
 test("teacher control-sheet reads remain current-school owner scoped", () => {
   assert.match(server, /context\.currentSchoolMembership/);
+  assert.match(server, /context\.memberships\.find/);
   assert.match(server, /context\.platformMemberships\.length/);
-  assert.match(server, /\.eq\("school_id", membership\.schoolId\)/);
+  assert.match(server, /\.eq\("school_id", current\.schoolId\)/);
   assert.match(server, /\.eq\("submitted_by_user_id", context\.user\.id\)/);
-  assert.match(server, /\.eq\("owner_staff_member_id", membership\.staffMemberId\)/);
+  assert.match(server, /\.eq\("owner_staff_member_id", ownerMembership\.staffMemberId\)/);
 });
 
 test("preparation monitoring preserves real review period and append-only event history", () => {
