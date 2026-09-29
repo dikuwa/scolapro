@@ -3,6 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 
 const source = fs.readFileSync("src/features/academics/server/academic-analysis.ts", "utf8");
+const pageSource = fs.readFileSync("src/app/academics/analysis/page.tsx", "utf8");
 
 test("academic analysis is a read layer over canonical official results", () => {
   assert.match(source, /from\("official_results"\)/);
