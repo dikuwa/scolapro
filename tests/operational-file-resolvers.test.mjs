@@ -9,7 +9,8 @@ test("resolver derives school scope from the authenticated context", () => {
   assert.match(source, /getUserContext\(\)/);
   assert.match(source, /context\.currentSchoolMembership/);
   assert.match(source, /context\.platformMemberships\.length/);
-  assert.doesNotMatch(source, /type ResolveInput = \{[\s\S]*schoolId:/);
+  const resolveInput = source.slice(source.indexOf("type ResolveInput"), source.indexOf("type ResolveBatchInput"));
+  assert.doesNotMatch(resolveInput, /schoolId:/);
   assert.match(source, /schoolId: membership\.schoolId/);
   assert.match(source, /staffMemberId: membership\.staffMemberId \?\? null/);
 });
