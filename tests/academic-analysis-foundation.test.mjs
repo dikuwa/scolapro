@@ -121,3 +121,7 @@ test("analysis workspace exposes a filtered Excel export action", () => {
   assert.match(pageSource, /export\.xlsx/);
   assert.match(pageSource, /exportParams/);
 });
+
+test("print PDF view receives the same filtered analysis scope", () => {
+  assert.match(pageSource, /\/academics\/analysis\/print\?\$\{exportParams\.toString\(\)\}/);
+});
