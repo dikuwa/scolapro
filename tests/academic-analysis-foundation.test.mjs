@@ -62,3 +62,10 @@ test("provisional analysis uses the canonical calculation RPC and never mixes of
   assert.match(source, /if \(basis === "official"\)/);
   assert.match(source, /else \{\s*typedResults = await loadProvisionalResults/);
 });
+
+test("provisional calculation scope is bounded to assessment-instance classes before RPC work", () => {
+  assert.match(source, /classesByScheme/);
+  assert.match(source, /eligibleClasses\.has\(enrolment\.register_class_id\)/);
+  assert.match(source, /Promise\.all\(calculations\)/);
+  assert.doesNotMatch(source, /for \(const scheme[\s\S]{0,300}for \(const enrolment[\s\S]{0,300}await db\.rpc/);
+});
