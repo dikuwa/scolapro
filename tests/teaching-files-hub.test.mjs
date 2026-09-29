@@ -302,6 +302,9 @@ function filesPage(context, calls) {
     '@/features/teaching/server/operational-files-workspace': {
       getOperationalTeachingFilesWorkspace: async () => ({ allocations: [], unsupportedAllocations: [] }),
     },
+    '@/features/teaching/server/operational-file-control-sheet': {
+      getOperationalFileControlSheet: async () => ({ preparationRows: [], professionalFileRows: [], preparationUnavailable: null, professionalFileUnavailable: null }),
+    },
     '@/features/teaching/server/file-queries': {
       getTeachingFilesHub: async (...args) => {
         calls.push(args);
