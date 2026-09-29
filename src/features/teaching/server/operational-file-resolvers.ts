@@ -46,7 +46,7 @@ type ResolveInput = {
 type ResolveBatchInput = {
   academicYear: number;
   items: ResolverItem[];
-  allocationIdByItemId?: ReadonlyMap<string, string>;
+  allocationIds?: Array<string | undefined>;
 };
 
 type TeachingFilesHub = Awaited<ReturnType<typeof getTeachingFilesHub>>;
@@ -315,14 +315,14 @@ export async function resolveOperationalFileEvidenceBatch(
     effectiveOn: hub.today,
   });
 
-  return input.items.map((item) =>
+  return input.items.map((item, index) =>
     resolveWithHub({
       academicYear: input.academicYear,
       item,
       hub,
       ownerStaffMemberId: membership.staffMemberId ?? null,
       sharedResources: sharedResourcesByItem.get(item.id) ?? [],
-      allocationId: input.allocationIdByItemId?.get(item.id),
+      allocationId: input.allocationIds?.[index],
     }),
   );
 }
