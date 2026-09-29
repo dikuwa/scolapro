@@ -125,3 +125,12 @@ test("analysis workspace exposes a filtered Excel export action", () => {
 test("print PDF view receives the same filtered analysis scope", () => {
   assert.match(pageSource, /\/academics\/analysis\/print\?\$\{exportParams\.toString\(\)\}/);
 });
+
+test("subject and teacher filters remain in the governed analysis scope and export query", () => {
+  assert.match(pageSource, /name="subject"/);
+  assert.match(pageSource, /name="teacher"/);
+  assert.match(pageSource, /exportParams\.set\("subject"/);
+  assert.match(pageSource, /exportParams\.set\("teacher"/);
+  assert.match(source, /subjectOfferingId\?:/);
+  assert.match(source, /teacher\?:/);
+});
