@@ -170,6 +170,19 @@ test("same-surname candidates require identity evidence beyond DOB alone", () =>
   assert.equal(result.learnerId, "learner-liandro");
 });
 
+test("shared DOB is supporting evidence only when preferred-name evidence identifies one learner", () => {
+  const result = reconcileLearners({
+    sourceRows: [source({ surname: "MOUTON", preferredName: "Liandro O", initials: "LO", sourceReference: "100824" })],
+    learners: [
+      learner({ id: "learner-liandro", surname: "Mouton", preferredName: "Liandro O", firstNames: "Liandro O", dateOfBirth: "2010-08-24", registerClass: "10B" }),
+      learner({ id: "learner-liane", surname: "Mouton", preferredName: "Lianè C", firstNames: "Lianè C", dateOfBirth: "2010-08-24", registerClass: "10B" }),
+    ],
+    houses: houses(),
+  })[0];
+  assert.equal(result.classification, "safe_learner_match");
+  assert.equal(result.learnerId, "learner-liandro");
+});
+
 test("ambiguous learners are rejected rather than auto-assigned", () => {
   const result = reconcileLearners({
     sourceRows: [source({ preferredName: "Dawid", sourceReference: "" })],
