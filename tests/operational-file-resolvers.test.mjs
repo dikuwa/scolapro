@@ -48,9 +48,11 @@ test("every template resolver type has deterministic handling", () => {
   }
 });
 
-test("unproven canonical sources remain unavailable rather than inferred", () => {
-  assert.match(source, /case "staff_profile":[\s\S]*case "results":[\s\S]*case "room_inventory":[\s\S]*case "shared_resource":/);
+test("unproven canonical sources remain unavailable while shared resources use the governed reference layer", () => {
+  assert.match(source, /case "staff_profile":[\s\S]*case "results":[\s\S]*case "room_inventory":/);
   assert.match(source, /No canonical resolver is proven for this source yet; no evidence was inferred\./);
+  assert.match(source, /case "shared_resource"/);
+  assert.match(source, /sharedResourceResult\("shared_resource"\)/);
 });
 
 test("external references are explicit HTTPS-only metadata and manual stays manual", () => {

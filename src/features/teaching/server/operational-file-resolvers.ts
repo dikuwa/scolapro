@@ -1,6 +1,10 @@
 import "server-only";
 
 import { getTeachingFilesHub } from "@/features/teaching/server/file-queries";
+import {
+  getOperationalFileSharedResourceReferences,
+  type OperationalFileSharedResourceReference,
+} from "@/features/teaching/server/operational-file-shared-resources";
 import type {
   OperationalFileResolverType,
   OperationalFileTemplateItem,
@@ -31,7 +35,7 @@ export type OperationalFileEvidenceResult = {
 
 type ResolverItem = Pick<
   OperationalFileTemplateItem,
-  "itemKey" | "label" | "resolverType" | "resolverMetadata"
+  "id" | "itemKey" | "label" | "resolverType" | "resolverMetadata"
 >;
 
 type ResolveInput = {
@@ -87,8 +91,56 @@ function resolveWithHub(input: {
   item: ResolverItem;
   hub: TeachingFilesHub;
   ownerStaffMemberId: string | null;
+  sharedResources: OperationalFileSharedResourceReference[];
 }): OperationalFileEvidenceResult {
   const resourceById = new Map(input.hub.authoritativeResources.map((item) => [item.id, item]));
+  const sharedResourceResult = (
+    resolverType: "shared_resource" | "external_link",
+  ): OperationalFileEvidenceResult | null => {
+    if (!input.sharedResources.length) return null;
+
+    const documentById = new Map(
+      input.hub.professionalDocuments.map((document) => [document.id, document]),
+    );
+    const references = input.sharedResources.flatMap((shared) => {
+      const ownedDocument = shared.teacherDocumentId
+        ? documentById.get(shared.teacherDocumentId)
+        : null;
+      const href = shared.externalUrl ?? ownedDocument?.viewHref ?? null;
+      if (!href) return [];
+      return [{
+        id: shared.id,
+        label: shared.title,
+        href,
+        sourceModule:
+          shared.scopeType === "national"
+            ? "National resource"
+            : shared.scopeType === "school"
+              ? "School resource"
+              : shared.scopeType === "subject_phase"
+                ? "Subject resource"
+                : "Teacher resource",
+        provenance: {
+          provider: shared.provider,
+          authorityLabel: shared.authorityLabel,
+          scopeType: shared.scopeType,
+          visibility: shared.visibility,
+          academicYear: shared.academicYear,
+          effectiveFrom: shared.effectiveFrom,
+          effectiveTo: shared.effectiveTo,
+        },
+      }];
+    });
+
+    if (!references.length) return null;
+    return {
+      resolverType,
+      status: resolverType === "external_link" ? "external" : "resolved",
+      references,
+      reason: null,
+    };
+  };
+
   const resource = (
     key: string,
     resolverType: OperationalFileResolverType,
@@ -192,6 +244,9 @@ function resolveWithHub(input: {
     }
 
     case "external_link": {
+      const shared = sharedResourceResult("external_link");
+      if (shared) return shared;
+
       const href = safeExternalHref(input.item.resolverMetadata.href);
       if (!href) {
         return missing("external_link", "No governed external reference is recorded for this template item.");
@@ -218,10 +273,17 @@ function resolveWithHub(input: {
         reason: "This requirement is intentionally manual and has no canonical resolver.",
       };
 
+    case "shared_resource": {
+      const shared = sharedResourceResult("shared_resource");
+      return shared ?? missing(
+        "shared_resource",
+        "No applicable shared resource is recorded for this template item.",
+      );
+    }
+
     case "staff_profile":
     case "results":
     case "room_inventory":
-    case "shared_resource":
       return unavailable(
         input.item.resolverType,
         "No canonical resolver is proven for this source yet; no evidence was inferred.",
@@ -250,6 +312,11 @@ export async function resolveOperationalFileEvidenceBatch(
     staffMemberId: membership.staffMemberId ?? null,
     canOpenLessonPreparations: ["teacher", "class_teacher"].includes(membership.roleKey),
   });
+  const sharedResourcesByItem = await getOperationalFileSharedResourceReferences({
+    templateItemIds: input.items.map((item) => item.id),
+    academicYear: input.academicYear,
+    effectiveOn: hub.today,
+  });
 
   return input.items.map((item) =>
     resolveWithHub({
@@ -257,6 +324,7 @@ export async function resolveOperationalFileEvidenceBatch(
       item,
       hub,
       ownerStaffMemberId: membership.staffMemberId ?? null,
+      sharedResources: sharedResourcesByItem.get(item.id) ?? [],
     }),
   );
 }
