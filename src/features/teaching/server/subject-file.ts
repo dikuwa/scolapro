@@ -1,36 +1,10 @@
 import "server-only";
 
-import { getOperationalFileSharedResourceReferences } from "@/features/teaching/server/operational-file-shared-resources";
-import { resolveOperationalFileTemplate } from "@/features/teaching/server/operational-file-templates";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 export type SubjectFileAccessMode = "hod" | "teacher";
-
-export type SubjectFilePolicyItem = {
-  id: string;
-  label: string;
-  resolverType: string;
-  status: "linked" | "shared" | "external" | "available" | "manual" | "unavailable";
-  href: string | null;
-  sourceLabel: string | null;
-  reason: string | null;
-};
-
-export type SubjectFilePolicyHierarchy = {
-  templateId: string;
-  authority: string;
-  sourceTitle: string;
-  templateVersion: number;
-  phaseLabels: string[];
-  sections: Array<{
-    id: string;
-    title: string;
-    items: SubjectFilePolicyItem[];
-  }>;
-};
-
 
 export type SubjectFileRow = {
   subjectId: string;
@@ -49,7 +23,6 @@ export type SubjectFileRow = {
   moderationRequiredCount: number;
   sourceLinks: Array<{ label: string; href: string; description: string }>;
   unavailableSources: string[];
-  policyHierarchy: SubjectFilePolicyHierarchy | null;
 };
 
 export type SubjectFileWorkspace = {
@@ -61,35 +34,6 @@ export type SubjectFileWorkspace = {
 
 function effective(date:string,from:string,to:string|null) {
   return from<=date && (!to || to>=date);
-}
-
-function normalizeSubjectKey(subjectName:string) {
-  const normalized=subjectName
-    .trim()
-    .toLocaleLowerCase()
-    .replace(/&/g," and ")
-    .replace(/[^a-z0-9]+/g," ")
-    .trim()
-    .replace(/\s+/g," ");
-  return normalized==="information and communication" ? "information-communication" : null;
-}
-
-function gradeNumber(gradeName:string) {
-  const match=gradeName.match(/\b(\d{1,2})\b/);
-  if (!match) return null;
-  const value=Number(match[1]);
-  return Number.isInteger(value) && value>=0 && value<=20 ? value : null;
-}
-
-function canonicalSubjectFileLink(resolverType:string):{href:string;label:string}|null {
-  switch (resolverType) {
-    case "curriculum":
-      return {href:"/teaching/curriculum",label:"Curriculum / syllabus"};
-    case "scheme":
-      return {href:"/teaching/planning",label:"Year Planner & Scheme"};
-    default:
-      return null;
-  }
 }
 
 const SUBJECT_FILE_PAGE_SIZE=1000;
@@ -238,7 +182,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
   const moderationByComponent=new Map((components ?? []).map((row)=>[row.id,row.moderation_required]));
   const preparationScheduleIds=new Set(scopedPreparations.map((row)=>row.teaching_schedule_item_id));
 
-  const baseRows:SubjectFileRow[]=allowedSubjectIds.flatMap((subjectId)=>{
+  const rows:SubjectFileRow[]=allowedSubjectIds.flatMap((subjectId)=>{
     const subject=subjectMap.get(subjectId);
     if (!subject) return [];
     const subjectOfferings=subjectOfferingRows.filter((row)=>row.subject_id===subjectId);
@@ -275,166 +219,11 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
         {label:"Room Inventory",href:"/school/room-inventory",description:"School inventory source where subject facilities overlap."},
       ],
       unavailableSources:[
-        "Shared subject resources resolve only through the governed operational-resource registry; no parallel file store is fabricated here.",
+        "Department minutes/circulars/resources have no canonical subject-linked repository model yet; no parallel file store is fabricated here.",
         "Inventory is school/room scoped; no subject-to-room ownership is inferred.",
       ],
-      policyHierarchy:null,
     }];
   }).sort((a,b)=>a.subjectName.localeCompare(b.subjectName));
-
-  const rows:SubjectFileRow[]=await Promise.all(baseRows.map(async (row)=>{
-    const subjectKey=normalizeSubjectKey(row.subjectName);
-    const grades=row.gradeNames.map(gradeNumber).filter((grade):grade is number=>grade!==null);
-    if (!subjectKey || !grades.length) return row;
-
-    const template=await resolveOperationalFileTemplate({
-      subjectKey,
-      grade:grades[0],
-      effectiveOn:today,
-    });
-    const subjectFile=template?.fileTypes.find((fileType)=>fileType.fileTypeKey==="subject");
-    if (!template || !subjectFile) return row;
-
-    const items=subjectFile.sections.flatMap((section)=>section.items);
-    const sharedByItem=await getOperationalFileSharedResourceReferences({
-      templateItemIds:items.map((item)=>item.id),
-      academicYear,
-      effectiveOn:today,
-    });
-
-    const phaseLabels=template.phases
-      .filter((phase)=>grades.some((grade)=>
-        (phase.gradeFrom===null || grade>=phase.gradeFrom) &&
-        (phase.gradeTo===null || grade<=phase.gradeTo)
-      ))
-      .map((phase)=>phase.phaseLabel);
-
-    const policyHierarchy:SubjectFilePolicyHierarchy={
-      templateId:template.id,
-      authority:template.authority,
-      sourceTitle:template.sourceTitle,
-      templateVersion:template.templateVersion,
-      phaseLabels:[...new Set(phaseLabels)],
-      sections:subjectFile.sections.map((section)=>({
-        id:section.id,
-        title:section.title,
-        items:section.items.map((item)=>{
-          const shared=(sharedByItem.get(item.id) ?? []).filter((resource)=>
-            grades.some((grade)=>
-              (resource.gradeFrom===null || grade>=resource.gradeFrom) &&
-              (resource.gradeTo===null || grade<=resource.gradeTo)
-            )
-          );
-          const firstShared=shared.find((resource)=>resource.externalUrl);
-          if (item.resolverType==="shared_resource" && shared.length) {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:"shared" as const,
-              href:firstShared?.externalUrl ?? null,
-              sourceLabel:firstShared
-                ? `${firstShared.provider} · ${firstShared.authorityLabel}`
-                : shared[0]?.authorityLabel ?? "Governed shared resource",
-              reason:null,
-            };
-          }
-          if (item.resolverType==="external_link" && firstShared?.externalUrl) {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:"external" as const,
-              href:firstShared.externalUrl,
-              sourceLabel:`${firstShared.provider} · ${firstShared.authorityLabel}`,
-              reason:null,
-            };
-          }
-
-          const canonical=canonicalSubjectFileLink(item.resolverType);
-          if (canonical) {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:"linked" as const,
-              href:canonical.href,
-              sourceLabel:canonical.label,
-              reason:null,
-            };
-          }
-
-          if (item.resolverType==="staff_profile") {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:row.teacherNames.length ? "available" as const : "unavailable" as const,
-              href:null,
-              sourceLabel:row.teacherNames.length ? `${row.teacherNames.length} current subject teacher${row.teacherNames.length===1?"":"s"}` : null,
-              reason:row.teacherNames.length ? null : "No current subject-teacher allocation is available.",
-            };
-          }
-          if (item.resolverType==="manual") {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:"manual" as const,
-              href:null,
-              sourceLabel:null,
-              reason:"This requirement is intentionally manual in the active policy template.",
-            };
-          }
-          if (item.resolverType==="room_inventory") {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:"unavailable" as const,
-              href:null,
-              sourceLabel:null,
-              reason:"Room Inventory is school/room scoped; ScolaPro does not infer subject-to-room ownership.",
-            };
-          }
-          if (item.resolverType==="results") {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:"unavailable" as const,
-              href:null,
-              sourceLabel:null,
-              reason:"A governed subject-results resolver for the required historical range is not yet proven.",
-            };
-          }
-          if (item.resolverType==="teacher_document") {
-            return {
-              id:item.id,
-              label:item.label,
-              resolverType:item.resolverType,
-              status:"unavailable" as const,
-              href:null,
-              sourceLabel:null,
-              reason:"Private teacher documents are not broadened into the Subject File unless separately governed and submitted.",
-            };
-          }
-
-          return {
-            id:item.id,
-            label:item.label,
-            resolverType:item.resolverType,
-            status:"unavailable" as const,
-            href:null,
-            sourceLabel:null,
-            reason:"No governed Subject File resolver is proven for this requirement.",
-          };
-        }),
-      })),
-    };
-
-    return {...row,policyHierarchy};
-  }));
 
   return {schoolId:membership.schoolId,schoolName:membership.schoolName,academicYear,rows};
 }

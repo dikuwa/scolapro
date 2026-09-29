@@ -2,12 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
-import { OperationalFileControlSheetView } from "@/features/teaching/components/operational-file-control-sheet";
-import { OperationalTeachingFiles } from "@/features/teaching/components/operational-teaching-files";
 import { TeachingFilesHub } from "@/features/teaching/components/teaching-files";
 import { getTeachingFilesHub, OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED } from "@/features/teaching/server/file-queries";
-import { getOperationalFileControlSheet } from "@/features/teaching/server/operational-file-control-sheet";
-import { getOperationalTeachingFilesWorkspace } from "@/features/teaching/server/operational-files-workspace";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -23,8 +19,8 @@ export default async function TeachingFilesPage() {
   if (!context.user) redirect("/login?next=/teaching/files");
   if (context.platformMemberships.length) redirect("/");
 
-  const membership = context.currentSchoolMembership;
-  if (!membership || !allowedRoles.has(membership.roleKey)) redirect("/");
+  const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
+  if (!membership) redirect("/");
 
   const ownerMembership = context.memberships.find(
     (item) =>
@@ -42,12 +38,6 @@ export default async function TeachingFilesPage() {
       (item) => item.schoolId === membership.schoolId && ["teacher", "class_teacher"].includes(item.roleKey),
     ),
   });
-  const operationalWorkspace = await getOperationalTeachingFilesWorkspace({
-    academicYear,
-    effectiveOn: hub.today,
-    allocations: hub.allocations,
-  });
-  const controlSheet = await getOperationalFileControlSheet(academicYear);
 
   return (
     <AppShell>
@@ -66,8 +56,6 @@ export default async function TeachingFilesPage() {
             allocations.
           </p>
         </div>
-        <OperationalTeachingFiles workspace={operationalWorkspace} professionalDocuments={hub.professionalDocuments} />
-        <OperationalFileControlSheetView workspace={operationalWorkspace} controlSheet={controlSheet} />
         <TeachingFilesHub
           {...hub}
           taxonomySourced={OFFICIAL_TEACHER_FILE_TAXONOMY_SOURCED}

@@ -576,7 +576,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         </section>
       ) : null}
 
-      <section id="professional-files-upload" className="scroll-mt-20 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex items-center gap-2">
           <FileUp className="size-4 text-brand-strong" aria-hidden="true" />
           <h2 className="scolapro-section-title">My uploaded professional documents</h2>
@@ -906,7 +906,7 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
         <p className="scolapro-section-description">
           {taxonomySourced
             ? "An authoritative teacher-file taxonomy is recorded, so verified categories may be mapped against it."
-            : "The official teacher-file taxonomy is not yet sourced across subjects, so no Ministry/NIED table of contents has been invented. Subject-specific operational templates are shown only where an authoritative policy is recorded; uploaded category labels remain neutral teacher-defined labels or Uncategorised."}
+            : "The official teacher-file taxonomy is not yet sourced. Uploaded category labels remain neutral teacher-defined labels or Uncategorised; no Ministry/NIED table of contents has been invented."}
         </p>
         <p className="mt-3 text-xs text-muted-foreground">
           HOD review is opt-in per professional document and subject. Only explicitly submitted files enter the governed review workspace; ordinary HOD browsing across teacher files remains prohibited.

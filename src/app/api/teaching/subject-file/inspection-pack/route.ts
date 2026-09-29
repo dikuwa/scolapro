@@ -25,21 +25,13 @@ export async function GET(request:Request) {
   const sourceRows=row.sourceLinks.map((item)=>`<tr><td>${escapeHtml(item.label)}</td><td>${escapeHtml(item.description)}</td></tr>`).join("");
   const teacherRows=row.teacherNames.map((name)=>`<li>${escapeHtml(name)}</li>`).join("") || "<li>No current teacher allocation recorded</li>";
   const gaps=row.unavailableSources.map((item)=>`<li>${escapeHtml(item)}</li>`).join("");
-  const policyHierarchy=row.policyHierarchy
-    ? `<h2>Official Subject File hierarchy</h2>
-<p class="muted">${escapeHtml(row.policyHierarchy.authority)} · ${escapeHtml(row.policyHierarchy.sourceTitle)} · Version ${row.policyHierarchy.templateVersion}${row.policyHierarchy.phaseLabels.length ? " · "+escapeHtml(row.policyHierarchy.phaseLabels.join(", ")) : ""}</p>
-${row.policyHierarchy.sections.map((section)=>`<h3>${escapeHtml(section.title)}</h3>
-<table><thead><tr><th>Requirement</th><th>Source type</th><th>Readiness</th><th>Source / note</th></tr></thead><tbody>
-${section.items.map((item)=>`<tr><td>${escapeHtml(item.label)}</td><td>${escapeHtml(item.resolverType.replaceAll("_"," "))}</td><td>${escapeHtml(item.status)}</td><td>${escapeHtml(item.sourceLabel || item.reason || "—")}</td></tr>`).join("")}
-</tbody></table>`).join("")}`
-    : `<h2>Official Subject File hierarchy</h2><p class="muted">No authoritative Subject File hierarchy is recorded for this subject. ScolaPro does not apply another subject's policy by assumption.</p>`;
 
   const html=`<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>${escapeHtml(row.subjectName)} Subject File</title>
 <style>
 @page{size:A4;margin:16mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#161616;margin:0;font-size:11px;line-height:1.45}
 header{border-bottom:2px solid #222;padding-bottom:10px;margin-bottom:14px}.school{font-size:18px;font-weight:700}.muted{color:#666}
-h1{font-size:20px;margin:10px 0 2px}h2{font-size:13px;margin:18px 0 7px;border-bottom:1px solid #bbb;padding-bottom:4px}h3{font-size:11px;margin:10px 0 5px}
+h1{font-size:20px;margin:10px 0 2px}h2{font-size:13px;margin:18px 0 7px;border-bottom:1px solid #bbb;padding-bottom:4px}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.metric{border:1px solid #ccc;padding:8px}.metric b{display:block;font-size:18px}
 table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:6px;text-align:left;vertical-align:top}th{background:#f1f1f1}
 ul{margin:6px 0;padding-left:20px}.footer{margin-top:20px;border-top:1px solid #bbb;padding-top:8px;font-size:9px;color:#666}
@@ -58,7 +50,6 @@ ul{margin:6px 0;padding-left:20px}.footer{margin-top:20px;border-top:1px solid #
 </div>
 <h2>Grades</h2><p>${escapeHtml(row.gradeNames.join(", ") || "No current grades")}</p>
 <h2>Teaching team</h2><ul>${teacherRows}</ul>
-${policyHierarchy}
 <h2>Authoritative source register</h2>
 <table><thead><tr><th>Source module</th><th>Evidence</th></tr></thead><tbody>${sourceRows}</tbody></table>
 <h2>Explicit source gaps</h2><ul>${gaps}</ul>

@@ -43,9 +43,8 @@ test("system evidence links open authoritative source modules",()=>{
   assert.match(workspace,/does not create mutable copies/);
 });
 
-test("shared resources use the governed registry and subject inventory mappings stay explicit",()=>{
-  assert.match(server,/getOperationalFileSharedResourceReferences/);
-  assert.match(server,/Shared subject resources resolve only through the governed operational-resource registry/);
+test("unsupported department resources and subject inventory mappings stay explicit",()=>{
+  assert.match(server,/Department minutes\/circulars\/resources have no canonical subject-linked repository model yet/);
   assert.match(server,/no subject-to-room ownership is inferred/);
 });
 
@@ -87,38 +86,4 @@ test("schedule and preparation evidence is paged beyond the Supabase row cap",()
   assert.match(server,/loadAllScheduleRows/);
   assert.match(server,/loadAllPreparationRows/);
   assert.match(server,/\.range\(from,from\+SUBJECT_FILE_PAGE_SIZE-1\)/);
-});
-
-
-test("Subject File hierarchy resolves only from an authoritative operational template",()=>{
-  assert.match(server,/resolveOperationalFileTemplate/);
-  assert.match(server,/normalized==="information and communication" \? "information-communication" : null/);
-  assert.match(server,/fileTypeKey==="subject"/);
-  assert.match(server,/policyHierarchy:null/);
-  assert.match(workspace,/No verified Subject File hierarchy/);
-});
-
-test("Subject File policy provenance and phase identity are visible",()=>{
-  assert.match(server,/sourceTitle:template\.sourceTitle/);
-  assert.match(server,/templateVersion:template\.templateVersion/);
-  assert.match(server,/phaseLabels/);
-  assert.match(workspace,/Official Subject File hierarchy/);
-  assert.match(workspace,/Authoritative policy/);
-});
-
-test("Subject File keeps private teacher evidence and unproven resolvers closed",()=>{
-  assert.match(server,/Private teacher documents are not broadened into the Subject File unless separately governed and submitted\./);
-  assert.match(server,/A governed subject-results resolver for the required historical range is not yet proven\./);
-  assert.match(server,/Room Inventory is school\/room scoped; ScolaPro does not infer subject-to-room ownership\./);
-  assert.doesNotMatch(server,/teacher_professional_documents/);
-});
-
-test("Subject File hierarchy reuses canonical and shared links rather than copying records",()=>{
-  assert.match(server,/canonicalSubjectFileLink/);
-  assert.match(server,/\/teaching\/curriculum/);
-  assert.match(server,/\/teaching\/planning/);
-  assert.match(server,/sharedByItem\.get\(item\.id\)/);
-  assert.doesNotMatch(server,/\.insert\(/);
-  assert.doesNotMatch(server,/\.update\(/);
-  assert.doesNotMatch(server,/\.delete\(/);
 });

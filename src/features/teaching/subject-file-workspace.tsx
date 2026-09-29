@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, CircleAlert, CircleCheck, ClipboardList, FileQuestion, FileText, Link2, Printer, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowUpRight, ClipboardList, FileText, Printer, UsersRound } from "lucide-react";
 import type { SubjectFileWorkspace } from "./server/subject-file";
 
 export function SubjectFileWorkspaceView({data}:{data:SubjectFileWorkspace}) {
@@ -42,55 +42,6 @@ export function SubjectFileWorkspaceView({data}:{data:SubjectFileWorkspace}) {
           </dl>
         </div>
       </div>
-
-      {row.policyHierarchy ? <div className="mt-4 rounded-[var(--radius-sm)] border border-border-subtle p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2"><ShieldCheck className="size-4 text-brand-strong"/><h3 className="text-sm font-semibold">Official Subject File hierarchy</h3></div>
-            <p className="mt-1 break-words text-xs text-muted-foreground">{row.policyHierarchy.authority} · {row.policyHierarchy.sourceTitle} · Version {row.policyHierarchy.templateVersion}{row.policyHierarchy.phaseLabels.length ? ` · ${row.policyHierarchy.phaseLabels.join(", ")}` : ""}</p>
-          </div>
-          <span className="w-fit shrink-0 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.62rem] font-semibold uppercase tracking-wide text-brand-strong">Authoritative policy</span>
-        </div>
-        <div className="mt-4 space-y-4">
-          {row.policyHierarchy.sections.map((section)=><section key={section.id}>
-            <h4 className="text-xs font-semibold uppercase tracking-wide">{section.title}</h4>
-            <ul className="mt-2 divide-y divide-border-subtle">
-              {section.items.map((item)=><li key={item.id} className="py-2.5 first:pt-1">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">{item.label}</p>
-                    {item.sourceLabel ? <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{item.sourceLabel}</p> : null}
-                    {item.reason ? <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground">{item.reason}</p> : null}
-                    {item.href ? <Link href={item.href} className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-2.5 text-[0.68rem] font-medium hover:bg-surface-elevated">
-                      <Link2 className="size-3"/>Open source<ArrowUpRight className="size-3"/>
-                    </Link> : null}
-                  </div>
-                  <span className={
-                    "inline-flex w-fit shrink-0 items-center gap-1 rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide " +
-                    (item.status==="linked" || item.status==="shared" || item.status==="available"
-                      ? "bg-[color:var(--success-soft)] text-[color:var(--success)]"
-                      : item.status==="external"
-                        ? "bg-brand-soft text-brand-strong"
-                        : item.status==="manual"
-                          ? "bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
-                          : "bg-surface-muted text-muted-foreground")
-                  }>
-                    {item.status==="linked" || item.status==="shared" || item.status==="available"
-                      ? <CircleCheck className="size-3.5"/>
-                      : item.status==="manual"
-                        ? <FileQuestion className="size-3.5"/>
-                        : <CircleAlert className="size-3.5"/>}
-                    {item.status}
-                  </span>
-                </div>
-              </li>)}
-            </ul>
-          </section>)}
-        </div>
-      </div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-4">
-        <div className="flex items-center gap-2"><FileQuestion className="size-4 text-muted-foreground"/><h3 className="text-xs font-semibold">No verified Subject File hierarchy</h3></div>
-        <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground">ScolaPro does not apply the Information and Communication policy structure to this subject without an authoritative subject policy.</p>
-      </div>}
 
       <div className="mt-4">
         <h3 className="text-sm font-semibold">Authoritative source modules</h3>

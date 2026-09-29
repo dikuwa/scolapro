@@ -62,9 +62,8 @@ test("external references are explicit HTTPS-only metadata and manual stays manu
   assert.match(source, /status: "manual"/);
 });
 
-test("teacher documents require an item-bound owner-scoped resource reference", () => {
-  assert.match(source, /sharedResourceResult\("teacher_document"\)/);
-  assert.match(source, /No teacher-owned professional document is bound to this operational-file requirement\./);
+test("teacher documents remain actor-owned canonical evidence", () => {
+  assert.match(source, /No teacher-owned professional document exists for this actor\./);
   assert.match(source, /ownerStaffMemberId: membership\.staffMemberId/);
-  assert.doesNotMatch(source, /hub\.professionalDocuments\.map\(\(document\)/);
+  assert.match(source, /sourceModule: "Teacher professional documents"/);
 });
