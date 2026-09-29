@@ -282,10 +282,14 @@ test('teaching files hub keeps teacher-owned uploads available without effective
 // ---------------------------------------------------------------------------
 
 function filesPage(context, calls) {
+  const normalizedContext = {
+    ...context,
+    currentSchoolMembership: context.currentSchoolMembership ?? context.memberships?.[0] ?? null,
+  };
   return loader({
     'next/navigation': navigation,
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
-    '@/lib/auth/get-user-context': { getUserContext: async () => context },
+    '@/lib/auth/get-user-context': { getUserContext: async () => normalizedContext },
     '@/features/calendar/server/calendar': { getGovernedAcademicYear: async () => 2026 },
     'sonner': { toast: { success() {}, error() {} } },
     '@/lib/supabase/client': { createSupabaseBrowserClient() { throw new Error('not called during render'); } },
@@ -294,6 +298,9 @@ function filesPage(context, calls) {
       finalizeTeacherProfessionalDocument() {},
       archiveTeacherProfessionalDocument() {},
       submitTeacherProfessionalDocumentForReview() {},
+    },
+    '@/features/teaching/server/operational-files-workspace': {
+      getOperationalTeachingFilesWorkspace: async () => ({ allocations: [], unsupportedAllocations: [] }),
     },
     '@/features/teaching/server/file-queries': {
       getTeachingFilesHub: async (...args) => {
