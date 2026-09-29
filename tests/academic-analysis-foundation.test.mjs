@@ -86,3 +86,12 @@ test("provisional eligibility reuses enrolment and subject-registration lifecycl
   assert.match(source, /subjectEligible/);
   assert.match(source, /registration\.status === "active"/);
 });
+
+test("historical grading scales and bands are bulk-resolved outside the offering loop", () => {
+  assert.match(source, /scaleIdByRef/);
+  assert.match(source, /bandsByScaleId/);
+  assert.match(source, /\.in\("grading_scale_id", scaleIds\)/);
+  const rowsLoop = source.slice(source.indexOf("const rows: AcademicAnalysisRow[]"));
+  assert.doesNotMatch(rowsLoop, /await db\.from\("grading_scales"\)/);
+  assert.doesNotMatch(rowsLoop, /await db\.from\("grading_scale_bands"\)/);
+});
