@@ -274,12 +274,25 @@ export function reconcileLearners({ sourceRows, learners, existingAssignments = 
     }
 
     const scored = candidates.map((learner) => ({ learner, evidence: candidateEvidence(row, learner) }));
-    const strong = scored.filter((candidate) => candidate.evidence.strong);
+    const preferredMatches = scored.filter((candidate) => candidate.evidence.preferredExact);
+    const namedMatches = scored.filter((candidate) =>
+      candidate.evidence.firstNameMatch && candidate.evidence.initialsMatch
+    );
+    const namedDobMatches = scored.filter((candidate) =>
+      candidate.evidence.firstNameMatch && candidate.evidence.dobMatch
+    );
 
     let matched = null;
-    if (strong.length === 1) {
-      matched = strong[0];
-    } else if (strong.length === 0 && scored.length === 1 && scored[0].evidence.firstNameMatch) {
+    if (preferredMatches.length === 1) {
+      matched = preferredMatches[0];
+    } else if (namedMatches.length === 1) {
+      matched = namedMatches[0];
+    } else if (namedDobMatches.length === 1) {
+      matched = namedDobMatches[0];
+    } else if (
+      scored.length === 1 &&
+      (scored[0].evidence.firstNameMatch || scored[0].evidence.dobMatch)
+    ) {
       matched = scored[0];
     }
 
