@@ -38,7 +38,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
             <h2 className="scolapro-section-title">Results analysis</h2>
             <p className="scolapro-section-description">{year} · Term {term} · {basis === "official" ? "Official" : "Provisional"}</p>
           </div>
-          <div className="flex items-center gap-2"><Link href={`/academics/analysis/export.xlsx?${exportParams.toString()}`} className="min-h-9 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium">Export Excel</Link><span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</span></div>
+          <div className="flex items-center gap-2"><Link href={`/academics/analysis/print?${exportParams.toString()}`} className="min-h-9 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium">Print / PDF</Link><Link href={`/academics/analysis/export.xlsx?${exportParams.toString()}`} className="min-h-9 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium">Export Excel</Link><span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</span></div>
         </div>
       </section>
 
