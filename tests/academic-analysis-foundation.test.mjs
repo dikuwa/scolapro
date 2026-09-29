@@ -77,3 +77,12 @@ test("HOD analysis uses governed subject responsibilities instead of whole-schoo
   assert.match(source, /activeResponsibilitySubjectIds/);
   assert.match(source, /typedResults = typedResults\.filter/);
 });
+
+test("provisional eligibility reuses enrolment and subject-registration lifecycle semantics", () => {
+  assert.match(source, /enrolled_from,enrolled_to,status/);
+  assert.match(source, /learner_subject_registrations/);
+  assert.match(source, /registered_at,withdrawn_at/);
+  assert.match(source, /enrolmentEffective/);
+  assert.match(source, /subjectEligible/);
+  assert.match(source, /registration\.status === "active"/);
+});
