@@ -41,6 +41,7 @@ export type AcademicAnalysisRow = {
   subjectOfferingId: string;
   subject: string;
   grade: string;
+  className: string | null;
   teacher: string | null;
   gradingScaleKey: string | null;
   gradingScaleVersion: string | null;
@@ -60,6 +61,7 @@ type NumericResult = {
   result_status: string | null;
   symbol: string | null;
   subject_offering_id: string;
+  enrolment_id: string;
   grading_scale_key: string | null;
   grading_scale_version: string | null;
 };
@@ -105,7 +107,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
 
   const db = await createSupabaseServerClient();
   const { data: results, error } = await db.from("official_results")
-    .select("result_value,result_status,symbol,subject_offering_id,grading_scale_key,grading_scale_version")
+    .select("result_value,result_status,symbol,subject_offering_id,enrolment_id,grading_scale_key,grading_scale_version")
     .eq("school_id", membership.schoolId)
     .eq("academic_year", scope.academicYear)
     .eq("term_number", scope.termNumber);
@@ -117,6 +119,19 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     ? await db.from("subject_offerings").select("id,subject_id,grade_id").in("id", offeringIds)
     : { data: [], error: null };
   if (offeringError) throw new Error("Unable to resolve academic analysis offerings.");
+
+  const enrolmentIds = [...new Set(typedResults.map((row) => row.enrolment_id))];
+  const { data: enrolments, error: enrolmentError } = enrolmentIds.length
+    ? await db.from("enrolments").select("id,register_class_id").in("id", enrolmentIds)
+    : { data: [], error: null };
+  if (enrolmentError) throw new Error("Unable to resolve academic analysis enrolments.");
+  const classIds = [...new Set((enrolments ?? []).map((row) => row.register_class_id).filter(Boolean))];
+  const { data: classes, error: classError } = classIds.length
+    ? await db.from("register_classes").select("id,display_name").in("id", classIds)
+    : { data: [], error: null };
+  if (classError) throw new Error("Unable to resolve academic analysis classes.");
+  const enrolmentClassMap = new Map((enrolments ?? []).map((row) => [row.id, row.register_class_id]));
+  const classMap = new Map((classes ?? []).map((row) => [row.id, row.display_name]));
 
   const subjectIds = [...new Set((offerings ?? []).map((row) => row.subject_id))];
   const gradeIds = [...new Set((offerings ?? []).map((row) => row.grade_id))];
@@ -159,6 +174,10 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       subjectOfferingId: offeringId,
       subject: subjectMap.get(offering?.subject_id) ?? "Subject",
       grade: gradeMap.get(offering?.grade_id) ?? "Grade",
+      className: (() => {
+        const names = [...new Set(cohort.map((result) => classMap.get(enrolmentClassMap.get(result.enrolment_id) ?? "")).filter(Boolean))];
+        return names.length === 1 ? names[0] ?? null : names.length > 1 ? "Multiple classes" : null;
+      })(),
       teacher: null,
       gradingScaleKey: scaleKey,
       gradingScaleVersion: scaleVersion,
