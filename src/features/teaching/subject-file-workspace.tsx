@@ -1,8 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowUpRight, ClipboardList, FileText, Printer, UsersRound } from "lucide-react";
+import { ArrowUpRight, CircleAlert, CircleCheck, ClipboardList, ExternalLink, FileQuestion, FileText, Printer, UsersRound } from "lucide-react";
 import type { SubjectFileWorkspace } from "./server/subject-file";
+
+
+const policyStatusLabel = {
+  resolved:"Resolved",
+  missing:"Missing",
+  unavailable:"Unavailable",
+  manual:"Manual",
+  external:"External",
+} as const;
+
+function policyStatusClass(status:keyof typeof policyStatusLabel) {
+  if (status==="resolved") return "bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  if (status==="external") return "bg-brand-soft text-brand-strong";
+  if (status==="missing") return "bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  return "bg-surface-muted text-muted-foreground";
+}
+
+function PolicyStatusIcon({status}:{status:keyof typeof policyStatusLabel}) {
+  if (status==="resolved") return <CircleCheck className="size-3.5" aria-hidden="true"/>;
+  if (status==="external") return <ExternalLink className="size-3.5" aria-hidden="true"/>;
+  if (status==="missing") return <CircleAlert className="size-3.5" aria-hidden="true"/>;
+  return <FileQuestion className="size-3.5" aria-hidden="true"/>;
+}
 
 export function SubjectFileWorkspaceView({data}:{data:SubjectFileWorkspace}) {
   return <div className="space-y-4">
@@ -42,6 +65,54 @@ export function SubjectFileWorkspaceView({data}:{data:SubjectFileWorkspace}) {
           </dl>
         </div>
       </div>
+
+      {row.policyHierarchy ? <div className="mt-4 rounded-[var(--radius-sm)] border border-border-subtle p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold">Official Subject File hierarchy</h3>
+            <p className="mt-1 break-words text-[0.68rem] leading-4 text-muted-foreground">
+              {row.policyHierarchy.authority} · {row.policyHierarchy.sourceTitle} · Version {row.policyHierarchy.templateVersion}
+            </p>
+            <p className="mt-1 text-[0.68rem] text-muted-foreground">
+              {row.policyHierarchy.phaseLabels.length ? row.policyHierarchy.phaseLabels.join(" · ") : "Applicable phase not labelled"}
+            </p>
+          </div>
+          <span className="w-fit rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.62rem] font-semibold uppercase tracking-wide text-brand-strong">Source-grounded</span>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {row.policyHierarchy.sections.map((section)=><section key={section.id} className="rounded-[var(--radius-sm)] bg-surface-muted/55 p-3">
+            <h4 className="text-xs font-semibold">{section.title}</h4>
+            <ul className="mt-2 divide-y divide-border-subtle">
+              {section.items.map((item)=><li key={item.id} className="py-2.5 first:pt-1">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">{item.label}</p>
+                    <p className="mt-0.5 text-[0.68rem] text-muted-foreground">Source: {item.resolverType.replaceAll("_"," ")}</p>
+                    {item.reason ? <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground">{item.reason}</p> : null}
+                  </div>
+                  <span className={"inline-flex w-fit shrink-0 items-center gap-1 rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.62rem] font-semibold uppercase tracking-wide "+policyStatusClass(item.status)}>
+                    <PolicyStatusIcon status={item.status}/>{policyStatusLabel[item.status]}
+                  </span>
+                </div>
+                {item.references.length ? <div className="mt-2 flex flex-wrap gap-2">
+                  {item.references.map((reference)=><Link key={reference.id} href={reference.href} className="scolapro-cta inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-2.5 text-[0.68rem] font-medium hover:bg-surface-muted">
+                    <span className="truncate">{reference.label}</span><ArrowUpRight className="size-3 shrink-0" aria-hidden="true"/>
+                  </Link>)}
+                </div> : null}
+              </li>)}
+            </ul>
+          </section>)}
+        </div>
+      </div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-4">
+        <div className="flex items-start gap-2">
+          <CircleAlert className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true"/>
+          <div>
+            <h3 className="text-xs font-semibold">No authoritative Subject File hierarchy</h3>
+            <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground">{row.policyHierarchyReason}</p>
+          </div>
+        </div>
+      </div>}
 
       <div className="mt-4">
         <h3 className="text-sm font-semibold">Authoritative source modules</h3>
