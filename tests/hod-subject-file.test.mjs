@@ -44,7 +44,7 @@ test("system evidence links open authoritative source modules",()=>{
 });
 
 test("unsupported department resources and subject inventory mappings stay explicit",()=>{
-  assert.match(server,/Department minutes\/circulars\/resources have no canonical subject-linked repository model yet/);
+  assert.match(server,/getOperationalFileSharedResourceReferences/);
   assert.match(server,/no subject-to-room ownership is inferred/);
 });
 
