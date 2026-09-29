@@ -24,7 +24,6 @@ export function OperationalFileExternalReferenceForm({
     if (!state.message) return;
     if (state.success) {
       toast.success(state.message);
-      setOpen(false);
     } else {
       toast.error(state.message);
     }
