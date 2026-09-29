@@ -95,7 +95,7 @@ test("source schema validation rejects wrong house metadata and detects duplicat
   const rows = [
     source(),
     source({ sourceRow: 2 }),
-    source({ sourceRow: 3, house: "Eagles", colourLabel: "Blue" }),
+    source({ sourceRow: 3, house: "Eagles", colourLabel: "Blue", surname: "BROWN", preferredName: "Alex" }),
   ];
   const result = validateSourceRows(rows);
   assert.equal(result.duplicateIndexes.size, 2);
