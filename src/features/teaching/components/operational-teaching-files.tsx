@@ -206,7 +206,7 @@ export function OperationalTeachingFiles({
         <div className="flex items-start gap-2">
           <FolderKanban className="mt-0.5 size-4 shrink-0 text-brand-strong" aria-hidden="true" />
           <div>
-            <h2 className="scolapro-section-title">My teaching files</h2>
+            <h2 className="scolapro-section-title">My operational files</h2>
             <p className="scolapro-section-description">
               Open one of your required teacher files. ScolaPro links each requirement to canonical evidence wherever that record already exists.
             </p>
