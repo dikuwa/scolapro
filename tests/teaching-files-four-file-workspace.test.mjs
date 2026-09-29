@@ -39,3 +39,10 @@ test("multi-subject evidence preserves allocation scope", () => {
   assert.match(resolver, /preparationRecords\.filter\(\(record\) => record\.allocationId === input\.allocationId\)/);
   assert.match(resolver, /allocationId: input\.allocationIds\?\.\[index\]/);
 });
+
+test("evidence actions distinguish official links from teacher-supplied uploads", () => {
+  assert.match(source, /Official source/);
+  assert.match(source, /item\.resolverType === "external_link"/);
+  assert.match(source, /teacher-supplied evidence only for this requirement/);
+  assert.doesNotMatch(source, /\["shared_resource", "external_link"\]\.includes\(item\.resolverType\)/);
+});
