@@ -46,3 +46,9 @@ test("evidence actions distinguish governed references from teacher-supplied upl
   assert.match(source, /completion still depends on the evidence resolver/);
   assert.match(source, /teacher-supplied evidence only for this requirement/);
 });
+
+test("unsupported-only allocations use a compact honest state instead of an empty folder workspace", () => {
+  assert.match(source, /const hasGovernedFiles = workspace\.allocations\.length > 0/);
+  assert.match(source, /current teaching allocations do not yet have a verified operational-file template/);
+  assert.match(source, /workspace\.unsupportedAllocations\.length && hasGovernedFiles/);
+});
