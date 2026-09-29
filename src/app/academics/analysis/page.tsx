@@ -17,6 +17,10 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
   const basis = params.basis === "provisional" ? "provisional" : "official";
   const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis, grade: params.grade, className: params.class, teacher: params.teacher });
   if (!workspace) redirect("/");
+  const exportParams = new URLSearchParams({ year: String(year), term: String(term), basis });
+  if (params.grade) exportParams.set("grade", params.grade);
+  if (params.class) exportParams.set("class", params.class);
+  if (params.teacher) exportParams.set("teacher", params.teacher);
 
   return (
     <main className="scolapro-content-width mx-auto space-y-5 px-4 py-6 sm:px-6">
@@ -34,7 +38,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
             <h2 className="scolapro-section-title">Results analysis</h2>
             <p className="scolapro-section-description">{year} · Term {term} · {basis === "official" ? "Official" : "Provisional"}</p>
           </div>
-          <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</span>
+          <div className="flex items-center gap-2"><Link href={`/academics/analysis/export.xlsx?${exportParams.toString()}`} className="min-h-9 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium">Export Excel</Link><span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</span></div>
         </div>
       </section>
 
