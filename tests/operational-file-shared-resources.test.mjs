@@ -74,6 +74,7 @@ test("canonical resolver consumes bound shared and external resources", () => {
   assert.match(resolver, /getOperationalFileSharedResourceReferences/);
   assert.match(resolver, /sharedResourceResult\("shared_resource"\)/);
   assert.match(resolver, /sharedResourceResult\("external_link"\)/);
+  assert.match(resolver, /sharedResourceResult\("teacher_document"\)/);
   assert.match(resolver, /templateItemIds: input\.items\.map\(\(item\) => item\.id\)/);
   assert.match(resolver, /No applicable shared resource is recorded for this template item\./);
 });

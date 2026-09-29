@@ -11,7 +11,7 @@ test("Teaching Files resolves operational policy from current-school allocations
   assert.match(page, /getOperationalTeachingFilesWorkspace/);
   assert.match(page, /effectiveOn: hub\.today/);
   assert.match(page, /allocations: hub\.allocations/);
-  assert.match(page, /<OperationalTeachingFiles workspace=\{operationalWorkspace\}/);
+  assert.match(page, /<OperationalTeachingFiles workspace=\{operationalWorkspace\} professionalDocuments=\{hub\.professionalDocuments\}/);
 });
 
 test("only source-proven Information and Communication allocation labels map to the seeded template", () => {
