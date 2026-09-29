@@ -289,6 +289,8 @@ function filesPage(context, calls) {
   return loader({
     'next/navigation': navigation,
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
+    '@/features/teaching/components/operational-teaching-files': { OperationalTeachingFiles: () => null },
+    '@/features/teaching/components/operational-file-control-sheet': { OperationalFileControlSheetView: () => null },
     '@/lib/auth/get-user-context': { getUserContext: async () => normalizedContext },
     '@/features/calendar/server/calendar': { getGovernedAcademicYear: async () => 2026 },
     'sonner': { toast: { success() {}, error() {} } },
