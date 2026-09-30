@@ -109,13 +109,13 @@ House creation remains production-gated and would use the existing governed `ups
 | Source manager | House | Dry-run |
 | --- | --- | --- |
 | E Sackaria | Eagles | Safe unique staff match |
-| S Aikela | Sharks | Review — no current active NHS staff match |
+| S Aikela | Sharks | Safe configured match — Josephine Aikela |
 | N Nghiwedua | Cheetahs | Safe unique staff match |
 
-Manager safe matches: **2**  
-Manager review: **1**
+Manager safe matches: **3**  
+Manager review: **0**
 
-The unresolved Sharks manager blocks production apply under the bounded script's safety gate.
+Control Room resolved the Sharks source manager `S Aikela` to the existing active Namib High staff member **Josephine Aikela**. The bounded reconciliation now requires that exact configured identity rather than guessing from the initial.
 
 ## Age groups
 
@@ -154,4 +154,4 @@ Existing locked learner conflicts are classified before apply and the existing R
 - DOB mutation: **0**
 - Canonical age-group writes: **0**
 
-**Production apply is NOT authorized.**
+**Production apply is authorized by Control Room, but has not executed.** The governed RPC path requires `SCOLAPRO_SPORTS_IMPORT_ACCESS_TOKEN` for an authorized Namib High school-management user; connector/admin SQL cannot satisfy that authentication boundary.
