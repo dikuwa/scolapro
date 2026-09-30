@@ -14,7 +14,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
 
   const params = await searchParams;
   const year = Number(params.year) || new Date().getFullYear();
-  const term = Math.min(6, Math.max(1, Number(params.term) || 1));
+  const term = Math.min(3, Math.max(1, Number(params.term) || 1));
   const basis = params.basis === "provisional" ? "provisional" : "official";
   const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis, grade: params.grade, className: params.class, subjectOfferingId: params.subject, teacher: params.teacher });
   if (!workspace) redirect("/");

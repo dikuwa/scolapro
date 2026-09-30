@@ -5,6 +5,8 @@ import test from "node:test";
 const source = fs.readFileSync("src/features/academics/server/academic-analysis.ts", "utf8");
 const pageSource = fs.readFileSync("src/app/academics/analysis/page.tsx", "utf8");
 const filtersSource = fs.readFileSync("src/features/academics/components/academic-analysis-filters.tsx", "utf8");
+const printSource = fs.readFileSync("src/app/academics/analysis/print/page.tsx", "utf8");
+const excelSource = fs.readFileSync("src/app/academics/analysis/export.xlsx/route.ts", "utf8");
 
 test("academic analysis is a read layer over canonical official results", () => {
   assert.match(source, /from\("official_results"\)/);
@@ -185,4 +187,10 @@ test("academic analysis filters reuse the ScolaPro searchable-select component i
   assert.match(filtersSource, /name="teacher"/);
   assert.doesNotMatch(filtersSource, /<select\b/);
   assert.match(source, /filterOptions/);
+});
+
+test("analysis page and exports enforce the same three-term scope", () => {
+  for (const routeSource of [pageSource, printSource, excelSource]) {
+    assert.match(routeSource, /Math\.min\(3, Math\.max\(1,/);
+  }
 });
