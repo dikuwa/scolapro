@@ -84,6 +84,12 @@ export type AcademicAnalysisWorkspace = {
   classSummaries: AcademicAnalysisAggregate[];
   teacherSummaries: AcademicAnalysisAggregate[];
   qualityConfigured: false;
+  filterOptions: {
+    grades: string[];
+    classes: string[];
+    subjects: Array<{ value: string; label: string; helper?: string }>;
+    teachers: string[];
+  };
   exportRows: AcademicAnalysisExportRow[];
 };
 
@@ -407,6 +413,14 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     }
   }
 
+  const filterOptions = {
+    grades: [...new Set(rows.map((row) => row.grade).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    classes: [...new Set(rows.map((row) => row.className).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })),
+    subjects: [...new Map(rows.map((row) => [row.subjectOfferingId, { value: row.subjectOfferingId, label: row.subject, helper: row.grade }])).values()]
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }) || (a.helper ?? "").localeCompare(b.helper ?? "", undefined, { numeric: true })),
+    teachers: [...new Set(rows.map((row) => row.teacher).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b)),
+  };
+
   const filteredRows = rows
     .filter((row) => !scope.subjectOfferingId || row.subjectOfferingId === scope.subjectOfferingId)
     .filter((row) => !scope.grade || row.grade === scope.grade)
@@ -458,6 +472,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     classSummaries: aggregateBy((row) => row.className),
     teacherSummaries: aggregateBy((row) => row.teacher),
     qualityConfigured: false,
+    filterOptions,
     exportRows: filteredRows.map((row) => ({
       grade: row.grade,
       className: row.className ?? "",
