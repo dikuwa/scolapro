@@ -255,6 +255,23 @@ test("2026 year isolation excludes otherwise matching learners from another year
   assert.equal(result.classification, "learner_not_found");
 });
 
+test("configured Sharks manager resolves S Aikela to Josephine Aikela only", () => {
+  const houseResults = reconcileHouses(houses());
+  const result = reconcileManagers({
+    staff: [
+      { id: "josephine", firstName: "Josephine", lastName: "Aikela", active: true },
+      { id: "selma", firstName: "Selma", lastName: "Aikela", active: true },
+      { id: "erastus", firstName: "Erastus", lastName: "Sackaria", active: true },
+      { id: "ndapewa", firstName: "Ndapewa", lastName: "Nghiwedua", active: true },
+    ],
+    houseResults,
+  });
+  const sharks = result.find((item) => item.house === "Sharks");
+  assert.equal(sharks.classification, "safe_manager_match");
+  assert.equal(sharks.staffMemberId, "josephine");
+  assert.equal(sharks.configuredManager, "Josephine Aikela");
+});
+
 test("manager reconciliation accepts exactly one current staff match and reviews zero/multiple matches", () => {
   const houseResults = reconcileHouses(houses());
   const safe = reconcileManagers({
