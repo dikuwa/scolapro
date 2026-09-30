@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Buffer } from "node:buffer";
+import { OFFICIAL_DOCUMENT_HEADER_RULE } from "@/features/documents/server/official-document-chrome";
 import {
   buildReportCardTemplateModel,
   isFailingResult,
@@ -108,7 +109,7 @@ export function renderReportCardHtml(input: ReportCardRenderInput): string {
   html, body { margin: 0; padding: 0; background: #fff; color: var(--ink); }
   body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 10px; line-height: 1.25; }
   .report { width: 100%; border: 1.2px solid var(--line); padding: 7mm 7mm 5mm; min-height: 270mm; }
-  .school-header { display: grid; grid-template-columns: 88px minmax(0,1fr) 128px; gap: 10px; align-items: center; border: 1px solid var(--line); padding: 8px 10px; min-height: 92px; }
+  ${OFFICIAL_DOCUMENT_HEADER_RULE}
   .logo-wrap { display: flex; align-items: center; justify-content: center; height: 76px; }
   .school-logo { display: block; max-width: 76px; max-height: 76px; object-fit: contain; }
   .logo-placeholder { min-height: 60px; }
