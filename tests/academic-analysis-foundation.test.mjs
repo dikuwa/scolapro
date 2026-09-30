@@ -194,3 +194,7 @@ test("analysis page and exports enforce the same three-term scope", () => {
     assert.match(routeSource, /Math\.min\(3, Math\.max\(1,/);
   }
 });
+
+test("provisional empty state does not present itself as official", () => {
+  assert.match(pageSource, /basis === "official" \? "No official results available" : "No provisional results available"/);
+});

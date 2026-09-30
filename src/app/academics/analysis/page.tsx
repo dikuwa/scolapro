@@ -88,7 +88,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
 
       {!workspace.rows.length ? (
         <section className="rounded-[var(--radius-sm)] border border-dashed border-border p-6 text-center">
-          <h2 className="scolapro-section-title">No official results available</h2>
+          <h2 className="scolapro-section-title">{basis === "official" ? "No official results available" : "No provisional results available"}</h2>
           <p className="mt-1 text-sm text-muted-foreground">{basis === "official" ? "No locked official results are available for this year and term. Provisional assessment data is not mixed into this report." : "No complete provisional subject results are currently calculable for this year and term."}</p>
         </section>
       ) : (
