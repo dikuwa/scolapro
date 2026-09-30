@@ -292,7 +292,8 @@ test("manager reconciliation accepts exactly one current staff match and reviews
     houseResults,
   });
   assert.equal(ambiguous.find((item) => item.house === "Sharks").classification, "manager_review");
-  assert.equal(ambiguous.find((item) => item.house === "Sharks").candidateCount, 2);
+  assert.equal(ambiguous.find((item) => item.house === "Sharks").candidateCount, 0);
+  assert.equal(ambiguous.find((item) => item.house === "Sharks").configuredManager, "Josephine Aikela");
 });
 
 test("age-group source values remain provenance only and do not alter canonical age-band configuration", () => {
