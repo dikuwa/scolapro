@@ -134,11 +134,17 @@ export async function getOperationalTeachingFilesWorkspace(input: {
       fileType.sections.flatMap((section) => section.items),
     ),
   );
+  const allocationIdsForItems = supported.flatMap(({ allocation, template }) =>
+    template.fileTypes.flatMap((fileType) =>
+      fileType.sections.flatMap((section) => section.items.map(() => allocation.allocationId)),
+    ),
+  );
 
   const evidence = flatItems.length
     ? await resolveOperationalFileEvidenceBatch({
         academicYear: input.academicYear,
         items: flatItems,
+        allocationIds: allocationIdsForItems,
       })
     : [];
 

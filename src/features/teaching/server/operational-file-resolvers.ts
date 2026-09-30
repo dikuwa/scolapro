@@ -46,6 +46,7 @@ type ResolveInput = {
 type ResolveBatchInput = {
   academicYear: number;
   items: ResolverItem[];
+  allocationIds?: Array<string | undefined>;
 };
 
 type TeachingFilesHub = Awaited<ReturnType<typeof getTeachingFilesHub>>;
@@ -92,6 +93,7 @@ function resolveWithHub(input: {
   hub: TeachingFilesHub;
   ownerStaffMemberId: string | null;
   sharedResources: OperationalFileSharedResourceReference[];
+  allocationId?: string;
 }): OperationalFileEvidenceResult {
   const resourceById = new Map(input.hub.authoritativeResources.map((item) => [item.id, item]));
   const sharedResourceResult = (
@@ -164,21 +166,30 @@ function resolveWithHub(input: {
     case "timetable":
       return resource("timetable", "timetable");
 
-    case "curriculum":
-      return resource("syllabus", "curriculum");
+    case "curriculum": {
+      const result = resource("syllabus", "curriculum");
+      if (result.status !== "resolved" || !input.allocationId) return result;
+      return { ...result, references: result.references.map((reference) => ({ ...reference, id: `${reference.id}:${input.allocationId}`, provenance: { ...reference.provenance, allocationId: input.allocationId } })) };
+    }
 
-    case "scheme":
-      return resource("scheme", "scheme");
+    case "scheme": {
+      const result = resource("scheme", "scheme");
+      if (result.status !== "resolved" || !input.allocationId) return result;
+      return { ...result, references: result.references.map((reference) => ({ ...reference, id: `${reference.id}:${input.allocationId}`, provenance: { ...reference.provenance, allocationId: input.allocationId } })) };
+    }
 
     case "lesson_preparation": {
-      if (!input.hub.preparationRecords.length) {
+      const preparationRecords = input.allocationId
+        ? input.hub.preparationRecords.filter((record) => record.allocationId === input.allocationId)
+        : input.hub.preparationRecords;
+      if (!preparationRecords.length) {
         return missing("lesson_preparation", "No canonical lesson preparation exists in the current teaching scope.");
       }
       return {
         resolverType: "lesson_preparation",
         status: "resolved",
         reason: null,
-        references: input.hub.preparationRecords.map((record) => ({
+        references: preparationRecords.map((record) => ({
           id: record.id,
           label: `Lesson preparation · ${record.plannedOn}`,
           href: "/teaching/preparation",
@@ -304,13 +315,14 @@ export async function resolveOperationalFileEvidenceBatch(
     effectiveOn: hub.today,
   });
 
-  return input.items.map((item) =>
+  return input.items.map((item, index) =>
     resolveWithHub({
       academicYear: input.academicYear,
       item,
       hub,
       ownerStaffMemberId: membership.staffMemberId ?? null,
       sharedResources: sharedResourcesByItem.get(item.id) ?? [],
+      allocationId: input.allocationIds?.[index],
     }),
   );
 }
