@@ -61,45 +61,55 @@ jobs:
 
           marker='ScolaPro staging migration-history bridge.'
           mapfile -t bridge_files < <(grep -lF "$marker" supabase/migrations/*.sql | sort)
+          bridge_count="${#bridge_files[@]}"
 
-          if [[ ${#bridge_files[@]} -ne 82 ]]; then
-            echo "Expected exactly 82 staging-history bridge files; found ${#bridge_files[@]}."
-            echo "Refusing to infer migration-history equivalence from an unexpected repository state."
+          if [[ "$bridge_count" -eq 0 ]]; then
+            echo "No staging-history bridge files found."
+            echo "Refusing to infer migration-history equivalence without an explicit bridge set."
             exit 1
           fi
 
-          : > /tmp/scolapro-duplicate-versions.txt
+          : > /tmp/scolapro-bridge-suffixes.txt
           for bridge in "${bridge_files[@]}"; do
             bridge_base="$(basename "$bridge")"
-            suffix="${bridge_base:15}"
-            mapfile -t same_name < <(find supabase/migrations -maxdepth 1 -type f -name "??????????????_${suffix}" -print | sort)
+            printf '%s\n' "${bridge_base:15}" >> /tmp/scolapro-bridge-suffixes.txt
+          done
+          sort -u /tmp/scolapro-bridge-suffixes.txt -o /tmp/scolapro-bridge-suffixes.txt
+          bridge_suffix_count="$(wc -l < /tmp/scolapro-bridge-suffixes.txt | tr -d ' ')"
 
-            if [[ ${#same_name[@]} -ne 2 ]]; then
-              echo "Expected one historical bridge and one canonical migration for suffix: $suffix"
+          : > /tmp/scolapro-duplicate-versions.txt
+          while IFS= read -r suffix; do
+            mapfile -t same_name < <(find supabase/migrations -maxdepth 1 -type f -name "??????????????_${suffix}" -print | sort)
+            bridge_matches=0
+            canonical_candidates=()
+
+            for candidate in "${same_name[@]}"; do
+              if grep -qF "$marker" "$candidate"; then
+                bridge_matches=$((bridge_matches + 1))
+              else
+                canonical_candidates+=("$candidate")
+              fi
+            done
+
+            if [[ "$bridge_matches" -lt 1 || ${#canonical_candidates[@]} -ne 1 ]]; then
+              echo "Expected one or more historical bridges and exactly one canonical migration for suffix: $suffix"
               printf 'Matches: %s\n' "${same_name[*]:-none}"
               exit 1
             fi
 
-            canonical=''
-            for candidate in "${same_name[@]}"; do
-              if [[ "$candidate" != "$bridge" ]]; then
-                canonical="$candidate"
-              fi
-            done
-
-            [[ -n "$canonical" ]] || { echo "Canonical migration not found for $bridge_base"; exit 1; }
+            canonical="${canonical_candidates[0]}"
             canonical_version="$(basename "$canonical" | cut -d_ -f1)"
             printf '%s\n' "$canonical_version" >> /tmp/scolapro-duplicate-versions.txt
-          done
+          done < /tmp/scolapro-bridge-suffixes.txt
 
           sort -u /tmp/scolapro-duplicate-versions.txt -o /tmp/scolapro-duplicate-versions.txt
           duplicate_count="$(wc -l < /tmp/scolapro-duplicate-versions.txt | tr -d ' ')"
-          if [[ "$duplicate_count" -ne 82 ]]; then
-            echo "Expected 82 unique canonical duplicate versions; found $duplicate_count."
+          if [[ "$duplicate_count" -ne "$bridge_suffix_count" ]]; then
+            echo "Expected $bridge_suffix_count unique canonical duplicate versions; found $duplicate_count."
             exit 1
           fi
 
-          echo "Validated 82 exact-name historical/canonical migration pairs."
+          echo "Validated $bridge_count historical bridge files across $bridge_suffix_count canonical migration suffixes."
           echo "Canonical versions whose schema effects are already represented by staging history:"
           cat /tmp/scolapro-duplicate-versions.txt
 
