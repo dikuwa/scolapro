@@ -1,0 +1,63 @@
+{
+  "issue": 884,
+  "source": "sports teams.pdf",
+  "source_pages": 30,
+  "academic_year": 2026,
+  "base_main": "50681f4a7bbd971cb273a4ba9bd8ceb511deb078",
+  "source_learner_rows": 811,
+  "unique_source_learners": 811,
+  "source_duplicates": 0,
+  "safe_learner_matches": 811,
+  "unmatched_learners": 0,
+  "ambiguous_learners": 0,
+  "unexplained_rows": 0,
+  "same_house": 0,
+  "new_assignments": 811,
+  "conflicting_assignments": 0,
+  "locked_conflicts": 0,
+  "houses": {
+    "Eagles": 269,
+    "Sharks": 271,
+    "Cheetahs": 271
+  },
+  "managers": {
+    "safe_matches": 3,
+    "review": 0
+  },
+  "age_group_config_writes": 0,
+  "dry_run_writes": 0,
+  "production_writes": 0,
+  "current_sports_state": {
+    "houses": 0,
+    "learner_assignments": 0,
+    "staff_assignments": 0,
+    "age_groups": 0
+  },
+  "class_totals": {
+    "8A": 48,
+    "8B": 48,
+    "8C": 46,
+    "8D": 47,
+    "9A": 45,
+    "9B": 45,
+    "9C": 46,
+    "9D": 43,
+    "10A": 46,
+    "10B": 44,
+    "10C": 46,
+    "10D": 46,
+    "11A": 52,
+    "11B": 51,
+    "11C": 52,
+    "12A": 35,
+    "12B": 36,
+    "12C": 35
+  },
+  "production_apply_blocker": "Governed apply requires SCOLAPRO_SPORTS_IMPORT_ACCESS_TOKEN for an authorized Namib High school-management user; connector/admin SQL cannot satisfy Sports/Houses RPC authentication.",
+  "production_apply_authorized": true,
+  "manager_resolution": {
+    "source_manager": "S Aikela",
+    "configured_staff": "Josephine Aikela",
+    "status": "safe_unique_active_match"
+  }
+}
