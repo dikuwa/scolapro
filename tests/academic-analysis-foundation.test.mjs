@@ -154,3 +154,22 @@ test("management analysis does not expose learner or parent routes", () => {
   assert.doesNotMatch(pageSource, /parent|guardian/i);
   assert.doesNotMatch(pageSource, /learnerId|learner_id/);
 });
+
+test("analysis authority explicitly excludes platform memberships and unsupported school roles", () => {
+  assert.match(source, /context\.platformMemberships\.length/);
+  assert.match(source, /!context\.currentSchoolMembership/);
+  assert.match(source, /school_admin.*principal.*deputy_principal.*hod.*teacher.*class_teacher/);
+  assert.doesNotMatch(source, /platform_support/);
+});
+
+test("HOD analysis is constrained by governed subject responsibilities before aggregation", () => {
+  assert.match(source, /getHodScopeConfiguration/);
+  assert.match(source, /subject_department_responsibilities/);
+  assert.match(source, /typedResults = typedResults\.filter/);
+});
+
+test("historical teacher attribution resolves through teacher allocations", () => {
+  assert.match(source, /from\("teacher_allocations"\)/);
+  assert.match(source, /staff_member_id/);
+  assert.doesNotMatch(pageSource, /best teacher|worst teacher|teacher rank|teacher score/i);
+});
