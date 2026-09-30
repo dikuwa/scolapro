@@ -4,6 +4,7 @@ import test from "node:test";
 
 const source = fs.readFileSync("src/features/academics/server/academic-analysis.ts", "utf8");
 const pageSource = fs.readFileSync("src/app/academics/analysis/page.tsx", "utf8");
+const filtersSource = fs.readFileSync("src/features/academics/components/academic-analysis-filters.tsx", "utf8");
 
 test("academic analysis is a read layer over canonical official results", () => {
   assert.match(source, /from\("official_results"\)/);
@@ -173,4 +174,15 @@ test("historical teacher attribution resolves through teacher allocations", () =
   assert.match(source, /from\("teacher_allocations"\)/);
   assert.match(source, /staff_member_id/);
   assert.doesNotMatch(pageSource, /best teacher|worst teacher|teacher rank|teacher score/i);
+});
+
+
+test("academic analysis filters reuse the ScolaPro searchable-select component instead of browser-native selects", () => {
+  assert.match(filtersSource, /SearchableSelect/);
+  assert.match(filtersSource, /name="grade"/);
+  assert.match(filtersSource, /name="class"/);
+  assert.match(filtersSource, /name="subject"/);
+  assert.match(filtersSource, /name="teacher"/);
+  assert.doesNotMatch(filtersSource, /<select\b/);
+  assert.match(source, /filterOptions/);
 });
