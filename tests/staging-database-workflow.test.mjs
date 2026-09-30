@@ -23,3 +23,15 @@ test("staging mutation steps remain explicitly gated", () => {
   assert.match(workflow, /name: Apply pending migrations\n\s+if: \$\{\{ inputs\.confirmation == 'DEPLOY' \}\}/);
   assert.match(workflow, /name: Preview pending migrations\n\s+run: supabase db push --linked --dry-run --include-all/);
 });
+test("staging workflow refuses the documented production Supabase project", () => {
+  assert.match(workflow, /PRODUCTION_PROJECT_ID: jhgumnvhoxmapmgotchu/);
+  assert.match(
+    workflow,
+    /if \[\[ "\$STAGING_PROJECT_ID" == "\$PRODUCTION_PROJECT_ID" \]\]; then/,
+  );
+  assert.match(workflow, /Refusing staging workflow: STAGING_PROJECT_ID points to the production project/);
+  assert.match(
+    workflow,
+    /Require staging deployment secrets[\s\S]*production project[\s\S]*- name: Link staging project/,
+  );
+});
