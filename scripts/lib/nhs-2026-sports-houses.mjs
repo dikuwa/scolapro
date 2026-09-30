@@ -6,7 +6,7 @@ export const ACADEMIC_YEAR = 2026;
 
 export const EXPECTED_HOUSES = Object.freeze([
   { name: "Eagles", colourLabel: "White", colorHex: "#FFFFFF", manager: "E Sackaria", shortCode: "EAG", sortOrder: 1 },
-  { name: "Sharks", colourLabel: "Grey", colorHex: "#808080", manager: "S Aikela", shortCode: "SHA", sortOrder: 2 },
+  { name: "Sharks", colourLabel: "Grey", colorHex: "#808080", manager: "S Aikela", configuredManager: "Josephine Aikela", shortCode: "SHA", sortOrder: 2 },
   { name: "Cheetahs", colourLabel: "Orange", colorHex: "#FFA500", manager: "N Nghiwedua", shortCode: "CHE", sortOrder: 3 },
 ]);
 
@@ -363,18 +363,26 @@ export function reconcileManagers({ staff, staffAssignments = [], houseResults =
   const desiredHouseByName = new Map(houseResults.map((item) => [normalizeText(item.expected.name), item]));
 
   return EXPECTED_HOUSES.map((house) => {
-    const [initial, ...surnameParts] = house.manager.split(/\s+/);
-    const surname = surnameParts.join(" ");
-    const candidates = staff.filter((member) =>
-      member.active !== false &&
-      normalizeText(member.lastName) === normalizeText(surname) &&
-      normalizeText(member.firstName).startsWith(normalizeText(initial))
-    );
+    const configuredManager = house.configuredManager ?? null;
+    const [sourceInitial, ...surnameParts] = house.manager.split(/\s+/);
+    const sourceSurname = surnameParts.join(" ");
+    const [configuredFirstName, ...configuredSurnameParts] = configuredManager?.split(/\s+/) ?? [];
+    const configuredSurname = configuredSurnameParts.join(" ");
+    const candidates = staff.filter((member) => {
+      if (member.active === false) return false;
+      if (configuredManager) {
+        return normalizeText(member.firstName) === normalizeText(configuredFirstName) &&
+          normalizeText(member.lastName) === normalizeText(configuredSurname);
+      }
+      return normalizeText(member.lastName) === normalizeText(sourceSurname) &&
+        normalizeText(member.firstName).startsWith(normalizeText(sourceInitial));
+    });
 
     if (candidates.length !== 1) {
       return {
         house: house.name,
         manager: house.manager,
+        configuredManager,
         classification: "manager_review",
         candidateCount: candidates.length,
       };
@@ -389,6 +397,7 @@ export function reconcileManagers({ staff, staffAssignments = [], houseResults =
       return {
         house: house.name,
         manager: house.manager,
+        configuredManager,
         classification: "manager_review",
         candidateCount: 1,
         staffMemberId: staffMember.id,
@@ -399,6 +408,7 @@ export function reconcileManagers({ staff, staffAssignments = [], houseResults =
     return {
       house: house.name,
       manager: house.manager,
+      configuredManager,
       classification: "safe_manager_match",
       candidateCount: 1,
       staffMemberId: staffMember.id,
