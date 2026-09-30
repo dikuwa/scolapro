@@ -8,6 +8,7 @@ import {
   CircleCheck,
   ExternalLink,
   FileQuestion,
+  Folder,
   FolderKanban,
   Link2,
   Printer,
@@ -50,7 +51,7 @@ export function OperationalTeachingFiles({
   professionalDocuments: TeachingFileProfessionalDocument[];
 }) {
   const [query, setQuery] = useState("");
-  const [fileType, setFileType] = useState("");
+  const [fileType, setFileType] = useState("preparation");
   const [subject, setSubject] = useState("");
   const [phase, setPhase] = useState("");
   const [sourceType, setSourceType] = useState("");
@@ -62,6 +63,31 @@ export function OperationalTeachingFiles({
       for (const item of allocation.fileTypes) options.set(item.fileTypeKey, item.displayName);
     }
     return [...options].map(([value, label]) => ({ value, label }));
+  }, [workspace.allocations]);
+
+  const teacherFileFolders = useMemo(() => {
+    const definitions = [
+      { key: "preparation", title: "Preparation File", description: "Syllabi, schemes of work, lesson preparation and PAAI commitment." },
+      { key: "administration", title: "Administration File", description: "Timetables, class records, assessment records, policies and administration." },
+      { key: "question_paper", title: "Assessment / Question Paper File", description: "Canonical assessment and question-paper evidence where the governed template defines it." },
+      { key: "resource", title: "Professional Development / Resource File", description: "Teaching resources, learning-support material, workshops and professional resources." },
+    ] as const;
+
+    return definitions.map((definition) => {
+      let total = 0;
+      let available = 0;
+      for (const allocation of workspace.allocations) {
+        const current = allocation.fileTypes.find((item) => item.fileTypeKey === definition.key);
+        if (!current) continue;
+        for (const section of current.sections) {
+          for (const item of section.items) {
+            total += 1;
+            if (["resolved", "external"].includes(item.evidence.status)) available += 1;
+          }
+        }
+      }
+      return { ...definition, total, available };
+    });
   }, [workspace.allocations]);
 
   const subjectOptions = useMemo(
@@ -161,11 +187,11 @@ export function OperationalTeachingFiles({
       .flat();
   }, [workspace.allocations, query, fileType, subject, phase, sourceType, evidenceStatus]);
 
-  const filtersActive = Boolean(query || fileType || subject || phase || sourceType || evidenceStatus);
+  const filtersActive = Boolean(query || subject || phase || sourceType || evidenceStatus || (fileType && fileType !== "preparation"));
 
   function clearFilters() {
     setQuery("");
-    setFileType("");
+    setFileType("preparation");
     setSubject("");
     setPhase("");
     setSourceType("");
@@ -173,6 +199,8 @@ export function OperationalTeachingFiles({
   }
 
   if (!workspace.allocations.length && !workspace.unsupportedAllocations.length) return null;
+
+  const hasGovernedFiles = workspace.allocations.length > 0;
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -182,7 +210,7 @@ export function OperationalTeachingFiles({
           <div>
             <h2 className="scolapro-section-title">My operational files</h2>
             <p className="scolapro-section-description">
-              Policy-grounded file requirements linked to the authoritative ScolaPro record wherever one already exists.
+              Open one of your required teacher files. ScolaPro links each requirement to canonical evidence wherever that record already exists.
             </p>
           </div>
         </div>
@@ -197,7 +225,57 @@ export function OperationalTeachingFiles({
         </a>
       </div>
 
-      {workspace.allocations.length ? (
+      {hasGovernedFiles ? (
+        <div className="mt-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {teacherFileFolders.map((folder, index) => {
+              const active = fileType === folder.key;
+              return (
+                <button
+                  key={folder.key}
+                  type="button"
+                  onClick={() => setFileType(folder.key)}
+                  aria-pressed={active}
+                  className={
+                    "group min-h-44 rounded-[var(--radius-sm)] border p-4 text-left transition-colors " +
+                    (active
+                      ? "border-brand bg-brand-soft/45"
+                      : "border-border-subtle bg-surface-elevated hover:bg-surface-muted")
+                  }
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex size-10 items-center justify-center rounded-[var(--radius-sm)] bg-surface shadow-[var(--shadow-xs)]">
+                      <Folder className="size-5 text-brand-strong" aria-hidden="true" />
+                    </span>
+                    <span className="text-[0.65rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                      File {index + 1}
+                    </span>
+                  </div>
+                  <h3 className="mt-4 text-sm font-semibold">{folder.title}</h3>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">{folder.description}</p>
+                  <p className="mt-3 text-[0.68rem] font-medium text-muted-foreground">
+                    {folder.total ? `${folder.available} of ${folder.total} requirements available` : "Open file requirements"}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2.5">
+            <p className="text-xs text-muted-foreground">
+              Subject File is separate: it is the school-owned, subject-head file shared with subject teachers.
+            </p>
+            <Link href="/teaching/subject-file" className="scolapro-cta text-xs font-medium text-brand-strong hover:underline">
+              Open Subject File
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-3 text-xs text-muted-foreground">
+          Your current teaching allocations do not yet have a verified operational-file template. Your canonical professional files and teaching records remain available below.
+        </div>
+      )}
+
+      {hasGovernedFiles ? (
         <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted/55 p-3">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <label className="block text-xs font-medium leading-4">
@@ -353,7 +431,7 @@ export function OperationalTeachingFiles({
                                             className="scolapro-cta inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-2.5 text-[0.68rem] font-medium hover:bg-surface-muted"
                                           >
                                             <Link2 className="size-3" aria-hidden="true" />
-                                            {reference.label}
+                                            {item.evidence.status === "external" ? "Official source" : "Open"} · {reference.label}
                                             <ArrowUpRight className="size-3" aria-hidden="true" />
                                           </Link>
                                         ) : (
@@ -370,14 +448,17 @@ export function OperationalTeachingFiles({
 
                                   {item.evidence.status === "missing" &&
                                   ["shared_resource", "external_link"].includes(item.resolverType) ? (
-                                    <OperationalFileExternalReferenceForm templateItemId={item.id} title={item.label} />
+                                    <div className="mt-2"><p className="mb-1 text-[0.68rem] text-muted-foreground">Add a governed reference for this missing shared/official resource; completion still depends on the evidence resolver.</p><OperationalFileExternalReferenceForm templateItemId={item.id} title={item.label} /></div>
                                   ) : null}
 
                                   {item.evidence.status === "missing" && item.resolverType === "teacher_document" ? (
-                                    <OperationalFileDocumentBindingForm
+                                    <div className="mt-2">
+                                      <p className="mb-1 text-[0.68rem] text-muted-foreground">Upload/select teacher-supplied evidence only for this requirement.</p>
+                                      <OperationalFileDocumentBindingForm
                                       templateItemId={item.id}
                                       documents={professionalDocuments}
-                                    />
+                                      />
+                                    </div>
                                   ) : null}
                                 </li>
                               ))}
@@ -399,13 +480,13 @@ export function OperationalTeachingFiles({
             </article>
           ))}
         </div>
-      ) : workspace.allocations.length ? (
+      ) : hasGovernedFiles ? (
         <p className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-4 text-sm text-muted-foreground">
           No operational-file requirements match the current filters.
         </p>
       ) : null}
 
-      {workspace.unsupportedAllocations.length ? (
+      {workspace.unsupportedAllocations.length && hasGovernedFiles ? (
         <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-3 sm:p-4">
           <div className="flex items-center gap-2">
             <CircleAlert className="size-4 text-muted-foreground" aria-hidden="true" />
