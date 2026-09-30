@@ -49,6 +49,11 @@ test("management mutates while teaching roles stay read-only in the application 
   assert.match(workspace,/Read-only/);
 });
 
+test("same-school manager authority survives a newer teacher membership",()=>{
+  assert.match(page,/context\.memberships\.some\(\(item\) => item\.schoolId === schoolId && managerRoles\.has\(item\.roleKey\)\)/);
+  assert.doesNotMatch(page,/Boolean\(membership && managerRoles\.has\(membership\.roleKey\)\)/);
+});
+
 test("navigation adds exactly one Sports / Houses item to intended school roles",()=>{
   assert.match(navigation,/key: "sports_houses", label: "Sports \/ Houses", href: "\/school\/sports-houses"/);
   for(const role of ["school_admin","principal","deputy_principal","hod","teacher","class_teacher"]){

@@ -35,7 +35,7 @@ export default async function SportsHousesPage({
   const defaultYear = Number(getNamibiaDateKey().slice(0, 4));
   const requestedYear = Number(Array.isArray(params.year) ? params.year[0] : params.year);
   const academicYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2200 ? requestedYear : defaultYear;
-  const canManage = platformAdmin || Boolean(membership && managerRoles.has(membership.roleKey));
+  const canManage = platformAdmin || context.memberships.some((item) => item.schoolId === schoolId && managerRoles.has(item.roleKey));
 
   const workspace = await getSportsHousesWorkspace(schoolId, academicYear);
 
