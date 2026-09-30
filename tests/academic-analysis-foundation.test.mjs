@@ -128,8 +128,8 @@ test("print PDF view receives the same filtered analysis scope", () => {
 });
 
 test("subject and teacher filters remain in the governed analysis scope and export query", () => {
-  assert.match(pageSource, /name="subject"/);
-  assert.match(pageSource, /name="teacher"/);
+  assert.match(filtersSource, /name="subject"/);
+  assert.match(filtersSource, /name="teacher"/);
   assert.match(pageSource, /exportParams\.set\("subject"/);
   assert.match(pageSource, /exportParams\.set\("teacher"/);
   assert.match(source, /subjectOfferingId\?:/);
