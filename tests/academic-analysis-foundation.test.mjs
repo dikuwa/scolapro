@@ -165,7 +165,7 @@ test("analysis authority explicitly excludes platform memberships and unsupporte
 test("HOD analysis is constrained by governed subject responsibilities before aggregation", () => {
   assert.match(source, /getHodScopeConfiguration/);
   assert.match(source, /getHodScopeConfiguration/);
-  assert.match(source, /responsibilitySubjectIds/);
+  assert.match(source, /activeResponsibilitySubjectIds/);
   assert.match(source, /typedResults = typedResults\.filter/);
 });
 
