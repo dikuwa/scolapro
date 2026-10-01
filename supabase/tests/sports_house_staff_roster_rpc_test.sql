@@ -52,35 +52,35 @@ select ok(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%public.staff_school_assignments%'
-      and pg_get_functiondef(p.oid) like '%public.sports_staff_house_assignments%'
-      and pg_get_functiondef(p.oid) like '%public.staff_members%'
+    select pg_get_functiondef(p.oid) like '%app_private.get_sports_house_staff_roster_authorized(p_school_id, p_academic_year)%'
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public' and p.proname='get_sports_house_staff_roster'
   ),
-  'sports staff roster RPC bundles placement, assignment and identity sources'
+  'sports staff roster RPC delegates to the source-authorized private helper'
 );
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%effective_from <= make_date(p_academic_year, 12, 31)%'
-      and pg_get_functiondef(p.oid) like '%effective_to >= make_date(p_academic_year, 1, 1)%'
+    select pg_get_functiondef(p.oid) like '%select roster.staff_member_id%'
+      and pg_get_functiondef(p.oid) like '%roster.employee_number%'
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public' and p.proname='get_sports_house_staff_roster'
   ),
-  'sports staff roster RPC preserves effective placement overlap semantics'
+  'sports staff roster RPC preserves the canonical row shape'
 );
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%union%assignment_rows.staff_member_id%'
+    select pg_get_functiondef(p.oid) not like '%public.staff_school_assignments%'
+      and pg_get_functiondef(p.oid) not like '%public.sports_staff_house_assignments%'
+      and pg_get_functiondef(p.oid) not like '%public.staff_members%'
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public' and p.proname='get_sports_house_staff_roster'
   ),
-  'sports staff roster RPC preserves already-assigned staff outside placement set'
+  'exposed staff roster RPC does not own privileged source scans'
 );
 
 select is(
