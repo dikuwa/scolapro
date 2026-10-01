@@ -12,32 +12,22 @@ export async function getDashboardOverview(
 ): Promise<DashboardOverview> {
   const supabase = await createSupabaseServerClient();
 
-  const [learnersResult, gradesResult, classesResult] = await Promise.all([
-    supabase
-      .from("enrolments")
-      .select("id", { count: "exact", head: true })
-      .eq("school_id", schoolId)
-      .eq("academic_year", academicYear)
-      .eq("status", "current"),
-    supabase
-      .from("grades")
-      .select("id", { count: "exact", head: true })
-      .eq("school_id", schoolId)
-      .eq("academic_year", academicYear),
-    supabase
-      .from("register_classes")
-      .select("id", { count: "exact", head: true })
-      .eq("school_id", schoolId)
-      .eq("academic_year", academicYear),
-  ]);
+  const { data, error } = await supabase.rpc("get_school_dashboard_overview", {
+    p_school_id: schoolId,
+    p_academic_year: academicYear,
+  });
 
-  if (learnersResult.error || gradesResult.error || classesResult.error) {
-    throw new Error("Unable to load the school overview.");
-  }
+  if (error) throw new Error("Unable to load the school overview.");
+
+  const row = ((data ?? [])[0] ?? null) as {
+    current_learners: number | string | null;
+    grade_count: number | string | null;
+    register_class_count: number | string | null;
+  } | null;
 
   return {
-    currentLearners: learnersResult.count ?? 0,
-    gradeCount: gradesResult.count ?? 0,
-    registerClassCount: classesResult.count ?? 0,
+    currentLearners: Number(row?.current_learners ?? 0),
+    gradeCount: Number(row?.grade_count ?? 0),
+    registerClassCount: Number(row?.register_class_count ?? 0),
   };
 }
