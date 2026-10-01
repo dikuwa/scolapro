@@ -26,10 +26,34 @@ export type GuardianLinkContext = {
   guardianId: string;
 };
 
-type GuardianLinkRpcRow = {
-  link_id: string;
-  tenant_id: string;
-  guardian_id: string;
+type UserContextRpcPayload = {
+  profile: {
+    display_name: string | null;
+    preferred_name: string | null;
+    avatar_path: string | null;
+    must_change_password: boolean | null;
+  } | null;
+  school_memberships: Array<{
+    id: string;
+    tenant_id: string;
+    school_id: string;
+    school_name: string | null;
+    role_key: string;
+    staff_member_id: string | null;
+  }>;
+  platform_memberships: Array<{
+    id: string;
+    role_key: string;
+  }>;
+  network_memberships: Array<{
+    id: string;
+    role_key: string;
+  }>;
+  guardian_links: Array<{
+    link_id: string;
+    tenant_id: string;
+    guardian_id: string;
+  }>;
 };
 
 const primarySchoolRolePriority = [
@@ -88,81 +112,55 @@ export const getUserContext = cache(async () => {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const [profileResult, membershipResult, platformResult, networkResult, guardianResult] = await Promise.all([
-    supabase
-      .from("user_profiles")
-      .select("display_name, preferred_name, avatar_path, must_change_password")
-      .eq("user_id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("school_memberships")
-      .select("id, tenant_id, school_id, role_key, staff_member_id, schools!inner(name)")
-      .eq("user_id", user.id)
-      .lte("active_from", today)
-      .or(`active_to.is.null,active_to.gte.${today}`)
-      .order("active_from", { ascending: false })
-      .order("id"),
-    supabase
-      .from("platform_memberships")
-      .select("id, role_key")
-      .eq("user_id", user.id)
-      .lte("active_from", today)
-      .or(`active_to.is.null,active_to.gte.${today}`),
-    supabase
-      .from("education_network_memberships")
-      .select("id, role_key")
-      .eq("user_id", user.id)
-      .lte("active_from", today)
-      .or(`active_to.is.null,active_to.gte.${today}`)
-      .order("active_from", { ascending: false })
-      .order("id"),
-    supabase.rpc("get_my_guardian_links"),
-  ]);
+  const contextResult = await supabase.rpc("get_my_user_context", { p_as_of: today });
 
-  if (membershipResult.error) {
-    console.error("school_memberships query failed:", membershipResult.error.message, membershipResult.error.details, membershipResult.error.hint);
-    throw new Error("Unable to resolve the current school context.");
+  if (contextResult.error) {
+    console.error(
+      "get_my_user_context RPC failed:",
+      contextResult.error.message,
+      contextResult.error.details,
+      contextResult.error.hint,
+    );
+    throw new Error("Unable to resolve the current user context.");
   }
-  if (platformResult.error) throw new Error("Unable to resolve the current platform context.");
-  if (networkResult.error) throw new Error("Unable to resolve the current education-network context.");
 
-  const guardianRows = (guardianResult.data ?? []) as GuardianLinkRpcRow[];
-  const guardianLinks: GuardianLinkContext[] = guardianResult.error
-    ? []
-    : guardianRows.map((link) => ({
-        linkId: link.link_id,
-        tenantId: link.tenant_id,
-        guardianId: link.guardian_id,
-      }));
+  const context = (contextResult.data ?? null) as UserContextRpcPayload | null;
+  const schoolRows = context?.school_memberships ?? [];
+  const platformRows = context?.platform_memberships ?? [];
+  const networkRows = context?.network_memberships ?? [];
+  const guardianRows = context?.guardian_links ?? [];
 
-  const allSchoolMemberships: SchoolMembershipContext[] = (membershipResult.data ?? []).map((membership) => {
-    const school = Array.isArray(membership.schools) ? membership.schools[0] : membership.schools;
-    return {
-      membershipId: membership.id,
-      tenantId: membership.tenant_id,
-      schoolId: membership.school_id,
-      schoolName: school?.name ?? "School",
-      roleKey: membership.role_key,
-      staffMemberId: membership.staff_member_id,
-    };
-  });
+  const guardianLinks: GuardianLinkContext[] = guardianRows.map((link) => ({
+    linkId: link.link_id,
+    tenantId: link.tenant_id,
+    guardianId: link.guardian_id,
+  }));
+
+  const allSchoolMemberships: SchoolMembershipContext[] = schoolRows.map((membership) => ({
+    membershipId: membership.id,
+    tenantId: membership.tenant_id,
+    schoolId: membership.school_id,
+    schoolName: membership.school_name ?? "School",
+    roleKey: membership.role_key,
+    staffMemberId: membership.staff_member_id,
+  }));
   const currentSchoolId = allSchoolMemberships[0]?.schoolId ?? null;
   const memberships = currentSchoolId
     ? allSchoolMemberships.filter((membership) => membership.schoolId === currentSchoolId)
     : [];
   const currentSchoolMembership = primarySchoolMembership(memberships);
 
-  const platformMemberships: PlatformMembershipContext[] = (platformResult.data ?? []).map((membership) => ({
+  const platformMemberships: PlatformMembershipContext[] = platformRows.map((membership) => ({
     membershipId: membership.id,
     roleKey: membership.role_key,
   }));
 
-  const networkMemberships: NetworkMembershipContext[] = (networkResult.data ?? []).map((membership) => ({
+  const networkMemberships: NetworkMembershipContext[] = networkRows.map((membership) => ({
     membershipId: membership.id,
     roleKey: membership.role_key,
   }));
 
-  const profile = profileResult.data;
+  const profile = context?.profile ?? null;
   const displayName =
     profile?.preferred_name ||
     profile?.display_name ||
