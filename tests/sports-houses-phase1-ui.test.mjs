@@ -24,9 +24,8 @@ test("Sports / Houses exposes one canonical school route with required route sta
   assert.match(workspace,/No eligible staff placements/);
 });
 
-test("Phase 1 uses canonical sports tables and governed RPCs",()=>{
-  assert.match(queries,/sports_houses/);
-  assert.match(queries,/sports_age_groups/);
+test("Phase 1 uses canonical Sports/Houses governed RPCs",()=>{
+  assert.match(queries,/get_sports_house_workspace_metadata/);
   assert.match(queries,/get_sports_house_learner_roster/);
   assert.match(queries,/get_sports_house_staff_roster/);
   assert.match(actions,/upsert_sports_house/);

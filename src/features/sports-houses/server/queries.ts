@@ -85,32 +85,51 @@ type StaffRosterRow = {
   assigned_at: string | null;
 };
 
+type WorkspaceMetadataRow = {
+  school: { id: string; name: string } | null;
+  houses: Array<{
+    id: string;
+    name: string;
+    short_code: string | null;
+    color_hex: string | null;
+    sort_order: number;
+    status: string;
+    created_by_user_id: string | null;
+    created_at: string;
+    updated_at: string;
+  }>;
+  settings: Array<{
+    academic_year: number;
+    age_reference_date: string;
+    assignment_continuity: string;
+  }>;
+  age_groups: Array<{
+    id: string;
+    label: string;
+    min_age: number | null;
+    max_age: number | null;
+    sort_order: number;
+    status: string;
+  }>;
+};
+
 export async function getSportsHousesWorkspace(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
   const currentYear = Number(getNamibiaDateKey().slice(0, 4));
   const [
-    schoolResult,
-    housesResult,
-    settingsResult,
-    ageGroupsResult,
+    metadataResult,
     learnerRosterResult,
     assignmentYearsResult,
     staffRosterResult,
   ] = await Promise.all([
-    supabase.from("schools").select("id,name").eq("id", schoolId).maybeSingle(),
-    supabase.from("sports_houses").select("id,name,short_code,color_hex,sort_order,status,created_by_user_id,created_at,updated_at").eq("school_id", schoolId).order("sort_order").order("name"),
-    supabase.from("sports_year_settings").select("academic_year,age_reference_date,assignment_continuity").eq("school_id", schoolId).order("academic_year", { ascending: false }),
-    supabase.from("sports_age_groups").select("id,label,min_age,max_age,sort_order,status").eq("school_id", schoolId).order("sort_order").order("label"),
+    supabase.rpc("get_sports_house_workspace_metadata", { p_school_id: schoolId }),
     supabase.rpc("get_sports_house_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
     supabase.rpc("get_sports_house_assignment_years", { p_school_id: schoolId }),
     supabase.rpc("get_sports_house_staff_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
 
   const readIssues = [
-    ["school context", schoolResult.error],
-    ["house configuration", housesResult.error],
-    ["year settings", settingsResult.error],
-    ["age groups", ageGroupsResult.error],
+    ["workspace metadata", metadataResult.error],
     ["learner roster", learnerRosterResult.error],
     ["assignment-year history", assignmentYearsResult.error],
     ["staff roster", staffRosterResult.error],
@@ -123,16 +142,16 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
   // one school/year-scoped call. It is required just as the previous enrolment
   // and learner-identity reads were required.
   const fatalIssue = [
-    ["school context", schoolResult.error],
-    ["house configuration", housesResult.error],
+    ["workspace metadata", metadataResult.error],
     ["learner roster", learnerRosterResult.error],
     ["staff roster", staffRosterResult.error],
   ].find(([, error]) => error);
   if (fatalIssue) throw new Error(`Unable to load Sports / Houses (${fatalIssue[0]}).`);
 
-  if (!schoolResult.data) throw new Error("Sports / Houses school context is unavailable.");
+  const metadata = metadataResult.data as WorkspaceMetadataRow | null;
+  if (!metadata?.school) throw new Error("Sports / Houses school context is unavailable.");
 
-  const houses: SportsHouse[] = (housesResult.data ?? []).map((row) => ({
+  const houses: SportsHouse[] = (metadata.houses ?? []).map((row) => ({
     id: row.id,
     name: row.name,
     shortCode: row.short_code,
@@ -145,7 +164,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
   }));
   const houseMap = new Map(houses.map((house) => [house.id, house]));
 
-  const ageGroups: SportsAgeGroup[] = (ageGroupsResult.data ?? []).map((row) => ({
+  const ageGroups: SportsAgeGroup[] = (metadata.age_groups ?? []).map((row) => ({
     id: row.id,
     label: row.label,
     minAge: row.min_age,
@@ -184,7 +203,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
-  const settings: SportsYearSettings[] = (settingsResult.data ?? []).map((row) => ({
+  const settings: SportsYearSettings[] = (metadata.settings ?? []).map((row) => ({
     academicYear: row.academic_year,
     ageReferenceDate: row.age_reference_date,
     assignmentContinuity: row.assignment_continuity,
@@ -198,7 +217,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
 
   return {
     schoolId,
-    schoolName: schoolResult.data.name,
+    schoolName: metadata.school.name,
     academicYear,
     years: [...yearSet].filter((year) => Number.isInteger(year) && year >= 2000 && year <= 2200).sort((a, b) => b - a),
     houses,
