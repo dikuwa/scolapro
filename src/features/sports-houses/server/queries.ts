@@ -123,7 +123,11 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     staffRosterResult,
   ] = await Promise.all([
     supabase.rpc("get_sports_house_workspace_metadata", { p_school_id: schoolId }),
-    supabase.rpc("get_sports_house_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
+    supabase
+      .rpc("get_sports_house_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear })
+      .select(
+        "learner_id,first_names,surname,admission_number,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label",
+      ),
     supabase.rpc("get_sports_house_assignment_years", { p_school_id: schoolId }),
     supabase.rpc("get_sports_house_staff_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
