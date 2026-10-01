@@ -28,7 +28,7 @@ test("Phase 1 uses canonical sports tables and governed RPCs",()=>{
   assert.match(queries,/sports_houses/);
   assert.match(queries,/sports_age_groups/);
   assert.match(queries,/get_sports_house_learner_roster/);
-  assert.match(queries,/sports_staff_house_assignments/);
+  assert.match(queries,/get_sports_house_staff_roster/);
   assert.match(actions,/upsert_sports_house/);
   assert.match(actions,/upsert_sports_age_group/);
   assert.match(actions,/assign_learner_sports_house/);
