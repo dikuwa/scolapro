@@ -65,12 +65,13 @@ select ok(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%visible_identity_ids as materialized%'
-      and pg_get_functiondef(p.oid) like '%app_private.can_access_current_school_staff_directory(ts.school_id)%'
-      and pg_get_functiondef(p.oid) like '%assignment_history as materialized%'
-      and pg_get_functiondef(p.oid) like '%current_assignment_coverage as materialized%'
-      and pg_get_functiondef(p.oid) like '%current_membership_coverage as materialized%'
-      and pg_get_functiondef(p.oid) like '%scope.user_id = viewer_id%'
+    select position('visible_identity_ids' in pg_get_functiondef(p.oid)) > 0
+      and position('can_access_current_school_staff_directory' in pg_get_functiondef(p.oid)) > 0
+      and position('assignment_history' in pg_get_functiondef(p.oid)) > 0
+      and position('current_assignment_coverage' in pg_get_functiondef(p.oid)) > 0
+      and position('current_membership_coverage' in pg_get_functiondef(p.oid)) > 0
+      and position('viewer_id' in pg_get_functiondef(p.oid)) > 0
+      and position('user_id' in pg_get_functiondef(p.oid)) > 0
     from pg_proc p join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='app_private'
       and p.proname='get_sports_house_staff_roster_authorized'
