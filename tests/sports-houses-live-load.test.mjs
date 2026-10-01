@@ -14,6 +14,14 @@ test("Sports & Houses initial learner load uses one governed school/year roster 
   assert.match(queries, /rpc\("get_sports_house_learner_roster"/);
   assert.match(queries, /p_school_id: schoolId/);
   assert.match(queries, /p_academic_year: academicYear/);
+  assert.match(
+    queries,
+    /\.select\(\s*"learner_id,first_names,surname,admission_number,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label"/,
+  );
+  assert.doesNotMatch(
+    queries,
+    /\.select\([^)]*(?:tenant_id|school_id|academic_year)[^)]*\)/s,
+  );
   assert.doesNotMatch(queries, /from\("enrolments"\)/);
   assert.doesNotMatch(queries, /from\("learners"\)/);
   assert.doesNotMatch(queries, /readIdentityRowsInChunks(?:<[^>]+>)?\(\s*learnerIds/);
