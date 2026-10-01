@@ -225,8 +225,7 @@ export function OperationalTeachingFiles({
         </a>
       </div>
 
-      {hasGovernedFiles ? (
-        <div className="mt-4">
+      <div className="mt-4">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {teacherFileFolders.map((folder, index) => {
               const active = fileType === folder.key;
@@ -254,7 +253,11 @@ export function OperationalTeachingFiles({
                   <h3 className="mt-4 text-sm font-semibold">{folder.title}</h3>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">{folder.description}</p>
                   <p className="mt-3 text-[0.68rem] font-medium text-muted-foreground">
-                    {folder.total ? `${folder.available} of ${folder.total} requirements available` : "Open file requirements"}
+                    {hasGovernedFiles
+                      ? folder.total
+                        ? `${folder.available} of ${folder.total} requirements available`
+                        : "Open file requirements"
+                      : "Template not yet verified for current subjects"}
                   </p>
                 </button>
               );
@@ -268,12 +271,12 @@ export function OperationalTeachingFiles({
               Open Subject File
             </Link>
           </div>
+          {!hasGovernedFiles ? (
+            <div className="mt-3 rounded-[var(--radius-sm)] border border-dashed border-border p-3 text-xs text-muted-foreground">
+              Your current teaching allocations do not yet have a verified operational-file template. The four canonical teacher-file directories remain available, while subject-specific requirements stay unavailable until an authoritative template is verified.
+            </div>
+          ) : null}
         </div>
-      ) : (
-        <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-3 text-xs text-muted-foreground">
-          Your current teaching allocations do not yet have a verified operational-file template. Your canonical professional files and teaching records remain available below.
-        </div>
-      )}
 
       {hasGovernedFiles ? (
         <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted/55 p-3">
