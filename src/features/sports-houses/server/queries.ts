@@ -69,6 +69,10 @@ type LearnerRosterRow = {
   age_group_label: string | null;
 };
 
+type AssignmentYearRow = {
+  academic_year: number;
+};
+
 type StaffAssignmentRow = {
   staff_member_id: string;
   house_id: string;
@@ -120,9 +124,8 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     settingsResult,
     ageGroupsResult,
     learnerRosterResult,
-    learnerAssignmentsYearsResult,
+    assignmentYearsResult,
     staffAssignmentsResult,
-    staffAssignmentYearsResult,
     staffPlacementsResult,
   ] = await Promise.all([
     supabase.from("schools").select("id,name").eq("id", schoolId).maybeSingle(),
@@ -130,9 +133,8 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     supabase.from("sports_year_settings").select("academic_year,age_reference_date,assignment_continuity").eq("school_id", schoolId).order("academic_year", { ascending: false }),
     supabase.from("sports_age_groups").select("id,label,min_age,max_age,sort_order,status").eq("school_id", schoolId).order("sort_order").order("label"),
     supabase.rpc("get_sports_house_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
-    supabase.from("sports_learner_house_assignments").select("academic_year").eq("school_id", schoolId),
+    supabase.rpc("get_sports_house_assignment_years", { p_school_id: schoolId }),
     supabase.from("sports_staff_house_assignments").select("staff_member_id,house_id,role_key,assignment_source,is_locked,assigned_at").eq("school_id", schoolId).eq("academic_year", academicYear),
-    supabase.from("sports_staff_house_assignments").select("academic_year").eq("school_id", schoolId),
     supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to").eq("school_id", schoolId).lte("effective_from", yearEnd).or(`effective_to.is.null,effective_to.gte.${yearStart}`),
   ]);
 
@@ -142,9 +144,8 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     ["year settings", settingsResult.error],
     ["age groups", ageGroupsResult.error],
     ["learner roster", learnerRosterResult.error],
-    ["learner assignment history", learnerAssignmentsYearsResult.error],
+    ["assignment-year history", assignmentYearsResult.error],
     ["staff assignments", staffAssignmentsResult.error],
-    ["staff assignment history", staffAssignmentYearsResult.error],
     ["staff placements", staffPlacementsResult.error],
   ] as const;
   for (const [dependency, error] of readIssues) {
@@ -243,8 +244,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     currentYear,
     academicYear,
     ...settings.map((row) => row.academicYear),
-    ...(learnerAssignmentsYearsResult.data ?? []).map((row) => row.academic_year),
-    ...(staffAssignmentYearsResult.data ?? []).map((row) => row.academic_year),
+    ...((assignmentYearsResult.data ?? []) as AssignmentYearRow[]).map((row) => row.academic_year),
   ]);
 
   return {
