@@ -86,8 +86,12 @@ test("hosted recovery establishes staff identity and current roles after hosted 
   assert.match(recovery, /sourceRoles\.has\(currentLocal\.role_key\)/);
   assert.match(recovery, /\.delete\(\)\s*\.eq\("id", currentLocal\.id\)/);
   assert.match(recovery, /Unable to remove stale Local Admin/);
-  assert.match(recovery, /const sameRoleLocals = currentLocalMemberships\.filter/);
+  assert.match(recovery, /const sameRoleLocals = localMemberships\.filter/);
+  assert.match(recovery, /const exactLocal =/);
   assert.match(recovery, /row\.active_from === sourceMembership\.active_from/);
+  assert.match(recovery, /const currentSameRoleLocals = sameRoleLocals\.filter/);
+  assert.match(recovery, /const currentLocal = exactLocal \?\? currentSameRoleLocals\[0\] \?\? null/);
+  assert.match(recovery, /for \(const duplicateLocal of currentSameRoleLocals\)/);
   assert.match(recovery, /Unable to remove duplicate Local Admin/);
   assert.match(recovery, /staff_member_id: staffMemberId/);
   assert.match(recovery, /active_from: sourceMembership\.active_from/);
@@ -281,4 +285,19 @@ test("Sports/Houses configuration reruns preserve immutable scope and creator co
     recovery,
     /"sports_year_settings", new Set\(\["id", "tenant_id", "school_id", "academic_year", "created_by_user_id", "created_at"\]\)/,
   );
+});
+
+test("role reconciliation reuses an exact historical start-date row before updating a newer current row", () => {
+  const sameRoleLocals = recovery.indexOf("const sameRoleLocals = localMemberships.filter");
+  const exactLocal = recovery.indexOf("const exactLocal =", sameRoleLocals);
+  const currentSameRoleLocals = recovery.indexOf("const currentSameRoleLocals =", exactLocal);
+  const keeper = recovery.indexOf("const currentLocal = exactLocal ?? currentSameRoleLocals[0] ?? null", currentSameRoleLocals);
+  const duplicateCleanup = recovery.indexOf("for (const duplicateLocal of currentSameRoleLocals)", keeper);
+  const synchronize = recovery.indexOf(".update({", duplicateCleanup);
+  assert.ok(sameRoleLocals >= 0);
+  assert.ok(exactLocal > sameRoleLocals);
+  assert.ok(currentSameRoleLocals > exactLocal);
+  assert.ok(keeper > currentSameRoleLocals);
+  assert.ok(duplicateCleanup > keeper);
+  assert.ok(synchronize > duplicateCleanup);
 });
