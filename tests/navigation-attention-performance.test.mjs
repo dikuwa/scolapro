@@ -5,6 +5,7 @@ import test from "node:test";
 const appShell = readFileSync("src/components/shell/app-shell.tsx", "utf8");
 const shellFrame = readFileSync("src/components/shell/shell-frame.tsx", "utf8");
 const route = readFileSync("src/app/api/navigation-attention/route.ts", "utf8");
+const attention = readFileSync("src/features/notifications/server/navigation-attention.ts", "utf8");
 
 test("navigation attention no longer blocks the server AppShell", () => {
   assert.doesNotMatch(appShell, /getNavigationAttentionCounts\(/);
@@ -19,9 +20,17 @@ test("attention badges hydrate after shell render with a short per-user session 
   assert.match(shellFrame, /resolvedAttentionCounts/);
 });
 
-test("attention endpoint derives school and role from authenticated context", () => {
-  assert.match(route, /getUserContext\(\)/);
-  assert.match(route, /context\.currentSchoolMembership/);
-  assert.match(route, /getNavigationAttentionCounts\(membership\.schoolId, membership\.roleKey\)/);
+test("attention endpoint delegates to one self-scoped RPC-backed loader", () => {
+  assert.doesNotMatch(route, /getUserContext\(\)/);
+  assert.doesNotMatch(route, /currentSchoolMembership/);
+  assert.match(route, /getNavigationAttentionCounts\(\)/);
   assert.match(route, /private, no-store/);
+});
+
+
+test("navigation attention uses one self-scoped RPC and no direct queue table read", () => {
+  assert.match(attention, /supabase\.rpc\("get_my_navigation_attention"/);
+  assert.match(attention, /getNamibiaDateKey\(\)/);
+  assert.doesNotMatch(attention, /profile_change_requests/);
+  assert.doesNotMatch(attention, /getUserContext\(/);
 });

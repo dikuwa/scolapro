@@ -1,30 +1,22 @@
+import { getNamibiaDateKey } from "@/lib/namibia-date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type NavigationAttentionCounts = Partial<Record<string, number>>;
 
-const dataCorrectionReviewRoles = new Set([
-  "school_admin",
-  "principal",
-  "deputy_principal",
-  "counsellor",
-]);
-
-export async function getNavigationAttentionCounts(
-  schoolId: string,
-  roleKey: string,
-): Promise<NavigationAttentionCounts> {
-  const counts: NavigationAttentionCounts = {};
-  if (!dataCorrectionReviewRoles.has(roleKey)) return counts;
-
+export async function getNavigationAttentionCounts(): Promise<NavigationAttentionCounts> {
   const supabase = await createSupabaseServerClient();
-  const { count, error } = await supabase
-    .from("profile_change_requests")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", schoolId)
-    .eq("status", "pending");
+  const { data, error } = await supabase.rpc("get_my_navigation_attention", {
+    p_as_of_date: getNamibiaDateKey(),
+  });
 
-  // Attention badges are supplemental shell UI. A count query must never make the
-  // whole dashboard unavailable; the queue page itself remains authoritative.
-  if (!error && (count ?? 0) > 0) counts.data_corrections = count ?? 0;
-  return counts;
+  // Attention badges are supplemental shell UI. A failed refresh must never make
+  // the whole dashboard unavailable; the queue page itself remains authoritative.
+  if (error || !data || typeof data !== "object" || Array.isArray(data)) return {};
+
+  const counts = data as Record<string, unknown>;
+  const dataCorrections = Number(counts.data_corrections ?? 0);
+
+  return Number.isFinite(dataCorrections) && dataCorrections > 0
+    ? { data_corrections: dataCorrections }
+    : {};
 }
