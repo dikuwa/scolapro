@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(13);
 
 select is(
   (
@@ -76,14 +76,17 @@ select ok(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%app_private.staff_member_covers_school_period(%'
+    select pg_get_functiondef(p.oid) like '%assignment_history as materialized%'
+      and pg_get_functiondef(p.oid) like '%current_assignment_coverage as materialized%'
+      and pg_get_functiondef(p.oid) like '%current_membership_coverage as materialized%'
+      and pg_get_functiondef(p.oid) like '%scope.status = ''active''%'
       and pg_get_functiondef(p.oid) like '%current_date%'
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname='app_private'
       and p.proname='get_sports_house_staff_roster_authorized'
   ),
-  'current school-period staff coverage remains authoritative'
+  'current school-period staff coverage remains set-based and authoritative'
 );
 
 select ok(
@@ -95,6 +98,17 @@ select ok(
       and p.proname='get_sports_house_staff_roster_authorized'
   ),
   'staff roster no longer invokes can_read_staff_identity once per row'
+);
+
+select ok(
+  (
+    select pg_get_functiondef(p.oid) not like '%app_private.staff_member_covers_school_period(%'
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname='app_private'
+      and p.proname='get_sports_house_staff_roster_authorized'
+  ),
+  'staff roster no longer invokes staff_member_covers_school_period once per row'
 );
 
 select ok(
