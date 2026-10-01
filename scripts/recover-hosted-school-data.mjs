@@ -36,7 +36,10 @@ const primaryKeys = new Map([
 const protectedIdentityColumns = new Map([
   ["schools", new Set(["id", "tenant_id", "created_at"])],
   ["learners", new Set(["id", "tenant_id", "created_at"])],
-  ["guardian_profiles", new Set(["id", "tenant_id", "created_at"])]
+  ["guardian_profiles", new Set(["id", "tenant_id", "created_at"])],
+  ["sports_houses", new Set(["id", "tenant_id", "school_id", "created_by_user_id", "created_at"])],
+  ["sports_age_groups", new Set(["id", "tenant_id", "school_id", "created_by_user_id", "created_at"])],
+  ["sports_year_settings", new Set(["id", "tenant_id", "school_id", "academic_year", "created_by_user_id", "created_at"])]
 ]);
 
 const attendanceReasonIdMap = new Map();
@@ -390,7 +393,7 @@ await deleteDemoRows(target);
 
 const verifyTables = [
   "staff_members","learners","enrolments","register_classes","school_rooms","subjects","teacher_allocations","guardian_profiles",
-  "sports_houses","sports_learner_house_assignments","sports_staff_house_assignments",
+  "sports_houses","sports_age_groups","sports_year_settings","sports_learner_house_assignments","sports_staff_house_assignments",
 ];
 const verification = [];
 for (const table of verifyTables) {
@@ -401,6 +404,8 @@ for (const table of verifyTables) {
     "learners",
     "enrolments",
     "sports_houses",
+    "sports_age_groups",
+    "sports_year_settings",
     "sports_learner_house_assignments",
     "sports_staff_house_assignments",
   ].includes(table);

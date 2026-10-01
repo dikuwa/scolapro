@@ -200,3 +200,46 @@ test("hosted recovery restores Sports/Houses after learner and staff identities"
     assert.match(recovery, new RegExp('"' + table + '"'));
   }
 });
+
+test("all restored Sports/Houses tables are exact-gated after recovery", () => {
+  const verifyStart = recovery.indexOf("const verifyTables = [");
+  const verifyEnd = recovery.indexOf("];", verifyStart);
+  const exactStart = recovery.indexOf("const requiresExactMatch = [", verifyEnd);
+  const exactEnd = recovery.indexOf("].includes(table);", exactStart);
+  assert.ok(verifyStart >= 0 && verifyEnd > verifyStart, "verifyTables block must exist");
+  assert.ok(exactStart > verifyEnd && exactEnd > exactStart, "exact-match block must exist");
+  const verifyBlock = recovery.slice(verifyStart, verifyEnd);
+  const exactBlock = recovery.slice(exactStart, exactEnd);
+  for (const table of [
+    "sports_houses",
+    "sports_age_groups",
+    "sports_year_settings",
+    "sports_learner_house_assignments",
+    "sports_staff_house_assignments",
+  ]) {
+    assert.match(verifyBlock, new RegExp('"' + table + '"'), table + " must be verified");
+    assert.match(exactBlock, new RegExp('"' + table + '"'), table + " must require exact parity");
+  }
+});
+
+test("Sports/Houses configuration reruns preserve immutable scope and creator columns", () => {
+  for (const table of ["sports_houses", "sports_age_groups", "sports_year_settings"]) {
+    assert.match(
+      recovery,
+      new RegExp('\\["' + table + '", new Set\\(\\['),
+      table + " must use protected identity updates",
+    );
+  }
+  assert.match(
+    recovery,
+    /"sports_houses", new Set\(\["id", "tenant_id", "school_id", "created_by_user_id", "created_at"\]\)/,
+  );
+  assert.match(
+    recovery,
+    /"sports_age_groups", new Set\(\["id", "tenant_id", "school_id", "created_by_user_id", "created_at"\]\)/,
+  );
+  assert.match(
+    recovery,
+    /"sports_year_settings", new Set\(\["id", "tenant_id", "school_id", "academic_year", "created_by_user_id", "created_at"\]\)/,
+  );
+});
