@@ -67,10 +67,11 @@ test("legacy invitation hrefs are rendered safely without rewriting notification
   assert.match(shell, /getNotificationInbox\(8,/);
 });
 
-test("navigation attention stays school-bound and supplemental", () => {
-  assert.match(attention, /\.eq\("school_id", schoolId\)/);
-  assert.match(attention, /\.eq\("status", "pending"\)/);
-  assert.match(attention, /if \(!error && \(count \?\? 0\) > 0\)/);
+test("navigation attention stays self-scoped and supplemental", () => {
+  assert.match(attention, /supabase\.rpc\("get_my_navigation_attention"/);
+  assert.match(attention, /if \(error \|\| !data/);
+  assert.match(attention, /data_corrections/);
+  assert.doesNotMatch(attention, /profile_change_requests/);
 });
 
 test("notification center retains mobile-safe responsive bounds and empty/loading states", () => {
