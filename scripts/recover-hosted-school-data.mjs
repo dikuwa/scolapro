@@ -409,4 +409,4 @@ for (const table of verifyTables) {
   }
 }
 console.table(verification);
-console.log("Recovery complete. Restart pnpm dev, sign in as Local Admin, and verify Learners, Staff, Academic setup, Timetable, Class Lists and Room Inventory.");
+console.log("Recovery complete. Restart pnpm dev, sign in as Local Admin, and verify Learners, Staff, Academic setup, Timetable, Class Lists, Room Inventory and Sports / Houses.");
