@@ -93,11 +93,13 @@ test("offline shell exposes cached attendance and registers synchronization runt
   assert.match(db, /SNAPSHOTS/);
 });
 
-test("role navigation uses Next route-shell prefetching without custom eager fetch hooks", () => {
+test("role navigation avoids viewport prefetch while retaining explicit intent prefetch", () => {
   const links = [...navigation.matchAll(/<Link[^>]+>/g)].map((match) => match[0]);
   assert.ok(links.length > 0);
   for (const link of links) {
-    assert.doesNotMatch(link, /prefetch=\{false\}/, `navigation link should allow Next shell prefetching: ${link}`);
+    assert.match(link, /prefetch=\{false\}/, `navigation link should avoid viewport shell prefetching: ${link}`);
   }
-  assert.doesNotMatch(navigation, /router\.prefetch/);
+  assert.match(navigation, /router\.prefetch\(item\.href\)/);
+  assert.match(navigation, /onPointerEnter=/);
+  assert.match(navigation, /onFocus=/);
 });
