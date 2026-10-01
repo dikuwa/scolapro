@@ -70,6 +70,19 @@ test("hosted recovery preserves immutable core identity provenance on reruns", (
 });
 
 
+test("hosted recovery preserves the Local Admin staff identity without importing hosted user ids", () => {
+  assert.match(recovery, /let localAdminStaffMemberId = null/);
+  assert.match(recovery, /select\("user_id,school_id,role_key,staff_member_id"\)/);
+  assert.match(recovery, /localAdminStaffMemberId = membershipResult\.data\.staff_member_id/);
+  assert.match(
+    recovery,
+    /next\.user_id = next\.id === localAdminStaffMemberId \? localAdminUserId : null/,
+  );
+  assert.match(recovery, /\.eq\("id", localAdminStaffMemberId\)/);
+  assert.match(recovery, /localAdminStaffResult\.data\.user_id !== localAdminUserId/);
+  assert.match(recovery, /Local Admin staff identity mapping was not preserved/);
+});
+
 test("hosted recovery remaps governed provenance actors to Local Admin", () => {
   for (const table of [
     "school_settings",
