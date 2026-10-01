@@ -15,6 +15,15 @@ test("Issue #886 presents the four teacher-file workspace", () => {
   assert.match(source, /requirements available/);
 });
 
+test("four canonical teacher-file directories remain visible when a subject template is not yet verified", () => {
+  assert.match(source, /Template not yet verified for current subjects/);
+  assert.match(source, /four canonical teacher-file directories remain available/);
+  const directoryGrid = source.indexOf("grid gap-3 sm:grid-cols-2 xl:grid-cols-4");
+  const governedRequirementFilters = source.indexOf("{hasGovernedFiles ? (", directoryGrid);
+  assert.ok(directoryGrid >= 0, "folder directory grid must exist");
+  assert.ok(governedRequirementFilters > directoryGrid, "folder directory must render before governed-template-only requirement filters");
+});
+
 test("Subject File remains separate from the four teacher folders", () => {
   assert.match(source, /Subject File is separate/);
   assert.match(source, /href="\/teaching\/subject-file"/);

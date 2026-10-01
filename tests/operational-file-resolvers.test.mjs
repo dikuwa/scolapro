@@ -12,7 +12,9 @@ test("resolver derives school scope from the authenticated context", () => {
   const resolveInput = source.slice(source.indexOf("type ResolveInput"), source.indexOf("type ResolveBatchInput"));
   assert.doesNotMatch(resolveInput, /schoolId:/);
   assert.match(source, /schoolId: membership\.schoolId/);
-  assert.match(source, /staffMemberId: membership\.staffMemberId \?\? null/);
+  assert.match(source, /context\.memberships\.find/);
+  assert.match(source, /staffMemberId: ownerMembership\.staffMemberId/);
+  assert.match(source, /context\.memberships\.some/);
 });
 
 test("resolver reuses canonical Teaching Files evidence instead of copying payloads", () => {
@@ -65,6 +67,13 @@ test("external references are explicit HTTPS-only metadata and manual stays manu
 test("teacher documents require an item-bound owner-scoped resource reference", () => {
   assert.match(source, /sharedResourceResult\("teacher_document"\)/);
   assert.match(source, /No teacher-owned professional document is bound to this operational-file requirement\./);
-  assert.match(source, /ownerStaffMemberId: membership\.staffMemberId/);
+  assert.match(source, /ownerStaffMemberId: ownerMembership\.staffMemberId/);
   assert.doesNotMatch(source, /hub\.professionalDocuments\.map\(\(document\)/);
+});
+
+test("multi-role School Admin plus Teacher keeps teacher-owned evidence enabled", () => {
+  assert.match(source, /item\.schoolId === membership\.schoolId/);
+  assert.match(source, /\["teacher", "class_teacher", "hod"\]\.includes\(item\.roleKey\)/);
+  assert.match(source, /\["teacher", "class_teacher"\]\.includes\(item\.roleKey\)/);
+  assert.doesNotMatch(source, /canOpenLessonPreparations: \["teacher", "class_teacher"\]\.includes\(membership\.roleKey\)/);
 });

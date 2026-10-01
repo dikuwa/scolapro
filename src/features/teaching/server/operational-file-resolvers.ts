@@ -302,12 +302,25 @@ export async function resolveOperationalFileEvidenceBatch(
   if (!membership) {
     return input.items.map((item) => unavailable(item.resolverType, "School membership required."));
   }
+  const ownerMembership = context.memberships.find(
+    (item) =>
+      item.schoolId === membership.schoolId &&
+      item.staffMemberId &&
+      ["teacher", "class_teacher", "hod"].includes(item.roleKey),
+  );
+  if (!ownerMembership?.staffMemberId) {
+    return input.items.map((item) => unavailable(item.resolverType, "Staff-backed teaching membership required."));
+  }
 
   const hub = await getTeachingFilesHub({
     schoolId: membership.schoolId,
     academicYear: input.academicYear,
-    staffMemberId: membership.staffMemberId ?? null,
-    canOpenLessonPreparations: ["teacher", "class_teacher"].includes(membership.roleKey),
+    staffMemberId: ownerMembership.staffMemberId,
+    canOpenLessonPreparations: context.memberships.some(
+      (item) =>
+        item.schoolId === membership.schoolId &&
+        ["teacher", "class_teacher"].includes(item.roleKey),
+    ),
   });
   const sharedResourcesByItem = await getOperationalFileSharedResourceReferences({
     templateItemIds: input.items.map((item) => item.id),
@@ -320,7 +333,7 @@ export async function resolveOperationalFileEvidenceBatch(
       academicYear: input.academicYear,
       item,
       hub,
-      ownerStaffMemberId: membership.staffMemberId ?? null,
+      ownerStaffMemberId: ownerMembership.staffMemberId,
       sharedResources: sharedResourcesByItem.get(item.id) ?? [],
       allocationId: input.allocationIds?.[index],
     }),
