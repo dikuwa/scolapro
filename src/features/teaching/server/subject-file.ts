@@ -138,7 +138,15 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
   const context=await getUserContext();
   if (!context.user || context.platformMemberships.length) return null;
   const membership=context.currentSchoolMembership;
-  if (!membership?.staffMemberId || !["hod","teacher","class_teacher"].includes(membership.roleKey)) return null;
+  if (!membership) return null;
+  const teachingMembership=["hod","teacher","class_teacher"]
+    .map((roleKey)=>context.memberships.find((item)=>
+      item.schoolId===membership.schoolId &&
+      item.staffMemberId &&
+      item.roleKey===roleKey
+    ))
+    .find((item)=>Boolean(item?.staffMemberId));
+  if (!teachingMembership?.staffMemberId) return null;
 
   const db=await createSupabaseServerClient();
   const today=getNamibiaDateKey();
@@ -147,7 +155,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
     db.from("staff_school_assignments")
       .select("id,staff_member_id,effective_from,effective_to")
       .eq("school_id",membership.schoolId)
-      .eq("staff_member_id",membership.staffMemberId),
+      .eq("staff_member_id",teachingMembership.staffMemberId),
     db.from("subject_department_responsibilities")
       .select("id,subject_id,department_head_staff_assignment_id,department_label,effective_from,effective_to")
       .eq("school_id",membership.schoolId),
@@ -159,7 +167,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
   if (assignmentError || responsibilityError || allocationError) throw new Error("Unable to load governed subject-file scope.");
 
   const ownAssignmentIds=new Set((assignments ?? []).filter((row)=>effective(today,row.effective_from,row.effective_to)).map((row)=>row.id));
-  const hodResponsibilities=membership.roleKey==="hod"
+  const hodResponsibilities=teachingMembership.roleKey==="hod"
     ? (responsibilities ?? []).filter((row)=>
         ownAssignmentIds.has(row.department_head_staff_assignment_id) && effective(today,row.effective_from,row.effective_to)
       )
@@ -167,7 +175,7 @@ export async function getSubjectFileWorkspace(academicYear:number):Promise<Subje
   const hodSubjectIds=new Set(hodResponsibilities.map((row)=>row.subject_id));
 
   const activeAllocations=(teachingAllocations ?? []).filter((row)=>effective(today,row.active_from,row.active_to));
-  const ownAllocationIds=activeAllocations.filter((row)=>row.staff_member_id===membership.staffMemberId);
+  const ownAllocationIds=activeAllocations.filter((row)=>row.staff_member_id===teachingMembership.staffMemberId);
   const allocationOfferingIds=[...new Set(activeAllocations.map((row)=>row.subject_offering_id))];
 
   const {data:allocationOfferings,error:allocationOfferingError}=allocationOfferingIds.length
