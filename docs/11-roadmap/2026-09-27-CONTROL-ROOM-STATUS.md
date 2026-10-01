@@ -1,5 +1,7 @@
 # Control Room status — 27 September 2026
 
+> **SUPERSEDED FOR CURRENT STATUS.** Use `docs/11-roadmap/2026-10-01-CONTROL-ROOM-STATUS.md` for the authoritative Control Room state. This file remains historical evidence for the 27 September checkpoint.
+
 Authoritative main: `dcefec012bbb0cedadf17f72f8fc4f2fd6845aa4`.
 
 This is the current delta over the 20 September release-hardening baseline. Use it with `CONTROL-ROOM.md` and `IMPLEMENTATION-STATUS.md`; do not reopen integrated work merely because those older documents contain historical sequencing language.
