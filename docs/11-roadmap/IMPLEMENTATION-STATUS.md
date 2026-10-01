@@ -1,10 +1,11 @@
 # ScolaPro Implementation Status
 
+> **Current Control Room status:** see `docs/11-roadmap/2026-10-01-CONTROL-ROOM-STATUS.md`.  
+> The dated 20 September detail below remains useful historical/domain evidence, but its issue/PR/migration-parity status is superseded by the 1 October Control Room status.
+
 > Living handoff document. Read with `ARCHITECTURE-ROADMAP.md`, `CONTROL-ROOM.md`, the coordinated delivery ledger and relevant domain/design documents before proposing new architecture or duplicate work.
 
-Last updated: **20 September 2026**
-
-Current authoritative main: `7744537797170fb1d3fcea744bb6aa7ba89b42d7`. Release hardening Issue #598 is CLOSED with RELEASE GO. Post-release offline expansion is tracked in Issue #602.
+Last reconciled against authoritative main: **1 October 2026 — `e5829820349fd85e4a7057247a65829867e980cb`**.
 
 Canonical 10 September product directive: `docs/11-roadmap/2026-09-10-ABSENCE-LTSM-UI-DIRECTIVE.md`.
 
