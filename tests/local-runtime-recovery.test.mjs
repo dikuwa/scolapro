@@ -70,10 +70,15 @@ test("hosted recovery preserves immutable core identity provenance on reruns", (
 });
 
 
-test("hosted recovery preserves the Local Admin staff identity without importing hosted user ids", () => {
+test("hosted recovery establishes and preserves the Local Admin staff identity without importing hosted user ids", () => {
   assert.match(recovery, /let localAdminStaffMemberId = null/);
-  assert.match(recovery, /select\("user_id,school_id,role_key,staff_member_id"\)/);
-  assert.match(recovery, /localAdminStaffMemberId = membershipResult\.data\.staff_member_id/);
+  assert.match(recovery, /function namibiaDateKey\(\)/);
+  assert.match(recovery, /select\("id,user_id,school_id,role_key,staff_member_id"\)/);
+  assert.match(recovery, /source\.from\("school_memberships"\)/);
+  assert.match(recovery, /\.eq\("role_key", "school_admin"\)/);
+  assert.match(recovery, /currentSourceAdminStaffIds\.length !== 1/);
+  assert.match(recovery, /membershipResult\.data\.staff_member_id \?\? hostedAdminStaffMemberId/);
+  assert.match(recovery, /\.update\(\{ staff_member_id: localAdminStaffMemberId \}\)/);
   assert.match(
     recovery,
     /next\.user_id = next\.id === localAdminStaffMemberId \? localAdminUserId : null/,
