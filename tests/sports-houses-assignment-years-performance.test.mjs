@@ -14,6 +14,7 @@ test("sports houses collapses assignment-year history scans into one RPC", () =>
     queries,
     /from\("sports_staff_house_assignments"\)\.select\("academic_year"\)/,
   );
+  assert.doesNotMatch(queries, /learnerAssignmentsYearsResult|staffAssignmentYearsResult/);
 });
 
 test("sports houses preserves complete year selector composition", () => {
