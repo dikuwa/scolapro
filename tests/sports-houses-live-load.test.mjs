@@ -33,10 +33,11 @@ test("governed roster includes bounded school/year eligibility and assignment co
   assert.match(dbTest, /platform_support/);
 });
 
-test("Sports & Houses identity hydration remains only for staff placements", () => {
-  assert.match(queries, /readIdentityRowsInChunks<StaffIdentityRow>/);
-  assert.match(queries, /from\("staff_members"\)\.select\("id,first_name,last_name,employee_number"\)/);
-  assert.match(queries, /staff identities read failed/);
+test("Sports & Houses staff identity hydration is bundled into the governed staff roster RPC", () => {
+  assert.match(queries, /rpc\("get_sports_house_staff_roster"/);
+  assert.doesNotMatch(queries, /readIdentityRowsInChunks<StaffIdentityRow>/);
+  assert.doesNotMatch(queries, /from\("staff_members"\)/);
+  assert.doesNotMatch(queries, /staff identities read failed/);
   assert.doesNotMatch(queries, /learner identities read failed/);
   assert.doesNotMatch(queries, /learnerIds/);
 });
