@@ -18,9 +18,9 @@ test("HOD Subject File derives scope from effective subject responsibility",()=>
 
 test("teachers see only subjects from their current allocations",()=>{
   assert.match(server,/teacher_allocations/);
-  assert.match(server,/row\.staff_member_id===membership\.staffMemberId/);
+  assert.match(server,/row\.staff_member_id===teachingMembership\.staffMemberId/);
   assert.match(server,/teacherSubjectIds/);
-  assert.match(server,/\["hod","teacher","class_teacher"\]/);
+  assert.match(server,/const teachingMembership=\["hod","teacher","class_teacher"\]/);
 });
 
 test("subject dossier aggregates canonical records without a second file store",()=>{
@@ -72,9 +72,18 @@ test("workspace retains responsive source primitives",()=>{
 });
 
 
-test("HOD-wide subject access requires a current HOD membership",()=>{
-  assert.match(server,/membership\.roleKey==="hod"/);
+test("HOD-wide subject access requires a current-school staff-backed HOD membership",()=>{
+  assert.match(server,/teachingMembership\.roleKey==="hod"/);
+  assert.match(server,/item\.schoolId===membership\.schoolId/);
   assert.match(server,/hodResponsibilities/);
+});
+
+test("School Admin plus Teacher multi-role users resolve Subject File through the teaching membership",()=>{
+  assert.match(server,/context\.currentSchoolMembership/);
+  assert.match(server,/context\.memberships\.find/);
+  assert.match(server,/item\.staffMemberId/);
+  assert.match(server,/teachingMembership\.staffMemberId/);
+  assert.doesNotMatch(server,/if \(!membership\?\.staffMemberId \|\| !\["hod","teacher","class_teacher"\]\.includes\(membership\.roleKey\)\) return null/);
 });
 
 test("HOD-owned subjects load configured offerings even without active teacher allocation",()=>{
