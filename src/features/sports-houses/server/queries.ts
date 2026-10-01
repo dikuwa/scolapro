@@ -73,51 +73,21 @@ type AssignmentYearRow = {
   academic_year: number;
 };
 
-type StaffAssignmentRow = {
+type StaffRosterRow = {
   staff_member_id: string;
-  house_id: string;
-  role_key: string;
-  assignment_source: string;
-  is_locked: boolean;
-  assigned_at: string;
-};
-
-type StaffIdentityRow = {
-  id: string;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   employee_number: string | null;
+  house_id: string | null;
+  role_key: string | null;
+  assignment_source: string | null;
+  is_locked: boolean | null;
+  assigned_at: string | null;
 };
-
-const IDENTITY_READ_CHUNK_SIZE = 200;
-
-type IdentityReadError = {
-  code?: string;
-};
-
-async function readIdentityRowsInChunks<T>(
-  ids: string[],
-  readChunk: (chunk: string[]) => Promise<{ data: T[] | null; error: IdentityReadError | null }>,
-) {
-  const uniqueIds = [...new Set(ids)];
-  const rows: T[] = [];
-
-  for (let offset = 0; offset < uniqueIds.length; offset += IDENTITY_READ_CHUNK_SIZE) {
-    const chunk = uniqueIds.slice(offset, offset + IDENTITY_READ_CHUNK_SIZE);
-    const result = await readChunk(chunk);
-    if (result.error) return { data: [] as T[], error: result.error };
-    rows.push(...(result.data ?? []));
-  }
-
-  return { data: rows, error: null };
-}
 
 export async function getSportsHousesWorkspace(schoolId: string, academicYear: number) {
   const supabase = await createSupabaseServerClient();
   const currentYear = Number(getNamibiaDateKey().slice(0, 4));
-  const yearStart = `${academicYear}-01-01`;
-  const yearEnd = `${academicYear}-12-31`;
-
   const [
     schoolResult,
     housesResult,
@@ -125,8 +95,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     ageGroupsResult,
     learnerRosterResult,
     assignmentYearsResult,
-    staffAssignmentsResult,
-    staffPlacementsResult,
+    staffRosterResult,
   ] = await Promise.all([
     supabase.from("schools").select("id,name").eq("id", schoolId).maybeSingle(),
     supabase.from("sports_houses").select("id,name,short_code,color_hex,sort_order,status,created_by_user_id,created_at,updated_at").eq("school_id", schoolId).order("sort_order").order("name"),
@@ -134,8 +103,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     supabase.from("sports_age_groups").select("id,label,min_age,max_age,sort_order,status").eq("school_id", schoolId).order("sort_order").order("label"),
     supabase.rpc("get_sports_house_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
     supabase.rpc("get_sports_house_assignment_years", { p_school_id: schoolId }),
-    supabase.from("sports_staff_house_assignments").select("staff_member_id,house_id,role_key,assignment_source,is_locked,assigned_at").eq("school_id", schoolId).eq("academic_year", academicYear),
-    supabase.from("staff_school_assignments").select("staff_member_id,effective_from,effective_to").eq("school_id", schoolId).lte("effective_from", yearEnd).or(`effective_to.is.null,effective_to.gte.${yearStart}`),
+    supabase.rpc("get_sports_house_staff_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
 
   const readIssues = [
@@ -145,8 +113,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     ["age groups", ageGroupsResult.error],
     ["learner roster", learnerRosterResult.error],
     ["assignment-year history", assignmentYearsResult.error],
-    ["staff assignments", staffAssignmentsResult.error],
-    ["staff placements", staffPlacementsResult.error],
+    ["staff roster", staffRosterResult.error],
   ] as const;
   for (const [dependency, error] of readIssues) {
     if (error) console.error(`[sports-houses] ${dependency} read failed`, { code: error.code ?? "unknown" });
@@ -159,24 +126,11 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     ["school context", schoolResult.error],
     ["house configuration", housesResult.error],
     ["learner roster", learnerRosterResult.error],
-    ["staff assignments", staffAssignmentsResult.error],
-    ["staff placements", staffPlacementsResult.error],
+    ["staff roster", staffRosterResult.error],
   ].find(([, error]) => error);
   if (fatalIssue) throw new Error(`Unable to load Sports / Houses (${fatalIssue[0]}).`);
 
   if (!schoolResult.data) throw new Error("Sports / Houses school context is unavailable.");
-
-  const staffPlacementIds = [...new Set((staffPlacementsResult.data ?? []).map((row) => row.staff_member_id))];
-  const assignedStaffIds = [...new Set(((staffAssignmentsResult.data ?? []) as StaffAssignmentRow[]).map((row) => row.staff_member_id))];
-  const staffIds = [...new Set([...staffPlacementIds, ...assignedStaffIds])];
-  const staffIdentityResult = await readIdentityRowsInChunks<StaffIdentityRow>(
-    staffIds,
-    async (chunk) => supabase.from("staff_members").select("id,first_name,last_name,employee_number").in("id", chunk),
-  );
-  if (staffIdentityResult.error) {
-    console.error("[sports-houses] staff identities read failed", { code: staffIdentityResult.error.code ?? "unknown" });
-    throw new Error("Unable to load staff identities for Sports / Houses.");
-  }
 
   const houses: SportsHouse[] = (housesResult.data ?? []).map((row) => ({
     id: row.id,
@@ -214,24 +168,19 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     ageGroupLabel: row.age_group_label,
   })).sort((a, b) => a.name.localeCompare(b.name));
 
-  const staffIdentityMap = new Map((staffIdentityResult.data ?? []).map((row) => [row.id, row]));
-  const staffAssignments = new Map(
-    ((staffAssignmentsResult.data ?? []) as StaffAssignmentRow[]).map((row) => [row.staff_member_id, row]),
-  );
-  const staff: SportsStaff[] = staffIds.map((staffId) => {
-    const identity = staffIdentityMap.get(staffId);
-    const assignment = staffAssignments.get(staffId);
-    const house = assignment ? houseMap.get(assignment.house_id) : null;
+  const staff: SportsStaff[] = ((staffRosterResult.data ?? []) as StaffRosterRow[]).map((row) => {
+    const house = row.house_id ? houseMap.get(row.house_id) : null;
+    const name = `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim();
     return {
-      id: staffId,
-      name: identity ? `${identity.first_name} ${identity.last_name}`.trim() : "Staff member",
-      employeeNumber: identity?.employee_number ?? null,
-      houseId: assignment?.house_id ?? null,
+      id: row.staff_member_id,
+      name: name || "Staff member",
+      employeeNumber: row.employee_number,
+      houseId: row.house_id,
       houseName: house?.name ?? null,
-      roleKey: assignment?.role_key ?? null,
-      assignmentSource: assignment?.assignment_source ?? null,
-      isLocked: assignment?.is_locked ?? false,
-      assignedAt: assignment?.assigned_at ?? null,
+      roleKey: row.role_key,
+      assignmentSource: row.assignment_source,
+      isLocked: row.is_locked ?? false,
+      assignedAt: row.assigned_at,
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
