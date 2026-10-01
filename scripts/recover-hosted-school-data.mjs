@@ -142,20 +142,53 @@ async function ensureLocalAdminCurrentRoles(client, seedMembership, sourceMember
   }
 
   const localMemberships = localResult.data ?? [];
+  const sourceRoles = new Set(sourceMemberships.map((row) => row.role_key));
+  const currentLocalMemberships = localMemberships.filter((row) =>
+    row.active_from <= recoveryDate &&
+    (!row.active_to || row.active_to >= recoveryDate)
+  );
+
+  for (const currentLocal of currentLocalMemberships) {
+    if (sourceRoles.has(currentLocal.role_key)) continue;
+    const deleteResult = await client.from("school_memberships")
+      .delete()
+      .eq("id", currentLocal.id);
+    if (deleteResult.error) {
+      throw new Error(
+        "Unable to remove stale Local Admin " +
+        currentLocal.role_key +
+        " membership: " +
+        deleteResult.error.message,
+      );
+    }
+  }
+
   for (const sourceMembership of sourceMemberships) {
-    const currentLocal = localMemberships.find((row) =>
-      row.role_key === sourceMembership.role_key &&
-      row.active_from <= recoveryDate &&
-      (!row.active_to || row.active_to >= recoveryDate)
+    const currentLocal = currentLocalMemberships.find(
+      (row) => row.role_key === sourceMembership.role_key,
     );
 
     if (currentLocal) {
-      if (currentLocal.staff_member_id !== staffMemberId) {
+      const desiredActiveTo = sourceMembership.active_to ?? null;
+      if (
+        currentLocal.staff_member_id !== staffMemberId ||
+        currentLocal.active_from !== sourceMembership.active_from ||
+        (currentLocal.active_to ?? null) !== desiredActiveTo
+      ) {
         const updateResult = await client.from("school_memberships")
-          .update({ staff_member_id: staffMemberId })
+          .update({
+            staff_member_id: staffMemberId,
+            active_from: sourceMembership.active_from,
+            active_to: desiredActiveTo,
+          })
           .eq("id", currentLocal.id);
         if (updateResult.error) {
-          throw new Error("Unable to link Local Admin " + sourceMembership.role_key + " membership: " + updateResult.error.message);
+          throw new Error(
+            "Unable to synchronize Local Admin " +
+            sourceMembership.role_key +
+            " membership: " +
+            updateResult.error.message,
+          );
         }
       }
       continue;
