@@ -282,6 +282,12 @@ export function SportsHousesWorkspace({
 }) {
   const activeHouses = useMemo(() => houses.filter((house) => house.status === "active"), [houses]);
   const leaders = staff.filter((item) => item.roleKey === "leader");
+  const houseSummaries = useMemo(() => houses.map((house) => {
+    const learnerCount = learners.filter((learner) => learner.houseId === house.id).length;
+    const houseStaff = staff.filter((person) => person.houseId === house.id);
+    const leaderNames = houseStaff.filter((person) => person.roleKey === "leader").map((person) => person.name);
+    return { house, learnerCount, staffCount: houseStaff.length, leaderNames };
+  }), [houses, learners, staff]);
   const [editingHouseId, setEditingHouseId] = useState<string | null>(null);
   const [addingHouse, setAddingHouse] = useState(false);
   const [editingAgeGroupId, setEditingAgeGroupId] = useState<string | null>(null);
@@ -328,13 +334,25 @@ export function SportsHousesWorkspace({
           {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setAddingHouse((open) => !open)}><Plus className="size-4" />{addingHouse ? "Close add house" : "Add house"}</Button> : null}
         </div>
         <div className="space-y-2">
-          {houses.length ? houses.map((house) => {
+          {houseSummaries.length ? houseSummaries.map(({ house, learnerCount, staffCount, leaderNames }) => {
             const editing = editingHouseId === house.id;
-            return <div key={house.id} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated">
+            return <div key={house.id} className="overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated">
+              <div className="h-1.5 w-full border-b border-border-subtle bg-surface-muted" style={house.colorHex ? { backgroundColor: house.colorHex } : undefined} aria-hidden="true" />
               <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2"><Swatch color={house.colorHex} /><p className="scolapro-record-title">{house.name}</p>{house.shortCode ? <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-0.5 text-[0.68rem] font-medium text-muted-foreground">{house.shortCode}</span> : null}<span className="text-[0.68rem] capitalize text-muted-foreground">{house.status}</span></div>
-                  <p className="mt-1 text-xs text-muted-foreground">Display order {house.sortOrder} · Created {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(house.createdAt))}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Swatch color={house.colorHex} />
+                    <p className="scolapro-record-title">{house.name}</p>
+                    {house.shortCode ? <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-0.5 text-[0.68rem] font-medium text-muted-foreground">{house.shortCode}</span> : null}
+                    <span className="text-[0.68rem] capitalize text-muted-foreground">{house.status}</span>
+                    {house.colorHex ? <span className="text-[0.68rem] font-medium text-muted-foreground">{house.colorHex}</span> : null}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span><strong className="font-semibold text-foreground">{learnerCount}</strong> learners</span>
+                    <span><strong className="font-semibold text-foreground">{staffCount}</strong> staff</span>
+                    <span>House leader: <strong className="font-semibold text-foreground">{leaderNames.length ? leaderNames.join(", ") : "Not assigned"}</strong></span>
+                  </div>
+                  <p className="mt-1 text-[0.68rem] text-muted-foreground">Display order {house.sortOrder} · Created {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(house.createdAt))}</p>
                 </div>
                 {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingHouseId(editing ? null : house.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
               </div>
