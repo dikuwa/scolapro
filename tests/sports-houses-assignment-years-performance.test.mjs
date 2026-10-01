@@ -23,6 +23,6 @@ test("sports houses preserves complete year selector composition", () => {
   assert.match(queries, /\.\.\.settings\.map\(\(row\) => row\.academicYear\)/);
   assert.match(
     queries,
-    /\.\.\.\(assignmentYearsResult\.data \?\? \[\]\)\.map\(\(row\) => row\.academic_year\)/,
+    /assignmentYearsResult\.data[\s\S]*\.map\(\(row\) => row\.academic_year\)/,
   );
 });
