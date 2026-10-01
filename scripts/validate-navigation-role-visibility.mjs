@@ -86,7 +86,11 @@ if (!libraryPageSource.includes('context.memberships.find((candidate) => ltsmRol
 if (libraryPageSource.includes("platformMemberships") || libraryPageSource.includes("networkMemberships")) {
   throw new Error("Library route must not grant platform or network circulation access");
 }
-if (!contextSource.includes('.from("education_network_memberships")')) {
+const resolvesNetworkMembershipsDirectly = contextSource.includes('.from("education_network_memberships")');
+const resolvesNetworkMembershipsBundled =
+  contextSource.includes('supabase.rpc("get_my_user_context"') &&
+  contextSource.includes("rpcRow?.network_memberships");
+if (!resolvesNetworkMembershipsDirectly && !resolvesNetworkMembershipsBundled) {
   throw new Error("Navigation context must resolve effective education-network memberships");
 }
 if (!contextSource.includes("const allSchoolMemberships:") || !contextSource.includes("const currentSchoolId = allSchoolMemberships[0]?.schoolId ?? null") || !contextSource.includes("allSchoolMemberships.filter((membership) => membership.schoolId === currentSchoolId)")) {
