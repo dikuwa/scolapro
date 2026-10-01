@@ -55,25 +55,24 @@ select ok(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%public.sports_learner_house_assignments%'
-      and pg_get_functiondef(p.oid) like '%public.sports_staff_house_assignments%'
+    select pg_get_functiondef(p.oid) like '%app_private.get_sports_house_assignment_years_authorized(p_school_id)%'
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public'
       and p.proname='get_sports_house_assignment_years'
   ),
-  'sports assignment years RPC reads both assignment sources'
+  'sports assignment years RPC delegates to the authorized private helper'
 );
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%select distinct years.academic_year%'
+    select pg_get_functiondef(p.oid) like '%select years.academic_year%'
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public'
       and p.proname='get_sports_house_assignment_years'
   ),
-  'sports assignment years RPC returns distinct years'
+  'sports assignment years RPC preserves the one-column year result'
 );
 
 select is(
