@@ -16,7 +16,9 @@ const requiredTables = [
   "school_rooms","register_classes","subject_offerings","teacher_allocations","learners","enrolments",
   "school_learner_identifiers","guardian_profiles","learner_guardians","guardian_contacts","guardian_addresses",
   "attendance_reasons","room_inventory_items","room_inventory_custodians","school_late_arrival_policies",
-  "school_day_overrides","school_payment_settings"
+  "school_day_overrides","school_payment_settings",
+  "sports_houses","sports_age_groups","sports_year_settings",
+  "sports_learner_house_assignments","sports_staff_house_assignments"
 ];
 
 const optionalTables = [
@@ -100,7 +102,9 @@ function rewriteActorIds(table, row) {
     "room_inventory_items","room_inventory_custodians","attendance_register_submissions",
     "attendance_events","school_late_arrival_policies","school_late_arrival_events",
     "detention_sessions","detention_session_supervisors","detention_supervision_preferences",
-    "room_inventory_events","room_inventory_verifications","school_payment_settings"
+    "room_inventory_events","room_inventory_verifications","school_payment_settings",
+    "sports_houses","sports_age_groups","sports_year_settings",
+    "sports_learner_house_assignments","sports_staff_house_assignments"
   ]);
   for (const key of ["created_by_user_id","assigned_by_user_id","recorded_by_user_id","verified_by_user_id","actor_user_id","updated_by_user_id"]) {
     if (!(key in next)) continue;
@@ -384,16 +388,25 @@ for (const table of optionalTables) {
 
 await deleteDemoRows(target);
 
-const verifyTables = ["staff_members","learners","enrolments","register_classes","school_rooms","subjects","teacher_allocations","guardian_profiles"];
+const verifyTables = [
+  "staff_members","learners","enrolments","register_classes","school_rooms","subjects","teacher_allocations","guardian_profiles",
+  "sports_houses","sports_learner_house_assignments","sports_staff_house_assignments",
+];
 const verification = [];
 for (const table of verifyTables) {
   const hosted = sourceCounts.get(table) ?? await countRows(source, table);
   const local = await countRows(target, table);
   verification.push({ table, hosted, local });
-  const requiresExactMatch = table === "learners" || table === "enrolments";
+  const requiresExactMatch = [
+    "learners",
+    "enrolments",
+    "sports_houses",
+    "sports_learner_house_assignments",
+    "sports_staff_house_assignments",
+  ].includes(table);
   if ((requiresExactMatch && local !== hosted) || (!requiresExactMatch && local < hosted)) {
     throw new Error("Recovery verification failed for " + table + ": hosted=" + hosted + ", local=" + local + ".");
   }
 }
 console.table(verification);
-console.log("Recovery complete. Restart pnpm dev, sign in as Local Admin, and verify Learners, Staff, Academic setup, Timetable, Class Lists and Room Inventory.");
+console.log("Recovery complete. Restart pnpm dev, sign in as Local Admin, and verify Learners, Staff, Academic setup, Timetable, Class Lists, Room Inventory and Sports / Houses.");

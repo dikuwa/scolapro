@@ -98,3 +98,13 @@ test("configured houses and age groups are read-first with explicit edit and add
   assert.match(workspace,/Close allocation/);
   assert.match(workspace,/max-h-\[34rem\] overflow-auto/);
 });
+
+test("configured house summary surfaces colour, distribution and leaders before edits",()=>{
+  assert.match(workspace,/houseSummaries/);
+  assert.match(workspace,/learnerCount/);
+  assert.match(workspace,/staffCount/);
+  assert.match(workspace,/leaderNames/);
+  assert.match(workspace,/House leader:/);
+  assert.match(workspace,/house\.colorHex/);
+  assert.match(workspace,/backgroundColor: house\.colorHex/);
+});
