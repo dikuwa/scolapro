@@ -164,15 +164,19 @@ async function ensureLocalAdminCurrentRoles(client, seedMembership, sourceMember
   }
 
   for (const sourceMembership of sourceMemberships) {
-    const sameRoleLocals = currentLocalMemberships.filter(
+    const sameRoleLocals = localMemberships.filter(
       (row) => row.role_key === sourceMembership.role_key,
     );
-    const currentLocal =
+    const exactLocal =
       sameRoleLocals.find((row) => row.active_from === sourceMembership.active_from) ??
-      sameRoleLocals[0] ??
       null;
+    const currentSameRoleLocals = sameRoleLocals.filter((row) =>
+      row.active_from <= recoveryDate &&
+      (!row.active_to || row.active_to >= recoveryDate)
+    );
+    const currentLocal = exactLocal ?? currentSameRoleLocals[0] ?? null;
 
-    for (const duplicateLocal of sameRoleLocals) {
+    for (const duplicateLocal of currentSameRoleLocals) {
       if (duplicateLocal.id === currentLocal?.id) continue;
       const deleteDuplicateResult = await client.from("school_memberships")
         .delete()
