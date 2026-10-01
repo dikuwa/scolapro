@@ -19,7 +19,11 @@
     "check": "pnpm lint && pnpm typecheck && pnpm validate:report-font && pnpm validate:navigation && pnpm build",
     "bench:report-cards": "node scripts/benchmark-report-card-worker.mjs",
     "local:sync-db": "supabase migration up --local --include-all",
-    "local:recover-hosted-data": "node scripts/recover-hosted-school-data.mjs"
+    "local:recover-hosted-data": "node scripts/recover-hosted-school-data.mjs",
+    "bench:report-cards:local": "node scripts/run-local-report-card-load-benchmark.mjs",
+    "bench:report-cards:local:fixture": "node scripts/local-report-card-load-fixture.mjs prepare",
+    "bench:report-cards:local:verify": "node scripts/local-report-card-load-fixture.mjs verify",
+    "bench:report-cards:local:cleanup": "node scripts/local-report-card-load-fixture.mjs cleanup"
   },
   "dependencies": {
     "@fontsource/unifrakturcook": "^5.3.0",
