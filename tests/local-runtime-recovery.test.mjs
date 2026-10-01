@@ -88,6 +88,11 @@ test("hosted recovery remaps governed provenance actors to Local Admin", () => {
     "room_inventory_events",
     "room_inventory_verifications",
     "school_payment_settings",
+    "sports_houses",
+    "sports_age_groups",
+    "sports_year_settings",
+    "sports_learner_house_assignments",
+    "sports_staff_house_assignments",
   ]) {
     assert.match(recovery, new RegExp('"' + table + '"'));
   }
