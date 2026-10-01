@@ -221,3 +221,25 @@ test("all restored Sports/Houses tables are exact-gated after recovery", () => {
     assert.match(exactBlock, new RegExp('"' + table + '"'), table + " must require exact parity");
   }
 });
+
+test("Sports/Houses configuration reruns preserve immutable scope and creator columns", () => {
+  for (const table of ["sports_houses", "sports_age_groups", "sports_year_settings"]) {
+    assert.match(
+      recovery,
+      new RegExp('\\["' + table + '", new Set\\(\\['),
+      table + " must use protected identity updates",
+    );
+  }
+  assert.match(
+    recovery,
+    /"sports_houses", new Set\(\["id", "tenant_id", "school_id", "created_by_user_id", "created_at"\]\)/,
+  );
+  assert.match(
+    recovery,
+    /"sports_age_groups", new Set\(\["id", "tenant_id", "school_id", "created_by_user_id", "created_at"\]\)/,
+  );
+  assert.match(
+    recovery,
+    /"sports_year_settings", new Set\(\["id", "tenant_id", "school_id", "academic_year", "created_by_user_id", "created_at"\]\)/,
+  );
+});
