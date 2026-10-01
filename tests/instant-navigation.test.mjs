@@ -11,10 +11,12 @@ test("navigation keeps production-safe Next defaults instead of globally enablin
   assert.doesNotMatch(nextConfig, /partialPrefetching:\s*true/);
 });
 
-test("primary navigation allows standard Next production prefetching", () => {
-  assert.doesNotMatch(navigation, /prefetch=\{false\}/);
-  assert.doesNotMatch(navigation, /router\.prefetch/);
+test("dense primary navigation preserves client navigation while moving prefetch behind user intent", () => {
   assert.match(navigation, /from "next\/link"/);
+  assert.match(navigation, /prefetch=\{false\}/);
+  assert.match(navigation, /router\.prefetch\(item\.href\)/);
+  assert.match(navigation, /onPointerEnter=/);
+  assert.match(navigation, /onFocus=/);
 });
 
 test("route-level streaming fallback remains available", () => {
