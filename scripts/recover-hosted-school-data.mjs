@@ -164,9 +164,28 @@ async function ensureLocalAdminCurrentRoles(client, seedMembership, sourceMember
   }
 
   for (const sourceMembership of sourceMemberships) {
-    const currentLocal = currentLocalMemberships.find(
+    const sameRoleLocals = currentLocalMemberships.filter(
       (row) => row.role_key === sourceMembership.role_key,
     );
+    const currentLocal =
+      sameRoleLocals.find((row) => row.active_from === sourceMembership.active_from) ??
+      sameRoleLocals[0] ??
+      null;
+
+    for (const duplicateLocal of sameRoleLocals) {
+      if (duplicateLocal.id === currentLocal?.id) continue;
+      const deleteDuplicateResult = await client.from("school_memberships")
+        .delete()
+        .eq("id", duplicateLocal.id);
+      if (deleteDuplicateResult.error) {
+        throw new Error(
+          "Unable to remove duplicate Local Admin " +
+          sourceMembership.role_key +
+          " membership: " +
+          deleteDuplicateResult.error.message,
+        );
+      }
+    }
 
     if (currentLocal) {
       const desiredActiveTo = sourceMembership.active_to ?? null;
