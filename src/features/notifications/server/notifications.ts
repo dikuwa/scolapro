@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type UserNotification = {
@@ -29,9 +30,14 @@ type NotificationInboxRpcRow = {
   }> | null;
 };
 
-export async function getNotificationInbox(limit = 8, context: NotificationInboxContext = {}) {
+const resolveNotificationInbox = cache(async (
+  limit: number,
+  currentSchoolId: string | null,
+  roleKey: string | null,
+  authenticatedUserId: string | null,
+) => {
   const supabase = await createSupabaseServerClient();
-  const recipientUserId = context.authenticatedUserId ?? (await supabase.auth.getUser()).data.user?.id ?? null;
+  const recipientUserId = authenticatedUserId ?? (await supabase.auth.getUser()).data.user?.id ?? null;
   if (!recipientUserId) return { unreadCount: 0, notifications: [] as UserNotification[] };
 
   const { data, error } = await supabase.rpc("get_my_notification_inbox", { p_limit: limit });
@@ -50,12 +56,21 @@ export async function getNotificationInbox(limit = 8, context: NotificationInbox
       href:
         item.title === "School invitation accepted"
         && item.href === "/platform/invitations"
-        && context.roleKey === "school_admin"
-        && context.currentSchoolId
+        && roleKey === "school_admin"
+        && currentSchoolId
           ? "/school/invitations"
           : item.href,
       readAt: item.read_at,
       createdAt: item.created_at,
     })),
   };
+});
+
+export async function getNotificationInbox(limit = 8, context: NotificationInboxContext = {}) {
+  return resolveNotificationInbox(
+    limit,
+    context.currentSchoolId ?? null,
+    context.roleKey ?? null,
+    context.authenticatedUserId ?? null,
+  );
 }
