@@ -70,6 +70,34 @@ test("hosted recovery preserves immutable core identity provenance on reruns", (
 });
 
 
+test("hosted recovery establishes staff identity and current roles after hosted staff import", () => {
+  assert.match(recovery, /let localAdminStaffMemberId = null/);
+  assert.match(recovery, /function namibiaDateKey\(\)/);
+  assert.match(recovery, /select\("id,tenant_id,user_id,school_id,role_key,staff_member_id"\)/);
+  assert.match(recovery, /source\.from\("school_memberships"\)/);
+  assert.match(recovery, /currentSourceAdminIdentities\.length !== 1/);
+  assert.match(recovery, /membershipResult\.data\.staff_member_id \?\? hostedAdminStaffMemberId/);
+  assert.match(recovery, /const currentSourceRoleMemberships/);
+  assert.match(recovery, /async function ensureLocalAdminCurrentRoles/);
+  assert.match(recovery, /if \(table === "staff_members"\)/);
+  assert.match(recovery, /ensureLocalAdminCurrentRoles\(/);
+  assert.match(recovery, /\.update\(\{ staff_member_id: staffMemberId \}\)/);
+  assert.match(recovery, /role_key: sourceMembership\.role_key/);
+  assert.match(
+    recovery,
+    /next\.user_id = next\.id === localAdminStaffMemberId \? localAdminUserId : null/,
+  );
+  const restoreLoop = recovery.indexOf("for (const table of requiredTables)");
+  const staffRoleSync = recovery.indexOf('if (table === "staff_members")', restoreLoop);
+  const preflight = recovery.indexOf("const sourceSchool =", 0);
+  assert.ok(restoreLoop > preflight, "required-table restore loop must follow preflight");
+  assert.ok(staffRoleSync > restoreLoop, "staff identity linking must happen only after staff_members restore");
+  assert.match(recovery, /localAdminStaffResult\.data\.user_id !== localAdminUserId/);
+  assert.match(recovery, /Recovery verification failed: Local Admin current/);
+  assert.match(recovery, /sourceMembership\.role_key/);
+  assert.match(recovery, /membership was not mirrored\./);
+});
+
 test("hosted recovery remaps governed provenance actors to Local Admin", () => {
   for (const table of [
     "school_settings",

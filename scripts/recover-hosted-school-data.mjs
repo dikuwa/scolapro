@@ -43,6 +43,7 @@ const protectedIdentityColumns = new Map([
 ]);
 
 const attendanceReasonIdMap = new Map();
+let localAdminStaffMemberId = null;
 
 function parseEnvFile(filePath) {
   const env = {};
@@ -90,6 +91,18 @@ function assertLocalTarget(apiUrl) {
   }
 }
 
+function namibiaDateKey() {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Windhoek",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date()).map((part) => [part.type, part.value]),
+  );
+  return parts.year + "-" + parts.month + "-" + parts.day;
+}
+
 function rewriteActorIds(table, row) {
   const next = { ...row };
   if (table === "attendance_events" && next.reason_id) {
@@ -97,7 +110,9 @@ function rewriteActorIds(table, row) {
   }
   if (table === "school_learner_identifiers") delete next.id;
   if (table === "staff_members") {
-    if ("user_id" in next) next.user_id = null;
+    if ("user_id" in next) {
+      next.user_id = next.id === localAdminStaffMemberId ? localAdminUserId : null;
+    }
     if ("reconciled_by_user_id" in next) next.reconciled_by_user_id = null;
   }
   const requiredLocalActorTables = new Set([
@@ -115,6 +130,50 @@ function rewriteActorIds(table, row) {
   }
   if ("completed_by_user_id" in next && next.completed_by_user_id) next.completed_by_user_id = localAdminUserId;
   return next;
+}
+
+async function ensureLocalAdminCurrentRoles(client, seedMembership, sourceMemberships, staffMemberId, recoveryDate) {
+  const localResult = await client.from("school_memberships")
+    .select("id,role_key,staff_member_id,active_from,active_to")
+    .eq("user_id", localAdminUserId)
+    .eq("school_id", expectedSchoolId);
+  if (localResult.error) {
+    throw new Error("Unable to inspect Local Admin memberships during recovery: " + localResult.error.message);
+  }
+
+  const localMemberships = localResult.data ?? [];
+  for (const sourceMembership of sourceMemberships) {
+    const currentLocal = localMemberships.find((row) =>
+      row.role_key === sourceMembership.role_key &&
+      row.active_from <= recoveryDate &&
+      (!row.active_to || row.active_to >= recoveryDate)
+    );
+
+    if (currentLocal) {
+      if (currentLocal.staff_member_id !== staffMemberId) {
+        const updateResult = await client.from("school_memberships")
+          .update({ staff_member_id: staffMemberId })
+          .eq("id", currentLocal.id);
+        if (updateResult.error) {
+          throw new Error("Unable to link Local Admin " + sourceMembership.role_key + " membership: " + updateResult.error.message);
+        }
+      }
+      continue;
+    }
+
+    const insertResult = await client.from("school_memberships").insert({
+      tenant_id: seedMembership.tenant_id,
+      school_id: expectedSchoolId,
+      user_id: localAdminUserId,
+      staff_member_id: staffMemberId,
+      role_key: sourceMembership.role_key,
+      active_from: sourceMembership.active_from,
+      active_to: sourceMembership.active_to ?? null,
+    });
+    if (insertResult.error) {
+      throw new Error("Unable to mirror Local Admin " + sourceMembership.role_key + " membership: " + insertResult.error.message);
+    }
+  }
 }
 
 async function fetchAll(client, table) {
@@ -347,13 +406,68 @@ const source = createClient(sourceUrl, sourceServiceKey, { auth: { persistSessio
 const target = createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const membershipResult = await target.from("school_memberships")
-  .select("user_id,school_id,role_key")
+  .select("id,tenant_id,user_id,school_id,role_key,staff_member_id")
   .eq("user_id", localAdminUserId)
   .eq("school_id", expectedSchoolId)
   .eq("role_key", "school_admin")
   .maybeSingle();
 if (membershipResult.error || !membershipResult.data) {
   throw new Error("Expected Local Admin school membership is missing. Run the local auth seed before recovery.");
+}
+
+const recoveryDate = namibiaDateKey();
+const sourceAdminMembershipsResult = await source.from("school_memberships")
+  .select("user_id,staff_member_id,role_key,active_from,active_to")
+  .eq("school_id", expectedSchoolId)
+  .eq("role_key", "school_admin")
+  .not("staff_member_id", "is", null);
+if (sourceAdminMembershipsResult.error) {
+  throw new Error("Unable to resolve hosted school-admin staff identity: " + sourceAdminMembershipsResult.error.message);
+}
+const currentSourceAdmins = (sourceAdminMembershipsResult.data ?? []).filter((row) =>
+  row.user_id &&
+  row.staff_member_id &&
+  row.active_from <= recoveryDate &&
+  (!row.active_to || row.active_to >= recoveryDate)
+);
+const currentSourceAdminIdentities = [...new Map(
+  currentSourceAdmins.map((row) => [row.user_id + ":" + row.staff_member_id, row]),
+).values()];
+if (currentSourceAdminIdentities.length !== 1) {
+  throw new Error(
+    "Expected exactly one current hosted school-admin staff identity for recovery; found " +
+    currentSourceAdminIdentities.length + ".",
+  );
+}
+const hostedAdminUserId = currentSourceAdminIdentities[0].user_id;
+const hostedAdminStaffMemberId = currentSourceAdminIdentities[0].staff_member_id;
+if (
+  membershipResult.data.staff_member_id &&
+  membershipResult.data.staff_member_id !== hostedAdminStaffMemberId
+) {
+  throw new Error("Local Admin staff identity differs from the current hosted school-admin identity.");
+}
+localAdminStaffMemberId = membershipResult.data.staff_member_id ?? hostedAdminStaffMemberId;
+
+const sourceRoleMembershipsResult = await source.from("school_memberships")
+  .select("role_key,active_from,active_to")
+  .eq("school_id", expectedSchoolId)
+  .eq("user_id", hostedAdminUserId)
+  .eq("staff_member_id", hostedAdminStaffMemberId);
+if (sourceRoleMembershipsResult.error) {
+  throw new Error("Unable to resolve hosted current role set: " + sourceRoleMembershipsResult.error.message);
+}
+const currentSourceRoleMemberships = [...new Map(
+  (sourceRoleMembershipsResult.data ?? [])
+    .filter((row) =>
+      row.active_from <= recoveryDate &&
+      (!row.active_to || row.active_to >= recoveryDate)
+    )
+    .sort((left, right) => right.active_from.localeCompare(left.active_from))
+    .map((row) => [row.role_key, row]),
+).values()];
+if (!currentSourceRoleMemberships.some((row) => row.role_key === "school_admin")) {
+  throw new Error("Hosted recovery identity does not have a current school_admin membership.");
 }
 
 const sourceSchool = await source.from("schools").select("id,name").eq("id", expectedSchoolId).maybeSingle();
@@ -370,6 +484,15 @@ for (const table of requiredTables) {
     await restoreAttendanceReasons(target, rows);
   } else {
     await upsertRows(target, table, rows);
+  }
+  if (table === "staff_members") {
+    await ensureLocalAdminCurrentRoles(
+      target,
+      membershipResult.data,
+      currentSourceRoleMemberships,
+      localAdminStaffMemberId,
+      recoveryDate,
+    );
   }
   console.log("restored " + table + ": " + rows.length);
 }
@@ -390,6 +513,44 @@ for (const table of optionalTables) {
 }
 
 await deleteDemoRows(target);
+
+const localAdminStaffResult = await target.from("staff_members")
+  .select("id,user_id")
+  .eq("id", localAdminStaffMemberId)
+  .maybeSingle();
+if (
+  localAdminStaffResult.error ||
+  !localAdminStaffResult.data ||
+  localAdminStaffResult.data.user_id !== localAdminUserId
+) {
+  throw new Error("Recovery verification failed: Local Admin staff identity mapping was not preserved.");
+}
+
+const localAdminRolesResult = await target.from("school_memberships")
+  .select("role_key,staff_member_id,active_from,active_to")
+  .eq("user_id", localAdminUserId)
+  .eq("school_id", expectedSchoolId);
+if (localAdminRolesResult.error) {
+  throw new Error("Unable to verify Local Admin current roles after recovery: " + localAdminRolesResult.error.message);
+}
+const localCurrentRoles = new Map(
+  (localAdminRolesResult.data ?? [])
+    .filter((row) =>
+      row.active_from <= recoveryDate &&
+      (!row.active_to || row.active_to >= recoveryDate)
+    )
+    .map((row) => [row.role_key, row]),
+);
+for (const sourceMembership of currentSourceRoleMemberships) {
+  const localMembership = localCurrentRoles.get(sourceMembership.role_key);
+  if (!localMembership || localMembership.staff_member_id !== localAdminStaffMemberId) {
+    throw new Error(
+      "Recovery verification failed: Local Admin current " +
+      sourceMembership.role_key +
+      " membership was not mirrored.",
+    );
+  }
+}
 
 const verifyTables = [
   "staff_members","learners","enrolments","register_classes","school_rooms","subjects","teacher_allocations","guardian_profiles",
