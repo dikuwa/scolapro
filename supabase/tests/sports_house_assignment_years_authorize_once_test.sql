@@ -1,6 +1,6 @@
 begin;
 
-select plan(12);
+select plan(13);
 
 select ok(
   to_regprocedure('app_private.get_sports_house_assignment_years_authorized(uuid)') is not null,
