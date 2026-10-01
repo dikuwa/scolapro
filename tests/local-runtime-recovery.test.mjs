@@ -145,7 +145,10 @@ test("hosted recovery removes synthetic learners in dependency order and verifie
   assert.match(recovery, /Unable to remove demo school learner identifiers/);
   assert.match(recovery, /Unable to remove demo enrolments/);
   assert.match(recovery, /Unable to remove demo learners/);
-  assert.match(recovery, /requiresExactMatch = table === "learners" \|\| table === "enrolments"/);
+  assert.match(recovery, /const requiresExactMatch = \[/);
+  assert.match(recovery, /"sports_houses"/);
+  assert.match(recovery, /"sports_learner_house_assignments"/);
+  assert.match(recovery, /"sports_staff_house_assignments"/);
   assert.match(recovery, /local !== hosted/);
 });
 
@@ -167,4 +170,28 @@ test("demo cleanup removes local report-card dependents before synthetic enrolme
   assert.match(recovery, /Unable to remove demo report-card render jobs/);
   assert.match(recovery, /Unable to remove demo report-card documents/);
   assert.match(recovery, /Unable to remove demo report-card snapshots/);
+});
+
+test("hosted recovery restores Sports/Houses after learner and staff identities", () => {
+  const staff = recovery.indexOf('"staff_members"');
+  const learners = recovery.indexOf('"learners"');
+  const houses = recovery.indexOf('"sports_houses"');
+  const ageGroups = recovery.indexOf('"sports_age_groups"');
+  const yearSettings = recovery.indexOf('"sports_year_settings"');
+  const learnerAssignments = recovery.indexOf('"sports_learner_house_assignments"');
+  const staffAssignments = recovery.indexOf('"sports_staff_house_assignments"');
+  assert.ok(houses > staff && houses > learners);
+  assert.ok(ageGroups > houses);
+  assert.ok(yearSettings > ageGroups);
+  assert.ok(learnerAssignments > yearSettings);
+  assert.ok(staffAssignments > learnerAssignments);
+  for (const table of [
+    "sports_houses",
+    "sports_age_groups",
+    "sports_year_settings",
+    "sports_learner_house_assignments",
+    "sports_staff_house_assignments",
+  ]) {
+    assert.match(recovery, new RegExp('"' + table + '"'));
+  }
 });
