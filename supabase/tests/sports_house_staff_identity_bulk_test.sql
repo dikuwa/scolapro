@@ -40,7 +40,7 @@ select ok(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%own_staff.user_id = viewer_id%'
+    select pg_get_functiondef(p.oid) like '%scope.user_id = viewer_id%'
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname='app_private'
