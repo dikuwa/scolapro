@@ -43,9 +43,16 @@ select ok(
   'anon cannot execute notification inbox RPC'
 );
 
-select ok(
-  not has_function_privilege('public','public.get_my_notification_inbox(integer)','EXECUTE'),
-  'PUBLIC cannot execute notification inbox RPC'
+select is(
+  (
+    select pg_get_function_identity_arguments(p.oid)
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname='public'
+      and p.proname='get_my_notification_inbox'
+  ),
+  'p_limit integer',
+  'notification inbox RPC exposes no arbitrary user-id argument'
 );
 
 select ok(
