@@ -93,7 +93,9 @@ test("hosted recovery establishes staff identity and current roles after hosted 
   assert.ok(restoreLoop > preflight, "required-table restore loop must follow preflight");
   assert.ok(staffRoleSync > restoreLoop, "staff identity linking must happen only after staff_members restore");
   assert.match(recovery, /localAdminStaffResult\.data\.user_id !== localAdminUserId/);
-  assert.match(recovery, /Local Admin current .* membership was not mirrored/);
+  assert.match(recovery, /Recovery verification failed: Local Admin current/);
+  assert.match(recovery, /sourceMembership\.role_key/);
+  assert.match(recovery, /membership was not mirrored\./);
 });
 
 test("hosted recovery remaps governed provenance actors to Local Admin", () => {
