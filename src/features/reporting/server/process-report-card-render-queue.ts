@@ -169,7 +169,7 @@ export async function processReportCardRenderQueue(limit = 20): Promise<ReportCa
       } else {
         bytes = new TextEncoder().encode(await renderReportCardHtmlWithSchoolFont(renderInput));
         extension = "html";
-        contentType = "text/html; charset=utf-8";
+        contentType = "text/html";
       }
 
       const checksum = createHash("sha256").update(bytes).digest("hex");
