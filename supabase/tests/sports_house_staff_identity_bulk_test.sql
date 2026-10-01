@@ -52,34 +52,36 @@ select ok(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%target_schools as materialized%'
-      and pg_get_functiondef(p.oid) like '%public.staff_school_assignments%'
-      and pg_get_functiondef(p.oid) like '%public.school_memberships%'
+    select pg_get_functiondef(p.oid) like '%same_school_visible_ids as materialized%'
+      and pg_get_functiondef(p.oid) like '%same_school_current_assignment_coverage as materialized%'
+      and pg_get_functiondef(p.oid) like '%same_school_current_membership_coverage as materialized%'
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname='app_private'
       and p.proname='get_sports_house_staff_roster_authorized'
   ),
-  'target schools preserve assignment plus membership discovery'
+  'same-school visibility is resolved before fallback'
 );
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%accessible_schools as materialized%'
+    select pg_get_functiondef(p.oid) like '%unresolved_staff_scope as materialized%'
+      and pg_get_functiondef(p.oid) like '%fallback_target_schools as materialized%'
+      and pg_get_functiondef(p.oid) like '%fallback_accessible_schools as materialized%'
       and pg_get_functiondef(p.oid) like '%app_private.can_access_current_school_staff_directory(ts.school_id)%'
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname='app_private'
       and p.proname='get_sports_house_staff_roster_authorized'
   ),
-  'directory access is evaluated once per distinct target school'
+  'cross-school directory fallback is restricted to unresolved staff'
 );
 
 select ok(
   (
     select pg_get_functiondef(p.oid) like '%assignment_history as materialized%'
-      and pg_get_functiondef(p.oid) like '%current_assignment_coverage as materialized%'
-      and pg_get_functiondef(p.oid) like '%current_membership_coverage as materialized%'
+      and pg_get_functiondef(p.oid) like '%fallback_current_assignment_coverage as materialized%'
+      and pg_get_functiondef(p.oid) like '%fallback_current_membership_coverage as materialized%'
       and pg_get_functiondef(p.oid) like '%scope.status = ''active''%'
       and pg_get_functiondef(p.oid) like '%current_date%'
     from pg_proc p
@@ -87,7 +89,7 @@ select ok(
     where n.nspname='app_private'
       and p.proname='get_sports_house_staff_roster_authorized'
   ),
-  'current school-period staff coverage remains set-based and authoritative'
+  'fallback current staff coverage remains set-based and authoritative'
 );
 
 select ok(
