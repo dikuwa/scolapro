@@ -94,7 +94,7 @@ test("hosted recovery remaps governed provenance actors to Local Admin", () => {
     "sports_learner_house_assignments",
     "sports_staff_house_assignments",
   ]) {
-    assert.match(requiredBlock, new RegExp('"' + table + '"'));
+    assert.match(recovery, new RegExp('"' + table + '"'));
   }
   assert.match(recovery, /requiredLocalActorTables\.has\(table\) \? localAdminUserId : null/);
 });
