@@ -62,7 +62,7 @@ test("invitation acceptance notifications route by current actor authority", () 
 test("legacy invitation hrefs are rendered safely without rewriting notification history", () => {
   assert.match(inbox, /item\.title === "School invitation accepted"/);
   assert.match(inbox, /item\.href === "\/platform\/invitations"/);
-  assert.match(inbox, /context\.roleKey === "school_admin"/);
+  assert.match(inbox, /roleKey === "school_admin"/);
   assert.match(inbox, /"\/school\/invitations"/);
   assert.match(shell, /getNotificationInbox\(8,/);
 });
