@@ -69,6 +69,10 @@ type LearnerRosterRow = {
   age_group_label: string | null;
 };
 
+type AssignmentYearRow = {
+  academic_year: number;
+};
+
 type StaffAssignmentRow = {
   staff_member_id: string;
   house_id: string;
@@ -240,7 +244,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     currentYear,
     academicYear,
     ...settings.map((row) => row.academicYear),
-    ...(assignmentYearsResult.data ?? []).map((row) => row.academic_year),
+    ...((assignmentYearsResult.data ?? []) as AssignmentYearRow[]).map((row) => row.academic_year),
   ]);
 
   return {
