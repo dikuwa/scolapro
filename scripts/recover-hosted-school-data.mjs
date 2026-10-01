@@ -91,6 +91,18 @@ function assertLocalTarget(apiUrl) {
   }
 }
 
+function namibiaDateKey() {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Windhoek",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date()).map((part) => [part.type, part.value]),
+  );
+  return parts.year + "-" + parts.month + "-" + parts.day;
+}
+
 function rewriteActorIds(table, row) {
   const next = { ...row };
   if (table === "attendance_events" && next.reason_id) {
@@ -350,7 +362,7 @@ const source = createClient(sourceUrl, sourceServiceKey, { auth: { persistSessio
 const target = createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const membershipResult = await target.from("school_memberships")
-  .select("user_id,school_id,role_key,staff_member_id")
+  .select("id,user_id,school_id,role_key,staff_member_id")
   .eq("user_id", localAdminUserId)
   .eq("school_id", expectedSchoolId)
   .eq("role_key", "school_admin")
@@ -358,10 +370,47 @@ const membershipResult = await target.from("school_memberships")
 if (membershipResult.error || !membershipResult.data) {
   throw new Error("Expected Local Admin school membership is missing. Run the local auth seed before recovery.");
 }
-if (!membershipResult.data.staff_member_id) {
-  throw new Error("Expected Local Admin school membership to retain a staff identity before recovery.");
+
+const recoveryDate = namibiaDateKey();
+const sourceAdminMembershipsResult = await source.from("school_memberships")
+  .select("staff_member_id,active_from,active_to")
+  .eq("school_id", expectedSchoolId)
+  .eq("role_key", "school_admin")
+  .not("staff_member_id", "is", null);
+if (sourceAdminMembershipsResult.error) {
+  throw new Error("Unable to resolve hosted school-admin staff identity: " + sourceAdminMembershipsResult.error.message);
 }
-localAdminStaffMemberId = membershipResult.data.staff_member_id;
+const currentSourceAdminStaffIds = [...new Set(
+  (sourceAdminMembershipsResult.data ?? [])
+    .filter((row) =>
+      row.staff_member_id &&
+      row.active_from <= recoveryDate &&
+      (!row.active_to || row.active_to >= recoveryDate)
+    )
+    .map((row) => row.staff_member_id),
+)];
+if (currentSourceAdminStaffIds.length !== 1) {
+  throw new Error(
+    "Expected exactly one current hosted school-admin staff identity for recovery; found " +
+    currentSourceAdminStaffIds.length + ".",
+  );
+}
+const hostedAdminStaffMemberId = currentSourceAdminStaffIds[0];
+if (
+  membershipResult.data.staff_member_id &&
+  membershipResult.data.staff_member_id !== hostedAdminStaffMemberId
+) {
+  throw new Error("Local Admin staff identity differs from the current hosted school-admin identity.");
+}
+localAdminStaffMemberId = membershipResult.data.staff_member_id ?? hostedAdminStaffMemberId;
+if (!membershipResult.data.staff_member_id) {
+  const membershipUpdate = await target.from("school_memberships")
+    .update({ staff_member_id: localAdminStaffMemberId })
+    .eq("id", membershipResult.data.id);
+  if (membershipUpdate.error) {
+    throw new Error("Unable to establish Local Admin staff identity before recovery: " + membershipUpdate.error.message);
+  }
+}
 
 const sourceSchool = await source.from("schools").select("id,name").eq("id", expectedSchoolId).maybeSingle();
 if (sourceSchool.error || !sourceSchool.data) throw new Error("Namib High School was not found in the hosted recovery source.");
