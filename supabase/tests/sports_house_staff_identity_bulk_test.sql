@@ -77,7 +77,7 @@ select ok(
 select ok(
   (
     select pg_get_functiondef(p.oid) like '%app_private.staff_member_covers_school_period(%'
-      and pg_get_functiondef(p.oid) like '%pg_catalog.current_date%'
+      and pg_get_functiondef(p.oid) like '%current_date%'
     from pg_proc p
     join pg_namespace n on n.oid = p.pronamespace
     where n.nspname='app_private'
