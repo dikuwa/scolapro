@@ -68,8 +68,8 @@ select is(
   (select count(*)::integer from pg_policies
    where schemaname='public' and tablename='assessment_components'
      and policyname like 'academic leaders can manage assessment components [%'),
-  0,
-  'legacy split component mutation policies are removed'
+  3,
+  'component mutation authority is split into insert/update/delete without a SELECT overlap'
 );
 
 select is(
@@ -79,8 +79,8 @@ select is(
        'academic leaders can manage assessment schemes [update]',
        'academic leaders can manage assessment schemes [delete]'
      )),
-  0,
-  'legacy split scheme update/delete policies are removed while creator-bound insert remains'
+  2,
+  'scheme update/delete authority is command-specific while creator-bound insert remains'
 );
 
 select set_config('request.jwt.claim.role','authenticated',true);
