@@ -73,10 +73,10 @@ test("hosted recovery preserves immutable core identity provenance on reruns", (
 test("hosted recovery establishes staff identity and current roles after hosted staff import", () => {
   assert.match(recovery, /let localAdminStaffMemberId = null/);
   assert.match(recovery, /function namibiaDateKey\(\)/);
-  assert.match(recovery, /select\("id,tenant_id,user_id,school_id,role_key,staff_member_id"\)/);
+  assert.match(recovery, /select\("id,tenant_id,user_id,school_id,role_key,staff_member_id,active_from,active_to"\)/);
   assert.match(recovery, /source\.from\("school_memberships"\)/);
   assert.match(recovery, /currentSourceAdminIdentities\.length !== 1/);
-  assert.match(recovery, /membershipResult\.data\.staff_member_id \?\? hostedAdminStaffMemberId/);
+  assert.match(recovery, /seedMembership\.staff_member_id \?\? hostedAdminStaffMemberId/);
   assert.match(recovery, /const currentSourceRoleMemberships/);
   assert.match(recovery, /async function ensureLocalAdminCurrentRoles/);
   assert.match(recovery, /const recoveryDate = namibiaDateKey\(\)/);
