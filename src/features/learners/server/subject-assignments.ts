@@ -28,7 +28,7 @@ export async function getSubjectAssignmentWorkspace(
   if (!canManageLearnerSubjects(membership)) throw new Error("Subject assignment is not available for this role.");
   const db = await createSupabaseServerClient();
   const [gradesResult, classesResult, offeringsResult, registrationsResult] = await Promise.all([
-    db.from("grades").select("id,display_name").eq("school_id", membership.schoolId).eq("academic_year", academicYear).order("sort_order"),
+    db.from("grades").select("id,display_name").eq("school_id", membership.schoolId).eq("academic_year", academicYear).order("display_name"),
     db.from("register_classes").select("id,grade_id,display_name").eq("school_id", membership.schoolId).eq("academic_year", academicYear).order("display_name"),
     db.from("subject_offerings").select("id,grade_id,status,subjects(subject_code,display_name),grades(display_name)").eq("school_id", membership.schoolId).eq("academic_year", academicYear).order("grade_id"),
     db.from("learner_subject_registrations").select("subject_offering_id").eq("school_id", membership.schoolId).eq("academic_year", academicYear).eq("status", "active").limit(10000),
