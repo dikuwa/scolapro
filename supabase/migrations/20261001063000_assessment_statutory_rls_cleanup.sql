@@ -128,6 +128,10 @@ for delete to authenticated
 using (app_private.can_manage_current_assessment_school(school_id));
 
 drop policy if exists "academic leaders can manage assessment schemes" on public.assessment_schemes;
+-- The legacy narrower INSERT policy uses this same name. Remove it before
+-- recreating the single command-specific management INSERT policy.
+drop policy if exists "academic leaders can manage assessment schemes [insert]"
+  on public.assessment_schemes;
 
 create policy "academic leaders can manage assessment schemes [insert]"
 on public.assessment_schemes
@@ -144,8 +148,3 @@ create policy "academic leaders can manage assessment schemes [delete]"
 on public.assessment_schemes
 for delete to authenticated
 using (app_private.can_manage_current_assessment_school(school_id));
-
--- This narrower policy was already redundant because the former FOR ALL policy
--- OR-ed a broader management INSERT predicate into the same command.
-drop policy if exists "academic leaders can manage assessment schemes [insert]"
-  on public.assessment_schemes;
