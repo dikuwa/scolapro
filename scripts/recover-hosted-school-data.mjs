@@ -390,7 +390,8 @@ await deleteDemoRows(target);
 
 const verifyTables = [
   "staff_members","learners","enrolments","register_classes","school_rooms","subjects","teacher_allocations","guardian_profiles",
-  "sports_houses","sports_learner_house_assignments","sports_staff_house_assignments",
+  "sports_houses","sports_age_groups","sports_year_settings",
+  "sports_learner_house_assignments","sports_staff_house_assignments",
 ];
 const verification = [];
 for (const table of verifyTables) {
@@ -401,6 +402,8 @@ for (const table of verifyTables) {
     "learners",
     "enrolments",
     "sports_houses",
+    "sports_age_groups",
+    "sports_year_settings",
     "sports_learner_house_assignments",
     "sports_staff_house_assignments",
   ].includes(table);
