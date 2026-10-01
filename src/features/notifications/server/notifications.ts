@@ -16,32 +16,33 @@ export type NotificationInboxContext = {
   authenticatedUserId?: string | null;
 };
 
+type NotificationInboxRpcRow = {
+  unread_count: number | string | null;
+  notifications: Array<{
+    id: string;
+    severity: string;
+    title: string;
+    body: string | null;
+    href: string | null;
+    read_at: string | null;
+    created_at: string;
+  }> | null;
+};
+
 export async function getNotificationInbox(limit = 8, context: NotificationInboxContext = {}) {
   const supabase = await createSupabaseServerClient();
   const recipientUserId = context.authenticatedUserId ?? (await supabase.auth.getUser()).data.user?.id ?? null;
   if (!recipientUserId) return { unreadCount: 0, notifications: [] as UserNotification[] };
 
-  const [{ count, error: countError }, { data, error }] = await Promise.all([
-    supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("recipient_user_id", recipientUserId)
-      .is("dismissed_at", null)
-      .is("read_at", null),
-    supabase
-      .from("notifications")
-      .select("id,severity,title,body,href,read_at,created_at")
-      .eq("recipient_user_id", recipientUserId)
-      .is("dismissed_at", null)
-      .order("created_at", { ascending: false })
-      .limit(limit),
-  ]);
+  const { data, error } = await supabase.rpc("get_my_notification_inbox", { p_limit: limit });
+  if (error) throw new Error("Unable to load notifications.");
 
-  if (countError || error) throw new Error("Unable to load notifications.");
+  const row = ((data ?? [])[0] ?? null) as NotificationInboxRpcRow | null;
+  const unreadCount = Number(row?.unread_count ?? 0);
 
   return {
-    unreadCount: count ?? 0,
-    notifications: (data ?? []).map((item) => ({
+    unreadCount: Number.isFinite(unreadCount) ? unreadCount : 0,
+    notifications: (row?.notifications ?? []).map((item) => ({
       id: item.id,
       severity: item.severity as UserNotification["severity"],
       title: item.title,

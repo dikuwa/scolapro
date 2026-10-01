@@ -18,11 +18,11 @@ const shell = source("src/components/shell/app-shell.tsx");
 const boundary = source("supabase/migrations/20260913032000_notification_recipient_actor_scope_hardening.sql");
 const hrefFix = source("supabase/migrations/20260919092000_notification_invitation_href_relevance.sql");
 
-test("notification inbox remains authenticated-recipient scoped and fails closed on count errors", () => {
+test("notification inbox remains authenticated-recipient scoped and fails closed on RPC errors", () => {
   assert.match(inbox, /supabase\.auth\.getUser\(\)/);
-  assert.match(inbox, /\.eq\("recipient_user_id", recipientUserId\)/);
-  assert.match(inbox, /error: countError/);
-  assert.match(inbox, /if \(countError \|\| error\) throw new Error\("Unable to load notifications\."\)/);
+  assert.match(inbox, /supabase\.rpc\("get_my_notification_inbox", \{ p_limit: limit \}\)/);
+  assert.match(inbox, /if \(error\) throw new Error\("Unable to load notifications\."\)/);
+  assert.doesNotMatch(inbox, /\.from\("notifications"\)/);
 });
 
 test("recipient mutations remain self-scoped and expose failures to the in-app UI", () => {

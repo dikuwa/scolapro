@@ -7,11 +7,12 @@ const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 const shell = await read("src/components/shell/app-shell.tsx");
 const notifications = await read("src/features/notifications/server/notifications.ts");
 
-test("app shell reuses the authenticated user id for notification loading", () => {
+test("app shell reuses verified auth context while notification rows self-scope inside one RPC", () => {
   assert.match(shell, /authenticatedUserId: context\.user\.id/);
   assert.match(notifications, /authenticatedUserId\?: string \| null/);
   assert.match(notifications, /context\.authenticatedUserId \?\?/);
-  assert.match(notifications, /recipient_user_id", recipientUserId/);
+  assert.match(notifications, /supabase\.rpc\("get_my_notification_inbox", \{ p_limit: limit \}\)/);
+  assert.doesNotMatch(notifications, /\.from\("notifications"\)/);
 });
 
 test("notification loader still fails closed when no authenticated user is available", () => {
