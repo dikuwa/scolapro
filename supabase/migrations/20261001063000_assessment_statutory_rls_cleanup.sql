@@ -1,5 +1,6 @@
--- #927: remove structural assessment/statutory permissive overlaps.
--- Dedicated SELECT policies already cover every management actor.
+-- #927: remove structural statutory registry permissive overlaps.
+-- Dedicated SELECT policies already include Platform Admin, so management
+-- FOR ALL policies can be split into write-only commands without changing access.
 
 drop policy if exists "platform admins manage statutory code mappings" on public.statutory_code_mappings;
 
@@ -90,61 +91,3 @@ create policy "platform admins can manage statutory sections [delete]"
 on public.statutory_form_sections
 for delete to authenticated
 using (app_private.has_platform_role(array['platform_admin'::text]));
-
-drop policy if exists "academic leaders can manage assessment components" on public.assessment_components;
-
-create policy "academic leaders can manage assessment components [insert]"
-on public.assessment_components
-for insert to authenticated
-with check (app_private.can_manage_current_assessment_school(school_id));
-
-create policy "academic leaders can manage assessment components [update]"
-on public.assessment_components
-for update to authenticated
-using (app_private.can_manage_current_assessment_school(school_id))
-with check (app_private.can_manage_current_assessment_school(school_id));
-
-create policy "academic leaders can manage assessment components [delete]"
-on public.assessment_components
-for delete to authenticated
-using (app_private.can_manage_current_assessment_school(school_id));
-
-drop policy if exists "academic leaders can manage assessment scheme candidates" on public.assessment_scheme_candidates;
-
-create policy "academic leaders can manage assessment scheme candidates [insert]"
-on public.assessment_scheme_candidates
-for insert to authenticated
-with check (app_private.can_manage_current_assessment_school(school_id));
-
-create policy "academic leaders can manage assessment scheme candidates [update]"
-on public.assessment_scheme_candidates
-for update to authenticated
-using (app_private.can_manage_current_assessment_school(school_id))
-with check (app_private.can_manage_current_assessment_school(school_id));
-
-create policy "academic leaders can manage assessment scheme candidates [delete]"
-on public.assessment_scheme_candidates
-for delete to authenticated
-using (app_private.can_manage_current_assessment_school(school_id));
-
-drop policy if exists "academic leaders can manage assessment schemes" on public.assessment_schemes;
--- The legacy narrower INSERT policy uses this same name. Remove it before
--- recreating the single command-specific management INSERT policy.
-drop policy if exists "academic leaders can manage assessment schemes [insert]"
-  on public.assessment_schemes;
-
-create policy "academic leaders can manage assessment schemes [insert]"
-on public.assessment_schemes
-for insert to authenticated
-with check (app_private.can_manage_current_assessment_school(school_id));
-
-create policy "academic leaders can manage assessment schemes [update]"
-on public.assessment_schemes
-for update to authenticated
-using (app_private.can_manage_current_assessment_school(school_id))
-with check (app_private.can_manage_current_assessment_school(school_id));
-
-create policy "academic leaders can manage assessment schemes [delete]"
-on public.assessment_schemes
-for delete to authenticated
-using (app_private.can_manage_current_assessment_school(school_id));
