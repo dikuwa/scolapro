@@ -43,6 +43,7 @@ const protectedIdentityColumns = new Map([
 ]);
 
 const attendanceReasonIdMap = new Map();
+let localAdminStaffMemberId = null;
 
 function parseEnvFile(filePath) {
   const env = {};
@@ -97,7 +98,9 @@ function rewriteActorIds(table, row) {
   }
   if (table === "school_learner_identifiers") delete next.id;
   if (table === "staff_members") {
-    if ("user_id" in next) next.user_id = null;
+    if ("user_id" in next) {
+      next.user_id = next.id === localAdminStaffMemberId ? localAdminUserId : null;
+    }
     if ("reconciled_by_user_id" in next) next.reconciled_by_user_id = null;
   }
   const requiredLocalActorTables = new Set([
@@ -347,7 +350,7 @@ const source = createClient(sourceUrl, sourceServiceKey, { auth: { persistSessio
 const target = createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const membershipResult = await target.from("school_memberships")
-  .select("user_id,school_id,role_key")
+  .select("user_id,school_id,role_key,staff_member_id")
   .eq("user_id", localAdminUserId)
   .eq("school_id", expectedSchoolId)
   .eq("role_key", "school_admin")
@@ -355,6 +358,10 @@ const membershipResult = await target.from("school_memberships")
 if (membershipResult.error || !membershipResult.data) {
   throw new Error("Expected Local Admin school membership is missing. Run the local auth seed before recovery.");
 }
+if (!membershipResult.data.staff_member_id) {
+  throw new Error("Expected Local Admin school membership to retain a staff identity before recovery.");
+}
+localAdminStaffMemberId = membershipResult.data.staff_member_id;
 
 const sourceSchool = await source.from("schools").select("id,name").eq("id", expectedSchoolId).maybeSingle();
 if (sourceSchool.error || !sourceSchool.data) throw new Error("Namib High School was not found in the hosted recovery source.");
@@ -390,6 +397,18 @@ for (const table of optionalTables) {
 }
 
 await deleteDemoRows(target);
+
+const localAdminStaffResult = await target.from("staff_members")
+  .select("id,user_id")
+  .eq("id", localAdminStaffMemberId)
+  .maybeSingle();
+if (
+  localAdminStaffResult.error ||
+  !localAdminStaffResult.data ||
+  localAdminStaffResult.data.user_id !== localAdminUserId
+) {
+  throw new Error("Recovery verification failed: Local Admin staff identity mapping was not preserved.");
+}
 
 const verifyTables = [
   "staff_members","learners","enrolments","register_classes","school_rooms","subjects","teacher_allocations","guardian_profiles",
