@@ -94,7 +94,7 @@ test("hosted recovery remaps governed provenance actors to Local Admin", () => {
     "sports_learner_house_assignments",
     "sports_staff_house_assignments",
   ]) {
-    assert.match(recovery, new RegExp('"' + table + '"'));
+    assert.match(requiredBlock, new RegExp('"' + table + '"'));
   }
   assert.match(recovery, /requiredLocalActorTables\.has\(table\) \? localAdminUserId : null/);
 });
@@ -150,10 +150,18 @@ test("hosted recovery removes synthetic learners in dependency order and verifie
   assert.match(recovery, /Unable to remove demo school learner identifiers/);
   assert.match(recovery, /Unable to remove demo enrolments/);
   assert.match(recovery, /Unable to remove demo learners/);
-  assert.match(recovery, /const requiresExactMatch = \[/);
-  assert.match(recovery, /"sports_houses"/);
-  assert.match(recovery, /"sports_learner_house_assignments"/);
-  assert.match(recovery, /"sports_staff_house_assignments"/);
+  const exactStart = recovery.indexOf("const requiresExactMatch = [");
+  const exactEnd = recovery.indexOf("].includes(table);", exactStart);
+  const exactBlock = recovery.slice(exactStart, exactEnd);
+  for (const table of [
+    "sports_houses",
+    "sports_age_groups",
+    "sports_year_settings",
+    "sports_learner_house_assignments",
+    "sports_staff_house_assignments",
+  ]) {
+    assert.match(exactBlock, new RegExp('"' + table + '"'));
+  }
   assert.match(recovery, /local !== hosted/);
 });
 
@@ -178,13 +186,16 @@ test("demo cleanup removes local report-card dependents before synthetic enrolme
 });
 
 test("hosted recovery restores Sports/Houses after learner and staff identities", () => {
-  const staff = recovery.indexOf('"staff_members"');
-  const learners = recovery.indexOf('"learners"');
-  const houses = recovery.indexOf('"sports_houses"');
-  const ageGroups = recovery.indexOf('"sports_age_groups"');
-  const yearSettings = recovery.indexOf('"sports_year_settings"');
-  const learnerAssignments = recovery.indexOf('"sports_learner_house_assignments"');
-  const staffAssignments = recovery.indexOf('"sports_staff_house_assignments"');
+  const requiredStart = recovery.indexOf("const requiredTables = [");
+  const requiredEnd = recovery.indexOf("];", requiredStart);
+  const requiredBlock = recovery.slice(requiredStart, requiredEnd);
+  const staff = requiredBlock.indexOf('"staff_members"');
+  const learners = requiredBlock.indexOf('"learners"');
+  const houses = requiredBlock.indexOf('"sports_houses"');
+  const ageGroups = requiredBlock.indexOf('"sports_age_groups"');
+  const yearSettings = requiredBlock.indexOf('"sports_year_settings"');
+  const learnerAssignments = requiredBlock.indexOf('"sports_learner_house_assignments"');
+  const staffAssignments = requiredBlock.indexOf('"sports_staff_house_assignments"');
   assert.ok(houses > staff && houses > learners);
   assert.ok(ageGroups > houses);
   assert.ok(yearSettings > ageGroups);
