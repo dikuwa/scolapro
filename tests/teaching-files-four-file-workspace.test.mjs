@@ -10,17 +10,7 @@ test("Issue #886 presents the four teacher-file workspace", () => {
     "Administration File",
     "Assessment / Question Paper File",
     "Professional Development / Resource File",
-  ]) assert.match(source, new RegExp(label.replace(/[.*+?^$\{\}()|[\]\\]/g, "\\test("Issue #886 presents the four teacher-file workspace", () => {
-  for (const label of [
-    "Preparation File",
-    "Administration File",
-    "Assessment / Question Paper File",
-    "Professional Development / Resource File",
   ]) assert.match(source, new RegExp(label.replace(/[.*+?^$\{\}()|[\]\\]/g, "\\$&")));
-  assert.match(source, /File \{index \+ 1\}/);
-  assert.match(source, /requirements available/);
-});
-")));
   assert.match(source, /File \{index \+ 1\}/);
   assert.match(source, /requirements available/);
 });
