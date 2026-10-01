@@ -20,13 +20,16 @@ test("attention badges hydrate after shell render with a short per-user session 
   assert.match(shellFrame, /resolvedAttentionCounts/);
 });
 
-test("attention endpoint delegates to one self-scoped RPC-backed loader", () => {
+test("attention endpoint preserves unauthenticated JSON 401 without restoring context reads", () => {
+  assert.match(route, /createSupabaseServerClient\(\)/);
+  assert.match(route, /supabase\.auth\.getClaims\(\)/);
+  assert.match(route, /status:\s*401/);
+  assert.ok(route.indexOf("getClaims()") < route.indexOf("getNavigationAttentionCounts()"));
   assert.doesNotMatch(route, /getUserContext\(\)/);
   assert.doesNotMatch(route, /currentSchoolMembership/);
   assert.match(route, /getNavigationAttentionCounts\(\)/);
   assert.match(route, /private, no-store/);
 });
-
 
 test("navigation attention uses one self-scoped RPC and no direct queue table read", () => {
   assert.match(attention, /supabase\.rpc\("get_my_navigation_attention"/);
