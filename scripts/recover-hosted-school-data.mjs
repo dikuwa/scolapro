@@ -461,17 +461,25 @@ if (!status.SERVICE_ROLE_KEY) throw new Error("Local Supabase did not report a s
 const source = createClient(sourceUrl, sourceServiceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 const target = createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
+const recoveryDate = namibiaDateKey();
 const membershipResult = await target.from("school_memberships")
-  .select("id,tenant_id,user_id,school_id,role_key,staff_member_id")
+  .select("id,tenant_id,user_id,school_id,role_key,staff_member_id,active_from,active_to")
   .eq("user_id", localAdminUserId)
   .eq("school_id", expectedSchoolId)
-  .eq("role_key", "school_admin")
-  .maybeSingle();
-if (membershipResult.error || !membershipResult.data) {
-  throw new Error("Expected Local Admin school membership is missing. Run the local auth seed before recovery.");
+  .eq("role_key", "school_admin");
+if (membershipResult.error) {
+  throw new Error("Unable to inspect Local Admin school memberships before recovery: " + membershipResult.error.message);
 }
-
-const recoveryDate = namibiaDateKey();
+const currentLocalAdminMemberships = (membershipResult.data ?? [])
+  .filter((row) =>
+    row.active_from <= recoveryDate &&
+    (!row.active_to || row.active_to >= recoveryDate)
+  )
+  .sort((left, right) => right.active_from.localeCompare(left.active_from));
+const seedMembership = currentLocalAdminMemberships[0] ?? null;
+if (!seedMembership) {
+  throw new Error("Expected a current Local Admin school membership. Run the local auth seed before recovery.");
+}
 const sourceAdminMembershipsResult = await source.from("school_memberships")
   .select("user_id,staff_member_id,role_key,active_from,active_to")
   .eq("school_id", expectedSchoolId)
@@ -498,12 +506,12 @@ if (currentSourceAdminIdentities.length !== 1) {
 const hostedAdminUserId = currentSourceAdminIdentities[0].user_id;
 const hostedAdminStaffMemberId = currentSourceAdminIdentities[0].staff_member_id;
 if (
-  membershipResult.data.staff_member_id &&
-  membershipResult.data.staff_member_id !== hostedAdminStaffMemberId
+  seedMembership.staff_member_id &&
+  seedMembership.staff_member_id !== hostedAdminStaffMemberId
 ) {
   throw new Error("Local Admin staff identity differs from the current hosted school-admin identity.");
 }
-localAdminStaffMemberId = membershipResult.data.staff_member_id ?? hostedAdminStaffMemberId;
+localAdminStaffMemberId = seedMembership.staff_member_id ?? hostedAdminStaffMemberId;
 
 const sourceRoleMembershipsResult = await source.from("school_memberships")
   .select("role_key,active_from,active_to")
@@ -544,7 +552,7 @@ for (const table of requiredTables) {
   if (table === "staff_members") {
     await ensureLocalAdminCurrentRoles(
       target,
-      membershipResult.data,
+      seedMembership,
       currentSourceRoleMemberships,
       localAdminStaffMemberId,
       recoveryDate,
