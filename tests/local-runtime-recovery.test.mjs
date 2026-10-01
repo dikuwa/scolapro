@@ -73,15 +73,34 @@ test("hosted recovery preserves immutable core identity provenance on reruns", (
 test("hosted recovery establishes staff identity and current roles after hosted staff import", () => {
   assert.match(recovery, /let localAdminStaffMemberId = null/);
   assert.match(recovery, /function namibiaDateKey\(\)/);
-  assert.match(recovery, /select\("id,tenant_id,user_id,school_id,role_key,staff_member_id"\)/);
+  assert.match(recovery, /select\("id,tenant_id,user_id,school_id,role_key,staff_member_id,active_from,active_to"\)/);
   assert.match(recovery, /source\.from\("school_memberships"\)/);
   assert.match(recovery, /currentSourceAdminIdentities\.length !== 1/);
-  assert.match(recovery, /membershipResult\.data\.staff_member_id \?\? hostedAdminStaffMemberId/);
+  assert.match(recovery, /seedMembership\.staff_member_id \?\? hostedAdminStaffMemberId/);
   assert.match(recovery, /const currentSourceRoleMemberships/);
   assert.match(recovery, /async function ensureLocalAdminCurrentRoles/);
+  assert.match(recovery, /const recoveryDate = namibiaDateKey\(\)/);
+  assert.match(recovery, /const currentLocalAdminMemberships = \(membershipResult\.data \?\? \[\]\)/);
+  assert.match(recovery, /const seedMembership = currentLocalAdminMemberships\[0\] \?\? null/);
+  assert.doesNotMatch(recovery, /\.eq\("role_key", "school_admin"\)\s*\.maybeSingle\(\)/);
   assert.match(recovery, /if \(table === "staff_members"\)/);
   assert.match(recovery, /ensureLocalAdminCurrentRoles\(/);
-  assert.match(recovery, /\.update\(\{ staff_member_id: staffMemberId \}\)/);
+  assert.match(recovery, /const sourceRoles = new Set/);
+  assert.match(recovery, /const currentLocalMemberships = localMemberships\.filter/);
+  assert.match(recovery, /sourceRoles\.has\(currentLocal\.role_key\)/);
+  assert.match(recovery, /\.delete\(\)\s*\.eq\("id", currentLocal\.id\)/);
+  assert.match(recovery, /Unable to remove stale Local Admin/);
+  assert.match(recovery, /const sameRoleLocals = localMemberships\.filter/);
+  assert.match(recovery, /const exactLocal =/);
+  assert.match(recovery, /row\.active_from === sourceMembership\.active_from/);
+  assert.match(recovery, /const currentSameRoleLocals = sameRoleLocals\.filter/);
+  assert.match(recovery, /const currentLocal = exactLocal \?\? currentSameRoleLocals\[0\] \?\? null/);
+  assert.match(recovery, /for \(const duplicateLocal of currentSameRoleLocals\)/);
+  assert.match(recovery, /Unable to remove duplicate Local Admin/);
+  assert.match(recovery, /staff_member_id: staffMemberId/);
+  assert.match(recovery, /active_from: sourceMembership\.active_from/);
+  assert.match(recovery, /active_to: desiredActiveTo/);
+  assert.match(recovery, /Unable to synchronize Local Admin/);
   assert.match(recovery, /role_key: sourceMembership\.role_key/);
   assert.match(
     recovery,
@@ -270,4 +289,32 @@ test("Sports/Houses configuration reruns preserve immutable scope and creator co
     recovery,
     /"sports_year_settings", new Set\(\["id", "tenant_id", "school_id", "academic_year", "created_by_user_id", "created_at"\]\)/,
   );
+});
+
+test("role reconciliation reuses an exact historical start-date row before updating a newer current row", () => {
+  const sameRoleLocals = recovery.indexOf("const sameRoleLocals = localMemberships.filter");
+  const exactLocal = recovery.indexOf("const exactLocal =", sameRoleLocals);
+  const currentSameRoleLocals = recovery.indexOf("const currentSameRoleLocals =", exactLocal);
+  const keeper = recovery.indexOf("const currentLocal = exactLocal ?? currentSameRoleLocals[0] ?? null", currentSameRoleLocals);
+  const duplicateCleanup = recovery.indexOf("for (const duplicateLocal of currentSameRoleLocals)", keeper);
+  const synchronize = recovery.indexOf(".update({", duplicateCleanup);
+  assert.ok(sameRoleLocals >= 0);
+  assert.ok(exactLocal > sameRoleLocals);
+  assert.ok(currentSameRoleLocals > exactLocal);
+  assert.ok(keeper > currentSameRoleLocals);
+  assert.ok(duplicateCleanup > keeper);
+  assert.ok(synchronize > duplicateCleanup);
+});
+
+test("school-admin preflight tolerates historical rows and selects a current seed membership", () => {
+  const recoveryDate = recovery.indexOf("const recoveryDate = namibiaDateKey()");
+  const query = recovery.indexOf('.eq("role_key", "school_admin")', recoveryDate);
+  const currentRows = recovery.indexOf("const currentLocalAdminMemberships =", query);
+  const seed = recovery.indexOf("const seedMembership = currentLocalAdminMemberships[0] ?? null", currentRows);
+  const hostedAdminLookup = recovery.indexOf('const sourceAdminMembershipsResult = await source.from("school_memberships")', seed);
+  assert.ok(recoveryDate >= 0);
+  assert.ok(query > recoveryDate);
+  assert.ok(currentRows > query);
+  assert.ok(seed > currentRows);
+  assert.ok(hostedAdminLookup > seed);
 });
