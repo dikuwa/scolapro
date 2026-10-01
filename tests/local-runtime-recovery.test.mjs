@@ -79,6 +79,10 @@ test("hosted recovery establishes staff identity and current roles after hosted 
   assert.match(recovery, /membershipResult\.data\.staff_member_id \?\? hostedAdminStaffMemberId/);
   assert.match(recovery, /const currentSourceRoleMemberships/);
   assert.match(recovery, /async function ensureLocalAdminCurrentRoles/);
+  assert.match(recovery, /const recoveryDate = namibiaDateKey\(\)/);
+  assert.match(recovery, /const currentLocalAdminMemberships = \(membershipResult\.data \?\? \[\]\)/);
+  assert.match(recovery, /const seedMembership = currentLocalAdminMemberships\[0\] \?\? null/);
+  assert.doesNotMatch(recovery, /\.eq\("role_key", "school_admin"\)\s*\.maybeSingle\(\)/);
   assert.match(recovery, /if \(table === "staff_members"\)/);
   assert.match(recovery, /ensureLocalAdminCurrentRoles\(/);
   assert.match(recovery, /const sourceRoles = new Set/);
@@ -300,4 +304,17 @@ test("role reconciliation reuses an exact historical start-date row before updat
   assert.ok(keeper > currentSameRoleLocals);
   assert.ok(duplicateCleanup > keeper);
   assert.ok(synchronize > duplicateCleanup);
+});
+
+test("school-admin preflight tolerates historical rows and selects a current seed membership", () => {
+  const recoveryDate = recovery.indexOf("const recoveryDate = namibiaDateKey()");
+  const query = recovery.indexOf('.eq("role_key", "school_admin")', recoveryDate);
+  const currentRows = recovery.indexOf("const currentLocalAdminMemberships =", query);
+  const seed = recovery.indexOf("const seedMembership = currentLocalAdminMemberships[0] ?? null", currentRows);
+  const hostedAdminLookup = recovery.indexOf('const sourceAdminMembershipsResult = await source.from("school_memberships")', seed);
+  assert.ok(recoveryDate >= 0);
+  assert.ok(query > recoveryDate);
+  assert.ok(currentRows > query);
+  assert.ok(seed > currentRows);
+  assert.ok(hostedAdminLookup > seed);
 });
