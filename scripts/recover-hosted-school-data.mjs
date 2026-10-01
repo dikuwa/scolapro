@@ -36,7 +36,10 @@ const primaryKeys = new Map([
 const protectedIdentityColumns = new Map([
   ["schools", new Set(["id", "tenant_id", "created_at"])],
   ["learners", new Set(["id", "tenant_id", "created_at"])],
-  ["guardian_profiles", new Set(["id", "tenant_id", "created_at"])]
+  ["guardian_profiles", new Set(["id", "tenant_id", "created_at"])],
+  ["sports_houses", new Set(["id", "tenant_id", "school_id", "created_by_user_id", "created_at"])],
+  ["sports_age_groups", new Set(["id", "tenant_id", "school_id", "created_by_user_id", "created_at"])],
+  ["sports_year_settings", new Set(["id", "tenant_id", "school_id", "academic_year", "created_by_user_id", "created_at"])]
 ]);
 
 const attendanceReasonIdMap = new Map();
