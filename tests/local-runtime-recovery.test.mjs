@@ -81,7 +81,15 @@ test("hosted recovery establishes staff identity and current roles after hosted 
   assert.match(recovery, /async function ensureLocalAdminCurrentRoles/);
   assert.match(recovery, /if \(table === "staff_members"\)/);
   assert.match(recovery, /ensureLocalAdminCurrentRoles\(/);
-  assert.match(recovery, /\.update\(\{ staff_member_id: staffMemberId \}\)/);
+  assert.match(recovery, /const sourceRoles = new Set/);
+  assert.match(recovery, /const currentLocalMemberships = localMemberships\.filter/);
+  assert.match(recovery, /sourceRoles\.has\(currentLocal\.role_key\)/);
+  assert.match(recovery, /\.delete\(\)\s*\.eq\("id", currentLocal\.id\)/);
+  assert.match(recovery, /Unable to remove stale Local Admin/);
+  assert.match(recovery, /staff_member_id: staffMemberId/);
+  assert.match(recovery, /active_from: sourceMembership\.active_from/);
+  assert.match(recovery, /active_to: desiredActiveTo/);
+  assert.match(recovery, /Unable to synchronize Local Admin/);
   assert.match(recovery, /role_key: sourceMembership\.role_key/);
   assert.match(
     recovery,
