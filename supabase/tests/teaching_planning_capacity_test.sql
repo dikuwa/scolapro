@@ -140,11 +140,14 @@ insert into public.subjects(
 );
 
 insert into public.curriculum_sources(
-  id,authority,source_key,title,source_url,status
+  id,authority,source_key,title,source_url,checksum,provenance,status
 ) values(
   'f62b0000-0000-4000-8000-000000000001',
   'NIED','planning-capacity-source','Planning Capacity Official Source',
-  'https://example.test/planning-capacity.pdf','verified'
+  'https://example.test/planning-capacity.pdf',
+  'sha256:planning-capacity',
+  '{"fixture":"teaching-planning-capacity"}'::jsonb,
+  'verified'
 );
 
 insert into public.curriculum_subjects(
