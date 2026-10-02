@@ -1,6 +1,6 @@
 begin;
 
-select plan(25);
+select plan(30);
 
 select has_table('public','curriculum_version_applicability','curriculum version applicability exists');
 select has_table('public','official_education_resources','official education resources exist');
@@ -53,20 +53,30 @@ insert into public.school_memberships(
 set local session_replication_role=replica;
 insert into public.subjects(
   id,tenant_id,school_id,subject_code,display_name,status
-) values(
-  'f9120000-0000-4000-8000-000000000001',
-  '11111111-1111-4111-8111-111111111111',
-  '22222222-2222-4222-8222-222222222222',
-  'CURR-TST',
-  'Curriculum Test Subject',
-  'active'
-);
+) values
+  (
+    'f9120000-0000-4000-8000-000000000001',
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+    'CURR-TST',
+    'Curriculum Test Subject',
+    'active'
+  ),
+  (
+    'f9120000-0000-4000-8000-000000000002',
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+    'CURR-NONE',
+    'Curriculum No-Match Subject',
+    'active'
+  );
 
 insert into public.grades(
   id,tenant_id,school_id,academic_year,grade_code,display_name
 ) values
   ('f9130000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'T8','Test Grade 8'),
-  ('f9130000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2027,'T8','Test Grade 8');
+  ('f9130000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2027,'T8','Test Grade 8'),
+  ('f9130000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'T9','Test Grade 9');
 
 insert into public.subject_offerings(
   id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status
@@ -76,6 +86,16 @@ insert into public.subject_offerings(
   '22222222-2222-4222-8222-222222222222',
   2026,
   'f9120000-0000-4000-8000-000000000001',
+  'f9130000-0000-4000-8000-000000000001',
+  5,
+  'active'
+),
+(
+  'f9140000-0000-4000-8000-000000000002',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  2026,
+  'f9120000-0000-4000-8000-000000000002',
   'f9130000-0000-4000-8000-000000000001',
   5,
   'active'
@@ -119,13 +139,21 @@ insert into public.curriculum_versions(
 
 insert into public.curriculum_version_applicability(
   id,curriculum_version_id,phase_code,grade_key,programme_code
-) values(
-  'f9180000-0000-4000-8000-000000000001',
-  'f9170000-0000-4000-8000-000000000001',
-  'junior_secondary',
-  'T8',
-  'general'
-);
+) values
+  (
+    'f9180000-0000-4000-8000-000000000001',
+    'f9170000-0000-4000-8000-000000000001',
+    'junior_secondary',
+    'T8',
+    'general'
+  ),
+  (
+    'f9180000-0000-4000-8000-000000000002',
+    'f9170000-0000-4000-8000-000000000001',
+    'junior_secondary',
+    'T9',
+    'general'
+  );
 
 update public.curriculum_versions
 set status='published',approved_by_user_id='f9100000-0000-4000-8000-000000000001',approved_at=now()
@@ -157,6 +185,22 @@ select is(
   'mapping verification actor is captured from auth context'
 );
 
+select lives_ok(
+  $insert into public.school_subject_curriculum_mappings(
+      id,tenant_id,school_id,subject_id,curriculum_subject_id,grade_code,phase_code,programme_code,
+      effective_from_year,effective_to_year,status,created_by_user_id
+    ) values(
+      'f9190000-0000-4000-8000-000000000002',
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222',
+      'f9120000-0000-4000-8000-000000000001',
+      'f9160000-0000-4000-8000-000000000001',
+      'T9','junior_secondary','general',2026,2027,'verified',
+      'f9100000-0000-4000-8000-000000000002'
+    )$,
+  'one canonical curriculum version may be mapped to another applicable grade without a fake duplicate version'
+);
+
 select is(
   (
     select concat_ws(
@@ -185,6 +229,109 @@ select is(
   'adopted subject offering stores the canonical curriculum pin'
 );
 
+reset role;
+
+insert into public.subject_offerings(
+  id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status
+) values(
+  'f9140000-0000-4000-8000-000000000003',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  2026,
+  'f9120000-0000-4000-8000-000000000001',
+  'f9130000-0000-4000-8000-000000000003',
+  5,
+  'active'
+);
+
+select is(
+  (select curriculum_version_id from public.subject_offerings where id='f9140000-0000-4000-8000-000000000003'),
+  'f9170000-0000-4000-8000-000000000001'::uuid,
+  'multi-grade applicability auto-links the same canonical version for Grade T9'
+);
+
+select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+select is(
+  (
+    select concat_ws(':',resolution_state,candidate_count::text)
+    from public.resolve_curriculum_version_for_subject_offering(
+      'f9140000-0000-4000-8000-000000000002'
+    )
+  ),
+  'none:0',
+  'an offering with no verified canonical subject mapping resolves to none rather than guessing'
+);
+reset role;
+
+insert into public.curriculum_versions(
+  id,curriculum_subject_id,version_key,source_id,effective_from_year,effective_to_year,status
+) values
+  (
+    'f9170000-0000-4000-8000-000000000002',
+    'f9160000-0000-4000-8000-000000000001',
+    '2027-general-v2',
+    'f9150000-0000-4000-8000-000000000001',
+    2027,
+    null,
+    'imported'
+  ),
+  (
+    'f9170000-0000-4000-8000-000000000003',
+    'f9160000-0000-4000-8000-000000000001',
+    '2027-advanced-v1',
+    'f9150000-0000-4000-8000-000000000001',
+    2027,
+    null,
+    'imported'
+  );
+
+insert into public.curriculum_version_applicability(
+  id,curriculum_version_id,phase_code,grade_key,programme_code
+) values
+  ('f9180000-0000-4000-8000-000000000003','f9170000-0000-4000-8000-000000000002','junior_secondary','T8','general'),
+  ('f9180000-0000-4000-8000-000000000004','f9170000-0000-4000-8000-000000000003','junior_secondary','T8','advanced');
+
+update public.curriculum_versions
+set status='published',
+    approved_by_user_id='f9100000-0000-4000-8000-000000000001',
+    approved_at=now()
+where id in (
+  'f9170000-0000-4000-8000-000000000002',
+  'f9170000-0000-4000-8000-000000000003'
+);
+
+insert into public.subject_offerings(
+  id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status
+) values(
+  'f9140000-0000-4000-8000-000000000004',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  2027,
+  'f9120000-0000-4000-8000-000000000001',
+  'f9130000-0000-4000-8000-000000000002',
+  5,
+  'active'
+);
+
+select is(
+  (select curriculum_version_id from public.subject_offerings where id='f9140000-0000-4000-8000-000000000004'),
+  null::uuid,
+  'ambiguous equal published matches are not auto-linked'
+);
+
+select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+select is(
+  (
+    select concat_ws(':',resolution_state,candidate_count::text)
+    from public.resolve_curriculum_version_for_subject_offering(
+      'f9140000-0000-4000-8000-000000000004'
+    )
+  ),
+  'ambiguous:2',
+  'resolver reports only the two equal general-programme candidates and excludes the advanced-programme version'
+);
 reset role;
 
 select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000001',true);
