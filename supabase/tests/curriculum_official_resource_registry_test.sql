@@ -1,6 +1,6 @@
 begin;
 
-select plan(36);
+select plan(44);
 
 select has_table('public','curriculum_version_applicability','curriculum version applicability exists');
 select has_table('public','official_education_resources','official education resources exist');
@@ -196,6 +196,22 @@ select is(
   'mapping verification actor is captured from auth context'
 );
 
+select throws_ok(
+  $$update public.school_subject_curriculum_mappings
+      set status='draft'
+    where id='f9190000-0000-4000-8000-000000000001'$$,
+  'Verified curriculum mappings are immutable; archive and create a new mapping',
+  'verified curriculum mapping cannot return to draft'
+);
+
+select throws_ok(
+  $$update public.school_subject_curriculum_mappings
+      set verified_by_user_id='f9100000-0000-4000-8000-000000000003'
+    where id='f9190000-0000-4000-8000-000000000001'$$,
+  'Verified curriculum mappings are immutable; archive and create a new mapping',
+  'verified mapping actor provenance cannot be rewritten'
+);
+
 select lives_ok(
   $$insert into public.school_subject_curriculum_mappings(
       id,tenant_id,school_id,subject_id,curriculum_subject_id,grade_code,phase_code,programme_code,
@@ -212,6 +228,34 @@ select lives_ok(
   'one canonical curriculum version may be mapped to another applicable grade without a fake duplicate version'
 );
 
+insert into public.school_subject_curriculum_mappings(
+  id,tenant_id,school_id,subject_id,curriculum_subject_id,grade_code,phase_code,programme_code,
+  effective_from_year,effective_to_year,status,created_by_user_id
+) values(
+  'f9190000-0000-4000-8000-000000000003',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'f9120000-0000-4000-8000-000000000001',
+  'f9160000-0000-4000-8000-000000000001',
+  'T8','junior_secondary','retired',2026,2027,'verified',
+  'f9100000-0000-4000-8000-000000000002'
+);
+
+select lives_ok(
+  $$update public.school_subject_curriculum_mappings
+      set status='archived'
+    where id='f9190000-0000-4000-8000-000000000003'$$,
+  'verified curriculum mapping can move once to terminal archived state'
+);
+
+select throws_ok(
+  $$update public.school_subject_curriculum_mappings
+      set programme_code='rewritten'
+    where id='f9190000-0000-4000-8000-000000000003'$$,
+  'Archived curriculum mappings are immutable historical records',
+  'archived curriculum mapping cannot be rewritten'
+);
+
 select is(
   (
     select concat_ws(
@@ -226,6 +270,32 @@ select is(
   ),
   'matched:f9170000-0000-4000-8000-000000000001:1',
   'verified exact crosswalk resolves one published curriculum version'
+);
+
+select throws_ok(
+  $$update public.subject_offerings
+      set curriculum_version_id='f9170000-0000-4000-8000-000000000001'
+    where id='f9140000-0000-4000-8000-000000000001'$$,
+  'Initial subject-offering curriculum pin must use the governed adoption workflow',
+  'school actor cannot bypass adoption for the first curriculum pin'
+);
+
+select throws_ok(
+  $$insert into public.subject_offerings(
+      id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status,curriculum_version_id
+    ) values(
+      'f9140000-0000-4000-8000-000000000005',
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222',
+      2026,
+      'f9120000-0000-4000-8000-000000000001',
+      'f9130000-0000-4000-8000-000000000001',
+      5,
+      'active',
+      'f9170000-0000-4000-8000-000000000001'
+    )$$,
+  'Explicit curriculum pins are not accepted on subject-offering insert; use governed curriculum resolution',
+  'subject-offering insert cannot inject an arbitrary curriculum pin'
 );
 
 select is(
@@ -474,6 +544,54 @@ select is(
   ),
   false,
   'internal resolver helper is not directly executable by authenticated clients'
+);
+
+insert into public.curriculum_versions(
+  id,curriculum_subject_id,version_key,source_id,effective_from_year,status
+) values(
+  'f9170000-0000-4000-8000-000000000005',
+  'f9160000-0000-4000-8000-000000000001',
+  'withdrawal-finality-v1',
+  'f9150000-0000-4000-8000-000000000001',
+  2026,
+  'imported'
+);
+
+insert into public.curriculum_units(
+  id,curriculum_version_id,unit_code,topic,sequence_number,applicable_grade_keys
+) values(
+  'f9220000-0000-4000-8000-000000000001',
+  'f9170000-0000-4000-8000-000000000005',
+  'U-WITHDRAW',
+  'Withdrawal finality',
+  1,
+  array['T8']
+);
+
+update public.curriculum_versions
+set status='published',
+    approved_by_user_id='f9100000-0000-4000-8000-000000000001',
+    approved_at=now()
+where id='f9170000-0000-4000-8000-000000000005';
+
+update public.curriculum_versions
+set status='withdrawn'
+where id='f9170000-0000-4000-8000-000000000005';
+
+select throws_ok(
+  $$update public.curriculum_units
+      set applicable_grade_keys=array['T9']
+    where id='f9220000-0000-4000-8000-000000000001'$$,
+  'Approved or published curriculum content is immutable; create a new curriculum version',
+  'withdrawal does not reopen child grade applicability for editing'
+);
+
+select throws_ok(
+  $$update public.curriculum_versions
+      set metadata=jsonb_build_object('rewritten',true)
+    where id='f9170000-0000-4000-8000-000000000005'$$,
+  'Approved or published curriculum version content and provenance are immutable',
+  'withdrawal does not reopen parent curriculum version provenance'
 );
 
 select is(
