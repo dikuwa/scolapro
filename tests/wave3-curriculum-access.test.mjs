@@ -40,7 +40,7 @@ test("curriculum reader starts from effective teacher allocations and stays read
   }
 
   assert.doesNotMatch(source, /\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
-  assert.doesNotMatch(source, /curriculum_practicals/);
+  assert.match(source, /resourcesByVersionId/);
 });
 
 test("teacher curriculum UI distinguishes provenance and missing registry content", () => {
