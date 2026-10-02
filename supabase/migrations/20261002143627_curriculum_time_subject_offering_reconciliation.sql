@@ -220,6 +220,7 @@ begin
     left join public.curriculum_versions cv on cv.id=so.curriculum_version_id
     where so.school_id=p_school_id
       and so.academic_year=p_academic_year
+      and so.status='active'
   ),
   mapped as (
     select
@@ -406,7 +407,8 @@ begin
     raise exception 'Subject offering is required';
   end if;
 
-  if p_action not in ('official_default','school_override','school_configured') then
+  if p_action is null
+     or p_action not in ('official_default','school_override','school_configured') then
     raise exception 'Unsupported subject-offering allocation action';
   end if;
 
@@ -425,6 +427,10 @@ begin
     v_offering.school_id
   ) then
     raise exception 'Permission denied';
+  end if;
+
+  if v_offering.status<>'active' then
+    raise exception 'Only active subject offerings may be reconciled';
   end if;
 
   select
