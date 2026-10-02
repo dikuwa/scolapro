@@ -1,6 +1,6 @@
 begin;
 
-select plan(27);
+select plan(33);
 
 select has_column('public','subject_offerings','curriculum_time_allocation_id','subject offerings can link one official time allocation');
 select has_column('public','subject_offerings','allocation_origin','subject offerings store allocation provenance origin');
@@ -419,25 +419,27 @@ select is(
   'official reconciliation emits one bounded audit event'
 );
 
+select lives_ok(
+  $select *
+    from public.reconcile_subject_offering_time_allocation(
+      'fa550000-0000-4000-8000-000000000001',
+      'official_default',
+      'fa5a0000-0000-4000-8000-000000000001',
+      null,
+      null
+    )$,
+  'repeating the same reconciliation remains a valid idempotent operation'
+);
+
 select is(
   (
-    with repeated as (
-      select *
-      from public.reconcile_subject_offering_time_allocation(
-        'fa550000-0000-4000-8000-000000000001',
-        'official_default',
-        'fa5a0000-0000-4000-8000-000000000001',
-        null,
-        null
-      )
-    )
     select count(*)
     from public.audit_events
     where entity_id='fa550000-0000-4000-8000-000000000001'
       and event_type='subject_offering_allocation_reconciled'
   ),
   1::bigint,
-  'repeating the same reconciliation is idempotent and does not duplicate audit history'
+  'repeating the same reconciliation does not duplicate audit history'
 );
 
 select throws_ok(
