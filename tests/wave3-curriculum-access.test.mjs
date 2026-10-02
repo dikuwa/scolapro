@@ -33,6 +33,8 @@ test("curriculum reader starts from effective teacher allocations and stays read
     "curriculum_units",
     "curriculum_objectives",
     "curriculum_competencies",
+    "curriculum_practicals",
+    "official_education_resource_curriculum_links",
   ]) {
     assert.match(source, new RegExp(`\\.from\\("${table}"\\)`));
   }
@@ -49,7 +51,11 @@ test("teacher curriculum UI distinguishes provenance and missing registry conten
   assert.match(source, /Curriculum registry entry not available/);
   assert.match(source, /Structured curriculum content not yet loaded/);
   assert.match(source, /No curriculum matches this search/);
-  assert.match(source, /Search topic, objective or competency/);
+  assert.match(source, /Search topic, objective, competency or practical/);
+  assert.match(source, /Practical requirements/);
+  assert.match(source, /Official companion resources/);
+  assert.match(source, /Open official source/);
+  assert.match(source, /Draft extraction and review candidates remain platform-governed/);
   assert.match(source, /Planning/);
   assert.match(source, /\/teaching\/preparation/);
   assert.match(source, /does not scrape, invent, upload or relabel NIED content/);
