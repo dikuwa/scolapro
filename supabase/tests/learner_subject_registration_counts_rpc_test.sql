@@ -45,8 +45,8 @@ select is(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%app_private.can_manage_learner_subject_registrations(p_school_id)%'
-      and pg_get_functiondef(p.oid) like '%IF auth.uid() IS NULL%'
+    select lower(pg_get_functiondef(p.oid)) like '%app_private.can_manage_learner_subject_registrations(p_school_id)%'
+      and lower(pg_get_functiondef(p.oid)) like '%if auth.uid() is null%'
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public'
