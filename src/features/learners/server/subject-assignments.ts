@@ -31,15 +31,22 @@ export async function getSubjectAssignmentWorkspace(
     db.from("grades").select("id,display_name").eq("school_id", membership.schoolId).eq("academic_year", academicYear).order("display_name"),
     db.from("register_classes").select("id,grade_id,display_name").eq("school_id", membership.schoolId).eq("academic_year", academicYear).order("display_name"),
     db.from("subject_offerings").select("id,grade_id,status,subjects(subject_code,display_name),grades(display_name)").eq("school_id", membership.schoolId).eq("academic_year", academicYear).order("grade_id"),
-    db.from("learner_subject_registrations").select("subject_offering_id").eq("school_id", membership.schoolId).eq("academic_year", academicYear).eq("status", "active").limit(10000),
+    db.rpc("get_learner_subject_registration_counts", {
+      p_school_id: membership.schoolId,
+      p_academic_year: academicYear,
+    }),
   ]);
   if (gradesResult.error || classesResult.error || offeringsResult.error || registrationsResult.error) {
     throw new Error("Unable to load the subject assignment workspace.");
   }
   const grades = gradesResult.data ?? [];
   const gradeById = new Map(grades.map((grade) => [grade.id, grade.display_name]));
-  const registrationCounts = new Map<string, number>();
-  for (const row of registrationsResult.data ?? []) registrationCounts.set(row.subject_offering_id, (registrationCounts.get(row.subject_offering_id) ?? 0) + 1);
+  const registrationCounts = new Map(
+    (registrationsResult.data ?? []).map((row) => [
+      row.subject_offering_id,
+      Number(row.registration_count ?? 0),
+    ]),
+  );
   const offerings: SubjectAssignmentOffering[] = (offeringsResult.data ?? []).map((row) => {
     const subject = one(row.subjects as NamedRelation);
     return {
