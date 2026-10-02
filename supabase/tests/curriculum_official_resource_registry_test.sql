@@ -186,7 +186,7 @@ select is(
 );
 
 select lives_ok(
-  $insert into public.school_subject_curriculum_mappings(
+  $$insert into public.school_subject_curriculum_mappings(
       id,tenant_id,school_id,subject_id,curriculum_subject_id,grade_code,phase_code,programme_code,
       effective_from_year,effective_to_year,status,created_by_user_id
     ) values(
