@@ -68,9 +68,9 @@ select ok(
 
 select ok(
   (
-    select pg_get_functiondef(p.oid) like '%public.learner_subject_registrations%'
-      and pg_get_functiondef(p.oid) like '%GROUP BY lsr.subject_offering_id%'
-      and pg_get_functiondef(p.oid) like '%lsr.status = ''active''%'
+    select lower(pg_get_functiondef(p.oid)) like '%public.learner_subject_registrations%'
+      and lower(pg_get_functiondef(p.oid)) like '%group by lsr.subject_offering_id%'
+      and lower(pg_get_functiondef(p.oid)) like '%lsr.status = ''active''%'
     from pg_proc p
     join pg_namespace n on n.oid=p.pronamespace
     where n.nspname='public'
