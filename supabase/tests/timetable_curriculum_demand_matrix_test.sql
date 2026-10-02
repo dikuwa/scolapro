@@ -602,12 +602,12 @@ select set_config('request.jwt.claim.sub','f6020000-0000-4000-8000-000000000004'
 set local role authenticated;
 
 select throws_ok(
-  $select *
+  $$select *
     from public.get_timetable_curriculum_demand_matrix(
       'f6010000-0000-4000-8000-000000000001',
       2026,
       '2026-06-01'
-    )$,
+    )$$,
   'Permission denied',
   'teacher cannot read the school-wide curriculum demand matrix'
 );
