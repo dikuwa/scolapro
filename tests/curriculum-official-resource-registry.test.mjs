@@ -31,7 +31,8 @@ test("historical pins are preserved and only unpinned offerings can adopt", () =
   assert.match(migration, /if v_offering\.curriculum_version_id is not null then\s+return v_offering\.curriculum_version_id;/i);
   assert.match(migration, /where id=v_offering\.id\s+and curriculum_version_id is null;/i);
   assert.match(migration, /before insert on public\.subject_offerings/i);
-  assert.doesNotMatch(migration, /before update[^;]*subject_offerings/i);
+  assert.match(migration, /subject_offering_curriculum_pin_guard_trg/);
+  assert.match(migration, /Pinned subject-offering curriculum version is immutable/);
 });
 
 test("national definitions remain platform-governed and publication is provenance-gated", () => {
@@ -41,13 +42,21 @@ test("national definitions remain platform-governed and publication is provenanc
   assert.match(migration, /checksum is not null/i);
   assert.match(migration, /approved_by_user_id is not null/i);
   assert.match(migration, /Published official education resource content and provenance are immutable/i);
+  assert.match(migration, /old\.approved_at is not null/i);
+  assert.match(migration, /v_old_final/i);
+  assert.match(migration, /v_new_final/i);
 });
 
 test("teacher curriculum access exposes source links, official resources and practicals", () => {
   assert.match(server, /sourceUrl: source\.source_url/);
   assert.match(server, /from\("curriculum_practicals"\)/);
   assert.match(server, /from\("official_education_resource_curriculum_links"\)/);
-  assert.match(server, /resourcesByVersionId/);
+  assert.match(server, /unitsByAllocationId/);
+  assert.match(server, /resourcesByAllocationId/);
+  assert.match(server, /applicable_grade_keys/);
+  assert.match(server, /from\("official_education_resource_applicability"\)/);
+  assert.match(server, /from\("school_subject_curriculum_mappings"\)/);
+  assert.match(server, /candidateMappings\.length === 1/);
   assert.match(workspace, /Open official source/);
   assert.match(workspace, /Official companion resources/);
   assert.match(workspace, /Practical requirements/);
