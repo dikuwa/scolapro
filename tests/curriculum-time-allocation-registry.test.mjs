@@ -77,6 +77,11 @@ test("post-merge remediation preserves exact profile and constraint semantics", 
   assert.match(remediation, /numeric_value is not null[\s\S]*numeric_value::text not in \('NaN','Infinity','-Infinity'\)[\s\S]*numeric_value>=1[\s\S]*numeric_value=trunc\(numeric_value\)[\s\S]*not valid/i);
   assert.match(remediation, /new\.numeric_value::text in \('NaN','Infinity','-Infinity'\)/);
   assert.match(remediation, /Existing non-draft subject-level scheduling constraints require explicit exact-cycle reconciliation/);
+  assert.match(remediation, /Existing curriculum time profile supersession links require explicit phase and exact-cycle reconciliation before this migration/);
+  assert.match(remediation, /Existing curriculum time profile supersession chains contain a cycle and require explicit reconciliation before this migration/);
+  assert.match(remediation, /successor\.phase_code is distinct from predecessor\.phase_code/);
+  assert.match(remediation, /Existing curriculum time allocation supersession links require explicit phase reconciliation before this migration/);
+  assert.match(remediation, /successor_profile\.phase_code is distinct from predecessor_profile\.phase_code/);
   assert.match(remediation, /Existing curriculum scheduling constraint supersession links require explicit target and exact-cycle reconciliation before this migration/);
   assert.match(remediation, /successor\.curriculum_version_id is distinct from predecessor\.curriculum_version_id/);
   assert.match(remediation, /Existing curriculum scheduling constraint supersession chains contain a cycle and require explicit reconciliation before this migration/);

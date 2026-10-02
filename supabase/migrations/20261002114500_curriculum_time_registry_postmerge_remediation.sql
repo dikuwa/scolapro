@@ -37,6 +37,75 @@ begin
 end;
 $preexisting_constraint_scope$;
 
+do $preexisting_profile_supersession$
+begin
+  if exists(
+    select 1
+    from public.curriculum_time_profiles successor
+    join public.curriculum_time_profiles predecessor
+      on predecessor.id=successor.supersedes_profile_id
+    where successor.supersedes_profile_id is not null
+      and (
+        successor.phase_code is distinct from predecessor.phase_code
+        or successor.cycle_kind is distinct from predecessor.cycle_kind
+        or successor.cycle_length is distinct from predecessor.cycle_length
+      )
+  ) then
+    raise exception 'Existing curriculum time profile supersession links require explicit phase and exact-cycle reconciliation before this migration';
+  end if;
+
+  if exists(
+    with recursive supersession_chain as (
+      select
+        p.id as start_id,
+        p.id,
+        p.supersedes_profile_id,
+        array[p.id]::uuid[] as path,
+        false as cycle_detected
+      from public.curriculum_time_profiles p
+      where p.supersedes_profile_id is not null
+
+      union all
+
+      select
+        chain.start_id,
+        predecessor.id,
+        predecessor.supersedes_profile_id,
+        chain.path || predecessor.id,
+        predecessor.id=any(chain.path)
+      from supersession_chain chain
+      join public.curriculum_time_profiles predecessor
+        on predecessor.id=chain.supersedes_profile_id
+      where not chain.cycle_detected
+    )
+    select 1
+    from supersession_chain
+    where cycle_detected
+  ) then
+    raise exception 'Existing curriculum time profile supersession chains contain a cycle and require explicit reconciliation before this migration';
+  end if;
+end;
+$preexisting_profile_supersession$;
+
+do $preexisting_allocation_supersession$
+begin
+  if exists(
+    select 1
+    from public.curriculum_time_allocations successor
+    join public.curriculum_time_allocations predecessor
+      on predecessor.id=successor.supersedes_allocation_id
+    join public.curriculum_time_profiles successor_profile
+      on successor_profile.id=successor.profile_id
+    join public.curriculum_time_profiles predecessor_profile
+      on predecessor_profile.id=predecessor.profile_id
+    where successor.supersedes_allocation_id is not null
+      and successor_profile.phase_code is distinct from predecessor_profile.phase_code
+  ) then
+    raise exception 'Existing curriculum time allocation supersession links require explicit phase reconciliation before this migration';
+  end if;
+end;
+$preexisting_allocation_supersession$;
+
 do $preexisting_constraint_supersession$
 begin
   if exists(
