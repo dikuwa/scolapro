@@ -24,7 +24,7 @@ test("governance publication remains source-backed and human-verified at the dat
 test("governance UI is platform-admin-only and fits existing platform navigation", () => {
   assert.match(page,/roleKey === "platform_admin"/);
   assert.match(navigation,/curriculum_policy/);
-  assert.match(navigation,/\\/platform\\/curriculum-policy/);
+  assert.match(navigation,/\/platform\/curriculum-policy/);
   assert.match(navigation,/platform_admin:[\s\S]*"curriculum_policy"/);
   assert.doesNotMatch(navigation,/school_admin:[^\n]*"curriculum_policy"/);
 });
@@ -47,5 +47,5 @@ test("governance server action is bounded to the platform-admin RPC", () => {
   assert.match(actions,/govern_curriculum_time_registry/);
   assert.match(actions,/p_related_id/);
   assert.match(actions,/p_reason/);
-  assert.match(actions,/revalidatePath\("\\/platform\\/curriculum-policy"\)/);
+  assert.match(actions,/revalidatePath\("\/platform\/curriculum-policy"\)/);
 });
