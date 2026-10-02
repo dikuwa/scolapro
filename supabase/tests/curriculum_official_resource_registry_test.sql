@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(25);
 
 select has_table('public','curriculum_version_applicability','curriculum version applicability exists');
 select has_table('public','official_education_resources','official education resources exist');
@@ -157,10 +157,19 @@ select is(
   'mapping verification actor is captured from auth context'
 );
 
-select results_eq(
-  $$select resolution_state,curriculum_version_id,candidate_count
-    from public.resolve_curriculum_version_for_subject_offering('f9140000-0000-4000-8000-000000000001')$$,
-  $$values('matched'::text,'f9170000-0000-4000-8000-000000000001'::uuid,1::integer)$$,
+select is(
+  (
+    select concat_ws(
+      ':',
+      resolution_state,
+      curriculum_version_id::text,
+      candidate_count::text
+    )
+    from public.resolve_curriculum_version_for_subject_offering(
+      'f9140000-0000-4000-8000-000000000001'
+    )
+  ),
+  'matched:f9170000-0000-4000-8000-000000000001:1',
   'verified exact crosswalk resolves one published curriculum version'
 );
 
