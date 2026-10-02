@@ -21,6 +21,11 @@ alter table public.subject_offerings
       'school_configured'
     )
   ),
+  add constraint subject_offerings_allocation_override_reason_length_check
+  check (
+    allocation_override_reason is null
+    or char_length(allocation_override_reason)<=1000
+  ),
   add constraint subject_offerings_allocation_state_check
   check (
     (
@@ -188,6 +193,10 @@ begin
 
   if p_school_id is null or p_academic_year is null then
     raise exception 'School and academic year are required';
+  end if;
+
+  if p_academic_year<2000 or p_academic_year>2200 then
+    raise exception 'Academic year is invalid';
   end if;
 
   if not app_private.user_can_manage_school_settings(auth.uid(),p_school_id) then
@@ -531,16 +540,25 @@ begin
     v_desired_allocation_id:=v_resolved_allocation_id;
 
     if p_action='official_default' then
-      if v_offering.periods_per_cycle<>v_official_periods then
-        raise exception 'Official-default reconciliation requires the existing school target to already equal the official allocation';
+      if v_reason is not null then
+        raise exception 'Override reason is only valid for school_override';
       end if;
 
-      if p_school_target_periods is not null
-         and p_school_target_periods<>v_offering.periods_per_cycle then
-        raise exception 'Official-default reconciliation does not rewrite the existing school target';
+      if v_offering.allocation_origin='legacy' then
+        if v_offering.periods_per_cycle<>v_official_periods then
+          raise exception 'Official-default reconciliation requires the existing school target to already equal the official allocation';
+        end if;
+
+        if p_school_target_periods is not null
+           and p_school_target_periods<>v_offering.periods_per_cycle then
+          raise exception 'Official-default reconciliation does not rewrite the existing legacy school target';
+        end if;
+
+        v_target_periods:=v_offering.periods_per_cycle;
+      elsif v_target_periods<>v_official_periods then
+        raise exception 'Official-default school target must equal the resolved official allocation';
       end if;
 
-      v_target_periods:=v_offering.periods_per_cycle;
       v_desired_origin:='official_default';
       v_reason:=null;
     else
@@ -555,6 +573,10 @@ begin
       v_desired_origin:='school_override';
     end if;
   else
+    if v_reason is not null then
+      raise exception 'Override reason is only valid for school_override';
+    end if;
+
     if p_expected_allocation_id is not null then
       raise exception 'School-configured reconciliation does not accept an official allocation id';
     end if;
@@ -648,6 +670,9 @@ begin
       'new_periods_per_cycle',v_target_periods,
       'official_periods_per_cycle',v_official_periods,
       'official_rule_strength',v_rule_strength,
+      'old_override_reason',
+        nullif(btrim(coalesce(v_offering.allocation_override_reason,'')),''),
+      'new_override_reason',v_reason,
       'override_reason_changed',
         nullif(btrim(coalesce(v_offering.allocation_override_reason,'')),'')
           is distinct from v_reason

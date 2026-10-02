@@ -34,10 +34,14 @@ test("Slice 2 reconciliation is explicit, stale-preview safe, role-scoped and au
   assert.match(migration, /user_can_manage_school_settings\([\s\S]*v_offering\.school_id/);
   assert.match(migration, /Reconciliation preview is stale; refresh before committing/);
   assert.match(migration, /School override reason is required/);
-  assert.match(migration, /Official-default reconciliation does not rewrite the existing school target/);
+  assert.match(migration, /char_length\(allocation_override_reason\)<=1000/);
+  assert.match(migration, /Official-default reconciliation does not rewrite the existing legacy school target/);
+  assert.match(migration, /Official-default school target must equal the resolved official allocation/);
   assert.match(migration, /subject_offering_allocation_reconciled/);
   assert.match(migration, /subject_offering_allocation_overridden/);
   assert.match(migration, /subject_offering_allocation_linked/);
+  assert.match(migration, /'old_override_reason'/);
+  assert.match(migration, /'new_override_reason'/);
   assert.match(migration, /curriculum_time_reconciliation_offering_id/);
   assert.match(migration, /revoke all on function public\.reconcile_subject_offering_time_allocation[\s\S]*from public,anon/);
 });

@@ -1,6 +1,6 @@
 begin;
 
-select plan(33);
+select plan(34);
 
 select has_column('public','subject_offerings','curriculum_time_allocation_id','subject offerings can link one official time allocation');
 select has_column('public','subject_offerings','allocation_origin','subject offerings store allocation provenance origin');
@@ -529,6 +529,18 @@ select is(
   ),
   1::bigint,
   'school override emits one bounded audit event'
+);
+
+select ok(
+  exists(
+    select 1
+    from public.audit_events
+    where entity_id='fa550000-0000-4000-8000-000000000002'
+      and event_type='subject_offering_allocation_overridden'
+      and metadata->>'new_override_reason'='Keep current school target'
+      and metadata->>'old_override_reason' is null
+  ),
+  'audit history preserves the bounded override reason transition'
 );
 
 select is(
