@@ -25,6 +25,8 @@ test("withdrawn source evidence remains platform-admin reviewable without leakin
 
 test("governance workspace exposes provenance, exact-cycle scope, source locators, supersession and conflicts", () => {
   assert.match(server, /sourceDocumentDate/);
+  assert.match(server, /sourceAuthority/);
+  assert.match(server, /source_document_date/);
   assert.match(server, /checksum/);
   assert.match(server, /provenance/);
   assert.match(server, /cycleKind/);
@@ -53,6 +55,10 @@ test("UI is summary-first, uses ScolaPro Picker and contains no browser-native s
   assert.match(component, /Allocation review/);
   assert.match(component, /Scheduling constraints/);
   assert.match(component, /<Picker/);
+  assert.match(component, /Supersedes:/);
+  assert.match(component, /conflictReadinessMessage/);
+  assert.match(component, /item !== conflictReadinessMessage/);
+  assert.match(component, /name="conflictReason" required minLength=\{4\}/);
   assert.doesNotMatch(component, /<select\b/i);
   assert.match(component, /AI\/extraction output remains draft until a human reviewer explicitly verifies it/);
 });

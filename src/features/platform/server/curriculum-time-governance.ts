@@ -19,7 +19,9 @@ export type GovernanceSource = {
 export type GovernanceProfile = {
   id: string;
   sourceId: string;
+  sourceAuthority: string;
   sourceTitle: string;
+  sourceDocumentDate: string | null;
   profileKey: string;
   title: string;
   phaseCode: string | null;
@@ -241,11 +243,13 @@ export async function getCurriculumTimeGovernanceWorkspace(): Promise<Curriculum
     const source = sourceById.get(String(row.source_id));
     const readiness: string[] = [];
     if (!source || !hasEvidence(source)) readiness.push("Verified source URL, checksum and provenance are required before publication.");
-    if (String(row.status) !== "verified") readiness.push("Profile must be human-verified before publication.");
+    if (String(row.status) === "draft") readiness.push("Profile must be human-verified before publication.");
     return {
       id: String(row.id),
       sourceId: String(row.source_id),
+      sourceAuthority: source ? String(source.authority) : "Authority unavailable",
       sourceTitle: source ? String(source.title) : "Source unavailable",
+      sourceDocumentDate: source?.source_document_date ? String(source.source_document_date) : null,
       profileKey: String(row.profile_key),
       title: String(row.title),
       phaseCode: row.phase_code ? String(row.phase_code) : null,
@@ -270,7 +274,7 @@ export async function getCurriculumTimeGovernanceWorkspace(): Promise<Curriculum
     if (!profile || String(profile.status) !== "published") readiness.push("Parent profile must be published first.");
     if (!source || !hasEvidence(source)) readiness.push("Verified source evidence is required.");
     if (!String(row.source_locator ?? "").trim()) readiness.push("Source locator is required.");
-    if (String(row.status) !== "verified") readiness.push("Allocation must be human-verified before publication.");
+    if (String(row.status) === "draft") readiness.push("Allocation must be human-verified before publication.");
     if ((conflictCounts.get(String(row.id)) ?? 0) > 0 && !String(row.conflict_acknowledgement_reason ?? "").trim()) readiness.push("Source conflict requires an explicit acknowledgement reason or supersession.");
     return {
       id: String(row.id),
@@ -304,7 +308,7 @@ export async function getCurriculumTimeGovernanceWorkspace(): Promise<Curriculum
     if (!source || !hasEvidence(source)) readiness.push("Verified source evidence is required.");
     if (!String(row.source_locator ?? "").trim()) readiness.push("Source locator is required.");
     if (allocation && !["published", "superseded"].includes(String(allocation.status))) readiness.push("Linked allocation must be published first.");
-    if (String(row.status) !== "verified") readiness.push("Constraint must be human-verified before publication.");
+    if (String(row.status) === "draft") readiness.push("Constraint must be human-verified before publication.");
     return {
       id: String(row.id),
       sourceId: String(row.source_id),

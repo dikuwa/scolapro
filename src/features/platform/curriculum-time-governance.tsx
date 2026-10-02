@@ -23,6 +23,8 @@ import type {
 } from "@/features/platform/server/curriculum-time-governance";
 
 const inputClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
+const conflictReadinessMessage = "Source conflict requires an explicit acknowledgement reason or supersession.";
+
 const statusClass: Record<string, string> = {
   discovered: "bg-surface-muted text-muted-foreground",
   imported: "bg-[color:var(--info-soft)] text-[color:var(--info)]",
@@ -119,7 +121,11 @@ function RuleLifecycle({
   conflictCount?: number;
 }) {
   const [state, action, pending] = useActionState(transitionCurriculumTimeRule, {} as GovernanceActionState);
-  const publishBlocked = readiness.some((item) => !item.includes("human-verified") && !item.includes("must be human-verified"));
+  const publishBlocked = readiness.some(
+    (item) => !item.includes("human-verified")
+      && !item.includes("must be human-verified")
+      && item !== conflictReadinessMessage,
+  );
   return (
     <div className="mt-3">
       <StateToast state={state} />
@@ -129,7 +135,7 @@ function RuleLifecycle({
         {status === "draft" ? <Button type="submit" name="action" value="verify" size="sm" variant="success" loading={pending}>Human verify</Button> : null}
         {status === "verified" ? (
           <>
-            {entityType === "allocation" && conflictCount > 0 ? <div className="min-w-[14rem] flex-1"><label className={formFieldLabelClass} htmlFor={"conflict-" + id}>Conflict acknowledgement</label><input id={"conflict-" + id} name="conflictReason" maxLength={1000} placeholder="Required only when the overlap is intentional" className={inputClass + " " + formFieldControlOffsetClass} /></div> : null}
+            {entityType === "allocation" && conflictCount > 0 ? <div className="min-w-[14rem] flex-1"><label className={formFieldLabelClass} htmlFor={"conflict-" + id}>Conflict acknowledgement</label><input id={"conflict-" + id} name="conflictReason" required minLength={4} maxLength={1000} placeholder="Required when the overlap is intentional" className={inputClass + " " + formFieldControlOffsetClass} /></div> : null}
             <Button type="submit" name="action" value="publish" size="sm" loading={pending} disabled={publishBlocked}>Publish</Button>
             <Button type="submit" name="action" value="return_to_draft" size="sm" variant="neutral" loading={pending}>Return to draft</Button>
           </>
@@ -138,6 +144,22 @@ function RuleLifecycle({
         {status === "superseded" ? <Button type="submit" name="action" value="withdraw" size="sm" variant="danger" loading={pending}>Withdraw</Button> : null}
       </form>
     </div>
+  );
+}
+
+function SupersessionContext({
+  currentId,
+  options,
+}: {
+  currentId: string | null;
+  options: { value: string; label: string; helper?: string }[];
+}) {
+  if (!currentId) return null;
+  const predecessor = options.find((option) => option.value === currentId);
+  return (
+    <p className="mt-1 text-[0.68rem] text-muted-foreground">
+      Supersedes: <strong className="font-semibold text-foreground">{predecessor?.label ?? currentId}</strong>
+    </p>
   );
 }
 
@@ -170,17 +192,17 @@ function SupersessionEditor({
 
 function ProfileReview({ profile, options }: { profile: GovernanceProfile; options: { value: string; label: string; helper?: string }[] }) {
   const yearRange = String(profile.effectiveFromYear) + "–" + String(profile.effectiveToYear ?? "open");
-  return <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3.5"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="scolapro-record-title">{profile.title}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{profile.sourceTitle} · {profile.phaseCode ?? "all phases"} · {profile.cycleKind} {profile.cycleLength}-day · {yearRange}</p></div><Status value={profile.status} /></div><p className="mt-2 text-[0.68rem] text-muted-foreground">Period: {profile.periodMinutes ?? "—"} min · Total: {profile.totalPeriodsPerCycle ?? "—"} / cycle · Key: {profile.profileKey}</p><p className="mt-1 text-[0.68rem] text-muted-foreground"><JsonSummary value={profile.provenance} /></p><Readiness items={profile.readiness} /><SupersessionEditor entityType="profile" id={profile.id} status={profile.status} currentId={profile.supersedesProfileId} options={options} /><RuleLifecycle entityType="profile" id={profile.id} status={profile.status} readiness={profile.readiness} /></article>;
+  return <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3.5"><div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><p className="scolapro-record-title">{profile.title}</p><p className="mt-0.5 break-words text-[0.68rem] text-muted-foreground">{profile.sourceAuthority} · {profile.sourceTitle}{profile.sourceDocumentDate ? " · " + profile.sourceDocumentDate : ""}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{profile.phaseCode ?? "all phases"} · {profile.cycleKind} {profile.cycleLength}-day · {yearRange}</p></div><Status value={profile.status} /></div><p className="mt-2 text-[0.68rem] text-muted-foreground">Period: {profile.periodMinutes ?? "—"} min · Total: {profile.totalPeriodsPerCycle ?? "—"} / cycle · Key: {profile.profileKey}</p><p className="mt-1 text-[0.68rem] text-muted-foreground"><JsonSummary value={profile.provenance} /></p><SupersessionContext currentId={profile.supersedesProfileId} options={options} /><Readiness items={profile.readiness} /><SupersessionEditor entityType="profile" id={profile.id} status={profile.status} currentId={profile.supersedesProfileId} options={options} /><RuleLifecycle entityType="profile" id={profile.id} status={profile.status} readiness={profile.readiness} /></article>;
 }
 
 function AllocationReview({ allocation, options }: { allocation: GovernanceAllocation; options: { value: string; label: string; helper?: string }[] }) {
   const gradeRange = String(allocation.gradeFrom ?? "all") + (allocation.gradeTo && allocation.gradeTo !== allocation.gradeFrom ? "–" + allocation.gradeTo : "");
-  return <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3.5"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="scolapro-record-title">{allocation.displayLabel}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{allocation.profileTitle} · {allocation.subjectName ?? allocation.targetKind.replaceAll("_", " ")} · Grade {gradeRange}</p></div><Status value={allocation.status} /></div><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.68rem] text-muted-foreground"><span><strong className="text-foreground">{allocation.periodsPerCycle}</strong> periods/cycle</span>{allocation.percentageTime ? <span>{allocation.percentageTime}%</span> : null}<span className="capitalize">{allocation.ruleStrength}</span>{allocation.conflictCount ? <span className="text-[color:var(--danger)]">{allocation.conflictCount} conflict{allocation.conflictCount === 1 ? "" : "s"}</span> : null}</div><p className="mt-2 text-[0.68rem] text-muted-foreground">Source locator: {allocation.sourceLocator ?? "missing"}</p>{allocation.conflictAcknowledgementReason ? <p className="mt-1 text-[0.68rem] text-muted-foreground">Conflict acknowledgement: {allocation.conflictAcknowledgementReason}</p> : null}<Readiness items={allocation.readiness} /><SupersessionEditor entityType="allocation" id={allocation.id} status={allocation.status} currentId={allocation.supersedesAllocationId} options={options} /><RuleLifecycle entityType="allocation" id={allocation.id} status={allocation.status} readiness={allocation.readiness} conflictCount={allocation.conflictCount} /></article>;
+  return <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3.5"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="scolapro-record-title">{allocation.displayLabel}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{allocation.profileTitle} · {allocation.subjectName ?? allocation.targetKind.replaceAll("_", " ")} · Grade {gradeRange}</p></div><Status value={allocation.status} /></div><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[0.68rem] text-muted-foreground"><span><strong className="text-foreground">{allocation.periodsPerCycle}</strong> periods/cycle</span>{allocation.percentageTime ? <span>{allocation.percentageTime}%</span> : null}<span className="capitalize">{allocation.ruleStrength}</span>{allocation.conflictCount ? <span className="text-[color:var(--danger)]">{allocation.conflictCount} conflict{allocation.conflictCount === 1 ? "" : "s"}</span> : null}</div><p className="mt-2 text-[0.68rem] text-muted-foreground">Source locator: {allocation.sourceLocator ?? "missing"}</p>{allocation.conflictAcknowledgementReason ? <p className="mt-1 text-[0.68rem] text-muted-foreground">Conflict acknowledgement: {allocation.conflictAcknowledgementReason}</p> : null}<SupersessionContext currentId={allocation.supersedesAllocationId} options={options} /><Readiness items={allocation.readiness} /><SupersessionEditor entityType="allocation" id={allocation.id} status={allocation.status} currentId={allocation.supersedesAllocationId} options={options} /><RuleLifecycle entityType="allocation" id={allocation.id} status={allocation.status} readiness={allocation.readiness} conflictCount={allocation.conflictCount} /></article>;
 }
 
 function ConstraintReview({ constraint, options }: { constraint: GovernanceConstraint; options: { value: string; label: string; helper?: string }[] }) {
   const yearRange = String(constraint.effectiveFromYear) + "–" + String(constraint.effectiveToYear ?? "open");
-  return <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3.5"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="scolapro-record-title">{constraint.constraintType.replaceAll("_", " ")}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{constraint.subjectName ?? constraint.allocationLabel ?? "Subject-level constraint"} · {constraint.cycleKind ?? "cycle pending"} {constraint.cycleLength ?? "—"}-day · {yearRange}</p></div><Status value={constraint.status} /></div><p className="mt-2 text-[0.68rem] text-muted-foreground">Minimum: {constraint.numericValue ?? "—"} · <span className="capitalize">{constraint.ruleStrength}</span> · {constraint.sourceTitle}</p><p className="mt-1 text-[0.68rem] text-muted-foreground">Source locator: {constraint.sourceLocator}</p><Readiness items={constraint.readiness} /><SupersessionEditor entityType="constraint" id={constraint.id} status={constraint.status} currentId={constraint.supersedesConstraintId} options={options} /><RuleLifecycle entityType="constraint" id={constraint.id} status={constraint.status} readiness={constraint.readiness} /></article>;
+  return <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3.5"><div className="flex flex-wrap items-start justify-between gap-2"><div><p className="scolapro-record-title">{constraint.constraintType.replaceAll("_", " ")}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{constraint.subjectName ?? constraint.allocationLabel ?? "Subject-level constraint"} · {constraint.cycleKind ?? "cycle pending"} {constraint.cycleLength ?? "—"}-day · {yearRange}</p></div><Status value={constraint.status} /></div><p className="mt-2 text-[0.68rem] text-muted-foreground">Minimum: {constraint.numericValue ?? "—"} · <span className="capitalize">{constraint.ruleStrength}</span> · {constraint.sourceTitle}</p><p className="mt-1 text-[0.68rem] text-muted-foreground">Source locator: {constraint.sourceLocator}</p><SupersessionContext currentId={constraint.supersedesConstraintId} options={options} /><Readiness items={constraint.readiness} /><SupersessionEditor entityType="constraint" id={constraint.id} status={constraint.status} currentId={constraint.supersedesConstraintId} options={options} /><RuleLifecycle entityType="constraint" id={constraint.id} status={constraint.status} readiness={constraint.readiness} /></article>;
 }
 
 export function CurriculumTimeGovernance({ workspace }: { workspace: CurriculumTimeGovernanceWorkspace }) {
