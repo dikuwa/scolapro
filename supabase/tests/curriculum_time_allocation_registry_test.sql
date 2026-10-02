@@ -1,6 +1,6 @@
 begin;
 
-select plan(62);
+select plan(64);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -482,6 +482,14 @@ select throws_ok(
   'allocation supersession chains are acyclic'
 );
 
+select throws_ok(
+  $$update public.curriculum_time_allocations
+      set profile_id='f9380000-0000-4000-8000-000000000010'
+    where id='f9390000-0000-4000-8000-000000000011'$$,
+  'Curriculum time allocation profile cannot invalidate an existing inbound supersession link',
+  'predecessor allocation cannot move to a cross-phase profile beneath an existing successor'
+);
+
 update public.curriculum_time_allocations
 set status='withdrawn'
 where id='f9390000-0000-4000-8000-000000000008';
@@ -560,6 +568,14 @@ select throws_ok(
     where id='f9380000-0000-4000-8000-000000000007'$$,
   'Curriculum time profile supersession chain cannot contain a cycle',
   'profile supersession chains are acyclic'
+);
+
+select throws_ok(
+  $$update public.curriculum_time_profiles
+      set phase_code='senior_secondary'
+    where id='f9380000-0000-4000-8000-000000000007'$$,
+  'Curriculum time profile scope cannot invalidate an existing inbound supersession link',
+  'predecessor profile scope cannot move away from an existing successor'
 );
 
 insert into public.curriculum_time_profiles(

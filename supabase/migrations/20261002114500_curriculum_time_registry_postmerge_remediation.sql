@@ -212,6 +212,39 @@ declare
   v_previous_cycle_length smallint;
   v_cycle_detected boolean:=false;
 begin
+  if exists(
+    select 1
+    from public.curriculum_time_profiles successor
+    where successor.supersedes_profile_id=new.id
+      and (
+        successor.phase_code is distinct from new.phase_code
+        or successor.cycle_kind is distinct from new.cycle_kind
+        or successor.cycle_length is distinct from new.cycle_length
+      )
+  ) then
+    raise exception 'Curriculum time profile scope cannot invalidate an existing inbound supersession link';
+  end if;
+
+  if exists(
+    select 1
+    from public.curriculum_time_allocations scoped_allocation
+    join public.curriculum_time_allocations linked_allocation
+      on (
+        linked_allocation.supersedes_allocation_id=scoped_allocation.id
+        or scoped_allocation.supersedes_allocation_id=linked_allocation.id
+      )
+    join public.curriculum_time_profiles linked_profile
+      on linked_profile.id=linked_allocation.profile_id
+    where scoped_allocation.profile_id=new.id
+      and (
+        linked_profile.phase_code is distinct from new.phase_code
+        or linked_profile.cycle_kind is distinct from new.cycle_kind
+        or linked_profile.cycle_length is distinct from new.cycle_length
+      )
+  ) then
+    raise exception 'Curriculum time profile scope cannot invalidate an allocation supersession link';
+  end if;
+
   if new.supersedes_profile_id is null then
     return new;
   end if;
@@ -288,14 +321,33 @@ declare
   v_previous_cycle_length smallint;
   v_cycle_detected boolean:=false;
 begin
-  if new.supersedes_allocation_id is null then
-    return new;
-  end if;
-
   select phase_code,cycle_kind,cycle_length
     into v_new_phase,v_new_cycle_kind,v_new_cycle_length
   from public.curriculum_time_profiles
   where id=new.profile_id;
+
+  if not found then
+    raise exception 'Curriculum time allocation profile was not found';
+  end if;
+
+  if exists(
+    select 1
+    from public.curriculum_time_allocations successor
+    join public.curriculum_time_profiles successor_profile
+      on successor_profile.id=successor.profile_id
+    where successor.supersedes_allocation_id=new.id
+      and (
+        successor_profile.phase_code is distinct from v_new_phase
+        or successor_profile.cycle_kind is distinct from v_new_cycle_kind
+        or successor_profile.cycle_length is distinct from v_new_cycle_length
+      )
+  ) then
+    raise exception 'Curriculum time allocation profile cannot invalidate an existing inbound supersession link';
+  end if;
+
+  if new.supersedes_allocation_id is null then
+    return new;
+  end if;
 
   select p.phase_code,p.cycle_kind,p.cycle_length
     into v_previous_phase,v_previous_cycle_kind,v_previous_cycle_length
@@ -578,6 +630,7 @@ begin
     select
       a.*,
       p.source_id as resolved_source_id,
+      p.phase_code as resolved_phase_code,
       p.cycle_kind as resolved_cycle_kind,
       p.cycle_length as resolved_cycle_length,
       p.period_minutes as resolved_period_minutes,
@@ -633,6 +686,7 @@ begin
       from public.curriculum_time_profiles replacement_profile
       where replacement_profile.supersedes_profile_id=c.profile_id
         and replacement_profile.status in ('published','superseded','withdrawn')
+        and replacement_profile.phase_code=c.resolved_phase_code
         and replacement_profile.cycle_kind=c.resolved_cycle_kind
         and replacement_profile.cycle_length=c.resolved_cycle_length
         and replacement_profile.effective_from_year<=p_academic_year
@@ -650,6 +704,7 @@ begin
           and replacement.id<>c.id
           and replacement.status in ('published','superseded','withdrawn')
           and replacement_profile.status in ('published','superseded','withdrawn')
+          and replacement_profile.phase_code=c.resolved_phase_code
           and replacement_profile.cycle_kind=c.resolved_cycle_kind
           and replacement_profile.cycle_length=c.resolved_cycle_length
           and replacement_profile.effective_from_year<=p_academic_year
