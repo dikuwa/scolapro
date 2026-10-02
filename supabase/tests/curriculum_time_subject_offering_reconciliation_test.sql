@@ -421,7 +421,7 @@ select is(
 );
 
 select lives_ok(
-  $select *
+  $$select *
     from public.reconcile_subject_offering_time_allocation(
       'fa550000-0000-4000-8000-000000000001',
       'official_default',
@@ -429,7 +429,7 @@ select lives_ok(
       5::smallint,
       null,
       null
-    )$,
+    )$$,
   'repeating the same reconciliation remains a valid idempotent operation'
 );
 
