@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { CalendarClock, CalendarPlus, Eye, FileDown, ListOrdered, Plus, Printer, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
+import { PlanningCapacitySummary } from "@/features/teaching/planning-capacity-summary";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { Picker } from "@/components/ui/picker";
 import {
@@ -338,6 +339,11 @@ export function PlanningWorkspace({ data }: { data: TeachingPlanningData }) {
 
   return (
     <div className="space-y-5">
+      <PlanningCapacitySummary
+        rows={data.capacityRows}
+        exceptions={data.hodExceptions}
+        showExceptions={data.hasLeadershipAuthority}
+      />
       {!canAuthor && (
         <p className="rounded-[var(--radius-sm)] bg-warning-soft/60 px-3 py-2.5 text-xs text-[color:var(--warning)]">
           {hasOfferings
