@@ -129,7 +129,8 @@ begin
   end if;
 
   v_protected_changed :=
-    new.tenant_id is distinct from old.tenant_id
+    new.id is distinct from old.id
+    or new.tenant_id is distinct from old.tenant_id
     or new.school_id is distinct from old.school_id
     or new.subject_id is distinct from old.subject_id
     or new.curriculum_subject_id is distinct from old.curriculum_subject_id

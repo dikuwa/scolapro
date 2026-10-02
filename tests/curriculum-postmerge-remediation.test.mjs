@@ -18,6 +18,7 @@ test("verified curriculum mappings are terminal except archive", () => {
   assert.match(migration, /old\.status='verified'/);
   assert.match(migration, /new\.status not in \('verified','archived'\)/);
   assert.match(migration, /old\.status='archived'/);
+  assert.match(migration, /new\.id is distinct from old\.id/);
   assert.match(migration, /new\.status in \('draft','archived'\)/);
   assert.match(migration, /new\.verified_by_user_id is distinct from old\.verified_by_user_id/);
 });

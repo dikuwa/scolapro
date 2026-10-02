@@ -1,6 +1,6 @@
 begin;
 
-select plan(47);
+select plan(48);
 
 select has_table('public','curriculum_version_applicability','curriculum version applicability exists');
 select has_table('public','official_education_resources','official education resources exist');
@@ -254,6 +254,14 @@ select throws_ok(
     where id='f9190000-0000-4000-8000-000000000003'$$,
   'Archived curriculum mappings are immutable historical records',
   'archived curriculum mapping cannot be rewritten'
+);
+
+select throws_ok(
+  $$update public.school_subject_curriculum_mappings
+      set id='f9190000-0000-4000-8000-000000000099'
+    where id='f9190000-0000-4000-8000-000000000003'$$,
+  'Archived curriculum mappings are immutable historical records',
+  'archived curriculum mapping identity cannot be rewritten'
 );
 
 insert into public.school_subject_curriculum_mappings(
