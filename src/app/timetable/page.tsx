@@ -17,7 +17,10 @@ export default async function TimetablePage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/timetable");
   const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
-  const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
+  const primaryMembership = context.currentSchoolMembership;
+  const membership = primaryMembership && allowedRoles.has(primaryMembership.roleKey)
+    ? primaryMembership
+    : context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
   const academicYear = getNamibiaCalendarYear();
@@ -27,6 +30,7 @@ export default async function TimetablePage() {
     getBellSchedules(membership.schoolId, academicYear),
   ]);
   const canManage = membership.roleKey === "school_admin";
+  const canViewDemand = new Set(["school_admin", "principal", "deputy_principal", "hod"]).has(membership.roleKey);
   const scheduledSlotCount = workspace.slots.length + workspace.plannedSlots.length;
   const dayNames = getTimetableDayNames(workspace.cycleMode, workspace.cycleLength);
   const todayLabel = workspace.todayDay ? dayNames[workspace.todayDay - 1] ?? `Day ${workspace.todayDay}` : null;
@@ -51,7 +55,7 @@ export default async function TimetablePage() {
           <div className="flex items-center justify-between gap-3 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0"><div><p className="text-xs font-medium text-muted-foreground">Scheduled slots</p><p className="mt-1.5 text-xl font-semibold text-[color:var(--accent-sky)]">{scheduledSlotCount}</p></div><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span></div>
         </div>
         {canManage ? <TimetableSetupGuide /> : null}
-        <TimetableWorkspaceView schoolId={membership.schoolId} academicYear={academicYear} canManage={canManage} viewerStaffId={membership.staffMemberId} workspace={workspace} />
+        <TimetableWorkspaceView schoolId={membership.schoolId} academicYear={academicYear} canManage={canManage} canViewDemand={canViewDemand} viewerStaffId={membership.staffMemberId} workspace={workspace} />
         {canManage ? <div className="mt-5"><BellScheduleManager schoolId={membership.schoolId} academicYear={academicYear} schedules={bellSchedules} periods={workspace.periods} /></div> : null}
         {canManage ? <TimetableMaintenanceHub schoolId={membership.schoolId} academicYear={academicYear} workspace={workspace} /> : null}
       </section>
