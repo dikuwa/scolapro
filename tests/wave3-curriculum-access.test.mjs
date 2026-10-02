@@ -35,12 +35,17 @@ test("curriculum reader starts from effective teacher allocations and stays read
     "curriculum_competencies",
     "curriculum_practicals",
     "official_education_resource_curriculum_links",
+    "official_education_resource_applicability",
+    "school_subject_curriculum_mappings",
   ]) {
     assert.match(source, new RegExp(`\\.from\\("${table}"\\)`));
   }
 
   assert.doesNotMatch(source, /\.insert\(|\.update\(|\.upsert\(|\.delete\(/);
-  assert.match(source, /resourcesByVersionId/);
+  assert.match(source, /unitsByAllocationId/);
+  assert.match(source, /resourcesByAllocationId/);
+  assert.match(source, /applicable_grade_keys/);
+  assert.match(source, /candidateMappings\.length === 1/);
 });
 
 test("teacher curriculum UI distinguishes provenance and missing registry content", () => {
