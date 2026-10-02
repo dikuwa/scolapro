@@ -241,9 +241,9 @@ select is(
 );
 
 select throws_ok(
-  $update public.subject_offerings
+  $$update public.subject_offerings
       set curriculum_version_id=null
-    where id='f9140000-0000-4000-8000-000000000001'$,
+    where id='f9140000-0000-4000-8000-000000000001'$$,
   'Pinned subject-offering curriculum version is immutable; create a new offering/versioned academic record',
   'an adopted historical curriculum pin cannot be cleared or replaced'
 );
@@ -357,15 +357,15 @@ select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000001'
 set local role authenticated;
 
 select throws_ok(
-  $update public.curriculum_version_applicability
+  $$update public.curriculum_version_applicability
       set curriculum_version_id='f9170000-0000-4000-8000-000000000004'
-    where id='f9180000-0000-4000-8000-000000000001'$,
+    where id='f9180000-0000-4000-8000-000000000001'$$,
   'Approved or published curriculum applicability is immutable; create a new curriculum version',
   'published curriculum applicability cannot be reparented to a draft version'
 );
 
 select lives_ok(
-  $insert into public.official_education_resources(
+  $$insert into public.official_education_resources(
       id,authority,resource_key,document_type,title,source_url,status
     ) values(
       'f9200000-0000-4000-8000-000000000001',
@@ -380,7 +380,7 @@ select lives_ok(
 );
 
 select lives_ok(
-  $insert into public.official_education_resources(
+  $$insert into public.official_education_resources(
       id,authority,resource_key,document_type,title,source_url,status
     ) values(
       'f9200000-0000-4000-8000-000000000002',
@@ -390,19 +390,19 @@ select lives_ok(
       'Curriculum Test Draft Target',
       'https://example.test/nied/draft-target.pdf',
       'under_review'
-    )$,
+    )$$,
   'platform admin can stage a second draft resource for finality tests'
 );
 
 select lives_ok(
-  $insert into public.official_education_resource_curriculum_links(
+  $$insert into public.official_education_resource_curriculum_links(
       id,resource_id,curriculum_version_id,relationship_type
     ) values(
       'f9210000-0000-4000-8000-000000000001',
       'f9200000-0000-4000-8000-000000000001',
       'f9170000-0000-4000-8000-000000000001',
       'policy'
-    )$,
+    )$$,
   'platform admin can link a staged official resource before publication'
 );
 
@@ -420,32 +420,32 @@ select is(
 );
 
 select throws_ok(
-  $update public.official_education_resource_curriculum_links
+  $$update public.official_education_resource_curriculum_links
       set resource_id='f9200000-0000-4000-8000-000000000002'
-    where id='f9210000-0000-4000-8000-000000000001'$,
+    where id='f9210000-0000-4000-8000-000000000001'$$,
   'Published official resource applicability and links are immutable; publish a new resource version',
   'a child row cannot be reparented away from its published resource'
 );
 
 select lives_ok(
-  $update public.official_education_resources
+  $$update public.official_education_resources
       set status='withdrawn'
-    where id='f9200000-0000-4000-8000-000000000001'$,
+    where id='f9200000-0000-4000-8000-000000000001'$$,
   'a published resource may be withdrawn without rewriting its published content'
 );
 
 select throws_ok(
-  $update public.official_education_resources
+  $$update public.official_education_resources
       set title='Rewritten after withdrawal'
-    where id='f9200000-0000-4000-8000-000000000001'$,
+    where id='f9200000-0000-4000-8000-000000000001'$$,
   'Published official education resource content and provenance are immutable',
   'withdrawal does not reopen published resource content for editing'
 );
 
 select throws_ok(
-  $update public.official_education_resource_curriculum_links
+  $$update public.official_education_resource_curriculum_links
     set relationship_type='companion'
-    where id='f9210000-0000-4000-8000-000000000001'$,
+    where id='f9210000-0000-4000-8000-000000000001'$$,
   'Published official resource applicability and links are immutable; publish a new resource version',
   'withdrawal does not reopen published resource children for editing'
 );
