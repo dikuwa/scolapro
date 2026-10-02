@@ -301,7 +301,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $
+as $$
 declare
   v_old_final boolean:=false;
   v_new_final boolean:=false;
@@ -328,7 +328,7 @@ begin
 
   return case when tg_op='DELETE' then old else new end;
 end;
-$;
+$$;
 
 revoke all on function app_private.guard_curriculum_applicability_finality() from public,anon,authenticated;
 
@@ -341,7 +341,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $
+as $$
 declare
   v_old_final boolean:=false;
   v_new_final boolean:=false;
@@ -368,7 +368,7 @@ begin
 
   return case when tg_op='DELETE' then old else new end;
 end;
-$;
+$$;
 
 revoke all on function app_private.guard_official_resource_child_finality() from public,anon,authenticated;
 
@@ -805,7 +805,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $
+as $$
 begin
   if old.curriculum_version_id is not null
      and new.curriculum_version_id is distinct from old.curriculum_version_id then
@@ -814,7 +814,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 revoke all on function app_private.guard_subject_offering_curriculum_pin() from public,anon,authenticated;
 
