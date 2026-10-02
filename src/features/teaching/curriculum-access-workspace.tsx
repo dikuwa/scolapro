@@ -184,7 +184,7 @@ function RegistryMetadata({
         {resources.length ? (
           <div className="mt-4 divide-y divide-border-subtle">
             {resources.map((resource) => (
-              <div key={resource.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+              <div key={`${resource.id}:${resource.relationshipType}`} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-foreground">{resource.title}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
@@ -328,11 +328,11 @@ export function CurriculumAccessWorkspace({ data }: { data: CurriculumAccessData
   const version = allocation?.curriculumVersionId
     ? data.versionsById[allocation.curriculumVersionId] ?? null
     : null;
-  const units = allocation?.curriculumVersionId
-    ? data.unitsByVersionId[allocation.curriculumVersionId] ?? []
+  const units = allocation
+    ? data.unitsByAllocationId[allocation.allocationId] ?? []
     : [];
-  const resources = allocation?.curriculumVersionId
-    ? data.resourcesByVersionId[allocation.curriculumVersionId] ?? []
+  const resources = allocation
+    ? data.resourcesByAllocationId[allocation.allocationId] ?? []
     : [];
 
   const normalizedSearch = search.trim().toLocaleLowerCase();
