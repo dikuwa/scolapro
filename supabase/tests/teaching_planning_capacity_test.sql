@@ -165,6 +165,28 @@ insert into public.curriculum_versions(
   2027,2027,'imported'
 );
 
+insert into public.curriculum_version_applicability(
+  id,curriculum_version_id,phase_code,grade_key,programme_code
+) values(
+  'f62d0000-0000-4000-8000-000000000002',
+  'f62d0000-0000-4000-8000-000000000001',
+  'junior_secondary','G9','general'
+);
+
+insert into public.curriculum_units(
+  id,curriculum_version_id,unit_code,topic,sequence_number,applicable_grade_keys
+) values
+  (
+    'f6300000-0000-4000-8000-000000000001',
+    'f62d0000-0000-4000-8000-000000000001',
+    'PC-1','Completed planning unit',100,array['G9']
+  ),
+  (
+    'f6300000-0000-4000-8000-000000000002',
+    'f62d0000-0000-4000-8000-000000000001',
+    'PC-2','Outstanding planning unit',200,array['G9']
+  );
+
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','f6220000-0000-4000-8000-000000000001',true);
 set local role authenticated;
@@ -210,20 +232,6 @@ set status='published'
 where id='f62f0000-0000-4000-8000-000000000001';
 
 reset role;
-
-insert into public.curriculum_units(
-  id,curriculum_version_id,unit_code,topic,sequence_number,applicable_grade_keys
-) values
-  (
-    'f6300000-0000-4000-8000-000000000001',
-    'f62d0000-0000-4000-8000-000000000001',
-    'PC-1','Completed planning unit',100,array['G9']
-  ),
-  (
-    'f6300000-0000-4000-8000-000000000002',
-    'f62d0000-0000-4000-8000-000000000001',
-    'PC-2','Outstanding planning unit',200,array['G9']
-  );
 
 insert into public.subject_offerings(
   id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status,curriculum_version_id
