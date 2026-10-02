@@ -67,6 +67,30 @@ type CompetencyDbRow = {
   sequence_number: number;
 };
 
+type PracticalDbRow = {
+  curriculum_unit_id: string;
+  practical_code: string | null;
+  title: string;
+  description: string | null;
+  recommended_periods: number | null;
+};
+
+type ResourceLinkDbRow = {
+  curriculum_version_id: string | null;
+  relationship_type: string;
+  official_education_resources: Relation<{
+    id: string;
+    authority: string;
+    document_type: string;
+    title: string;
+    source_url: string;
+    publication_label: string | null;
+    publication_date: string | null;
+    language_code: string | null;
+    status: string;
+  }>;
+};
+
 function one<T>(value: Relation<T>): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
 }
@@ -96,6 +120,7 @@ export type CurriculumAccessVersion = {
     authority: string;
     sourceKey: string;
     title: string;
+    sourceUrl: string | null;
     sourceDocumentDate: string | null;
     status: string;
     checksumPresent: boolean;
@@ -115,6 +140,26 @@ export type CurriculumAccessUnit = {
   practicalRequired: boolean;
   objectives: { code: string | null; text: string }[];
   competencies: { code: string | null; text: string }[];
+  practicals: {
+    code: string | null;
+    title: string;
+    description: string | null;
+    recommendedPeriods: number | null;
+  }[];
+};
+
+export type CurriculumAccessResource = {
+  id: string;
+  curriculumVersionId: string;
+  relationshipType: string;
+  authority: string;
+  documentType: string;
+  title: string;
+  sourceUrl: string;
+  publicationLabel: string | null;
+  publicationDate: string | null;
+  languageCode: string | null;
+  status: string;
 };
 
 export type CurriculumAccessData = {
@@ -123,6 +168,7 @@ export type CurriculumAccessData = {
   allocations: CurriculumAccessAllocation[];
   versionsById: Record<string, CurriculumAccessVersion>;
   unitsByVersionId: Record<string, CurriculumAccessUnit[]>;
+  resourcesByVersionId: Record<string, CurriculumAccessResource[]>;
 };
 
 /**
@@ -182,7 +228,7 @@ export async function getTeacherCurriculumAccess(input: {
   ];
 
   if (!versionIds.length) {
-    return { today, academicYear: input.academicYear, allocations, versionsById: {}, unitsByVersionId: {} };
+    return { today, academicYear: input.academicYear, allocations, versionsById: {}, unitsByVersionId: {}, resourcesByVersionId: {} };
   }
 
   const versionsResult = await supabase
@@ -219,6 +265,7 @@ export async function getTeacherCurriculumAccess(input: {
             authority: source.authority,
             sourceKey: source.source_key,
             title: source.title,
+            sourceUrl: source.source_url,
             sourceDocumentDate: source.source_document_date,
             status: source.status,
             checksumPresent: Boolean(source.checksum),
@@ -231,7 +278,7 @@ export async function getTeacherCurriculumAccess(input: {
 
   const readableVersionIds = Object.keys(versionsById);
   if (!readableVersionIds.length) {
-    return { today, academicYear: input.academicYear, allocations, versionsById, unitsByVersionId: {} };
+    return { today, academicYear: input.academicYear, allocations, versionsById, unitsByVersionId: {}, resourcesByVersionId: {} };
   }
 
   const unitsResult = await supabase
@@ -250,26 +297,41 @@ export async function getTeacherCurriculumAccess(input: {
   const unitRows = (unitsResult.data ?? []) as unknown as UnitDbRow[];
   const unitIds = unitRows.map((row) => row.id);
 
-  const [objectivesResult, competenciesResult] = unitIds.length
-    ? await Promise.all([
-        supabase
+  const [objectivesResult, competenciesResult, practicalsResult, resourceLinksResult] = await Promise.all([
+    unitIds.length
+      ? supabase
           .from("curriculum_objectives")
           .select("curriculum_unit_id,objective_code,objective_text,sequence_number")
           .in("curriculum_unit_id", unitIds)
-          .order("sequence_number"),
-        supabase
+          .order("sequence_number")
+      : Promise.resolve({ data: [] as ObjectiveDbRow[], error: null }),
+    unitIds.length
+      ? supabase
           .from("curriculum_competencies")
           .select("curriculum_unit_id,competency_code,competency_text,sequence_number")
           .in("curriculum_unit_id", unitIds)
-          .order("sequence_number"),
-      ])
-    : [
-        { data: [] as ObjectiveDbRow[], error: null },
-        { data: [] as CompetencyDbRow[], error: null },
-      ];
+          .order("sequence_number")
+      : Promise.resolve({ data: [] as CompetencyDbRow[], error: null }),
+    unitIds.length
+      ? supabase
+          .from("curriculum_practicals")
+          .select("curriculum_unit_id,practical_code,title,description,recommended_periods")
+          .in("curriculum_unit_id", unitIds)
+          .order("created_at")
+      : Promise.resolve({ data: [] as PracticalDbRow[], error: null }),
+    supabase
+      .from("official_education_resource_curriculum_links")
+      .select(
+        "curriculum_version_id,relationship_type,official_education_resources(id,authority,document_type,title,source_url,publication_label,publication_date,language_code,status)",
+      )
+      .in("curriculum_version_id", readableVersionIds)
+      .order("relationship_type"),
+  ]);
 
   if (objectivesResult.error) throw new Error("Unable to load curriculum objectives.");
   if (competenciesResult.error) throw new Error("Unable to load curriculum competencies.");
+  if (practicalsResult.error) throw new Error("Unable to load curriculum practicals.");
+  if (resourceLinksResult.error) throw new Error("Unable to load official curriculum resources.");
 
   const objectivesByUnit = new Map<string, { code: string | null; text: string }[]>();
   for (const row of (objectivesResult.data ?? []) as unknown as ObjectiveDbRow[]) {
@@ -287,6 +349,42 @@ export async function getTeacherCurriculumAccess(input: {
     ]);
   }
 
+  const practicalsByUnit = new Map<string, CurriculumAccessUnit["practicals"]>();
+  for (const row of (practicalsResult.data ?? []) as unknown as PracticalDbRow[]) {
+    practicalsByUnit.set(row.curriculum_unit_id, [
+      ...(practicalsByUnit.get(row.curriculum_unit_id) ?? []),
+      {
+        code: row.practical_code,
+        title: row.title,
+        description: row.description,
+        recommendedPeriods: row.recommended_periods,
+      },
+    ]);
+  }
+
+  const resourcesByVersionId: Record<string, CurriculumAccessResource[]> = {};
+  for (const row of (resourceLinksResult.data ?? []) as unknown as ResourceLinkDbRow[]) {
+    const resource = one(row.official_education_resources);
+    if (!resource || !row.curriculum_version_id) continue;
+    const item: CurriculumAccessResource = {
+      id: resource.id,
+      curriculumVersionId: row.curriculum_version_id,
+      relationshipType: row.relationship_type,
+      authority: resource.authority,
+      documentType: resource.document_type,
+      title: resource.title,
+      sourceUrl: resource.source_url,
+      publicationLabel: resource.publication_label,
+      publicationDate: resource.publication_date,
+      languageCode: resource.language_code,
+      status: resource.status,
+    };
+    resourcesByVersionId[row.curriculum_version_id] = [
+      ...(resourcesByVersionId[row.curriculum_version_id] ?? []),
+      item,
+    ];
+  }
+
   const unitsByVersionId: Record<string, CurriculumAccessUnit[]> = {};
   for (const row of unitRows) {
     const unit: CurriculumAccessUnit = {
@@ -300,6 +398,7 @@ export async function getTeacherCurriculumAccess(input: {
       practicalRequired: row.practical_required,
       objectives: objectivesByUnit.get(row.id) ?? [],
       competencies: competenciesByUnit.get(row.id) ?? [],
+      practicals: practicalsByUnit.get(row.id) ?? [],
     };
     unitsByVersionId[row.curriculum_version_id] = [
       ...(unitsByVersionId[row.curriculum_version_id] ?? []),
@@ -307,5 +406,5 @@ export async function getTeacherCurriculumAccess(input: {
     ];
   }
 
-  return { today, academicYear: input.academicYear, allocations, versionsById, unitsByVersionId };
+  return { today, academicYear: input.academicYear, allocations, versionsById, unitsByVersionId, resourcesByVersionId };
 }
