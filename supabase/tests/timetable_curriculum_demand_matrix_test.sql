@@ -298,10 +298,18 @@ update public.curriculum_time_allocations
 set status='published'
 where id in(
   'f6100000-0000-4000-8000-000000000001',
-  'f6100000-0000-4000-8000-000000000002',
-  'f6100000-0000-4000-8000-000000000003',
-  'f6100000-0000-4000-8000-000000000004'
+  'f6100000-0000-4000-8000-000000000002'
 );
+
+update public.curriculum_time_allocations
+set status='published'
+where id='f6100000-0000-4000-8000-000000000003';
+
+update public.curriculum_time_allocations
+set
+  status='published',
+  conflict_acknowledgement_reason='Fixture intentionally preserves an acknowledged official source conflict'
+where id='f6100000-0000-4000-8000-000000000004';
 
 insert into public.curriculum_scheduling_constraints(
   id,source_id,curriculum_subject_id,allocation_id,constraint_key,constraint_type,
