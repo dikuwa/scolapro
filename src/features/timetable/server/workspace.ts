@@ -22,6 +22,10 @@ export type TimetableDemandRow = {
   availableCycleVariants: { cycleKind: string; cycleLength: number }[];
   doublePeriodsRequired: number;
   doublePeriodsScheduled: number;
+  classTargetPeriodsPerCycle: number;
+  classCapacityPeriodsPerCycle: number;
+  maxDoublePeriodsPerCycle: number;
+  preGenerationWarnings: string[];
   demandStatus: "aligned" | "under_scheduled" | "over_scheduled" | "school_override" | "source_missing" | "cycle_variant_missing" | "source_conflict" | "constraint_warning";
   warningMessage: string | null;
 };
@@ -207,6 +211,12 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
       availableCycleVariants: Array.isArray(row.available_cycle_variants) ? row.available_cycle_variants as TimetableDemandRow["availableCycleVariants"] : [],
       doublePeriodsRequired: Number(row.double_periods_required),
       doublePeriodsScheduled: Number(row.double_periods_scheduled),
+      classTargetPeriodsPerCycle: Number(row.class_target_periods_per_cycle),
+      classCapacityPeriodsPerCycle: Number(row.class_capacity_periods_per_cycle),
+      maxDoublePeriodsPerCycle: Number(row.max_double_periods_per_cycle),
+      preGenerationWarnings: Array.isArray(row.pre_generation_warnings)
+        ? row.pre_generation_warnings.map((warning) => String(warning))
+        : [],
       demandStatus: String(row.demand_status) as TimetableDemandRow["demandStatus"],
       warningMessage: row.warning_message ? String(row.warning_message) : null,
     })),

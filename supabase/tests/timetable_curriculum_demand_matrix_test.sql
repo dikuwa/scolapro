@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(19);
 
 select has_function(
   'public',
@@ -53,7 +53,8 @@ values(
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('f6020000-0000-4000-8000-000000000001','demand-platform@example.test','authenticated','authenticated',now(),now()),
   ('f6020000-0000-4000-8000-000000000002','demand-admin@example.test','authenticated','authenticated',now(),now()),
-  ('f6020000-0000-4000-8000-000000000003','demand-teacher@example.test','authenticated','authenticated',now(),now());
+  ('f6020000-0000-4000-8000-000000000003','demand-hod@example.test','authenticated','authenticated',now(),now()),
+  ('f6020000-0000-4000-8000-000000000004','demand-teacher@example.test','authenticated','authenticated',now(),now());
 
 insert into public.platform_memberships(user_id,role_key,active_from)
 values(
@@ -78,6 +79,14 @@ insert into public.school_memberships(
     'f6000000-0000-4000-8000-000000000001',
     'f6010000-0000-4000-8000-000000000001',
     'f6020000-0000-4000-8000-000000000003',
+    'hod',
+    current_date-10
+  ),
+  (
+    'f6030000-0000-4000-8000-000000000003',
+    'f6000000-0000-4000-8000-000000000001',
+    'f6010000-0000-4000-8000-000000000001',
+    'f6020000-0000-4000-8000-000000000004',
     'teacher',
     current_date-10
   );
@@ -527,6 +536,53 @@ select is(
   'resolved demand rows expose source provenance'
 );
 
+select is(
+  (
+    select concat_ws(
+      ':',
+      class_target_periods_per_cycle::text,
+      class_capacity_periods_per_cycle::text,
+      max_double_periods_per_cycle::text
+    )
+    from public.get_timetable_curriculum_demand_matrix(
+      'f6010000-0000-4000-8000-000000000001',
+      2026,
+      '2026-06-01'
+    )
+    where class_name='9A'
+  ),
+  '4:42:14',
+  'pre-generation readiness exposes class target capacity and maximum double-period fit'
+);
+
+select is(
+  (
+    select pre_generation_warnings->>0
+    from public.get_timetable_curriculum_demand_matrix(
+      'f6010000-0000-4000-8000-000000000001',
+      2026,
+      '2026-06-01'
+    )
+    where class_name='9D'
+  ),
+  'School target 3 differs from the resolved official allocation of 4.',
+  'school target variance is surfaced before timetable generation'
+);
+
+select is(
+  (
+    select pre_generation_warnings->>0
+    from public.get_timetable_curriculum_demand_matrix(
+      'f6010000-0000-4000-8000-000000000001',
+      2026,
+      '2026-06-01'
+    )
+    where class_name='9G'
+  ),
+  'No verified official allocation exists for this exact 7-day rotating cycle.',
+  'cycle-variant mismatch is surfaced as a pre-generation warning'
+);
+
 reset role;
 select set_config('request.jwt.claim.sub','f6020000-0000-4000-8000-000000000003',true);
 set local role authenticated;
@@ -538,7 +594,22 @@ select lives_ok(
       2026,
       '2026-06-01'
     )$$,
-  'ordinary active school staff can read the school demand matrix'
+  'HOD can read the school demand matrix'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub','f6020000-0000-4000-8000-000000000004',true);
+set local role authenticated;
+
+select throws_ok(
+  $select *
+    from public.get_timetable_curriculum_demand_matrix(
+      'f6010000-0000-4000-8000-000000000001',
+      2026,
+      '2026-06-01'
+    )$,
+  'Permission denied',
+  'teacher cannot read the school-wide curriculum demand matrix'
 );
 
 reset role;

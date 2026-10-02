@@ -26,6 +26,10 @@ returns table(
   available_cycle_variants jsonb,
   double_periods_required integer,
   double_periods_scheduled integer,
+  class_target_periods_per_cycle integer,
+  class_capacity_periods_per_cycle integer,
+  max_double_periods_per_cycle integer,
+  pre_generation_warnings jsonb,
   demand_status text,
   warning_message text
 )
@@ -50,7 +54,18 @@ begin
     raise exception 'Academic year is invalid';
   end if;
 
-  if not app_private.has_school_access(p_school_id) then
+  if not (
+    app_private.has_platform_role(array['platform_admin','platform_support'])
+    or exists(
+      select 1
+      from public.school_memberships sm
+      where sm.school_id=p_school_id
+        and sm.user_id=auth.uid()
+        and sm.role_key in ('school_admin','principal','deputy_principal','hod')
+        and sm.active_from<=current_date
+        and (sm.active_to is null or sm.active_to>=current_date)
+    )
+  ) then
     raise exception 'Permission denied';
   end if;
 
@@ -180,6 +195,43 @@ begin
     where tp.school_id=p_school_id
       and tp.academic_year=p_academic_year
   ),
+  period_structure_marked as (
+    select
+      pp.*,
+      sum(case when pp.is_teaching_period then 0 else 1 end) over(
+        order by pp.period_position
+        rows between unbounded preceding and current row
+      )::integer as teaching_block
+    from period_positions pp
+  ),
+  teaching_structure_runs as (
+    select
+      psm.teaching_block,
+      count(*)::integer as run_length
+    from period_structure_marked psm
+    where psm.is_teaching_period
+    group by psm.teaching_block
+  ),
+  period_capacity as (
+    select
+      (
+        (select count(*)::integer from period_positions pp where pp.is_teaching_period)
+        * v_cycle_length
+      )::integer as class_capacity_periods_per_cycle,
+      (
+        coalesce(
+          (select sum(floor(tsr.run_length::numeric/2))::integer from teaching_structure_runs tsr),
+          0
+        ) * v_cycle_length
+      )::integer as max_double_periods_per_cycle
+  ),
+  class_targets as (
+    select
+      rwc.register_class_id,
+      sum(rwc.school_target_periods_per_cycle)::integer as class_target_periods_per_cycle
+    from resolved_with_constraints rwc
+    group by rwc.register_class_id
+  ),
   current_slots as (
     select
       ts.id as slot_id,
@@ -256,12 +308,76 @@ begin
       coalesce(dc.double_periods_scheduled,0) as double_periods_scheduled,
       coalesce(sc.scheduled_periods_per_cycle,0)
         - rwc.school_target_periods_per_cycle as scheduled_variance,
+      ct.class_target_periods_per_cycle,
+      pc.class_capacity_periods_per_cycle,
+      pc.max_double_periods_per_cycle,
+      (
+        case
+          when ct.class_target_periods_per_cycle>pc.class_capacity_periods_per_cycle
+            then jsonb_build_array(format(
+              'Class target demand is %s periods per cycle but the active period structure provides only %s.',
+              ct.class_target_periods_per_cycle,
+              pc.class_capacity_periods_per_cycle
+            ))
+          else '[]'::jsonb
+        end
+        ||
+        case
+          when rwc.official_resolution_status='resolved'
+            and rwc.official_periods_per_cycle is distinct from rwc.school_target_periods_per_cycle
+            then jsonb_build_array(format(
+              'School target %s differs from the resolved official allocation of %s.',
+              rwc.school_target_periods_per_cycle,
+              rwc.official_periods_per_cycle
+            ))
+          else '[]'::jsonb
+        end
+        ||
+        case
+          when rwc.official_resolution_status='cycle_variant_missing'
+            then jsonb_build_array(format(
+              'No verified official allocation exists for this exact %s-day %s cycle.',
+              v_cycle_length,
+              v_cycle_kind
+            ))
+          when rwc.official_resolution_status='source_conflict'
+            then jsonb_build_array(
+              'Multiple applicable official allocations conflict; governance review is required.'
+            )
+          when rwc.official_resolution_status='source_missing'
+            and rwc.allocation_origin<>'school_configured'
+            then jsonb_build_array(
+              'No verified official time-allocation rule is available for this subject, grade and timetable cycle.'
+            )
+          else '[]'::jsonb
+        end
+        ||
+        case
+          when rwc.double_periods_required>0
+            and rwc.double_periods_required*2>rwc.school_target_periods_per_cycle
+            then jsonb_build_array(format(
+              'School target %s cannot contain %s required double period%s.',
+              rwc.school_target_periods_per_cycle,
+              rwc.double_periods_required,
+              case when rwc.double_periods_required=1 then '' else 's' end
+            ))
+          when rwc.double_periods_required>pc.max_double_periods_per_cycle
+            then jsonb_build_array(format(
+              'Active period structure can fit at most %s double period%s per cycle; the official rule requires %s.',
+              pc.max_double_periods_per_cycle,
+              case when pc.max_double_periods_per_cycle=1 then '' else 's' end,
+              rwc.double_periods_required
+            ))
+          else '[]'::jsonb
+        end
+      ) as pre_generation_warnings,
       case
         when rwc.official_resolution_status='source_conflict'
           then 'source_conflict'
         when rwc.official_resolution_status='cycle_variant_missing'
           then 'cycle_variant_missing'
         when rwc.official_resolution_status<>'resolved'
+          and rwc.allocation_origin<>'school_configured'
           then 'source_missing'
         when rwc.double_periods_required>coalesce(dc.double_periods_scheduled,0)
           then 'constraint_warning'
@@ -274,6 +390,9 @@ begin
         else 'aligned'
       end as demand_status
     from resolved_with_constraints rwc
+    join class_targets ct
+      on ct.register_class_id=rwc.register_class_id
+    cross join period_capacity pc
     left join scheduled_counts sc
       on sc.subject_offering_id=rwc.subject_offering_id
      and sc.register_class_id=rwc.register_class_id
@@ -301,6 +420,10 @@ begin
     c.available_cycle_variants,
     c.double_periods_required,
     c.double_periods_scheduled,
+    c.class_target_periods_per_cycle,
+    c.class_capacity_periods_per_cycle,
+    c.max_double_periods_per_cycle,
+    c.pre_generation_warnings,
     c.demand_status,
     case c.demand_status
       when 'aligned'
@@ -358,4 +481,4 @@ grant execute on function public.get_timetable_curriculum_demand_matrix(
 ) to authenticated;
 
 comment on function public.get_timetable_curriculum_demand_matrix(uuid,integer,date) is
-'Read-only timetable curriculum demand matrix. Scheduled periods are derived from active timetable_slots through effective teacher_allocations; official rules resolve only for the exact school cycle. Double periods require adjacent teaching slots in the actual ordered timetable-period structure and are counted as non-overlapping pairs.';
+'Read-only timetable curriculum demand matrix for authorised timetable leaders. Scheduled periods are derived from active timetable_slots through effective teacher_allocations; official rules resolve only for the exact school cycle. Pre-generation warnings compare class target demand with active cycle capacity and double-period fit. Double periods require adjacent teaching slots in the actual ordered timetable-period structure and are counted as non-overlapping pairs.';

@@ -17,10 +17,15 @@ function metric(value: number | null) {
 }
 
 export function CurriculumDemandMatrix({ rows }: { rows: TimetableDemandRow[] }) {
-  const aligned = rows.filter((row) => row.demandStatus === "aligned").length;
-  const warnings = rows.length - aligned;
-  const under = rows.filter((row) => row.demandStatus === "under_scheduled").length;
-  const over = rows.filter((row) => row.demandStatus === "over_scheduled").length;
+  const subjectsResolved = rows.filter((row) => row.officialResolutionStatus === "resolved").length;
+  const sourceMissing = rows.filter((row) => row.officialResolutionStatus === "source_missing").length;
+  const cycleMissing = rows.filter((row) => row.officialResolutionStatus === "cycle_variant_missing").length;
+  const sourceConflicts = rows.filter((row) => row.officialResolutionStatus === "source_conflict").length;
+  const targetsSatisfied = rows.filter((row) => row.scheduledVariance === 0).length;
+  const under = rows.filter((row) => row.scheduledVariance < 0).length;
+  const over = rows.filter((row) => row.scheduledVariance > 0).length;
+  const ruleWarnings = rows.filter((row) => row.doublePeriodsRequired > row.doublePeriodsScheduled).length;
+  const warnings = rows.filter((row) => row.demandStatus !== "aligned" || row.preGenerationWarnings.length > 0).length;
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -36,18 +41,39 @@ export function CurriculumDemandMatrix({ rows }: { rows: TimetableDemandRow[] })
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-4 gap-2 sm:min-w-[22rem]">
-          {[
-            ["Rows", rows.length],
-            ["Aligned", aligned],
-            ["Under", under],
-            ["Over", over],
-          ].map(([label, value]) => (
-            <div key={String(label)} className="rounded-[var(--radius-sm)] bg-surface-muted px-2.5 py-2 text-center">
-              <p className="text-[0.62rem] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-              <p className="mt-0.5 text-sm font-semibold">{value}</p>
+        <div className="grid w-full gap-3 sm:grid-cols-2 sm:min-w-[34rem] sm:max-w-[44rem]">
+          <div>
+            <p className="mb-1.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Official/source coverage</p>
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {[
+                ["Resolved", subjectsResolved],
+                ["Missing", sourceMissing],
+                ["Cycle", cycleMissing],
+                ["Conflicts", sourceConflicts],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-[var(--radius-sm)] bg-surface-muted px-2 py-2 text-center">
+                  <p className="text-[0.58rem] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+                  <p className="mt-0.5 text-sm font-semibold">{value}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div>
+            <p className="mb-1.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Timetable demand</p>
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {[
+                ["Targets satisfied", targetsSatisfied],
+                ["Under", under],
+                ["Over", over],
+                ["Rule warnings", ruleWarnings],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-[var(--radius-sm)] bg-surface-muted px-2 py-2 text-center">
+                  <p className="text-[0.58rem] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+                  <p className="mt-0.5 text-sm font-semibold">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -97,6 +123,14 @@ export function CurriculumDemandMatrix({ rows }: { rows: TimetableDemandRow[] })
                 </div>
 
                 {row.warningMessage ? <p className="mt-2 text-[0.7rem] leading-5 text-muted-foreground">{row.warningMessage}</p> : null}
+                {row.preGenerationWarnings.length ? (
+                  <div className="mt-2 rounded-[var(--radius-sm)] bg-[color:var(--warning-soft)] px-2.5 py-2 text-[color:var(--warning)]">
+                    <p className="text-[0.62rem] font-semibold uppercase tracking-wide">Before generation</p>
+                    <ul className="mt-1 space-y-1 text-[0.68rem] leading-5">
+                      {row.preGenerationWarnings.map((warning) => <li key={warning}>{warning}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
                 {row.sourceTitle ? <p className="mt-2 truncate text-[0.64rem] text-muted-foreground" title={[row.sourceTitle, row.sourceLocator].filter(Boolean).join(" · ")}>Source: {row.sourceTitle}{row.sourceLocator ? ` · ${row.sourceLocator}` : ""}</p> : null}
               </article>
             );
