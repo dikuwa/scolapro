@@ -35,6 +35,8 @@ test("Slice 2 reconciliation is explicit, stale-preview safe, role-scoped and au
   assert.match(migration, /user_can_manage_school_settings\(auth\.uid\(\),p_school_id\)/);
   assert.match(migration, /user_can_manage_school_settings\([\s\S]*v_offering\.school_id/);
   assert.match(migration, /Reconciliation preview is stale; refresh before committing/);
+  assert.match(migration, /Reconciliation preview is stale; school target changed before commit/);
+  assert.match(migration, /p_expected_school_target_periods<>v_offering\.periods_per_cycle/);
   assert.match(migration, /School override reason is required/);
   assert.match(migration, /char_length\(allocation_override_reason\)<=1000/);
   assert.match(migration, /Official-default reconciliation does not rewrite the existing legacy school target/);

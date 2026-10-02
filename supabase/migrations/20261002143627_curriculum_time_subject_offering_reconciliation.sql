@@ -422,6 +422,7 @@ create or replace function public.reconcile_subject_offering_time_allocation(
   p_subject_offering_id uuid,
   p_action text,
   p_expected_allocation_id uuid default null,
+  p_expected_school_target_periods smallint default null,
   p_school_target_periods smallint default null,
   p_override_reason text default null
 )
@@ -564,6 +565,11 @@ begin
     v_resolved_allocation_id:=null;
     v_official_periods:=null;
     v_rule_strength:=null;
+  end if;
+
+  if p_expected_school_target_periods is null
+     or p_expected_school_target_periods<>v_offering.periods_per_cycle then
+    raise exception 'Reconciliation preview is stale; school target changed before commit';
   end if;
 
   v_reason:=nullif(btrim(p_override_reason),'');
@@ -742,10 +748,10 @@ end;
 $offering_time_reconcile$;
 
 revoke all on function public.reconcile_subject_offering_time_allocation(
-  uuid,text,uuid,smallint,text
+  uuid,text,uuid,smallint,smallint,text
 ) from public,anon;
 grant execute on function public.reconcile_subject_offering_time_allocation(
-  uuid,text,uuid,smallint,text
+  uuid,text,uuid,smallint,smallint,text
 ) to authenticated;
 
 comment on column public.subject_offerings.curriculum_time_allocation_id is
@@ -756,5 +762,5 @@ comment on column public.subject_offerings.allocation_override_reason is
 'Required bounded school reason when the operational periods_per_cycle target intentionally differs from the linked official allocation.';
 comment on function public.preview_subject_offering_time_allocation_reconciliation(uuid,integer) is
 'School-settings preview of canonical subject mapping, exact-cycle official allocation, existing school target, match status, source provenance and suggested reconciliation action.';
-comment on function public.reconcile_subject_offering_time_allocation(uuid,text,uuid,smallint,text) is
+comment on function public.reconcile_subject_offering_time_allocation(uuid,text,uuid,smallint,smallint,text) is
 'Explicit idempotent school-settings workflow for linking a legacy offering to the currently resolved official allocation, recording a school override, or recording a school-configured target. It never rewrites a legacy target merely because an official value differs.';

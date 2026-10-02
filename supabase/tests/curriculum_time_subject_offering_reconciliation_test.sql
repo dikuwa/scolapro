@@ -1,6 +1,6 @@
 begin;
 
-select plan(34);
+select plan(35);
 
 select has_column('public','subject_offerings','curriculum_time_allocation_id','subject offerings can link one official time allocation');
 select has_column('public','subject_offerings','allocation_origin','subject offerings store allocation provenance origin');
@@ -29,7 +29,7 @@ select has_function(
 select has_function(
   'public',
   'reconcile_subject_offering_time_allocation',
-  array['uuid','text','uuid','smallint','text'],
+  array['uuid','text','uuid','smallint','smallint','text'],
   'governed offering reconciliation commit exists'
 );
 select is(
@@ -53,7 +53,7 @@ select is(
 select is(
   has_function_privilege(
     'anon',
-    'public.reconcile_subject_offering_time_allocation(uuid,text,uuid,smallint,text)',
+    'public.reconcile_subject_offering_time_allocation(uuid,text,uuid,smallint,smallint,text)',
     'EXECUTE'
   ),
   false,
@@ -400,6 +400,7 @@ select is(
       'fa550000-0000-4000-8000-000000000001',
       'official_default',
       'fa5a0000-0000-4000-8000-000000000001',
+      5::smallint,
       null,
       null
     )
@@ -425,6 +426,7 @@ select lives_ok(
       'fa550000-0000-4000-8000-000000000001',
       'official_default',
       'fa5a0000-0000-4000-8000-000000000001',
+      5::smallint,
       null,
       null
     )$,
@@ -456,6 +458,7 @@ select throws_ok(
       'fa550000-0000-4000-8000-000000000002',
       'official_default',
       'fa5a0000-0000-4000-8000-000000000001',
+      4::smallint,
       null,
       null
     )$$,
@@ -469,6 +472,7 @@ select throws_ok(
       'fa550000-0000-4000-8000-000000000002',
       'school_override',
       'fa5a0000-0000-4000-8000-000000000001',
+      4::smallint,
       null,
       null
     )$$,
@@ -481,7 +485,22 @@ select throws_ok(
     from public.reconcile_subject_offering_time_allocation(
       'fa550000-0000-4000-8000-000000000002',
       'school_override',
+      'fa5a0000-0000-4000-8000-000000000001',
+      5::smallint,
+      null,
+      'Keep current school target'
+    )$$,
+  'Reconciliation preview is stale; school target changed before commit',
+  'commit is bound to the previewed school target as well as the official allocation'
+);
+
+select throws_ok(
+  $$select *
+    from public.reconcile_subject_offering_time_allocation(
+      'fa550000-0000-4000-8000-000000000002',
+      'school_override',
       'fa5a0000-0000-4000-8000-000000000099',
+      4::smallint,
       null,
       'Keep current school target'
     )$$,
@@ -501,6 +520,7 @@ select is(
       'fa550000-0000-4000-8000-000000000002',
       'school_override',
       'fa5a0000-0000-4000-8000-000000000001',
+      4::smallint,
       null,
       'Keep current school target'
     )
@@ -550,6 +570,7 @@ select is(
       'fa550000-0000-4000-8000-000000000003',
       'school_configured',
       null,
+      4::smallint,
       6::smallint,
       null
     )
@@ -564,6 +585,7 @@ select throws_ok(
       'fa550000-0000-4000-8000-000000000001',
       'school_configured',
       null,
+      5::smallint,
       5::smallint,
       null
     )$$,
@@ -591,6 +613,7 @@ select lives_ok(
       'school_configured',
       null,
       6::smallint,
+      6::smallint,
       null
     )$$,
   'principal inherits existing school-settings authority for idempotent reconciliation'
@@ -616,6 +639,7 @@ select throws_ok(
       'fa550000-0000-4000-8000-000000000003',
       'school_configured',
       null,
+      6::smallint,
       6::smallint,
       null
     )$$,
