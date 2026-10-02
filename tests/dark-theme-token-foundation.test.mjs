@@ -42,8 +42,8 @@ test("design system exposes a real system-dark token palette", () => {
     "--accent-sky",
     "--accent-sky-soft",
   ]) {
-    const occurrences = css.match(new RegExp(token.replace("--", "\\\\-\\\\-"), "g")) ?? [];
-    assert.ok(occurrences.length >= 2, `${token} has both light and dark values`);
+    const occurrences = css.split(token).length - 1;
+    assert.ok(occurrences >= 2, `${token} has both light and dark values`);
   }
 });
 
