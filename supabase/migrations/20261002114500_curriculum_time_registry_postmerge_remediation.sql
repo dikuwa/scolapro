@@ -236,6 +236,7 @@ begin
     join public.curriculum_time_profiles linked_profile
       on linked_profile.id=linked_allocation.profile_id
     where scoped_allocation.profile_id=new.id
+      and linked_allocation.profile_id<>new.id
       and (
         linked_profile.phase_code is distinct from new.phase_code
         or linked_profile.cycle_kind is distinct from new.cycle_kind
