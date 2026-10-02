@@ -6,11 +6,21 @@ returns table(
   subject_offering_id uuid,
   registration_count bigint
 )
-language sql
+language plpgsql
 stable
-security invoker
-set search_path=pg_catalog
+security definer
+set search_path=pg_catalog,public,app_private
 as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
+
+  if not app_private.can_manage_learner_subject_registrations(p_school_id) then
+    raise exception 'Permission denied';
+  end if;
+
+  return query
   select
     lsr.subject_offering_id,
     count(*)::bigint as registration_count
@@ -20,6 +30,7 @@ as $$
     and lsr.status = 'active'
   group by lsr.subject_offering_id
   order by lsr.subject_offering_id;
+end;
 $$;
 
 revoke all on function public.get_learner_subject_registration_counts(uuid,integer)
@@ -28,4 +39,4 @@ grant execute on function public.get_learner_subject_registration_counts(uuid,in
 to authenticated;
 
 comment on function public.get_learner_subject_registration_counts(uuid,integer) is
-  'Returns active learner subject registration counts grouped by offering. SECURITY INVOKER preserves learner_subject_registrations RLS so callers only aggregate rows they are already permitted to read.';
+  'Management-scoped aggregate for active learner subject registration counts. SECURITY DEFINER authorizes once through the canonical learner-subject management boundary, then groups by offering without repeating row-level authorization for every registration.';
