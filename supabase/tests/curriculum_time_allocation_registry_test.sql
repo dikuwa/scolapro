@@ -1,6 +1,6 @@
 begin;
 
-select plan(65);
+select plan(66);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -666,6 +666,23 @@ insert into public.curriculum_scheduling_constraints(
   'constraint-cycle-b','min_double_periods_per_cycle',
   9,9,'rotating',7,'prescribed',1,'Constraint cycle B',2026,2026,
   'f93a0000-0000-4000-8000-000000000003','draft'
+);
+
+select throws_ok(
+  $$insert into public.curriculum_scheduling_constraints(
+      id,source_id,curriculum_subject_id,constraint_key,constraint_type,
+      grade_from,grade_to,rule_strength,numeric_value,source_locator,
+      effective_from_year,effective_to_year,supersedes_constraint_id,status
+    ) values(
+      'f93a0000-0000-4000-8000-000000000021',
+      'f9350000-0000-4000-8000-000000000001',
+      'f9360000-0000-4000-8000-000000000001',
+      'constraint-unscoped-successor','min_double_periods_per_cycle',
+      9,9,'prescribed',1,'Unscoped successor fixture',2026,2026,
+      'f93a0000-0000-4000-8000-000000000003','draft'
+    )$$,
+  'Curriculum scheduling constraint supersession requires exact cycle scope on both rules',
+  'subject-level constraint supersession cannot be linked before exact cycle scope is explicit'
 );
 
 select throws_ok(

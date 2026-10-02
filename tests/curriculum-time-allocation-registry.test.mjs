@@ -94,6 +94,7 @@ test("post-merge remediation preserves exact profile and constraint semantics", 
   assert.match(remediation, /same phase and exact cycle variant/i);
   assert.match(remediation, /guard_curriculum_scheduling_constraint_supersession/);
   assert.match(remediation, /Curriculum scheduling constraint target cannot invalidate an existing inbound supersession link/);
+  assert.match(remediation, /Curriculum scheduling constraint supersession requires exact cycle scope on both rules/);
   assert.match(remediation, /successor\.curriculum_version_id is distinct from new\.curriculum_version_id/);
   assert.match(remediation, /constraint supersession chain cannot contain a cycle/i);
   assert.match(remediation, /c\.cycle_kind=p_cycle_kind/);

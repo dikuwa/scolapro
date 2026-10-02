@@ -528,6 +528,13 @@ begin
     raise exception 'Superseded curriculum scheduling constraint was not found';
   end if;
 
+  if new.cycle_kind is null
+     or new.cycle_length is null
+     or v_previous_cycle_kind is null
+     or v_previous_cycle_length is null then
+    raise exception 'Curriculum scheduling constraint supersession requires exact cycle scope on both rules';
+  end if;
+
   if new.constraint_type is distinct from v_previous_type then
     raise exception 'Curriculum scheduling constraint supersession must preserve the constraint type';
   end if;
