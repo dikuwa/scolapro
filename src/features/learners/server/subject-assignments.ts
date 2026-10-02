@@ -12,6 +12,7 @@ import type {
 const managerRoles = new Set(["school_admin", "principal", "deputy_principal", "hod"]);
 
 type NamedRelation = { display_name?: string; subject_code?: string } | Array<{ display_name?: string; subject_code?: string }> | null;
+type SubjectRegistrationCountRow = { subject_offering_id: string; registration_count: number | string | null };
 
 function one<T>(value: T | T[] | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
@@ -42,7 +43,7 @@ export async function getSubjectAssignmentWorkspace(
   const grades = gradesResult.data ?? [];
   const gradeById = new Map(grades.map((grade) => [grade.id, grade.display_name]));
   const registrationCounts = new Map(
-    (registrationsResult.data ?? []).map((row) => [
+    ((registrationsResult.data ?? []) as SubjectRegistrationCountRow[]).map((row) => [
       row.subject_offering_id,
       Number(row.registration_count ?? 0),
     ]),
