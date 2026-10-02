@@ -221,6 +221,9 @@ insert into public.curriculum_subjects(
   ('f60d0000-0000-4000-8000-000000000003','demand-cycle','Demand Cycle','junior_secondary','DMCYCLE','NIED',true),
   ('f60d0000-0000-4000-8000-000000000004','demand-conflict','Demand Conflict','junior_secondary','DMCONFLICT','NIED',true);
 
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','f6020000-0000-4000-8000-000000000002',true);
+
 insert into public.school_subject_curriculum_mappings(
   id,tenant_id,school_id,subject_id,curriculum_subject_id,grade_code,phase_code,
   effective_from_year,effective_to_year,status,created_by_user_id
