@@ -2,6 +2,30 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
 import type { TimetableCycleMode } from "@/features/timetable/day-labels";
 
+export type TimetableDemandRow = {
+  subjectOfferingId: string;
+  registerClassId: string;
+  className: string;
+  gradeName: string;
+  subjectName: string;
+  allocationOrigin: "legacy" | "official_default" | "school_override" | "school_configured";
+  linkedAllocationId: string | null;
+  officialResolutionStatus: "resolved" | "source_missing" | "cycle_variant_missing" | "source_conflict";
+  officialAllocationId: string | null;
+  officialPeriodsPerCycle: number | null;
+  schoolTargetPeriodsPerCycle: number;
+  scheduledPeriodsPerCycle: number;
+  scheduledVariance: number;
+  ruleStrength: "prescribed" | "recommended" | "guidance" | null;
+  sourceTitle: string | null;
+  sourceLocator: string | null;
+  availableCycleVariants: { cycleKind: string; cycleLength: number }[];
+  doublePeriodsRequired: number;
+  doublePeriodsScheduled: number;
+  demandStatus: "aligned" | "under_scheduled" | "over_scheduled" | "school_override" | "source_missing" | "cycle_variant_missing" | "source_conflict" | "constraint_warning";
+  warningMessage: string | null;
+};
+
 type TimetableSlotView = {
   id: string;
   cycle: string;
@@ -35,6 +59,7 @@ export type TimetableWorkspace = {
   rooms: { id: string; code: string; name: string; block: string | null; capacity: number | null }[];
   slots: TimetableSlotView[];
   plannedSlots: (TimetableSlotView & { activeFrom: string; activeTo: string | null })[];
+  demand: TimetableDemandRow[];
 };
 
 function one<T>(value: T[] | T | null | undefined): T | null { return (Array.isArray(value) ? value[0] : value) ?? null; }
@@ -48,7 +73,7 @@ function isCurrentOrFuture(date: string, endsOn: string | null): boolean {
 export async function getTimetableWorkspace(schoolId: string, academicYear: number): Promise<TimetableWorkspace> {
   const supabase = await createSupabaseServerClient();
   const today = getNamibiaDateKey();
-  const [schoolResult, todayDayResult, gradesResult, classesResult, membershipsResult, staffAssignmentsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult] = await Promise.all([
+  const [schoolResult, todayDayResult, gradesResult, classesResult, membershipsResult, staffAssignmentsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult, demandResult] = await Promise.all([
     supabase.from("schools").select("timetable_cycle_mode,timetable_cycle_length").eq("id", schoolId).single(),
     supabase.rpc("resolve_timetable_day", { p_school_id: schoolId, p_academic_year: academicYear, p_target_date: today }),
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("grade_code"),
@@ -61,9 +86,10 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.from("timetable_periods").select("id,period_number,display_name,starts_at,ends_at,is_teaching_period").eq("school_id", schoolId).eq("academic_year", academicYear).order("period_number"),
     supabase.from("school_rooms").select("id,room_code,display_name,block_name,capacity").eq("school_id", schoolId).eq("status", "active").order("display_name"),
     supabase.from("timetable_slots").select("id,cycle_code,weekday,period_id,register_class_id,teacher_allocation_id,room_id,room_label,timetable_periods(display_name,period_number),register_classes(display_name),teacher_allocations(staff_member_id,active_from,active_to,staff_members(first_name,last_name),subject_offerings(subjects(display_name)))").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("weekday").order("period_id"),
+    supabase.rpc("get_timetable_curriculum_demand_matrix", { p_school_id: schoolId, p_academic_year: academicYear, p_as_of: today }),
   ]);
 
-  const error = schoolResult.error || todayDayResult.error || gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error;
+  const error = schoolResult.error || todayDayResult.error || gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error || demandResult.error;
   if (error) throw new Error(`Unable to load timetable workspace: ${error.message}`);
 
   const eligibleStaffMap = new Map<string, { id: string; name: string; employeeNumber: string | null }>();
@@ -161,5 +187,28 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
       const allocation = one(item.teacher_allocations);
       return { ...slot, activeFrom: allocation?.active_from ?? today, activeTo: allocation?.active_to ?? null };
     }).sort((a, b) => a.activeFrom.localeCompare(b.activeFrom) || a.weekday - b.weekday || a.periodNumber - b.periodNumber),
+    demand: ((demandResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      subjectOfferingId: String(row.subject_offering_id),
+      registerClassId: String(row.register_class_id),
+      className: String(row.class_name),
+      gradeName: String(row.grade_name),
+      subjectName: String(row.subject_name),
+      allocationOrigin: String(row.allocation_origin) as TimetableDemandRow["allocationOrigin"],
+      linkedAllocationId: row.linked_allocation_id ? String(row.linked_allocation_id) : null,
+      officialResolutionStatus: String(row.official_resolution_status) as TimetableDemandRow["officialResolutionStatus"],
+      officialAllocationId: row.official_allocation_id ? String(row.official_allocation_id) : null,
+      officialPeriodsPerCycle: row.official_periods_per_cycle === null ? null : Number(row.official_periods_per_cycle),
+      schoolTargetPeriodsPerCycle: Number(row.school_target_periods_per_cycle),
+      scheduledPeriodsPerCycle: Number(row.scheduled_periods_per_cycle),
+      scheduledVariance: Number(row.scheduled_variance),
+      ruleStrength: row.rule_strength ? String(row.rule_strength) as TimetableDemandRow["ruleStrength"] : null,
+      sourceTitle: row.source_title ? String(row.source_title) : null,
+      sourceLocator: row.source_locator ? String(row.source_locator) : null,
+      availableCycleVariants: Array.isArray(row.available_cycle_variants) ? row.available_cycle_variants as TimetableDemandRow["availableCycleVariants"] : [],
+      doublePeriodsRequired: Number(row.double_periods_required),
+      doublePeriodsScheduled: Number(row.double_periods_scheduled),
+      demandStatus: String(row.demand_status) as TimetableDemandRow["demandStatus"],
+      warningMessage: row.warning_message ? String(row.warning_message) : null,
+    })),
   };
 }

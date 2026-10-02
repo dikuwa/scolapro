@@ -5,6 +5,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { BookOpenCheck, CalendarDays, ClipboardCheck, Clock3, Plus, UserRoundCheck } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
+import { CurriculumDemandMatrix } from "@/features/timetable/curriculum-demand-matrix";
 import { Picker, TimePicker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { getTimetableDayNames } from "@/features/timetable/day-labels";
@@ -75,6 +76,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
 
   return (
     <div className="space-y-5">
+      {canManage ? <CurriculumDemandMatrix rows={workspace.demand} /> : null}
       {canManage ? (
         <div className="grid gap-5 xl:grid-cols-2 xl:items-start">
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
