@@ -301,18 +301,34 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $$
+as $
 declare
-  v_version_id uuid:=case when tg_op='DELETE' then old.curriculum_version_id else new.curriculum_version_id end;
-  v_status text;
+  v_old_final boolean:=false;
+  v_new_final boolean:=false;
 begin
-  select status into v_status from public.curriculum_versions where id=v_version_id;
-  if v_status in ('approved','published','superseded') then
+  if tg_op in ('UPDATE','DELETE') then
+    select
+      status in ('approved','published','superseded') or approved_at is not null
+      into v_old_final
+    from public.curriculum_versions
+    where id=old.curriculum_version_id;
+  end if;
+
+  if tg_op in ('INSERT','UPDATE') then
+    select
+      status in ('approved','published','superseded') or approved_at is not null
+      into v_new_final
+    from public.curriculum_versions
+    where id=new.curriculum_version_id;
+  end if;
+
+  if coalesce(v_old_final,false) or coalesce(v_new_final,false) then
     raise exception 'Approved or published curriculum applicability is immutable; create a new curriculum version';
   end if;
+
   return case when tg_op='DELETE' then old else new end;
 end;
-$$;
+$;
 
 revoke all on function app_private.guard_curriculum_applicability_finality() from public,anon,authenticated;
 
@@ -325,18 +341,34 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $$
+as $
 declare
-  v_resource_id uuid:=case when tg_op='DELETE' then old.resource_id else new.resource_id end;
-  v_status text;
+  v_old_final boolean:=false;
+  v_new_final boolean:=false;
 begin
-  select status into v_status from public.official_education_resources where id=v_resource_id;
-  if v_status in ('published','superseded') then
+  if tg_op in ('UPDATE','DELETE') then
+    select
+      status in ('published','superseded') or approved_at is not null
+      into v_old_final
+    from public.official_education_resources
+    where id=old.resource_id;
+  end if;
+
+  if tg_op in ('INSERT','UPDATE') then
+    select
+      status in ('published','superseded') or approved_at is not null
+      into v_new_final
+    from public.official_education_resources
+    where id=new.resource_id;
+  end if;
+
+  if coalesce(v_old_final,false) or coalesce(v_new_final,false) then
     raise exception 'Published official resource applicability and links are immutable; publish a new resource version';
   end if;
+
   return case when tg_op='DELETE' then old else new end;
 end;
-$$;
+$;
 
 revoke all on function app_private.guard_official_resource_child_finality() from public,anon,authenticated;
 
@@ -428,34 +460,40 @@ begin
   end if;
 
   if tg_op='DELETE' then
-    if old.status in ('published','superseded') then
+    if old.status in ('published','superseded') or old.approved_at is not null then
       raise exception 'Published official education resources are immutable historical records';
     end if;
     return old;
   end if;
 
-  if new.status='published' and old.status not in ('published','superseded') then
+  if new.status in ('published','superseded') and old.approved_at is null then
     if auth.uid() is null then raise exception 'Authentication required'; end if;
     new.approved_by_user_id:=auth.uid();
     new.approved_at:=now();
   end if;
 
-  if old.status in ('published','superseded') and (
-    new.authority is distinct from old.authority
-    or new.resource_key is distinct from old.resource_key
-    or new.document_type is distinct from old.document_type
-    or new.title is distinct from old.title
-    or new.source_url is distinct from old.source_url
-    or new.publication_label is distinct from old.publication_label
-    or new.publication_date is distinct from old.publication_date
-    or new.checksum is distinct from old.checksum
-    or new.language_code is distinct from old.language_code
-    or new.provenance is distinct from old.provenance
-    or new.approved_by_user_id is distinct from old.approved_by_user_id
-    or new.approved_at is distinct from old.approved_at
-    or new.created_at is distinct from old.created_at
-  ) then
-    raise exception 'Published official education resource content and provenance are immutable';
+  if old.approved_at is not null then
+    if new.status not in ('published','superseded','withdrawn') then
+      raise exception 'Published official education resources cannot return to a mutable lifecycle state';
+    end if;
+
+    if new.authority is distinct from old.authority
+      or new.resource_key is distinct from old.resource_key
+      or new.document_type is distinct from old.document_type
+      or new.title is distinct from old.title
+      or new.source_url is distinct from old.source_url
+      or new.publication_label is distinct from old.publication_label
+      or new.publication_date is distinct from old.publication_date
+      or new.checksum is distinct from old.checksum
+      or new.language_code is distinct from old.language_code
+      or new.provenance is distinct from old.provenance
+      or new.supersedes_resource_id is distinct from old.supersedes_resource_id
+      or new.approved_by_user_id is distinct from old.approved_by_user_id
+      or new.approved_at is distinct from old.approved_at
+      or new.created_at is distinct from old.created_at
+    then
+      raise exception 'Published official education resource content and provenance are immutable';
+    end if;
   end if;
 
   return new;
@@ -761,6 +799,29 @@ end;
 $$;
 
 revoke all on function app_private.autolink_subject_offering_curriculum() from public,anon,authenticated;
+
+create or replace function app_private.guard_subject_offering_curriculum_pin()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $
+begin
+  if old.curriculum_version_id is not null
+     and new.curriculum_version_id is distinct from old.curriculum_version_id then
+    raise exception 'Pinned subject-offering curriculum version is immutable; create a new offering/versioned academic record';
+  end if;
+
+  return new;
+end;
+$;
+
+revoke all on function app_private.guard_subject_offering_curriculum_pin() from public,anon,authenticated;
+
+drop trigger if exists subject_offering_curriculum_pin_guard_trg on public.subject_offerings;
+create trigger subject_offering_curriculum_pin_guard_trg
+before update of curriculum_version_id on public.subject_offerings
+for each row execute function app_private.guard_subject_offering_curriculum_pin();
 
 drop trigger if exists subject_offering_curriculum_autolink_trg on public.subject_offerings;
 create trigger subject_offering_curriculum_autolink_trg
