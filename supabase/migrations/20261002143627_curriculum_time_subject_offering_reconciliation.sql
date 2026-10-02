@@ -148,6 +148,60 @@ before insert or update of
 on public.subject_offerings
 for each row execute function app_private.guard_subject_offering_time_allocation_state();
 
+create or replace function app_private.resolve_optional_curriculum_time_allocation(
+  p_curriculum_subject_id uuid,
+  p_grade smallint,
+  p_academic_year integer,
+  p_cycle_kind text,
+  p_cycle_length smallint,
+  p_curriculum_version_id uuid
+)
+returns table(
+  resolution_status text,
+  allocation_id uuid,
+  profile_id uuid,
+  target_kind text,
+  display_label text,
+  periods_per_cycle smallint,
+  cycle_kind text,
+  cycle_length smallint,
+  period_minutes smallint,
+  rule_strength text,
+  source_id uuid,
+  source_title text,
+  source_locator text,
+  available_cycle_variants jsonb,
+  conflicting_allocation_ids uuid[],
+  scheduling_constraints jsonb
+)
+language plpgsql
+stable
+security definer
+set search_path=pg_catalog,public
+as $optional_time_resolver$
+begin
+  if p_curriculum_subject_id is null or p_grade is null then
+    return;
+  end if;
+
+  return query
+  select *
+  from public.resolve_curriculum_time_allocation(
+    p_curriculum_subject_id,
+    null,
+    p_grade,
+    p_academic_year,
+    p_cycle_kind,
+    p_cycle_length,
+    p_curriculum_version_id
+  );
+end;
+$optional_time_resolver$;
+
+revoke all on function app_private.resolve_optional_curriculum_time_allocation(
+  uuid,smallint,integer,text,smallint,uuid
+) from public,anon,authenticated;
+
 create or replace function public.preview_subject_offering_time_allocation_reconciliation(
   p_school_id uuid,
   p_academic_year integer
@@ -279,19 +333,13 @@ begin
       r.available_cycle_variants,
       r.scheduling_constraints
     from mapped m
-    left join lateral (
-      select rr.*
-      from public.resolve_curriculum_time_allocation(
-        m.resolved_curriculum_subject_id,
-        null,
-        m.grade_number,
-        m.academic_year,
-        m.school_cycle_kind,
-        m.school_cycle_length,
-        m.curriculum_version_id
-      ) rr
-      where m.resolved_curriculum_subject_id is not null
-        and m.grade_number is not null
+    left join lateral app_private.resolve_optional_curriculum_time_allocation(
+      m.resolved_curriculum_subject_id,
+      m.grade_number,
+      m.academic_year,
+      m.school_cycle_kind,
+      m.school_cycle_length,
+      m.curriculum_version_id
     ) r on true
   ),
   classified as (

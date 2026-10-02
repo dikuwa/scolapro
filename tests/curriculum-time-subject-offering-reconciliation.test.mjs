@@ -20,6 +20,8 @@ test("Slice 2 uses canonical mapping and exact-cycle resolver rather than fuzzy 
   assert.match(migration, /school_subject_curriculum_mappings/);
   assert.match(migration, /curriculum_version_id/);
   assert.match(migration, /resolve_curriculum_time_allocation/);
+  assert.match(migration, /resolve_optional_curriculum_time_allocation/);
+  assert.match(migration, /if p_curriculum_subject_id is null or p_grade is null then[\s\S]*return;/);
   assert.match(migration, /timetable_cycle_mode/);
   assert.match(migration, /timetable_cycle_length/);
   assert.match(migration, /'no_subject_mapping'/);
