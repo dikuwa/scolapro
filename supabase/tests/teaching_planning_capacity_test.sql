@@ -1,6 +1,6 @@
 begin;
 
-select plan(15);
+select plan(14);
 
 select has_function(
   'public',
@@ -59,7 +59,7 @@ insert into public.platform_memberships(user_id,role_key,active_from)
 values(
   'f6220000-0000-4000-8000-000000000001',
   'platform_admin',
-  '2027-01-01'
+  current_date-10
 );
 
 insert into public.academic_years(
@@ -108,7 +108,7 @@ insert into public.school_memberships(
     'f6200000-0000-4000-8000-000000000001',
     'f6210000-0000-4000-8000-000000000001',
     'f6220000-0000-4000-8000-000000000002',
-    null,'school_admin','2027-01-01'
+    null,'school_admin',current_date-10
   );
 
 insert into public.grades(
@@ -253,7 +253,7 @@ insert into public.staff_school_assignments(
   'f6200000-0000-4000-8000-000000000001',
   'f6210000-0000-4000-8000-000000000001',
   'f6320000-0000-4000-8000-000000000001',
-  'teacher','2027-01-01','2027-12-31',
+  'teacher',current_date-10,'2027-12-31',
   'f6220000-0000-4000-8000-000000000002'
 );
 
@@ -265,7 +265,7 @@ insert into public.school_memberships(
   'f6210000-0000-4000-8000-000000000001',
   'f6220000-0000-4000-8000-000000000003',
   'f6320000-0000-4000-8000-000000000001',
-  'teacher','2027-01-01'
+  'teacher',current_date-10
 );
 
 insert into public.teacher_allocations(
@@ -278,7 +278,7 @@ insert into public.teacher_allocations(
   'f6310000-0000-4000-8000-000000000001',
   'f6290000-0000-4000-8000-000000000001',
   'f6320000-0000-4000-8000-000000000001',
-  '2027-01-11','2027-01-22'
+  current_date-10,'2027-01-22'
 );
 
 insert into public.timetable_periods(
