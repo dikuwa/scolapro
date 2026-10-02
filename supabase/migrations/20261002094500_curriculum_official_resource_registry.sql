@@ -301,7 +301,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $
+as $$
 declare
   v_version_id uuid:=case when tg_op='DELETE' then old.curriculum_version_id else new.curriculum_version_id end;
   v_status text;
@@ -312,7 +312,7 @@ begin
   end if;
   return case when tg_op='DELETE' then old else new end;
 end;
-$;
+$$;
 
 revoke all on function app_private.guard_curriculum_applicability_finality() from public,anon,authenticated;
 
@@ -325,7 +325,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $
+as $$
 declare
   v_resource_id uuid:=case when tg_op='DELETE' then old.resource_id else new.resource_id end;
   v_status text;
@@ -336,7 +336,7 @@ begin
   end if;
   return case when tg_op='DELETE' then old else new end;
 end;
-$;
+$$;
 
 revoke all on function app_private.guard_official_resource_child_finality() from public,anon,authenticated;
 
@@ -353,7 +353,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $
+as $$
 declare
   v_subject_tenant uuid;
   v_subject_school uuid;
@@ -403,7 +403,7 @@ begin
 
   return new;
 end;
-$;
+$$;
 
 revoke all on function app_private.guard_school_subject_curriculum_mapping() from public,anon,authenticated;
 
