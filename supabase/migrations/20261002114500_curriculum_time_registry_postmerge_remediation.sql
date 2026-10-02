@@ -149,6 +149,72 @@ create trigger aa_curriculum_time_profile_supersession_guard_trg
 before insert or update on public.curriculum_time_profiles
 for each row execute function app_private.guard_curriculum_time_profile_supersession();
 
+create or replace function app_private.guard_curriculum_time_allocation_supersession()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $allocation_supersession_guard$
+declare
+  v_new_phase text;
+  v_new_cycle_kind text;
+  v_new_cycle_length smallint;
+  v_previous_phase text;
+  v_previous_cycle_kind text;
+  v_previous_cycle_length smallint;
+  v_cycle_detected boolean:=false;
+begin
+  if new.supersedes_allocation_id is null then
+    return new;
+  end if;
+
+  select phase_code,cycle_kind,cycle_length
+    into v_new_phase,v_new_cycle_kind,v_new_cycle_length
+  from public.curriculum_time_profiles
+  where id=new.profile_id;
+
+  select p.phase_code,p.cycle_kind,p.cycle_length
+    into v_previous_phase,v_previous_cycle_kind,v_previous_cycle_length
+  from public.curriculum_time_allocations a
+  join public.curriculum_time_profiles p on p.id=a.profile_id
+  where a.id=new.supersedes_allocation_id;
+
+  if v_previous_cycle_kind is null then
+    raise exception 'Superseded curriculum time allocation was not found';
+  end if;
+
+  if v_new_phase is distinct from v_previous_phase
+     or v_new_cycle_kind is distinct from v_previous_cycle_kind
+     or v_new_cycle_length is distinct from v_previous_cycle_length then
+    raise exception 'Curriculum time allocation supersession must remain within the same phase and exact cycle variant';
+  end if;
+
+  with recursive predecessor_chain as (
+    select a.id,a.supersedes_allocation_id,array[a.id]::uuid[] as path
+    from public.curriculum_time_allocations a
+    where a.id=new.supersedes_allocation_id
+
+    union all
+
+    select a.id,a.supersedes_allocation_id,chain.path || a.id
+    from predecessor_chain chain
+    join public.curriculum_time_allocations a on a.id=chain.supersedes_allocation_id
+    where not a.id=any(chain.path)
+  )
+  select exists(select 1 from predecessor_chain where id=new.id)
+    into v_cycle_detected;
+
+  if v_cycle_detected then
+    raise exception 'Curriculum time allocation supersession chain cannot contain a cycle';
+  end if;
+
+  return new;
+end;
+$allocation_supersession_guard$;
+
+revoke all on function app_private.guard_curriculum_time_allocation_supersession()
+from public,anon,authenticated;
+
 create or replace function app_private.guard_curriculum_scheduling_constraint_cycle_scope()
 returns trigger
 language plpgsql
@@ -464,6 +530,22 @@ begin
           )
           and (replacement.grade_from is null or replacement.grade_from<=p_grade)
           and (replacement.grade_to is null or replacement.grade_to>=p_grade)
+          and (
+            p_curriculum_subject_id is null
+            or (
+              replacement.target_kind='subject'
+              and replacement.curriculum_subject_id=p_curriculum_subject_id
+            )
+            or (
+              replacement.target_kind<>'subject'
+              and exists(
+                select 1
+                from public.curriculum_time_slot_subjects replacement_slot_subject
+                where replacement_slot_subject.allocation_id=replacement.id
+                  and replacement_slot_subject.curriculum_subject_id=p_curriculum_subject_id
+              )
+            )
+          )
           and (
             (p_curriculum_version_id is null and replacement.curriculum_version_id is null)
             or

@@ -77,6 +77,7 @@ test("post-merge remediation preserves exact profile and constraint semantics", 
   assert.match(remediation, /numeric_value is not null[\s\S]*numeric_value>=1[\s\S]*numeric_value=trunc\(numeric_value\)[\s\S]*not valid/i);
   assert.match(remediation, /Existing non-draft subject-level scheduling constraints require explicit exact-cycle reconciliation/);
   assert.match(remediation, /guard_curriculum_time_profile_supersession/);
+  assert.match(remediation, /Curriculum time allocation supersession must remain within the same phase and exact cycle variant/);
   assert.match(remediation, /profile supersession chain cannot contain a cycle/i);
   assert.match(remediation, /same phase and exact cycle variant/i);
   assert.match(remediation, /guard_curriculum_scheduling_constraint_supersession/);
@@ -85,6 +86,7 @@ test("post-merge remediation preserves exact profile and constraint semantics", 
   assert.match(remediation, /c\.cycle_length=p_cycle_length/);
   assert.match(remediation, /replacement_profile\.supersedes_profile_id=c\.profile_id/);
   assert.match(remediation, /from public\.curriculum_time_allocations replacement/);
+  assert.match(remediation, /replacement_slot_subject\.curriculum_subject_id=p_curriculum_subject_id/);
   assert.match(remediation, /constraint supersession must preserve its exact allocation and canonical subject\/version target/i);
   assert.match(remediation, /from public\.curriculum_scheduling_constraints replacement/);
   assert.match(remediation, /replacement\.curriculum_version_id is not distinct from c\.curriculum_version_id/);

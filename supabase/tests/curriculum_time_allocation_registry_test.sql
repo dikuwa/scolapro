@@ -1,6 +1,6 @@
 begin;
 
-select plan(58);
+select plan(60);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -69,7 +69,8 @@ insert into public.curriculum_subjects(id,curriculum_key,display_name,phase_code
   ('f9360000-0000-4000-8000-000000000002','time-cycle-only','Time Cycle Only','junior_secondary','TCYCLE','NIED',true),
   ('f9360000-0000-4000-8000-000000000003','time-conflict','Time Conflict','junior_secondary','TCONFLICT','NIED',true),
   ('f9360000-0000-4000-8000-000000000004','time-supersession','Time Supersession','junior_secondary','TSUPER','NIED',true),
-  ('f9360000-0000-4000-8000-000000000005','time-specific-policy','Time Specific Policy','junior_secondary','TSPEC','NIED',true);
+  ('f9360000-0000-4000-8000-000000000005','time-specific-policy','Time Specific Policy','junior_secondary','TSPEC','NIED',true),
+  ('f9360000-0000-4000-8000-000000000006','time-shared-slot-only','Time Shared Slot Only','junior_secondary','TSHARED','NIED',true);
 
 reset role;
 select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000001',true);
@@ -204,11 +205,9 @@ insert into public.curriculum_time_allocations(
 );
 
 insert into public.curriculum_time_slot_subjects(allocation_id,curriculum_subject_id,source_locator)
-values(
-  'f9390000-0000-4000-8000-000000000007',
-  'f9360000-0000-4000-8000-000000000005',
-  'General framework eligibility mapping'
-);
+values
+  ('f9390000-0000-4000-8000-000000000007','f9360000-0000-4000-8000-000000000005','General framework eligibility mapping'),
+  ('f9390000-0000-4000-8000-000000000007','f9360000-0000-4000-8000-000000000006','General framework second eligible subject');
 
 update public.curriculum_time_allocations set status='verified'
 where id='f9390000-0000-4000-8000-000000000007';
@@ -226,6 +225,17 @@ update public.curriculum_time_allocations set status='verified'
 where id='f9390000-0000-4000-8000-000000000008';
 update public.curriculum_time_allocations set status='published'
 where id='f9390000-0000-4000-8000-000000000008';
+
+select is(
+  (
+    select concat_ws(':',resolution_status,allocation_id::text,periods_per_cycle::text)
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000006',null,9::smallint,2026,'rotating',7::smallint,null
+    )
+  ),
+  'resolved:f9390000-0000-4000-8000-000000000007:6',
+  'subject-specific successor does not suppress a shared choice slot for another eligible subject'
+);
 
 insert into public.curriculum_scheduling_constraints(
   id,source_id,curriculum_subject_id,allocation_id,constraint_key,constraint_type,
@@ -422,8 +432,30 @@ select throws_ok(
       'f9360000-0000-4000-8000-000000000004','cross-cycle-super','subject','Cross-cycle supersession',9,9,
       6,'prescribed','Cross-cycle fixture','f9390000-0000-4000-8000-000000000005','draft'
     )$$,
-  'Curriculum time allocation supersession must remain within the same exact cycle variant',
+  'Curriculum time allocation supersession must remain within the same phase and exact cycle variant',
   '5-day allocation cannot supersede a 7-day allocation'
+);
+
+insert into public.curriculum_time_profiles(
+  id,source_id,profile_key,title,phase_code,cycle_kind,cycle_length,period_minutes,total_periods_per_cycle,
+  effective_from_year,effective_to_year,status,provenance
+) values(
+  'f9380000-0000-4000-8000-000000000010','f9350000-0000-4000-8000-000000000001',
+  'ss-7day-boundary','Senior Secondary 7-day boundary','senior_secondary','rotating',7,40,56,
+  2026,2026,'draft','{"locator":"Phase boundary fixture"}'::jsonb
+);
+
+select throws_ok(
+  $$insert into public.curriculum_time_allocations(
+      id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+      periods_per_cycle,rule_strength,source_locator,supersedes_allocation_id,status
+    ) values(
+      'f9390000-0000-4000-8000-000000000018','f9380000-0000-4000-8000-000000000010',
+      'f9360000-0000-4000-8000-000000000004','cross-phase-super','subject','Cross-phase supersession',9,9,
+      7,'prescribed','Cross-phase fixture','f9390000-0000-4000-8000-000000000005','draft'
+    )$$,
+  'Curriculum time allocation supersession must remain within the same phase and exact cycle variant',
+  'allocation supersession cannot cross curriculum phases even with the same exact cycle'
 );
 
 insert into public.curriculum_time_allocations(
