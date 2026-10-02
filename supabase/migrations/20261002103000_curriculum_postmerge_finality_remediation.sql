@@ -16,16 +16,26 @@ begin
     return old;
   end if;
 
-  if (old.status in ('approved','published','superseded') or old.approved_at is not null) and (
-    new.metadata is distinct from old.metadata
-    or new.approved_by_user_id is distinct from old.approved_by_user_id
-    or new.approved_at is distinct from old.approved_at
-    or new.curriculum_subject_id is distinct from old.curriculum_subject_id
-    or new.version_key is distinct from old.version_key
-    or new.source_id is distinct from old.source_id
-    or new.effective_from_year is distinct from old.effective_from_year
-    or new.created_at is distinct from old.created_at
-  ) then    raise exception 'Approved or published curriculum version content and provenance are immutable';
+  if old.status in ('approved','published','superseded') or old.approved_at is not null then
+    if new.metadata is distinct from old.metadata
+      or new.approved_by_user_id is distinct from old.approved_by_user_id
+      or new.approved_at is distinct from old.approved_at
+      or new.curriculum_subject_id is distinct from old.curriculum_subject_id
+      or new.version_key is distinct from old.version_key
+      or new.source_id is distinct from old.source_id
+      or new.effective_from_year is distinct from old.effective_from_year
+      or new.effective_to_year is distinct from old.effective_to_year
+      or new.created_at is distinct from old.created_at then
+      raise exception 'Approved or published curriculum version content and provenance are immutable';
+    end if;
+
+    if (old.status='approved' and new.status not in ('approved','published','superseded','withdrawn'))
+      or (old.status='published' and new.status not in ('published','superseded','withdrawn'))
+      or (old.status='superseded' and new.status<>'superseded')
+      or (old.status='withdrawn' and new.status<>'withdrawn')
+      or (old.status not in ('approved','published','superseded','withdrawn') and new.status<>old.status) then
+      raise exception 'Approved curriculum version lifecycle can only move forward to a terminal state';
+    end if;
   end if;
 
   return new;

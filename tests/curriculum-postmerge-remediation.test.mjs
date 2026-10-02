@@ -10,6 +10,8 @@ const migration = readFileSync(
 test("curriculum finality survives withdrawal", () => {
   assert.match(migration, /old\.approved_at is not null/);
   assert.match(migration, /v_approved_at is not null/);
+  assert.match(migration, /new\.effective_to_year is distinct from old\.effective_to_year/);
+  assert.match(migration, /Approved curriculum version lifecycle can only move forward to a terminal state/);
 });
 
 test("verified curriculum mappings are terminal except archive", () => {

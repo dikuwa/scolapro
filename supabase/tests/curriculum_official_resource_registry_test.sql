@@ -1,6 +1,6 @@
 begin;
 
-select plan(44);
+select plan(46);
 
 select has_table('public','curriculum_version_applicability','curriculum version applicability exists');
 select has_table('public','official_education_resources','official education resources exist');
@@ -592,6 +592,22 @@ select throws_ok(
     where id='f9170000-0000-4000-8000-000000000005'$$,
   'Approved or published curriculum version content and provenance are immutable',
   'withdrawal does not reopen parent curriculum version provenance'
+);
+
+select throws_ok(
+  $$update public.curriculum_versions
+      set effective_to_year=2027
+    where id='f9170000-0000-4000-8000-000000000005'$$,
+  'Approved or published curriculum version content and provenance are immutable',
+  'withdrawal does not reopen the approved applicability end year'
+);
+
+select throws_ok(
+  $$update public.curriculum_versions
+      set status='published'
+    where id='f9170000-0000-4000-8000-000000000005'$$,
+  'Approved curriculum version lifecycle can only move forward to a terminal state',
+  'withdrawn curriculum version cannot return to a published lifecycle state'
 );
 
 select is(
