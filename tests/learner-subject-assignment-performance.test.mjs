@@ -14,8 +14,10 @@ test("subject-assignment overview aggregates active registrations in PostgreSQL"
 });
 
 test("count RPC preserves row-level authorization and returns only grouped counts", () => {
-  assert.match(migration, /security invoker/i);
-  assert.match(migration, /set search_path=pg_catalog/i);
+  assert.match(migration, /security definer/i);
+  assert.match(migration, /set search_path=pg_catalog,public,app_private/i);
+  assert.match(migration, /app_private\.can_manage_learner_subject_registrations\(p_school_id\)/i);
+  assert.match(migration, /if auth\.uid\(\) is null/i);
   assert.match(migration, /from public\.learner_subject_registrations lsr/i);
   assert.match(migration, /lsr\.status = 'active'/i);
   assert.match(migration, /group by lsr\.subject_offering_id/i);
