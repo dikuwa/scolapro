@@ -38,6 +38,7 @@ const navigation = [
   { key: "family", label: "My children", href: "/parent", icon: HeartHandshake },
   { key: "tenants", label: "Tenants", href: "/platform/tenants", icon: Building2 },
   { key: "invitations", label: "Invitations", href: "/platform/invitations", icon: MailPlus },
+  { key: "curriculum_policy", label: "Curriculum & Policy", href: "/platform/curriculum-policy", icon: BookOpenText },
   { key: "school_invitations", label: "Invitations", href: "/school/invitations", icon: MailPlus },
   { key: "setup", label: "Academic setup", href: "/school/setup", icon: SlidersHorizontal },
   { key: "school_directory", label: "School Directory", href: "/school-directory", icon: Contact },
@@ -72,7 +73,7 @@ const navigation = [
 ] as const;
 
 const enabledKeysByRole: Record<string, readonly string[]> = {
-  platform_admin: ["today", "tenants", "invitations", "school_directory"],
+  platform_admin: ["today", "tenants", "invitations", "curriculum_policy", "school_directory"],
   platform_support: ["today", "tenants", "school_directory"],
   school_admin: ["today", "school_directory", "conduct", "sports_houses", "school_invitations", "school_settings", "crc_custody", "setup", "imports", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "academic_analysis", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists", "correspondence"],
   principal: ["today", "school_directory", "conduct", "sports_houses", "setup", "school_settings", "crc_custody", "staff", "responsibilities", "learners", "guardians", "data_corrections", "timetable", "attendance", "late_arrivals", "my_detention", "teaching", "assessment", "academic_analysis", "report_cards", "library", "room_inventory", "statutory", "contributions", "absence_reviews", "calendar", "class_lists", "correspondence"],
