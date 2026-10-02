@@ -575,14 +575,23 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  select o,g.grade_code
-    into v_offering,v_grade_code
+  select o.*
+    into v_offering
   from public.subject_offerings o
-  join public.grades g on g.id=o.grade_id and g.school_id=o.school_id
   where o.id=p_subject_offering_id;
 
   if not found then
     raise exception 'Subject offering not found';
+  end if;
+
+  select g.grade_code
+    into v_grade_code
+  from public.grades g
+  where g.id=v_offering.grade_id
+    and g.school_id=v_offering.school_id;
+
+  if v_grade_code is null then
+    raise exception 'Subject offering grade scope is invalid';
   end if;
 
   if not (
@@ -632,15 +641,24 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  select o,g.grade_code
-    into v_offering,v_grade_code
+  select o.*
+    into v_offering
   from public.subject_offerings o
-  join public.grades g on g.id=o.grade_id and g.school_id=o.school_id
   where o.id=p_subject_offering_id
-  for update of o;
+  for update;
 
   if not found then
     raise exception 'Subject offering not found';
+  end if;
+
+  select g.grade_code
+    into v_grade_code
+  from public.grades g
+  where g.id=v_offering.grade_id
+    and g.school_id=v_offering.school_id;
+
+  if v_grade_code is null then
+    raise exception 'Subject offering grade scope is invalid';
   end if;
 
   if not (
