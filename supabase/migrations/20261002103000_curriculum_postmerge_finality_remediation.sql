@@ -201,7 +201,10 @@ declare
   v_version_id uuid;
 begin
   if new.curriculum_version_id is not null then
-    raise exception 'Explicit curriculum pins are not accepted on subject-offering insert; use governed curriculum resolution';
+    if auth.uid() is not null then
+      raise exception 'Explicit curriculum pins are not accepted on subject-offering insert; use governed curriculum resolution';
+    end if;
+    return new;
   end if;
 
   select g.grade_code into v_grade_code
