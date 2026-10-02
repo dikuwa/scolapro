@@ -39,7 +39,7 @@ function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
   return <button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-3.5 text-white" /> : <Plus className="size-3.5" aria-hidden="true" />}{pending ? "Saving…" : label}</button>;
 }
 
-export function TimetableWorkspaceView({ schoolId, academicYear, canManage, viewerStaffId, workspace }: { schoolId: string; academicYear: number; canManage: boolean; viewerStaffId: string | null; workspace: TimetableWorkspace }) {
+export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canViewDemand, viewerStaffId, workspace }: { schoolId: string; academicYear: number; canManage: boolean; canViewDemand: boolean; viewerStaffId: string | null; workspace: TimetableWorkspace }) {
   const [subjectState, subjectAction, subjectPending] = useActionState(saveSubject, initialState);
   const [offeringState, offeringAction, offeringPending] = useActionState(saveOffering, initialState);
   const [allocationState, allocationAction, allocationPending] = useActionState(saveAllocation, initialState);
@@ -76,7 +76,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, view
 
   return (
     <div className="space-y-5">
-      {canManage ? <CurriculumDemandMatrix rows={workspace.demand} /> : null}
+      {canViewDemand ? <CurriculumDemandMatrix rows={workspace.demand} /> : null}
       {canManage ? (
         <div className="grid gap-5 xl:grid-cols-2 xl:items-start">
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">

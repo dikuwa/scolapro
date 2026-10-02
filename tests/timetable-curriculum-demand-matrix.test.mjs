@@ -27,7 +27,7 @@ test("double-period validation uses actual ordered timetable structure and non-o
 
 test("demand matrix preserves exact-cycle official resolver states", () => {
   for (const state of ["aligned","under_scheduled","over_scheduled","school_override","source_missing","cycle_variant_missing","source_conflict","constraint_warning"]) {
-    assert.match(migration, new RegExp(\`'\${state}'\`));
+    assert.match(migration, new RegExp(`'${state}'`));
   }
   assert.match(migration, /resolve_optional_curriculum_time_allocation/);
   assert.match(migration, /v_cycle_kind/);

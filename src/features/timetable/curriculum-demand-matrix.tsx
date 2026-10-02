@@ -61,7 +61,9 @@ export function CurriculumDemandMatrix({ rows }: { rows: TimetableDemandRow[] })
       {rows.length ? (
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           {rows.map((row) => {
-            const presentation = statusPresentation[row.demandStatus];
+            const presentation = row.demandStatus === "school_override" && row.ruleStrength === "prescribed"
+              ? { label: "Prescribed override", className: "bg-[color:var(--danger-soft)] text-[color:var(--danger)]" }
+              : statusPresentation[row.demandStatus];
             return (
               <article key={`${row.subjectOfferingId}:${row.registerClassId}`} className="min-w-0 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3.5">
                 <div className="flex flex-wrap items-start justify-between gap-2">
