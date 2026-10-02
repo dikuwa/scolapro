@@ -1,6 +1,6 @@
 begin;
 
-select plan(8);
+select plan(10);
 
 select ok(
   to_regprocedure('public.get_learner_subject_registration_counts(uuid,integer)') is not null,
@@ -15,8 +15,8 @@ select is(
     where n.nspname='public'
       and p.proname='get_learner_subject_registration_counts'
   ),
-  false,
-  'learner subject registration count RPC is SECURITY INVOKER'
+  true,
+  'learner subject registration count RPC is SECURITY DEFINER'
 );
 
 select is(
@@ -27,8 +27,8 @@ select is(
     where n.nspname='public'
       and p.proname='get_learner_subject_registration_counts'
   ),
-  'search_path=pg_catalog',
-  'learner subject registration count RPC pins pg_catalog search_path'
+  'search_path=pg_catalog, public, app_private',
+  'learner subject registration count RPC pins its trusted search path'
 );
 
 select is(
@@ -41,6 +41,29 @@ select is(
   ),
   'p_school_id uuid, p_academic_year integer',
   'learner subject registration count RPC accepts only school and year'
+);
+
+select ok(
+  (
+    select pg_get_functiondef(p.oid) like '%app_private.can_manage_learner_subject_registrations(p_school_id)%'
+      and pg_get_functiondef(p.oid) like '%IF auth.uid() IS NULL%'
+    from pg_proc p
+    join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname='get_learner_subject_registration_counts'
+  ),
+  'learner subject registration count RPC requires authentication and canonical management authority once'
+);
+
+select ok(
+  (
+    select pg_get_functiondef(p.oid) not like '%can_read_learner_subject_registration%'
+    from pg_proc p
+    join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname='get_learner_subject_registration_counts'
+  ),
+  'learner subject registration count RPC does not repeat learner-level authorization per registration'
 );
 
 select ok(
