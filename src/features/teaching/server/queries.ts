@@ -172,6 +172,45 @@ export type PlanningOfferingOption = {
   curriculumVersionId: string | null;
 };
 
+export type PlanningCapacityRow = {
+  planId: string;
+  planLevel: string;
+  planStatus: string;
+  subjectOfferingId: string;
+  registerClassId: string;
+  className: string;
+  gradeName: string;
+  subjectName: string;
+  allocationOrigin: string;
+  officialResolutionStatus: string;
+  officialPeriodsPerCycle: number | null;
+  schoolTargetPeriodsPerCycle: number;
+  cycleKind: string;
+  cycleLength: number;
+  yearExpectedOpportunities: number;
+  yearPlannedPeriods: number;
+  yearRemainingCapacity: number;
+  futureExpectedOpportunities: number;
+  outstandingPlannedPeriods: number;
+  futureRemainingCapacity: number;
+  currentTermId: string | null;
+  currentTermName: string | null;
+  currentTermExpectedOpportunities: number | null;
+  currentTermPlannedPeriods: number | null;
+  currentTermRemainingCapacity: number | null;
+  termCapacity: Array<Record<string, unknown>>;
+  capacityStatus: "ready" | "over_capacity" | "insufficient_remaining" | "term_over_capacity" | "source_unresolved" | "calendar_incomplete";
+  capacityWarnings: string[];
+};
+
+export type PlanningException = {
+  key: string;
+  kind: "planning_capacity" | "timetable_demand";
+  subjectName: string;
+  className: string;
+  message: string;
+};
+
 export type PlanningPlanSummary = {
   planId: string;
   planLevel: string;
@@ -190,6 +229,8 @@ export type TeachingPlanningData = TeachingWorkspaceData & {
   classes: PlanningClassOption[];
   planningAllocations: PlanningAllocationOption[];
   planSummaries: PlanningPlanSummary[];
+  capacityRows: PlanningCapacityRow[];
+  hodExceptions: PlanningException[];
 };
 
 export type TeachingWorkspaceData = {
@@ -638,6 +679,22 @@ export async function getTeachingPlanningData(input: {
   });
   const supabase = await createSupabaseServerClient();
 
+  const capacityResult = await supabase.rpc("get_teaching_planning_capacity", {
+    p_school_id: input.schoolId,
+    p_academic_year: input.academicYear,
+    p_as_of: workspace.today,
+  });
+  if (capacityResult.error) throw new Error("Unable to load teaching planning capacity.");
+
+  const demandResult = workspace.hasLeadershipAuthority
+    ? await supabase.rpc("get_timetable_curriculum_demand_matrix", {
+        p_school_id: input.schoolId,
+        p_academic_year: input.academicYear,
+        p_as_of: workspace.today,
+      })
+    : { data: [], error: null };
+  if (demandResult.error) throw new Error("Unable to load timetable demand exceptions.");
+
   // Official curriculum registry content for the versions in scope. Read-only.
   const units: TeachingUnitOption[] = [];
   if (workspace.curriculumVersionIds.length) {
@@ -732,11 +789,80 @@ export async function getTeachingPlanningData(input: {
       };
     });
 
+  const allowedOfferingIds = new Set(workspace.planningOfferings.map((row) => row.offeringId));
+  const capacityRows: PlanningCapacityRow[] = ((capacityResult.data ?? []) as Array<Record<string, unknown>>)
+    .filter((row) => allowedOfferingIds.has(String(row.subject_offering_id)))
+    .map((row) => ({
+      planId: String(row.plan_id),
+      planLevel: String(row.plan_level),
+      planStatus: String(row.plan_status),
+      subjectOfferingId: String(row.subject_offering_id),
+      registerClassId: String(row.register_class_id),
+      className: String(row.class_name),
+      gradeName: String(row.grade_name),
+      subjectName: String(row.subject_name),
+      allocationOrigin: String(row.allocation_origin),
+      officialResolutionStatus: String(row.official_resolution_status),
+      officialPeriodsPerCycle: row.official_periods_per_cycle === null ? null : Number(row.official_periods_per_cycle),
+      schoolTargetPeriodsPerCycle: Number(row.school_target_periods_per_cycle),
+      cycleKind: String(row.cycle_kind),
+      cycleLength: Number(row.cycle_length),
+      yearExpectedOpportunities: Number(row.year_expected_opportunities),
+      yearPlannedPeriods: Number(row.year_planned_periods),
+      yearRemainingCapacity: Number(row.year_remaining_capacity),
+      futureExpectedOpportunities: Number(row.future_expected_opportunities),
+      outstandingPlannedPeriods: Number(row.outstanding_planned_periods),
+      futureRemainingCapacity: Number(row.future_remaining_capacity),
+      currentTermId: row.current_term_id ? String(row.current_term_id) : null,
+      currentTermName: row.current_term_name ? String(row.current_term_name) : null,
+      currentTermExpectedOpportunities: row.current_term_expected_opportunities === null ? null : Number(row.current_term_expected_opportunities),
+      currentTermPlannedPeriods: row.current_term_planned_periods === null ? null : Number(row.current_term_planned_periods),
+      currentTermRemainingCapacity: row.current_term_remaining_capacity === null ? null : Number(row.current_term_remaining_capacity),
+      termCapacity: Array.isArray(row.term_capacity) ? row.term_capacity as Array<Record<string, unknown>> : [],
+      capacityStatus: String(row.capacity_status) as PlanningCapacityRow["capacityStatus"],
+      capacityWarnings: Array.isArray(row.capacity_warnings)
+        ? row.capacity_warnings.map((warning) => String(warning))
+        : [],
+    }));
+
+  // Leadership oversight is exception-oriented only. No teacher ranking or productivity score.
+  const hodExceptions: PlanningException[] = [];
+  if (workspace.hasLeadershipAuthority) {
+    for (const row of capacityRows) {
+      for (const [index, message] of row.capacityWarnings.entries()) {
+        hodExceptions.push({
+          key: `capacity:${row.planId}:${row.registerClassId}:${index}`,
+          kind: "planning_capacity",
+          subjectName: row.subjectName,
+          className: row.className,
+          message,
+        });
+      }
+    }
+    for (const row of (demandResult.data ?? []) as Array<Record<string, unknown>>) {
+      const offeringId = String(row.subject_offering_id);
+      if (!allowedOfferingIds.has(offeringId)) continue;
+      const status = String(row.demand_status);
+      if (status === "aligned") continue;
+      const message = row.warning_message ? String(row.warning_message) : null;
+      if (!message) continue;
+      hodExceptions.push({
+        key: `demand:${offeringId}:${String(row.register_class_id)}:${status}`,
+        kind: "timetable_demand",
+        subjectName: String(row.subject_name),
+        className: String(row.class_name),
+        message,
+      });
+    }
+  }
+
   return {
     ...workspace,
     units,
     classes,
     planningAllocations,
     planSummaries,
+    capacityRows,
+    hodExceptions,
   };
 }
