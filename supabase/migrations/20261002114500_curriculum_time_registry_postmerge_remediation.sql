@@ -99,9 +99,13 @@ begin
     join public.curriculum_time_profiles predecessor_profile
       on predecessor_profile.id=predecessor.profile_id
     where successor.supersedes_allocation_id is not null
-      and successor_profile.phase_code is distinct from predecessor_profile.phase_code
+      and (
+        successor_profile.phase_code is distinct from predecessor_profile.phase_code
+        or successor_profile.cycle_kind is distinct from predecessor_profile.cycle_kind
+        or successor_profile.cycle_length is distinct from predecessor_profile.cycle_length
+      )
   ) then
-    raise exception 'Existing curriculum time allocation supersession links require explicit phase reconciliation before this migration';
+    raise exception 'Existing curriculum time allocation supersession links require explicit phase and exact-cycle reconciliation before this migration';
   end if;
 end;
 $preexisting_allocation_supersession$;

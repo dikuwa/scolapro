@@ -82,6 +82,9 @@ test("post-merge remediation preserves exact profile and constraint semantics", 
   assert.match(remediation, /successor\.phase_code is distinct from predecessor\.phase_code/);
   assert.match(remediation, /Existing curriculum time allocation supersession links require explicit phase reconciliation before this migration/);
   assert.match(remediation, /successor_profile\.phase_code is distinct from predecessor_profile\.phase_code/);
+  assert.match(remediation, /Existing curriculum time allocation supersession links require explicit phase and exact-cycle reconciliation before this migration/);
+  assert.match(remediation, /successor_profile\.cycle_kind is distinct from predecessor_profile\.cycle_kind/);
+  assert.match(remediation, /successor_profile\.cycle_length is distinct from predecessor_profile\.cycle_length/);
   assert.match(remediation, /Existing curriculum scheduling constraint supersession links require explicit target and exact-cycle reconciliation before this migration/);
   assert.match(remediation, /successor\.curriculum_version_id is distinct from predecessor\.curriculum_version_id/);
   assert.match(remediation, /Existing curriculum scheduling constraint supersession chains contain a cycle and require explicit reconciliation before this migration/);
