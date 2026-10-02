@@ -16,6 +16,7 @@ import { Picker } from "@/components/ui/picker";
 import type {
   CurriculumAccessAllocation,
   CurriculumAccessData,
+  CurriculumAccessResource,
   CurriculumAccessUnit,
   CurriculumAccessVersion,
 } from "@/features/teaching/server/curriculum-access";
@@ -44,6 +45,7 @@ function unitMatches(unit: CurriculumAccessUnit, query: string) {
     unit.assessmentGuidance ?? "",
     ...unit.objectives.flatMap((item) => [item.code ?? "", item.text]),
     ...unit.competencies.flatMap((item) => [item.code ?? "", item.text]),
+    ...unit.practicals.flatMap((item) => [item.code ?? "", item.title, item.description ?? ""]),
   ]
     .join(" ")
     .toLocaleLowerCase();
@@ -63,9 +65,11 @@ function EmptyState({ title, description }: { title: string; description: string
 function RegistryMetadata({
   allocation,
   version,
+  resources,
 }: {
   allocation: CurriculumAccessAllocation;
   version: CurriculumAccessVersion;
+  resources: CurriculumAccessResource[];
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -145,6 +149,19 @@ function RegistryMetadata({
                   : "No additional provenance fields are loaded yet."}
               </dd>
             </div>
+            {version.source.sourceUrl ? (
+              <div className="sm:col-span-2">
+                <a
+                  href={version.source.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong hover:bg-brand hover:text-white"
+                >
+                  Open official source
+                  <ExternalLink className="scolapro-cta-icon size-3.5" aria-hidden="true" />
+                </a>
+              </div>
+            ) : null}
           </dl>
         ) : (
           <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted p-4">
@@ -155,8 +172,42 @@ function RegistryMetadata({
           </div>
         )}
         <p className="mt-4 text-xs leading-5 text-muted-foreground">
-          Linked curriculum files are not exposed directly from registry metadata. Governed document/storage access remains the source of truth for protected files.
+          Only published or superseded official resources are teacher-readable here. Draft extraction and review candidates remain platform-governed.
         </p>
+      </section>
+
+      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5 lg:col-span-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <FileSearch className="size-4 text-brand-strong" aria-hidden="true" />
+          <h2 className="scolapro-section-title">Official companion resources</h2>
+        </div>
+        {resources.length ? (
+          <div className="mt-4 divide-y divide-border-subtle">
+            {resources.map((resource) => (
+              <div key={resource.id} className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{resource.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {[resource.authority, statusLabel(resource.documentType), statusLabel(resource.relationshipType), resource.publicationLabel, resource.publicationDate ? formatDate(resource.publicationDate) : null].filter(Boolean).join(" · ")}
+                  </p>
+                </div>
+                <a
+                  href={resource.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="scolapro-cta inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs font-medium text-foreground hover:bg-surface-muted"
+                >
+                  Open resource
+                  <ExternalLink className="scolapro-cta-icon size-3.5" aria-hidden="true" />
+                </a>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs leading-5 text-muted-foreground">
+            No additional published companion resources are linked to this curriculum version yet.
+          </p>
+        )}
       </section>
     </div>
   );
@@ -240,6 +291,22 @@ function UnitCard({
         </section>
       </div>
 
+      {unit.practicals.length ? (
+        <section className="mt-4 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-3">
+          <h4 className="text-xs font-semibold text-foreground">Practical requirements</h4>
+          <ul className="mt-2 space-y-2">
+            {unit.practicals.map((practical, index) => (
+              <li key={unit.id + "-practical-" + (practical.code ?? index)} className="text-xs leading-5 text-foreground">
+                <span className="font-semibold">{practical.title}</span>
+                {practical.code ? <span className="ml-1.5 text-muted-foreground">{practical.code}</span> : null}
+                {practical.description ? <span className="block text-muted-foreground">{practical.description}</span> : null}
+                {practical.recommendedPeriods ? <span className="block text-muted-foreground">Recommended periods: {practical.recommendedPeriods}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {unit.assessmentGuidance ? (
         <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2">
           <p className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">Registry assessment guidance</p>
@@ -263,6 +330,9 @@ export function CurriculumAccessWorkspace({ data }: { data: CurriculumAccessData
     : null;
   const units = allocation?.curriculumVersionId
     ? data.unitsByVersionId[allocation.curriculumVersionId] ?? []
+    : [];
+  const resources = allocation?.curriculumVersionId
+    ? data.resourcesByVersionId[allocation.curriculumVersionId] ?? []
     : [];
 
   const normalizedSearch = search.trim().toLocaleLowerCase();
@@ -325,7 +395,7 @@ export function CurriculumAccessWorkspace({ data }: { data: CurriculumAccessData
                     type="search"
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Search topic, objective or competency…"
+                    placeholder="Search topic, objective, competency or practical…"
                     className="min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated pl-9 pr-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition placeholder:text-muted-foreground/70 focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)]"
                   />
                 </div>
@@ -345,12 +415,12 @@ export function CurriculumAccessWorkspace({ data }: { data: CurriculumAccessData
             />
           ) : version && allocation ? (
             <>
-              <RegistryMetadata allocation={allocation} version={version} />
+              <RegistryMetadata allocation={allocation} version={version} resources={resources} />
 
               <section>
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <h2 className="scolapro-section-title">Topics, objectives & competencies</h2>
+                    <h2 className="scolapro-section-title">Topics, objectives, competencies & practicals</h2>
                     <p className="scolapro-section-description">
                       {units.length
                         ? `${filteredUnits.length} of ${units.length} curriculum topics shown.`
@@ -372,14 +442,14 @@ export function CurriculumAccessWorkspace({ data }: { data: CurriculumAccessData
                   <div className="mt-4">
                     <EmptyState
                       title="Structured curriculum content not yet loaded"
-                      description="The registry version and its provenance are available, but topics, objectives or competencies have not yet been structured in the canonical registry."
+                      description="The registry version and its provenance are available, but topics, objectives, competencies or practicals have not yet been structured in the canonical registry."
                     />
                   </div>
                 ) : !filteredUnits.length ? (
                   <div className="mt-4">
                     <EmptyState
                       title="No curriculum matches this search"
-                      description="Try another topic, objective, competency or code. The search only covers curriculum content within your selected governed allocation."
+                      description="Try another topic, objective, competency, practical or code. The search only covers curriculum content within your selected governed allocation."
                     />
                   </div>
                 ) : (
