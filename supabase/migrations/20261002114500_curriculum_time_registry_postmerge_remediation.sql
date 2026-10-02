@@ -37,6 +37,59 @@ begin
 end;
 $preexisting_constraint_scope$;
 
+do $preexisting_constraint_supersession$
+begin
+  if exists(
+    select 1
+    from public.curriculum_scheduling_constraints successor
+    join public.curriculum_scheduling_constraints predecessor
+      on predecessor.id=successor.supersedes_constraint_id
+    where successor.supersedes_constraint_id is not null
+      and (
+        successor.constraint_type is distinct from predecessor.constraint_type
+        or successor.allocation_id is distinct from predecessor.allocation_id
+        or successor.curriculum_subject_id is distinct from predecessor.curriculum_subject_id
+        or successor.curriculum_version_id is distinct from predecessor.curriculum_version_id
+        or successor.cycle_kind is distinct from predecessor.cycle_kind
+        or successor.cycle_length is distinct from predecessor.cycle_length
+      )
+  ) then
+    raise exception 'Existing curriculum scheduling constraint supersession links require explicit target and exact-cycle reconciliation before this migration';
+  end if;
+
+  if exists(
+    with recursive supersession_chain as (
+      select
+        c.id as start_id,
+        c.id,
+        c.supersedes_constraint_id,
+        array[c.id]::uuid[] as path,
+        false as cycle_detected
+      from public.curriculum_scheduling_constraints c
+      where c.supersedes_constraint_id is not null
+
+      union all
+
+      select
+        chain.start_id,
+        predecessor.id,
+        predecessor.supersedes_constraint_id,
+        chain.path || predecessor.id,
+        predecessor.id=any(chain.path)
+      from supersession_chain chain
+      join public.curriculum_scheduling_constraints predecessor
+        on predecessor.id=chain.supersedes_constraint_id
+      where not chain.cycle_detected
+    )
+    select 1
+    from supersession_chain
+    where cycle_detected
+  ) then
+    raise exception 'Existing curriculum scheduling constraint supersession chains contain a cycle and require explicit reconciliation before this migration';
+  end if;
+end;
+$preexisting_constraint_supersession$;
+
 do $preexisting_minimum_double_value$
 begin
   if exists(
@@ -46,6 +99,7 @@ begin
       and c.status<>'draft'
       and (
         c.numeric_value is null
+        or c.numeric_value::text in ('NaN','Infinity','-Infinity')
         or c.numeric_value<1
         or c.numeric_value<>trunc(c.numeric_value)
       )
@@ -61,6 +115,7 @@ alter table public.curriculum_scheduling_constraints
     constraint_type<>'min_double_periods_per_cycle'
     or (
       numeric_value is not null
+      and numeric_value::text not in ('NaN','Infinity','-Infinity')
       and numeric_value>=1
       and numeric_value=trunc(numeric_value)
     )
@@ -260,7 +315,12 @@ begin
   end if;
 
   if new.constraint_type='min_double_periods_per_cycle'
-     and (new.numeric_value is null or new.numeric_value<1 or new.numeric_value<>trunc(new.numeric_value)) then
+     and (
+       new.numeric_value is null
+       or new.numeric_value::text in ('NaN','Infinity','-Infinity')
+       or new.numeric_value<1
+       or new.numeric_value<>trunc(new.numeric_value)
+     ) then
     raise exception 'Minimum-double-period constraints require a positive integer numeric value';
   end if;
 

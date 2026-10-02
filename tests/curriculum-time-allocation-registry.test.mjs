@@ -74,8 +74,12 @@ test("review remediation hardens provenance supersession eligibility and audit c
 test("post-merge remediation preserves exact profile and constraint semantics", () => {
   assert.match(remediation, /add column cycle_kind text/);
   assert.match(remediation, /Existing non-draft minimum-double-period constraints require explicit numeric reconciliation/);
-  assert.match(remediation, /numeric_value is not null[\s\S]*numeric_value>=1[\s\S]*numeric_value=trunc\(numeric_value\)[\s\S]*not valid/i);
+  assert.match(remediation, /numeric_value is not null[\s\S]*numeric_value::text not in \('NaN','Infinity','-Infinity'\)[\s\S]*numeric_value>=1[\s\S]*numeric_value=trunc\(numeric_value\)[\s\S]*not valid/i);
+  assert.match(remediation, /new\.numeric_value::text in \('NaN','Infinity','-Infinity'\)/);
   assert.match(remediation, /Existing non-draft subject-level scheduling constraints require explicit exact-cycle reconciliation/);
+  assert.match(remediation, /Existing curriculum scheduling constraint supersession links require explicit target and exact-cycle reconciliation before this migration/);
+  assert.match(remediation, /successor\.curriculum_version_id is distinct from predecessor\.curriculum_version_id/);
+  assert.match(remediation, /Existing curriculum scheduling constraint supersession chains contain a cycle and require explicit reconciliation before this migration/);
   assert.match(remediation, /guard_curriculum_time_profile_supersession/);
   assert.match(remediation, /Curriculum time allocation supersession must remain within the same phase and exact cycle variant/);
   assert.match(remediation, /profile supersession chain cannot contain a cycle/i);

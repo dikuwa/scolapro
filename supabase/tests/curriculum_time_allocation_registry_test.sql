@@ -1,6 +1,6 @@
 begin;
 
-select plan(60);
+select plan(62);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -674,6 +674,38 @@ select throws_ok(
     )$$,
   'Minimum-double-period constraints require a positive integer numeric value',
   'minimum-double-period constraint requires a numeric value'
+);
+
+select throws_ok(
+  $$insert into public.curriculum_scheduling_constraints(
+      id,source_id,curriculum_subject_id,constraint_key,constraint_type,
+      grade_from,grade_to,cycle_kind,cycle_length,rule_strength,numeric_value,source_locator,
+      effective_from_year,effective_to_year,status
+    ) values(
+      'f93a0000-0000-4000-8000-000000000019',
+      'f9350000-0000-4000-8000-000000000001',
+      'f9360000-0000-4000-8000-000000000001',
+      'constraint-nan-minimum','min_double_periods_per_cycle',
+      9,9,'rotating',7,'prescribed','NaN'::numeric,'NaN minimum fixture',2026,2026,'draft'
+    )$$,
+  'Minimum-double-period constraints require a positive integer numeric value',
+  'minimum-double-period constraint rejects NaN'
+);
+
+select throws_ok(
+  $$insert into public.curriculum_scheduling_constraints(
+      id,source_id,curriculum_subject_id,constraint_key,constraint_type,
+      grade_from,grade_to,cycle_kind,cycle_length,rule_strength,numeric_value,source_locator,
+      effective_from_year,effective_to_year,status
+    ) values(
+      'f93a0000-0000-4000-8000-000000000020',
+      'f9350000-0000-4000-8000-000000000001',
+      'f9360000-0000-4000-8000-000000000001',
+      'constraint-infinity-minimum','min_double_periods_per_cycle',
+      9,9,'rotating',7,'prescribed','Infinity'::numeric,'Infinity minimum fixture',2026,2026,'draft'
+    )$$,
+  'Minimum-double-period constraints require a positive integer numeric value',
+  'minimum-double-period constraint rejects Infinity'
 );
 
 
