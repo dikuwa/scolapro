@@ -84,7 +84,11 @@ test("post-merge remediation preserves exact profile and constraint semantics", 
   assert.match(remediation, /c\.cycle_kind=p_cycle_kind/);
   assert.match(remediation, /c\.cycle_length=p_cycle_length/);
   assert.match(remediation, /replacement_profile\.supersedes_profile_id=c\.profile_id/);
-  assert.match(remediation, /from base_candidates replacement/);
+  assert.match(remediation, /from public\.curriculum_time_allocations replacement/);
   assert.match(remediation, /constraint supersession must preserve its exact allocation and canonical subject\/version target/i);
-  assert.match(remediation, /from constraint_base replacement/);
+  assert.match(remediation, /from public\.curriculum_scheduling_constraints replacement/);
+  assert.match(remediation, /security definer\s+set search_path=pg_catalog,public\s+as \$resolve_time\$/i);
+  assert.match(remediation, /status in \('published','superseded','withdrawn'\)/);
+  assert.match(remediation, /disable trigger curriculum_scheduling_constraint_guard_trg/);
+  assert.match(remediation, /enable trigger curriculum_scheduling_constraint_guard_trg/);
 });

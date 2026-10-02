@@ -1,6 +1,6 @@
 begin;
 
-select plan(49);
+select plan(53);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -15,6 +15,17 @@ select ok((select relrowsecurity from pg_class where oid='public.curriculum_sche
 select has_function('public','resolve_curriculum_time_allocation',array['uuid','text','smallint','integer','text','smallint','uuid'],'exact-cycle allocation resolver exists');
 select is(has_function_privilege('anon','public.resolve_curriculum_time_allocation(uuid,text,smallint,integer,text,smallint,uuid)','EXECUTE'),false,'anon cannot resolve national time allocation');
 select is(has_function_privilege('authenticated','public.resolve_curriculum_time_allocation(uuid,text,smallint,integer,text,smallint,uuid)','EXECUTE'),true,'authenticated can resolve published national time allocation');
+select is(
+  (
+    select p.prosecdef
+    from pg_proc p
+    join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public'
+      and p.proname='resolve_curriculum_time_allocation'
+  ),
+  true,
+  'resolver uses a bounded SECURITY DEFINER path so terminal withdrawn successors remain visible without exposing their rows'
+);
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('f9300000-0000-4000-8000-000000000001','time-platform@example.test','authenticated','authenticated',now(),now()),
   ('f9300000-0000-4000-8000-000000000002','time-admin@example.test','authenticated','authenticated',now(),now()),
@@ -787,6 +798,58 @@ select is(
   'resolved:f9390000-0000-4000-8000-000000000015:9',
   'profile-level supersession suppresses predecessor-profile allocations without child-by-child links'
 );
+
+-- Terminal successors must remain terminal for ordinary authenticated consumers.
+update public.curriculum_time_allocations
+set status='withdrawn'
+where id='f9390000-0000-4000-8000-000000000006';
+
+select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000003',true);
+select is(
+  (
+    select resolution_status
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000004',null,9::smallint,2026,'rotating',7::smallint,null
+    )
+  ),
+  'source_missing',
+  'withdrawn allocation successor does not reactivate its superseded predecessor for ordinary authenticated users'
+);
+select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000001',true);
+
+update public.curriculum_scheduling_constraints
+set status='withdrawn'
+where id='f93a0000-0000-4000-8000-000000000009';
+
+select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000003',true);
+select ok(
+  (
+    select not (scheduling_constraints @> '[{"constraintKey":"broad-grade-constraint"}]'::jsonb)
+       and not (scheduling_constraints @> '[{"constraintKey":"narrow-grade-constraint"}]'::jsonb)
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000001',null,12::smallint,2026,'rotating',7::smallint,null
+    )
+  ),
+  'withdrawn constraint successor keeps the superseded predecessor terminal for ordinary authenticated users'
+);
+select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000001',true);
+
+update public.curriculum_time_profiles
+set status='withdrawn'
+where id='f9380000-0000-4000-8000-000000000006';
+
+select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000003',true);
+select is(
+  (
+    select resolution_status
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000001',null,9::smallint,2026,'rotating',7::smallint,null
+    )
+  ),
+  'source_missing',
+  'withdrawn profile successor does not reactivate predecessor-profile rules for ordinary authenticated users'
+);
+select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000001',true);
 
 update public.curriculum_time_profiles
 set status='withdrawn'

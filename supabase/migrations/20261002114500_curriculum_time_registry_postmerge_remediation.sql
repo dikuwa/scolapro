@@ -6,6 +6,12 @@ alter table public.curriculum_scheduling_constraints
   add column cycle_kind text
     check (cycle_kind is null or cycle_kind in ('weekday','rotating','fixed_cycle'));
 
+-- Existing final rows may legitimately lack exact cycle scope because the Slice-1
+-- schema did not require it. The backfill is derived only from the immutable linked
+-- allocation/profile, so bypass only the old content-finality trigger for this update.
+alter table public.curriculum_scheduling_constraints
+  disable trigger curriculum_scheduling_constraint_guard_trg;
+
 update public.curriculum_scheduling_constraints c
 set cycle_kind=p.cycle_kind,
     cycle_length=coalesce(c.cycle_length,p.cycle_length)
@@ -13,6 +19,9 @@ from public.curriculum_time_allocations a
 join public.curriculum_time_profiles p on p.id=a.profile_id
 where c.allocation_id=a.id
   and (c.cycle_kind is null or c.cycle_length is null);
+
+alter table public.curriculum_scheduling_constraints
+  enable trigger curriculum_scheduling_constraint_guard_trg;
 
 do $preexisting_constraint_scope$
 begin
@@ -319,7 +328,7 @@ returns table(
 )
 language plpgsql
 stable
-security invoker
+security definer
 set search_path=pg_catalog,public
 as $resolve_time$
 begin
@@ -406,7 +415,9 @@ begin
       select 1
       from public.curriculum_time_profiles replacement_profile
       where replacement_profile.supersedes_profile_id=c.profile_id
-        and replacement_profile.status in ('published','superseded')
+        and replacement_profile.status in ('published','superseded','withdrawn')
+        and replacement_profile.cycle_kind=c.resolved_cycle_kind
+        and replacement_profile.cycle_length=c.resolved_cycle_length
         and replacement_profile.effective_from_year<=p_academic_year
         and (
           replacement_profile.effective_to_year is null
@@ -415,9 +426,33 @@ begin
     )
       and not exists(
         select 1
-        from base_candidates replacement
+        from public.curriculum_time_allocations replacement
+        join public.curriculum_time_profiles replacement_profile
+          on replacement_profile.id=replacement.profile_id
         where replacement.supersedes_allocation_id=c.id
           and replacement.id<>c.id
+          and replacement.status in ('published','superseded','withdrawn')
+          and replacement_profile.status in ('published','superseded','withdrawn')
+          and replacement_profile.cycle_kind=c.resolved_cycle_kind
+          and replacement_profile.cycle_length=c.resolved_cycle_length
+          and replacement_profile.effective_from_year<=p_academic_year
+          and (
+            replacement_profile.effective_to_year is null
+            or replacement_profile.effective_to_year>=p_academic_year
+          )
+          and (replacement.grade_from is null or replacement.grade_from<=p_grade)
+          and (replacement.grade_to is null or replacement.grade_to>=p_grade)
+          and (
+            (p_curriculum_version_id is null and replacement.curriculum_version_id is null)
+            or
+            (
+              p_curriculum_version_id is not null
+              and (
+                replacement.curriculum_version_id is null
+                or replacement.curriculum_version_id=p_curriculum_version_id
+              )
+            )
+          )
       )
   ),
   variant_rows as (
@@ -490,9 +525,29 @@ begin
     from constraint_base c
     where not exists(
       select 1
-      from constraint_base replacement
+      from public.curriculum_scheduling_constraints replacement
       where replacement.supersedes_constraint_id=c.id
         and replacement.id<>c.id
+        and replacement.status in ('published','superseded','withdrawn')
+        and replacement.effective_from_year<=p_academic_year
+        and (replacement.effective_to_year is null or replacement.effective_to_year>=p_academic_year)
+        and (replacement.grade_from is null or replacement.grade_from<=p_grade)
+        and (replacement.grade_to is null or replacement.grade_to>=p_grade)
+        and replacement.cycle_kind=p_cycle_kind
+        and replacement.cycle_length=p_cycle_length
+        and replacement.allocation_id is not distinct from c.allocation_id
+        and replacement.curriculum_subject_id is not distinct from c.curriculum_subject_id
+        and (
+          (p_curriculum_version_id is null and replacement.curriculum_version_id is null)
+          or
+          (
+            p_curriculum_version_id is not null
+            and (
+              replacement.curriculum_version_id is null
+              or replacement.curriculum_version_id=p_curriculum_version_id
+            )
+          )
+        )
     )
   ),
   constraint_json as (
