@@ -6,6 +6,10 @@ const registry = readFileSync(
   "supabase/migrations/20261002100935_curriculum_time_allocation_registry.sql",
   "utf8",
 );
+const remediation = readFileSync(
+  "supabase/migrations/20261002114500_curriculum_time_registry_postmerge_remediation.sql",
+  "utf8",
+);
 test("time allocation registry models exact periods per cycle without a parallel subject catalogue", () => {
   assert.match(registry, /create table public\.curriculum_time_profiles/i);
   assert.match(registry, /create table public\.curriculum_time_allocations/i);
@@ -64,4 +68,49 @@ test("review remediation hardens provenance supersession eligibility and audit c
   ]) {
     assert.match(registry, new RegExp(eventType));
   }
+});
+
+
+test("post-merge remediation preserves exact profile and constraint semantics", () => {
+  assert.match(remediation, /add column cycle_kind text/);
+  assert.match(remediation, /Existing non-draft minimum-double-period constraints require explicit numeric reconciliation/);
+  assert.match(remediation, /numeric_value is not null[\s\S]*numeric_value::text not in \('NaN','Infinity','-Infinity'\)[\s\S]*numeric_value>=1[\s\S]*numeric_value=trunc\(numeric_value\)[\s\S]*not valid/i);
+  assert.match(remediation, /new\.numeric_value::text in \('NaN','Infinity','-Infinity'\)/);
+  assert.match(remediation, /Existing non-draft subject-level scheduling constraints require explicit exact-cycle reconciliation/);
+  assert.match(remediation, /Existing curriculum time profile supersession links require explicit phase and exact-cycle reconciliation before this migration/);
+  assert.match(remediation, /Existing curriculum time profile supersession chains contain a cycle and require explicit reconciliation before this migration/);
+  assert.match(remediation, /successor\.phase_code is distinct from predecessor\.phase_code/);
+  assert.match(remediation, /successor_profile\.phase_code is distinct from predecessor_profile\.phase_code/);
+  assert.match(remediation, /Existing curriculum time allocation supersession links require explicit phase and exact-cycle reconciliation before this migration/);
+  assert.match(remediation, /successor_profile\.cycle_kind is distinct from predecessor_profile\.cycle_kind/);
+  assert.match(remediation, /successor_profile\.cycle_length is distinct from predecessor_profile\.cycle_length/);
+  assert.match(remediation, /Existing curriculum scheduling constraint supersession links require explicit target and exact-cycle reconciliation before this migration/);
+  assert.match(remediation, /successor\.cycle_kind is null[\s\S]*predecessor\.cycle_length is null/);
+  assert.match(remediation, /successor\.curriculum_version_id is distinct from predecessor\.curriculum_version_id/);
+  assert.match(remediation, /Existing curriculum scheduling constraint supersession chains contain a cycle and require explicit reconciliation before this migration/);
+  assert.match(remediation, /guard_curriculum_time_profile_supersession/);
+  assert.match(remediation, /Curriculum time allocation supersession must remain within the same phase and exact cycle variant/);
+  assert.match(remediation, /Curriculum time profile scope cannot invalidate an existing inbound supersession link/);
+  assert.match(remediation, /Curriculum time profile scope cannot invalidate an allocation supersession link/);
+  assert.match(remediation, /Curriculum time allocation profile cannot invalidate an existing inbound supersession link/);
+  assert.match(remediation, /profile supersession chain cannot contain a cycle/i);
+  assert.match(remediation, /same phase and exact cycle variant/i);
+  assert.match(remediation, /guard_curriculum_scheduling_constraint_supersession/);
+  assert.match(remediation, /Curriculum scheduling constraint target cannot invalidate an existing inbound supersession link/);
+  assert.match(remediation, /Curriculum scheduling constraint supersession requires exact cycle scope on both rules/);
+  assert.match(remediation, /successor\.curriculum_version_id is distinct from new\.curriculum_version_id/);
+  assert.match(remediation, /constraint supersession chain cannot contain a cycle/i);
+  assert.match(remediation, /c\.cycle_kind=p_cycle_kind/);
+  assert.match(remediation, /c\.cycle_length=p_cycle_length/);
+  assert.match(remediation, /replacement_profile\.supersedes_profile_id=c\.profile_id[\s\S]*replacement_profile\.phase_code=c\.resolved_phase_code/);
+  assert.match(remediation, /from public\.curriculum_time_allocations replacement[\s\S]*replacement_profile\.phase_code=c\.resolved_phase_code/);
+  assert.match(remediation, /replacement_slot_subject\.curriculum_subject_id=p_curriculum_subject_id/);
+  assert.match(remediation, /constraint supersession must preserve its exact allocation and canonical subject\/version target/i);
+  assert.match(remediation, /from public\.curriculum_scheduling_constraints replacement/);
+  assert.match(remediation, /replacement\.curriculum_version_id is not distinct from c\.curriculum_version_id/);
+  assert.match(remediation, /c\.allocation_id=sel\.id[\s\S]*p_curriculum_version_id is null and c\.curriculum_version_id is null/);
+  assert.match(remediation, /security definer\s+set search_path=pg_catalog,public\s+as \$resolve_time\$/i);
+  assert.match(remediation, /status in \('published','superseded','withdrawn'\)/);
+  assert.match(remediation, /disable trigger curriculum_scheduling_constraint_guard_trg/);
+  assert.match(remediation, /enable trigger curriculum_scheduling_constraint_guard_trg/);
 });
