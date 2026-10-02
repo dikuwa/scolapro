@@ -1,6 +1,6 @@
 begin;
 
-select plan(64);
+select plan(65);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -674,6 +674,14 @@ select throws_ok(
     where id='f93a0000-0000-4000-8000-000000000003'$$,
   'Curriculum scheduling constraint supersession chain cannot contain a cycle',
   'constraint supersession chains are acyclic'
+);
+
+select throws_ok(
+  $$update public.curriculum_scheduling_constraints
+      set curriculum_subject_id='f9360000-0000-4000-8000-000000000002'
+    where id='f93a0000-0000-4000-8000-000000000003'$$,
+  'Curriculum scheduling constraint target cannot invalidate an existing inbound supersession link',
+  'predecessor constraint target cannot drift away from an existing successor'
 );
 
 select throws_ok(

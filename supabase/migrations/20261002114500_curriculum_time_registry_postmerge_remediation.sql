@@ -486,6 +486,22 @@ declare
   v_previous_version_id uuid;
   v_cycle_detected boolean:=false;
 begin
+  if exists(
+    select 1
+    from public.curriculum_scheduling_constraints successor
+    where successor.supersedes_constraint_id=new.id
+      and (
+        successor.constraint_type is distinct from new.constraint_type
+        or successor.allocation_id is distinct from new.allocation_id
+        or successor.curriculum_subject_id is distinct from new.curriculum_subject_id
+        or successor.curriculum_version_id is distinct from new.curriculum_version_id
+        or successor.cycle_kind is distinct from new.cycle_kind
+        or successor.cycle_length is distinct from new.cycle_length
+      )
+  ) then
+    raise exception 'Curriculum scheduling constraint target cannot invalidate an existing inbound supersession link';
+  end if;
+
   if new.supersedes_constraint_id is null then
     return new;
   end if;
