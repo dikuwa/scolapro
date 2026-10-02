@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(15);
 
 select has_function(
   'public',
@@ -110,7 +110,7 @@ insert into public.subjects(
   id,tenant_id,school_id,subject_code,display_name,status
 )
 select
-  format('f6060000-0000-4000-8000-%012s',n)::uuid,
+  ('f6060000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'f6000000-0000-4000-8000-000000000001'::uuid,
   'f6010000-0000-4000-8000-000000000001'::uuid,
   'DM-'||n,
@@ -122,11 +122,11 @@ insert into public.subject_offerings(
   id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status
 )
 select
-  format('f6070000-0000-4000-8000-%012s',n)::uuid,
+  ('f6070000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'f6000000-0000-4000-8000-000000000001'::uuid,
   'f6010000-0000-4000-8000-000000000001'::uuid,
   2026,
-  format('f6060000-0000-4000-8000-%012s',n)::uuid,
+  ('f6060000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'f6040000-0000-4000-8000-000000000001'::uuid,
   case when n=4 then 3 when n in (6,7,8) then 2 else 4 end,
   'active'
@@ -136,7 +136,7 @@ insert into public.staff_members(
   id,tenant_id,employee_number,first_name,last_name,status
 )
 select
-  format('f6080000-0000-4000-8000-%012s',n)::uuid,
+  ('f6080000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'f6000000-0000-4000-8000-000000000001'::uuid,
   'DM-T'||n,
   'Demand',
@@ -148,10 +148,10 @@ insert into public.staff_school_assignments(
   id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id
 )
 select
-  format('f6090000-0000-4000-8000-%012s',n)::uuid,
+  ('f6090000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'f6000000-0000-4000-8000-000000000001'::uuid,
   'f6010000-0000-4000-8000-000000000001'::uuid,
-  format('f6080000-0000-4000-8000-%012s',n)::uuid,
+  ('f6080000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'teacher',
   '2026-01-01'::date,
   '2026-12-31'::date,
@@ -162,13 +162,13 @@ insert into public.teacher_allocations(
   id,tenant_id,school_id,academic_year,subject_offering_id,register_class_id,staff_member_id,active_from,active_to
 )
 select
-  format('f60a0000-0000-4000-8000-%012s',n)::uuid,
+  ('f60a0000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'f6000000-0000-4000-8000-000000000001'::uuid,
   'f6010000-0000-4000-8000-000000000001'::uuid,
   2026,
-  format('f6070000-0000-4000-8000-%012s',n)::uuid,
-  format('f6050000-0000-4000-8000-%012s',n)::uuid,
-  format('f6080000-0000-4000-8000-%012s',n)::uuid,
+  ('f6070000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
+  ('f6050000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
+  ('f6080000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   '2026-01-01'::date,
   case when n=1 then '2026-06-30'::date else '2026-12-31'::date end
 from generate_series(1,8) n;
@@ -226,10 +226,10 @@ insert into public.school_subject_curriculum_mappings(
   effective_from_year,effective_to_year,status,created_by_user_id
 )
 select
-  format('f60e0000-0000-4000-8000-%012s',n)::uuid,
+  ('f60e0000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   'f6000000-0000-4000-8000-000000000001'::uuid,
   'f6010000-0000-4000-8000-000000000001'::uuid,
-  format('f6060000-0000-4000-8000-%012s',n)::uuid,
+  ('f6060000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
   case
     when n<=5 then 'f60d0000-0000-4000-8000-000000000001'::uuid
     when n=6 then 'f60d0000-0000-4000-8000-000000000002'::uuid
@@ -364,9 +364,9 @@ select
   2026,
   'R',
   1::smallint,
-  format('f60b0000-0000-4000-8000-%012s',period_no)::uuid,
-  format('f6050000-0000-4000-8000-%012s',class_no)::uuid,
-  format('f60a0000-0000-4000-8000-%012s',class_no)::uuid,
+  ('f60b0000-0000-4000-8000-'||lpad(period_no::text,12,'0'))::uuid,
+  ('f6050000-0000-4000-8000-'||lpad(class_no::text,12,'0'))::uuid,
+  ('f60a0000-0000-4000-8000-'||lpad(class_no::text,12,'0'))::uuid,
   'active'
 from (
   values
