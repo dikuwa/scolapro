@@ -119,7 +119,11 @@ begin
       on predecessor.id=successor.supersedes_constraint_id
     where successor.supersedes_constraint_id is not null
       and (
-        successor.constraint_type is distinct from predecessor.constraint_type
+        successor.cycle_kind is null
+        or successor.cycle_length is null
+        or predecessor.cycle_kind is null
+        or predecessor.cycle_length is null
+        or successor.constraint_type is distinct from predecessor.constraint_type
         or successor.allocation_id is distinct from predecessor.allocation_id
         or successor.curriculum_subject_id is distinct from predecessor.curriculum_subject_id
         or successor.curriculum_version_id is distinct from predecessor.curriculum_version_id
