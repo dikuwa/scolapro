@@ -1,6 +1,6 @@
 begin;
 
-select plan(30);
+select plan(36);
 
 select has_table('public','curriculum_version_applicability','curriculum version applicability exists');
 select has_table('public','official_education_resources','official education resources exist');
@@ -159,6 +159,17 @@ update public.curriculum_versions
 set status='published',approved_by_user_id='f9100000-0000-4000-8000-000000000001',approved_at=now()
 where id='f9170000-0000-4000-8000-000000000001';
 
+insert into public.curriculum_versions(
+  id,curriculum_subject_id,version_key,source_id,effective_from_year,status
+) values(
+  'f9170000-0000-4000-8000-000000000004',
+  'f9160000-0000-4000-8000-000000000001',
+  'draft-reparent-target',
+  'f9150000-0000-4000-8000-000000000001',
+  2026,
+  'imported'
+);
+
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000002',true);
 set local role authenticated;
@@ -227,6 +238,14 @@ select is(
   (select curriculum_version_id from public.subject_offerings where id='f9140000-0000-4000-8000-000000000001'),
   'f9170000-0000-4000-8000-000000000001'::uuid,
   'adopted subject offering stores the canonical curriculum pin'
+);
+
+select throws_ok(
+  $update public.subject_offerings
+      set curriculum_version_id=null
+    where id='f9140000-0000-4000-8000-000000000001'$,
+  'Pinned subject-offering curriculum version is immutable; create a new offering/versioned academic record',
+  'an adopted historical curriculum pin cannot be cleared or replaced'
 );
 
 reset role;
@@ -337,8 +356,16 @@ reset role;
 select set_config('request.jwt.claim.sub','f9100000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 
+select throws_ok(
+  $update public.curriculum_version_applicability
+      set curriculum_version_id='f9170000-0000-4000-8000-000000000004'
+    where id='f9180000-0000-4000-8000-000000000001'$,
+  'Approved or published curriculum applicability is immutable; create a new curriculum version',
+  'published curriculum applicability cannot be reparented to a draft version'
+);
+
 select lives_ok(
-  $$insert into public.official_education_resources(
+  $insert into public.official_education_resources(
       id,authority,resource_key,document_type,title,source_url,status
     ) values(
       'f9200000-0000-4000-8000-000000000001',
@@ -353,14 +380,29 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$insert into public.official_education_resource_curriculum_links(
+  $insert into public.official_education_resources(
+      id,authority,resource_key,document_type,title,source_url,status
+    ) values(
+      'f9200000-0000-4000-8000-000000000002',
+      'NIED',
+      'curriculum-test-draft-target',
+      'teacher_guide',
+      'Curriculum Test Draft Target',
+      'https://example.test/nied/draft-target.pdf',
+      'under_review'
+    )$,
+  'platform admin can stage a second draft resource for finality tests'
+);
+
+select lives_ok(
+  $insert into public.official_education_resource_curriculum_links(
       id,resource_id,curriculum_version_id,relationship_type
     ) values(
       'f9210000-0000-4000-8000-000000000001',
       'f9200000-0000-4000-8000-000000000001',
       'f9170000-0000-4000-8000-000000000001',
       'policy'
-    )$$,
+    )$,
   'platform admin can link a staged official resource before publication'
 );
 
@@ -378,11 +420,34 @@ select is(
 );
 
 select throws_ok(
-  $$update public.official_education_resource_curriculum_links
-    set relationship_type='companion'
-    where id='f9210000-0000-4000-8000-000000000001'$$,
+  $update public.official_education_resource_curriculum_links
+      set resource_id='f9200000-0000-4000-8000-000000000002'
+    where id='f9210000-0000-4000-8000-000000000001'$,
   'Published official resource applicability and links are immutable; publish a new resource version',
-  'published resource links cannot be silently rewritten'
+  'a child row cannot be reparented away from its published resource'
+);
+
+select lives_ok(
+  $update public.official_education_resources
+      set status='withdrawn'
+    where id='f9200000-0000-4000-8000-000000000001'$,
+  'a published resource may be withdrawn without rewriting its published content'
+);
+
+select throws_ok(
+  $update public.official_education_resources
+      set title='Rewritten after withdrawal'
+    where id='f9200000-0000-4000-8000-000000000001'$,
+  'Published official education resource content and provenance are immutable',
+  'withdrawal does not reopen published resource content for editing'
+);
+
+select throws_ok(
+  $update public.official_education_resource_curriculum_links
+    set relationship_type='companion'
+    where id='f9210000-0000-4000-8000-000000000001'$,
+  'Published official resource applicability and links are immutable; publish a new resource version',
+  'withdrawal does not reopen published resource children for editing'
 );
 
 reset role;
@@ -419,9 +484,10 @@ select is(
      'official_resource_applicability_finality_trg',
      'official_resource_curriculum_link_finality_trg',
      'school_subject_curriculum_mapping_guard_trg',
+     'subject_offering_curriculum_pin_guard_trg',
      'subject_offering_curriculum_autolink_trg'
    ) and not tgisinternal),
-  6,
+  7,
   'all curriculum applicability/resource finality and adoption triggers are installed'
 );
 
