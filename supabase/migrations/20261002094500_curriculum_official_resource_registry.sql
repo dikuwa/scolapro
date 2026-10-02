@@ -289,16 +289,127 @@ with check (
   or app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal','hod'])
 );
 
-revoke insert,update,delete on public.curriculum_version_applicability from authenticated;
-revoke insert,update,delete on public.official_education_resources from authenticated;
-revoke insert,update,delete on public.official_education_resource_applicability from authenticated;
-revoke insert,update,delete on public.official_education_resource_curriculum_links from authenticated;
-
-grant select on public.curriculum_version_applicability to authenticated;
-grant select on public.official_education_resources to authenticated;
-grant select on public.official_education_resource_applicability to authenticated;
-grant select on public.official_education_resource_curriculum_links to authenticated;
+grant select,insert,update,delete on public.curriculum_version_applicability to authenticated;
+grant select,insert,update,delete on public.official_education_resources to authenticated;
+grant select,insert,update,delete on public.official_education_resource_applicability to authenticated;
+grant select,insert,update,delete on public.official_education_resource_curriculum_links to authenticated;
 grant select,insert,update on public.school_subject_curriculum_mappings to authenticated;
+
+
+create or replace function app_private.guard_curriculum_applicability_finality()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $
+declare
+  v_version_id uuid:=case when tg_op='DELETE' then old.curriculum_version_id else new.curriculum_version_id end;
+  v_status text;
+begin
+  select status into v_status from public.curriculum_versions where id=v_version_id;
+  if v_status in ('approved','published','superseded') then
+    raise exception 'Approved or published curriculum applicability is immutable; create a new curriculum version';
+  end if;
+  return case when tg_op='DELETE' then old else new end;
+end;
+$;
+
+revoke all on function app_private.guard_curriculum_applicability_finality() from public,anon,authenticated;
+
+create trigger curriculum_version_applicability_finality_trg
+before insert or update or delete on public.curriculum_version_applicability
+for each row execute function app_private.guard_curriculum_applicability_finality();
+
+create or replace function app_private.guard_official_resource_child_finality()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $
+declare
+  v_resource_id uuid:=case when tg_op='DELETE' then old.resource_id else new.resource_id end;
+  v_status text;
+begin
+  select status into v_status from public.official_education_resources where id=v_resource_id;
+  if v_status in ('published','superseded') then
+    raise exception 'Published official resource applicability and links are immutable; publish a new resource version';
+  end if;
+  return case when tg_op='DELETE' then old else new end;
+end;
+$;
+
+revoke all on function app_private.guard_official_resource_child_finality() from public,anon,authenticated;
+
+create trigger official_resource_applicability_finality_trg
+before insert or update or delete on public.official_education_resource_applicability
+for each row execute function app_private.guard_official_resource_child_finality();
+
+create trigger official_resource_curriculum_link_finality_trg
+before insert or update or delete on public.official_education_resource_curriculum_links
+for each row execute function app_private.guard_official_resource_child_finality();
+
+create or replace function app_private.guard_school_subject_curriculum_mapping()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $
+declare
+  v_subject_tenant uuid;
+  v_subject_school uuid;
+begin
+  select tenant_id,school_id into v_subject_tenant,v_subject_school
+  from public.subjects
+  where id=new.subject_id;
+
+  if v_subject_school is null
+     or v_subject_school<>new.school_id
+     or v_subject_tenant<>new.tenant_id then
+    raise exception 'Curriculum mapping subject scope mismatch';
+  end if;
+
+  if tg_op='INSERT' then
+    if auth.uid() is null or new.created_by_user_id<>auth.uid() then
+      raise exception 'Curriculum mapping creator must match the authenticated actor';
+    end if;
+  elsif new.created_by_user_id is distinct from old.created_by_user_id
+     or new.created_at is distinct from old.created_at then
+    raise exception 'Curriculum mapping creation provenance is immutable';
+  end if;
+
+  if tg_op='UPDATE' and old.status='verified' and (
+    new.tenant_id is distinct from old.tenant_id
+    or new.school_id is distinct from old.school_id
+    or new.subject_id is distinct from old.subject_id
+    or new.curriculum_subject_id is distinct from old.curriculum_subject_id
+    or new.grade_code is distinct from old.grade_code
+    or new.phase_code is distinct from old.phase_code
+    or new.programme_code is distinct from old.programme_code
+    or new.qualification_code is distinct from old.qualification_code
+    or new.academic_regime is distinct from old.academic_regime
+    or new.language_code is distinct from old.language_code
+    or new.effective_from_year is distinct from old.effective_from_year
+    or new.effective_to_year is distinct from old.effective_to_year
+    or new.mapping_source is distinct from old.mapping_source
+  ) then
+    raise exception 'Verified curriculum mappings are immutable; archive and create a new mapping';
+  end if;
+
+  if new.status='verified' and (tg_op='INSERT' or old.status<>'verified') then
+    if auth.uid() is null then raise exception 'Authentication required'; end if;
+    new.verified_by_user_id:=auth.uid();
+    new.verified_at:=now();
+  end if;
+
+  return new;
+end;
+$;
+
+revoke all on function app_private.guard_school_subject_curriculum_mapping() from public,anon,authenticated;
+
+create trigger school_subject_curriculum_mapping_guard_trg
+before insert or update on public.school_subject_curriculum_mappings
+for each row execute function app_private.guard_school_subject_curriculum_mapping();
 
 create or replace function app_private.guard_official_education_resource_finality()
 returns trigger
@@ -307,11 +418,26 @@ security definer
 set search_path=pg_catalog,public
 as $$
 begin
+  if tg_op='INSERT' then
+    if new.status in ('published','superseded') then
+      if auth.uid() is null then raise exception 'Authentication required'; end if;
+      new.approved_by_user_id:=auth.uid();
+      new.approved_at:=coalesce(new.approved_at,now());
+    end if;
+    return new;
+  end if;
+
   if tg_op='DELETE' then
     if old.status in ('published','superseded') then
       raise exception 'Published official education resources are immutable historical records';
     end if;
     return old;
+  end if;
+
+  if new.status='published' and old.status not in ('published','superseded') then
+    if auth.uid() is null then raise exception 'Authentication required'; end if;
+    new.approved_by_user_id:=auth.uid();
+    new.approved_at:=now();
   end if;
 
   if old.status in ('published','superseded') and (
@@ -339,7 +465,7 @@ $$;
 revoke all on function app_private.guard_official_education_resource_finality() from public,anon,authenticated;
 
 create trigger official_education_resource_finality_trg
-before update or delete on public.official_education_resources
+before insert or update or delete on public.official_education_resources
 for each row execute function app_private.guard_official_education_resource_finality();
 
 create or replace function app_private.resolve_curriculum_version_for_offering_fields(
@@ -404,10 +530,7 @@ as $$
     where c.specificity=b.specificity
   ),
   summary as (
-    select
-      count(distinct curriculum_version_id)::integer as candidate_count,
-      min(curriculum_version_id) as sole_version_id,
-      min(mapping_id) as sole_mapping_id
+    select count(distinct curriculum_version_id)::integer as candidate_count
     from best
   )
   select
@@ -415,9 +538,15 @@ as $$
          when s.candidate_count=1 then 'matched'
          else 'ambiguous'
     end,
-    case when s.candidate_count=1 then s.sole_version_id else null end,
+    case when s.candidate_count=1
+      then (select b.curriculum_version_id from best b order by b.curriculum_version_id limit 1)
+      else null
+    end,
     s.candidate_count,
-    case when s.candidate_count=1 then s.sole_mapping_id else null end
+    case when s.candidate_count=1
+      then (select b.mapping_id from best b order by b.mapping_id limit 1)
+      else null
+    end
   from summary s;
 $$;
 
@@ -446,7 +575,7 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  select o.*,g.grade_code
+  select o,g.grade_code
     into v_offering,v_grade_code
   from public.subject_offerings o
   join public.grades g on g.id=o.grade_id and g.school_id=o.school_id
@@ -503,7 +632,7 @@ begin
     raise exception 'Authentication required';
   end if;
 
-  select o.*,g.grade_code
+  select o,g.grade_code
     into v_offering,v_grade_code
   from public.subject_offerings o
   join public.grades g on g.id=o.grade_id and g.school_id=o.school_id
