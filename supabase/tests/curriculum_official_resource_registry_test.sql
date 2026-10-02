@@ -197,7 +197,7 @@ select lives_ok(
       'f9160000-0000-4000-8000-000000000001',
       'T9','junior_secondary','general',2026,2027,'verified',
       'f9100000-0000-4000-8000-000000000002'
-    )$,
+    )$$,
   'one canonical curriculum version may be mapped to another applicable grade without a fake duplicate version'
 );
 
