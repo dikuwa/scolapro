@@ -232,6 +232,7 @@ set status='published'
 where id='f62f0000-0000-4000-8000-000000000001';
 
 reset role;
+select set_config('request.jwt.claim.sub','',true);
 
 insert into public.subject_offerings(
   id,tenant_id,school_id,academic_year,subject_id,grade_id,periods_per_cycle,status,curriculum_version_id
