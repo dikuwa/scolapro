@@ -37,12 +37,34 @@ begin
 end;
 $preexisting_constraint_scope$;
 
-alter table public.curriculum_scheduling_constraints
-  alter column numeric_value set not null;
+do $preexisting_minimum_double_value$
+begin
+  if exists(
+    select 1
+    from public.curriculum_scheduling_constraints c
+    where c.constraint_type='min_double_periods_per_cycle'
+      and c.status<>'draft'
+      and (
+        c.numeric_value is null
+        or c.numeric_value<1
+        or c.numeric_value<>trunc(c.numeric_value)
+      )
+  ) then
+    raise exception 'Existing non-draft minimum-double-period constraints require explicit numeric reconciliation before this migration';
+  end if;
+end;
+$preexisting_minimum_double_value$;
 
 alter table public.curriculum_scheduling_constraints
   add constraint curriculum_scheduling_constraints_numeric_value_integer_check
-  check (numeric_value = trunc(numeric_value));
+  check (
+    constraint_type<>'min_double_periods_per_cycle'
+    or (
+      numeric_value is not null
+      and numeric_value>=1
+      and numeric_value=trunc(numeric_value)
+    )
+  ) not valid;
 
 create index curriculum_scheduling_constraints_exact_cycle_idx
 on public.curriculum_scheduling_constraints(
@@ -503,7 +525,17 @@ begin
       and c.cycle_kind=p_cycle_kind
       and c.cycle_length=p_cycle_length
       and (
-        c.allocation_id=sel.id
+        (
+          c.allocation_id=sel.id
+          and (
+            (p_curriculum_version_id is null and c.curriculum_version_id is null)
+            or
+            (
+              p_curriculum_version_id is not null
+              and (c.curriculum_version_id is null or c.curriculum_version_id=p_curriculum_version_id)
+            )
+          )
+        )
         or
         (
           c.allocation_id is null
@@ -537,17 +569,7 @@ begin
         and replacement.cycle_length=p_cycle_length
         and replacement.allocation_id is not distinct from c.allocation_id
         and replacement.curriculum_subject_id is not distinct from c.curriculum_subject_id
-        and (
-          (p_curriculum_version_id is null and replacement.curriculum_version_id is null)
-          or
-          (
-            p_curriculum_version_id is not null
-            and (
-              replacement.curriculum_version_id is null
-              or replacement.curriculum_version_id=p_curriculum_version_id
-            )
-          )
-        )
+        and replacement.curriculum_version_id is not distinct from c.curriculum_version_id
     )
   ),
   constraint_json as (

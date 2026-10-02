@@ -73,9 +73,9 @@ test("review remediation hardens provenance supersession eligibility and audit c
 
 test("post-merge remediation preserves exact profile and constraint semantics", () => {
   assert.match(remediation, /add column cycle_kind text/);
-  assert.match(remediation, /alter column numeric_value set not null/);
+  assert.match(remediation, /Existing non-draft minimum-double-period constraints require explicit numeric reconciliation/);
+  assert.match(remediation, /numeric_value is not null[\s\S]*numeric_value>=1[\s\S]*numeric_value=trunc\(numeric_value\)[\s\S]*not valid/i);
   assert.match(remediation, /Existing non-draft subject-level scheduling constraints require explicit exact-cycle reconciliation/);
-  assert.match(remediation, /numeric_value = trunc\(numeric_value\)/);
   assert.match(remediation, /guard_curriculum_time_profile_supersession/);
   assert.match(remediation, /profile supersession chain cannot contain a cycle/i);
   assert.match(remediation, /same phase and exact cycle variant/i);
@@ -87,6 +87,8 @@ test("post-merge remediation preserves exact profile and constraint semantics", 
   assert.match(remediation, /from public\.curriculum_time_allocations replacement/);
   assert.match(remediation, /constraint supersession must preserve its exact allocation and canonical subject\/version target/i);
   assert.match(remediation, /from public\.curriculum_scheduling_constraints replacement/);
+  assert.match(remediation, /replacement\.curriculum_version_id is not distinct from c\.curriculum_version_id/);
+  assert.match(remediation, /c\.allocation_id=sel\.id[\s\S]*p_curriculum_version_id is null and c\.curriculum_version_id is null/);
   assert.match(remediation, /security definer\s+set search_path=pg_catalog,public\s+as \$resolve_time\$/i);
   assert.match(remediation, /status in \('published','superseded','withdrawn'\)/);
   assert.match(remediation, /disable trigger curriculum_scheduling_constraint_guard_trg/);

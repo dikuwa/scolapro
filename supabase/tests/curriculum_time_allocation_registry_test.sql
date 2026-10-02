@@ -1,6 +1,6 @@
 begin;
 
-select plan(53);
+select plan(58);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -25,6 +25,32 @@ select is(
   ),
   true,
   'resolver uses a bounded SECURITY DEFINER path so terminal withdrawn successors remain visible without exposing their rows'
+);
+
+select is(
+  (
+    select is_nullable
+    from information_schema.columns
+    where table_schema='public'
+      and table_name='curriculum_scheduling_constraints'
+      and column_name='numeric_value'
+  ),
+  'YES',
+  'numeric value remains nullable at storage so legacy draft rules can be repaired without invented policy values'
+);
+
+select ok(
+  exists(
+    select 1
+    from pg_constraint c
+    where c.conrelid='public.curriculum_scheduling_constraints'::regclass
+      and c.conname='curriculum_scheduling_constraints_numeric_value_integer_check'
+      and not c.convalidated
+      and lower(pg_get_constraintdef(c.oid)) like '%numeric_value is not null%'
+      and lower(pg_get_constraintdef(c.oid)) like '%numeric_value >=%'
+      and lower(pg_get_constraintdef(c.oid)) like '%trunc(numeric_value)%'
+  ),
+  'minimum-double numeric contract protects new or updated rows without rewriting unresolved legacy drafts'
 );
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('f9300000-0000-4000-8000-000000000001','time-platform@example.test','authenticated','authenticated',now(),now()),
@@ -754,6 +780,93 @@ select ok(
     )
   ),
   'narrow Grade 12 constraint successor suppresses predecessor only inside its own grade scope'
+);
+
+insert into public.curriculum_versions(
+  id,curriculum_subject_id,version_key,source_id,effective_from_year,effective_to_year,status
+) values(
+  'f9370000-0000-4000-8000-000000000001',
+  'f9360000-0000-4000-8000-000000000001',
+  'time-math-2026-version',
+  'f9350000-0000-4000-8000-000000000001',
+  2026,2026,'published'
+);
+
+insert into public.curriculum_scheduling_constraints(
+  id,source_id,curriculum_subject_id,curriculum_version_id,allocation_id,
+  constraint_key,constraint_type,grade_from,grade_to,cycle_kind,cycle_length,
+  rule_strength,numeric_value,source_locator,effective_from_year,effective_to_year,status
+) values(
+  'f93a0000-0000-4000-8000-000000000010',
+  'f9350000-0000-4000-8000-000000000001',
+  'f9360000-0000-4000-8000-000000000001',
+  'f9370000-0000-4000-8000-000000000001',
+  'f9390000-0000-4000-8000-000000000001',
+  'version-linked-old','min_double_periods_per_cycle',9,9,'rotating',7,
+  'prescribed',2,'Version-specific predecessor',2026,2026,'draft'
+);
+update public.curriculum_scheduling_constraints set status='verified'
+where id='f93a0000-0000-4000-8000-000000000010';
+update public.curriculum_scheduling_constraints set status='published'
+where id='f93a0000-0000-4000-8000-000000000010';
+
+insert into public.curriculum_scheduling_constraints(
+  id,source_id,curriculum_subject_id,curriculum_version_id,allocation_id,
+  constraint_key,constraint_type,grade_from,grade_to,cycle_kind,cycle_length,
+  rule_strength,numeric_value,source_locator,effective_from_year,effective_to_year,
+  supersedes_constraint_id,status
+) values(
+  'f93a0000-0000-4000-8000-000000000011',
+  'f9350000-0000-4000-8000-000000000001',
+  'f9360000-0000-4000-8000-000000000001',
+  'f9370000-0000-4000-8000-000000000001',
+  'f9390000-0000-4000-8000-000000000001',
+  'version-linked-new','min_double_periods_per_cycle',9,9,'rotating',7,
+  'prescribed',3,'Version-specific successor',2026,2026,
+  'f93a0000-0000-4000-8000-000000000010','draft'
+);
+update public.curriculum_scheduling_constraints set status='verified'
+where id='f93a0000-0000-4000-8000-000000000011';
+update public.curriculum_scheduling_constraints set status='published'
+where id='f93a0000-0000-4000-8000-000000000011';
+
+select ok(
+  (
+    select not (scheduling_constraints @> '[{"constraintKey":"version-linked-old"}]'::jsonb)
+       and not (scheduling_constraints @> '[{"constraintKey":"version-linked-new"}]'::jsonb)
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000001',null,9::smallint,2026,'rotating',7::smallint,null
+    )
+  ),
+  'generic resolution excludes linked constraints pinned to a specific curriculum version'
+);
+
+select ok(
+  (
+    select scheduling_constraints @> '[{"constraintKey":"version-linked-new","numericValue":3}]'::jsonb
+       and not (scheduling_constraints @> '[{"constraintKey":"version-linked-old"}]'::jsonb)
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000001',null,9::smallint,2026,'rotating',7::smallint,
+      'f9370000-0000-4000-8000-000000000001'
+    )
+  ),
+  'matching version resolution applies only the linked successor constraint'
+);
+
+update public.curriculum_scheduling_constraints
+set status='withdrawn'
+where id='f93a0000-0000-4000-8000-000000000011';
+
+select ok(
+  (
+    select not (scheduling_constraints @> '[{"constraintKey":"version-linked-old"}]'::jsonb)
+       and not (scheduling_constraints @> '[{"constraintKey":"version-linked-new"}]'::jsonb)
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000001',null,9::smallint,2026,'rotating',7::smallint,
+      'f9370000-0000-4000-8000-000000000001'
+    )
+  ),
+  'withdrawn version-specific successor keeps its predecessor terminal for the matching version'
 );
 
 insert into public.curriculum_time_profiles(
