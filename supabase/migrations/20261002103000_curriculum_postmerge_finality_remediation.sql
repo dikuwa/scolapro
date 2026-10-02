@@ -145,7 +145,8 @@ begin
     or new.verified_by_user_id is distinct from old.verified_by_user_id
     or new.verified_at is distinct from old.verified_at;
 
-  if old.status='archived' then    if new.status is distinct from old.status or v_protected_changed then
+  if old.status='archived' then
+    if new.status is distinct from old.status or v_protected_changed then
       raise exception 'Archived curriculum mappings are immutable historical records';
     end if;
     return new;
@@ -159,9 +160,10 @@ begin
   end if;
 
   if new.status='verified' then
+    if auth.uid() is null then raise exception 'Authentication required'; end if;
     new.verified_by_user_id:=auth.uid();
     new.verified_at:=now();
-  elsif new.status='draft' then
+  elsif new.status in ('draft','archived') then
     new.verified_by_user_id:=null;
     new.verified_at:=null;
   end if;

@@ -1,6 +1,6 @@
 begin;
 
-select plan(46);
+select plan(47);
 
 select has_table('public','curriculum_version_applicability','curriculum version applicability exists');
 select has_table('public','official_education_resources','official education resources exist');
@@ -254,6 +254,33 @@ select throws_ok(
     where id='f9190000-0000-4000-8000-000000000003'$$,
   'Archived curriculum mappings are immutable historical records',
   'archived curriculum mapping cannot be rewritten'
+);
+
+insert into public.school_subject_curriculum_mappings(
+  id,tenant_id,school_id,subject_id,curriculum_subject_id,grade_code,phase_code,programme_code,
+  effective_from_year,effective_to_year,status,created_by_user_id
+) values(
+  'f9190000-0000-4000-8000-000000000004',
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222',
+  'f9120000-0000-4000-8000-000000000001',
+  'f9160000-0000-4000-8000-000000000001',
+  'T8','junior_secondary','draft-archive',2026,2027,'draft',
+  'f9100000-0000-4000-8000-000000000002'
+);
+
+update public.school_subject_curriculum_mappings
+set status='archived',
+    verified_by_user_id='f9100000-0000-4000-8000-000000000003',
+    verified_at=now()
+where id='f9190000-0000-4000-8000-000000000004';
+
+select is(
+  (select verified_by_user_id is null and verified_at is null
+   from public.school_subject_curriculum_mappings
+   where id='f9190000-0000-4000-8000-000000000004'),
+  true,
+  'draft-to-archived mapping cannot retain fabricated verifier provenance'
 );
 
 select is(
