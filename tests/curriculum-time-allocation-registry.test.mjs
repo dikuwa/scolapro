@@ -23,6 +23,8 @@ test("official allocation resolver uses exact cycle variants and explicit supers
   assert.match(registry, /resolved_cycle_kind=p_cycle_kind/);
   assert.match(registry, /resolved_cycle_length=p_cycle_length/);
   assert.match(registry, /replacement\.supersedes_allocation_id=c\.id/);
+  assert.match(registry, /slot_subject\.allocation_id=previous\.id/);
+  assert.match(registry, /slot_subject\.curriculum_subject_id=new\.curriculum_subject_id/);
   assert.match(registry, /'cycle_variant_missing'/);
   assert.match(registry, /'source_conflict'/);
   assert.doesNotMatch(registry, /p_cycle_length\s*[*/+-]\s*/);

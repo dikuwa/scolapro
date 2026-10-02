@@ -1,6 +1,6 @@
 begin;
 
-select plan(27);
+select plan(28);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -31,7 +31,8 @@ insert into public.curriculum_subjects(id,curriculum_key,display_name,phase_code
   ('f9360000-0000-4000-8000-000000000001','time-math','Time Mathematics','junior_secondary','TMATH','NIED',true),
   ('f9360000-0000-4000-8000-000000000002','time-cycle-only','Time Cycle Only','junior_secondary','TCYCLE','NIED',true),
   ('f9360000-0000-4000-8000-000000000003','time-conflict','Time Conflict','junior_secondary','TCONFLICT','NIED',true),
-  ('f9360000-0000-4000-8000-000000000004','time-supersession','Time Supersession','junior_secondary','TSUPER','NIED',true);
+  ('f9360000-0000-4000-8000-000000000004','time-supersession','Time Supersession','junior_secondary','TSUPER','NIED',true),
+  ('f9360000-0000-4000-8000-000000000005','time-specific-policy','Time Specific Policy','junior_secondary','TSPEC','NIED',true);
 
 reset role;
 select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000001',true);
@@ -157,6 +158,38 @@ update public.curriculum_time_allocations
 set status='published'
 where id='f9390000-0000-4000-8000-000000000006';
 
+insert into public.curriculum_time_allocations(
+  id,profile_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+  periods_per_cycle,rule_strength,source_locator,status
+) values(
+  'f9390000-0000-4000-8000-000000000007','f9380000-0000-4000-8000-000000000001',
+  'elective-slot-g9','choice_slot','Field of Study Subject 1',9,9,6,'prescribed','General framework elective slot','draft'
+);
+
+insert into public.curriculum_time_slot_subjects(allocation_id,curriculum_subject_id,source_locator)
+values(
+  'f9390000-0000-4000-8000-000000000007',
+  'f9360000-0000-4000-8000-000000000005',
+  'General framework eligibility mapping'
+);
+
+update public.curriculum_time_allocations set status='verified'
+where id='f9390000-0000-4000-8000-000000000007';
+update public.curriculum_time_allocations set status='published'
+where id='f9390000-0000-4000-8000-000000000007';
+insert into public.curriculum_time_allocations(
+  id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+  periods_per_cycle,rule_strength,source_locator,supersedes_allocation_id,status
+) values(
+  'f9390000-0000-4000-8000-000000000008','f9380000-0000-4000-8000-000000000003',
+  'f9360000-0000-4000-8000-000000000005','specific-policy-g9','subject','Time Specific Policy',9,9,
+  8,'prescribed','Later subject-specific policy','f9390000-0000-4000-8000-000000000007','draft'
+);
+update public.curriculum_time_allocations set status='verified'
+where id='f9390000-0000-4000-8000-000000000008';
+update public.curriculum_time_allocations set status='published'
+where id='f9390000-0000-4000-8000-000000000008';
+
 insert into public.curriculum_scheduling_constraints(
   id,source_id,curriculum_subject_id,allocation_id,constraint_key,constraint_type,
   grade_from,grade_to,cycle_length,rule_strength,numeric_value,source_locator,
@@ -275,6 +308,17 @@ select is(
   ),
   'resolved:f9390000-0000-4000-8000-000000000006:7',
   'explicit supersession resolves the replacement instead of latest-date guessing'
+);
+
+select is(
+  (
+    select concat_ws(':',resolution_status,allocation_id::text,periods_per_cycle::text)
+    from public.resolve_curriculum_time_allocation(
+      'f9360000-0000-4000-8000-000000000005',null,9::smallint,2026,'rotating',7::smallint,null
+    )
+  ),
+  'resolved:f9390000-0000-4000-8000-000000000008:8',
+  'later subject-specific policy can explicitly supersede an eligible general choice slot'
 );
 
 reset role;

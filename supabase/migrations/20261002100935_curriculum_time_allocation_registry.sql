@@ -441,6 +441,17 @@ begin
           (new.target_kind='subject' and previous.target_kind='subject' and previous.curriculum_subject_id=new.curriculum_subject_id)
           or
           (new.target_kind<>'subject' and previous.target_kind=new.target_kind and previous.allocation_key=new.allocation_key)
+          or
+          (
+            new.target_kind='subject'
+            and previous.target_kind<>'subject'
+            and exists(
+              select 1
+              from public.curriculum_time_slot_subjects slot_subject
+              where slot_subject.allocation_id=previous.id
+                and slot_subject.curriculum_subject_id=new.curriculum_subject_id
+            )
+          )
         )
     ) then
       raise exception 'Superseded curriculum time allocation must describe the same canonical target';
