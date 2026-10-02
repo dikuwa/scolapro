@@ -179,7 +179,7 @@ with check (app_private.has_platform_role(array['platform_admin']));
 create policy "platform admins delete draft curriculum time profiles"
 on public.curriculum_time_profiles
 for delete to authenticated
-using (app_private.has_platform_role(array['platform_admin']));
+using (app_private.has_platform_role(array['platform_admin']) and status='draft');
 
 create policy "published curriculum time allocations are readable"
 on public.curriculum_time_allocations
@@ -203,7 +203,7 @@ with check (app_private.has_platform_role(array['platform_admin']));
 create policy "platform admins delete draft curriculum time allocations"
 on public.curriculum_time_allocations
 for delete to authenticated
-using (app_private.has_platform_role(array['platform_admin']));
+using (app_private.has_platform_role(array['platform_admin']) and status='draft');
 
 create policy "published curriculum slot subject mappings are readable"
 on public.curriculum_time_slot_subjects
@@ -256,7 +256,7 @@ with check (app_private.has_platform_role(array['platform_admin']));
 create policy "platform admins delete draft curriculum scheduling constraints"
 on public.curriculum_scheduling_constraints
 for delete to authenticated
-using (app_private.has_platform_role(array['platform_admin']));
+using (app_private.has_platform_role(array['platform_admin']) and status='draft');
 
 create or replace function app_private.require_verified_curriculum_time_source(p_source_id uuid)
 returns void
@@ -296,22 +296,76 @@ language plpgsql
 security definer
 set search_path=pg_catalog,public
 as $profile_guard$
+declare
+  v_content_changed boolean:=false;
 begin
+  if tg_op='DELETE' then
+    if old.status<>'draft' then
+      raise exception 'Only draft curriculum time profiles may be deleted';
+    end if;
+    return old;
+  end if;
+
+  if tg_op='INSERT' then
+    if new.status<>'draft' then
+      raise exception 'Curriculum time profiles must begin in draft state';
+    end if;
+    new.verified_by_user_id:=null;
+    new.verified_at:=null;
+    new.updated_at:=now();
+    return new;
+  end if;
+
   if new.supersedes_profile_id=new.id then
     raise exception 'A curriculum time profile cannot supersede itself';
   end if;
 
-  if new.status in ('verified','published') and old.status is distinct from new.status then
+  v_content_changed :=
+    new.source_id is distinct from old.source_id
+    or new.profile_key is distinct from old.profile_key
+    or new.title is distinct from old.title
+    or new.phase_code is distinct from old.phase_code
+    or new.cycle_kind is distinct from old.cycle_kind
+    or new.cycle_length is distinct from old.cycle_length
+    or new.period_minutes is distinct from old.period_minutes
+    or new.periods_per_day is distinct from old.periods_per_day
+    or new.total_periods_per_cycle is distinct from old.total_periods_per_cycle
+    or new.effective_from_year is distinct from old.effective_from_year
+    or new.effective_to_year is distinct from old.effective_to_year
+    or new.supersedes_profile_id is distinct from old.supersedes_profile_id
+    or new.provenance is distinct from old.provenance
+    or new.created_at is distinct from old.created_at;
+
+  if old.status='verified' and v_content_changed and new.status<>'draft' then
+    raise exception 'Verified curriculum time profile must return to draft before content is changed';
+  end if;
+
+  if new.status='draft' then
+    new.verified_by_user_id:=null;
+    new.verified_at:=null;
+  elsif new.status='verified' and old.status is distinct from 'verified' then
     if auth.uid() is null then raise exception 'Authentication required'; end if;
     new.verified_by_user_id:=auth.uid();
     new.verified_at:=now();
+  end if;
+
+  if (old.status='draft' and new.status not in ('draft','verified'))
+     or (old.status='verified' and new.status not in ('draft','verified','published'))
+     or (old.status='published' and new.status not in ('published','superseded','withdrawn'))
+     or (old.status='superseded' and new.status not in ('superseded','withdrawn'))
+     or (old.status='withdrawn' and new.status<>'withdrawn') then
+    raise exception 'Curriculum time profile lifecycle transition is not allowed';
+  end if;
+
+  if new.status='published' and old.status<>'verified' then
+    raise exception 'Curriculum time profile must be verified before publication';
   end if;
 
   if new.status='published' then
     perform app_private.require_verified_curriculum_time_source(new.source_id);
   end if;
 
-  if tg_op='UPDATE' and old.status in ('published','superseded','withdrawn') then
+  if old.status in ('published','superseded','withdrawn') then
     if old.status='withdrawn' and new.status<>'withdrawn' then
       raise exception 'Withdrawn curriculum time profiles cannot return to an active lifecycle state';
     end if;
@@ -321,24 +375,9 @@ begin
     if old.status='published' and new.status not in ('published','superseded','withdrawn') then
       raise exception 'Published curriculum time profiles cannot return to a mutable lifecycle state';
     end if;
-
-    if new.source_id is distinct from old.source_id
-      or new.profile_key is distinct from old.profile_key
-      or new.title is distinct from old.title
-      or new.phase_code is distinct from old.phase_code
-      or new.cycle_kind is distinct from old.cycle_kind
-      or new.cycle_length is distinct from old.cycle_length
-      or new.period_minutes is distinct from old.period_minutes
-      or new.periods_per_day is distinct from old.periods_per_day
-      or new.total_periods_per_cycle is distinct from old.total_periods_per_cycle
-      or new.effective_from_year is distinct from old.effective_from_year
-      or new.effective_to_year is distinct from old.effective_to_year
+    if v_content_changed
       or new.verified_by_user_id is distinct from old.verified_by_user_id
-      or new.verified_at is distinct from old.verified_at
-      or new.supersedes_profile_id is distinct from old.supersedes_profile_id
-      or new.provenance is distinct from old.provenance
-      or new.created_at is distinct from old.created_at
-    then
+      or new.verified_at is distinct from old.verified_at then
       raise exception 'Published curriculum time profile content and provenance are immutable';
     end if;
   end if;
@@ -352,7 +391,7 @@ revoke all on function app_private.guard_curriculum_time_profile()
 from public,anon,authenticated;
 
 create trigger curriculum_time_profile_guard_trg
-before insert or update on public.curriculum_time_profiles
+before insert or update or delete on public.curriculum_time_profiles
 for each row execute function app_private.guard_curriculum_time_profile();
 
 create or replace function app_private.guard_curriculum_time_allocation()
@@ -363,20 +402,95 @@ set search_path=pg_catalog,public
 as $allocation_guard$
 declare
   v_profile public.curriculum_time_profiles%rowtype;
+  v_version_subject_id uuid;
   v_conflict boolean:=false;
+  v_content_changed boolean:=false;
 begin
+  if tg_op='DELETE' then
+    if old.status<>'draft' then
+      raise exception 'Only draft curriculum time allocations may be deleted';
+    end if;
+    return old;
+  end if;
+
+  if tg_op='INSERT' and new.status<>'draft' then
+    raise exception 'Curriculum time allocations must begin in draft state';
+  end if;
+
   select * into v_profile
   from public.curriculum_time_profiles
   where id=new.profile_id;
+  if not found then raise exception 'Curriculum time profile not found'; end if;
 
-  if not found then
-    raise exception 'Curriculum time profile not found';
+  if new.curriculum_version_id is not null then
+    select curriculum_subject_id into v_version_subject_id
+    from public.curriculum_versions
+    where id=new.curriculum_version_id;
+    if v_version_subject_id is null
+       or v_version_subject_id is distinct from new.curriculum_subject_id then
+      raise exception 'Curriculum time allocation version does not match its canonical curriculum subject';
+    end if;
   end if;
 
-  if new.status in ('verified','published') and old.status is distinct from new.status then
+  if new.supersedes_allocation_id is not null then
+    if not exists(
+      select 1
+      from public.curriculum_time_allocations previous
+      where previous.id=new.supersedes_allocation_id
+        and (
+          (new.target_kind='subject' and previous.target_kind='subject' and previous.curriculum_subject_id=new.curriculum_subject_id)
+          or
+          (new.target_kind<>'subject' and previous.target_kind=new.target_kind and previous.allocation_key=new.allocation_key)
+        )
+    ) then
+      raise exception 'Superseded curriculum time allocation must describe the same canonical target';
+    end if;
+  end if;
+
+  if tg_op='UPDATE' then
+    v_content_changed :=
+      new.profile_id is distinct from old.profile_id
+      or new.curriculum_subject_id is distinct from old.curriculum_subject_id
+      or new.curriculum_version_id is distinct from old.curriculum_version_id
+      or new.allocation_key is distinct from old.allocation_key
+      or new.target_kind is distinct from old.target_kind
+      or new.display_label is distinct from old.display_label
+      or new.grade_from is distinct from old.grade_from
+      or new.grade_to is distinct from old.grade_to
+      or new.periods_per_cycle is distinct from old.periods_per_cycle
+      or new.percentage_time is distinct from old.percentage_time
+      or new.rule_strength is distinct from old.rule_strength
+      or new.source_locator is distinct from old.source_locator
+      or new.notes is distinct from old.notes
+      or new.supersedes_allocation_id is distinct from old.supersedes_allocation_id
+      or new.created_at is distinct from old.created_at;
+
+    if old.status='verified' and v_content_changed and new.status<>'draft' then
+      raise exception 'Verified curriculum time allocation must return to draft before content is changed';
+    end if;
+  end if;
+
+  if new.status='draft' then
+    new.verified_by_user_id:=null;
+    new.verified_at:=null;
+    new.conflict_acknowledged_by_user_id:=null;
+    new.conflict_acknowledged_at:=null;
+  elsif new.status='verified' and (tg_op='INSERT' or old.status is distinct from 'verified') then
     if auth.uid() is null then raise exception 'Authentication required'; end if;
     new.verified_by_user_id:=auth.uid();
     new.verified_at:=now();
+  end if;
+
+  if (old.status='draft' and new.status not in ('draft','verified'))
+     or (old.status='verified' and new.status not in ('draft','verified','published'))
+     or (old.status='published' and new.status not in ('published','superseded','withdrawn'))
+     or (old.status='superseded' and new.status not in ('superseded','withdrawn'))
+     or (old.status='withdrawn' and new.status<>'withdrawn') then
+    raise exception 'Curriculum time allocation lifecycle transition is not allowed';
+  end if;
+
+  if new.status='published' and old.status<>'verified' then
+    raise exception 'Curriculum time allocation must be verified before publication';
   end if;
 
   if new.status='published' then
@@ -410,8 +524,7 @@ begin
     ) into v_conflict;
 
     if v_conflict then
-      if new.conflict_acknowledgement_reason is null
-         or btrim(new.conflict_acknowledgement_reason)='' then
+      if new.conflict_acknowledgement_reason is null or btrim(new.conflict_acknowledgement_reason)='' then
         raise exception 'Publishing this curriculum time allocation would create an unresolved source conflict';
       end if;
       if auth.uid() is null then raise exception 'Authentication required'; end if;
@@ -430,28 +543,11 @@ begin
     if old.status='published' and new.status not in ('published','superseded','withdrawn') then
       raise exception 'Published curriculum time allocations cannot return to a mutable lifecycle state';
     end if;
-
-    if new.profile_id is distinct from old.profile_id
-      or new.curriculum_subject_id is distinct from old.curriculum_subject_id
-      or new.curriculum_version_id is distinct from old.curriculum_version_id
-      or new.allocation_key is distinct from old.allocation_key
-      or new.target_kind is distinct from old.target_kind
-      or new.display_label is distinct from old.display_label
-      or new.grade_from is distinct from old.grade_from
-      or new.grade_to is distinct from old.grade_to
-      or new.periods_per_cycle is distinct from old.periods_per_cycle
-      or new.percentage_time is distinct from old.percentage_time
-      or new.rule_strength is distinct from old.rule_strength
-      or new.source_locator is distinct from old.source_locator
-      or new.notes is distinct from old.notes
-      or new.supersedes_allocation_id is distinct from old.supersedes_allocation_id
+    if v_content_changed
       or new.verified_by_user_id is distinct from old.verified_by_user_id
       or new.verified_at is distinct from old.verified_at
-      or new.conflict_acknowledgement_reason is distinct from old.conflict_acknowledgement_reason
       or new.conflict_acknowledged_by_user_id is distinct from old.conflict_acknowledged_by_user_id
-      or new.conflict_acknowledged_at is distinct from old.conflict_acknowledged_at
-      or new.created_at is distinct from old.created_at
-    then
+      or new.conflict_acknowledged_at is distinct from old.conflict_acknowledged_at then
       raise exception 'Published curriculum time allocation content and provenance are immutable';
     end if;
   end if;
@@ -465,7 +561,7 @@ revoke all on function app_private.guard_curriculum_time_allocation()
 from public,anon,authenticated;
 
 create trigger curriculum_time_allocation_guard_trg
-before insert or update on public.curriculum_time_allocations
+before insert or update or delete on public.curriculum_time_allocations
 for each row execute function app_private.guard_curriculum_time_allocation();
 
 create or replace function app_private.guard_curriculum_time_slot_subject()
@@ -523,39 +619,95 @@ as $constraint_guard$
 declare
   v_allocation public.curriculum_time_allocations%rowtype;
   v_profile public.curriculum_time_profiles%rowtype;
+  v_version_subject_id uuid;
+  v_content_changed boolean:=false;
 begin
+  if tg_op='DELETE' then
+    if old.status<>'draft' then
+      raise exception 'Only draft curriculum scheduling constraints may be deleted';
+    end if;
+    return old;
+  end if;
+
+  if tg_op='INSERT' and new.status<>'draft' then
+    raise exception 'Curriculum scheduling constraints must begin in draft state';
+  end if;
+
+  if new.curriculum_version_id is not null then
+    select curriculum_subject_id into v_version_subject_id
+    from public.curriculum_versions
+    where id=new.curriculum_version_id;
+    if v_version_subject_id is null
+       or (new.curriculum_subject_id is not null and v_version_subject_id is distinct from new.curriculum_subject_id) then
+      raise exception 'Scheduling constraint curriculum version does not match its canonical subject';
+    end if;
+  end if;
+
   if new.allocation_id is not null then
     select * into v_allocation
     from public.curriculum_time_allocations
     where id=new.allocation_id;
+    if not found then raise exception 'Curriculum time allocation not found'; end if;
 
-    if not found then
-      raise exception 'Curriculum time allocation not found';
-    end if;
-
-    select * into v_profile
-    from public.curriculum_time_profiles
-    where id=v_allocation.profile_id;
+    select * into v_profile from public.curriculum_time_profiles where id=v_allocation.profile_id;
 
     if new.curriculum_subject_id is not null
        and v_allocation.curriculum_subject_id is not null
        and new.curriculum_subject_id<>v_allocation.curriculum_subject_id then
       raise exception 'Scheduling constraint curriculum subject does not match its linked allocation';
     end if;
-
     if new.cycle_length is not null and new.cycle_length<>v_profile.cycle_length then
       raise exception 'Scheduling constraint cycle length does not match its linked allocation profile';
     end if;
-
     if new.status='published' and v_allocation.status not in ('published','superseded') then
       raise exception 'Scheduling constraints can only be published against a published allocation';
     end if;
   end if;
 
-  if new.status in ('verified','published') and old.status is distinct from new.status then
+  if tg_op='UPDATE' then
+    v_content_changed :=
+      new.source_id is distinct from old.source_id
+      or new.curriculum_subject_id is distinct from old.curriculum_subject_id
+      or new.curriculum_version_id is distinct from old.curriculum_version_id
+      or new.allocation_id is distinct from old.allocation_id
+      or new.constraint_key is distinct from old.constraint_key
+      or new.constraint_type is distinct from old.constraint_type
+      or new.grade_from is distinct from old.grade_from
+      or new.grade_to is distinct from old.grade_to
+      or new.cycle_length is distinct from old.cycle_length
+      or new.rule_strength is distinct from old.rule_strength
+      or new.numeric_value is distinct from old.numeric_value
+      or new.value is distinct from old.value
+      or new.source_locator is distinct from old.source_locator
+      or new.effective_from_year is distinct from old.effective_from_year
+      or new.effective_to_year is distinct from old.effective_to_year
+      or new.supersedes_constraint_id is distinct from old.supersedes_constraint_id
+      or new.created_at is distinct from old.created_at;
+
+    if old.status='verified' and v_content_changed and new.status<>'draft' then
+      raise exception 'Verified curriculum scheduling constraint must return to draft before content is changed';
+    end if;
+  end if;
+
+  if new.status='draft' then
+    new.verified_by_user_id:=null;
+    new.verified_at:=null;
+  elsif new.status='verified' and (tg_op='INSERT' or old.status is distinct from 'verified') then
     if auth.uid() is null then raise exception 'Authentication required'; end if;
     new.verified_by_user_id:=auth.uid();
     new.verified_at:=now();
+  end if;
+
+  if (old.status='draft' and new.status not in ('draft','verified'))
+     or (old.status='verified' and new.status not in ('draft','verified','published'))
+     or (old.status='published' and new.status not in ('published','superseded','withdrawn'))
+     or (old.status='superseded' and new.status not in ('superseded','withdrawn'))
+     or (old.status='withdrawn' and new.status<>'withdrawn') then
+    raise exception 'Curriculum scheduling constraint lifecycle transition is not allowed';
+  end if;
+
+  if new.status='published' and old.status<>'verified' then
+    raise exception 'Curriculum scheduling constraint must be verified before publication';
   end if;
 
   if new.status='published' then
@@ -572,27 +724,9 @@ begin
     if old.status='published' and new.status not in ('published','superseded','withdrawn') then
       raise exception 'Published curriculum scheduling constraints cannot return to a mutable lifecycle state';
     end if;
-
-    if new.source_id is distinct from old.source_id
-      or new.curriculum_subject_id is distinct from old.curriculum_subject_id
-      or new.curriculum_version_id is distinct from old.curriculum_version_id
-      or new.allocation_id is distinct from old.allocation_id
-      or new.constraint_key is distinct from old.constraint_key
-      or new.constraint_type is distinct from old.constraint_type
-      or new.grade_from is distinct from old.grade_from
-      or new.grade_to is distinct from old.grade_to
-      or new.cycle_length is distinct from old.cycle_length
-      or new.rule_strength is distinct from old.rule_strength
-      or new.numeric_value is distinct from old.numeric_value
-      or new.value is distinct from old.value
-      or new.source_locator is distinct from old.source_locator
-      or new.effective_from_year is distinct from old.effective_from_year
-      or new.effective_to_year is distinct from old.effective_to_year
-      or new.supersedes_constraint_id is distinct from old.supersedes_constraint_id
+    if v_content_changed
       or new.verified_by_user_id is distinct from old.verified_by_user_id
-      or new.verified_at is distinct from old.verified_at
-      or new.created_at is distinct from old.created_at
-    then
+      or new.verified_at is distinct from old.verified_at then
       raise exception 'Published curriculum scheduling constraint content and provenance are immutable';
     end if;
   end if;
@@ -606,7 +740,7 @@ revoke all on function app_private.guard_curriculum_scheduling_constraint()
 from public,anon,authenticated;
 
 create trigger curriculum_scheduling_constraint_guard_trg
-before insert or update on public.curriculum_scheduling_constraints
+before insert or update or delete on public.curriculum_scheduling_constraints
 for each row execute function app_private.guard_curriculum_scheduling_constraint();
 
 create or replace function app_private.audit_curriculum_time_registry()
@@ -868,20 +1002,20 @@ begin
     select coalesce(
       jsonb_agg(
         jsonb_build_object(
-          'id',id,
-          'constraintKey',constraint_key,
-          'constraintType',constraint_type,
-          'ruleStrength',rule_strength,
-          'numericValue',numeric_value,
-          'value',value,
-          'sourceId',source_id,
-          'sourceLocator',source_locator
+          'id',ac.id,
+          'constraintKey',ac.constraint_key,
+          'constraintType',ac.constraint_type,
+          'ruleStrength',ac.rule_strength,
+          'numericValue',ac.numeric_value,
+          'value',ac.value,
+          'sourceId',ac.source_id,
+          'sourceLocator',ac.source_locator
         )
-        order by constraint_key,id
+        order by ac.constraint_key,ac.id
       ),
       '[]'::jsonb
     ) as value
-    from active_constraints
+    from active_constraints ac
   )
   select
     case
