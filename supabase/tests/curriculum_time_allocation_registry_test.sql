@@ -1,6 +1,6 @@
 begin;
 
-select plan(28);
+select plan(37);
 
 select has_table('public','curriculum_time_profiles','curriculum time profiles exist');
 select has_table('public','curriculum_time_allocations','curriculum time allocations exist');
@@ -320,6 +320,136 @@ select is(
   'resolved:f9390000-0000-4000-8000-000000000008:8',
   'later subject-specific policy can explicitly supersede an eligible general choice slot'
 );
+
+-- Codex/Control Room integrity remediation assertions.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','f9300000-0000-4000-8000-000000000001',true);
+
+select throws_ok(
+  $$update public.curriculum_sources
+      set source_url='https://example.test/nied/replaced-after-publication.pdf'
+    where id='f9350000-0000-4000-8000-000000000001'$$,
+  'Curriculum source evidence used by final national time rules is immutable',
+  'published national time rules freeze their source URL/checksum/provenance evidence'
+);
+
+select throws_ok(
+  $$update public.curriculum_time_profiles
+      set id='f9380000-0000-4000-8000-000000000098'
+    where id='f9380000-0000-4000-8000-000000000001'$$,
+  'Curriculum time registry identities are immutable',
+  'published curriculum time profile id is immutable'
+);
+
+select throws_ok(
+  $$update public.curriculum_time_allocations
+      set id='f9390000-0000-4000-8000-000000000098'
+    where id='f9390000-0000-4000-8000-000000000001'$$,
+  'Curriculum time registry identities are immutable',
+  'published curriculum time allocation id is immutable'
+);
+
+select throws_ok(
+  $$update public.curriculum_scheduling_constraints
+      set id='f93a0000-0000-4000-8000-000000000098'
+    where id='f93a0000-0000-4000-8000-000000000001'$$,
+  'Curriculum time registry identities are immutable',
+  'published curriculum scheduling constraint id is immutable'
+);
+
+insert into public.curriculum_time_allocations(
+  id,profile_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+  periods_per_cycle,rule_strength,source_locator,status
+) values(
+  'f9390000-0000-4000-8000-000000000009','f9380000-0000-4000-8000-000000000001',
+  'verified-eligibility-test','choice_slot','Verified eligibility test',9,9,3,'prescribed','Eligibility fixture','draft'
+);
+insert into public.curriculum_time_slot_subjects(allocation_id,curriculum_subject_id,source_locator)
+values('f9390000-0000-4000-8000-000000000009','f9360000-0000-4000-8000-000000000001','Initial eligibility');
+update public.curriculum_time_allocations set status='verified'
+where id='f9390000-0000-4000-8000-000000000009';
+
+select throws_ok(
+  $$insert into public.curriculum_time_slot_subjects(allocation_id,curriculum_subject_id,source_locator)
+    values('f9390000-0000-4000-8000-000000000009','f9360000-0000-4000-8000-000000000002','Late eligibility')$$,
+  'Verified curriculum time slot eligibility is immutable; return the parent allocation to draft or create a new allocation version',
+  'verified slot eligibility cannot change without re-verification'
+);
+
+select throws_ok(
+  $$insert into public.curriculum_time_allocations(
+      id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+      periods_per_cycle,rule_strength,source_locator,supersedes_allocation_id,status
+    ) values(
+      'f9390000-0000-4000-8000-000000000010','f9380000-0000-4000-8000-000000000002',
+      'f9360000-0000-4000-8000-000000000004','cross-cycle-super','subject','Cross-cycle supersession',9,9,
+      6,'prescribed','Cross-cycle fixture','f9390000-0000-4000-8000-000000000005','draft'
+    )$$,
+  'Curriculum time allocation supersession must remain within the same exact cycle variant',
+  '5-day allocation cannot supersede a 7-day allocation'
+);
+
+insert into public.curriculum_time_allocations(
+  id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+  periods_per_cycle,rule_strength,source_locator,status
+) values(
+  'f9390000-0000-4000-8000-000000000011','f9380000-0000-4000-8000-000000000001',
+  'f9360000-0000-4000-8000-000000000001','cycle-a','subject','Cycle A',10,10,5,'prescribed','Cycle A fixture','draft'
+);
+insert into public.curriculum_time_allocations(
+  id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+  periods_per_cycle,rule_strength,source_locator,supersedes_allocation_id,status
+) values(
+  'f9390000-0000-4000-8000-000000000012','f9380000-0000-4000-8000-000000000001',
+  'f9360000-0000-4000-8000-000000000001','cycle-b','subject','Cycle B',10,10,5,'prescribed','Cycle B fixture',
+  'f9390000-0000-4000-8000-000000000011','draft'
+);
+
+select throws_ok(
+  $$update public.curriculum_time_allocations
+      set supersedes_allocation_id='f9390000-0000-4000-8000-000000000012'
+    where id='f9390000-0000-4000-8000-000000000011'$$,
+  'Curriculum time allocation supersession chain cannot contain a cycle',
+  'allocation supersession chains are acyclic'
+);
+
+update public.curriculum_time_allocations
+set status='withdrawn'
+where id='f9390000-0000-4000-8000-000000000008';
+
+insert into public.curriculum_time_allocations(
+  id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,grade_from,grade_to,
+  periods_per_cycle,rule_strength,source_locator,status
+) values(
+  'f9390000-0000-4000-8000-000000000013','f9380000-0000-4000-8000-000000000003',
+  'f9360000-0000-4000-8000-000000000005','specific-policy-conflict','subject','Unacknowledged subject-slot overlap',9,9,
+  8,'prescribed','Subject-slot conflict fixture','draft'
+);
+update public.curriculum_time_allocations set status='verified'
+where id='f9390000-0000-4000-8000-000000000013';
+
+select throws_ok(
+  $$update public.curriculum_time_allocations
+      set status='published'
+    where id='f9390000-0000-4000-8000-000000000013'$$,
+  'Publishing this curriculum time allocation would create an unresolved source conflict',
+  'subject-specific publication detects overlap with an eligible published choice slot'
+);
+
+select throws_ok(
+  $$update public.curriculum_time_allocations
+      set conflict_acknowledgement_reason='Rewritten after publication'
+    where id='f9390000-0000-4000-8000-000000000004'$$,
+  'Published curriculum time conflict acknowledgement reason is immutable provenance',
+  'published conflict acknowledgement reason cannot be rewritten'
+);
+
+update public.curriculum_time_profiles
+set status='withdrawn'
+where id='f9380000-0000-4000-8000-000000000002';
+update public.curriculum_scheduling_constraints
+set status='withdrawn'
+where id='f93a0000-0000-4000-8000-000000000001';
 
 reset role;
 select * from finish();

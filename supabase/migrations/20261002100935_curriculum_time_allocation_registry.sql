@@ -1080,3 +1080,409 @@ comment on table public.curriculum_scheduling_constraints is
 'Source-backed national scheduling rules beyond period totals. Initial supported type is min_double_periods_per_cycle only; unknown active types are rejected.';
 comment on function public.resolve_curriculum_time_allocation(uuid,text,smallint,integer,text,smallint,uuid) is
 'Canonical exact-cycle national time-allocation resolver. Returns resolved, source_missing, cycle_variant_missing, or source_conflict and never converts periods between cycle variants.';
+
+
+-- Control Room remediation after exact-head Codex review.
+-- These final guards intentionally override/extend the earlier Slice-1 definitions.
+
+create or replace function app_private.guard_curriculum_time_source_evidence()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $time_source_finality$
+declare
+  v_is_final boolean:=false;
+begin
+  select exists(
+    select 1
+    from public.curriculum_time_profiles p
+    where p.source_id=old.id
+      and p.status in ('published','superseded','withdrawn')
+    union all
+    select 1
+    from public.curriculum_scheduling_constraints c
+    where c.source_id=old.id
+      and c.status in ('published','superseded','withdrawn')
+  ) into v_is_final;
+
+  if not v_is_final then
+    return case when tg_op='DELETE' then old else new end;
+  end if;
+
+  if tg_op='DELETE' then
+    raise exception 'Curriculum source evidence used by final national time rules is immutable';
+  end if;
+
+  if new.id is distinct from old.id
+     or new.authority is distinct from old.authority
+     or new.source_key is distinct from old.source_key
+     or new.title is distinct from old.title
+     or new.source_url is distinct from old.source_url
+     or new.source_document_date is distinct from old.source_document_date
+     or new.checksum is distinct from old.checksum
+     or new.provenance is distinct from old.provenance
+     or new.status is distinct from old.status
+     or new.created_at is distinct from old.created_at then
+    raise exception 'Curriculum source evidence used by final national time rules is immutable';
+  end if;
+
+  return new;
+end;
+$time_source_finality$;
+
+revoke all on function app_private.guard_curriculum_time_source_evidence()
+from public,anon,authenticated;
+
+drop trigger if exists curriculum_time_source_evidence_guard_trg on public.curriculum_sources;
+create trigger curriculum_time_source_evidence_guard_trg
+before update or delete on public.curriculum_sources
+for each row execute function app_private.guard_curriculum_time_source_evidence();
+
+create or replace function app_private.guard_curriculum_time_registry_identity()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $time_identity$
+begin
+  if new.id is distinct from old.id then
+    raise exception 'Curriculum time registry identities are immutable';
+  end if;
+  return new;
+end;
+$time_identity$;
+
+revoke all on function app_private.guard_curriculum_time_registry_identity()
+from public,anon,authenticated;
+
+drop trigger if exists curriculum_time_profile_identity_guard_trg on public.curriculum_time_profiles;
+drop trigger if exists curriculum_time_00_profile_identity_guard_trg on public.curriculum_time_profiles;
+create trigger curriculum_time_00_profile_identity_guard_trg
+before update on public.curriculum_time_profiles
+for each row execute function app_private.guard_curriculum_time_registry_identity();
+
+drop trigger if exists curriculum_time_allocation_identity_guard_trg on public.curriculum_time_allocations;
+drop trigger if exists curriculum_time_00_allocation_identity_guard_trg on public.curriculum_time_allocations;
+create trigger curriculum_time_00_allocation_identity_guard_trg
+before update on public.curriculum_time_allocations
+for each row execute function app_private.guard_curriculum_time_registry_identity();
+
+drop trigger if exists curriculum_time_constraint_identity_guard_trg on public.curriculum_scheduling_constraints;
+drop trigger if exists curriculum_time_00_constraint_identity_guard_trg on public.curriculum_scheduling_constraints;
+drop trigger if exists aa_curriculum_time_constraint_identity_guard_trg on public.curriculum_scheduling_constraints;
+create trigger aa_curriculum_time_constraint_identity_guard_trg
+before update on public.curriculum_scheduling_constraints
+for each row execute function app_private.guard_curriculum_time_registry_identity();
+
+create or replace function app_private.guard_curriculum_time_allocation_supersession()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $allocation_supersession_guard$
+declare
+  v_new_cycle_kind text;
+  v_new_cycle_length smallint;
+  v_previous_cycle_kind text;
+  v_previous_cycle_length smallint;
+  v_cycle_detected boolean:=false;
+begin
+  if new.supersedes_allocation_id is null then
+    return new;
+  end if;
+
+  select cycle_kind,cycle_length
+    into v_new_cycle_kind,v_new_cycle_length
+  from public.curriculum_time_profiles
+  where id=new.profile_id;
+
+  select p.cycle_kind,p.cycle_length
+    into v_previous_cycle_kind,v_previous_cycle_length
+  from public.curriculum_time_allocations a
+  join public.curriculum_time_profiles p on p.id=a.profile_id
+  where a.id=new.supersedes_allocation_id;
+
+  if v_previous_cycle_kind is null then
+    raise exception 'Superseded curriculum time allocation was not found';
+  end if;
+
+  if v_new_cycle_kind is distinct from v_previous_cycle_kind
+     or v_new_cycle_length is distinct from v_previous_cycle_length then
+    raise exception 'Curriculum time allocation supersession must remain within the same exact cycle variant';
+  end if;
+
+  with recursive predecessor_chain as (
+    select
+      a.id,
+      a.supersedes_allocation_id,
+      array[a.id]::uuid[] as path
+    from public.curriculum_time_allocations a
+    where a.id=new.supersedes_allocation_id
+
+    union all
+
+    select
+      a.id,
+      a.supersedes_allocation_id,
+      chain.path || a.id
+    from predecessor_chain chain
+    join public.curriculum_time_allocations a
+      on a.id=chain.supersedes_allocation_id
+    where not a.id=any(chain.path)
+  )
+  select exists(
+    select 1 from predecessor_chain where id=new.id
+  ) into v_cycle_detected;
+
+  if v_cycle_detected then
+    raise exception 'Curriculum time allocation supersession chain cannot contain a cycle';
+  end if;
+
+  return new;
+end;
+$allocation_supersession_guard$;
+
+revoke all on function app_private.guard_curriculum_time_allocation_supersession()
+from public,anon,authenticated;
+
+drop trigger if exists curriculum_time_allocation_supersession_guard_trg on public.curriculum_time_allocations;
+create trigger curriculum_time_allocation_supersession_guard_trg
+before insert or update on public.curriculum_time_allocations
+for each row execute function app_private.guard_curriculum_time_allocation_supersession();
+
+
+create or replace function app_private.guard_curriculum_time_slot_subject()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $slot_guard$
+declare
+  v_old_status text;
+  v_new_status text;
+  v_new_kind text;
+begin
+  if tg_op in ('UPDATE','DELETE') then
+    select status into v_old_status
+    from public.curriculum_time_allocations
+    where id=old.allocation_id;
+  end if;
+
+  if tg_op in ('INSERT','UPDATE') then
+    select status,target_kind into v_new_status,v_new_kind
+    from public.curriculum_time_allocations
+    where id=new.allocation_id;
+
+    if v_new_status is null then
+      raise exception 'Curriculum time allocation not found';
+    end if;
+    if v_new_kind='subject' then
+      raise exception 'Slot-subject eligibility can only be attached to non-subject curriculum allocation slots';
+    end if;
+  end if;
+
+  if v_old_status in ('verified','published','superseded','withdrawn')
+     or v_new_status in ('verified','published','superseded','withdrawn') then
+    raise exception 'Verified curriculum time slot eligibility is immutable; return the parent allocation to draft or create a new allocation version';
+  end if;
+
+  return case when tg_op='DELETE' then old else new end;
+end;
+$slot_guard$;
+
+revoke all on function app_private.guard_curriculum_time_slot_subject()
+from public,anon,authenticated;
+
+create or replace function app_private.guard_curriculum_time_allocation_overlap()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $allocation_overlap_guard$
+declare
+  v_profile public.curriculum_time_profiles%rowtype;
+  v_conflict boolean:=false;
+begin
+  if tg_op<>'UPDATE'
+     or new.status<>'published'
+     or old.status='published' then
+    return new;
+  end if;
+
+  select * into v_profile
+  from public.curriculum_time_profiles
+  where id=new.profile_id;
+
+  select exists(
+    select 1
+    from public.curriculum_time_allocations other
+    join public.curriculum_time_profiles other_profile on other_profile.id=other.profile_id
+    where other.id<>new.id
+      and other.status='published'
+      and other_profile.status='published'
+      and other_profile.cycle_kind=v_profile.cycle_kind
+      and other_profile.cycle_length=v_profile.cycle_length
+      and other_profile.effective_from_year<=coalesce(v_profile.effective_to_year,2200)
+      and coalesce(other_profile.effective_to_year,2200)>=v_profile.effective_from_year
+      and coalesce(other.grade_from,0)<=coalesce(new.grade_to,20)
+      and coalesce(other.grade_to,20)>=coalesce(new.grade_from,0)
+      and other.id is distinct from new.supersedes_allocation_id
+      and other.supersedes_allocation_id is distinct from new.id
+      and (
+        (new.target_kind='subject'
+          and other.target_kind='subject'
+          and other.curriculum_subject_id=new.curriculum_subject_id)
+        or
+        (new.target_kind='subject'
+          and other.target_kind<>'subject'
+          and exists(
+            select 1
+            from public.curriculum_time_slot_subjects ss
+            where ss.allocation_id=other.id
+              and ss.curriculum_subject_id=new.curriculum_subject_id
+          ))
+        or
+        (new.target_kind<>'subject'
+          and other.target_kind='subject'
+          and exists(
+            select 1
+            from public.curriculum_time_slot_subjects ss
+            where ss.allocation_id=new.id
+              and ss.curriculum_subject_id=other.curriculum_subject_id
+          ))
+        or
+        (new.target_kind<>'subject'
+          and other.target_kind<>'subject'
+          and (
+            (new.target_kind=other.target_kind and new.allocation_key=other.allocation_key)
+            or exists(
+              select 1
+              from public.curriculum_time_slot_subjects new_ss
+              join public.curriculum_time_slot_subjects other_ss
+                on other_ss.curriculum_subject_id=new_ss.curriculum_subject_id
+              where new_ss.allocation_id=new.id
+                and other_ss.allocation_id=other.id
+            )
+          ))
+      )
+  ) into v_conflict;
+
+  if v_conflict then
+    if new.conflict_acknowledgement_reason is null
+       or btrim(new.conflict_acknowledgement_reason)='' then
+      raise exception 'Publishing this curriculum time allocation would create an unresolved source conflict';
+    end if;
+    if auth.uid() is null then raise exception 'Authentication required'; end if;
+    new.conflict_acknowledged_by_user_id:=auth.uid();
+    new.conflict_acknowledged_at:=now();
+  else
+    new.conflict_acknowledgement_reason:=null;
+    new.conflict_acknowledged_by_user_id:=null;
+    new.conflict_acknowledged_at:=null;
+  end if;
+
+  return new;
+end;
+$allocation_overlap_guard$;
+
+revoke all on function app_private.guard_curriculum_time_allocation_overlap()
+from public,anon,authenticated;
+
+drop trigger if exists curriculum_time_allocation_overlap_guard_trg on public.curriculum_time_allocations;
+create trigger curriculum_time_allocation_overlap_guard_trg
+before update on public.curriculum_time_allocations
+for each row execute function app_private.guard_curriculum_time_allocation_overlap();
+
+create or replace function app_private.guard_curriculum_time_conflict_provenance()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog
+as $time_conflict_provenance$
+begin
+  if old.status in ('published','superseded','withdrawn')
+     and new.conflict_acknowledgement_reason is distinct from old.conflict_acknowledgement_reason then
+    raise exception 'Published curriculum time conflict acknowledgement reason is immutable provenance';
+  end if;
+  return new;
+end;
+$time_conflict_provenance$;
+
+revoke all on function app_private.guard_curriculum_time_conflict_provenance()
+from public,anon,authenticated;
+
+drop trigger if exists curriculum_time_allocation_conflict_provenance_guard_trg on public.curriculum_time_allocations;
+create trigger curriculum_time_allocation_conflict_provenance_guard_trg
+before update on public.curriculum_time_allocations
+for each row execute function app_private.guard_curriculum_time_conflict_provenance();
+
+
+create or replace function app_private.audit_curriculum_time_registry()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $audit_time_registry$
+declare
+  v_event_type text;
+begin
+  if new.status is not distinct from old.status then
+    return new;
+  end if;
+
+  if tg_table_name='curriculum_time_profiles' then
+    if new.status='published' then
+      v_event_type:='curriculum_time_profile_published';
+    elsif new.status='superseded' then
+      v_event_type:='curriculum_time_profile_superseded';
+    elsif new.status='withdrawn' then
+      v_event_type:='curriculum_time_profile_withdrawn';
+    end if;
+  elsif tg_table_name='curriculum_time_allocations' then
+    if new.status='published' then
+      v_event_type:='curriculum_time_allocation_published';
+    elsif new.status='superseded' then
+      v_event_type:='curriculum_time_allocation_superseded';
+    elsif new.status='withdrawn' then
+      v_event_type:='curriculum_time_allocation_withdrawn';
+    end if;
+  elsif tg_table_name='curriculum_scheduling_constraints' then
+    if new.status='published' then
+      v_event_type:='curriculum_time_constraint_published';
+    elsif new.status='superseded' then
+      v_event_type:='curriculum_time_constraint_superseded';
+    elsif new.status='withdrawn' then
+      v_event_type:='curriculum_time_constraint_withdrawn';
+    end if;
+  end if;
+
+  if v_event_type is null then
+    return new;
+  end if;
+
+  insert into public.audit_events(
+    actor_user_id,event_type,entity_type,entity_id,metadata
+  )
+  values(
+    auth.uid(),
+    v_event_type,
+    tg_table_name,
+    new.id,
+    jsonb_strip_nulls(jsonb_build_object(
+      'old_status',old.status,
+      'status',new.status,
+      'source_scope','national_curriculum_time_registry',
+      'conflict_acknowledgement_reason',
+        case when tg_table_name='curriculum_time_allocations'
+          then to_jsonb(new)->>'conflict_acknowledgement_reason'
+          else null end
+    ))
+  );
+
+  return new;
+end;
+$audit_time_registry$;
+
+revoke all on function app_private.audit_curriculum_time_registry()
+from public,anon,authenticated;

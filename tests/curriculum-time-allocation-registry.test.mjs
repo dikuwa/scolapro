@@ -43,3 +43,25 @@ test("national registry publication is draft-first, source-gated and final", () 
   assert.match(registry, /Only draft curriculum time allocations may be deleted/);
   assert.match(registry, /Only draft curriculum scheduling constraints may be deleted/);
 });
+
+
+test("review remediation hardens provenance supersession eligibility and audit contracts", () => {
+  assert.match(registry, /guard_curriculum_time_source_evidence/);
+  assert.match(registry, /source evidence used by final national time rules is immutable/i);
+  assert.match(registry, /guard_curriculum_time_registry_identity/);
+  assert.match(registry, /supersession must remain within the same exact cycle variant/i);
+  assert.match(registry, /supersession chain cannot contain a cycle/i);
+  assert.match(registry, /Verified curriculum time slot eligibility is immutable/);
+  assert.match(registry, /other\.target_kind<>'subject'[\s\S]*curriculum_time_slot_subjects/);
+  assert.match(registry, /Published curriculum time conflict acknowledgement reason is immutable provenance/);
+  for (const eventType of [
+    "curriculum_time_profile_superseded",
+    "curriculum_time_profile_withdrawn",
+    "curriculum_time_allocation_superseded",
+    "curriculum_time_allocation_withdrawn",
+    "curriculum_time_constraint_superseded",
+    "curriculum_time_constraint_withdrawn",
+  ]) {
+    assert.match(registry, new RegExp(eventType));
+  }
+});
