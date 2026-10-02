@@ -64,6 +64,8 @@ test("existing timetable workspace renders summary-first responsive demand UI", 
   assert.match(component, /Before generation/);
   assert.match(component, /lg:grid-cols-2/);
   assert.match(component, /Warnings inform planning; they do not silently rewrite or block the timetable/);
+  assert.match(page, /context\.currentSchoolMembership/);
+  assert.match(page, /primaryMembership && allowedRoles\.has\(primaryMembership\.roleKey\)/);
   assert.match(page, /"school_admin", "principal", "deputy_principal", "hod"/);
   assert.match(migration, /sm\.role_key in \('school_admin','principal','deputy_principal','hod'\)/);
   assert.match(migration, /raise exception 'Permission denied'/);

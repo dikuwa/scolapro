@@ -17,7 +17,10 @@ export default async function TimetablePage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/timetable");
   const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
-  const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
+  const primaryMembership = context.currentSchoolMembership;
+  const membership = primaryMembership && allowedRoles.has(primaryMembership.roleKey)
+    ? primaryMembership
+    : context.memberships.find((item) => allowedRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
   const academicYear = getNamibiaCalendarYear();
