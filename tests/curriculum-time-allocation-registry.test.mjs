@@ -6,6 +6,10 @@ const registry = readFileSync(
   "supabase/migrations/20261002100935_curriculum_time_allocation_registry.sql",
   "utf8",
 );
+const remediation = readFileSync(
+  "supabase/migrations/20261002114500_curriculum_time_registry_postmerge_remediation.sql",
+  "utf8",
+);
 test("time allocation registry models exact periods per cycle without a parallel subject catalogue", () => {
   assert.match(registry, /create table public\.curriculum_time_profiles/i);
   assert.match(registry, /create table public\.curriculum_time_allocations/i);
@@ -64,4 +68,23 @@ test("review remediation hardens provenance supersession eligibility and audit c
   ]) {
     assert.match(registry, new RegExp(eventType));
   }
+});
+
+
+test("post-merge remediation preserves exact profile and constraint semantics", () => {
+  assert.match(remediation, /add column cycle_kind text/);
+  assert.match(remediation, /alter column numeric_value set not null/);
+  assert.match(remediation, /Existing non-draft subject-level scheduling constraints require explicit exact-cycle reconciliation/);
+  assert.match(remediation, /numeric_value = trunc\(numeric_value\)/);
+  assert.match(remediation, /guard_curriculum_time_profile_supersession/);
+  assert.match(remediation, /profile supersession chain cannot contain a cycle/i);
+  assert.match(remediation, /same phase and exact cycle variant/i);
+  assert.match(remediation, /guard_curriculum_scheduling_constraint_supersession/);
+  assert.match(remediation, /constraint supersession chain cannot contain a cycle/i);
+  assert.match(remediation, /c\.cycle_kind=p_cycle_kind/);
+  assert.match(remediation, /c\.cycle_length=p_cycle_length/);
+  assert.match(remediation, /replacement_profile\.supersedes_profile_id=c\.profile_id/);
+  assert.match(remediation, /from base_candidates replacement/);
+  assert.match(remediation, /constraint supersession must preserve its exact allocation and canonical subject\/version target/i);
+  assert.match(remediation, /from constraint_base replacement/);
 });
