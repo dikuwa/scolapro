@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 import {
   renderSportsHouseRosterHtml,
