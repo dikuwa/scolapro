@@ -51,4 +51,5 @@ test("learner compact summary uses reusable effective guardian resolver without 
   assert.doesNotMatch(summary,/address/i);
   assert.match(readFileSync("supabase/migrations/20261003180000_sports_houses_operational_completion.sql","utf8"),/can_read_guardian\(lg\.guardian_id\)/);
   assert.match(readFileSync("supabase/migrations/20261003180000_sports_houses_operational_completion.sql","utf8"),/can_read_learner_identity\(p_school_id,e\.learner_id\)/);
+  assert.match(readFileSync("supabase/migrations/20261003180000_sports_houses_operational_completion.sql","utf8"),/can_read_learner_subject_registration\([\s\S]*p_school_id,[\s\S]*p_enrolment_id,[\s\S]*lsr\.subject_offering_id/);
 });

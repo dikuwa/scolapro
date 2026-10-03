@@ -294,6 +294,11 @@ begin
           and lsr.school_id=p_school_id
           and lsr.academic_year=p_academic_year
           and lsr.status='active'
+          and app_private.can_read_learner_subject_registration(
+            p_school_id,
+            p_enrolment_id,
+            lsr.subject_offering_id
+          )
       ),
       '{}'::text[]
     );
