@@ -420,10 +420,10 @@ select is(
 reset role;
 
 select throws_ok(
-  $update public.staff_leave_ledger_entries
+  $$update public.staff_leave_ledger_entries
     set units_delta=999
     where staff_member_id='fd030000-0000-4000-8000-000000000002'
-      and entry_kind='opening'$,
+      and entry_kind='opening'$$,
   'Staff leave ledger entries are immutable',
   'historical ledger entries cannot be rewritten'
 );
