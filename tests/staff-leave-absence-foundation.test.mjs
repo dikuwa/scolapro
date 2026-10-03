@@ -19,6 +19,8 @@ test("leave foundation does not seed invented policy entitlements or a mutable b
   assert.match(migration, /units_delta numeric\(8,2\)/);
   assert.match(migration, /Staff leave ledger entries are immutable/);
   assert.match(migration, /A source reference is required for manual leave ledger entries/);
+  assert.match(migration, /Tracked leave types require a verified source reference/);
+  assert.match(migration, /Approved leave units cannot exceed requested units/);
 });
 
 test("request, decision, cancellation and operational absence remain distinct audited lifecycle steps", () => {
@@ -74,7 +76,7 @@ test("pgTAP plan matches the focused lifecycle assertions", () => {
   const assertions = ["has_table", "has_function", "is", "ok", "throws_ok", "lives_ok"]
     .reduce((sum, name) => sum + (pg.match(new RegExp(`select\\s+${name}\\s*\\(`, "gi")) ?? []).length, 0);
   assert.equal(plan, assertions);
-  assert.equal(plan, 37);
+  assert.equal(plan, 39);
   assert.match(migration, /grant execute on function app_private\.can_view_staff_leave\(uuid,uuid\) to authenticated/i);
   assert.match(migration, /grant execute on function app_private\.can_access_staff_leave_object\(text\) to authenticated/i);
 });

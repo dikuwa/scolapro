@@ -18,7 +18,8 @@ create table public.staff_leave_types (
   updated_at timestamptz not null default now(),
   unique (school_id,code),
   check (btrim(code)<>''),
-  check (btrim(display_name)<>'')
+  check (btrim(display_name)<>''),
+  check (not tracks_balance or btrim(coalesce(source_reference,''))<>'')
 );
 
 create table public.staff_leave_requests (
@@ -335,6 +336,10 @@ begin
   if v_code='' or char_length(v_code)>40 then raise exception 'Leave type code is required and must be 40 characters or fewer'; end if;
   if v_name='' or char_length(v_name)>120 then raise exception 'Leave type name is required and must be 120 characters or fewer'; end if;
   if p_evidence_requirement not in ('none','optional','required') then raise exception 'Evidence requirement is invalid'; end if;
+  if coalesce(p_tracks_balance,false)
+     and nullif(btrim(coalesce(p_source_reference,'')),'') is null then
+    raise exception 'Tracked leave types require a verified source reference';
+  end if;
 
   select * into v_school from public.schools where id=p_school_id and status='active';
   if not found then raise exception 'School not found or inactive'; end if;
@@ -491,6 +496,9 @@ begin
   if v_decision='approve' then
     if p_approved_units is null or p_approved_units<=0 or p_approved_units>366 then
       raise exception 'Approved leave units must be between 0 and 366';
+    end if;
+    if p_approved_units>v_request.requested_units then
+      raise exception 'Approved leave units cannot exceed requested units';
     end if;
     if v_type.evidence_requirement='required'
        and not exists(

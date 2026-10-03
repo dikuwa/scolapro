@@ -88,6 +88,10 @@ const typeSchema = z.object({
   evidenceRequirement: z.enum(["none", "optional", "required"]),
   sourceReference: z.string().trim().max(500).optional(),
   active: z.enum(["yes", "no"]),
+}).superRefine((value, ctx) => {
+  if (value.tracksBalance === "yes" && !value.sourceReference) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sourceReference"], message: "Tracked leave types require a verified source reference." });
+  }
 });
 
 export async function configureStaffLeaveType(
@@ -155,6 +159,7 @@ export async function decideStaffLeave(
     if (
       error.message.includes("own leave") ||
       error.message.includes("Required leave evidence") ||
+      error.message.includes("Approved leave units cannot exceed requested units") ||
       error.message.includes("Only submitted")
     ) return { message: error.message };
     return { message: "Leave decision could not be saved." };

@@ -1,6 +1,6 @@
 begin;
 
-select plan(37);
+select plan(39);
 
 select has_table('public','staff_leave_types','staff leave types table exists');
 select has_table('public','staff_leave_requests','staff leave requests table exists');
@@ -163,7 +163,7 @@ select set_config('request.jwt.claim.sub','fd020000-0000-4000-8000-000000000001'
 set local role authenticated;
 
 select lives_ok(
-  $$select public.configure_staff_leave_type(
+  $select public.configure_staff_leave_type(
       'fd010000-0000-4000-8000-000000000001',
       'LOCAL-TRACKED',
       'Locally Configured Tracked Leave',
@@ -171,8 +171,22 @@ select lives_ok(
       'optional',
       'School-approved leave rule reference',
       true
-  )$$,
+  )$,
   'school manager can configure an explicitly sourced leave type'
+);
+
+select throws_ok(
+  $select public.configure_staff_leave_type(
+      'fd010000-0000-4000-8000-000000000001',
+      'UNSOURCED-TRACKED',
+      'Unsourced Tracked Leave',
+      true,
+      'optional',
+      null,
+      true
+  )$,
+  'Tracked leave types require a verified source reference',
+  'balance-tracked leave policy cannot be created without a source reference'
 );
 
 reset role;
@@ -241,14 +255,26 @@ select lives_ok(
   'manager can post sourced opening ledger entry without writing a balance field'
 );
 
+select throws_ok(
+  $select public.decide_staff_leave_request(
+      (select id from public.staff_leave_requests
+       where staff_member_id='fd030000-0000-4000-8000-000000000002'),
+      'approve',
+      6,
+      'Over approval'
+  )$,
+  'Approved leave units cannot exceed requested units',
+  'approval cannot exceed the units requested by the staff member'
+);
+
 select lives_ok(
-  $$select public.decide_staff_leave_request(
+  $select public.decide_staff_leave_request(
       (select id from public.staff_leave_requests
        where staff_member_id='fd030000-0000-4000-8000-000000000002'),
       'approve',
       5,
       'Approved after review'
-  )$$,
+  )$,
   'manager can approve another staff member leave request'
 );
 
