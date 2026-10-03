@@ -240,7 +240,7 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
         {countdownLabel(data.window.closesAt,clock) ? <span className="font-medium">{countdownLabel(data.window.closesAt,clock)}</span> : null}
         {data.window.activeReopenExpiresAt ? <span className="text-warning">Correction {countdownLabel(data.window.activeReopenExpiresAt,clock)}</span> : null}
       </div>
-      {!data.editable ? <div className="mt-3 flex items-start gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 text-xs text-muted-foreground"><AlertTriangle className="mt-0.5 size-4 shrink-0"/>Marks are read-only under the effective mark-entry window or moderation state. A governed correction can reopen only its authorised scope.</div> : null}
+      {!data.editable ? <div className="mt-3 flex items-start gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 text-xs text-muted-foreground"><AlertTriangle className="mt-0.5 size-4 shrink-0"/>{["review","verified","locked"].includes(data.status) ? "Marks are read-only while this assessment is in review, verified or locked state. " : "Marks are read-only under the effective mark-entry window. "}A governed correction can reopen only its authorised scope.</div> : null}
     </section>
 
     <section className="grid gap-3 sm:grid-cols-3">

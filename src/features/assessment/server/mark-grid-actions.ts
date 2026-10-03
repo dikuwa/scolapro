@@ -205,3 +205,7 @@ export async function authorizeMarkCorrection(
   revalidateAssessment(instanceId);
   return {success:true,message:"Bounded correction authorization created. Corrected marks will be linked to it and must be re-verified."};
 }
+
+// Compatibility name retained for the established mark-grid contract; the implementation
+// now delegates to the bounded scope-aware correction authorization action above.
+export const reopenMarkGridForCorrection=authorizeMarkCorrection;

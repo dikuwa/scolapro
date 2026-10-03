@@ -163,40 +163,40 @@ stable
 security definer
 set search_path=pg_catalog,public,app_private
 as $$
-  select authorization.id
+  select reopen.id
   from public.assessment_instances instance
-  join public.assessment_mark_reopen_authorizations authorization
-    on authorization.tenant_id=instance.tenant_id
-   and authorization.school_id=instance.school_id
-   and authorization.subject_offering_id=instance.subject_offering_id
-   and authorization.register_class_id=instance.register_class_id
-   and authorization.term_number is not distinct from instance.term_number
+  join public.assessment_mark_reopen_authorizations reopen
+    on reopen.tenant_id=instance.tenant_id
+   and reopen.school_id=instance.school_id
+   and reopen.subject_offering_id=instance.subject_offering_id
+   and reopen.register_class_id=instance.register_class_id
+   and reopen.term_number is not distinct from instance.term_number
   where instance.id=p_assessment_instance_id
-    and authorization.status='active'
-    and authorization.starts_at<=p_at
-    and authorization.expires_at>p_at
+    and reopen.status='active'
+    and reopen.starts_at<=p_at
+    and reopen.expires_at>p_at
     and (
       (
-        authorization.scope_kind='learner'
-        and authorization.assessment_instance_id=instance.id
+        reopen.scope_kind='learner'
+        and reopen.assessment_instance_id=instance.id
         and p_enrolment_id is not null
-        and authorization.enrolment_id=p_enrolment_id
+        and reopen.enrolment_id=p_enrolment_id
       )
       or
       (
-        authorization.scope_kind='component'
-        and authorization.assessment_instance_id=instance.id
+        reopen.scope_kind='component'
+        and reopen.assessment_instance_id=instance.id
       )
-      or authorization.scope_kind='subject_class'
+      or reopen.scope_kind='subject_class'
     )
   order by
-    case authorization.scope_kind
+    case reopen.scope_kind
       when 'learner' then 1
       when 'component' then 2
       else 3
     end,
-    authorization.created_at desc,
-    authorization.id
+    reopen.created_at desc,
+    reopen.id
   limit 1;
 $$;
 
@@ -288,28 +288,28 @@ begin
   end if;
 
   if p_enrolment_id is null then
-    select coalesce(jsonb_agg(authorization.enrolment_id order by authorization.created_at),'[]'::jsonb)
+    select coalesce(jsonb_agg(reopen.enrolment_id order by reopen.created_at),'[]'::jsonb)
       into v_reopened_enrolments
-    from public.assessment_mark_reopen_authorizations authorization
-    where authorization.status='active'
-      and authorization.scope_kind='learner'
-      and authorization.assessment_instance_id=v_instance.id
-      and authorization.starts_at<=p_at
-      and authorization.expires_at>p_at;
+    from public.assessment_mark_reopen_authorizations reopen
+    where reopen.status='active'
+      and reopen.scope_kind='learner'
+      and reopen.assessment_instance_id=v_instance.id
+      and reopen.starts_at<=p_at
+      and reopen.expires_at>p_at;
   end if;
 
   select exists(
     select 1
-    from public.assessment_mark_reopen_authorizations authorization
-    where authorization.tenant_id=v_instance.tenant_id
-      and authorization.school_id=v_instance.school_id
-      and authorization.subject_offering_id=v_instance.subject_offering_id
-      and authorization.register_class_id=v_instance.register_class_id
-      and authorization.term_number is not distinct from v_instance.term_number
-      and authorization.used_at is not null
+    from public.assessment_mark_reopen_authorizations reopen
+    where reopen.tenant_id=v_instance.tenant_id
+      and reopen.school_id=v_instance.school_id
+      and reopen.subject_offering_id=v_instance.subject_offering_id
+      and reopen.register_class_id=v_instance.register_class_id
+      and reopen.term_number is not distinct from v_instance.term_number
+      and reopen.used_at is not null
       and (
-        authorization.assessment_instance_id=v_instance.id
-        or authorization.scope_kind='subject_class'
+        reopen.assessment_instance_id=v_instance.id
+        or reopen.scope_kind='subject_class'
       )
   ) into v_has_reopen_history;
 
@@ -732,28 +732,28 @@ begin
   where id=p_authorization_id
   for update;
   if not found then raise exception 'Correction authorization not found'; end if;
-  if v_authorization.status<>'active' then raise exception 'Correction authorization is not active'; end if;
+  if v_reopen.status<>'active' then raise exception 'Correction authorization is not active'; end if;
 
   select subject_id into v_subject_id
   from public.subject_offerings
-  where id=v_authorization.subject_offering_id;
+  where id=v_reopen.subject_offering_id;
 
   v_is_school_leader:=
     app_private.has_platform_role(array['platform_admin'])
     or (
-      app_private.user_current_school_matches((select auth.uid()),v_authorization.school_id)
+      app_private.user_current_school_matches((select auth.uid()),v_reopen.school_id)
       and not app_private.has_platform_role(array['platform_support'])
       and app_private.has_school_role(
-        v_authorization.school_id,
+        v_reopen.school_id,
         array['school_admin','principal','deputy_principal']
       )
     );
   v_is_hod:=
-    app_private.user_current_school_matches((select auth.uid()),v_authorization.school_id)
+    app_private.user_current_school_matches((select auth.uid()),v_reopen.school_id)
     and not app_private.has_platform_role(array['platform_support'])
-    and app_private.hod_responsible_for_subject(v_authorization.school_id,v_subject_id);
+    and app_private.hod_responsible_for_subject(v_reopen.school_id,v_subject_id);
 
-  if v_authorization.scope_kind='subject_class' then
+  if v_reopen.scope_kind='subject_class' then
     if not v_is_school_leader then raise exception 'Permission denied'; end if;
   elsif not (v_is_school_leader or v_is_hod) then
     raise exception 'Permission denied';
@@ -764,13 +764,13 @@ begin
          closed_at=now(),
          closed_by_user_id=auth.uid(),
          close_reason=v_reason
-   where id=v_authorization.id;
+   where id=v_reopen.id;
 
   insert into public.audit_events(
     tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
   ) values(
-    v_authorization.tenant_id,v_authorization.school_id,auth.uid(),
-    'assessment.mark_correction.revoked','assessment_mark_reopen_authorization',v_authorization.id,
+    v_reopen.tenant_id,v_reopen.school_id,auth.uid(),
+    'assessment.mark_correction.revoked','assessment_mark_reopen_authorization',v_reopen.id,
     jsonb_build_object('reason',v_reason)
   );
 
@@ -910,15 +910,15 @@ begin
       'assessment_instance_id',new.assessment_instance_id,
       'enrolment_id',new.enrolment_id,
       'authorization_id',new.correction_authorization_id,
-      'scope_kind',v_authorization.scope_kind,
-      'reason',v_authorization.reason,
+      'scope_kind',v_reopen.scope_kind,
+      'reason',v_reopen.reason,
       'old_mark_id',v_previous.id,
       'old_numeric_mark',v_previous.numeric_mark,
       'old_mark_status',v_previous.mark_status,
       'new_numeric_mark',new.numeric_mark,
       'new_mark_status',new.mark_status,
       'changed_at',new.recorded_at,
-      'requires_reverification',v_authorization.requires_reverification
+      'requires_reverification',v_reopen.requires_reverification
     )
   );
 
@@ -1133,10 +1133,10 @@ begin
   if v_instance.correction_pending and not exists(
     select 1
     from public.learner_marks mark
-    join public.assessment_mark_reopen_authorizations authorization
-      on authorization.id=mark.correction_authorization_id
+    join public.assessment_mark_reopen_authorizations reopen
+      on reopen.id=mark.correction_authorization_id
     where mark.assessment_instance_id=v_instance.id
-      and authorization.requires_reverification=true
+      and reopen.requires_reverification=true
   ) then
     raise exception 'Correction requires at least one governed mark revision before re-verification';
   end if;
@@ -1293,22 +1293,22 @@ begin
    where id=v_instance.id;
 
   if p_decision='verify' and v_was_correction then
-    update public.assessment_mark_reopen_authorizations authorization
+    update public.assessment_mark_reopen_authorizations reopen
        set status='closed',
            closed_at=now(),
            closed_by_user_id=auth.uid(),
            close_reason='Correction re-verification completed'
-     where authorization.status='active'
-       and authorization.used_at is not null
+     where reopen.status='active'
+       and reopen.used_at is not null
        and (
-         authorization.assessment_instance_id=v_instance.id
+         reopen.assessment_instance_id=v_instance.id
          or (
-           authorization.scope_kind='subject_class'
-           and authorization.tenant_id=v_instance.tenant_id
-           and authorization.school_id=v_instance.school_id
-           and authorization.subject_offering_id=v_instance.subject_offering_id
-           and authorization.register_class_id=v_instance.register_class_id
-           and authorization.term_number is not distinct from v_instance.term_number
+           reopen.scope_kind='subject_class'
+           and reopen.tenant_id=v_instance.tenant_id
+           and reopen.school_id=v_instance.school_id
+           and reopen.subject_offering_id=v_instance.subject_offering_id
+           and reopen.register_class_id=v_instance.register_class_id
+           and reopen.term_number is not distinct from v_instance.term_number
            and not exists(
              select 1
              from public.assessment_instances pending
@@ -1601,18 +1601,18 @@ begin
   for update;
 
   if found then
-    select authorization.id
+    select reopen.id
       into v_correction_authorization_id
     from public.learner_marks mark
     join public.assessment_instances instance
       on instance.id=mark.assessment_instance_id
-    join public.assessment_mark_reopen_authorizations authorization
-      on authorization.id=mark.correction_authorization_id
+    join public.assessment_mark_reopen_authorizations reopen
+      on reopen.id=mark.correction_authorization_id
     where mark.enrolment_id=v_enrolment.id
       and instance.assessment_scheme_id=v_scheme.id
       and instance.register_class_id=v_enrolment.register_class_id
       and instance.term_number=p_term_number
-      and authorization.requires_reverification=true
+      and reopen.requires_reverification=true
       and mark.recorded_at>v_previous.approved_at
     order by mark.recorded_at desc,mark.id desc
     limit 1;
@@ -1918,7 +1918,7 @@ comment on table public.assessment_mark_entry_windows is
 comment on table public.assessment_mark_reopen_authorizations is
 'Bounded, expiring correction authority for one learner, one assessment component, or a subject/class scope. Every corrected mark links to the authorization that permitted it.';
 comment on column public.learner_marks.correction_authorization_id is
-'Non-null only for append-only mark revisions made through a governed correction authorization.';
+'Non-null only for append-only mark revisions made through a governed correction reopen.';
 comment on index public.official_results_current_subject_term_uidx is
 'At most one non-superseded official result exists per learner, subject offering and term. Historical corrected results remain retrievable.';
 comment on view public.official_results_current is
