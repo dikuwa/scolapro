@@ -11,12 +11,12 @@ const actions = read("src/features/sports-houses/server/actions.ts");
 const phase2 = read("supabase/tests/sports_house_assisted_balancing_test.sql");
 
 test("Sports & Houses initial learner load uses one governed school/year roster read", () => {
-  assert.match(queries, /rpc\("get_sports_house_learner_roster"/);
+  assert.match(queries, /rpc\("get_sports_house_operational_learner_roster"/);
   assert.match(queries, /p_school_id: schoolId/);
   assert.match(queries, /p_academic_year: academicYear/);
   assert.match(
     queries,
-    /\.select\(\s*"learner_id,first_names,surname,admission_number,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label"/,
+    /\.select\(\s*"learner_id,first_names,surname,admission_number,sex,grade_id,grade_name,register_class_id,register_class_name,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label"/,
   );
   assert.doesNotMatch(
     queries,
