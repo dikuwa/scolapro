@@ -9,10 +9,11 @@ import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 export default async function AssessmentQualityPage({ searchParams }: { searchParams: Promise<{ year?:string;term?:string;subject?:string;class?:string;teacher?:string;readiness?:string }> }) {
   const params=await searchParams;
   const academicYear=Number(params.year) || getNamibiaCalendarYear();
-  const termNumber=params.term ? Number(params.term) : null;
+  const parsedTerm=params.term ? Number(params.term) : null;
+  const termNumber=parsedTerm !== null && Number.isInteger(parsedTerm) && parsedTerm>=1 && parsedTerm<=3 ? parsedTerm : null;
   const workspace=await getAssessmentQualityWorkspace({
     academicYear,
-    termNumber:Number.isInteger(termNumber) && termNumber!>=1 && termNumber!<=3 ? termNumber : null,
+    termNumber,
     subjectOfferingId:params.subject || undefined,
     registerClassId:params.class || undefined,
     teacherStaffMemberId:params.teacher || undefined,

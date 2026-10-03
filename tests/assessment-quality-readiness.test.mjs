@@ -43,7 +43,7 @@ test("final-result-only schemes explicitly suppress component analytics",()=>{
 });
 
 test("readiness reuses existing moderation lifecycle",()=>{
-  for(const status of ["draft","submitted","returned","verified","locked"]) assert.match(migration,new RegExp(\`'\${status}'\`));
+  for(const status of ["draft","submitted","returned","verified","locked"]) assert.match(migration,new RegExp(`'${status}'`));
   assert.match(component,/Moderation required/);
   assert.match(component,/Standard review/);
 });
