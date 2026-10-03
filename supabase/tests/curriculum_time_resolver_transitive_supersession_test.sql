@@ -147,31 +147,31 @@ select lives_ok(
 );
 
 select lives_ok(
-  $$select public.govern_curriculum_time_registry(
-    'profile',id,'publish',null,null
-  )
-  from public.curriculum_time_profiles
-  where id in(
-    'fd150000-0000-4000-8000-000000000001',
-    'fd150000-0000-4000-8000-000000000002',
-    'fd150000-0000-4000-8000-000000000003'
-  )
-  order by id$$,
-  'A then B then C profile publication accepts direct and transitive supersession'
-);
-
-select lives_ok(
-  $$select public.govern_curriculum_time_registry(
-    'allocation',id,'publish',null,null
-  )
-  from public.curriculum_time_allocations
-  where id in(
-    'fd160000-0000-4000-8000-000000000001',
-    'fd160000-0000-4000-8000-000000000002',
-    'fd160000-0000-4000-8000-000000000003'
-  )
-  order by id$$,
-  'A then B then C allocation publication follows the governed profile chain'
+  $sql$
+  do $chain$
+  begin
+    perform public.govern_curriculum_time_registry(
+      'profile','fd150000-0000-4000-8000-000000000001','publish',null,null
+    );
+    perform public.govern_curriculum_time_registry(
+      'allocation','fd160000-0000-4000-8000-000000000001','publish',null,null
+    );
+    perform public.govern_curriculum_time_registry(
+      'profile','fd150000-0000-4000-8000-000000000002','publish',null,null
+    );
+    perform public.govern_curriculum_time_registry(
+      'allocation','fd160000-0000-4000-8000-000000000002','publish',null,null
+    );
+    perform public.govern_curriculum_time_registry(
+      'profile','fd150000-0000-4000-8000-000000000003','publish',null,null
+    );
+    perform public.govern_curriculum_time_registry(
+      'allocation','fd160000-0000-4000-8000-000000000003','publish',null,null
+    );
+  end;
+  $chain$
+  $sql$,
+  'A then B then C publication succeeds through the governed profile chain'
 );
 
 select is(
