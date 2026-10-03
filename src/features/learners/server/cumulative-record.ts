@@ -114,6 +114,7 @@ function oneRelation(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? value as Record<string, unknown> : null;
 }
 
+// RLS intentionally makes restricted collections look empty when the caller lacks need-to-know access.
 export async function getLearnerCumulativeRecord(learnerId: string, schoolId: string): Promise<LearnerCumulativeRecord> {
   const supabase = await createSupabaseServerClient();
 
