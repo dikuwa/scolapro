@@ -26,6 +26,8 @@ test("quality symbols are effective-dated governed metadata and never hard-coded
   assert.match(migration, /effective_from_year/);
   assert.match(migration, /effective_to_year/);
   assert.match(migration, /user_can_manage_school_settings/);
+  assert.match(migration, /new\.created_by_user_id:=auth\.uid\(\)/);
+  assert.match(migration, /created_by_user_id=auth\.uid\(\)/);
   assert.match(source, /qualitySymbolsByScaleId/);
   assert.doesNotMatch(source + views, /\["A","B","C"\]|A–C is|A-C is/);
 });
@@ -36,6 +38,10 @@ test("promotion readiness delegates to the canonical promotion engine", () => {
   assert.doesNotMatch(migration, /array\['school_admin','principal','deputy_principal','hod'\]/);
   assert.match(source, /canReadPromotionReadiness = \["school_admin","principal","deputy_principal"\]/);
   assert.match(migration, /get_academic_analysis_promotion_readiness/);
+  assert.match(migration, /from public\.academic_years ay/);
+  assert.match(migration, /e\.enrolled_from<=v_year_end/);
+  assert.match(migration, /e\.enrolled_to is null or e\.enrolled_to>=v_year_start/);
+  assert.doesNotMatch(migration, /e\.status='current'[\s\S]*e\.enrolled_from<=current_date/);
   assert.match(source, /get_academic_analysis_promotion_readiness/);
   assert.doesNotMatch(source, /recommended_outcome\s*=|pass_outcome\s*=|fail_outcome\s*=/);
 });

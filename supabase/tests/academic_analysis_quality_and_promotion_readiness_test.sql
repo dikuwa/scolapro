@@ -1,6 +1,6 @@
 begin;
 
-select plan(10);
+select plan(12);
 
 select has_table(
   'public',
@@ -100,6 +100,34 @@ select ok(
       and column_name='effective_to_year'
   ),
   'quality-symbol definitions are effective-dated so historical analysis does not inherit current assumptions'
+);
+
+select ok(
+  pg_get_functiondef('public.get_academic_analysis_promotion_readiness(uuid,integer)'::regprocedure)
+    like '%from public.academic_years ay%'
+  and pg_get_functiondef('public.get_academic_analysis_promotion_readiness(uuid,integer)'::regprocedure)
+    like '%e.enrolled_from<=v_year_end%'
+  and pg_get_functiondef('public.get_academic_analysis_promotion_readiness(uuid,integer)'::regprocedure)
+    like '%e.enrolled_to>=v_year_start%'
+  and pg_get_functiondef('public.get_academic_analysis_promotion_readiness(uuid,integer)'::regprocedure)
+    not like '%e.status=''current''%'
+  and pg_get_functiondef('public.get_academic_analysis_promotion_readiness(uuid,integer)'::regprocedure)
+    not like '%e.enrolled_from<=current_date%',
+  'historical promotion readiness retains enrolments effective during the requested governed academic year'
+);
+
+select ok(
+  pg_get_functiondef('app_private.guard_academic_analysis_quality_symbol()'::regprocedure)
+    like '%new.created_by_user_id:=auth.uid()%'
+  and exists(
+    select 1
+    from pg_policies
+    where schemaname='public'
+      and tablename='academic_analysis_quality_symbols'
+      and policyname='academic_analysis_quality_symbols_insert'
+      and with_check like '%created_by_user_id%auth.uid()%'
+  ),
+  'quality-symbol authorship is bound to the authenticated caller at trigger and RLS boundaries'
 );
 
 select * from finish();

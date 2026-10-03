@@ -55,6 +55,13 @@ begin
     raise exception 'Quality-symbol definition must match its grading-scale school and tenant';
   end if;
 
+  if tg_op='INSERT' then
+    if auth.uid() is null then
+      raise exception 'Authentication required';
+    end if;
+    new.created_by_user_id:=auth.uid();
+  end if;
+
   new.symbol:=btrim(new.symbol);
 
   if tg_op='UPDATE'
@@ -97,7 +104,10 @@ create policy academic_analysis_quality_symbols_insert
 on public.academic_analysis_quality_symbols
 for insert
 to authenticated
-with check (app_private.user_can_manage_school_settings(auth.uid(),school_id));
+with check (
+  app_private.user_can_manage_school_settings(auth.uid(),school_id)
+  and created_by_user_id=auth.uid()
+);
 
 drop policy if exists academic_analysis_quality_symbols_update
 on public.academic_analysis_quality_symbols;
@@ -133,6 +143,9 @@ stable
 security definer
 set search_path=pg_catalog,public,app_private
 as $promotion_readiness$
+declare
+  v_year_start date;
+  v_year_end date;
 begin
   if auth.uid() is null then
     raise exception 'Authentication required';
@@ -148,6 +161,18 @@ begin
   ) then
     raise exception 'Permission denied';
   end if;
+
+  select
+    coalesce(ay.starts_on,make_date(p_academic_year,1,1)),
+    coalesce(ay.ends_on,make_date(p_academic_year,12,31))
+  into v_year_start,v_year_end
+  from public.academic_years ay
+  where ay.school_id=p_school_id
+    and ay.year=p_academic_year
+  limit 1;
+
+  v_year_start:=coalesce(v_year_start,make_date(p_academic_year,1,1));
+  v_year_end:=coalesce(v_year_end,make_date(p_academic_year,12,31));
 
   return query
   select
@@ -173,9 +198,8 @@ begin
   ) recommendation
   where e.school_id=p_school_id
     and e.academic_year=p_academic_year
-    and e.status='current'
-    and e.enrolled_from<=current_date
-    and (e.enrolled_to is null or e.enrolled_to>=current_date);
+    and e.enrolled_from<=v_year_end
+    and (e.enrolled_to is null or e.enrolled_to>=v_year_start);
 end;
 $promotion_readiness$;
 
@@ -188,4 +212,4 @@ comment on table public.academic_analysis_quality_symbols is
 'Governed, effective-dated definition of which grading-scale symbols count as quality outcomes in Academic Analysis. No symbol set such as A-C is assumed by application code.';
 
 comment on function public.get_academic_analysis_promotion_readiness(uuid,integer) is
-'Read-only bulk promotion-readiness projection for school-wide leaders. HODs are intentionally excluded from this whole-school SECURITY DEFINER projection; their Academic Analysis remains constrained to governed subject responsibility. The RPC delegates every learner recommendation to the canonical promotion engine and does not create a second promotion rule implementation.';
+'Read-only bulk promotion-readiness projection for school-wide leaders. HODs are intentionally excluded from this whole-school SECURITY DEFINER projection; their Academic Analysis remains constrained to governed subject responsibility. Historical cohorts are selected by overlap with the requested school academic-year dates, not current-today enrolment state. The RPC delegates every learner recommendation to the canonical promotion engine and does not create a second promotion rule implementation.';
