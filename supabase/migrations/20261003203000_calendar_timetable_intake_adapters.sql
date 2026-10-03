@@ -183,6 +183,9 @@ declare
   v_starts_at time;
   v_ends_at time;
   v_impact text;
+  v_audience_scope text;
+  v_audience_reference_id uuid;
+  v_bell_schedule_id uuid;
   v_class_id uuid;
   v_period_id uuid;
   v_allocation_id uuid;
@@ -211,6 +214,7 @@ begin
     v_category:=nullif(btrim(p_payload->>'category'),'');
     v_source_class:=lower(coalesce(nullif(btrim(p_payload->>'source_class'),''),'school'));
     v_impact:=upper(coalesce(nullif(btrim(p_payload->>'teaching_impact'),''),'NORMAL'));
+    v_audience_scope:=lower(coalesce(nullif(btrim(p_payload->>'audience_scope'),''),'all_learners'));
 
     if v_title is null then
       v_issues:=v_issues||jsonb_build_array('Event title is required.');
@@ -223,6 +227,67 @@ begin
     end if;
     if v_impact not in ('NORMAL','NO_TEACHING','PARTIAL_DAY','ALTERED_TIMETABLE','EXAM_TIMETABLE') then
       v_issues:=v_issues||jsonb_build_array('Teaching impact is not supported.');
+    end if;
+    if v_audience_scope not in ('all_learners','grade','register_class','teaching_group') then
+      v_issues:=v_issues||jsonb_build_array('Audience scope is not supported.');
+    end if;
+
+    if nullif(btrim(p_payload->>'audience_reference_id'),'') is not null then
+      begin
+        v_audience_reference_id:=(p_payload->>'audience_reference_id')::uuid;
+      exception when others then
+        v_issues:=v_issues||jsonb_build_array('Audience reference must be a valid identifier.');
+      end;
+    end if;
+
+    if v_audience_scope='all_learners' and v_audience_reference_id is not null then
+      v_issues:=v_issues||jsonb_build_array('All-learners events cannot carry an audience reference.');
+    elsif v_audience_scope<>'all_learners' and v_audience_reference_id is null then
+      v_issues:=v_issues||jsonb_build_array('Selected audience scope requires a valid audience reference.');
+    elsif v_audience_scope='grade' and v_audience_reference_id is not null
+      and not exists(
+        select 1 from public.grades g
+        where g.id=v_audience_reference_id
+          and g.school_id=v_job.school_id
+          and g.academic_year=v_job.academic_year
+      ) then
+      v_issues:=v_issues||jsonb_build_array('Calendar grade is outside the current school/year scope.');
+    elsif v_audience_scope='register_class' and v_audience_reference_id is not null
+      and not exists(
+        select 1 from public.register_classes rc
+        where rc.id=v_audience_reference_id
+          and rc.school_id=v_job.school_id
+          and rc.academic_year=v_job.academic_year
+      ) then
+      v_issues:=v_issues||jsonb_build_array('Calendar class is outside the current school/year scope.');
+    elsif v_audience_scope='teaching_group' and v_audience_reference_id is not null
+      and not exists(
+        select 1 from public.teaching_groups tg
+        where tg.id=v_audience_reference_id
+          and tg.school_id=v_job.school_id
+          and tg.academic_year=v_job.academic_year
+      ) then
+      v_issues:=v_issues||jsonb_build_array('Calendar teaching group is outside the current school/year scope.');
+    end if;
+
+    if nullif(btrim(p_payload->>'bell_schedule_id'),'') is not null then
+      begin
+        v_bell_schedule_id:=(p_payload->>'bell_schedule_id')::uuid;
+      exception when others then
+        v_issues:=v_issues||jsonb_build_array('Bell schedule must be a valid identifier.');
+      end;
+      if v_bell_schedule_id is not null and not exists(
+        select 1 from public.timetable_bell_schedules bs
+        where bs.id=v_bell_schedule_id
+          and bs.school_id=v_job.school_id
+          and bs.academic_year=v_job.academic_year
+      ) then
+        v_issues:=v_issues||jsonb_build_array('Bell schedule is outside the current school/year scope.');
+      end if;
+      if v_bell_schedule_id is not null
+        and v_impact not in ('ALTERED_TIMETABLE','EXAM_TIMETABLE') then
+        v_issues:=v_issues||jsonb_build_array('Bell schedule is only valid for altered or exam timetable impact.');
+      end if;
     end if;
 
     begin
@@ -258,11 +323,11 @@ begin
       'ends_on',case when v_ends_on is not null then v_ends_on::text end,
       'starts_at',case when v_starts_at is not null then to_char(v_starts_at,'HH24:MI') end,
       'ends_at',case when v_ends_at is not null then to_char(v_ends_at,'HH24:MI') end,
-      'audience_scope',coalesce(nullif(btrim(p_payload->>'audience_scope'),''),'all_learners'),
-      'audience_reference_id',nullif(btrim(p_payload->>'audience_reference_id'),''),
+      'audience_scope',v_audience_scope,
+      'audience_reference_id',case when v_audience_reference_id is not null then v_audience_reference_id::text end,
       'description',nullif(btrim(p_payload->>'description'),''),
       'teaching_impact',v_impact,
-      'bell_schedule_id',nullif(btrim(p_payload->>'bell_schedule_id'),''),
+      'bell_schedule_id',case when v_bell_schedule_id is not null then v_bell_schedule_id::text end,
       'source_class',v_source_class
     ));
 
