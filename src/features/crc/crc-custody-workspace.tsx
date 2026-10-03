@@ -861,14 +861,14 @@ export function CrcCustodyWorkspace({
                     <div className="flex items-center gap-2"><span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.68rem] font-medium capitalize ${statusClass[record.custodyStatus] ?? "bg-surface-muted text-muted-foreground"}`}>{statusLabels[record.custodyStatus] ?? record.custodyStatus}</span><ActionButton record={record} leadership={leadership} /></div>
                   </div>
                 </article>
-              ))}</div> : <p className="text-sm text-muted-foreground">No active custody records in your scope.</p>}
+              ))}</div> : <p className="text-sm text-muted-foreground">No custody records in your scope. Active custody records will appear here when a governed transfer exists.</p>}
             </section>
             <div className="space-y-5">
               <PrepareForm destinations={destinations} canPrepare={canPrepare} />
               {summary.canViewConfidentialSupport ? (
-                <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5"><h2 className="scolapro-section-title">Confidential support</h2><p className="scolapro-section-description">Your explicit support role permits need-to-know access through the governed learner CRC. Confidential content is not duplicated into this transfer register.</p></section>
+                <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5"><h2 className="scolapro-section-title">Confidential support</h2><p className="scolapro-section-description">Your explicit support role permits need-to-know access through the governed learner CRC. Confidential case content is not duplicated into this dashboard.</p></section>
               ) : (
-                <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><h2 className="scolapro-section-title">Administrative oversight</h2><p className="scolapro-section-description">Leadership sees workflow/readiness only. Counselling, psychometric and highly restricted content stays outside this workspace.</p></section>
+                <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><h2 className="scolapro-section-title">Administrative oversight</h2><p className="scolapro-section-description">Leadership sees workflow state and readiness only. Counselling, psychometric and highly restricted content stays outside this workspace.</p></section>
               )}
             </div>
           </div>
@@ -880,6 +880,7 @@ export function CrcCustodyWorkspace({
           <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
             <h2 className="scolapro-section-title">CRC document register</h2>
             <p className="scolapro-section-description">Metadata for custody documents in your authorised school scope. Storage paths and document contents are intentionally not exposed by this administrative read model.</p>
+            <p className="mt-2 text-[0.68rem] text-muted-foreground">Reports & audit remain derived from authoritative CRC activity. Training guidance: routine contributions stay non-confidential; custody follows Prepare → Authorize → Dispatch → Receive → Acknowledge → Close.</p>
           </div>
           {documents.length ? <div className="divide-y divide-border-subtle">{documents.map((document) => (
             <article key={document.documentId} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
