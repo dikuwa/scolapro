@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(37);
 
 select has_table('public','staff_leave_types','staff leave types table exists');
 select has_table('public','staff_leave_requests','staff leave requests table exists');
@@ -52,6 +52,26 @@ select is(
   ),
   false,
   'anonymous callers cannot submit staff leave'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'app_private.can_view_staff_leave(uuid,uuid)',
+    'EXECUTE'
+  ),
+  true,
+  'authenticated RLS evaluation can execute the staff leave visibility helper'
+);
+
+select is(
+  has_function_privilege(
+    'authenticated',
+    'app_private.can_access_staff_leave_object(text)',
+    'EXECUTE'
+  ),
+  true,
+  'authenticated storage RLS evaluation can execute the staff leave object helper'
 );
 
 insert into public.tenants(id,name,slug)

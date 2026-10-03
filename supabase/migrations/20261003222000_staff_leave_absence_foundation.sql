@@ -157,7 +157,8 @@ as $$
   order by sm.active_from desc,sm.id
   limit 1;
 $$;
-revoke all on function app_private.staff_leave_actor_staff_member(uuid) from public,anon,authenticated;
+revoke all on function app_private.staff_leave_actor_staff_member(uuid) from public,anon;
+grant execute on function app_private.staff_leave_actor_staff_member(uuid) to authenticated;
 
 create or replace function app_private.can_manage_staff_leave(p_school_id uuid)
 returns boolean
@@ -175,7 +176,8 @@ as $$
       )
     );
 $$;
-revoke all on function app_private.can_manage_staff_leave(uuid) from public,anon,authenticated;
+revoke all on function app_private.can_manage_staff_leave(uuid) from public,anon;
+grant execute on function app_private.can_manage_staff_leave(uuid) to authenticated;
 
 create or replace function app_private.can_view_staff_leave(
   p_school_id uuid,
@@ -193,7 +195,8 @@ as $$
       or app_private.staff_leave_actor_staff_member(p_school_id)=p_staff_member_id
     );
 $$;
-revoke all on function app_private.can_view_staff_leave(uuid,uuid) from public,anon,authenticated;
+revoke all on function app_private.can_view_staff_leave(uuid,uuid) from public,anon;
+grant execute on function app_private.can_view_staff_leave(uuid,uuid) to authenticated;
 
 create policy "school members read leave types"
 on public.staff_leave_types for select to authenticated
@@ -824,7 +827,8 @@ as $$
     )
   end;
 $$;
-revoke all on function app_private.can_access_staff_leave_object(text) from public,anon,authenticated;
+revoke all on function app_private.can_access_staff_leave_object(text) from public,anon;
+grant execute on function app_private.can_access_staff_leave_object(text) to authenticated;
 
 create policy "staff uploads own leave evidence"
 on storage.objects for insert to authenticated

@@ -74,5 +74,7 @@ test("pgTAP plan matches the focused lifecycle assertions", () => {
   const assertions = ["has_table", "has_function", "is", "ok", "throws_ok", "lives_ok"]
     .reduce((sum, name) => sum + (pg.match(new RegExp(`select\\s+${name}\\s*\\(`, "gi")) ?? []).length, 0);
   assert.equal(plan, assertions);
-  assert.equal(plan, 33);
+  assert.equal(plan, 37);
+  assert.match(migration, /grant execute on function app_private\.can_view_staff_leave\(uuid,uuid\) to authenticated/i);
+  assert.match(migration, /grant execute on function app_private\.can_access_staff_leave_object\(text\) to authenticated/i);
 });
