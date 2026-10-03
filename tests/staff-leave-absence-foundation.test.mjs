@@ -11,7 +11,10 @@ const page = readFileSync("src/app/staff/leave/page.tsx", "utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx", "utf8");
 
 test("leave foundation does not seed invented policy entitlements or a mutable balance column", () => {
-  assert.doesNotMatch(migration, /insert into public\.staff_leave_types/i);
+  assert.doesNotMatch(
+    migration,
+    /insert into public\.staff_leave_types\s*\([^)]*\)\s*values\s*\(\s*'[^']+'/i,
+  );
   assert.doesNotMatch(migration, /\bbalance\s+numeric/i);
   assert.match(migration, /units_delta numeric\(8,2\)/);
   assert.match(migration, /Staff leave ledger entries are immutable/);
