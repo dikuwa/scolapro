@@ -40,6 +40,10 @@ as $quality_symbol_guard$
 declare
   v_scale record;
 begin
+  if tg_op='DELETE' then
+    raise exception 'Historical quality-symbol definitions cannot be deleted; end-date or inactivate them';
+  end if;
+
   select gs.tenant_id,gs.school_id
   into v_scale
   from public.grading_scales gs
@@ -76,7 +80,7 @@ from public,anon,authenticated;
 drop trigger if exists academic_analysis_quality_symbol_guard_trg
 on public.academic_analysis_quality_symbols;
 create trigger academic_analysis_quality_symbol_guard_trg
-before insert or update on public.academic_analysis_quality_symbols
+before insert or update or delete on public.academic_analysis_quality_symbols
 for each row execute function app_private.guard_academic_analysis_quality_symbol();
 
 drop policy if exists academic_analysis_quality_symbols_select
@@ -106,11 +110,6 @@ with check (app_private.user_can_manage_school_settings(auth.uid(),school_id));
 
 drop policy if exists academic_analysis_quality_symbols_delete
 on public.academic_analysis_quality_symbols;
-create policy academic_analysis_quality_symbols_delete
-on public.academic_analysis_quality_symbols
-for delete
-to authenticated
-using (app_private.user_can_manage_school_settings(auth.uid(),school_id));
 
 create or replace function public.get_academic_analysis_promotion_readiness(
   p_school_id uuid,
@@ -145,7 +144,7 @@ begin
 
   if not app_private.has_school_local_role(
     p_school_id,
-    array['school_admin','principal','deputy_principal','hod']
+    array['school_admin','principal','deputy_principal']
   ) then
     raise exception 'Permission denied';
   end if;
@@ -189,4 +188,4 @@ comment on table public.academic_analysis_quality_symbols is
 'Governed, effective-dated definition of which grading-scale symbols count as quality outcomes in Academic Analysis. No symbol set such as A-C is assumed by application code.';
 
 comment on function public.get_academic_analysis_promotion_readiness(uuid,integer) is
-'Read-only bulk promotion-readiness projection for school leaders. It delegates every learner recommendation to the canonical promotion engine and does not create a second promotion rule implementation.';
+'Read-only bulk promotion-readiness projection for school-wide leaders. HODs are intentionally excluded from this whole-school SECURITY DEFINER projection; their Academic Analysis remains constrained to governed subject responsibility. The RPC delegates every learner recommendation to the canonical promotion engine and does not create a second promotion rule implementation.';

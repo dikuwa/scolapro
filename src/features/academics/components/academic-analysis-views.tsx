@@ -12,6 +12,7 @@ function percent(value: number | null) {
 function riskBadge(row: LearnerRiskRow) {
   if (row.riskLevel === "high") return "bg-[color:var(--danger-soft)] text-[color:var(--danger)]";
   if (row.riskLevel === "watch") return "bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  if (row.riskLevel === "unavailable") return "bg-surface-muted text-muted-foreground";
   return "bg-[color:var(--success-soft)] text-[color:var(--success)]";
 }
 
@@ -43,12 +44,13 @@ function Overview({ workspace }: { workspace: AcademicAnalysisWorkspace }) {
   const twoPlusFailures = workspace.learnerRiskRows.filter((row) => row.failedSubjects >= 2).length;
   const promotionalRisk = workspace.learnerRiskRows.filter((row) => row.promotionalSubjectFailures > 0).length;
   const nearThreshold = workspace.learnerRiskRows.filter((row) => row.nearThresholdSubjects > 0).length;
+  const riskAvailable = workspace.learnerRiskRows.some((row) => row.riskLevel !== "unavailable");
   return <div className="space-y-5">
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <SummaryCard label="Learners analysed" value={workspace.learnerRiskRows.length} helper="Selected filters and basis" />
-      <SummaryCard label="High risk" value={highRisk} helper="Promotion risk, promotional failure or 2+ failures" />
-      <SummaryCard label="2+ failures" value={twoPlusFailures} />
-      <SummaryCard label={"Near threshold (≤" + workspace.nearThresholdMargin + " pts)"} value={nearThreshold} />
+      <SummaryCard label="High risk" value={riskAvailable ? highRisk : "—"} helper={riskAvailable ? "Promotion risk, promotional failure or 2+ failures" : "Unavailable without governed grading/promotion evidence"} />
+      <SummaryCard label="2+ failures" value={riskAvailable ? twoPlusFailures : "—"} />
+      <SummaryCard label={"Near threshold (≤" + workspace.nearThresholdMargin + " pts)"} value={riskAvailable ? nearThreshold : "—"} />
     </section>
     <section className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4">
@@ -61,7 +63,7 @@ function Overview({ workspace }: { workspace: AcademicAnalysisWorkspace }) {
       </div>
     </section>
     <section className="grid gap-3 sm:grid-cols-3">
-      <SummaryCard label="Promotional-subject risk" value={promotionalRisk} helper="Derived from active promotion-rule subject conditions" />
+      <SummaryCard label="Promotional-subject risk" value={riskAvailable ? promotionalRisk : "—"} helper={riskAvailable ? "Derived from the learner grade's active promotion-rule subject conditions" : "Unavailable without governed grading/promotion evidence"} />
       <SummaryCard label="Quality metric" value={workspace.qualityConfigured ? "Configured" : "Not configured"} helper={workspace.qualityConfigured ? "Effective-dated grading metadata" : "No A–C or other symbol set is assumed"} />
       <SummaryCard label="Result basis" value={workspace.basis === "official" ? "OFFICIAL" : "PROVISIONAL"} helper={"Academic year " + workspace.academicYear + " · Term " + workspace.termNumber} />
     </section>
@@ -95,7 +97,7 @@ function GradesAndClasses({ workspace }: { workspace: AcademicAnalysisWorkspace 
 function LearnersAndRisk({ workspace }: { workspace: AcademicAnalysisWorkspace }) {
   return <section className="space-y-3">
     <div><h2 className="scolapro-section-title">Learners & risk</h2><p className="scolapro-section-description">Read-only risk indicators from governed grading metadata and canonical promotion recommendations. Near-threshold means within {workspace.nearThresholdMargin} points of the configured pass boundary.</p></div>
-    <div className="overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle"><table className="w-full min-w-[980px] text-left text-sm"><thead className="bg-surface-muted text-xs text-muted-foreground"><tr><th className="px-3 py-2">Learner</th><th className="px-3 py-2">Grade / class</th><th className="px-3 py-2">Average</th><th className="px-3 py-2">Failures</th><th className="px-3 py-2">Promotional</th><th className="px-3 py-2">Near threshold</th><th className="px-3 py-2">Promotion readiness</th><th className="px-3 py-2">Risk</th></tr></thead><tbody className="divide-y divide-border-subtle">{workspace.learnerRiskRows.map((row) => <tr key={row.enrolmentId}><td className="px-3 py-2"><p className="font-medium">{row.learnerName}</p><p className="text-xs text-muted-foreground">{row.admissionNumber || "No admission no."}</p></td><td className="px-3 py-2">{row.grade} · {row.className || "—"}</td><td className="px-3 py-2">{row.average ?? "—"}</td><td className="px-3 py-2">{row.failedSubjects}</td><td className="px-3 py-2">{row.promotionalSubjectFailures}</td><td className="px-3 py-2">{row.nearThresholdSubjects}</td><td className="px-3 py-2">{row.promotionReadiness.status === "unavailable" ? "Not available for this role/basis" : <><p className="font-medium">{row.promotionReadiness.recommendedOutcome ?? (row.promotionReadiness.status === "ready" ? "Ready" : "Not ready")}</p><p className="text-xs text-muted-foreground">{row.promotionReadiness.failedConditions} failed condition{row.promotionReadiness.failedConditions === 1 ? "" : "s"}</p></>}</td><td className="px-3 py-2"><span className={"rounded-[var(--radius-xs)] px-2 py-1 text-xs font-semibold " + riskBadge(row)}>{row.riskLevel.toUpperCase()}</span></td></tr>)}</tbody></table></div>
+    <div className="overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle"><table className="w-full min-w-[980px] text-left text-sm"><thead className="bg-surface-muted text-xs text-muted-foreground"><tr><th className="px-3 py-2">Learner</th><th className="px-3 py-2">Grade / class</th><th className="px-3 py-2">Average</th><th className="px-3 py-2">Failures</th><th className="px-3 py-2">Promotional</th><th className="px-3 py-2">Near threshold</th><th className="px-3 py-2">Promotion readiness</th><th className="px-3 py-2">Risk</th></tr></thead><tbody className="divide-y divide-border-subtle">{workspace.learnerRiskRows.map((row) => <tr key={row.enrolmentId}><td className="px-3 py-2"><p className="font-medium">{row.learnerName}</p><p className="text-xs text-muted-foreground">{row.admissionNumber || "No admission no."}</p></td><td className="px-3 py-2">{row.grade} · {row.className || "—"}</td><td className="px-3 py-2">{row.average ?? "—"}</td><td className="px-3 py-2">{row.riskLevel === "unavailable" ? "—" : row.failedSubjects}</td><td className="px-3 py-2">{row.riskLevel === "unavailable" ? "—" : row.promotionalSubjectFailures}</td><td className="px-3 py-2">{row.riskLevel === "unavailable" ? "—" : row.nearThresholdSubjects}</td><td className="px-3 py-2">{row.promotionReadiness.status === "unavailable" ? "Not available for this role/basis" : <><p className="font-medium">{row.promotionReadiness.recommendedOutcome ?? (row.promotionReadiness.status === "ready" ? "Ready" : "Not ready")}</p><p className="text-xs text-muted-foreground">{row.promotionReadiness.failedConditions} failed condition{row.promotionReadiness.failedConditions === 1 ? "" : "s"}</p></>}</td><td className="px-3 py-2"><span className={"rounded-[var(--radius-xs)] px-2 py-1 text-xs font-semibold " + riskBadge(row)}>{row.riskLevel.toUpperCase()}</span></td></tr>)}</tbody></table></div>
   </section>;
 }
 

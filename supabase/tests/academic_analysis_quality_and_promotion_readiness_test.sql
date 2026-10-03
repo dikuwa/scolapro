@@ -50,9 +50,16 @@ select ok(
     select 1 from pg_trigger
     where tgrelid='public.academic_analysis_quality_symbols'::regclass
       and tgname='academic_analysis_quality_symbol_guard_trg'
+      and pg_get_triggerdef(oid) like '%DELETE%'
       and not tgisinternal
+  )
+  and not exists(
+    select 1 from pg_policies
+    where schemaname='public'
+      and tablename='academic_analysis_quality_symbols'
+      and policyname='academic_analysis_quality_symbols_delete'
   ),
-  'quality-symbol scope and immutable historical identity are physically guarded'
+  'quality-symbol history cannot be physically deleted even by school-settings managers'
 );
 
 select ok(
@@ -63,8 +70,10 @@ select ok(
 
 select ok(
   pg_get_functiondef('public.get_academic_analysis_promotion_readiness(uuid,integer)'::regprocedure)
-    like '%school_admin%principal%deputy_principal%hod%',
-  'school-wide promotion readiness is restricted to authorised leaders'
+    like '%school_admin%principal%deputy_principal%'
+  and pg_get_functiondef('public.get_academic_analysis_promotion_readiness(uuid,integer)'::regprocedure)
+    not like '%''hod''%',
+  'school-wide promotion readiness excludes HOD direct access and remains restricted to whole-school leaders'
 );
 
 select ok(

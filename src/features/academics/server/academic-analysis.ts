@@ -101,7 +101,7 @@ export type LearnerRiskRow = {
   qualityRate: number | null;
   improvement: number | null;
   sharedImprovementSubjects: number;
-  riskLevel: "high" | "watch" | "stable";
+  riskLevel: "high" | "watch" | "stable" | "unavailable";
   promotionReadiness: PromotionReadiness;
 };
 
@@ -451,11 +451,16 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
         .in("promotion_rule_set_id", ruleSetIds)
     : { data: [], error: null };
   if (ruleConditionError) throw new Error("Unable to resolve promotional-subject rules.");
-  const promotionalSubjectCodes = new Set(
-    (ruleConditions ?? [])
-      .filter((row) => row.required && row.condition_type === "minimum_subject_result" && row.subject_code)
-      .map((row) => String(row.subject_code).toUpperCase()),
-  );
+  const gradeIdByRuleSetId = new Map((activeRuleSets ?? []).map((row) => [row.id, row.grade_id]));
+  const promotionalSubjectCodesByGradeId = new Map<string, Set<string>>();
+  for (const condition of ruleConditions ?? []) {
+    if (!condition.required || condition.condition_type !== "minimum_subject_result" || !condition.subject_code) continue;
+    const gradeId = gradeIdByRuleSetId.get(condition.promotion_rule_set_id);
+    if (!gradeId) continue;
+    const codes = promotionalSubjectCodesByGradeId.get(gradeId) ?? new Set<string>();
+    codes.add(String(condition.subject_code).toUpperCase());
+    promotionalSubjectCodesByGradeId.set(gradeId, codes);
+  }
 
   const rows: AcademicAnalysisRow[] = [];
   for (const offeringId of offeringIds) {
@@ -545,6 +550,9 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       const classified = group.reduce((sum, row) => sum + row.summary.classifiedResults, 0);
       const passed = group.reduce((sum, row) => sum + row.summary.passed, 0);
       const failed = group.reduce((sum, row) => sum + row.summary.failed, 0);
+      const qualityConfiguredRows = group.filter((row) => row.summary.qualityCount != null);
+      const qualityClassified = qualityConfiguredRows.reduce((sum, row) => sum + row.summary.classifiedResults, 0);
+      const aggregateQualityCount = qualityConfiguredRows.reduce((sum, row) => sum + (row.summary.qualityCount ?? 0), 0);
       const aggregateNumericValues = group.flatMap((row) => row.numericValues);
       const numericSummary = summarizeNumericValues(aggregateNumericValues);
       return {
@@ -560,14 +568,9 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
           failed,
           passRate: rate(passed, classified),
           failRate: rate(failed, classified),
-          qualityCount: group.some((row) => row.summary.qualityCount != null)
-            ? group.reduce((sum, row) => sum + (row.summary.qualityCount ?? 0), 0)
-            : null,
-          qualityRate: group.some((row) => row.summary.qualityCount != null)
-            ? rate(
-                group.reduce((sum, row) => sum + (row.summary.qualityCount ?? 0), 0),
-                classified,
-              )
+          qualityCount: qualityConfiguredRows.length ? aggregateQualityCount : null,
+          qualityRate: qualityConfiguredRows.length
+            ? rate(aggregateQualityCount, qualityClassified)
             : null,
           symbolDistribution: [],
         },
@@ -607,7 +610,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   }
 
   const promotionByEnrolment = new Map<string, PromotionReadiness>();
-  const canReadPromotionReadiness = ["school_admin","principal","deputy_principal","hod"].includes(membership.roleKey);
+  const canReadPromotionReadiness = ["school_admin","principal","deputy_principal"].includes(membership.roleKey);
   if (basis === "official" && canReadPromotionReadiness && activeRuleSets?.length) {
     const { data: readiness, error: readinessError } = await db.rpc("get_academic_analysis_promotion_readiness", {
       p_school_id: membership.schoolId,
@@ -634,7 +637,9 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     let nearThresholdSubjects = 0;
     let qualityCount = 0;
     let qualityDenominator = 0;
+    let classifiedSubjects = 0;
     const sharedImprovements: number[] = [];
+    const promotionalSubjectCodes = promotionalSubjectCodesByGradeId.get(enrolment?.grade_id ?? "") ?? new Set<string>();
 
     for (const result of learnerRows) {
       const scaleId = result.grading_scale_key && result.grading_scale_version
@@ -642,6 +647,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
         : null;
       const bands = scaleId ? bandsByScaleId.get(scaleId) ?? [] : [];
       const band = result.symbol ? bands.find((candidate) => candidate.symbol === result.symbol) : null;
+      if (band) classifiedSubjects += 1;
       if (band?.pass_classification === "fail") {
         failedSubjects += 1;
         const offering = offeringMap.get(result.subject_offering_id);
@@ -673,8 +679,10 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       ruleSetVersion: null,
       failedConditions: 0,
     };
-    const riskLevel: LearnerRiskRow["riskLevel"] =
-      readiness.status === "not_ready" || promotionalSubjectFailures > 0 || failedSubjects >= 2
+    const riskEvidenceAvailable = classifiedSubjects > 0 || readiness.status !== "unavailable";
+    const riskLevel: LearnerRiskRow["riskLevel"] = !riskEvidenceAvailable
+      ? "unavailable"
+      : readiness.status === "not_ready" || promotionalSubjectFailures > 0 || failedSubjects >= 2
         ? "high"
         : failedSubjects === 1 || nearThresholdSubjects > 0
           ? "watch"

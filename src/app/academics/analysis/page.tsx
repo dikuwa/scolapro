@@ -20,13 +20,15 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
   const basis = params.basis === "provisional" ? "provisional" : "official";
   const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","trends"];
   const view: AcademicAnalysisView = allowedViews.includes(params.view as AcademicAnalysisView) ? params.view as AcademicAnalysisView : "overview";
-  const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis, grade: params.grade, className: params.class, subjectOfferingId: params.subject, teacher: params.teacher });
+  const className = view === "trends" ? undefined : params.class;
+  const teacher = view === "trends" ? undefined : params.teacher;
+  const workspace = await getAcademicAnalysisWorkspace({ academicYear: year, termNumber: term, basis, grade: params.grade, className, subjectOfferingId: params.subject, teacher });
   if (!workspace) redirect("/");
   const exportParams = new URLSearchParams({ year: String(year), term: String(term), basis, view });
   if (params.grade) exportParams.set("grade", params.grade);
-  if (params.class) exportParams.set("class", params.class);
+  if (className) exportParams.set("class", className);
   if (params.subject) exportParams.set("subject", params.subject);
-  if (params.teacher) exportParams.set("teacher", params.teacher);
+  if (teacher) exportParams.set("teacher", teacher);
 
   return (
     <main className="scolapro-content-width mx-auto space-y-5 px-4 py-6 sm:px-6">
@@ -53,13 +55,14 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
         term={term}
         basis={basis}
         grade={params.grade ?? ""}
-        className={params.class ?? ""}
+        className={className ?? ""}
         subject={params.subject ?? ""}
-        teacher={params.teacher ?? ""}
+        teacher={teacher ?? ""}
         options={workspace.filterOptions}
       />
 
       {basis === "provisional" ? <div role="status" className="rounded-[var(--radius-sm)] border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><strong>Provisional analysis.</strong> These values are calculated from current working assessment evidence and are not approved official results.</div> : null}
+      {view === "trends" ? <div role="status" className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-4 py-3 text-sm text-muted-foreground"><strong className="text-foreground">Offering-wide trends.</strong> Class and teacher filters are intentionally not applied because the governed official-series comparator does not provide class/teacher-scoped comparisons.</div> : null}
 
       <nav className="flex gap-2 overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-2" aria-label="Academic analysis views">
         {([

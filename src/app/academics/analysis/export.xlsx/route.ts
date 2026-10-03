@@ -12,14 +12,16 @@ export async function GET(request: Request) {
   const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","trends"];
   const requestedView = url.searchParams.get("view") as AcademicAnalysisView | null;
   const view: AcademicAnalysisView = requestedView && allowedViews.includes(requestedView) ? requestedView : "overview";
+  const className = view === "trends" ? undefined : url.searchParams.get("class") || undefined;
+  const teacher = view === "trends" ? undefined : url.searchParams.get("teacher") || undefined;
   const workspace = await getAcademicAnalysisWorkspace({
     academicYear,
     termNumber,
     basis,
     grade: url.searchParams.get("grade") || undefined,
-    className: url.searchParams.get("class") || undefined,
+    className,
     subjectOfferingId: url.searchParams.get("subject") || undefined,
-    teacher: url.searchParams.get("teacher") || undefined,
+    teacher,
   });
   if (!workspace) return NextResponse.json({ error: "Not authorized." }, { status: 403 });
 

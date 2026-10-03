@@ -32,6 +32,7 @@ export function renderAcademicAnalysisXlsx(
   const workbook = XLSX.utils.book_new();
 
   if (view === "overview") {
+    const riskAvailable = workspace.learnerRiskRows.some((row) => row.riskLevel !== "unavailable");
     const rows = workspace.topLearners.map((row) => ({
       Learner: row.learnerName,
       "Admission No.": row.admissionNumber,
@@ -44,8 +45,8 @@ export function renderAcademicAnalysisXlsx(
     addHeader(sheet, workspace, header, view);
     XLSX.utils.sheet_add_aoa(sheet, [[
       "Learners analysed", workspace.learnerRiskRows.length,
-      "High risk", workspace.learnerRiskRows.filter((row) => row.riskLevel === "high").length,
-      "2+ failures", workspace.learnerRiskRows.filter((row) => row.failedSubjects >= 2).length,
+      "High risk", riskAvailable ? workspace.learnerRiskRows.filter((row) => row.riskLevel === "high").length : "Unavailable",
+      "2+ failures", riskAvailable ? workspace.learnerRiskRows.filter((row) => row.failedSubjects >= 2).length : "Unavailable",
     ]], { origin: "A5" });
     XLSX.utils.book_append_sheet(workbook, sheet, "Overview");
   } else if (view === "results") {
@@ -80,9 +81,9 @@ export function renderAcademicAnalysisXlsx(
       Grade: row.grade,
       Class: row.className,
       Average: row.average,
-      Failures: row.failedSubjects,
-      "Promotional failures": row.promotionalSubjectFailures,
-      "Near threshold": row.nearThresholdSubjects,
+      Failures: row.riskLevel === "unavailable" ? null : row.failedSubjects,
+      "Promotional failures": row.riskLevel === "unavailable" ? null : row.promotionalSubjectFailures,
+      "Near threshold": row.riskLevel === "unavailable" ? null : row.nearThresholdSubjects,
       "Promotion readiness": row.promotionReadiness.recommendedOutcome ?? row.promotionReadiness.status,
       Risk: row.riskLevel,
     }));

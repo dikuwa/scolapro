@@ -20,6 +20,9 @@ test("Academic Analysis consolidates to five primary views", () => {
 
 test("quality symbols are effective-dated governed metadata and never hard-coded A-C", () => {
   assert.match(migration, /academic_analysis_quality_symbols/);
+  assert.match(migration, /Historical quality-symbol definitions cannot be deleted/);
+  assert.match(migration, /before insert or update or delete on public\.academic_analysis_quality_symbols/);
+  assert.doesNotMatch(migration, /create policy academic_analysis_quality_symbols_delete/);
   assert.match(migration, /effective_from_year/);
   assert.match(migration, /effective_to_year/);
   assert.match(migration, /user_can_manage_school_settings/);
@@ -29,6 +32,9 @@ test("quality symbols are effective-dated governed metadata and never hard-coded
 
 test("promotion readiness delegates to the canonical promotion engine", () => {
   assert.match(migration, /evaluate_promotion_recommendation_scoped_engine/);
+  assert.match(migration, /array\['school_admin','principal','deputy_principal'\]/);
+  assert.doesNotMatch(migration, /array\['school_admin','principal','deputy_principal','hod'\]/);
+  assert.match(source, /canReadPromotionReadiness = \["school_admin","principal","deputy_principal"\]/);
   assert.match(migration, /get_academic_analysis_promotion_readiness/);
   assert.match(source, /get_academic_analysis_promotion_readiness/);
   assert.doesNotMatch(source, /recommended_outcome\s*=|pass_outcome\s*=|fail_outcome\s*=/);
@@ -39,6 +45,8 @@ test("learner risk includes governed failures promotional risk and near-threshol
   assert.match(source, /promotionalSubjectFailures/);
   assert.match(source, /promotion_rule_conditions/);
   assert.match(source, /minimum_subject_result/);
+  assert.match(source, /promotionalSubjectCodesByGradeId/);
+  assert.match(source, /gradeIdByRuleSetId/);
   assert.match(source, /nearThresholdSubjects/);
   assert.match(source, /minimum_value/);
   assert.match(source, /NEAR_THRESHOLD_MARGIN/);
@@ -55,6 +63,10 @@ test("top improvers compare shared prior-term subjects rather than unrelated lea
 
 test("trend analysis reuses governed official-series comparability", () => {
   assert.match(source, /compare_official_result_series/);
+  assert.match(page, /view === "trends" \? undefined : params\.class/);
+  assert.match(page, /view === "trends" \? undefined : params\.teacher/);
+  assert.match(page, /Offering-wide trends/);
+  assert.match(route, /view === "trends" \? undefined : url\.searchParams\.get\("class"\)/);
   assert.match(source, /not_comparable/);
   assert.match(source, /Incompatible|error\.message/);
   assert.match(views, /Mixed provenance/);
@@ -69,6 +81,9 @@ test("teacher subject context stays descriptive and is never ranked", () => {
 
 test("official and provisional basis remains explicit throughout the workspace", () => {
   assert.match(page, /OFFICIAL/);
+  assert.match(source, /riskLevel: "high" \| "watch" \| "stable" \| "unavailable"/);
+  assert.match(source, /riskEvidenceAvailable/);
+  assert.match(views, /Unavailable without governed grading\/promotion evidence/);
   assert.match(page, /PROVISIONAL/);
   assert.match(print, /OFFICIAL/);
   assert.match(print, /PROVISIONAL/);
@@ -83,6 +98,12 @@ test("print and Excel are per-view and use the shared live school document heade
   for (const view of ["overview","results","grades","learners","trends"]) {
     assert.match(excel, new RegExp('view === "' + view + '"'));
   }
+});
+
+test("mixed grading-scale quality aggregates exclude unconfigured scales from the quality denominator", () => {
+  assert.match(source, /qualityConfiguredRows/);
+  assert.match(source, /qualityClassified/);
+  assert.match(source, /rate\(aggregateQualityCount, qualityClassified\)/);
 });
 
 test("Academic Analysis remains a read layer without a parallel result store", () => {
