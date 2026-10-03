@@ -29,6 +29,8 @@ test("request, decision, cancellation and operational absence remain distinct au
   assert.match(migration, /insert into public\.staff_absences/);
   assert.match(migration, /Approved leave cancellation reversal/);
   assert.match(migration, /Staff leave decision history is final/);
+  assert.match(migration, /Leave type rule semantics are final once requests exist/);
+  assert.match(migration, /Approved leave cancellation requires school leave manager approval/);
 });
 
 test("self-service and school-wide authority remain separated", () => {

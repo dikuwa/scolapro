@@ -276,7 +276,7 @@ function LeaveRequestCard({ row, schoolId, viewerStaffId, canManage }: { row: St
           {canManage ? <DecisionForm row={row} /> : null}
         </div>
       ) : null}
-      {(row.status === "submitted" || row.status === "approved") && (own || canManage) ? <CancelForm requestId={row.id} /> : null}
+      {((row.status === "submitted" && (own || canManage)) || (row.status === "approved" && canManage)) ? <CancelForm requestId={row.id} /> : null}
     </article>
   );
 }

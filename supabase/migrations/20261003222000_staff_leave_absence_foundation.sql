@@ -252,6 +252,33 @@ create trigger staff_leave_ledger_immutable_trg
 before update or delete on public.staff_leave_ledger_entries
 for each row execute function app_private.enforce_staff_leave_ledger_immutable();
 
+create or replace function app_private.enforce_staff_leave_type_rule_finality()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $
+begin
+  if (
+    new.tracks_balance is distinct from old.tracks_balance
+    or new.evidence_requirement is distinct from old.evidence_requirement
+  )
+  and exists(
+    select 1
+    from public.staff_leave_requests r
+    where r.leave_type_id=old.id
+  ) then
+    raise exception 'Leave type rule semantics are final once requests exist';
+  end if;
+  return new;
+end;
+$;
+revoke all on function app_private.enforce_staff_leave_type_rule_finality() from public,anon,authenticated;
+
+create trigger staff_leave_type_rule_finality_trg
+before update on public.staff_leave_types
+for each row execute function app_private.enforce_staff_leave_type_rule_finality();
+
 create or replace function app_private.enforce_staff_leave_request_decision_finality()
 returns trigger
 language plpgsql
@@ -555,6 +582,9 @@ begin
   end if;
   if v_request.status not in ('submitted','approved') then
     raise exception 'Only submitted or approved leave requests can be cancelled';
+  end if;
+  if v_request.status='approved' and not v_can_manage then
+    raise exception 'Approved leave cancellation requires school leave manager approval';
   end if;
 
   update public.staff_leave_requests

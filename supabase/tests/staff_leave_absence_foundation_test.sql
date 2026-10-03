@@ -1,6 +1,6 @@
 begin;
 
-select plan(33);
+select plan(35);
 
 select has_table('public','staff_leave_types','staff leave types table exists');
 select has_table('public','staff_leave_requests','staff leave requests table exists');
@@ -277,6 +277,38 @@ select is(
   ),
   1,
   'approval is explicitly audited'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub','fd020000-0000-4000-8000-000000000002',true);
+set local role authenticated;
+
+select throws_ok(
+  $select public.cancel_staff_leave_request(
+      (select id from public.staff_leave_requests
+       where staff_member_id='fd030000-0000-4000-8000-000000000002'),
+      'Employee tries to cancel approved leave'
+  )$,
+  'Approved leave cancellation requires school leave manager approval',
+  'approved leave operational state can only be cancelled by leave management'
+);
+
+reset role;
+select set_config('request.jwt.claim.sub','fd020000-0000-4000-8000-000000000001',true);
+set local role authenticated;
+
+select throws_ok(
+  $select public.configure_staff_leave_type(
+      'fd010000-0000-4000-8000-000000000001',
+      'LOCAL-TRACKED',
+      'Locally Configured Tracked Leave',
+      false,
+      'none',
+      'Changed source',
+      true
+  )$,
+  'Leave type rule semantics are final once requests exist',
+  'balance/evidence semantics cannot be rewritten after requests exist'
 );
 
 select lives_ok(
