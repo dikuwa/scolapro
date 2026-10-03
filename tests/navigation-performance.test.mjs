@@ -6,7 +6,7 @@ const layout = readFileSync("src/app/layout.tsx", "utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx", "utf8");
 
 test("root layout declares intentional smooth scroll behavior for Next navigation", () => {
-  assert.match(layout, /<html lang="en" data-scroll-behavior="smooth">/);
+  assert.match(layout, /<html lang="en" data-scroll-behavior="smooth"[^>]*>/);
 });
 
 test("dense primary navigation disables viewport prefetch and preserves intent prefetch", () => {
