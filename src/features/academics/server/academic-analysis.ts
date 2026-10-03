@@ -710,7 +710,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       promotionReadiness: readiness,
     };
   }).sort((a, b) => {
-    const severity = { high: 0, watch: 1, stable: 2 };
+    const severity: Record<LearnerRiskRow["riskLevel"], number> = { high: 0, watch: 1, stable: 2, unavailable: 3 };
     return severity[a.riskLevel] - severity[b.riskLevel]
       || b.failedSubjects - a.failedSubjects
       || a.learnerName.localeCompare(b.learnerName);
