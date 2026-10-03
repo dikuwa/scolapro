@@ -1,5 +1,5 @@
 begin;
-select plan(30);
+select plan(31);
 
 select has_table('public','document_intake_jobs','shared document intake jobs exist');
 select has_table('public','document_intake_artifacts','shared document intake source artifacts exist');
@@ -152,6 +152,19 @@ select is(
   ),
   'received',
   'intake commit creates a pre-enrolment received application'
+);
+
+select is(
+  (
+    select source from public.admission_applications
+    where intake_job_id=(
+      select id from public.document_intake_jobs
+      where school_id='fd010000-0000-4000-8000-000000000001'
+      order by created_at desc limit 1
+    )
+  ),
+  'public_form',
+  'online intake keeps its admission source provenance'
 );
 
 select is(

@@ -577,7 +577,12 @@ begin
     nullif(btrim(v_job.candidate_payload->>'guardian_1_name'),''),
     nullif(btrim(v_job.candidate_payload->>'guardian_1_contact'),''),
     nullif(btrim(v_job.candidate_payload->>'previous_school'),''),
-    'import','received',
+    case
+      when v_job.source_kind='online_form' then 'public_form'
+      when v_job.source_kind='structured_import' then 'import'
+      else 'school'
+    end,
+    'received',
     v_job.selected_learner_id,v_job.id,
     jsonb_build_object(
       'intake_job_id',v_job.id,
