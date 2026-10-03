@@ -57,7 +57,7 @@ create table if not exists public.assessment_mark_reopen_authorizations (
   reason text not null check (nullif(btrim(reason),'') is not null),
   starts_at timestamptz not null,
   expires_at timestamptz not null,
-  requires_reverification boolean not null default true,
+  requires_reverification boolean not null default true check (requires_reverification=true),
   status text not null default 'active' check (status in ('active','closed','revoked')),
   authorized_by_user_id uuid not null references auth.users(id) on delete restrict,
   used_at timestamptz,
@@ -582,6 +582,9 @@ begin
   if p_starts_at is null or p_expires_at is null or p_expires_at<=p_starts_at then
     raise exception 'Correction authorization requires a valid start and expiry';
   end if;
+  if coalesce(p_requires_reverification,false)<>true then
+    raise exception 'Correction authorization requires re-verification';
+  end if;
 
   select * into v_instance
   from public.assessment_instances
@@ -647,7 +650,7 @@ begin
     case when p_scope_kind='subject_class' then null else v_instance.id end,
     case when p_scope_kind='learner' then p_enrolment_id else null end,
     v_instance.subject_offering_id,v_instance.register_class_id,v_instance.term_number,
-    v_reason,p_starts_at,p_expires_at,coalesce(p_requires_reverification,true),auth.uid()
+    v_reason,p_starts_at,p_expires_at,true,auth.uid()
   )
   returning id into v_id;
 

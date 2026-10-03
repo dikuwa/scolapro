@@ -1,6 +1,6 @@
 begin;
 
-select plan(26);
+select plan(27);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -155,6 +155,19 @@ select ok(
     'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
   ) ilike '%school leadership authority%',
   'subject-class reopen scope is stronger than learner/component scope'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
+  ) ilike '%Correction authorization requires re-verification%'
+  and exists(
+    select 1
+    from pg_constraint
+    where conrelid='public.assessment_mark_reopen_authorizations'::regclass
+      and pg_get_constraintdef(oid) ilike '%requires_reverification = true%'
+  ),
+  'correction re-verification is mandatory at both RPC and table boundaries'
 );
 
 select ok(

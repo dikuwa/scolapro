@@ -61,3 +61,11 @@ test("legacy pre-window lifecycle stays editable until an explicit timing policy
   assert.match(sql, /v_instance\.status in \('not_open','open','returned'\)/);
   assert.match(sql, /Assessment is not open for mark editing/);
 });
+
+
+test("correction re-verification cannot be disabled by RPC callers", async () => {
+  const sql = await read(migrationPath);
+  assert.match(sql, /requires_reverification boolean not null default true check \(requires_reverification=true\)/);
+  assert.match(sql, /Correction authorization requires re-verification/);
+  assert.match(sql, /v_reason,p_starts_at,p_expires_at,true,auth\.uid\(\)/);
+});
