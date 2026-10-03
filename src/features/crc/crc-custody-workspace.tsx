@@ -24,6 +24,9 @@ import type {
   CrcClassCompleteness,
   CrcCustodyRequest,
   CrcRequestOrigin,
+  CrcAdministrationLearner,
+  CrcTransferRegisterRow,
+  CrcAdministrationDocument,
 } from "@/features/crc/server/custody";
 import type { LearnerTransferFormCandidate } from "@/features/transfers/server/transfer-form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -601,6 +604,9 @@ export function CrcCustodyWorkspace({
   requestPolicyDays,
   schoolId,
   transferForms,
+  learners,
+  transferRegister,
+  documents,
 }: {
   records: CrcCustodyRecord[];
   destinations: CrcCustodyDestination[];
@@ -612,30 +618,59 @@ export function CrcCustodyWorkspace({
   requestPolicyDays: number;
   schoolId: string;
   transferForms: LearnerTransferFormCandidate[];
+  learners: CrcAdministrationLearner[];
+  transferRegister: CrcTransferRegisterRow[];
+  documents: CrcAdministrationDocument[];
 }) {
-  const [view, setView] = useState<"overview" | "requests" | "transfers" | "incoming" | "completeness" | "reports" | "training">("overview");
-
-  const visibleRecords = view === "transfers"
-    ? records.filter((record) => record.outgoing && record.custodyStatus !== "closed")
-    : view === "incoming"
-      ? records.filter((record) => record.incoming && record.custodyStatus !== "closed")
-      : records.filter((record) => record.custodyStatus !== "closed");
+  const [view, setView] = useState<"overview" | "learners" | "requests" | "transfers" | "documents">("overview");
+  const [learnerQuery, setLearnerQuery] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("");
+  const [classFilter, setClassFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
 
   const tabs = [
     ["overview", "Overview"],
+    ["learners", "Learners"],
     ["requests", "Requests"],
     ["transfers", "Transfers"],
-    ["incoming", "Incoming"],
-    ["completeness", "Completeness"],
-    ["reports", "Reports & audit"],
-    ["training", "Training"],
+    ["documents", "Documents"],
   ] as const;
 
-  const showCustodyList = ["overview", "transfers", "incoming"].includes(view);
+  const readiness = {
+    complete: learners.filter((item) => item.readinessStatus === "complete").length,
+    incomplete: learners.filter((item) => item.readinessStatus === "incomplete").length,
+    temporary: learners.filter((item) => item.readinessStatus === "temporary").length,
+    missingIncoming: learners.filter((item) => item.readinessStatus === "missing_incoming").length,
+    overdue: learners.filter((item) => item.overdueRequest).length,
+    outgoing: learners.filter((item) => item.outgoingTransfer).length,
+    awaitingAck: learners.filter((item) => item.awaitingAcknowledgement).length,
+    classDue: classes.reduce((sum, item) => sum + item.followUpCount, 0),
+  };
+
+  const gradeOptions = Array.from(new Map(learners.map((item) => [item.gradeId, item.gradeLabel])).entries())
+    .map(([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+  const classOptions = Array.from(new Map(
+    learners
+      .filter((item) => !gradeFilter || item.gradeId === gradeFilter)
+      .map((item) => [item.registerClassId, item.registerClassLabel]),
+  ).entries()).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
+
+  const normalizedQuery = learnerQuery.trim().toLowerCase();
+  const filteredLearners = learners.filter((item) => {
+    if (gradeFilter && item.gradeId !== gradeFilter) return false;
+    if (classFilter && item.registerClassId !== classFilter) return false;
+    if (statusFilter && item.readinessStatus !== statusFilter) return false;
+    if (!normalizedQuery) return true;
+    return [item.learnerName, item.admissionNumber ?? "", item.gradeLabel, item.registerClassLabel]
+      .some((value) => value.toLowerCase().includes(normalizedQuery));
+  });
+
+  const activeCustodyRecords = records.filter((record) => record.custodyStatus !== "closed");
 
   return (
     <div className="mt-5 space-y-5">
-      <nav aria-label="CRC workspace views" className="flex gap-2 overflow-x-auto pb-1">
+      <nav aria-label="CRC Administration views" className="flex gap-2 overflow-x-auto pb-1">
         {tabs.map(([key, label]) => (
           <button
             key={key}
@@ -650,136 +685,209 @@ export function CrcCustodyWorkspace({
       </nav>
 
       {view === "overview" ? (
-        <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-2 xl:grid-cols-4">
-          {[
-            ["Routine CRC activity", summary.learnersWithRoutineCrcActivity, `of ${summary.currentLearners} current learners`],
-            ["Follow-up", summary.learnersWithoutRoutineCrcActivity, "learners without routine CRC activity"],
-            ["Requests", requests.filter((request) => request.status !== "fulfilled" && request.status !== "cancelled").length, "open CRC custody requests"],
-            ["Incoming", summary.incomingAwaitingAcknowledgement, "awaiting receipt or acknowledgement"],
-          ].map(([label, value, helper], index) => (
-            <div key={String(label)} className={`px-4 py-4 sm:px-5 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}>
-              <p className="text-xs font-medium text-muted-foreground">{label}</p>
-              <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{value}</p>
-              <p className="mt-1 text-[0.68rem] text-muted-foreground">{helper}</p>
+        <>
+          <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+            <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+              <h2 className="scolapro-section-title">CRC readiness · {summary.academicYear}</h2>
+              <p className="scolapro-section-description">Operational indicators are derived from current enrolments, routine CRC activity, custody requests and custody lifecycle. They do not expose confidential case content.</p>
             </div>
-          ))}
-        </div>
+            <div className="grid sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                ["Complete", readiness.complete, "routine CRC activity with no incoming custody exception"],
+                ["Incomplete", readiness.incomplete, "routine contribution follow-up"],
+                ["Temporary", readiness.temporary, "incoming CRC in transit / receipt workflow"],
+                ["Missing incoming", readiness.missingIncoming, "incoming CRC still requested or awaiting dispatch"],
+                ["Open requests", requests.filter((request) => !["fulfilled", "cancelled"].includes(request.status)).length, "custody requests still active"],
+                ["Overdue requests", readiness.overdue, "response target has passed"],
+                ["Outgoing", readiness.outgoing, "active outgoing custody"],
+                ["Awaiting acknowledgement", readiness.awaitingAck, "incoming custody not yet closed"],
+              ].map(([label, value, helper], index) => (
+                <div key={String(label)} className={`px-4 py-4 sm:px-5 ${index % 4 ? "border-t border-border-subtle sm:border-l" : "border-t border-border-subtle"} ${index < 4 ? "xl:border-t-0" : ""}`}>
+                  <p className="text-xs font-medium text-muted-foreground">{label}</p>
+                  <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em]">{value}</p>
+                  <p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">{helper}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+            <div className="flex flex-col gap-2 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+              <div>
+                <h2 className="scolapro-section-title">Class contribution readiness</h2>
+                <p className="scolapro-section-description">Follow-up is a completion prompt, not a teacher or class score.</p>
+              </div>
+              <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">{readiness.classDue} learner contribution{readiness.classDue === 1 ? "" : "s"} due</span>
+            </div>
+            {classes.length ? (
+              <div className="grid gap-px bg-border-subtle sm:grid-cols-2 xl:grid-cols-3">
+                {classes.map((item) => (
+                  <article key={item.registerClassId} className="bg-surface px-4 py-3 sm:px-5">
+                    <div className="flex items-center justify-between gap-3">
+                      <div><p className="text-sm font-medium">{item.registerClassLabel}</p><p className="text-xs text-muted-foreground">{item.gradeLabel}</p></div>
+                      <p className="text-xs text-muted-foreground">{item.contributedCount}/{item.learnerCount}</p>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                      <div className="h-full bg-[color:var(--accent-mint)]" style={{ width: `${item.learnerCount ? Math.round((item.contributedCount / item.learnerCount) * 100) : 0}%` }} />
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : <p className="px-4 py-8 text-sm text-muted-foreground sm:px-5">No current register classes are available for this academic year.</p>}
+          </section>
+
+          <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><ArrowRightLeft className="size-4" aria-hidden="true" /></span>
+              <div>
+                <h2 className="scolapro-section-title">CRC workflow boundary</h2>
+                <p className="scolapro-section-description">Routine class contributions remain non-confidential. Missing incoming CRCs use governed requests and due dates. Confidential custody remains Prepare → Authorize → Dispatch → Receive → Acknowledge → Close. Health, counselling and psychometric content is never copied into this administration dashboard.</p>
+              </div>
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {view === "learners" ? (
+        <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+          <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+            <h2 className="scolapro-section-title">Learner CRC readiness</h2>
+            <p className="scolapro-section-description">Filter current learners by placement and operational CRC state, then open the role-scoped digital cumulative record.</p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">Search</span>
+                <input value={learnerQuery} onChange={(event) => setLearnerQuery(event.target.value)} className={fieldClass()} placeholder="Name or admission number" />
+              </label>
+              <Picker
+                label="Grade"
+                value={gradeFilter}
+                onChange={(value) => { setGradeFilter(value); setClassFilter(""); }}
+                placeholder="All grades"
+                options={[{ value: "", label: "All grades" }, ...gradeOptions]}
+              />
+              <Picker
+                label="Class"
+                value={classFilter}
+                onChange={setClassFilter}
+                placeholder="All classes"
+                options={[{ value: "", label: "All classes" }, ...classOptions]}
+              />
+              <Picker
+                label="CRC status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                placeholder="All statuses"
+                options={[
+                  { value: "", label: "All statuses" },
+                  { value: "complete", label: "Complete" },
+                  { value: "incomplete", label: "Incomplete" },
+                  { value: "temporary", label: "Temporary" },
+                  { value: "missing_incoming", label: "Missing incoming" },
+                ]}
+              />
+            </div>
+          </div>
+          <div className="divide-y divide-border-subtle">
+            {filteredLearners.length ? filteredLearners.map((item) => (
+              <article key={item.learnerId} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="scolapro-record-title">{item.learnerName}</p>
+                    <span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.68rem] font-medium ${item.readinessStatus === "complete" ? "bg-success-soft text-[color:var(--success)]" : item.readinessStatus === "missing_incoming" ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]" : item.readinessStatus === "temporary" ? "bg-[color:var(--accent-amber-soft)] text-[color:var(--accent-amber)]" : "bg-surface-muted text-muted-foreground"}`}>
+                      {item.readinessStatus.replaceAll("_", " ")}
+                    </span>
+                    {item.overdueRequest ? <span className="rounded-[var(--radius-xs)] bg-[color:var(--danger-soft)] px-2 py-1 text-[0.68rem] font-medium text-[color:var(--danger)]">Overdue request</span> : null}
+                    {item.outgoingTransfer ? <span className="rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] font-medium text-brand-strong">Outgoing</span> : null}
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">{item.admissionNumber ?? "No admission number"} · {item.gradeLabel} · {item.registerClassLabel}</p>
+                </div>
+                <Link href={`/learners/${item.learnerId}/cumulative-record`} className="scolapro-cta inline-flex min-h-9 items-center justify-center rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold hover:bg-surface-subtle">
+                  Open CRC
+                </Link>
+              </article>
+            )) : <p className="px-4 py-8 text-center text-sm text-muted-foreground sm:px-5">No learners match the current CRC filters.</p>}
+          </div>
+        </section>
       ) : null}
 
       {view === "requests" ? (
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(22rem,0.8fr)] xl:items-start">
-          <RequestQueue
-            requests={requests}
-            records={records}
-            leadership={leadership}
-            schoolId={schoolId}
-            responseDays={requestPolicyDays}
-          />
+          <RequestQueue requests={requests} records={records} leadership={leadership} schoolId={schoolId} responseDays={requestPolicyDays} />
           <RequestForm canRequest={canPrepare} responseDays={requestPolicyDays} />
         </div>
       ) : null}
 
-      {view === "transfers" ? <TransferFormQueue transferForms={transferForms} /> : null}
-
-      {showCustodyList ? (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] xl:items-start">
-          <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="mb-4 flex items-center gap-2 border-b border-border-subtle pb-4">
-              <span className="scolapro-tone-amber grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><ShieldCheck className="size-4" aria-hidden="true" /></span>
-              <div>
-                <h2 className="scolapro-section-title">{view === "incoming" ? "Incoming custody" : view === "transfers" ? "Outgoing transfers" : "Custody records"}</h2>
-                <p className="scolapro-section-description !mt-0">Confidential CRC transfers remain within the caller&apos;s need-to-know custody scope.</p>
-              </div>
+      {view === "transfers" ? (
+        <div className="space-y-5">
+          <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+            <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+              <h2 className="scolapro-section-title">CRC transfer register</h2>
+              <p className="scolapro-section-description">Derived from authoritative learner-transfer and custody events. This is not a second manually maintained ledger.</p>
             </div>
-            {visibleRecords.length ? (
-              <div className="divide-y divide-border-subtle">
-                {visibleRecords.map((record) => (
-                  <article key={record.custodyId} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="scolapro-record-title">{record.learnerName}{record.admissionNumber ? <span className="ml-2 text-xs font-normal text-muted-foreground">{record.admissionNumber}</span> : null}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">{record.originSchoolName} → {record.receivingSchoolName}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">Receiving custodian: {record.receivingUserName}</p>
-                        {record.custodyNote ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{record.custodyNote}</p> : null}
-                      </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        <span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.68rem] font-medium capitalize ${statusClass[record.custodyStatus] ?? "bg-surface-muted text-muted-foreground"}`}>{statusLabels[record.custodyStatus] ?? record.custodyStatus}</span>
-                        <ActionButton record={record} leadership={leadership} />
-                      </div>
-                    </div>
-                    <p className="text-[0.68rem] text-muted-foreground">Prepared {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(record.preparedAt))} · Updated {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(record.updatedAt))}</p>
-                  </article>
-                ))}
+            {transferRegister.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-xs">
+                  <thead className="bg-surface-muted text-muted-foreground"><tr><th className="px-4 py-2.5 font-medium">Learner</th><th className="px-3 py-2.5 font-medium">Direction</th><th className="px-3 py-2.5 font-medium">School</th><th className="px-3 py-2.5 font-medium">Transfer</th><th className="px-3 py-2.5 font-medium">Custody</th><th className="px-3 py-2.5 font-medium">Requested / effective</th><th className="px-4 py-2.5 text-right font-medium">Docs</th></tr></thead>
+                  <tbody className="divide-y divide-border-subtle">
+                    {transferRegister.map((row) => (
+                      <tr key={row.registerKey}>
+                        <td className="px-4 py-3"><p className="font-medium">{row.learnerName}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p></td>
+                        <td className="px-3 py-3 capitalize">{row.direction}</td>
+                        <td className="px-3 py-3">{row.counterpartSchoolName}</td>
+                        <td className="px-3 py-3 capitalize">{row.transferStatus?.replaceAll("_", " ") ?? "—"}</td>
+                        <td className="px-3 py-3 capitalize">{row.custodyStatus?.replaceAll("_", " ") ?? "—"}</td>
+                        <td className="px-3 py-3 text-muted-foreground">{row.requestedOn ?? "—"}{row.effectiveOn ? ` · ${row.effectiveOn}` : ""}</td>
+                        <td className="px-4 py-3 text-right">{row.documentCount}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ) : (
-              <div className="rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center">
-                <p className="text-sm font-medium">No custody records in your scope</p>
-                <p className="mt-1 text-xs text-muted-foreground">Only custody records within your authorized scope appear here.</p>
-              </div>
-            )}
+            ) : <p className="px-4 py-8 text-sm text-muted-foreground sm:px-5">No transfer or CRC custody events exist in this school scope.</p>}
           </section>
 
-          <div className="space-y-5">
-            {view === "transfers" ? <PrepareForm destinations={destinations} canPrepare={canPrepare} /> : null}
-            {summary.canViewConfidentialSupport ? (
-              <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5">
-                <h2 className="scolapro-section-title">Confidential support</h2>
-                <p className="scolapro-section-description">Your explicit support role permits need-to-know access through the governed learner-support and CRC record surfaces. Confidential case content is not duplicated into this dashboard.</p>
-              </section>
-            ) : (
-              <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
-                <h2 className="scolapro-section-title">Administrative oversight</h2>
-                <p className="scolapro-section-description">Leadership sees workflow state and readiness only. Counselling, psychometric and highly restricted content remains outside this administrative view.</p>
-              </section>
-            )}
+          <TransferFormQueue transferForms={transferForms} />
+
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(22rem,0.85fr)] xl:items-start">
+            <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+              <div className="mb-4 border-b border-border-subtle pb-4">
+                <h2 className="scolapro-section-title">Active CRC custody</h2>
+                <p className="scolapro-section-description">Need-to-know lifecycle state only. Confidential CRC contents remain in their governed record/document surfaces.</p>
+              </div>
+              {activeCustodyRecords.length ? <div className="divide-y divide-border-subtle">{activeCustodyRecords.map((record) => (
+                <article key={record.custodyId} className="flex flex-col gap-2 py-4 first:pt-0 last:pb-0">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0"><p className="scolapro-record-title">{record.learnerName}</p><p className="mt-0.5 text-xs text-muted-foreground">{record.originSchoolName} → {record.receivingSchoolName}</p><p className="mt-0.5 text-xs text-muted-foreground">Receiving custodian: {record.receivingUserName}</p></div>
+                    <div className="flex items-center gap-2"><span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.68rem] font-medium capitalize ${statusClass[record.custodyStatus] ?? "bg-surface-muted text-muted-foreground"}`}>{statusLabels[record.custodyStatus] ?? record.custodyStatus}</span><ActionButton record={record} leadership={leadership} /></div>
+                  </div>
+                </article>
+              ))}</div> : <p className="text-sm text-muted-foreground">No custody records in your scope. Active custody records will appear here when a governed transfer exists.</p>}
+            </section>
+            <div className="space-y-5">
+              <PrepareForm destinations={destinations} canPrepare={canPrepare} />
+              {summary.canViewConfidentialSupport ? (
+                <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 sm:p-5"><h2 className="scolapro-section-title">Confidential support</h2><p className="scolapro-section-description">Your explicit support role permits need-to-know access through the governed learner CRC. Confidential case content is not duplicated into this dashboard.</p></section>
+              ) : (
+                <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5"><h2 className="scolapro-section-title">Administrative oversight</h2><p className="scolapro-section-description">Leadership sees workflow state and readiness only. Counselling, psychometric and highly restricted content stays outside this workspace.</p></section>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
 
-      {view === "completeness" ? (
+      {view === "documents" ? (
         <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
           <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
-            <h2 className="scolapro-section-title">Routine CRC contribution coverage · {summary.academicYear}</h2>
-            <p className="scolapro-section-description">This is a follow-up indicator, not a score or ranking. It shows whether each current learner has at least one routine CRC contribution in the academic year.</p>
+            <h2 className="scolapro-section-title">CRC document register</h2>
+            <p className="scolapro-section-description">Metadata for custody documents in your authorised school scope. Storage paths and document contents are intentionally not exposed by this administrative read model.</p>
+            <p className="mt-2 text-[0.68rem] text-muted-foreground">Reports & audit remain derived from authoritative CRC activity. Training guidance: routine contributions stay non-confidential; custody follows Prepare → Authorize → Dispatch → Receive → Acknowledge → Close.</p>
           </div>
-          {classes.length ? (
-            <div className="divide-y divide-border-subtle">
-              {classes.map((item) => (
-                <article key={item.registerClassId} className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
-                  <div>
-                    <p className="text-sm font-medium">{item.registerClassLabel}</p>
-                    <p className="text-xs text-muted-foreground">{item.gradeLabel} · {item.learnerCount} current learners</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{item.contributedCount} with activity · {item.followUpCount} follow-up</p>
-                </article>
-              ))}
-            </div>
-          ) : <p className="px-4 py-8 text-sm text-muted-foreground sm:px-5">No current register classes are available for this academic year.</p>}
-        </section>
-      ) : null}
-
-      {view === "reports" ? (
-        <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-          <h2 className="scolapro-section-title">Reports & audit</h2>
-          <p className="scolapro-section-description">Operational counts come from authoritative CRC/custody records. Individual confidential support content is intentionally excluded.</p>
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-xs text-muted-foreground">Outgoing transfers</p><p className="mt-1 text-xl font-semibold">{summary.outgoingTransfers}</p></div>
-            <div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-xs text-muted-foreground">Incoming transfers</p><p className="mt-1 text-xl font-semibold">{summary.incomingTransfers}</p></div>
-            <div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-xs text-muted-foreground">Requests awaiting action</p><p className="mt-1 text-xl font-semibold">{summary.requestsAwaitingAction}</p></div>
-            <div className="rounded-[var(--radius-sm)] bg-surface-muted p-3"><p className="text-xs text-muted-foreground">Incoming follow-up</p><p className="mt-1 text-xl font-semibold">{summary.incomingAwaitingAcknowledgement}</p></div>
-          </div>
-        </section>
-      ) : null}
-
-      {view === "training" ? (
-        <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><ArrowRightLeft className="size-4" aria-hidden="true" /></span>
-            <div>
-              <h2 className="scolapro-section-title">CRC workflow guidance</h2>
-              <p className="scolapro-section-description">Routine register-teacher contributions stay non-confidential. Missing CRC requests use a governed due date and may be escalated only when overdue and only through the schools&apos; current circuit/region relationship. Confidential custody follows Prepare → Authorize → Dispatch → Receive → Acknowledge → Close. Health, counselling and psychometric content remains separately permissioned throughout.</p>
-            </div>
-          </div>
+          {documents.length ? <div className="divide-y divide-border-subtle">{documents.map((document) => (
+            <article key={document.documentId} className="grid gap-3 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+              <div className="min-w-0"><p className="truncate text-sm font-medium">{document.fileName}</p><p className="mt-1 text-xs text-muted-foreground">{document.learnerName}{document.admissionNumber ? ` · ${document.admissionNumber}` : ""} · {document.direction} · {document.custodyStatus.replaceAll("_", " ")}</p></div>
+              <div className="text-right text-[0.68rem] text-muted-foreground"><p>{document.mimeType ?? "File"}</p><p className="mt-1">{new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(document.createdAt))}</p></div>
+            </article>
+          ))}</div> : <p className="px-4 py-8 text-sm text-muted-foreground sm:px-5">No CRC custody document metadata is available in your current scope.</p>}
         </section>
       ) : null}
     </div>
