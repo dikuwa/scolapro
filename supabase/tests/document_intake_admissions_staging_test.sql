@@ -36,7 +36,7 @@ insert into public.register_classes(id,tenant_id,school_id,grade_id,academic_yea
 values('fd050000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','fd010000-0000-4000-8000-000000000001','fd040000-0000-4000-8000-000000000001',2027,'8A','8A');
 
 insert into public.learners(id,tenant_id,first_names,surname,date_of_birth,sex)
-values('fd060000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','Existing','Learner','2013-01-05','F');
+values('fd060000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','Existing','Learner','2013-01-05','female');
 
 insert into public.enrolments(
   id,tenant_id,school_id,learner_id,academic_year,grade_id,register_class_id,
