@@ -108,7 +108,10 @@ export default async function OperationalImportsPage({
             {adapter==="calendar"?<>
               <Field name="title" label="Title" value={normalized.title}/><Field name="category" label="Category" value={normalized.category}/>
               <Field name="starts_on" label="Start date" value={normalized.starts_on}/><Field name="ends_on" label="End date" value={normalized.ends_on}/>
+              <Field name="starts_at" label="Start time" value={normalized.starts_at}/><Field name="ends_at" label="End time" value={normalized.ends_at}/>
               <Field name="source_class" label="Source class" value={normalized.source_class}/><Field name="teaching_impact" label="Teaching impact" value={normalized.teaching_impact}/>
+              <Field name="audience_scope" label="Audience scope" value={normalized.audience_scope}/><Field name="audience_reference_id" label="Audience reference" value={normalized.audience_reference_id}/>
+              <Field name="bell_schedule_id" label="Bell schedule ID" value={normalized.bell_schedule_id}/><Field name="description" label="Description" value={normalized.description}/>
             </>:<>
               <Field name="teacher_employee_number" label="Teacher code" value={normalized.teacher_employee_number}/><Field name="subject_code" label="Subject code" value={normalized.subject_code}/>
               <Field name="class_code" label="Class" value={normalized.class_code}/><Field name="group_code" label="Group" value={normalized.group_code}/>

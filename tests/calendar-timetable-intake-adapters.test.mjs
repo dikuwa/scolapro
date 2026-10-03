@@ -24,6 +24,11 @@ test("calendar intake preserves source class and append-only revision semantics"
   assert.match(migration,/Bell schedule is outside the current school\/year scope/);
   assert.match(migration,/p_supersedes_event_id|matched_entity_id/);
   assert.match(page,/Source class/);
+  assert.match(page,/Audience scope/);
+  assert.match(page,/Audience reference/);
+  assert.match(page,/Bell schedule ID/);
+  assert.match(page,/Start time/);
+  assert.match(page,/Description/);
 });
 
 test("timetable adapter requires explicit canonical mapping",()=>{
