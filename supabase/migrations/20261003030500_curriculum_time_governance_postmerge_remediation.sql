@@ -300,6 +300,8 @@ as $govern_time_registry$
 declare
   v_reason text:=nullif(btrim(p_reason),'');
   v_status text;
+  v_related_status text;
+  v_locked_count integer:=0;
   v_source public.curriculum_sources%rowtype;
 begin
   if auth.uid() is null then
@@ -379,6 +381,38 @@ begin
     where id in (p_entity_id,p_related_id)
     order by id
     for update;
+    get diagnostics v_locked_count = row_count;
+
+    if v_locked_count<>2 then
+      raise exception 'Source conflict resolution requires two existing allocations';
+    end if;
+
+    select status into v_status
+    from public.curriculum_time_allocations
+    where id=p_entity_id;
+
+    select status into v_related_status
+    from public.curriculum_time_allocations
+    where id=p_related_id;
+
+    if v_status='published'
+       and v_related_status='withdrawn'
+       and exists(
+         select 1
+         from public.audit_events event
+         where event.event_type='curriculum_time_source_conflict_resolved'
+           and event.entity_type='curriculum_time_allocations'
+           and event.entity_id=p_related_id
+           and event.metadata->>'kept_allocation_id'=p_entity_id::text
+           and event.metadata->>'withdrawn_allocation_id'=p_related_id::text
+       ) then
+      return jsonb_build_object(
+        'entityType','allocation',
+        'entityId',p_entity_id,
+        'withdrawnAllocationId',p_related_id,
+        'action','resolve_conflict'
+      );
+    end if;
 
     if not exists(
       select 1
@@ -816,4 +850,105 @@ $allocation_guard$;
 
 
 revoke all on function app_private.guard_curriculum_time_allocation()
+from public,anon,authenticated;
+
+-- The registry also has a dedicated overlap trigger that runs after the
+-- lifecycle guard. Keep its complete canonical-target matching semantics, but
+-- apply the same allocation- and profile-level supersession exclusions so it
+-- cannot reject a successor already accepted by the governance guards.
+create or replace function app_private.guard_curriculum_time_allocation_overlap()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $allocation_overlap_guard$
+declare
+  v_profile public.curriculum_time_profiles%rowtype;
+  v_conflict boolean:=false;
+begin
+  if tg_op<>'UPDATE'
+     or new.status<>'published'
+     or old.status='published' then
+    return new;
+  end if;
+
+  select * into v_profile
+  from public.curriculum_time_profiles
+  where id=new.profile_id;
+
+  select exists(
+    select 1
+    from public.curriculum_time_allocations other
+    join public.curriculum_time_profiles other_profile on other_profile.id=other.profile_id
+    where other.id<>new.id
+      and other.status='published'
+      and other_profile.status in ('published','superseded')
+      and other_profile.cycle_kind=v_profile.cycle_kind
+      and other_profile.cycle_length=v_profile.cycle_length
+      and other_profile.effective_from_year<=coalesce(v_profile.effective_to_year,2200)
+      and coalesce(other_profile.effective_to_year,2200)>=v_profile.effective_from_year
+      and coalesce(other.grade_from,0)<=coalesce(new.grade_to,20)
+      and coalesce(other.grade_to,20)>=coalesce(new.grade_from,0)
+      and other.id is distinct from new.supersedes_allocation_id
+      and other.supersedes_allocation_id is distinct from new.id
+      and not app_private.curriculum_time_profile_supersedes(new.profile_id,other.profile_id)
+      and not app_private.curriculum_time_profile_supersedes(other.profile_id,new.profile_id)
+      and (
+        (new.target_kind='subject'
+          and other.target_kind='subject'
+          and other.curriculum_subject_id=new.curriculum_subject_id)
+        or
+        (new.target_kind='subject'
+          and other.target_kind<>'subject'
+          and exists(
+            select 1
+            from public.curriculum_time_slot_subjects ss
+            where ss.allocation_id=other.id
+              and ss.curriculum_subject_id=new.curriculum_subject_id
+          ))
+        or
+        (new.target_kind<>'subject'
+          and other.target_kind='subject'
+          and exists(
+            select 1
+            from public.curriculum_time_slot_subjects ss
+            where ss.allocation_id=new.id
+              and ss.curriculum_subject_id=other.curriculum_subject_id
+          ))
+        or
+        (new.target_kind<>'subject'
+          and other.target_kind<>'subject'
+          and (
+            (new.target_kind=other.target_kind and new.allocation_key=other.allocation_key)
+            or exists(
+              select 1
+              from public.curriculum_time_slot_subjects new_ss
+              join public.curriculum_time_slot_subjects other_ss
+                on other_ss.curriculum_subject_id=new_ss.curriculum_subject_id
+              where new_ss.allocation_id=new.id
+                and other_ss.allocation_id=other.id
+            )
+          ))
+      )
+  ) into v_conflict;
+
+  if v_conflict then
+    if new.conflict_acknowledgement_reason is null
+       or btrim(new.conflict_acknowledgement_reason)='' then
+      raise exception 'Publishing this curriculum time allocation would create an unresolved source conflict';
+    end if;
+    if auth.uid() is null then raise exception 'Authentication required'; end if;
+    new.conflict_acknowledged_by_user_id:=auth.uid();
+    new.conflict_acknowledged_at:=now();
+  else
+    new.conflict_acknowledgement_reason:=null;
+    new.conflict_acknowledged_by_user_id:=null;
+    new.conflict_acknowledged_at:=null;
+  end if;
+
+  return new;
+end;
+$allocation_overlap_guard$;
+
+revoke all on function app_private.guard_curriculum_time_allocation_overlap()
 from public,anon,authenticated;

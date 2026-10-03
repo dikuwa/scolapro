@@ -11,6 +11,20 @@ test("profile-level supersession is honored across governance conflict checks", 
   assert.match(migration,/curriculum_time_profile_supersedes\(new\.id,existing\.profile_id\)/);
   assert.match(migration,/curriculum_time_profile_supersedes\(pa\.id,pb\.id\)/);
   assert.match(migration,/curriculum_time_profile_supersedes\(new\.profile_id,other\.profile_id\)/);
+
+  const overlapGuard = migration.slice(
+    migration.lastIndexOf(
+      "create or replace function app_private.guard_curriculum_time_allocation_overlap()",
+    ),
+  );
+  assert.match(
+    overlapGuard,
+    /not app_private\.curriculum_time_profile_supersedes\(new\.profile_id,other\.profile_id\)/,
+  );
+  assert.match(
+    overlapGuard,
+    /not app_private\.curriculum_time_profile_supersedes\(other\.profile_id,new\.profile_id\)/,
+  );
 });
 
 test("published profiles have a database-wide deferred nonempty invariant", () => {
@@ -29,4 +43,11 @@ test("conflict resolution locks deterministically before revalidating the confli
   assert.ok(lock >= 0, "pair lock must be present");
   assert.ok(validate >= 0, "conflict validation must be present");
   assert.ok(lock < validate, "pair must be locked before conflict is revalidated");
+  assert.match(branch,/get diagnostics v_locked_count = row_count/);
+  assert.match(branch,/v_status='published'[\s\S]*v_related_status='withdrawn'/);
+  assert.match(branch,/curriculum_time_source_conflict_resolved/);
+  assert.ok(
+    branch.indexOf("curriculum_time_source_conflict_resolved") < validate,
+    "an already committed identical resolution must return idempotently before conflict revalidation",
+  );
 });
