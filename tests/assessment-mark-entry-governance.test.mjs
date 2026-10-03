@@ -69,3 +69,11 @@ test("correction re-verification cannot be disabled by RPC callers", async () =>
   assert.match(sql, /Correction authorization requires re-verification/);
   assert.match(sql, /v_reason,p_starts_at,p_expires_at,true,auth\.uid\(\)/);
 });
+
+
+test("effective locks can be reopened without granting HOD school-wide correction reads", async () => {
+  const sql = await read(migrationPath);
+  assert.match(sql, /v_effective_window:=app_private\.resolve_assessment_mark_entry_window/);
+  assert.match(sql, /coalesce\(v_effective_window->>'state',''\) in \('locked','locked_again'\)/);
+  assert.match(sql, /hod_responsible_for_subject[\s\S]*assessment_mark_reopen_authorizations\.subject_offering_id/);
+});

@@ -1,6 +1,6 @@
 begin;
 
-select plan(27);
+select plan(29);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -232,6 +232,27 @@ select is(
   ),
   2,
   'new governance tables expose read-only RLS policies to authenticated assessment users'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
+  ) ilike '%resolve_assessment_mark_entry_window%'
+  and pg_get_functiondef(
+    'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
+  ) ilike '%locked_again%',
+  'bounded correction can reopen effective manual/deadline locks and locked-again states'
+);
+
+select ok(
+  (
+    select qual
+    from pg_policies
+    where schemaname='public'
+      and tablename='assessment_mark_reopen_authorizations'
+      and policyname='assessment staff read mark correction authorizations'
+  ) ilike '%hod_responsible_for_subject%',
+  'HOD correction-authorization reads remain subject-portfolio scoped'
 );
 
 select * from finish();

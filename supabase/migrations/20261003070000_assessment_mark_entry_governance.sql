@@ -573,6 +573,7 @@ declare
   v_id uuid;
   v_is_school_leader boolean:=false;
   v_is_hod boolean:=false;
+  v_effective_window jsonb;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if p_scope_kind not in ('learner','component','subject_class') then
@@ -620,9 +621,21 @@ begin
     raise exception 'Permission denied';
   end if;
 
-  if v_instance.status not in ('verified','locked')
-     and not (v_instance.status='returned' and v_instance.correction_pending) then
-    raise exception 'Only verified, locked, or already-open correction work can be authorized';
+  v_effective_window:=app_private.resolve_assessment_mark_entry_window(
+    v_instance.id,
+    case when p_scope_kind='learner' then p_enrolment_id else null end,
+    now()
+  );
+
+  if not (
+    v_instance.status in ('verified','locked')
+    or (v_instance.status='returned' and v_instance.correction_pending)
+    or (
+      v_instance.status in ('not_open','open','returned')
+      and coalesce(v_effective_window->>'state','') in ('locked','locked_again')
+    )
+  ) then
+    raise exception 'Only an effectively locked assessment or already-open correction work can be authorized';
   end if;
 
   if p_scope_kind='learner' then
@@ -668,6 +681,13 @@ begin
        and (
          target.status in ('verified','locked')
          or target.correction_pending
+         or (
+           target.status in ('not_open','open','returned')
+           and coalesce(
+             app_private.resolve_assessment_mark_entry_window(target.id,null,now())->>'state',
+             ''
+           ) in ('locked','locked_again')
+         )
        );
   else
     update public.assessment_instances
@@ -804,7 +824,18 @@ using (
       )
       or app_private.has_school_role(
         school_id,
-        array['school_admin','principal','deputy_principal','hod']
+        array['school_admin','principal','deputy_principal']
+      )
+      or (
+        app_private.has_school_role(school_id,array['hod'])
+        and app_private.hod_responsible_for_subject(
+          school_id,
+          (
+            select offering.subject_id
+            from public.subject_offerings offering
+            where offering.id=assessment_mark_reopen_authorizations.subject_offering_id
+          )
+        )
       )
     )
   )
