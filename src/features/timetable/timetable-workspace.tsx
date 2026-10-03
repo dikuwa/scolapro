@@ -101,11 +101,11 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
   const dayNames = useMemo(() => getTimetableDayNames(workspace.cycleMode, workspace.cycleLength), [workspace.cycleMode, workspace.cycleLength]);
   const subjectOptions = useMemo(() => workspace.subjects.map((item) => ({ value: item.id, label: item.name, helper: item.code.toUpperCase() })), [workspace.subjects]);
   const gradeOptions = useMemo(() => workspace.grades.map((item) => ({ value: item.id, label: item.name })), [workspace.grades]);
-  const offeringOptions = useMemo(() => workspace.offerings.map((item) => ({ value: item.id, label: item.subjectName, helper: `${item.gradeName} · ${item.periodsPerCycle} periods/cycle` })), [workspace.offerings]);
+  const offeringOptions = useMemo(() => workspace.offerings.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.gradeName}`, helper: `${item.periodsPerCycle} periods/cycle`, group: item.gradeName })), [workspace.offerings]);
   const selectedOfferingGrades = useMemo(() => new Set(workspace.offerings.filter((item) => allocationOfferingIds.includes(item.id)).map((item) => item.gradeId)), [allocationOfferingIds, workspace.offerings]);
   const allocationClassOptions = useMemo(() => {
     const rows = allocationOfferingIds.length ? workspace.classes.filter((item) => selectedOfferingGrades.has(item.gradeId)) : workspace.classes;
-    return rows.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }));
+    return rows.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName, group: item.gradeName }));
   }, [allocationOfferingIds.length, selectedOfferingGrades, workspace.classes]);
   const allowedAllocationClassIds = useMemo(() => new Set(allocationClassOptions.map((item) => item.value)), [allocationClassOptions]);
   const slotAllocationOptions = workspace.allocations.filter((item) => !slotClassId || item.classId === slotClassId);
