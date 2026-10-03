@@ -1,18 +1,18 @@
 begin;
 
-select plan(2);
+select plan(7);
 
 select has_function(
   'public',
   'resolve_curriculum_time_allocation',
   array['uuid','text','smallint','integer','text','smallint','uuid'],
-  'curriculum time resolver remains available'
+  'canonical curriculum time resolver remains available'
 );
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values(
   'fd120000-0000-4000-8000-000000000001',
-  'resolver-transitive@example.test',
+  'resolver-transitive-platform@example.test',
   'authenticated','authenticated',now(),now()
 );
 
@@ -23,17 +23,28 @@ values(
   current_date-10
 );
 
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','fd120000-0000-4000-8000-000000000001',true);
+set local role authenticated;
+
 insert into public.curriculum_sources(
   id,authority,source_key,title,source_url,checksum,provenance,status
 ) values(
   'fd130000-0000-4000-8000-000000000001',
   'NIED',
   'resolver-transitive-source',
-  'Resolver Transitive Source',
+  'Resolver Transitive Supersession Source',
   'https://example.test/resolver-transitive.pdf',
   'sha256:resolver-transitive',
   '{"fixture":"resolver-transitive"}'::jsonb,
-  'verified'
+  'discovered'
+);
+
+select lives_ok(
+  $$select public.govern_curriculum_time_registry(
+    'source','fd130000-0000-4000-8000-000000000001','verify',null,null
+  )$$,
+  'fixture source verifies through governed lifecycle'
 );
 
 insert into public.curriculum_subjects(
@@ -48,111 +59,163 @@ insert into public.curriculum_subjects(
   true
 );
 
-select set_config('request.jwt.claim.role','authenticated',true);
-select set_config('request.jwt.claim.sub','fd120000-0000-4000-8000-000000000001',true);
-set local role authenticated;
-
 insert into public.curriculum_time_profiles(
-  id,source_id,profile_key,title,phase_code,cycle_kind,cycle_length,period_minutes,total_periods_per_cycle,
-  effective_from_year,effective_to_year,status,provenance,supersedes_profile_id
+  id,source_id,profile_key,title,phase_code,cycle_kind,cycle_length,period_minutes,
+  total_periods_per_cycle,effective_from_year,effective_to_year,status,
+  supersedes_profile_id,provenance
 ) values
-(
-  'fd150000-0000-4000-8000-000000000001',
-  'fd130000-0000-4000-8000-000000000001',
-  'resolver-chain-a','Resolver Chain A',
-  'junior_secondary','rotating',7,40,56,2030,2030,'draft',
-  '{"locator":"A"}'::jsonb,
-  null
-),
-(
-  'fd150000-0000-4000-8000-000000000002',
-  'fd130000-0000-4000-8000-000000000001',
-  'resolver-chain-b','Resolver Chain B',
-  'junior_secondary','rotating',7,40,56,2029,2029,'draft',
-  '{"locator":"B"}'::jsonb,
-  'fd150000-0000-4000-8000-000000000001'
-),
-(
-  'fd150000-0000-4000-8000-000000000003',
-  'fd130000-0000-4000-8000-000000000001',
-  'resolver-chain-c','Resolver Chain C',
-  'junior_secondary','rotating',7,40,56,2030,2030,'draft',
-  '{"locator":"C"}'::jsonb,
-  'fd150000-0000-4000-8000-000000000002'
-);
+  (
+    'fd150000-0000-4000-8000-000000000001',
+    'fd130000-0000-4000-8000-000000000001',
+    'resolver-chain-a',
+    'Resolver Chain A',
+    'junior_secondary','rotating',7,40,56,2026,2028,'draft',
+    null,
+    '{"locator":"chain A"}'::jsonb
+  ),
+  (
+    'fd150000-0000-4000-8000-000000000002',
+    'fd130000-0000-4000-8000-000000000001',
+    'resolver-chain-b',
+    'Resolver Chain B',
+    'junior_secondary','rotating',7,40,56,2027,2027,'draft',
+    'fd150000-0000-4000-8000-000000000001',
+    '{"locator":"chain B"}'::jsonb
+  ),
+  (
+    'fd150000-0000-4000-8000-000000000003',
+    'fd130000-0000-4000-8000-000000000001',
+    'resolver-chain-c',
+    'Resolver Chain C',
+    'junior_secondary','rotating',7,40,56,2026,2028,'draft',
+    'fd150000-0000-4000-8000-000000000002',
+    '{"locator":"chain C"}'::jsonb
+  );
 
 insert into public.curriculum_time_allocations(
   id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,
   grade_from,grade_to,periods_per_cycle,rule_strength,source_locator,status
 ) values
-(
-  'fd160000-0000-4000-8000-000000000001',
-  'fd150000-0000-4000-8000-000000000001',
-  'fd140000-0000-4000-8000-000000000001',
-  'resolver-chain-a-g9','subject','Resolver Chain A',
-  9,9,5,'prescribed','A Grade 9','draft'
-),
-(
-  'fd160000-0000-4000-8000-000000000002',
-  'fd150000-0000-4000-8000-000000000002',
-  'fd140000-0000-4000-8000-000000000001',
-  'resolver-chain-b-g9','subject','Resolver Chain B',
-  9,9,6,'prescribed','B Grade 9','draft'
-),
-(
-  'fd160000-0000-4000-8000-000000000003',
-  'fd150000-0000-4000-8000-000000000003',
-  'fd140000-0000-4000-8000-000000000001',
-  'resolver-chain-c-g9','subject','Resolver Chain C',
-  9,9,7,'prescribed','C Grade 9','draft'
+  (
+    'fd160000-0000-4000-8000-000000000001',
+    'fd150000-0000-4000-8000-000000000001',
+    'fd140000-0000-4000-8000-000000000001',
+    'resolver-chain-a-g9','subject','Resolver Chain Mathematics',
+    9,9,5,'prescribed','Chain A Grade 9','draft'
+  ),
+  (
+    'fd160000-0000-4000-8000-000000000002',
+    'fd150000-0000-4000-8000-000000000002',
+    'fd140000-0000-4000-8000-000000000001',
+    'resolver-chain-b-g9','subject','Resolver Chain Mathematics',
+    9,9,6,'prescribed','Chain B Grade 9','draft'
+  ),
+  (
+    'fd160000-0000-4000-8000-000000000003',
+    'fd150000-0000-4000-8000-000000000003',
+    'fd140000-0000-4000-8000-000000000001',
+    'resolver-chain-c-g9','subject','Resolver Chain Mathematics',
+    9,9,7,'prescribed','Chain C Grade 9','draft'
+  );
+
+select lives_ok(
+  $$select public.govern_curriculum_time_registry(
+    'allocation',id,'verify',null,null
+  )
+  from public.curriculum_time_allocations
+  where id in(
+    'fd160000-0000-4000-8000-000000000001',
+    'fd160000-0000-4000-8000-000000000002',
+    'fd160000-0000-4000-8000-000000000003'
+  )
+  order by id$$,
+  'all chain allocations verify before profile publication'
 );
 
-update public.curriculum_time_allocations
-set status='verified'
-where id in (
-  'fd160000-0000-4000-8000-000000000001',
-  'fd160000-0000-4000-8000-000000000002',
-  'fd160000-0000-4000-8000-000000000003'
+select lives_ok(
+  $$select public.govern_curriculum_time_registry(
+    'profile',id,'verify',null,null
+  )
+  from public.curriculum_time_profiles
+  where id in(
+    'fd150000-0000-4000-8000-000000000001',
+    'fd150000-0000-4000-8000-000000000002',
+    'fd150000-0000-4000-8000-000000000003'
+  )
+  order by id$$,
+  'all chain profiles verify'
 );
 
-update public.curriculum_time_profiles
-set status='verified'
-where id in (
-  'fd150000-0000-4000-8000-000000000001',
-  'fd150000-0000-4000-8000-000000000002',
-  'fd150000-0000-4000-8000-000000000003'
+select lives_ok(
+  $$select public.govern_curriculum_time_registry(
+    'profile',id,'publish',null,null
+  )
+  from public.curriculum_time_profiles
+  where id in(
+    'fd150000-0000-4000-8000-000000000001',
+    'fd150000-0000-4000-8000-000000000002',
+    'fd150000-0000-4000-8000-000000000003'
+  )
+  order by id$$,
+  'A then B then C profile publication accepts direct and transitive supersession'
 );
 
-update public.curriculum_time_profiles set status='published'
-where id='fd150000-0000-4000-8000-000000000001';
-update public.curriculum_time_allocations set status='published'
-where id='fd160000-0000-4000-8000-000000000001';
-
-update public.curriculum_time_profiles set status='published'
-where id='fd150000-0000-4000-8000-000000000002';
-update public.curriculum_time_allocations set status='published'
-where id='fd160000-0000-4000-8000-000000000002';
-
-update public.curriculum_time_profiles set status='published'
-where id='fd150000-0000-4000-8000-000000000003';
-update public.curriculum_time_allocations set status='published'
-where id='fd160000-0000-4000-8000-000000000003';
+select lives_ok(
+  $$select public.govern_curriculum_time_registry(
+    'allocation',id,'publish',null,null
+  )
+  from public.curriculum_time_allocations
+  where id in(
+    'fd160000-0000-4000-8000-000000000001',
+    'fd160000-0000-4000-8000-000000000002',
+    'fd160000-0000-4000-8000-000000000003'
+  )
+  order by id$$,
+  'A then B then C allocation publication follows the governed profile chain'
+);
 
 select is(
   (
-    select concat_ws(':',resolution_status,allocation_id::text,periods_per_cycle::text)
+    select concat_ws(
+      ':',
+      resolution_status,
+      allocation_id::text,
+      periods_per_cycle::text
+    )
     from public.resolve_curriculum_time_allocation(
       'fd140000-0000-4000-8000-000000000001',
       null,
       9::smallint,
-      2030,
+      2026,
       'rotating',
       7::smallint,
       null
     )
   ),
   'resolved:fd160000-0000-4000-8000-000000000003:7',
-  'resolver honors transitive profile supersession even when the intermediate profile is outside the queried year'
+  'terminal profile C suppresses transitive predecessor A in 2026 even though intermediate B is not effective that year'
+);
+
+select is(
+  (
+    select concat_ws(
+      ':',
+      resolution_status,
+      allocation_id::text,
+      periods_per_cycle::text
+    )
+    from public.resolve_curriculum_time_allocation(
+      'fd140000-0000-4000-8000-000000000001',
+      null,
+      9::smallint,
+      2027,
+      'rotating',
+      7::smallint,
+      null
+    )
+  ),
+  'resolved:fd160000-0000-4000-8000-000000000003:7',
+  'terminal profile C remains the single resolver candidate when all three chain profiles cover 2027'
 );
 
 select * from finish();
