@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(18);
 
 select has_table(
   'public',
@@ -72,6 +72,19 @@ select ok(
     'public.commit_operational_intake_job(uuid)'::regprocedure
   ) like '%create_timetable_slot%',
   'timetable adapter commits through canonical timetable slot governance'
+);
+
+select ok(
+  pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%e.starts_on=v_starts_on%'
+  and pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%e.audience_scope=v_audience_scope%'
+  and pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%audience_reference_id is not distinct from v_audience_reference_id%',
+  'calendar update identity requires title/date/audience parity rather than title alone'
 );
 
 select ok(

@@ -342,13 +342,17 @@ begin
       where e.event_scope='school'
         and e.school_id=v_job.school_id
         and e.academic_year=v_job.academic_year
-        and lower(btrim(e.title))=lower(v_title);
+        and lower(btrim(e.title))=lower(v_title)
+        and e.starts_on=v_starts_on
+        and e.ends_on=v_ends_on
+        and e.audience_scope=v_audience_scope
+        and e.audience_reference_id is not distinct from v_audience_reference_id;
 
       if v_count>1 then
         v_match:=null;
         v_resolution:='conflict';
         v_issues:=v_issues||jsonb_build_array(
-          'Multiple active calendar events share this title; choose a unique title or correct the source row before review.'
+          'Multiple active calendar events share this title/date/audience identity; correct the source row before review.'
         );
       elsif v_count=1 then
         if exists(
@@ -356,11 +360,11 @@ begin
           from public.effective_learner_calendar_events e
           where e.id=v_match
             and lower(btrim(e.category))=lower(v_category)
-            and e.starts_on=v_starts_on
-            and e.ends_on=v_ends_on
             and e.starts_at is not distinct from v_starts_at
             and e.ends_at is not distinct from v_ends_at
+            and e.description is not distinct from nullif(btrim(p_payload->>'description'),'')
             and e.teaching_impact=v_impact
+            and e.bell_schedule_id is not distinct from v_bell_schedule_id
         ) then
           v_resolution:='duplicate';
         else
