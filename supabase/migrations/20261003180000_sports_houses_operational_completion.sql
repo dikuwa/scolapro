@@ -172,6 +172,7 @@ set search_path=pg_catalog,public,app_private
 as $effective_guardian_contact$
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if app_private.has_platform_role(array['platform_support']) then raise exception 'Permission denied'; end if;
   if p_reference_date is null then raise exception 'Reference date is required'; end if;
   if not app_private.has_school_access(p_school_id)
      and not app_private.has_platform_role(array['platform_admin']) then
@@ -244,6 +245,7 @@ set search_path=pg_catalog,public,app_private
 as $compact_operational_context$
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if app_private.has_platform_role(array['platform_support']) then raise exception 'Permission denied'; end if;
   if not app_private.has_school_access(p_school_id)
      and not app_private.has_platform_role(array['platform_admin']) then
     raise exception 'Permission denied';

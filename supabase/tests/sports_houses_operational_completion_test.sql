@@ -1,5 +1,5 @@
 begin;
-select plan(12);
+select plan(14);
 
 select has_function('public','get_sports_house_operational_learner_roster',array['uuid','integer'],'operational sports learner roster exists');
 select has_function('public','resolve_effective_learner_guardian_contact',array['uuid','uuid','date'],'shared guardian contact resolver exists');
@@ -71,6 +71,20 @@ select ok(
     'public.get_learner_compact_operational_context(uuid,uuid,integer,uuid)'::regprocedure
   ) ilike '%learner_subject_registrations%',
   'compact learner subjects derive from canonical learner subject registrations'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.resolve_effective_learner_guardian_contact(uuid,uuid,date)'::regprocedure
+  ) ilike '%has_platform_role(array[''platform_support''])%Permission denied%',
+  'Platform Support is explicitly denied immediate guardian-contact PII'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.get_learner_compact_operational_context(uuid,uuid,integer,uuid)'::regprocedure
+  ) ilike '%has_platform_role(array[''platform_support''])%Permission denied%',
+  'Platform Support is explicitly denied learner compact operational context'
 );
 
 select * from finish();
