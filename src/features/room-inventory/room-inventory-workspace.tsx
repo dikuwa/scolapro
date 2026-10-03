@@ -280,7 +280,7 @@ export function RoomInventoryWorkspace({
           />
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="scolapro-scrollbar mt-4 max-h-[min(64dvh,46rem)] overflow-y-auto overscroll-contain pr-1" aria-label="Room inventory roster"><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {rooms.map((candidate) => {
             const isMine = Boolean(candidate.custodianId && viewerStaff.has(candidate.custodianId));
             const attention = roomAttentionCount(candidate.id);
@@ -318,6 +318,7 @@ export function RoomInventoryWorkspace({
               </button>
             );
           })}
+          </div>
         </div>
       </section>
 
