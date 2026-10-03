@@ -266,11 +266,17 @@ insert into public.curriculum_time_allocations(
   9,9,5,'prescribed','Delete guard source Grade 9','draft'
 );
 select public.govern_curriculum_time_registry(
+  'allocation','fc160000-0000-4000-8000-000000000005','verify',null,null
+);
+select public.govern_curriculum_time_registry(
   'profile','fc150000-0000-4000-8000-000000000005','verify',null,null
 );
 select public.govern_curriculum_time_registry(
   'profile','fc150000-0000-4000-8000-000000000005','publish',null,null
 );
+update public.curriculum_time_allocations
+set status='draft'
+where id='fc160000-0000-4000-8000-000000000005';
 set constraints zz_curriculum_time_profile_nonempty_allocation_ctr immediate;
 select throws_ok(
   $delete from public.curriculum_time_allocations
