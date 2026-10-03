@@ -304,7 +304,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   const db = await createSupabaseServerClient();
   let typedResults: NumericResult[];
   if (basis === "official") {
-    const { data: results, error } = await db.from("official_results")
+    const { data: results, error } = await db.from("official_results_current")
       .select("result_value,result_status,symbol,subject_offering_id,enrolment_id,grading_scale_key,grading_scale_version")
       .eq("school_id", membership.schoolId)
       .eq("academic_year", scope.academicYear)

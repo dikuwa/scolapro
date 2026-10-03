@@ -8,6 +8,7 @@ const page=readFileSync("src/app/reports/academic-schedules/page.tsx","utf8");
 const printPage=readFileSync("src/app/reports/academic-schedules/print/page.tsx","utf8");
 const xlsx=readFileSync("src/features/reporting/server/render-academic-schedule-xlsx.ts","utf8");
 const actions=readFileSync("src/features/reporting/server/academic-schedule-actions.ts","utf8");
+const academicAnalysis=readFileSync("src/features/academics/server/academic-analysis.ts","utf8");
 const exportRoute=readFileSync("src/app/reports/academic-schedules/export.xlsx/route.ts","utf8");
 const liveProfile=readFileSync("src/features/documents/server/live-school-document-profile.ts","utf8");
 const finalizeForm=readFileSync("src/features/reporting/academic-schedule-finalize-form.tsx","utf8");
@@ -24,8 +25,10 @@ test("finalized official schedules are immutable, versioned and audited",()=>{
   assert.match(migration,/Only official-basis academic schedules may be finalized/);
 });
 
-test("schedule generation reuses canonical results, assessment readiness and promotion readiness",()=>{
+test("schedule generation reuses canonical current results, assessment readiness and promotion readiness",()=>{
   assert.match(server,/getAcademicAnalysisWorkspace/);
+  assert.match(academicAnalysis,/from\("official_results_current"\)/);
+  assert.doesNotMatch(academicAnalysis,/from\("official_results"\)/);
   assert.match(server,/get_assessment_quality_readiness/);
   assert.match(server,/promotionReadiness/);
   assert.doesNotMatch(server,/calculate_subject_result/);
@@ -76,6 +79,9 @@ test("frozen document assets are re-signed from immutable storage paths",()=>{
 });
 
 test("finalization surfaces pending and result feedback",()=>{
+  assert.match(actions,/try \{/);
+  assert.match(actions,/catch \{/);
+  assert.match(actions,/Unable to finalize the academic schedule from canonical academic data/);
   assert.match(finalizeForm,/useActionState/);
   assert.match(finalizeForm,/useFormStatus/);
   assert.match(finalizeForm,/Finalizing…/);

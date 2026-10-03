@@ -36,32 +36,36 @@ export async function finalizeAcademicSchedule(
     return { message: "Official academic schedule finalization is restricted to school management." };
   }
 
-  const payload = await getAcademicSchedulePayload(parsed.data);
-  if (!payload) return { message: "Unable to build this schedule from canonical academic data." };
+  try {
+    const payload = await getAcademicSchedulePayload(parsed.data);
+    if (!payload) return { message: "Unable to build this schedule from canonical academic data." };
 
-  const [db, documentHeader] = await Promise.all([
-    Promise.resolve(createSupabaseAdminClient()),
-    getLiveSchoolDocumentHeader(membership.schoolId,"internal_school"),
-  ]);
-  const { data, error } = await db.rpc("finalize_academic_schedule_snapshot", {
-    p_school_id: membership.schoolId,
-    p_academic_year: parsed.data.academicYear,
-    p_term_number: parsed.data.termNumber,
-    p_schedule_type: parsed.data.scheduleType,
-    p_basis: "official",
-    p_title: payload.title,
-    p_payload: payload,
-    p_metadata: {
-      sourceDescription: payload.sourceDescription,
-      rowCount: payload.rowCount,
-      generatedAt: payload.generatedAt,
-      templateFidelity: "pending_official_sample",
-      documentHeader,
-    },
-    p_supersession_reason: parsed.data.supersessionReason || null,
-    p_actor_user_id: context.user.id,
-  });
-  if (error) return { message: error.message || "Unable to finalize the academic schedule." };
-  revalidatePath("/reports/academic-schedules");
-  return { success:true, snapshotId:String(data), message:"Official schedule finalized and version history preserved." };
+    const [db, documentHeader] = await Promise.all([
+      Promise.resolve(createSupabaseAdminClient()),
+      getLiveSchoolDocumentHeader(membership.schoolId,"internal_school"),
+    ]);
+    const { data, error } = await db.rpc("finalize_academic_schedule_snapshot", {
+      p_school_id: membership.schoolId,
+      p_academic_year: parsed.data.academicYear,
+      p_term_number: parsed.data.termNumber,
+      p_schedule_type: parsed.data.scheduleType,
+      p_basis: "official",
+      p_title: payload.title,
+      p_payload: payload,
+      p_metadata: {
+        sourceDescription: payload.sourceDescription,
+        rowCount: payload.rowCount,
+        generatedAt: payload.generatedAt,
+        templateFidelity: "pending_official_sample",
+        documentHeader,
+      },
+      p_supersession_reason: parsed.data.supersessionReason || null,
+      p_actor_user_id: context.user.id,
+    });
+    if (error) return { message: error.message || "Unable to finalize the academic schedule." };
+    revalidatePath("/reports/academic-schedules");
+    return { success:true, snapshotId:String(data), message:"Official schedule finalized and version history preserved." };
+  } catch {
+    return { message: "Unable to finalize the academic schedule from canonical academic data." };
+  }
 }
