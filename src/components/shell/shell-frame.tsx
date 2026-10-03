@@ -75,6 +75,7 @@ export function ShellFrame({
 
   return (
     <div
+      data-scolapro-shell="true"
       className="relative min-h-screen bg-background text-foreground lg:grid lg:items-start lg:transition-[grid-template-columns] lg:duration-[var(--motion-base)] lg:ease-[var(--ease-standard)]"
       style={{
         gridTemplateColumns: collapsed
