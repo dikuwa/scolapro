@@ -728,28 +728,28 @@ begin
   where id=p_authorization_id
   for update;
   if not found then raise exception 'Correction authorization not found'; end if;
-  if v_reopen.status<>'active' then raise exception 'Correction authorization is not active'; end if;
+  if v_authorization.status<>'active' then raise exception 'Correction authorization is not active'; end if;
 
   select subject_id into v_subject_id
   from public.subject_offerings
-  where id=v_reopen.subject_offering_id;
+  where id=v_authorization.subject_offering_id;
 
   v_is_school_leader:=
     app_private.has_platform_role(array['platform_admin'])
     or (
-      app_private.user_current_school_matches((select auth.uid()),v_reopen.school_id)
+      app_private.user_current_school_matches((select auth.uid()),v_authorization.school_id)
       and not app_private.has_platform_role(array['platform_support'])
       and app_private.has_school_role(
-        v_reopen.school_id,
+        v_authorization.school_id,
         array['school_admin','principal','deputy_principal']
       )
     );
   v_is_hod:=
-    app_private.user_current_school_matches((select auth.uid()),v_reopen.school_id)
+    app_private.user_current_school_matches((select auth.uid()),v_authorization.school_id)
     and not app_private.has_platform_role(array['platform_support'])
-    and app_private.hod_responsible_for_subject(v_reopen.school_id,v_subject_id);
+    and app_private.hod_responsible_for_subject(v_authorization.school_id,v_subject_id);
 
-  if v_reopen.scope_kind='subject_class' then
+  if v_authorization.scope_kind='subject_class' then
     if not v_is_school_leader then raise exception 'Permission denied'; end if;
   elsif not (v_is_school_leader or v_is_hod) then
     raise exception 'Permission denied';
@@ -760,13 +760,13 @@ begin
          closed_at=now(),
          closed_by_user_id=auth.uid(),
          close_reason=v_reason
-   where id=v_reopen.id;
+   where id=v_authorization.id;
 
   insert into public.audit_events(
     tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
   ) values(
-    v_reopen.tenant_id,v_reopen.school_id,auth.uid(),
-    'assessment.mark_correction.revoked','assessment_mark_reopen_authorization',v_reopen.id,
+    v_authorization.tenant_id,v_authorization.school_id,auth.uid(),
+    'assessment.mark_correction.revoked','assessment_mark_reopen_authorization',v_authorization.id,
     jsonb_build_object('reason',v_reason)
   );
 
