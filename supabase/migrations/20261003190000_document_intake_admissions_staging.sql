@@ -631,7 +631,7 @@ create or replace function public.enrol_accepted_admission(
 returns jsonb
 language plpgsql
 security definer
-set search_path=public,app_private
+set search_path=pg_catalog,public,app_private
 as $$
 declare
   v_application public.admission_applications%rowtype;

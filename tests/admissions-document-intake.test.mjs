@@ -36,6 +36,7 @@ test("admissions intake supports human correction and explicit identity match re
   assert.match(migration,/use_existing_learner/);
   assert.match(migration,/Selected learner is not a reviewed intake match/);
   assert.match(migration,/reused_existing_learner/);
+  assert.match(migration,/create or replace function public\.enrol_accepted_admission[\s\S]*set search_path=pg_catalog,public,app_private/);
 });
 
 test("server actions upload source artifacts but commit only through governed RPCs", () => {
