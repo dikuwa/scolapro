@@ -86,6 +86,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
   const [offeringGradeIds, setOfferingGradeIds] = useState<string[]>([]);
   const [allocationOfferingIds, setAllocationOfferingIds] = useState<string[]>([]);
   const [allocationClassIds, setAllocationClassIds] = useState<string[]>([]);
+  const [allocationTeachingGroupIds, setAllocationTeachingGroupIds] = useState<string[]>([]);
   const [allocationStaffId, setAllocationStaffId] = useState("");
   const [allocationStart, setAllocationStart] = useState(localTodayIso);
   const [allocationEnd, setAllocationEnd] = useState("");
@@ -107,6 +108,13 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
     const rows = allocationOfferingIds.length ? workspace.classes.filter((item) => selectedOfferingGrades.has(item.gradeId)) : workspace.classes;
     return rows.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName, group: item.gradeName }));
   }, [allocationOfferingIds.length, selectedOfferingGrades, workspace.classes]);
+  const teachingGroupOptions = useMemo(() => workspace.teachingGroups
+    .filter((group) => allocationOfferingIds.includes(group.offeringId))
+    .map((group) => {
+      const offering = workspace.offerings.find((item) => item.id === group.offeringId);
+      const scope = offering ? `${offering.subjectName} · ${offering.gradeName}` : "Teaching group";
+      return { value: group.id, label: group.name, helper: `${scope} · ${group.code}`, group: scope };
+    }), [allocationOfferingIds, workspace.offerings, workspace.teachingGroups]);
   const slotAllocationOptions = workspace.allocations.filter((item) => !slotClassId || item.classId === slotClassId);
   const upcomingAllocations = workspace.allocations.filter((item) => item.activeFrom > todayIso);
   const visibleSlots = viewerStaffId && !canManage ? workspace.slots.filter((slot) => slot.staffId === viewerStaffId) : workspace.slots;
@@ -133,6 +141,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
     setAllocationOfferingIds(next);
     if (!next.length) {
       setAllocationClassIds([]);
+      setAllocationTeachingGroupIds([]);
       return;
     }
     const nextGrades = new Set(workspace.offerings.filter((item) => next.includes(item.id)).map((item) => item.gradeId));
@@ -141,6 +150,8 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
       const gradeId = classGrade.get(classId);
       return Boolean(gradeId && nextGrades.has(gradeId));
     }));
+    const allowedGroups = new Set(workspace.teachingGroups.filter((group) => next.includes(group.offeringId)).map((group) => group.id));
+    setAllocationTeachingGroupIds((current) => current.filter((groupId) => allowedGroups.has(groupId)));
   }
 
   const scheduleGroups = useMemo(() => dayNames.map((day, index) => ({ day, weekday: index + 1, slots: visibleSlots.filter((slot) => slot.weekday === index + 1).sort((a, b) => a.periodNumber - b.periodNumber) })), [dayNames, visibleSlots]);
@@ -220,6 +231,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
               <input type="hidden" name="academicYear" value={academicYear} />
               <input type="hidden" name="offeringIds" value={JSON.stringify(allocationOfferingIds)} />
               <input type="hidden" name="classIds" value={JSON.stringify(allocationClassIds)} />
+              <input type="hidden" name="teachingGroupIds" value={JSON.stringify(allocationTeachingGroupIds)} />
               <div>
                 <SearchableSelect
                   label="Subject offerings"
@@ -256,11 +268,31 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
                 />
                 <MultiSelectionChips values={allocationClassIds} options={allocationClassOptions} onRemove={(value) => setAllocationClassIds((current) => current.filter((id) => id !== value))} onClear={() => setAllocationClassIds([])} />
               </div>
+              <div>
+                <SearchableSelect
+                  label="Teaching groups (optional)"
+                  value=""
+                  options={teachingGroupOptions}
+                  placeholder={allocationOfferingIds.length ? "Link canonical teaching groups" : "Choose subject offerings first"}
+                  searchPlaceholder="Search teaching group"
+                  multiple
+                  selectedValues={allocationTeachingGroupIds}
+                  onToggle={(value) => setAllocationTeachingGroupIds((current) => toggleSelection(current, value))}
+                  multipleLabel="teaching groups"
+                  disabled={!allocationOfferingIds.length}
+                  bulkActionGroups={[{ label: "Matching teaching groups", actions: [
+                    { label: "Select all matching", onClick: () => setAllocationTeachingGroupIds(teachingGroupOptions.map((item) => item.value)), active: allocationTeachingGroupIds.length === teachingGroupOptions.length && teachingGroupOptions.length > 0 },
+                    { label: "Clear all", onClick: () => setAllocationTeachingGroupIds([]), disabled: !allocationTeachingGroupIds.length },
+                  ] }]}
+                />
+                <MultiSelectionChips values={allocationTeachingGroupIds} options={teachingGroupOptions} onRemove={(value) => setAllocationTeachingGroupIds((current) => current.filter((id) => id !== value))} onClear={() => setAllocationTeachingGroupIds([])} />
+                <p className="mt-1.5 text-[0.64rem] leading-5 text-muted-foreground">Teaching groups link to the canonical class allocations created by this save; they never replace the required register-class timetable scope.</p>
+              </div>
               <Picker label="Teacher" name="staffId" value={allocationStaffId} onChange={setAllocationStaffId} placeholder="Choose staff member" options={workspace.staff.map((item) => ({ value: item.id, label: item.name, helper: item.employeeNumber ? `Employee ${item.employeeNumber}` : undefined }))} searchable searchPlaceholder="Search teacher or employee number" />
               <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5">
                 <p className="text-xs font-semibold">Allocation preview</p>
                 <p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">
-                  {allocationPairSummary.valid ? <><strong className="text-foreground">{allocationPairSummary.valid}</strong> valid subject/class allocation{allocationPairSummary.valid === 1 ? "" : "s"} will use the selected teacher. {allocationPairSummary.ignored ? <>{allocationPairSummary.ignored} grade-mismatched pair{allocationPairSummary.ignored === 1 ? "" : "s"} will be ignored.</> : null}</> : "Select subject offerings and matching classes to preview the teacher allocations."}
+                  {allocationPairSummary.valid ? <><strong className="text-foreground">{allocationPairSummary.valid}</strong> valid subject/class allocation{allocationPairSummary.valid === 1 ? "" : "s"} will use the selected teacher. {allocationPairSummary.ignored ? <>{allocationPairSummary.ignored} grade-mismatched pair{allocationPairSummary.ignored === 1 ? "" : "s"} will be ignored. </> : null}{allocationTeachingGroupIds.length ? <><strong className="text-foreground">{allocationTeachingGroupIds.length}</strong> selected teaching group{allocationTeachingGroupIds.length === 1 ? "" : "s"} will link to matching canonical allocations.</> : null}</> : "Select subject offerings and matching classes to preview the teacher allocations."}
                 </p>
               </div>
               <DateField label="Starts on" name="activeFrom" value={allocationStart} onChange={(value) => { setAllocationStart(value); if (allocationEnd && value && allocationEnd < value) setAllocationEnd(""); }} required error={allocationState.fieldErrors?.activeFrom?.[0]} />
