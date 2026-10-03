@@ -263,12 +263,22 @@ export function OperationalTeachingFiles({
               );
             })}
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2.5">
-            <p className="text-xs text-muted-foreground">
+          <div className="mt-3 flex flex-col gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated p-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-xs leading-5 text-muted-foreground">
               Subject File is separate: it is the school-owned, subject-head file shared with subject teachers.
             </p>
-            <Link href="/teaching/subject-file" className="scolapro-cta text-xs font-medium text-brand-strong hover:underline">
-              Open Subject File
+            <Link
+              href="/teaching/subject-file"
+              className="group flex min-h-12 w-full items-center gap-3 rounded-[var(--radius-sm)] bg-brand-soft px-3 py-2.5 text-left text-brand-strong transition hover:bg-brand-soft/70 sm:w-auto sm:min-w-[13rem]"
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-surface shadow-[var(--shadow-xs)]">
+                <FolderKanban className="size-4" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold">Subject File</span>
+                <span className="block text-[0.66rem] font-normal text-muted-foreground">Open shared subject dossier</span>
+              </span>
+              <ArrowUpRight className="size-4 shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" aria-hidden="true" />
             </Link>
           </div>
           {!hasGovernedFiles ? (

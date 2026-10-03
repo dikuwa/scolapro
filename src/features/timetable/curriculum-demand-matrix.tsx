@@ -29,50 +29,50 @@ export function CurriculumDemandMatrix({ rows }: { rows: TimetableDemandRow[] })
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="scolapro-tone-brand grid size-8 place-items-center rounded-[var(--radius-sm)]">
+      <div className="grid gap-4 border-b border-border-subtle pb-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+        <div className="min-w-0 md:col-span-2 lg:col-span-1">
+          <div className="flex items-start gap-2.5">
+            <span className="scolapro-tone-brand grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]">
               <CheckCircle2 className="size-4" aria-hidden="true" />
             </span>
-            <div>
+            <div className="min-w-0">
               <h2 className="scolapro-section-title">Curriculum demand</h2>
               <p className="scolapro-section-description !mt-0">Official allocation, school target and active timetable count by class. Warnings inform planning; they do not silently rewrite or block the timetable.</p>
             </div>
           </div>
         </div>
-        <div className="grid w-full gap-3 sm:grid-cols-2 sm:min-w-[34rem] sm:max-w-[44rem]">
-          <div>
-            <p className="mb-1.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Official/source coverage</p>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {[
-                ["Resolved", subjectsResolved],
-                ["Missing", sourceMissing],
-                ["Cycle", cycleMissing],
-                ["Conflicts", sourceConflicts],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-[var(--radius-sm)] bg-surface-muted px-2 py-2 text-center">
-                  <p className="text-[0.58rem] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-                  <p className="mt-0.5 text-sm font-semibold">{value}</p>
-                </div>
-              ))}
-            </div>
+
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Official/source coverage</p>
+          <div className="grid grid-cols-2 gap-1.5 2xl:grid-cols-4">
+            {[
+              ["Resolved", subjectsResolved],
+              ["Missing", sourceMissing],
+              ["Cycle", cycleMissing],
+              ["Conflicts", sourceConflicts],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-2 text-center">
+                <p className="text-[0.58rem] font-medium uppercase leading-4 tracking-wide text-muted-foreground">{label}</p>
+                <p className="mt-0.5 text-sm font-semibold">{value}</p>
+              </div>
+            ))}
           </div>
-          <div>
-            <p className="mb-1.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Timetable demand</p>
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {[
-                ["Targets satisfied", targetsSatisfied],
-                ["Under", under],
-                ["Over", over],
-                ["Rule warnings", ruleWarnings],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-[var(--radius-sm)] bg-surface-muted px-2 py-2 text-center">
-                  <p className="text-[0.58rem] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-                  <p className="mt-0.5 text-sm font-semibold">{value}</p>
-                </div>
-              ))}
-            </div>
+        </div>
+
+        <div className="min-w-0">
+          <p className="mb-1.5 text-[0.62rem] font-semibold uppercase tracking-wide text-muted-foreground">Timetable demand</p>
+          <div className="grid grid-cols-2 gap-1.5 2xl:grid-cols-4">
+            {[
+              ["Targets satisfied", targetsSatisfied],
+              ["Under", under],
+              ["Over", over],
+              ["Rule warnings", ruleWarnings],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted px-2 py-2 text-center">
+                <p className="text-[0.58rem] font-medium uppercase leading-4 tracking-wide text-muted-foreground">{label}</p>
+                <p className="mt-0.5 text-sm font-semibold">{value}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>

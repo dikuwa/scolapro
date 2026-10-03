@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { AppShell } from "@/components/shell/app-shell";
 import { AcademicAnalysisFilters } from "@/features/academics/components/academic-analysis-filters";
 import { AcademicAnalysisViews } from "@/features/academics/components/academic-analysis-views";
 import type { AcademicAnalysisView } from "@/features/academics/server/academic-analysis";
@@ -31,7 +32,8 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
   if (teacher) exportParams.set("teacher", teacher);
 
   return (
-    <main className="scolapro-content-width mx-auto space-y-5 px-4 py-6 sm:px-6">
+    <AppShell>
+      <div className="space-y-5">
       <Link href="/assessment" className="scolapro-cta inline-flex items-center gap-2 text-sm text-muted-foreground">
         <ArrowLeft className="scolapro-cta-icon size-4" aria-hidden="true" /> Assessment
       </Link>
@@ -79,6 +81,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
       </nav>
 
       <AcademicAnalysisViews workspace={workspace} view={view} />
-    </main>
+      </div>
+    </AppShell>
   );
 }
