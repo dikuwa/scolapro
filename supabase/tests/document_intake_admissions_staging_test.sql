@@ -167,6 +167,8 @@ select is(
   'reviewed existing learner match is carried to the admission workflow without creating another identity'
 );
 
+reset role;
+
 select is(
   (select count(*)::integer from public.learners where tenant_id='fd000000-0000-4000-8000-000000000001'),
   1,
@@ -178,6 +180,8 @@ select is(
   1,
   'document intake commit never creates enrolments directly'
 );
+
+set local role authenticated;
 
 select is(
   (
