@@ -69,7 +69,7 @@ export async function GET(request:Request) {
           </tbody></table></div>
         </div>`).join("")}
       </section>`
-    : `<section class="document-section"><h2>Official Subject File hierarchy</h2><p class="muted">No authoritative Subject File hierarchy is recorded for this subject. ScolaPro does not apply another subject&apos;s policy by assumption.</p></section>`;
+    : `<section class="document-section"><h2>Official Subject File hierarchy</h2><p class="muted">No authoritative Subject File hierarchy is recorded for this subject. ScolaPro does not apply another subject's policy by assumption.</p></section>`;
 
   const generatedAt=generatedLabel();
   const html=`<!doctype html>
