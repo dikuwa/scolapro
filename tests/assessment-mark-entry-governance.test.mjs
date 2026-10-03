@@ -53,3 +53,11 @@ test("legacy unbounded correction path can no longer reopen marks", async () => 
   const marker = "Use authorize_assessment_mark_correction with explicit scope, start, and expiry";
   assert.match(sql, new RegExp(marker));
 });
+
+
+test("legacy pre-window lifecycle stays editable until an explicit timing policy is configured", async () => {
+  const sql = await read(migrationPath);
+  assert.match(sql, /v_opened:=v_instance\.status in \('not_open','open','returned'\)/);
+  assert.match(sql, /v_instance\.status in \('not_open','open','returned'\)/);
+  assert.match(sql, /Assessment is not open for mark editing/);
+});

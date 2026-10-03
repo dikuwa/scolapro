@@ -41,9 +41,10 @@ select ok(
 );
 
 select ok(
-  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%v_instance.status <> ''open''%'
+  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%resolve_assessment_mark_entry_window%'
+  and pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%editable%'
   and pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%assessment_not_editable%',
-  'closed assessment windows are explicitly rejected'
+  'offline replay resolves the server-authoritative mark-entry window before accepting a write'
 );
 
 select ok(
@@ -72,9 +73,9 @@ select ok(
 );
 
 select ok(
-  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%status <> ''open''%'
+  pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%resolve_assessment_mark_entry_window%'
   and pg_get_functiondef(to_regprocedure('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)')) ilike '%p_expected_version%',
-  'replay requires both an editable window and an expected version'
+  'replay requires both the governed editable-window decision and an expected version'
 );
 
 select ok(

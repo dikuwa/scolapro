@@ -270,7 +270,9 @@ begin
       and v_window.warning_minutes>0
       and v_window.closes_at<=p_at+make_interval(mins=>v_window.warning_minutes);
   else
-    v_opened:=v_instance.status in ('open','returned');
+    -- No explicit window means legacy pre-finality editing remains available.
+    -- Once configured, opens_at/closes_at become the authoritative timing gate.
+    v_opened:=v_instance.status in ('not_open','open','returned');
   end if;
 
   v_workflow_lock:=v_instance.status in ('review','verified','locked','cancelled');
@@ -333,20 +335,14 @@ begin
       v_editable:=v_active_id is not null;
     else
       v_editable:=v_state in ('open','closing_soon')
-        and (
-          v_instance.status in ('open','returned')
-          or (v_instance.status='not_open' and v_has_window)
-        );
+        and v_instance.status in ('not_open','open','returned');
     end if;
   else
     if v_instance.correction_pending then
       v_editable:=v_active_id is not null and v_active_scope<>'learner';
     else
       v_editable:=v_state in ('open','closing_soon')
-        and (
-          v_instance.status in ('open','returned')
-          or (v_instance.status='not_open' and v_has_window)
-        );
+        and v_instance.status in ('not_open','open','returned');
     end if;
   end if;
 
@@ -825,6 +821,7 @@ as $$
 declare
   v_active_authorization_id uuid;
   v_correction_pending boolean:=false;
+  v_instance_status text;
 begin
   if auth.uid() is not null
      and new.recorded_by_user_id is distinct from auth.uid() then
@@ -839,15 +836,20 @@ begin
   end if;
 
   if auth.uid() is not null then
+    select status,correction_pending
+      into v_instance_status,v_correction_pending
+    from public.assessment_instances
+    where id=new.assessment_instance_id;
+
     if not app_private.can_edit_assessment_mark(
       new.assessment_instance_id,new.enrolment_id,now()
     ) then
+      if v_instance_status in ('review','verified','locked','cancelled')
+         and not v_correction_pending then
+        raise exception 'Assessment is not open for mark editing';
+      end if;
       raise exception 'Assessment mark-entry window is not editable for this learner';
     end if;
-
-    select correction_pending into v_correction_pending
-    from public.assessment_instances
-    where id=new.assessment_instance_id;
 
     if v_correction_pending then
       v_active_authorization_id:=app_private.active_assessment_mark_reopen_authorization(

@@ -4,8 +4,10 @@ select plan(11);
 
 select ok(
   pg_get_functiondef('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)'::regprocedure)
-    ilike '%v_instance.status not in (''open'',''returned'')%',
-  'offline replay permits only editable open/returned assessment states'
+    ilike '%resolve_assessment_mark_entry_window%'
+  and pg_get_functiondef('public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)'::regprocedure)
+    ilike '%assessment_not_editable%',
+  'offline replay uses the canonical mark-entry window decision instead of a parallel status check'
 );
 
 select ok(
@@ -53,21 +55,27 @@ select ok(
 );
 
 select ok(
-  pg_get_functiondef('public.reopen_assessment_for_correction(uuid,text)'::regprocedure)
-    ilike '%A correction reason is required%',
-  'governed correction requires an explicit reason'
+  pg_get_functiondef('public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamptz,timestamptz,boolean)'::regprocedure)
+    ilike '%A correction reason is required%'
+  and pg_get_functiondef('public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamptz,timestamptz,boolean)'::regprocedure)
+    ilike '%expires_at%',
+  'governed correction requires explicit reason and bounded expiry'
 );
 
 select ok(
   pg_get_functiondef('public.reopen_assessment_for_correction(uuid,text)'::regprocedure)
-    ilike '%Official results already exist%',
-  'correction cannot rewrite assessment evidence after official result finality'
+    ilike '%Use authorize_assessment_mark_correction with explicit scope, start, and expiry%'
+  and pg_get_functiondef('app_private.enforce_official_result_integrity()'::regprocedure)
+    ilike '%Official result cannot be deleted; use governed correction workflow%',
+  'legacy reopen cannot bypass immutable official-result correction finality'
 );
 
 select ok(
-  pg_get_functiondef('public.reopen_assessment_for_correction(uuid,text)'::regprocedure)
-    ilike '%assessment.reopened_for_correction%',
-  'correction reopen records an audit event'
+  pg_get_functiondef('public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamptz,timestamptz,boolean)'::regprocedure)
+    ilike '%assessment.mark_correction.authorized%'
+  and pg_get_functiondef('app_private.audit_corrected_learner_mark()'::regprocedure)
+    ilike '%assessment.mark_corrected%',
+  'bounded correction authorization and corrected values are audited'
 );
 
 select * from finish();
