@@ -45,8 +45,8 @@ test("human review and correction are mandatory before commit",()=>{
 test("structured import is preferred while private scan fallback remains staged",()=>{
   assert.match(actions,/structured_import/);
   assert.match(actions,/document-intake-private/);
-  assert.match(actions,/calendar_source/);
-  assert.match(actions,/timetable_source/);
+  assert.match(actions,/p_artifact_kind: "other"/);
+  assert.match(actions,/p_document_type: adapter === "calendar" \? "calendar_source" : "printed_timetable"/);
   assert.match(page,/Structured import preferred/);
   assert.match(page,/Scan \/ OCR fallback/);
 });

@@ -122,7 +122,7 @@ export async function stageOperationalSourceArtifact(formData: FormData) {
 
   const { error: artifactError } = await supabase.rpc("register_document_intake_artifact", {
     p_job_id: jobId,
-    p_artifact_kind: adapter === "calendar" ? "calendar_source" : "timetable_source",
+    p_artifact_kind: "other",
     p_storage_path: storagePath,
     p_file_name: file.name,
     p_mime_type: file.type,
