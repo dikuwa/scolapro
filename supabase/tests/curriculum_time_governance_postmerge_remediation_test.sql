@@ -279,8 +279,8 @@ set status='draft'
 where id='fc160000-0000-4000-8000-000000000005';
 set constraints zz_curriculum_time_profile_nonempty_allocation_ctr immediate;
 select throws_ok(
-  $delete from public.curriculum_time_allocations
-    where id='fc160000-0000-4000-8000-000000000005'$,
+  $$delete from public.curriculum_time_allocations
+    where id='fc160000-0000-4000-8000-000000000005'$$,
   'Curriculum time profile publication requires at least one reviewed allocation',
   'deleting the last draft allocation cannot leave a published profile empty'
 );
