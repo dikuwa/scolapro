@@ -4,6 +4,12 @@ import * as XLSX from "xlsx";
 import type { AcademicAnalysisView, AcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 
+function sheetFromRows<T extends Record<string, unknown>>(rows: T[], origin: string): XLSX.WorkSheet {
+  const sheet = XLSX.utils.aoa_to_sheet([]);
+  XLSX.utils.sheet_add_json(sheet, rows, { origin });
+  return sheet;
+}
+
 function addHeader(
   sheet: XLSX.WorkSheet,
   workspace: AcademicAnalysisWorkspace,
@@ -34,7 +40,7 @@ export function renderAcademicAnalysisXlsx(
       Average: row.average,
       Risk: row.riskLevel,
     }));
-    const sheet = XLSX.utils.json_to_sheet(rows, { origin: "A6" });
+    const sheet = sheetFromRows(rows, "A6");
     addHeader(sheet, workspace, header, view);
     XLSX.utils.sheet_add_aoa(sheet, [[
       "Learners analysed", workspace.learnerRiskRows.length,
@@ -56,7 +62,7 @@ export function renderAcademicAnalysisXlsx(
       "Quality %": row.summary.qualityRate,
       Symbols: row.summary.symbolDistribution.map((band) => band.symbol + " " + band.count).join(" · "),
     }));
-    const sheet = XLSX.utils.json_to_sheet(rows, { origin: "A5" });
+    const sheet = sheetFromRows(rows, "A5");
     addHeader(sheet, workspace, header, view);
     XLSX.utils.book_append_sheet(workbook, sheet, "Results");
   } else if (view === "grades") {
@@ -64,7 +70,7 @@ export function renderAcademicAnalysisXlsx(
       ...workspace.gradeSummaries.map((row) => ({ Type: "Grade", Group: row.label, Assessed: row.summary.assessedLearners, Average: row.summary.average, "Pass %": row.summary.passRate, "Fail %": row.summary.failRate })),
       ...workspace.classSummaries.map((row) => ({ Type: "Class", Group: row.label, Assessed: row.summary.assessedLearners, Average: row.summary.average, "Pass %": row.summary.passRate, "Fail %": row.summary.failRate })),
     ];
-    const sheet = XLSX.utils.json_to_sheet(rows, { origin: "A5" });
+    const sheet = sheetFromRows(rows, "A5");
     addHeader(sheet, workspace, header, view);
     XLSX.utils.book_append_sheet(workbook, sheet, "Grades and Classes");
   } else if (view === "learners") {
@@ -80,7 +86,7 @@ export function renderAcademicAnalysisXlsx(
       "Promotion readiness": row.promotionReadiness.recommendedOutcome ?? row.promotionReadiness.status,
       Risk: row.riskLevel,
     }));
-    const sheet = XLSX.utils.json_to_sheet(rows, { origin: "A5" });
+    const sheet = sheetFromRows(rows, "A5");
     addHeader(sheet, workspace, header, view);
     XLSX.utils.book_append_sheet(workbook, sheet, "Learners and Risk");
   } else if (view === "trends") {
@@ -92,7 +98,7 @@ export function renderAcademicAnalysisXlsx(
       "Term comparability": row.termOnTerm.reason ?? "Comparable governed series",
       "Year comparability": row.yearOnYear.reason ?? "Comparable governed series",
     }));
-    const sheet = XLSX.utils.json_to_sheet(rows, { origin: "A5" });
+    const sheet = sheetFromRows(rows, "A5");
     addHeader(sheet, workspace, header, view);
     XLSX.utils.book_append_sheet(workbook, sheet, "Trends");
   }
