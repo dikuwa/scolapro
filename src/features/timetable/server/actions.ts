@@ -20,6 +20,27 @@ function finish(message: string): TimetableActionState {
   return { success: true, message };
 }
 
+function revalidateTimetablePaths() {
+  revalidatePath("/timetable");
+  revalidatePath("/school/setup");
+}
+
+function jsonArray(value: FormDataEntryValue | null): unknown {
+  try {
+    return JSON.parse(String(value ?? "[]"));
+  } catch {
+    return [];
+  }
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function sameNullableDate(left: string | null, right: string | undefined): boolean {
+  return (left ?? null) === (right ?? null);
+}
+
 const subjectSchema = z.object({
   code: z.string().trim().min(1, "Subject code is required."),
   name: z.string().trim().min(1, "Subject name is required."),
@@ -109,6 +130,72 @@ export async function saveOffering(_state: TimetableActionState, formData: FormD
   return error ? { message: "Subject offering could not be saved." } : finish("Subject offering saved.");
 }
 
+export async function saveOfferingsBulk(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
+  const schema = z.object({
+    schoolId: z.string().uuid(),
+    academicYear: z.coerce.number().int(),
+    subjectIds: z.array(z.string().uuid()).min(1, "Choose at least one subject.").max(50),
+    gradeIds: z.array(z.string().uuid()).min(1, "Choose at least one grade.").max(20),
+    periods: z.coerce.number().int().min(1).max(30),
+  });
+  const parsed = schema.safeParse({
+    schoolId: formData.get("schoolId"),
+    academicYear: formData.get("academicYear"),
+    subjectIds: jsonArray(formData.get("subjectIds")),
+    gradeIds: jsonArray(formData.get("gradeIds")),
+    periods: formData.get("periods"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const subjectIds = unique(parsed.data.subjectIds);
+  const gradeIds = unique(parsed.data.gradeIds);
+  const requested = subjectIds.length * gradeIds.length;
+  if (requested > 200) return { message: "Choose fewer subjects or grades so one bulk save creates at most 200 offerings." };
+  if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to manage this timetable." };
+
+  const supabase = await createSupabaseServerClient();
+  const [subjectsResult, gradesResult, existingResult] = await Promise.all([
+    supabase.from("subjects").select("id").eq("school_id", parsed.data.schoolId).eq("status", "active").in("id", subjectIds),
+    supabase.from("grades").select("id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).in("id", gradeIds),
+    supabase.from("subject_offerings").select("id,subject_id,grade_id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).eq("status", "active").in("subject_id", subjectIds).in("grade_id", gradeIds),
+  ]);
+  if (subjectsResult.error || gradesResult.error || existingResult.error) return { message: "Bulk offering scope could not be verified. Refresh and try again." };
+  if ((subjectsResult.data ?? []).length !== subjectIds.length || (gradesResult.data ?? []).length !== gradeIds.length) {
+    return { message: "One or more selected subjects or grades is outside this school/year. Refresh and try again." };
+  }
+
+  const existing = new Set((existingResult.data ?? []).map((row) => `${row.subject_id}:${row.grade_id}`));
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const subjectId of subjectIds) {
+    for (const gradeId of gradeIds) {
+      if (existing.has(`${subjectId}:${gradeId}`)) {
+        skipped += 1;
+        continue;
+      }
+      const { error } = await supabase.rpc("upsert_subject_offering", {
+        p_school_id: parsed.data.schoolId,
+        p_academic_year: parsed.data.academicYear,
+        p_subject_id: subjectId,
+        p_grade_id: gradeId,
+        p_periods_per_cycle: parsed.data.periods,
+      });
+      if (error) failed += 1;
+      else created += 1;
+    }
+  }
+
+  if (created) revalidateTimetablePaths();
+  const parts = [
+    created ? `${created} offering${created === 1 ? "" : "s"} created` : "No new offerings created",
+    skipped ? `${skipped} existing combination${skipped === 1 ? "" : "s"} skipped` : "",
+    failed ? `${failed} combination${failed === 1 ? "" : "s"} could not be saved` : "",
+  ].filter(Boolean);
+  return { success: failed === 0, message: `${parts.join(". ")}.${skipped ? " Use Offering corrections to change periods on existing offerings." : ""}` };
+}
+
 export async function saveAllocation(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
   const parsed = allocationSchema.safeParse({
     schoolId: formData.get("schoolId"),
@@ -132,6 +219,104 @@ export async function saveAllocation(_state: TimetableActionState, formData: For
     p_active_to: parsed.data.activeTo ?? null,
   });
   return error ? { message: allocationError(error.message) } : finish("Teacher allocation saved.");
+}
+
+export async function saveAllocationsBulk(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
+  const schema = z.object({
+    schoolId: z.string().uuid(),
+    academicYear: z.coerce.number().int(),
+    offeringIds: z.array(z.string().uuid()).min(1, "Choose at least one subject offering.").max(50),
+    classIds: z.array(z.string().uuid()).min(1, "Choose at least one class.").max(60),
+    staffId: z.string().uuid(),
+    activeFrom: allocationDateSchema,
+    activeTo: z.preprocess((value) => {
+      const normalized = String(value ?? "").trim();
+      return normalized || undefined;
+    }, allocationDateSchema.optional()),
+  }).superRefine((value, context) => {
+    if (value.activeTo && value.activeTo < value.activeFrom) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["activeTo"], message: "End date cannot be before the start date." });
+    }
+  });
+  const parsed = schema.safeParse({
+    schoolId: formData.get("schoolId"),
+    academicYear: formData.get("academicYear"),
+    offeringIds: jsonArray(formData.get("offeringIds")),
+    classIds: jsonArray(formData.get("classIds")),
+    staffId: formData.get("staffId"),
+    activeFrom: formData.get("activeFrom"),
+    activeTo: formData.get("activeTo"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+
+  const offeringIds = unique(parsed.data.offeringIds);
+  const classIds = unique(parsed.data.classIds);
+  if (offeringIds.length * classIds.length > 300) {
+    return { message: "Choose fewer subject offerings or classes so one bulk save evaluates at most 300 combinations." };
+  }
+  if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to manage this timetable." };
+
+  const supabase = await createSupabaseServerClient();
+  const [offeringsResult, classesResult, existingResult] = await Promise.all([
+    supabase.from("subject_offerings").select("id,grade_id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).eq("status", "active").in("id", offeringIds),
+    supabase.from("register_classes").select("id,grade_id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).in("id", classIds),
+    supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,active_to").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).eq("staff_member_id", parsed.data.staffId).eq("active_from", parsed.data.activeFrom).in("subject_offering_id", offeringIds).in("register_class_id", classIds),
+  ]);
+  if (offeringsResult.error || classesResult.error || existingResult.error) return { message: "Bulk allocation scope could not be verified. Refresh and try again." };
+  if ((offeringsResult.data ?? []).length !== offeringIds.length || (classesResult.data ?? []).length !== classIds.length) {
+    return { message: "One or more selected offerings or classes is outside this school/year. Refresh and try again." };
+  }
+
+  const offerings = new Map((offeringsResult.data ?? []).map((row) => [row.id, row.grade_id]));
+  const classes = new Map((classesResult.data ?? []).map((row) => [row.id, row.grade_id]));
+  const existing = new Map((existingResult.data ?? []).map((row) => [`${row.subject_offering_id}:${row.register_class_id}`, row.active_to]));
+  const validPairs: Array<{ offeringId: string; classId: string }> = [];
+  let gradeMismatches = 0;
+
+  for (const offeringId of offeringIds) {
+    for (const classId of classIds) {
+      if (offerings.get(offeringId) !== classes.get(classId)) {
+        gradeMismatches += 1;
+        continue;
+      }
+      validPairs.push({ offeringId, classId });
+    }
+  }
+  if (!validPairs.length) return { message: "None of the selected classes belongs to the grades of the selected subject offerings." };
+
+  let created = 0;
+  let skipped = 0;
+  let conflicts = 0;
+  let failed = 0;
+  for (const pair of validPairs) {
+    const existingActiveTo = existing.get(`${pair.offeringId}:${pair.classId}`);
+    if (existingActiveTo !== undefined) {
+      if (sameNullableDate(existingActiveTo, parsed.data.activeTo)) skipped += 1;
+      else conflicts += 1;
+      continue;
+    }
+    const { error } = await supabase.rpc("create_teacher_allocation_period", {
+      p_school_id: parsed.data.schoolId,
+      p_academic_year: parsed.data.academicYear,
+      p_subject_offering_id: pair.offeringId,
+      p_register_class_id: pair.classId,
+      p_staff_member_id: parsed.data.staffId,
+      p_active_from: parsed.data.activeFrom,
+      p_active_to: parsed.data.activeTo ?? null,
+    });
+    if (error) failed += 1;
+    else created += 1;
+  }
+
+  if (created) revalidateTimetablePaths();
+  const parts = [
+    created ? `${created} teacher allocation${created === 1 ? "" : "s"} created` : "No new teacher allocations created",
+    skipped ? `${skipped} exact existing allocation${skipped === 1 ? "" : "s"} skipped` : "",
+    gradeMismatches ? `${gradeMismatches} grade-mismatched combination${gradeMismatches === 1 ? "" : "s"} ignored` : "",
+    conflicts ? `${conflicts} existing allocation${conflicts === 1 ? "" : "s"} has different end dates` : "",
+    failed ? `${failed} allocation${failed === 1 ? "" : "s"} failed validation` : "",
+  ].filter(Boolean);
+  return { success: conflicts === 0 && failed === 0, message: `${parts.join(". ")}.` };
 }
 
 export async function savePeriod(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
