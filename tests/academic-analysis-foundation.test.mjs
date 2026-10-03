@@ -10,7 +10,7 @@ const printSource = fs.readFileSync("src/app/academics/analysis/print/page.tsx",
 const excelSource = fs.readFileSync("src/app/academics/analysis/export.xlsx/route.ts", "utf8");
 
 test("academic analysis is a read layer over canonical official results", () => {
-  assert.match(source, /from\("official_results"\)/);
+  assert.match(source, /from\("official_results_current"\)/);
   assert.doesNotMatch(source, /insert\(|update\(|delete\(/);
 });
 

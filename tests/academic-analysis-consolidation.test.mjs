@@ -113,7 +113,7 @@ test("mixed grading-scale quality aggregates exclude unconfigured scales from th
 });
 
 test("Academic Analysis remains a read layer without a parallel result store", () => {
-  assert.match(source, /from\("official_results"\)/);
+  assert.match(source, /from\("official_results_current"\)/);
   assert.doesNotMatch(migration, /create table .*result/i);
   assert.doesNotMatch(source, /\.insert\(|\.update\(|\.delete\(/);
 });
