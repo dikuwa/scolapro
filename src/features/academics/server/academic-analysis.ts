@@ -591,7 +591,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
 
   const previousTermResults: NumericResult[] = [];
   if (basis === "official" && scope.termNumber > 1 && enrolmentIds.length) {
-    const { data: previous, error: previousError } = await db.from("official_results")
+    const { data: previous, error: previousError } = await db.from("official_results_current")
       .select("result_value,result_status,symbol,subject_offering_id,enrolment_id,grading_scale_key,grading_scale_version")
       .eq("school_id", membership.schoolId)
       .eq("academic_year", scope.academicYear)
