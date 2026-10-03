@@ -149,51 +149,37 @@ export async function saveOfferingsBulk(_state: TimetableActionState, formData: 
 
   const subjectIds = unique(parsed.data.subjectIds);
   const gradeIds = unique(parsed.data.gradeIds);
-  const requested = subjectIds.length * gradeIds.length;
-  if (requested > 200) return { message: "Choose fewer subjects or grades so one bulk save creates at most 200 offerings." };
+  if (subjectIds.length * gradeIds.length > 200) {
+    return { message: "Choose fewer subjects or grades so one bulk save creates at most 200 offerings." };
+  }
   if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to manage this timetable." };
 
   const supabase = await createSupabaseServerClient();
-  const [subjectsResult, gradesResult, existingResult] = await Promise.all([
-    supabase.from("subjects").select("id").eq("school_id", parsed.data.schoolId).eq("status", "active").in("id", subjectIds),
-    supabase.from("grades").select("id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).in("id", gradeIds),
-    supabase.from("subject_offerings").select("id,subject_id,grade_id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).eq("status", "active").in("subject_id", subjectIds).in("grade_id", gradeIds),
-  ]);
-  if (subjectsResult.error || gradesResult.error || existingResult.error) return { message: "Bulk offering scope could not be verified. Refresh and try again." };
-  if ((subjectsResult.data ?? []).length !== subjectIds.length || (gradesResult.data ?? []).length !== gradeIds.length) {
-    return { message: "One or more selected subjects or grades is outside this school/year. Refresh and try again." };
+  const { data, error } = await supabase.rpc("bulk_create_subject_offerings", {
+    p_school_id: parsed.data.schoolId,
+    p_academic_year: parsed.data.academicYear,
+    p_subject_ids: subjectIds,
+    p_grade_ids: gradeIds,
+    p_periods_per_cycle: parsed.data.periods,
+  });
+  if (error) {
+    if (error.message.includes("outside school")) return { message: "One or more selected subjects or grades is outside this school/year. Refresh and try again." };
+    if (error.message.includes("Permission denied")) return { message: "You do not have permission to manage this timetable." };
+    return { message: "Bulk subject offerings were not saved. No partial batch was committed." };
   }
 
-  const existing = new Set((existingResult.data ?? []).map((row) => `${row.subject_id}:${row.grade_id}`));
-  let created = 0;
-  let skipped = 0;
-  let failed = 0;
-
-  for (const subjectId of subjectIds) {
-    for (const gradeId of gradeIds) {
-      if (existing.has(`${subjectId}:${gradeId}`)) {
-        skipped += 1;
-        continue;
-      }
-      const { error } = await supabase.rpc("upsert_subject_offering", {
-        p_school_id: parsed.data.schoolId,
-        p_academic_year: parsed.data.academicYear,
-        p_subject_id: subjectId,
-        p_grade_id: gradeId,
-        p_periods_per_cycle: parsed.data.periods,
-      });
-      if (error) failed += 1;
-      else created += 1;
-    }
-  }
-
+  const result = (data ?? {}) as Record<string, unknown>;
+  const created = Number(result.created ?? 0);
+  const existing = Number(result.existing ?? 0);
   if (created) revalidateTimetablePaths();
   const parts = [
     created ? `${created} offering${created === 1 ? "" : "s"} created` : "No new offerings created",
-    skipped ? `${skipped} existing combination${skipped === 1 ? "" : "s"} skipped` : "",
-    failed ? `${failed} combination${failed === 1 ? "" : "s"} could not be saved` : "",
+    existing ? `${existing} existing combination${existing === 1 ? "" : "s"} skipped` : "",
   ].filter(Boolean);
-  return { success: failed === 0, message: `${parts.join(". ")}.${skipped ? " Use Offering corrections to change periods on existing offerings." : ""}` };
+  return {
+    success: true,
+    message: `${parts.join(". ")}.${existing ? " Use Offering corrections to change periods on existing offerings." : ""}`,
+  };
 }
 
 export async function saveAllocation(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
@@ -227,6 +213,7 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     academicYear: z.coerce.number().int(),
     offeringIds: z.array(z.string().uuid()).min(1, "Choose at least one subject offering.").max(50),
     classIds: z.array(z.string().uuid()).min(1, "Choose at least one class.").max(60),
+    teachingGroupIds: z.array(z.string().uuid()).max(60),
     staffId: z.string().uuid(),
     activeFrom: allocationDateSchema,
     activeTo: z.preprocess((value) => {
@@ -243,6 +230,7 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     academicYear: formData.get("academicYear"),
     offeringIds: jsonArray(formData.get("offeringIds")),
     classIds: jsonArray(formData.get("classIds")),
+    teachingGroupIds: jsonArray(formData.get("teachingGroupIds")),
     staffId: formData.get("staffId"),
     activeFrom: formData.get("activeFrom"),
     activeTo: formData.get("activeTo"),
@@ -251,72 +239,53 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
 
   const offeringIds = unique(parsed.data.offeringIds);
   const classIds = unique(parsed.data.classIds);
+  const teachingGroupIds = unique(parsed.data.teachingGroupIds);
   if (offeringIds.length * classIds.length > 300) {
     return { message: "Choose fewer subject offerings or classes so one bulk save evaluates at most 300 combinations." };
   }
   if (!(await canManageSchool(parsed.data.schoolId))) return { message: "You do not have permission to manage this timetable." };
 
   const supabase = await createSupabaseServerClient();
-  const [offeringsResult, classesResult, existingResult] = await Promise.all([
-    supabase.from("subject_offerings").select("id,grade_id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).eq("status", "active").in("id", offeringIds),
-    supabase.from("register_classes").select("id,grade_id").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).in("id", classIds),
-    supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,active_to").eq("school_id", parsed.data.schoolId).eq("academic_year", parsed.data.academicYear).eq("staff_member_id", parsed.data.staffId).eq("active_from", parsed.data.activeFrom).in("subject_offering_id", offeringIds).in("register_class_id", classIds),
-  ]);
-  if (offeringsResult.error || classesResult.error || existingResult.error) return { message: "Bulk allocation scope could not be verified. Refresh and try again." };
-  if ((offeringsResult.data ?? []).length !== offeringIds.length || (classesResult.data ?? []).length !== classIds.length) {
-    return { message: "One or more selected offerings or classes is outside this school/year. Refresh and try again." };
+  const { data, error } = await supabase.rpc("bulk_create_teacher_allocations", {
+    p_school_id: parsed.data.schoolId,
+    p_academic_year: parsed.data.academicYear,
+    p_subject_offering_ids: offeringIds,
+    p_register_class_ids: classIds,
+    p_teaching_group_ids: teachingGroupIds,
+    p_staff_member_id: parsed.data.staffId,
+    p_active_from: parsed.data.activeFrom,
+    p_active_to: parsed.data.activeTo ?? null,
+  });
+  if (error) {
+    if (error.message.includes("placement does not cover")) return { message: "The selected teacher is not placed at this school for the full allocation period." };
+    if (error.message.includes("Teaching group selection must match")) return { message: "Every selected teaching group must belong to one of the selected subject offerings." };
+    if (error.message.includes("outside school/year scope")) return { message: "One or more selected offerings, classes, or teaching groups is outside this school/year. Refresh and try again." };
+    if (error.message.includes("Permission denied")) return { message: "You do not have permission to manage this timetable." };
+    return { message: "Bulk teacher allocations were not saved. No partial batch was committed." };
   }
 
-  const offerings = new Map((offeringsResult.data ?? []).map((row) => [row.id, row.grade_id]));
-  const classes = new Map((classesResult.data ?? []).map((row) => [row.id, row.grade_id]));
-  const existing = new Map((existingResult.data ?? []).map((row) => [`${row.subject_offering_id}:${row.register_class_id}`, row.active_to]));
-  const validPairs: Array<{ offeringId: string; classId: string }> = [];
-  let gradeMismatches = 0;
+  const result = (data ?? {}) as Record<string, unknown>;
+  const created = Number(result.created ?? 0);
+  const skipped = Number(result.duplicates ?? 0);
+  const conflicts = Number(result.conflicts ?? 0);
+  const gradeMismatches = Number(result.incompatible ?? 0);
+  const groupLinksCreated = Number(result.group_links_created ?? 0);
+  const groupLinksExisting = Number(result.group_links_existing ?? 0);
+  const groupLinkConflicts = Number(result.group_link_conflicts ?? 0);
+  const groupsWithoutAllocations = Number(result.groups_without_allocations ?? 0);
 
-  for (const offeringId of offeringIds) {
-    for (const classId of classIds) {
-      if (offerings.get(offeringId) !== classes.get(classId)) {
-        gradeMismatches += 1;
-        continue;
-      }
-      validPairs.push({ offeringId, classId });
-    }
-  }
-  if (!validPairs.length) return { message: "None of the selected classes belongs to the grades of the selected subject offerings." };
-
-  let created = 0;
-  let skipped = 0;
-  let conflicts = 0;
-  let failed = 0;
-  for (const pair of validPairs) {
-    const existingActiveTo = existing.get(`${pair.offeringId}:${pair.classId}`);
-    if (existingActiveTo !== undefined) {
-      if (sameNullableDate(existingActiveTo, parsed.data.activeTo)) skipped += 1;
-      else conflicts += 1;
-      continue;
-    }
-    const { error } = await supabase.rpc("create_teacher_allocation_period", {
-      p_school_id: parsed.data.schoolId,
-      p_academic_year: parsed.data.academicYear,
-      p_subject_offering_id: pair.offeringId,
-      p_register_class_id: pair.classId,
-      p_staff_member_id: parsed.data.staffId,
-      p_active_from: parsed.data.activeFrom,
-      p_active_to: parsed.data.activeTo ?? null,
-    });
-    if (error) failed += 1;
-    else created += 1;
-  }
-
-  if (created) revalidateTimetablePaths();
+  if (created || groupLinksCreated) revalidateTimetablePaths();
   const parts = [
     created ? `${created} teacher allocation${created === 1 ? "" : "s"} created` : "No new teacher allocations created",
     skipped ? `${skipped} exact existing allocation${skipped === 1 ? "" : "s"} skipped` : "",
     gradeMismatches ? `${gradeMismatches} grade-mismatched combination${gradeMismatches === 1 ? "" : "s"} ignored` : "",
     conflicts ? `${conflicts} existing allocation${conflicts === 1 ? "" : "s"} has different end dates` : "",
-    failed ? `${failed} allocation${failed === 1 ? "" : "s"} failed validation` : "",
+    groupLinksCreated ? `${groupLinksCreated} teaching-group link${groupLinksCreated === 1 ? "" : "s"} created` : "",
+    groupLinksExisting ? `${groupLinksExisting} existing teaching-group link${groupLinksExisting === 1 ? "" : "s"} skipped` : "",
+    groupLinkConflicts ? `${groupLinkConflicts} teaching-group link${groupLinkConflicts === 1 ? "" : "s"} has different end dates` : "",
+    groupsWithoutAllocations ? `${groupsWithoutAllocations} teaching group${groupsWithoutAllocations === 1 ? "" : "s"} had no matching class allocation` : "",
   ].filter(Boolean);
-  return { success: conflicts === 0 && failed === 0, message: `${parts.join(". ")}.` };
+  return { success: conflicts === 0 && groupLinkConflicts === 0, message: `${parts.join(". ")}.` };
 }
 
 export async function savePeriod(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
