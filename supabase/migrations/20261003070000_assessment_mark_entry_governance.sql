@@ -332,14 +332,17 @@ begin
 
   if p_enrolment_id is not null then
     if v_instance.correction_pending then
-      v_editable:=v_active_id is not null;
+      v_editable:=v_active_id is not null
+        and v_instance.status not in ('review','cancelled');
     else
       v_editable:=v_state in ('open','closing_soon')
         and v_instance.status in ('not_open','open','returned');
     end if;
   else
     if v_instance.correction_pending then
-      v_editable:=v_active_id is not null and v_active_scope<>'learner';
+      v_editable:=v_active_id is not null
+        and v_active_scope<>'learner'
+        and v_instance.status not in ('review','cancelled');
     else
       v_editable:=v_state in ('open','closing_soon')
         and v_instance.status in ('not_open','open','returned');
@@ -821,6 +824,17 @@ using (
       (
         assessment_instance_id is not null
         and app_private.can_access_assessment_instance(assessment_instance_id)
+        and (
+          not app_private.has_school_role(school_id,array['hod'])
+          or app_private.hod_responsible_for_subject(
+            school_id,
+            (
+              select offering.subject_id
+              from public.subject_offerings offering
+              where offering.id=assessment_mark_reopen_authorizations.subject_offering_id
+            )
+          )
+        )
       )
       or app_private.has_school_role(
         school_id,
@@ -1965,3 +1979,180 @@ comment on function public.authorize_assessment_mark_correction(uuid,text,uuid,t
 'Creates explicit bounded correction authority. HOD/current academic leadership may authorize learner/component corrections; subject-class scope requires stronger school leadership.';
 comment on function public.approve_official_subject_result(uuid,uuid,smallint,uuid) is
 'Approves an initial official subject result or, after governed corrected marks and re-verification, creates an immutable replacement linked to the superseded result. Published report cards remain immutable and are reissued through the existing report-card snapshot/version publication lifecycle.';
+
+
+-- Correction reissue hardening: cumulative report_terms must never reintroduce
+-- superseded official results after the snapshot builder selected current results.
+create or replace function app_private.enrich_report_card_snapshot_template_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $$
+declare
+  v_school_identity jsonb := '{}'::jsonb;
+  v_document_profile jsonb := '{}'::jsonb;
+  v_report_settings jsonb := '{}'::jsonb;
+  v_terms jsonb := '[]'::jsonb;
+  v_register_teacher jsonb := '{}'::jsonb;
+  v_principal jsonb := '{}'::jsonb;
+  v_next_term_start date;
+begin
+  if new.school_id is null then
+    raise exception 'Report-card snapshot school is required';
+  end if;
+
+  select jsonb_build_object(
+    'id', s.id,
+    'name', s.name,
+    'emis_number', s.emis_number,
+    'region', s.region,
+    'town', s.town
+  )
+  into v_school_identity
+  from public.schools s
+  where s.id = new.school_id;
+
+  if v_school_identity is null then
+    raise exception 'Report-card snapshot school not found';
+  end if;
+
+  select coalesce(setting_value, '{}'::jsonb)
+  into v_document_profile
+  from public.school_settings
+  where school_id = new.school_id
+    and setting_key = 'document_profile';
+
+  -- Old English is part of Namib High School's own historical visual identity.
+  -- It must never bleed into other tenants, including via a stale/manual DB value.
+  if lower(trim(coalesce(v_school_identity ->> 'name', ''))) <> 'namib high school' then
+    v_document_profile := jsonb_set(
+      coalesce(v_document_profile, '{}'::jsonb),
+      '{school_name_font}',
+      '"default"'::jsonb,
+      true
+    );
+  end if;
+
+  select coalesce(setting_value, '{}'::jsonb)
+  into v_report_settings
+  from public.school_settings
+  where school_id = new.school_id
+    and setting_key = 'report_card_settings';
+
+  select case when sm.id is null then '{}'::jsonb else jsonb_build_object(
+    'staff_member_id', sm.id,
+    'name', concat_ws(' ', sm.first_name, sm.last_name)
+  ) end
+  into v_register_teacher
+  from public.register_classes rc
+  left join public.staff_members sm on sm.id = rc.register_teacher_staff_id
+  where rc.id = (
+    select e.register_class_id
+    from public.enrolments e
+    where e.id = new.enrolment_id
+  )
+  limit 1;
+
+  select case when sm.id is null then '{}'::jsonb else jsonb_build_object(
+    'staff_member_id', sm.id,
+    'name', concat_ws(' ', sm.first_name, sm.last_name)
+  ) end
+  into v_principal
+  from public.school_memberships membership
+  left join public.staff_members sm on sm.id = membership.staff_member_id
+  where membership.school_id = new.school_id
+    and membership.role_key = 'principal'
+    and membership.active_from <= current_date
+    and (membership.active_to is null or membership.active_to >= current_date)
+  order by membership.active_from desc
+  limit 1;
+
+  select t.starts_on
+  into v_next_term_start
+  from public.academic_terms t
+  join public.academic_years y on y.id = t.academic_year_id
+  where t.school_id = new.school_id
+    and y.year = new.academic_year
+    and t.term_number > new.term_number
+  order by t.term_number
+  limit 1;
+
+  -- A Term 2 report can show Terms 1-2 and a Term 3 report can show Terms 1-3.
+  -- Each result row freezes the subject presentation rule that was effective when
+  -- this snapshot was generated.
+  select coalesce(jsonb_agg(term_payload order by term_number), '[]'::jsonb)
+  into v_terms
+  from (
+    select
+      t.term_number,
+      jsonb_build_object(
+        'number', t.term_number,
+        'name', coalesce(t.display_name, 'Term ' || t.term_number),
+        'results', coalesce((
+          select jsonb_agg(
+            jsonb_build_object(
+              'official_result_id', r.id,
+              'subject_offering_id', r.subject_offering_id,
+              'subject_id', s.id,
+              'subject_code', s.subject_code,
+              'subject_name', s.display_name,
+              'result_value', r.result_value,
+              'result_status', r.result_status,
+              'symbol', r.symbol,
+              'minimum_pass_mark', case
+                when jsonb_typeof(ss.setting_value -> 'minimum_pass_mark') = 'number'
+                  then (ss.setting_value ->> 'minimum_pass_mark')::numeric
+                else null
+              end,
+              'promotional', coalesce((ss.setting_value ->> 'promotional')::boolean, true),
+              'show_on_report_card', coalesce((ss.setting_value ->> 'show_on_report_card')::boolean, true),
+              'approved_at', r.approved_at
+            )
+            order by s.display_name
+          )
+          from public.official_results_current r
+          join public.subject_offerings so on so.id = r.subject_offering_id
+          join public.subjects s on s.id = so.subject_id
+          left join public.school_settings ss
+            on ss.school_id = new.school_id
+           and ss.setting_key = 'report_card_subject.' || s.id::text
+          where r.enrolment_id = new.enrolment_id
+            and r.term_number = t.term_number
+        ), '[]'::jsonb)
+      ) as term_payload
+    from public.academic_terms t
+    join public.academic_years y on y.id = t.academic_year_id
+    where t.school_id = new.school_id
+      and y.year = new.academic_year
+      and t.term_number between 1 and new.term_number
+  ) term_rows;
+
+  new.data_snapshot := coalesce(new.data_snapshot, '{}'::jsonb)
+    || jsonb_build_object(
+      'school_identity', v_school_identity,
+      'school_document_profile', coalesce(v_document_profile, '{}'::jsonb),
+      'report_card_settings', coalesce(v_report_settings, '{}'::jsonb),
+      'report_terms', coalesce(v_terms, '[]'::jsonb),
+      'register_teacher', coalesce(v_register_teacher, '{}'::jsonb),
+      'principal', coalesce(v_principal, '{}'::jsonb),
+      'next_term_starts_on', v_next_term_start
+    );
+
+  return new;
+end;
+$$;
+
+revoke all on function app_private.enrich_report_card_snapshot_template_profile()
+from public, anon, authenticated;
+
+drop trigger if exists report_card_snapshot_template_profile_enrichment_trg
+on public.report_card_snapshots;
+
+create trigger report_card_snapshot_template_profile_enrichment_trg
+before insert on public.report_card_snapshots
+for each row
+execute function app_private.enrich_report_card_snapshot_template_profile();
+
+comment on function app_private.enrich_report_card_snapshot_template_profile() is
+  'Freezes school identity/document branding, report-card display settings, cumulative term results, subject pass/promotional rules, register teacher, principal, and next-term date into a new report-card snapshot; Old English is restricted to Namib High School.';

@@ -1,6 +1,6 @@
 begin;
 
-select plan(29);
+select plan(32);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -253,6 +253,38 @@ select ok(
       and policyname='assessment staff read mark correction authorizations'
   ) ilike '%hod_responsible_for_subject%',
   'HOD correction-authorization reads remain subject-portfolio scoped'
+);
+
+select ok(
+  pg_get_functiondef(
+    'app_private.resolve_assessment_mark_entry_window(uuid,uuid,timestamp with time zone)'::regprocedure
+  ) ilike '%v_instance.status not in (''review'',''cancelled'')%',
+  'active correction authorization cannot keep mark entry editable during review or cancelled workflow states'
+);
+
+select ok(
+  (
+    select qual
+    from pg_policies
+    where schemaname='public'
+      and tablename='assessment_mark_reopen_authorizations'
+      and policyname='assessment staff read mark correction authorizations'
+  ) ilike '%not app_private.has_school_role(school_id, ARRAY[''hod''::text])%'
+  and (
+    select qual
+    from pg_policies
+    where schemaname='public'
+      and tablename='assessment_mark_reopen_authorizations'
+      and policyname='assessment staff read mark correction authorizations'
+  ) ilike '%hod_responsible_for_subject%',
+  'HOD instance-backed correction-authorization reads remain subject-portfolio scoped'
+);
+
+select ok(
+  pg_get_functiondef(
+    'app_private.enrich_report_card_snapshot_template_profile()'::regprocedure
+  ) ilike '%from public.official_results_current r%',
+  'cumulative report terms include only the current non-superseded official result'
 );
 
 select * from finish();

@@ -77,3 +77,19 @@ test("effective locks can be reopened without granting HOD school-wide correctio
   assert.match(sql, /coalesce\(v_effective_window->>'state',''\) in \('locked','locked_again'\)/);
   assert.match(sql, /hod_responsible_for_subject[\s\S]*assessment_mark_reopen_authorizations\.subject_offering_id/);
 });
+
+
+test("correction workflow freezes edits during moderation even with active authorization", async () => {
+  const sql = await read(migrationPath);
+  assert.match(sql, /v_instance\.status not in \('review','cancelled'\)/);
+});
+
+test("HOD authorization reads remain subject-portfolio scoped for instance-backed rows", async () => {
+  const sql = await read(migrationPath);
+  assert.match(sql, /assessment_instance_id is not null[\s\S]*not app_private\.has_school_role\(school_id,array\['hod'\]\)[\s\S]*hod_responsible_for_subject/);
+});
+
+test("report reissue cumulative terms exclude superseded official results", async () => {
+  const sql = await read(migrationPath);
+  assert.match(sql, /enrich_report_card_snapshot_template_profile[\s\S]*from public\.official_results_current r/);
+});
