@@ -1,6 +1,6 @@
 begin;
 
-select plan(13);
+select plan(14);
 
 select has_function(
   'public',
@@ -41,6 +41,19 @@ select ok(
     'public.get_assessment_quality_readiness(uuid,integer,smallint)'::regprocedure
   ) ilike '%learner_subject_registered_on%',
   'completion denominator reuses canonical dated subject-registration eligibility'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.get_assessment_quality_readiness(uuid,integer,smallint)'::regprocedure
+  ) ilike '%mark_enrolment.id=mark.enrolment_id%'
+  and pg_get_functiondef(
+    'public.get_assessment_quality_readiness(uuid,integer,smallint)'::regprocedure
+  ) ilike '%mark_enrolment.register_class_id=s.register_class_id%'
+  and pg_get_functiondef(
+    'public.get_assessment_quality_readiness(uuid,integer,smallint)'::regprocedure
+  ) ilike '%learner_subject_registered_on(%mark_enrolment.id%',
+  'component numerator and statistics use the same dated enrolment and subject-registration eligibility as the denominator'
 );
 
 select ok(

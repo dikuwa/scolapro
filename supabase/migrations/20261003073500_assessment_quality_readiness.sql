@@ -228,6 +228,25 @@ begin
         'withheld',count(*) filter(where mark.mark_status='withheld')
       ) as mark_status_counts
     from public.learner_marks_current mark
+    join public.enrolments mark_enrolment
+      on mark_enrolment.id=mark.enrolment_id
+     and mark_enrolment.school_id=s.school_id
+     and mark_enrolment.academic_year=s.academic_year
+     and mark_enrolment.register_class_id=s.register_class_id
+     and mark_enrolment.enrolled_from<=coalesce(s.assessment_date,current_date)
+     and (
+       mark_enrolment.enrolled_to is null
+       or mark_enrolment.enrolled_to>=coalesce(s.assessment_date,current_date)
+     )
+     and (
+       s.assessment_date is not null
+       or mark_enrolment.status='current'
+     )
+     and app_private.learner_subject_registered_on(
+       mark_enrolment.id,
+       s.subject_offering_id,
+       coalesce(s.assessment_date,current_date)
+     )
     where mark.assessment_instance_id=s.id
   ) marks
   order by s.grade_name,s.class_name,s.subject_name,s.term_number,s.component_name,s.id;

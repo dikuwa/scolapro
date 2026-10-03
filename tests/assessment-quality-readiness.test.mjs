@@ -14,6 +14,8 @@ test("quality analysis derives from canonical assessment evidence only",()=>{
   assert.match(migration,/assessment_components/);
   assert.match(migration,/learner_marks_current/);
   assert.match(migration,/learner_subject_registered_on/);
+  assert.match(migration,/mark_enrolment\.id=mark\.enrolment_id/);
+  assert.match(migration,/mark_enrolment\.register_class_id=s\.register_class_id/);
   assert.doesNotMatch(migration,/create table .*quality/i);
   assert.doesNotMatch(migration,/teacher_score|teacher_rank/i);
 });
