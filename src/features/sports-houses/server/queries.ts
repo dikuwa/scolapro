@@ -34,6 +34,20 @@ export type SportsLearner = {
   assignedAt: string | null;
   ageOnReferenceDate: number | null;
   ageGroupLabel: string | null;
+  sex: string | null;
+  gradeId: string | null;
+  gradeName: string | null;
+  registerClassId: string | null;
+  registerClassName: string | null;
+};
+
+export type SportsAgeGroupSourceProposal = {
+  id: string;
+  sourceKey: string;
+  sourceTitle: string;
+  labels: string[];
+  status: string;
+  provenance: Record<string, unknown>;
 };
 
 export type SportsStaff = {
@@ -67,6 +81,11 @@ type LearnerRosterRow = {
   assigned_at: string | null;
   age_on_reference_date: number | null;
   age_group_label: string | null;
+  sex: string | null;
+  grade_id: string | null;
+  grade_name: string | null;
+  register_class_id: string | null;
+  register_class_name: string | null;
 };
 
 type AssignmentYearRow = {
@@ -121,15 +140,22 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     learnerRosterResult,
     assignmentYearsResult,
     staffRosterResult,
+    sourceProposalResult,
   ] = await Promise.all([
     supabase.rpc("get_sports_house_workspace_metadata", { p_school_id: schoolId }),
     supabase
-      .rpc("get_sports_house_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear })
+      .rpc("get_sports_house_operational_learner_roster", { p_school_id: schoolId, p_academic_year: academicYear })
       .select(
-        "learner_id,first_names,surname,admission_number,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label",
+        "learner_id,first_names,surname,admission_number,sex,grade_id,grade_name,register_class_id,register_class_name,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label",
       ),
     supabase.rpc("get_sports_house_assignment_years", { p_school_id: schoolId }),
     supabase.rpc("get_sports_house_staff_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
+    supabase
+      .from("sports_age_group_source_proposals")
+      .select("id,source_key,source_title,labels,status,provenance")
+      .eq("school_id", schoolId)
+      .eq("academic_year", academicYear)
+      .order("created_at"),
   ]);
 
   const readIssues = [
@@ -137,6 +163,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     ["learner roster", learnerRosterResult.error],
     ["assignment-year history", assignmentYearsResult.error],
     ["staff roster", staffRosterResult.error],
+    ["age-group source proposals", sourceProposalResult.error],
   ] as const;
   for (const [dependency, error] of readIssues) {
     if (error) console.error(`[sports-houses] ${dependency} read failed`, { code: error.code ?? "unknown" });
@@ -189,6 +216,11 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     assignedAt: row.assigned_at,
     ageOnReferenceDate: row.age_on_reference_date,
     ageGroupLabel: row.age_group_label,
+    sex: row.sex,
+    gradeId: row.grade_id,
+    gradeName: row.grade_name,
+    registerClassId: row.register_class_id,
+    registerClassName: row.register_class_name,
   })).sort((a, b) => a.name.localeCompare(b.name));
 
   const staff: SportsStaff[] = ((staffRosterResult.data ?? []) as StaffRosterRow[]).map((row) => {
@@ -206,6 +238,17 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
       assignedAt: row.assigned_at,
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
+
+  const sourceAgeGroupProposals: SportsAgeGroupSourceProposal[] = (sourceProposalResult.data ?? []).map((row) => ({
+    id: row.id,
+    sourceKey: row.source_key,
+    sourceTitle: row.source_title,
+    labels: Array.isArray(row.labels) ? row.labels.map(String) : [],
+    status: row.status,
+    provenance: row.provenance && typeof row.provenance === "object" && !Array.isArray(row.provenance)
+      ? row.provenance as Record<string, unknown>
+      : {},
+  }));
 
   const settings: SportsYearSettings[] = (metadata.settings ?? []).map((row) => ({
     academicYear: row.academic_year,
@@ -229,6 +272,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     learners,
     staff,
     yearSettings: settings.find((item) => item.academicYear === academicYear) ?? null,
+    sourceAgeGroupProposals,
     learnerAssignedCount: learners.filter((item) => item.houseId).length,
     learnerUnassignedCount: learners.filter((item) => !item.houseId).length,
     staffAssignedCount: staff.filter((item) => item.houseId).length,

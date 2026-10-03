@@ -18,6 +18,7 @@ import {
 } from "@/features/sports-houses/server/actions";
 import type {
   SportsAgeGroup,
+  SportsAgeGroupSourceProposal,
   SportsHouse,
   SportsLearner,
   SportsStaff,
@@ -257,6 +258,7 @@ export function SportsHousesWorkspace({
   learners,
   staff,
   yearSettings,
+  sourceAgeGroupProposals,
   learnerAssignedCount,
   learnerUnassignedCount,
   staffAssignedCount,
@@ -273,6 +275,7 @@ export function SportsHousesWorkspace({
   learners: SportsLearner[];
   staff: SportsStaff[];
   yearSettings: SportsYearSettings | null;
+  sourceAgeGroupProposals: SportsAgeGroupSourceProposal[];
   learnerAssignedCount: number;
   learnerUnassignedCount: number;
   staffAssignedCount: number;
@@ -295,6 +298,55 @@ export function SportsHousesWorkspace({
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [learnerAllocationOpen, setLearnerAllocationOpen] = useState(false);
   const [staffAllocationOpen, setStaffAllocationOpen] = useState(false);
+  const [learnerHouseFilter, setLearnerHouseFilter] = useState("all");
+  const [learnerGradeFilter, setLearnerGradeFilter] = useState("all");
+  const [learnerClassFilter, setLearnerClassFilter] = useState("all");
+  const [learnerAgeGroupFilter, setLearnerAgeGroupFilter] = useState("all");
+  const [learnerSexFilter, setLearnerSexFilter] = useState("all");
+  const [learnerSourceFilter, setLearnerSourceFilter] = useState("all");
+  const [learnerLockFilter, setLearnerLockFilter] = useState("all");
+  const [staffHouseFilter, setStaffHouseFilter] = useState("all");
+  const [rosterHouseId, setRosterHouseId] = useState<string | null>(null);
+  const [exportHouseIds, setExportHouseIds] = useState<string[]>([]);
+  const [exportContent, setExportContent] = useState("combined");
+  const [exportGroup, setExportGroup] = useState("none");
+
+  const uniqueOptions = (values: Array<string | null>) =>
+    [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
+
+  const filteredLearners = useMemo(() => learners.filter((learner) => {
+    if (learnerHouseFilter === "unassigned" && learner.houseId) return false;
+    if (learnerHouseFilter !== "all" && learnerHouseFilter !== "unassigned" && learner.houseId !== learnerHouseFilter) return false;
+    if (learnerGradeFilter !== "all" && learner.gradeName !== learnerGradeFilter) return false;
+    if (learnerClassFilter !== "all" && learner.registerClassName !== learnerClassFilter) return false;
+    if (learnerAgeGroupFilter === "unresolved" && learner.ageGroupLabel) return false;
+    if (learnerAgeGroupFilter !== "all" && learnerAgeGroupFilter !== "unresolved" && learner.ageGroupLabel !== learnerAgeGroupFilter) return false;
+    if (learnerSexFilter !== "all" && (learner.sex ?? "unspecified") !== learnerSexFilter) return false;
+    if (learnerSourceFilter === "unassigned" && learner.assignmentSource) return false;
+    if (learnerSourceFilter !== "all" && learnerSourceFilter !== "unassigned" && learner.assignmentSource !== learnerSourceFilter) return false;
+    if (learnerLockFilter === "locked" && !learner.isLocked) return false;
+    if (learnerLockFilter === "unlocked" && learner.isLocked) return false;
+    return true;
+  }), [learners, learnerHouseFilter, learnerGradeFilter, learnerClassFilter, learnerAgeGroupFilter, learnerSexFilter, learnerSourceFilter, learnerLockFilter]);
+
+  const filteredStaff = useMemo(() => staff.filter((person) => {
+    if (staffHouseFilter === "unassigned") return !person.houseId;
+    if (staffHouseFilter === "all") return true;
+    return person.houseId === staffHouseFilter;
+  }), [staff, staffHouseFilter]);
+
+  const rosterHouse = rosterHouseId ? houses.find((house) => house.id === rosterHouseId) ?? null : null;
+  const rosterLearners = rosterHouse ? learners.filter((learner) => learner.houseId === rosterHouse.id) : [];
+  const rosterStaff = rosterHouse ? staff.filter((person) => person.houseId === rosterHouse.id) : [];
+  const activeSourceProposal = sourceAgeGroupProposals.find((item) => item.status !== "retired") ?? null;
+  const exportSelection = exportHouseIds.length ? exportHouseIds : activeHouses.map((house) => house.id);
+  const exportQuery = new URLSearchParams({
+    school: schoolId,
+    year: String(academicYear),
+    houses: exportSelection.join(","),
+    content: exportContent,
+    groupBy: exportGroup,
+  }).toString();
 
   return (
     <div className="space-y-5">
@@ -353,6 +405,12 @@ export function SportsHousesWorkspace({
                     <span>House leader: <strong className="font-semibold text-foreground">{leaderNames.length ? leaderNames.join(", ") : "Not assigned"}</strong></span>
                   </div>
                   <p className="mt-1 text-[0.68rem] text-muted-foreground">Display order {house.sortOrder} · Created {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(house.createdAt))}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button type="button" variant="neutral" size="sm" onClick={() => setRosterHouseId(rosterHouseId === house.id ? null : house.id)}>Open roster</Button>
+                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=html`} target="_blank" rel="noreferrer">Preview</a>
+                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=pdf`}>PDF</a>
+                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=xlsx`}>Excel</a>
+                  </div>
                 </div>
                 {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingHouseId(editing ? null : house.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
               </div>
@@ -364,6 +422,20 @@ export function SportsHousesWorkspace({
           {addingHouse ? <HouseForm schoolId={schoolId} canManage={canManage} /> : null}
         </div>
       </section>
+
+      {rosterHouse ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div><h2 className="scolapro-section-title">{rosterHouse.name} operational roster</h2><p className="scolapro-section-description">{rosterLearners.length} learners · {rosterStaff.length} staff · {rosterStaff.filter((person) => person.roleKey === "leader").map((person) => person.name).join(", ") || "No house leader recorded"}</p></div>
+          <Button type="button" variant="neutral" size="sm" onClick={() => setRosterHouseId(null)}>Close roster</Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[52rem] text-left text-xs">
+            <thead className="border-b border-border-subtle text-muted-foreground"><tr><th className="px-2 py-2">Learner</th><th className="px-2 py-2">Grade</th><th className="px-2 py-2">Class</th><th className="px-2 py-2">Sex</th><th className="px-2 py-2">Age</th><th className="px-2 py-2">Age group</th><th className="px-2 py-2">Source</th><th className="px-2 py-2">Lock</th></tr></thead>
+            <tbody className="divide-y divide-border-subtle">{rosterLearners.map((learner) => <tr key={learner.id}><td className="px-2 py-2 font-medium">{learner.name}</td><td className="px-2 py-2">{learner.gradeName ?? "—"}</td><td className="px-2 py-2">{learner.registerClassName ?? "—"}</td><td className="px-2 py-2">{learner.sex ?? "—"}</td><td className="px-2 py-2">{learner.ageOnReferenceDate ?? "—"}</td><td className="px-2 py-2">{learner.ageGroupLabel ?? "Unresolved"}</td><td className="px-2 py-2">{learner.assignmentSource ?? "—"}</td><td className="px-2 py-2">{learner.isLocked ? "Locked" : "Unlocked"}</td></tr>)}</tbody>
+          </table>
+        </div>
+        <div className="mt-4 border-t border-border-subtle pt-4"><h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Staff</h3><div className="mt-2 grid gap-2 sm:grid-cols-2">{rosterStaff.map((person) => <div key={person.id} className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-xs"><p className="font-semibold">{person.name}</p><p className="mt-1 text-muted-foreground">{person.roleKey === "leader" ? "House leader" : "Member"} · {person.assignmentSource ?? "Unknown source"} · {person.isLocked ? "Locked" : "Unlocked"}</p></div>)}</div></div>
+      </section> : null}
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -390,6 +462,23 @@ export function SportsHousesWorkspace({
         </div>
       </section>
 
+      <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div><h2 className="scolapro-section-title">Source-informed age-group proposal</h2><p className="scolapro-section-description">{activeSourceProposal ? activeSourceProposal.sourceTitle : "No source proposal is stored for this year."}</p></div>
+          {activeSourceProposal ? <span className="rounded-[var(--radius-xs)] bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-strong capitalize">{activeSourceProposal.status}</span> : null}
+        </div>
+        {activeSourceProposal ? <div className="mt-3"><div className="flex flex-wrap gap-1.5">{activeSourceProposal.labels.map((label) => <span key={label} className="rounded-[var(--radius-xs)] bg-surface px-2 py-1 text-xs font-semibold">{label}</span>)}</div><p className="mt-3 text-xs leading-5 text-muted-foreground">Source labels are proposals only. The source does not prove the formal cutoff/reference date. School management verifies the reference date and min/max rules before canonical age groups are configured; source labels never rewrite learners.</p><p className="mt-2 text-xs font-medium text-muted-foreground">{yearSettings && ageGroups.length ? "Canonical rules are configured; derived roster labels can now be compared with source evidence." : "Mismatch comparison is pending canonical reference-date and age-band configuration."}</p></div> : null}
+      </section>
+
+      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="scolapro-section-title">House roster exports</h2><p className="scolapro-section-description">Choose one or multiple houses; leave empty to export all active houses.</p></div><div className="flex flex-wrap gap-2"><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=html`} target="_blank" rel="noreferrer">Preview</a><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf`}>Print / PDF</a><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=xlsx`}>Excel</a></div></div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <SearchableSelect label="Houses" value="" options={activeHouses.map((house) => ({ value: house.id, label: house.name }))} placeholder="All active houses" searchPlaceholder="Search houses" multiple selectedValues={exportHouseIds} onToggle={(id) => setExportHouseIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current,id])} />
+          <Picker label="Include" placeholder="Choose content" value={exportContent} onChange={setExportContent} options={[{ value: "combined", label: "Learners + staff" },{ value: "learners", label: "Learners only" },{ value: "staff", label: "Staff only" }]} />
+          <Picker label="Group learners by" placeholder="Choose grouping" value={exportGroup} onChange={setExportGroup} options={[{ value: "none", label: "No grouping" },{ value: "age_group", label: "Age group" },{ value: "sex", label: "Sex" },{ value: "grade", label: "Grade" },{ value: "class", label: "Register class" }]} />
+        </div>
+      </section>
+
       {canManage ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <button type="button" onClick={() => setBalanceOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 text-left">
           <div><h2 className="scolapro-section-title">Assisted balancing</h2><p className="scolapro-section-description">Preview deterministic learner balancing only when you need it.</p></div>
@@ -403,12 +492,22 @@ export function SportsHousesWorkspace({
           <div><h2 className="scolapro-section-title">Learner allocation</h2><p className="scolapro-section-description">{learnerAssignedCount} assigned · {learnerUnassignedCount} unassigned in {academicYear}.</p></div>
           {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setLearnerAllocationOpen((open) => !open)}>{learnerAllocationOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}{learnerAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
         </div>
-        {canManage && learnerAllocationOpen ? <div className="mb-4"><LearnerAssignmentForm schoolId={schoolId} academicYear={academicYear} learners={learners} houses={houses} /></div> : null}
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <Picker label="House" placeholder="All houses" value={learnerHouseFilter} onChange={setLearnerHouseFilter} options={[{ value: "all", label: "All houses" },{ value: "unassigned", label: "Unassigned" },...activeHouses.map((house) => ({ value: house.id, label: house.name }))]} />
+          <Picker label="Grade" placeholder="All grades" value={learnerGradeFilter} onChange={setLearnerGradeFilter} options={[{ value: "all", label: "All grades" },...uniqueOptions(learners.map((item) => item.gradeName)).map((value) => ({ value, label: value }))]} />
+          <Picker label="Register class" placeholder="All classes" value={learnerClassFilter} onChange={setLearnerClassFilter} options={[{ value: "all", label: "All classes" },...uniqueOptions(learners.map((item) => item.registerClassName)).map((value) => ({ value, label: value }))]} />
+          <Picker label="Age group" placeholder="All age groups" value={learnerAgeGroupFilter} onChange={setLearnerAgeGroupFilter} options={[{ value: "all", label: "All age groups" },{ value: "unresolved", label: "Unresolved" },...uniqueOptions(learners.map((item) => item.ageGroupLabel)).map((value) => ({ value, label: value }))]} />
+          <Picker label="Sex" placeholder="All" value={learnerSexFilter} onChange={setLearnerSexFilter} options={[{ value: "all", label: "All" },...uniqueOptions(learners.map((item) => item.sex ?? "unspecified")).map((value) => ({ value, label: value }))]} />
+          <Picker label="Source" placeholder="All sources" value={learnerSourceFilter} onChange={setLearnerSourceFilter} options={[{ value: "all", label: "All sources" },{ value: "unassigned", label: "Unassigned" },...uniqueOptions(learners.map((item) => item.assignmentSource)).map((value) => ({ value, label: value }))]} />
+          <Picker label="Lock" placeholder="All" value={learnerLockFilter} onChange={setLearnerLockFilter} options={[{ value: "all", label: "All" },{ value: "locked", label: "Locked" },{ value: "unlocked", label: "Unlocked" }]} />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">{filteredLearners.length} of {learners.length} learners shown.</p>
+        {canManage && learnerAllocationOpen ? <div className="mt-4"><LearnerAssignmentForm schoolId={schoolId} academicYear={academicYear} learners={filteredLearners} houses={houses} /></div> : null}
         <div className="mt-4 max-h-[34rem] overflow-auto">
-          {learners.length ? <div className="divide-y divide-border-subtle">
-            {learners.map((learner) => (
+          {filteredLearners.length ? <div className="divide-y divide-border-subtle">
+            {filteredLearners.map((learner) => (
               <article key={learner.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,.7fr)_minmax(12rem,.9fr)] sm:items-center">
-                <div className="min-w-0"><p className="scolapro-record-title truncate">{learner.name}</p><p className="text-xs text-muted-foreground">{learner.admissionNumber ?? "No admission number"}{learner.ageGroupLabel ? ` · ${learner.ageGroupLabel}` : ""}{learner.ageOnReferenceDate !== null ? ` · age ${learner.ageOnReferenceDate}` : ""}</p></div>
+                <div className="min-w-0"><p className="scolapro-record-title truncate">{learner.name}</p><p className="text-xs text-muted-foreground">{learner.admissionNumber ?? "No admission number"} · {learner.gradeName ?? "No grade"} · {learner.registerClassName ?? "No class"} · {learner.sex ?? "unspecified"}{learner.ageGroupLabel ? ` · ${learner.ageGroupLabel}` : ""}{learner.ageOnReferenceDate !== null ? ` · age ${learner.ageOnReferenceDate}` : ""}</p></div>
                 <div className="flex items-center gap-2"><Swatch color={learner.houseColorHex} /><span className="text-sm font-medium">{learner.houseName ?? "Unassigned"}</span></div>
                 <AssignmentMeta source={learner.assignmentSource} locked={learner.isLocked} assignedAt={learner.assignedAt} />
               </article>
@@ -422,10 +521,12 @@ export function SportsHousesWorkspace({
           <div><h2 className="scolapro-section-title">Staff allocation & house leaders</h2><p className="scolapro-section-description">{staffAssignedCount} assigned · {staffUnassignedCount} unassigned · {leaders.length} house {leaders.length === 1 ? "leader" : "leaders"} in {academicYear}.</p></div>
           {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setStaffAllocationOpen((open) => !open)}>{staffAllocationOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}{staffAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
         </div>
-        {canManage && staffAllocationOpen ? <div className="mb-4"><StaffAssignmentForm schoolId={schoolId} academicYear={academicYear} staff={staff} houses={houses} /></div> : null}
+        <div className="max-w-xs"><Picker label="Staff house" placeholder="All houses" value={staffHouseFilter} onChange={setStaffHouseFilter} options={[{ value: "all", label: "All houses" },{ value: "unassigned", label: "Unassigned" },...activeHouses.map((house) => ({ value: house.id, label: house.name }))]} /></div>
+        <p className="mt-2 text-xs text-muted-foreground">{filteredStaff.length} of {staff.length} staff shown.</p>
+        {canManage && staffAllocationOpen ? <div className="mt-4"><StaffAssignmentForm schoolId={schoolId} academicYear={academicYear} staff={filteredStaff} houses={houses} /></div> : null}
         <div className="mt-4 max-h-[34rem] overflow-auto">
-          {staff.length ? <div className="divide-y divide-border-subtle">
-            {staff.map((person) => (
+          {filteredStaff.length ? <div className="divide-y divide-border-subtle">
+            {filteredStaff.map((person) => (
               <article key={person.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,.7fr)_minmax(12rem,.9fr)] sm:items-center">
                 <div className="min-w-0"><p className="scolapro-record-title truncate">{person.name}</p><p className="text-xs text-muted-foreground">{person.employeeNumber ?? "No employee number"}{person.roleKey === "leader" ? " · House leader" : ""}</p></div>
                 <div className="flex items-center gap-2"><Swatch color={person.houseId ? houses.find((house) => house.id === person.houseId)?.colorHex ?? null : null} /><span className="text-sm font-medium">{person.houseName ?? "Unassigned"}</span></div>
