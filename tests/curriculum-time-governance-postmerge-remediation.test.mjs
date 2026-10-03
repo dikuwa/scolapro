@@ -7,6 +7,24 @@ const migration = readFileSync(
   "utf8",
 );
 
+test("runtime resolver uses the governance transitive supersession relation", () => {
+  const resolverMigration = readFileSync(
+    "supabase/migrations/20261003123500_curriculum_time_resolver_transitive_supersession.sql",
+    "utf8",
+  );
+  assert.match(resolverMigration,/resolve_curriculum_time_allocation/);
+  assert.match(
+    resolverMigration,
+    /app_private\.curriculum_time_profile_supersedes\(\s*replacement_profile\.id,\s*c\.profile_id\s*\)/s,
+  );
+  assert.doesNotMatch(
+    resolverMigration,
+    /replacement_profile\.supersedes_profile_id=c\.profile_id/,
+  );
+  assert.match(resolverMigration,/replacement_profile\.effective_from_year<=p_academic_year/);
+  assert.match(resolverMigration,/replacement_profile\.cycle_kind=c\.resolved_cycle_kind/);
+});
+
 test("profile-level supersession is honored across governance conflict checks", () => {
   assert.match(migration,/curriculum_time_profile_supersedes\(new\.id,existing\.profile_id\)/);
   assert.match(migration,/curriculum_time_profile_supersedes\(pa\.id,pb\.id\)/);

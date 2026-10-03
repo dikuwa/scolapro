@@ -1,6 +1,6 @@
 begin;
 
-select plan(19);
+select plan(24);
 
 select has_function(
   'app_private',
@@ -69,7 +69,7 @@ insert into public.curriculum_time_profiles(
   'fc150000-0000-4000-8000-000000000001',
   'fc130000-0000-4000-8000-000000000001',
   'gov-remediation-base','Governance Remediation Base',
-  'junior_secondary','rotating',7,40,56,2026,2026,'draft',
+  'junior_secondary','rotating',7,40,56,2026,2028,'draft',
   '{"locator":"base profile"}'::jsonb
 );
 
@@ -185,6 +185,58 @@ insert into public.curriculum_time_profiles(
   'junior_secondary','rotating',7,2027,'draft',
   'fc150000-0000-4000-8000-000000000002',
   '{"locator":"grandchild profile"}'::jsonb
+);
+
+insert into public.curriculum_time_allocations(
+  id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,
+  grade_from,grade_to,periods_per_cycle,rule_strength,source_locator,status
+) values(
+  'fc160000-0000-4000-8000-000000000003',
+  'fc150000-0000-4000-8000-000000000003',
+  'fc140000-0000-4000-8000-000000000001',
+  'gov-remediation-math-g9-grandchild','subject','Governance Remediation Mathematics',
+  9,9,7,'prescribed','Grandchild source Grade 9','draft'
+);
+
+select lives_ok(
+  $select public.govern_curriculum_time_registry(
+    'allocation','fc160000-0000-4000-8000-000000000003','verify',null,null
+  )$,
+  'transitive successor allocation verifies'
+);
+select lives_ok(
+  $select public.govern_curriculum_time_registry(
+    'profile','fc150000-0000-4000-8000-000000000003','verify',null,null
+  )$,
+  'transitive successor profile verifies'
+);
+select lives_ok(
+  $select public.govern_curriculum_time_registry(
+    'profile','fc150000-0000-4000-8000-000000000003','publish',null,null
+  )$,
+  'transitive profile supersession allows successor publication outside the direct predecessor year'
+);
+select lives_ok(
+  $select public.govern_curriculum_time_registry(
+    'allocation','fc160000-0000-4000-8000-000000000003','publish',null,null
+  )$,
+  'transitive successor allocation publishes'
+);
+select is(
+  (
+    select concat_ws(':',resolution_status,allocation_id::text,periods_per_cycle::text)
+    from public.resolve_curriculum_time_allocation(
+      'fc140000-0000-4000-8000-000000000001',
+      null,
+      9::smallint,
+      2027,
+      'rotating',
+      7::smallint,
+      null
+    )
+  ),
+  'resolved:fc160000-0000-4000-8000-000000000003:7',
+  'runtime resolver suppresses the transitive predecessor and selects the valid grandchild allocation'
 );
 
 reset role;
