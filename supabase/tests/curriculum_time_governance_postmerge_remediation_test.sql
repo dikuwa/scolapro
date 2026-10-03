@@ -158,14 +158,6 @@ select lives_ok(
   'profile-level supersession also allows successor allocation publication'
 );
 
-select ok(
-  app_private.curriculum_time_profile_supersedes(
-    'fc150000-0000-4000-8000-000000000002',
-    'fc150000-0000-4000-8000-000000000001'
-  ),
-  'direct profile supersession is recognized'
-);
-
 select is(
   (
     select count(*)::integer
@@ -195,6 +187,16 @@ insert into public.curriculum_time_profiles(
   '{"locator":"grandchild profile"}'::jsonb
 );
 
+reset role;
+
+select ok(
+  app_private.curriculum_time_profile_supersedes(
+    'fc150000-0000-4000-8000-000000000002',
+    'fc150000-0000-4000-8000-000000000001'
+  ),
+  'direct profile supersession is recognized'
+);
+
 select ok(
   app_private.curriculum_time_profile_supersedes(
     'fc150000-0000-4000-8000-000000000003',
@@ -202,6 +204,8 @@ select ok(
   ),
   'transitive profile supersession chain is recognized'
 );
+
+set local role authenticated;
 
 insert into public.curriculum_time_profiles(
   id,source_id,profile_key,title,phase_code,cycle_kind,cycle_length,
