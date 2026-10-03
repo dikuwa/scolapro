@@ -16,7 +16,7 @@ async function scopedInstance(instanceId:string) {
   if (!context.user || context.platformMemberships.length || !context.currentSchoolMembership) return null;
   const db=await createSupabaseServerClient();
   const { data: instance }=await db.from("assessment_instances")
-    .select("id,school_id,status,register_class_id,academic_year,subject_offering_id,assessment_date")
+    .select("id,school_id,status,correction_pending,register_class_id,academic_year,subject_offering_id,assessment_date")
     .eq("id",instanceId).maybeSingle();
   if (!instance || instance.school_id!==context.currentSchoolMembership.schoolId) return null;
   return {context,db,instance};
@@ -29,8 +29,6 @@ export async function validateMarkGrid(
   const instanceId=String(form.get("instanceId") ?? "");
   const scope=await scopedInstance(instanceId);
   if (!scope) return {message:"Assessment is outside your current authority."};
-  if (!["open","returned"].includes(scope.instance.status)) return {message:"This assessment is no longer editable."};
-
   const { data: enrolments }=await scope.db.from("enrolments")
     .select("id,enrolled_from,enrolled_to,status")
     .eq("school_id",scope.instance.school_id)
@@ -110,22 +108,104 @@ export async function reviewMarkGrid(
   return {success:true,message:decision==="verify" ? "Marks verified. Final locking remains part of official result approval." : "Assessment returned to the teacher with the recorded reason."};
 }
 
-export async function reopenMarkGridForCorrection(
+function windhoekTimestamp(date:string,time:string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return null;
+  return `${date}T${time}:00+02:00`;
+}
+
+function revalidateAssessment(instanceId:string) {
+  revalidatePath(`/assessment/marks/${instanceId}`);
+  revalidatePath("/assessment/marks");
+  revalidatePath("/assessment");
+}
+
+export async function configureMarkEntryWindow(
+  _state:MarkGridActionState,
+  form:FormData,
+):Promise<MarkGridActionState> {
+  const instanceId=String(form.get("instanceId") ?? "");
+  const policyMode=String(form.get("policyMode") ?? "");
+  const openDate=String(form.get("openDate") ?? "");
+  const openTime=String(form.get("openTime") ?? "");
+  const closeDate=String(form.get("closeDate") ?? "");
+  const closeTime=String(form.get("closeTime") ?? "");
+  const warningMinutes=Number(form.get("warningMinutes") ?? 0);
+  const opensAt=openDate || openTime ? windhoekTimestamp(openDate,openTime) : null;
+  const closesAt=closeDate || closeTime ? windhoekTimestamp(closeDate,closeTime) : null;
+  if ((openDate || openTime) && !opensAt) return {message:"Choose a valid opening date and time."};
+  if ((closeDate || closeTime) && !closesAt) return {message:"Choose a valid closing date and time."};
+  if (!Number.isInteger(warningMinutes) || warningMinutes<0 || warningMinutes>10080) return {message:"Warning minutes must be between 0 and 10080."};
+
+  const scope=await scopedInstance(instanceId);
+  if (!scope) return {message:"Assessment is outside your current authority."};
+  const { error }=await scope.db.rpc("configure_assessment_mark_entry_window",{
+    p_assessment_instance_id:instanceId,
+    p_opens_at:opensAt,
+    p_closes_at:closesAt,
+    p_warning_minutes:warningMinutes,
+    p_policy_mode:policyMode,
+  });
+  if (error) return {message:"Mark-entry policy could not be saved within your current authority."};
+  revalidateAssessment(instanceId);
+  return {success:true,message:"Mark-entry window policy saved. Effective locking is enforced on the server."};
+}
+
+export async function lockMarkEntryWindow(
   _state:MarkGridActionState,
   form:FormData,
 ):Promise<MarkGridActionState> {
   const instanceId=String(form.get("instanceId") ?? "");
   const reason=String(form.get("reason") ?? "").trim();
-  if (!reason) return {message:"A correction reason is required."};
+  if (!reason) return {message:"A manual lock reason is required."};
   const scope=await scopedInstance(instanceId);
   if (!scope) return {message:"Assessment is outside your current authority."};
-  const { error }=await scope.db.rpc("reopen_assessment_for_correction",{
+  const { error }=await scope.db.rpc("lock_assessment_mark_entry",{
     p_assessment_instance_id:instanceId,
     p_reason:reason,
   });
-  if (error) return {message:error.message.includes("Official results already exist") ? "This assessment already has immutable official results. Use the governed official-result correction workflow." : "Assessment could not be reopened within your current authority."};
-  revalidatePath(`/assessment/marks/${instanceId}`);
-  revalidatePath("/assessment/marks");
-  revalidatePath("/assessment");
-  return {success:true,message:"Assessment reopened as Returned. The reason is retained in the audit trail."};
+  if (error) return {message:"Mark entry could not be locked within your current authority."};
+  revalidateAssessment(instanceId);
+  return {success:true,message:"Mark entry locked. Corrections now require a bounded authorization."};
 }
+
+export async function authorizeMarkCorrection(
+  _state:MarkGridActionState,
+  form:FormData,
+):Promise<MarkGridActionState> {
+  const instanceId=String(form.get("instanceId") ?? "");
+  const scopeKind=String(form.get("scopeKind") ?? "");
+  const enrolmentId=String(form.get("enrolmentId") ?? "") || null;
+  const reason=String(form.get("reason") ?? "").trim();
+  const startDate=String(form.get("startDate") ?? "");
+  const startTime=String(form.get("startTime") ?? "");
+  const expiryDate=String(form.get("expiryDate") ?? "");
+  const expiryTime=String(form.get("expiryTime") ?? "");
+  const startsAt=windhoekTimestamp(startDate,startTime);
+  const expiresAt=windhoekTimestamp(expiryDate,expiryTime);
+  if (!reason) return {message:"A correction reason is required."};
+  if (!startsAt || !expiresAt) return {message:"Correction start and expiry date/time are required."};
+
+  const scope=await scopedInstance(instanceId);
+  if (!scope) return {message:"Assessment is outside your current authority."};
+  const { error }=await scope.db.rpc("authorize_assessment_mark_correction",{
+    p_assessment_instance_id:instanceId,
+    p_scope_kind:scopeKind,
+    p_enrolment_id:scopeKind==="learner" ? enrolmentId : null,
+    p_reason:reason,
+    p_starts_at:startsAt,
+    p_expires_at:expiresAt,
+    p_requires_reverification:true,
+  });
+  if (error) {
+    if (error.message.includes("school leadership authority")) {
+      return {message:"Subject-class correction requires School Admin, Principal or Deputy Principal authority."};
+    }
+    return {message:"Correction authorization could not be created within your current authority."};
+  }
+  revalidateAssessment(instanceId);
+  return {success:true,message:"Bounded correction authorization created. Corrected marks will be linked to it and must be re-verified."};
+}
+
+// Compatibility name retained for the established mark-grid contract; the implementation
+// now delegates to the bounded scope-aware correction authorization action above.
+export const reopenMarkGridForCorrection=authorizeMarkCorrection;

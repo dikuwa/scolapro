@@ -12,6 +12,24 @@ export type MarkGridRow = {
   markStatus: "absent" | "exempt" | "incomplete" | "withheld" | null;
   teacherNote: string | null;
   version: string | null;
+  editable: boolean;
+};
+
+export type MarkEntryWindowData = {
+  state: string;
+  editable: boolean;
+  policyMode: string;
+  opensAt: string | null;
+  closesAt: string | null;
+  warningMinutes: number;
+  manualLockedAt: string | null;
+  correctionPending: boolean;
+  activeReopenId: string | null;
+  activeReopenScope: string | null;
+  activeReopenExpiresAt: string | null;
+  requiresReverification: boolean;
+  reopenedEnrolmentIds: string[];
+  serverNow: string | null;
 };
 
 export type MarkGridData = {
@@ -28,9 +46,13 @@ export type MarkGridData = {
   rawMax: number | null;
   status: string;
   editable: boolean;
+  canSubmit: boolean;
   canReview: boolean;
   canReopen: boolean;
+  canManageWindow: boolean;
+  canBroadReopen: boolean;
   latestSubmissionId: string | null;
+  window: MarkEntryWindowData;
   rows: MarkGridRow[];
 };
 
@@ -74,7 +96,7 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
   ]);
 
   const enrolmentIds=(enrolments ?? []).map((row)=>row.id);
-  const [{ data: marks }, { data: latestSubmission }] = await Promise.all([
+  const [{ data: marks }, { data: latestSubmission }, { data: windowPayload, error: windowError }] = await Promise.all([
     enrolmentIds.length
     ? db.from("learner_marks_current")
         .select("id,enrolment_id,numeric_mark,mark_status,teacher_note")
@@ -87,7 +109,31 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
       .order("submitted_at",{ascending:false})
       .limit(1)
       .maybeSingle(),
+    db.rpc("resolve_assessment_mark_entry_window",{
+      p_assessment_instance_id:instance.id,
+    }),
   ]);
+
+  const rawWindow=(windowPayload ?? {}) as Partial<MarkEntryWindowData>;
+  const window:MarkEntryWindowData={
+    state:windowError ? "locked" : rawWindow.state ?? (["open","returned"].includes(instance.status) ? "open" : "locked"),
+    editable:windowError ? false : Boolean(rawWindow.editable),
+    policyMode:rawWindow.policyMode ?? "legacy",
+    opensAt:rawWindow.opensAt ?? null,
+    closesAt:rawWindow.closesAt ?? null,
+    warningMinutes:Number(rawWindow.warningMinutes ?? 0),
+    manualLockedAt:rawWindow.manualLockedAt ?? null,
+    correctionPending:Boolean(rawWindow.correctionPending),
+    activeReopenId:rawWindow.activeReopenId ?? null,
+    activeReopenScope:rawWindow.activeReopenScope ?? null,
+    activeReopenExpiresAt:rawWindow.activeReopenExpiresAt ?? null,
+    requiresReverification:Boolean(rawWindow.requiresReverification),
+    reopenedEnrolmentIds:Array.isArray(rawWindow.reopenedEnrolmentIds)
+      ? rawWindow.reopenedEnrolmentIds.filter((value):value is string=>typeof value==="string")
+      : [],
+    serverNow:rawWindow.serverNow ?? null,
+  };
+  const reopenedEnrolmentIds=new Set(window.reopenedEnrolmentIds);
 
   const learnerMap=new Map((learners ?? []).map((row)=>[row.id,row]));
   const markMap=new Map((marks ?? []).map((row)=>[row.enrolment_id,row]));
@@ -130,6 +176,7 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
         markStatus: (mark?.mark_status ?? null) as MarkGridRow["markStatus"],
         teacherNote: mark?.teacher_note ?? null,
         version: mark?.id ?? null,
+        editable:window.editable || reopenedEnrolmentIds.has(row.id),
       };
     })
     .sort((a,b)=>a.learnerName.localeCompare(b.learnerName));
@@ -147,10 +194,14 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
     componentName: component?.display_name ?? null,
     rawMax: instance.raw_max == null ? (component?.raw_max == null ? null : Number(component.raw_max)) : Number(instance.raw_max),
     status: instance.status,
-    editable: ["open","returned"].includes(instance.status),
+    editable: rows.some((row)=>row.editable),
+    canSubmit:["not_open","open","returned"].includes(instance.status),
     canReview: ["school_admin","principal","deputy_principal","hod"].includes(membership.roleKey),
     canReopen: ["school_admin","principal","deputy_principal","hod"].includes(membership.roleKey),
+    canManageWindow:["school_admin","principal","deputy_principal"].includes(membership.roleKey),
+    canBroadReopen:["school_admin","principal","deputy_principal"].includes(membership.roleKey),
     latestSubmissionId: latestSubmission?.id ?? null,
+    window,
     rows,
   };
 }
