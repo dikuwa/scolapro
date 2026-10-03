@@ -130,25 +130,19 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
     return { valid, ignored: selectedOfferings.length * selectedClasses.length - valid };
   }, [allocationClassIds, allocationOfferingIds, workspace.classes, workspace.offerings]);
 
-  useEffect(() => {
-    if (!allocationOfferingIds.length) return;
-    setAllocationClassIds((current) => {
-      const next = current.filter((id) => allowedAllocationClassIds.has(id));
-      return next.length === current.length ? current : next;
-    });
-  }, [allocationOfferingIds.length, allowedAllocationClassIds]);
-
-  useEffect(() => {
-    if (!offeringState.success) return;
-    setOfferingSubjectIds([]);
-    setOfferingGradeIds([]);
-  }, [offeringState.message, offeringState.success]);
-
-  useEffect(() => {
-    if (!allocationState.success) return;
-    setAllocationOfferingIds([]);
-    setAllocationClassIds([]);
-  }, [allocationState.message, allocationState.success]);
+  function updateAllocationOfferings(next: string[]) {
+    setAllocationOfferingIds(next);
+    if (!next.length) {
+      setAllocationClassIds([]);
+      return;
+    }
+    const nextGrades = new Set(workspace.offerings.filter((item) => next.includes(item.id)).map((item) => item.gradeId));
+    const classGrade = new Map(workspace.classes.map((item) => [item.id, item.gradeId]));
+    setAllocationClassIds((current) => current.filter((classId) => {
+      const gradeId = classGrade.get(classId);
+      return Boolean(gradeId && nextGrades.has(gradeId));
+    }));
+  }
 
   const scheduleGroups = useMemo(() => dayNames.map((day, index) => ({ day, weekday: index + 1, slots: visibleSlots.filter((slot) => slot.weekday === index + 1).sort((a, b) => a.periodNumber - b.periodNumber) })), [dayNames, visibleSlots]);
   const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
@@ -236,14 +230,14 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
                   searchPlaceholder="Search subject or grade"
                   multiple
                   selectedValues={allocationOfferingIds}
-                  onToggle={(value) => setAllocationOfferingIds((current) => toggleSelection(current, value))}
+                  onToggle={(value) => updateAllocationOfferings(toggleSelection(allocationOfferingIds, value))}
                   multipleLabel="offerings"
                   bulkActionGroups={[{ label: "Selection", actions: [
-                    { label: "Select all", onClick: () => setAllocationOfferingIds(offeringOptions.map((item) => item.value)), active: allocationOfferingIds.length === offeringOptions.length && offeringOptions.length > 0 },
-                    { label: "Clear all", onClick: () => { setAllocationOfferingIds([]); setAllocationClassIds([]); }, disabled: !allocationOfferingIds.length },
+                    { label: "Select all", onClick: () => updateAllocationOfferings(offeringOptions.map((item) => item.value)), active: allocationOfferingIds.length === offeringOptions.length && offeringOptions.length > 0 },
+                    { label: "Clear all", onClick: () => updateAllocationOfferings([]), disabled: !allocationOfferingIds.length },
                   ] }]}
                 />
-                <MultiSelectionChips values={allocationOfferingIds} options={offeringOptions} onRemove={(value) => setAllocationOfferingIds((current) => current.filter((id) => id !== value))} onClear={() => { setAllocationOfferingIds([]); setAllocationClassIds([]); }} />
+                <MultiSelectionChips values={allocationOfferingIds} options={offeringOptions} onRemove={(value) => updateAllocationOfferings(allocationOfferingIds.filter((id) => id !== value))} onClear={() => updateAllocationOfferings([])} />
               </div>
               <div>
                 <SearchableSelect
