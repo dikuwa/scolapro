@@ -96,7 +96,7 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
   ]);
 
   const enrolmentIds=(enrolments ?? []).map((row)=>row.id);
-  const [{ data: marks }, { data: latestSubmission }, { data: windowPayload }] = await Promise.all([
+  const [{ data: marks }, { data: latestSubmission }, { data: windowPayload, error: windowError }] = await Promise.all([
     enrolmentIds.length
     ? db.from("learner_marks_current")
         .select("id,enrolment_id,numeric_mark,mark_status,teacher_note")
@@ -116,8 +116,8 @@ export async function getMarkGridData(instanceId: string): Promise<MarkGridData 
 
   const rawWindow=(windowPayload ?? {}) as Partial<MarkEntryWindowData>;
   const window:MarkEntryWindowData={
-    state:rawWindow.state ?? (["open","returned"].includes(instance.status) ? "open" : "locked"),
-    editable:Boolean(rawWindow.editable),
+    state:windowError ? "locked" : rawWindow.state ?? (["open","returned"].includes(instance.status) ? "open" : "locked"),
+    editable:windowError ? false : Boolean(rawWindow.editable),
     policyMode:rawWindow.policyMode ?? "legacy",
     opensAt:rawWindow.opensAt ?? null,
     closesAt:rawWindow.closesAt ?? null,
