@@ -269,16 +269,21 @@ begin
     if jsonb_array_length(v_issues)>0 then
       v_resolution:='conflict';
     else
-      select e.id into v_match
+      select count(*)::integer,min(e.id::text)::uuid
+      into v_count,v_match
       from public.effective_learner_calendar_events e
       where e.event_scope='school'
         and e.school_id=v_job.school_id
         and e.academic_year=v_job.academic_year
-        and lower(btrim(e.title))=lower(v_title)
-      order by e.created_at desc,e.id
-      limit 1;
+        and lower(btrim(e.title))=lower(v_title);
 
-      if v_match is not null then
+      if v_count>1 then
+        v_match:=null;
+        v_resolution:='conflict';
+        v_issues:=v_issues||jsonb_build_array(
+          'Multiple active calendar events share this title; choose a unique title or correct the source row before review.'
+        );
+      elsif v_count=1 then
         if exists(
           select 1
           from public.effective_learner_calendar_events e

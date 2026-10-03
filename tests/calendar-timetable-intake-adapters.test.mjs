@@ -17,6 +17,8 @@ test("operational adapters reuse shared document intake and canonical engines",(
 test("calendar intake preserves source class and append-only revision semantics",()=>{
   assert.match(migration,/national','regional','school','local/);
   assert.match(migration,/effective_learner_calendar_events/);
+  assert.match(migration,/Multiple active calendar events share this title/);
+  assert.match(migration,/if v_count>1 then[\s\S]*v_resolution:='conflict'/);
   assert.match(migration,/p_supersedes_event_id|matched_entity_id/);
   assert.match(page,/Source class/);
 });
