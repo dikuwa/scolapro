@@ -1,6 +1,6 @@
 begin;
 
-select plan(8);
+select plan(10);
 
 select has_function(
   'public',
@@ -264,6 +264,34 @@ select is(
   ),
   1,
   'overlap conflict does not create a second canonical teacher allocation'
+);
+
+select is(
+  (
+    select concat_ws(':',r->>'created',r->>'duplicates',r->>'conflicts')
+    from (
+      select public.bulk_create_teacher_allocations(
+        'fe010000-0000-4000-8000-000000000001',
+        2026,
+        array[
+          (
+            select id
+            from public.subject_offerings
+            where school_id='fe010000-0000-4000-8000-000000000001'
+              and subject_id='fe060000-0000-4000-8000-000000000001'
+              and grade_id='fe040000-0000-4000-8000-000000000001'
+          )
+        ],
+        array['fe050000-0000-4000-8000-000000000001'::uuid],
+        '{}'::uuid[],
+        'fe070000-0000-4000-8000-000000000001',
+        '2026-07-01',
+        '2026-12-31'
+      ) r
+    ) q
+  ),
+  '1:0:0',
+  'a range starting after the existing allocation ends is not treated as overlapping'
 );
 
 select * from finish();
