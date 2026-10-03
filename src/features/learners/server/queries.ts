@@ -201,3 +201,30 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
     photoUrl,
   };
 }
+
+
+export type LearnerCompactOperationalContext = {
+  houseName: string | null;
+  subjectNames: string[];
+};
+
+export async function getLearnerCompactOperationalContext(
+  learnerId: string,
+  schoolId: string,
+  academicYear: number,
+  enrolmentId: string,
+): Promise<LearnerCompactOperationalContext> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_learner_compact_operational_context", {
+    p_learner_id: learnerId,
+    p_school_id: schoolId,
+    p_academic_year: academicYear,
+    p_enrolment_id: enrolmentId,
+  });
+  if (error) throw new Error("Unable to load learner house and subject context.");
+  const row = Array.isArray(data) ? data[0] : null;
+  return {
+    houseName: row?.house_name ?? null,
+    subjectNames: Array.isArray(row?.subject_names) ? row.subject_names.map(String) : [],
+  };
+}

@@ -3,9 +3,9 @@ import { ArrowLeft, CalendarDays, Camera, FileText, GraduationCap, MapPin, UserR
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { GuardianPanel } from "@/features/guardians/guardian-panel";
-import { getLearnerGuardians, getReusableGuardians, type LearnerGuardian, type ReusableGuardian } from "@/features/guardians/server/queries";
+import { getEffectiveLearnerGuardianContact, getLearnerGuardians, getReusableGuardians, type EffectiveGuardianContact, type LearnerGuardian, type ReusableGuardian } from "@/features/guardians/server/queries";
 import { LearnerProfileEditor } from "@/features/learners/learner-profile-editor";
-import { getLearnerOverview, type LearnerOverview } from "@/features/learners/server/queries";
+import { getLearnerCompactOperationalContext, getLearnerOverview, type LearnerCompactOperationalContext, type LearnerOverview } from "@/features/learners/server/queries";
 import { LearnerExitOperations } from "@/features/learners/learner-exit-operations";
 import { getLearnerExitOperations } from "@/features/learners/server/exit-queries";
 import { LearnerChangeRequestForm } from "@/features/profile-changes/learner-change-request-form";
@@ -23,6 +23,18 @@ const learnerOperationalRoles = new Set(["school_admin", "principal", "deputy_pr
 const correctionRequestRoles = new Set(["school_admin","principal","deputy_principal","teacher","class_teacher"]);
 const learnerExitRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 
+function ageFromDateOfBirth(value: string | null) {
+  if (!value) return null;
+  const birth = new Date(`${value}T00:00:00`);
+  const today = new Date();
+  if (Number.isNaN(birth.getTime())) return null;
+  let age = today.getFullYear() - birth.getFullYear();
+  const beforeBirthday = today.getMonth() < birth.getMonth()
+    || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate());
+  if (beforeBirthday) age -= 1;
+  return age >= 0 ? age : null;
+}
+
 function formatDate(value: string | null) {
   if (!value) return "Not recorded";
   const parsed = new Date(`${value}T00:00:00`);
@@ -35,6 +47,8 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   let learner: LearnerOverview | null = demoLearners[id] ?? null;
   let guardians: LearnerGuardian[] = [];
   let reusableGuardians: ReusableGuardian[] = [];
+  let effectiveGuardianContact: EffectiveGuardianContact | null = null;
+  let compactContext: LearnerCompactOperationalContext = { houseName: null, subjectNames: [] };
   let canRequestCorrection = false;
   let canManageLearner = false;
   let canManageSubjects = false;
@@ -57,7 +71,12 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
     managementSchoolId = canManageLearner ? membership.schoolId : null;
     operationalSchoolId = learner && learnerExitRoles.has(membership.roleKey) ? membership.schoolId : null;
     if (learner) {
-      [guardians, reusableGuardians] = await Promise.all([getLearnerGuardians(id), getReusableGuardians(id, membership.schoolId)]);
+      [guardians, reusableGuardians, effectiveGuardianContact, compactContext] = await Promise.all([
+        getLearnerGuardians(id),
+        getReusableGuardians(id, membership.schoolId),
+        getEffectiveLearnerGuardianContact(id, membership.schoolId),
+        getLearnerCompactOperationalContext(id, membership.schoolId, learner.academicYear, learner.enrolmentId),
+      ]);
       correctionRequests = await getLearnerProfileChangeRequests(id);
       if (learnerExitRoles.has(membership.roleKey)) {
         exitOperations = await getLearnerExitOperations(id, membership.schoolId, learner.enrolmentId);
@@ -67,6 +86,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
 
   if (!learner) notFound();
   const avatarInitials = learner.name.split(" ").map((part) => part[0]).join("").slice(0, 2);
+  const age = ageFromDateOfBirth(learner.dateOfBirth);
 
   return (
     <AppShell>
@@ -86,6 +106,20 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
             {canManageLearner && managementSchoolId ? <LearnerProfileEditor learnerId={learner.id} schoolId={managementSchoolId} preferredName={learner.preferredName} hasPhoto={Boolean(learner.photoPath)} /> : null}
           </div>
         </div>
+
+        <section className="mb-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div className="mb-3"><h2 className="scolapro-section-title">At a glance</h2><p className="scolapro-section-description">Immediate current-school learner context from canonical records.</p></div>
+          <dl className="grid gap-x-5 gap-y-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
+            <div><dt className="text-muted-foreground">Admission</dt><dd className="mt-1 font-semibold">{learner.admissionNumber ?? "Not recorded"}</dd></div>
+            <div><dt className="text-muted-foreground">Placement</dt><dd className="mt-1 font-semibold">{learner.grade} · {learner.registerClass}</dd></div>
+            <div><dt className="text-muted-foreground">Sex</dt><dd className="mt-1 font-semibold capitalize">{learner.sex ?? "Not recorded"}</dd></div>
+            <div><dt className="text-muted-foreground">DOB / age</dt><dd className="mt-1 font-semibold">{formatDate(learner.dateOfBirth)}{age !== null ? ` · ${age}` : ""}</dd></div>
+            <div><dt className="text-muted-foreground">House</dt><dd className="mt-1 font-semibold">{compactContext.houseName ?? "Unassigned"}</dd></div>
+            <div><dt className="text-muted-foreground">Status</dt><dd className="mt-1 font-semibold capitalize">{learner.status}</dd></div>
+            <div className="sm:col-span-2"><dt className="text-muted-foreground">Effective guardian / contact</dt><dd className="mt-1 font-semibold">{effectiveGuardianContact ? `${effectiveGuardianContact.guardianName} · ${effectiveGuardianContact.phone}` : "No usable effective phone contact"}</dd></div>
+            <div className="sm:col-span-2 lg:col-span-4"><dt className="text-muted-foreground">Current subjects</dt><dd className="mt-1 font-semibold leading-5">{compactContext.subjectNames.length ? compactContext.subjectNames.join(" · ") : "No active subject registrations"}</dd></div>
+          </dl>
+        </section>
 
         <div className="mb-5 flex border-b border-border-subtle"><span className="inline-flex border-b-2 border-brand px-3 py-2.5 text-xs font-medium text-brand-strong">Overview</span>{canManageSubjects ? <Link href={`/learners/${learner.id}/academic/subjects`} className="inline-flex border-b-2 border-transparent px-3 py-2.5 text-xs font-medium text-muted-foreground transition hover:text-foreground">Academic · Subjects</Link> : null}</div>
 

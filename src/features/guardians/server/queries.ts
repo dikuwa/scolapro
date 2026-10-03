@@ -34,6 +34,16 @@ export type LearnerGuardian = {
 
 export type ReusableGuardian = { id: string; name: string; contacts: GuardianContact[] };
 
+export type EffectiveGuardianContact = {
+  relationshipId: string;
+  guardianId: string;
+  guardianName: string;
+  relationshipType: string;
+  priority: number;
+  phone: string;
+  phoneType: "mobile" | "phone";
+};
+
 const POSTGREST_IN_BATCH_SIZE = 40;
 
 function chunkIds(ids: string[]) {
@@ -139,4 +149,29 @@ export async function getReusableGuardians(learnerId: string, schoolId: string):
     name: formatPersonName(`${profile.first_names} ${profile.surname}`),
     contacts: contactRows.filter((item) => item.guardian_id === profile.id).map((item) => ({ id: item.id, type: item.contact_type, value: item.contact_value, primary: item.is_primary, label: item.label })),
   }));
+}
+
+export async function getEffectiveLearnerGuardianContact(
+  learnerId: string,
+  schoolId: string,
+  referenceDate = getNamibiaDateKey(),
+): Promise<EffectiveGuardianContact | null> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("resolve_effective_learner_guardian_contact", {
+    p_learner_id: learnerId,
+    p_school_id: schoolId,
+    p_reference_date: referenceDate,
+  });
+  if (error) throw new Error("Unable to load the learner's effective guardian contact.");
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+  return {
+    relationshipId: row.relationship_id,
+    guardianId: row.guardian_id,
+    guardianName: row.guardian_name,
+    relationshipType: row.relationship_type,
+    priority: Number(row.relationship_priority),
+    phone: row.phone,
+    phoneType: row.phone_type === "mobile" ? "mobile" : "phone",
+  };
 }
