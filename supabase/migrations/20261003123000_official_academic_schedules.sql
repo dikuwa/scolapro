@@ -62,10 +62,14 @@ on public.academic_schedule_snapshots
 for select
 to authenticated
 using(
-  app_private.user_current_school_matches(auth.uid(),school_id)
-  and app_private.has_school_local_role(
-    school_id,
-    array['school_admin','principal','deputy_principal']
+  exists(
+    select 1
+    from public.school_memberships sm
+    where sm.school_id=academic_schedule_snapshots.school_id
+      and sm.user_id=(select auth.uid())
+      and sm.role_key in ('school_admin','principal','deputy_principal')
+      and sm.active_from<=current_date
+      and (sm.active_to is null or sm.active_to>=current_date)
   )
 );
 
