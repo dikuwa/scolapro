@@ -1,0 +1,3 @@
+teacher_employee_number,subject_code,class_code,group_code,weekday,period_number,room_label,cycle_code
+T001,MATH,9A,,Monday,1,Room 12,A
+T002,ENG,9B,,Monday,2,Room 8,A
