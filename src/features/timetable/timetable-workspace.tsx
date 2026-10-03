@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { BookOpenCheck, CalendarDays, ClipboardCheck, Clock3, Plus, UserRoundCheck } from "lucide-react";
+import { BookOpenCheck, CalendarDays, ClipboardCheck, Clock3, Plus, UserRoundCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { CurriculumDemandMatrix } from "@/features/timetable/curriculum-demand-matrix";
 import { Picker, TimePicker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { getTimetableDayNames } from "@/features/timetable/day-labels";
-import { saveAllocation, saveOffering, savePeriod, saveSubject, type TimetableActionState } from "@/features/timetable/server/actions";
+import { saveAllocationsBulk, saveOfferingsBulk, savePeriod, saveSubject, type TimetableActionState } from "@/features/timetable/server/actions";
 import { saveCycleAwareSlot } from "@/features/timetable/server/cycle-actions";
 import { SubjectMaintenanceList } from "@/features/timetable/subject-maintenance-list";
 import type { TimetableWorkspace } from "@/features/timetable/server/workspace";
@@ -35,22 +36,57 @@ function useToastState(state: TimetableActionState) {
   }, [state]);
 }
 
-function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
-  return <button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-3.5 text-white" /> : <Plus className="size-3.5" aria-hidden="true" />}{pending ? "Saving…" : label}</button>;
+function SubmitButton({ pending, label, disabled = false }: { pending: boolean; label: string; disabled?: boolean }) {
+  return <button type="submit" disabled={pending || disabled} className="scolapro-cta inline-flex min-h-9 items-center gap-2 bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong disabled:cursor-not-allowed disabled:opacity-50">{pending ? <Spinner className="size-3.5 text-white" /> : <Plus className="size-3.5" aria-hidden="true" />}{pending ? "Saving…" : label}</button>;
+}
+
+function toggleSelection(values: string[], value: string): string[] {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+}
+
+function MultiSelectionChips({
+  values,
+  options,
+  onRemove,
+  onClear,
+}: {
+  values: string[];
+  options: Array<{ value: string; label: string; helper?: string }>;
+  onRemove: (value: string) => void;
+  onClear: () => void;
+}) {
+  if (!values.length) return null;
+  const optionMap = new Map(options.map((option) => [option.value, option]));
+  const visible = values.slice(0, 8);
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {visible.map((value) => {
+        const option = optionMap.get(value);
+        return (
+          <button key={value} type="button" onClick={() => onRemove(value)} className="inline-flex min-h-7 max-w-full items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 text-[0.66rem] font-medium text-brand-strong" title={option?.helper}>
+            <span className="truncate">{option?.label ?? value}</span><X className="size-3 shrink-0" aria-hidden="true" />
+          </button>
+        );
+      })}
+      {values.length > visible.length ? <span className="text-[0.66rem] text-muted-foreground">+{values.length - visible.length} more</span> : null}
+      <button type="button" onClick={onClear} className="min-h-7 rounded-[var(--radius-xs)] px-2 text-[0.66rem] font-medium text-muted-foreground hover:bg-surface-muted hover:text-foreground">Clear all</button>
+    </div>
+  );
 }
 
 export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canViewDemand, viewerStaffId, workspace }: { schoolId: string; academicYear: number; canManage: boolean; canViewDemand: boolean; viewerStaffId: string | null; workspace: TimetableWorkspace }) {
   const [subjectState, subjectAction, subjectPending] = useActionState(saveSubject, initialState);
-  const [offeringState, offeringAction, offeringPending] = useActionState(saveOffering, initialState);
-  const [allocationState, allocationAction, allocationPending] = useActionState(saveAllocation, initialState);
+  const [offeringState, offeringAction, offeringPending] = useActionState(saveOfferingsBulk, initialState);
+  const [allocationState, allocationAction, allocationPending] = useActionState(saveAllocationsBulk, initialState);
   const [periodState, periodAction, periodPending] = useActionState(savePeriod, initialState);
   const [slotState, slotAction, slotPending] = useActionState(saveCycleAwareSlot, initialState);
   useToastState(subjectState); useToastState(offeringState); useToastState(allocationState); useToastState(periodState); useToastState(slotState);
 
-  const [offeringSubjectId, setOfferingSubjectId] = useState("");
-  const [offeringGradeId, setOfferingGradeId] = useState("");
-  const [allocationOfferingId, setAllocationOfferingId] = useState("");
-  const [allocationClassId, setAllocationClassId] = useState("");
+  const [offeringSubjectIds, setOfferingSubjectIds] = useState<string[]>([]);
+  const [offeringGradeIds, setOfferingGradeIds] = useState<string[]>([]);
+  const [allocationOfferingIds, setAllocationOfferingIds] = useState<string[]>([]);
+  const [allocationClassIds, setAllocationClassIds] = useState<string[]>([]);
+  const [allocationTeachingGroupIds, setAllocationTeachingGroupIds] = useState<string[]>([]);
   const [allocationStaffId, setAllocationStaffId] = useState("");
   const [allocationStart, setAllocationStart] = useState(localTodayIso);
   const [allocationEnd, setAllocationEnd] = useState("");
@@ -64,12 +100,59 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
 
   const todayIso = localTodayIso();
   const dayNames = useMemo(() => getTimetableDayNames(workspace.cycleMode, workspace.cycleLength), [workspace.cycleMode, workspace.cycleLength]);
-  const allocationOffering = workspace.offerings.find((item) => item.id === allocationOfferingId);
-  const allocationClassOptions = workspace.classes.filter((item) => !allocationOffering || item.gradeId === allocationOffering.gradeId);
+  const subjectOptions = useMemo(() => workspace.subjects.map((item) => ({ value: item.id, label: item.name, helper: item.code.toUpperCase() })), [workspace.subjects]);
+  const gradeOptions = useMemo(() => workspace.grades.map((item) => ({ value: item.id, label: item.name })), [workspace.grades]);
+  const offeringOptions = useMemo(() => workspace.offerings.map((item) => ({ value: item.id, label: `${item.subjectName} · ${item.gradeName}`, helper: `${item.periodsPerCycle} periods/cycle`, group: item.gradeName })), [workspace.offerings]);
+  const selectedOfferingGrades = useMemo(() => new Set(workspace.offerings.filter((item) => allocationOfferingIds.includes(item.id)).map((item) => item.gradeId)), [allocationOfferingIds, workspace.offerings]);
+  const allocationClassOptions = useMemo(() => {
+    const rows = allocationOfferingIds.length ? workspace.classes.filter((item) => selectedOfferingGrades.has(item.gradeId)) : workspace.classes;
+    return rows.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName, group: item.gradeName }));
+  }, [allocationOfferingIds.length, selectedOfferingGrades, workspace.classes]);
+  const teachingGroupOptions = useMemo(() => workspace.teachingGroups
+    .filter((group) => allocationOfferingIds.includes(group.offeringId))
+    .map((group) => {
+      const offering = workspace.offerings.find((item) => item.id === group.offeringId);
+      const scope = offering ? `${offering.subjectName} · ${offering.gradeName}` : "Teaching group";
+      return { value: group.id, label: group.name, helper: `${scope} · ${group.code}`, group: scope };
+    }), [allocationOfferingIds, workspace.offerings, workspace.teachingGroups]);
   const slotAllocationOptions = workspace.allocations.filter((item) => !slotClassId || item.classId === slotClassId);
   const upcomingAllocations = workspace.allocations.filter((item) => item.activeFrom > todayIso);
   const visibleSlots = viewerStaffId && !canManage ? workspace.slots.filter((slot) => slot.staffId === viewerStaffId) : workspace.slots;
   const isFutureAllocation = allocationStart > todayIso;
+
+  const selectedOfferingExistingCount = useMemo(() => {
+    const existing = new Set(workspace.offerings.map((item) => `${item.subjectId}:${item.gradeId}`));
+    let count = 0;
+    for (const subjectId of offeringSubjectIds) for (const gradeId of offeringGradeIds) if (existing.has(`${subjectId}:${gradeId}`)) count += 1;
+    return count;
+  }, [offeringGradeIds, offeringSubjectIds, workspace.offerings]);
+  const offeringCombinationCount = offeringSubjectIds.length * offeringGradeIds.length;
+  const newOfferingCount = Math.max(0, offeringCombinationCount - selectedOfferingExistingCount);
+
+  const allocationPairSummary = useMemo(() => {
+    const selectedOfferings = workspace.offerings.filter((item) => allocationOfferingIds.includes(item.id));
+    const selectedClasses = workspace.classes.filter((item) => allocationClassIds.includes(item.id));
+    let valid = 0;
+    for (const offering of selectedOfferings) for (const registerClass of selectedClasses) if (offering.gradeId === registerClass.gradeId) valid += 1;
+    return { valid, ignored: selectedOfferings.length * selectedClasses.length - valid };
+  }, [allocationClassIds, allocationOfferingIds, workspace.classes, workspace.offerings]);
+
+  function updateAllocationOfferings(next: string[]) {
+    setAllocationOfferingIds(next);
+    if (!next.length) {
+      setAllocationClassIds([]);
+      setAllocationTeachingGroupIds([]);
+      return;
+    }
+    const nextGrades = new Set(workspace.offerings.filter((item) => next.includes(item.id)).map((item) => item.gradeId));
+    const classGrade = new Map(workspace.classes.map((item) => [item.id, item.gradeId]));
+    setAllocationClassIds((current) => current.filter((classId) => {
+      const gradeId = classGrade.get(classId);
+      return Boolean(gradeId && nextGrades.has(gradeId));
+    }));
+    const allowedGroups = new Set(workspace.teachingGroups.filter((group) => next.includes(group.offeringId)).map((group) => group.id));
+    setAllocationTeachingGroupIds((current) => current.filter((groupId) => allowedGroups.has(groupId)));
+  }
 
   const scheduleGroups = useMemo(() => dayNames.map((day, index) => ({ day, weekday: index + 1, slots: visibleSlots.filter((slot) => slot.weekday === index + 1).sort((a, b) => a.periodNumber - b.periodNumber) })), [dayNames, visibleSlots]);
   const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
@@ -88,28 +171,135 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
               <SubmitButton pending={subjectPending} label="Add subject" />
             </form>
             <SubjectMaintenanceList subjects={workspace.subjects} />
-            <form action={offeringAction} className="mt-4 grid gap-3 border-t border-border-subtle pt-4 sm:grid-cols-2 sm:items-end">
-              <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
-              <Picker label="Subject" name="subjectId" value={offeringSubjectId} onChange={setOfferingSubjectId} placeholder="Choose subject" options={workspace.subjects.map((item) => ({ value: item.id, label: item.name, helper: item.code.toUpperCase() }))} searchable searchPlaceholder="Search subject or code" />
-              <Picker label="Grade" name="gradeId" value={offeringGradeId} onChange={setOfferingGradeId} placeholder="Choose grade" options={workspace.grades.map((item) => ({ value: item.id, label: item.name }))} searchable searchPlaceholder="Search grade" />
+            <form action={offeringAction} className="mt-4 grid gap-3 border-t border-border-subtle pt-4 sm:grid-cols-2 sm:items-start">
+              <div className="sm:col-span-2"><p className="text-xs font-semibold">Create offerings in bulk</p><p className="mt-0.5 text-[0.68rem] leading-5 text-muted-foreground">Tick several subjects and grades without closing the menus. Review the combinations, then save once.</p></div>
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="academicYear" value={academicYear} />
+              <input type="hidden" name="subjectIds" value={JSON.stringify(offeringSubjectIds)} />
+              <input type="hidden" name="gradeIds" value={JSON.stringify(offeringGradeIds)} />
+              <div>
+                <SearchableSelect
+                  label="Subjects"
+                  value=""
+                  options={subjectOptions}
+                  placeholder="Choose one or more subjects"
+                  searchPlaceholder="Search subject or code"
+                  multiple
+                  selectedValues={offeringSubjectIds}
+                  onToggle={(value) => setOfferingSubjectIds((current) => toggleSelection(current, value))}
+                  multipleLabel="subjects"
+                  bulkActionGroups={[{ label: "Selection", actions: [
+                    { label: "Select all", onClick: () => setOfferingSubjectIds(subjectOptions.map((item) => item.value)), active: offeringSubjectIds.length === subjectOptions.length && subjectOptions.length > 0 },
+                    { label: "Clear all", onClick: () => setOfferingSubjectIds([]), disabled: !offeringSubjectIds.length },
+                  ] }]}
+                />
+                <MultiSelectionChips values={offeringSubjectIds} options={subjectOptions} onRemove={(value) => setOfferingSubjectIds((current) => current.filter((id) => id !== value))} onClear={() => setOfferingSubjectIds([])} />
+              </div>
+              <div>
+                <SearchableSelect
+                  label="Grades"
+                  value=""
+                  options={gradeOptions}
+                  placeholder="Choose one or more grades"
+                  searchPlaceholder="Search grade"
+                  multiple
+                  selectedValues={offeringGradeIds}
+                  onToggle={(value) => setOfferingGradeIds((current) => toggleSelection(current, value))}
+                  multipleLabel="grades"
+                  bulkActionGroups={[{ label: "Selection", actions: [
+                    { label: "Select all", onClick: () => setOfferingGradeIds(gradeOptions.map((item) => item.value)), active: offeringGradeIds.length === gradeOptions.length && gradeOptions.length > 0 },
+                    { label: "Clear all", onClick: () => setOfferingGradeIds([]), disabled: !offeringGradeIds.length },
+                  ] }]}
+                />
+                <MultiSelectionChips values={offeringGradeIds} options={gradeOptions} onRemove={(value) => setOfferingGradeIds((current) => current.filter((id) => id !== value))} onClear={() => setOfferingGradeIds([])} />
+              </div>
               <div><label htmlFor="periods-cycle" className="text-xs font-medium">Periods per cycle</label><input id="periods-cycle" name="periods" type="number" min="1" max="30" defaultValue="5" className={`${fieldClass} mt-1.5`} /></div>
-              <div className="flex items-end"><SubmitButton pending={offeringPending} label="Save offering" /></div>
+              <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5">
+                <p className="text-xs font-semibold">Bulk offering preview</p>
+                <p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">
+                  {offeringCombinationCount ? <>{offeringSubjectIds.length} subject{offeringSubjectIds.length === 1 ? "" : "s"} × {offeringGradeIds.length} grade{offeringGradeIds.length === 1 ? "" : "s"} = <strong className="text-foreground">{offeringCombinationCount}</strong> combination{offeringCombinationCount === 1 ? "" : "s"}. {selectedOfferingExistingCount ? <>{selectedOfferingExistingCount} already exist and will be skipped. </> : null}<strong className="text-foreground">{newOfferingCount}</strong> new.</> : "Select subjects and grades to preview the combinations before saving."}
+                </p>
+                <div className="mt-2"><SubmitButton pending={offeringPending} label={newOfferingCount > 1 ? `Save ${newOfferingCount} offerings` : "Save offering"} disabled={!offeringCombinationCount || offeringCombinationCount > 200} /></div>
+              </div>
             </form>
           </section>
 
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-mint grid size-8 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Teacher allocations</h2><p className="scolapro-section-description !mt-0">Connect a teacher to an offered subject and class. Set effective dates to prepare a replacement before a planned handover.</p></div></div>
-            <form action={allocationAction} className="grid gap-3 sm:grid-cols-2 sm:items-end">
-              <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="academicYear" value={academicYear} />
-              <Picker label="Subject offering" name="offeringId" value={allocationOfferingId} onChange={(value) => { setAllocationOfferingId(value); setAllocationClassId(""); }} placeholder="Choose subject and grade" options={workspace.offerings.map((item) => ({ value: item.id, label: item.subjectName, helper: `${item.gradeName} · ${item.periodsPerCycle} periods/cycle` }))} searchable searchPlaceholder="Search subject or grade" />
-              <Picker label="Register class" name="classId" value={allocationClassId} onChange={setAllocationClassId} placeholder="Choose class" options={allocationClassOptions.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName }))} searchable searchPlaceholder="Search class or grade" />
+            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-mint grid size-8 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Teacher allocations</h2><p className="scolapro-section-description !mt-0">Connect one teacher to multiple offered subjects and matching register classes in one save. Effective dates still govern planned handovers.</p></div></div>
+            <form action={allocationAction} className="grid gap-3 sm:grid-cols-2 sm:items-start">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="academicYear" value={academicYear} />
+              <input type="hidden" name="offeringIds" value={JSON.stringify(allocationOfferingIds)} />
+              <input type="hidden" name="classIds" value={JSON.stringify(allocationClassIds)} />
+              <input type="hidden" name="teachingGroupIds" value={JSON.stringify(allocationTeachingGroupIds)} />
+              <div>
+                <SearchableSelect
+                  label="Subject offerings"
+                  value=""
+                  options={offeringOptions}
+                  placeholder="Choose one or more subjects"
+                  searchPlaceholder="Search subject or grade"
+                  multiple
+                  selectedValues={allocationOfferingIds}
+                  onToggle={(value) => updateAllocationOfferings(toggleSelection(allocationOfferingIds, value))}
+                  multipleLabel="offerings"
+                  bulkActionGroups={[{ label: "Selection", actions: [
+                    { label: "Select all", onClick: () => updateAllocationOfferings(offeringOptions.map((item) => item.value)), active: allocationOfferingIds.length === offeringOptions.length && offeringOptions.length > 0 },
+                    { label: "Clear all", onClick: () => updateAllocationOfferings([]), disabled: !allocationOfferingIds.length },
+                  ] }]}
+                />
+                <MultiSelectionChips values={allocationOfferingIds} options={offeringOptions} onRemove={(value) => updateAllocationOfferings(allocationOfferingIds.filter((id) => id !== value))} onClear={() => updateAllocationOfferings([])} />
+              </div>
+              <div>
+                <SearchableSelect
+                  label="Register classes"
+                  value=""
+                  options={allocationClassOptions}
+                  placeholder={allocationOfferingIds.length ? "Choose matching classes" : "Choose one or more classes"}
+                  searchPlaceholder="Search class or grade"
+                  multiple
+                  selectedValues={allocationClassIds}
+                  onToggle={(value) => setAllocationClassIds((current) => toggleSelection(current, value))}
+                  multipleLabel="classes"
+                  bulkActionGroups={[{ label: "Matching classes", actions: [
+                    { label: "Select all matching", onClick: () => setAllocationClassIds(allocationClassOptions.map((item) => item.value)), active: allocationClassIds.length === allocationClassOptions.length && allocationClassOptions.length > 0 },
+                    { label: "Clear all", onClick: () => setAllocationClassIds([]), disabled: !allocationClassIds.length },
+                  ] }]}
+                />
+                <MultiSelectionChips values={allocationClassIds} options={allocationClassOptions} onRemove={(value) => setAllocationClassIds((current) => current.filter((id) => id !== value))} onClear={() => setAllocationClassIds([])} />
+              </div>
+              <div>
+                <SearchableSelect
+                  label="Teaching groups (optional)"
+                  value=""
+                  options={teachingGroupOptions}
+                  placeholder={allocationOfferingIds.length ? "Link canonical teaching groups" : "Choose subject offerings first"}
+                  searchPlaceholder="Search teaching group"
+                  multiple
+                  selectedValues={allocationTeachingGroupIds}
+                  onToggle={(value) => setAllocationTeachingGroupIds((current) => toggleSelection(current, value))}
+                  multipleLabel="teaching groups"
+                  disabled={!allocationOfferingIds.length}
+                  bulkActionGroups={[{ label: "Matching teaching groups", actions: [
+                    { label: "Select all matching", onClick: () => setAllocationTeachingGroupIds(teachingGroupOptions.map((item) => item.value)), active: allocationTeachingGroupIds.length === teachingGroupOptions.length && teachingGroupOptions.length > 0 },
+                    { label: "Clear all", onClick: () => setAllocationTeachingGroupIds([]), disabled: !allocationTeachingGroupIds.length },
+                  ] }]}
+                />
+                <MultiSelectionChips values={allocationTeachingGroupIds} options={teachingGroupOptions} onRemove={(value) => setAllocationTeachingGroupIds((current) => current.filter((id) => id !== value))} onClear={() => setAllocationTeachingGroupIds([])} />
+                <p className="mt-1.5 text-[0.64rem] leading-5 text-muted-foreground">Teaching groups link to the canonical class allocations created by this save; they never replace the required register-class timetable scope.</p>
+              </div>
               <Picker label="Teacher" name="staffId" value={allocationStaffId} onChange={setAllocationStaffId} placeholder="Choose staff member" options={workspace.staff.map((item) => ({ value: item.id, label: item.name, helper: item.employeeNumber ? `Employee ${item.employeeNumber}` : undefined }))} searchable searchPlaceholder="Search teacher or employee number" />
-              <div className="hidden sm:block" aria-hidden="true" />
+              <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5">
+                <p className="text-xs font-semibold">Allocation preview</p>
+                <p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">
+                  {allocationPairSummary.valid ? <><strong className="text-foreground">{allocationPairSummary.valid}</strong> valid subject/class allocation{allocationPairSummary.valid === 1 ? "" : "s"} will use the selected teacher. {allocationPairSummary.ignored ? <>{allocationPairSummary.ignored} grade-mismatched pair{allocationPairSummary.ignored === 1 ? "" : "s"} will be ignored. </> : null}{allocationTeachingGroupIds.length ? <><strong className="text-foreground">{allocationTeachingGroupIds.length}</strong> selected teaching group{allocationTeachingGroupIds.length === 1 ? "" : "s"} will link to matching canonical allocations.</> : null}</> : "Select subject offerings and matching classes to preview the teacher allocations."}
+                </p>
+              </div>
               <DateField label="Starts on" name="activeFrom" value={allocationStart} onChange={(value) => { setAllocationStart(value); if (allocationEnd && value && allocationEnd < value) setAllocationEnd(""); }} required error={allocationState.fieldErrors?.activeFrom?.[0]} />
               <DateField label="Ends on" name="activeTo" value={allocationEnd} onChange={setAllocationEnd} min={allocationStart || undefined} error={allocationState.fieldErrors?.activeTo?.[0]} />
               <div className="sm:col-span-2 flex flex-col gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-[0.68rem] leading-relaxed text-muted-foreground">{isFutureAllocation ? "Planned handover: this teacher becomes active on the selected future date." : "The allocation starts on the selected date. Leave the end date empty for an open-ended assignment."}</p>
-                <div className="shrink-0"><SubmitButton pending={allocationPending} label={isFutureAllocation ? "Schedule handover" : "Assign teacher"} /></div>
+                <p className="text-[0.68rem] leading-relaxed text-muted-foreground">{isFutureAllocation ? "Planned handover: all valid selected allocations become active on the future start date." : "One save creates all valid subject/class combinations for this teacher. Exact existing allocations are skipped safely."}</p>
+                <div className="shrink-0"><SubmitButton pending={allocationPending} label={isFutureAllocation ? `Schedule ${allocationPairSummary.valid || ""} handover${allocationPairSummary.valid === 1 ? "" : "s"}`.replace("  ", " ") : allocationPairSummary.valid > 1 ? `Assign teacher to ${allocationPairSummary.valid}` : "Assign teacher"} disabled={!allocationStaffId || !allocationPairSummary.valid || allocationOfferingIds.length * allocationClassIds.length > 300} /></div>
               </div>
             </form>
             {upcomingAllocations.length ? (
