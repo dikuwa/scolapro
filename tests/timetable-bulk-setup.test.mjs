@@ -42,7 +42,9 @@ test("bulk offering action validates scope, bounds combinations and skips active
   assert.match(actions, /requested > 200/);
   assert.match(actions, /eq\("status", "active"\).*in\("subject_id", subjectIds\).*in\("grade_id", gradeIds\)/s);
   assert.match(actions, /existing combination/);
-  assert.match(actions, /upsert_subject_offering/);
+  assert.match(actions, /bulk_create_subject_offerings/);
+  assert.match(actions, /p_subject_ids: subjectIds/);
+  assert.match(actions, /p_grade_ids: gradeIds/);
   assert.match(actions, /canManageSchool\(parsed\.data\.schoolId\)/);
 });
 
@@ -51,7 +53,9 @@ test("bulk allocation action creates only grade-compatible pairs and reports dup
   assert.match(actions, /offeringIds\.length \* classIds\.length > 300/);
   assert.match(actions, /offerings\.get\(offeringId\) !== classes\.get\(classId\)/);
   assert.match(actions, /gradeMismatches \+= 1/);
-  assert.match(actions, /create_teacher_allocation_period/);
+  assert.match(actions, /bulk_create_teacher_allocations/);
+  assert.match(actions, /p_subject_offering_ids: offeringIds/);
+  assert.match(actions, /p_register_class_ids: classIds/);
   assert.match(actions, /exact existing allocation/);
   assert.match(actions, /different end dates/);
   assert.match(actions, /canManageSchool\(parsed\.data\.schoolId\)/);
