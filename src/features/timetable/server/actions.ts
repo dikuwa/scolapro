@@ -210,6 +210,7 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     academicYear: z.coerce.number().int(),
     offeringIds: z.array(z.string().uuid()).min(1, "Choose at least one subject offering.").max(50),
     classIds: z.array(z.string().uuid()).min(1, "Choose at least one class.").max(60),
+    teachingGroupIds: z.array(z.string().uuid()).max(60),
     staffId: z.string().uuid(),
     activeFrom: allocationDateSchema,
     activeTo: z.preprocess((value) => {
@@ -226,6 +227,7 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     academicYear: formData.get("academicYear"),
     offeringIds: jsonArray(formData.get("offeringIds")),
     classIds: jsonArray(formData.get("classIds")),
+    teachingGroupIds: jsonArray(formData.get("teachingGroupIds")),
     staffId: formData.get("staffId"),
     activeFrom: formData.get("activeFrom"),
     activeTo: formData.get("activeTo"),
@@ -234,6 +236,7 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
 
   const offeringIds = unique(parsed.data.offeringIds);
   const classIds = unique(parsed.data.classIds);
+  const teachingGroupIds = unique(parsed.data.teachingGroupIds);
   if (offeringIds.length * classIds.length > 300) {
     return { message: "Choose fewer subject offerings or classes so one bulk save evaluates at most 300 combinations." };
   }
@@ -245,7 +248,7 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     p_academic_year: parsed.data.academicYear,
     p_subject_offering_ids: offeringIds,
     p_register_class_ids: classIds,
-    p_teaching_group_ids: [],
+    p_teaching_group_ids: teachingGroupIds,
     p_staff_member_id: parsed.data.staffId,
     p_active_from: parsed.data.activeFrom,
     p_active_to: parsed.data.activeTo ?? null,
@@ -257,6 +260,10 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
   const duplicates = Number(result.duplicates ?? 0);
   const conflicts = Number(result.conflicts ?? 0);
   const incompatible = Number(result.incompatible ?? 0);
+  const groupLinksCreated = Number(result.group_links_created ?? 0);
+  const groupLinksExisting = Number(result.group_links_existing ?? 0);
+  const groupLinkConflicts = Number(result.group_link_conflicts ?? 0);
+  const groupsWithoutAllocations = Number(result.groups_without_allocations ?? 0);
   revalidateTimetablePaths();
 
   const parts = [
@@ -264,8 +271,12 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     duplicates ? `${duplicates} exact existing allocation${duplicates === 1 ? "" : "s"} skipped` : "",
     incompatible ? `${incompatible} grade-mismatched combination${incompatible === 1 ? "" : "s"} ignored` : "",
     conflicts ? `${conflicts} existing allocation${conflicts === 1 ? "" : "s"} has a different end date` : "",
+    groupLinksCreated ? `${groupLinksCreated} teaching-group link${groupLinksCreated === 1 ? "" : "s"} created` : "",
+    groupLinksExisting ? `${groupLinksExisting} existing teaching-group link${groupLinksExisting === 1 ? "" : "s"} skipped` : "",
+    groupLinkConflicts ? `${groupLinkConflicts} teaching-group link${groupLinkConflicts === 1 ? "" : "s"} has a different end date` : "",
+    groupsWithoutAllocations ? `${groupsWithoutAllocations} teaching group${groupsWithoutAllocations === 1 ? "" : "s"} had no matching class allocation` : "",
   ].filter(Boolean);
-  return { success: conflicts === 0, message: `${parts.join(". ")}.` };
+  return { success: conflicts === 0 && groupLinkConflicts === 0, message: `${parts.join(". ")}.` };
 }
 
 export async function savePeriod(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
