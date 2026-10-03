@@ -1,6 +1,6 @@
 begin;
 
-select plan(31);
+select plan(33);
 
 select has_table('public','staff_leave_types','staff leave types table exists');
 select has_table('public','staff_leave_requests','staff leave requests table exists');
