@@ -50,11 +50,11 @@ export function AssessmentQualityWorkspaceView({ workspace }: { workspace: Asses
     </section>
 
     <section className="grid gap-3 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:grid-cols-2 lg:grid-cols-5">
-      <Picker label="Subject" value={search.get("subject") ?? ""} onChange={(value)=>setFilter("subject",value)} options={[{value:"",label:"All subjects"},...workspace.options.subjects]} searchable/>
-      <Picker label="Class" value={search.get("class") ?? ""} onChange={(value)=>setFilter("class",value)} options={[{value:"",label:"All classes"},...workspace.options.classes]} searchable/>
-      <Picker label="Teacher" value={search.get("teacher") ?? ""} onChange={(value)=>setFilter("teacher",value)} options={[{value:"",label:"All teachers"},...workspace.options.teachers]} searchable/>
-      <Picker label="Readiness" value={search.get("readiness") ?? ""} onChange={(value)=>setFilter("readiness",value)} options={readinessOptions}/>
-      <Picker label="Term" value={search.get("term") ?? ""} onChange={(value)=>setFilter("term",value)} options={[{value:"",label:"All terms"},{value:"1",label:"Term 1"},{value:"2",label:"Term 2"},{value:"3",label:"Term 3"}]}/>
+      <Picker label="Subject" placeholder="All subjects" value={search.get("subject") ?? ""} onChange={(value)=>setFilter("subject",value)} options={[{value:"",label:"All subjects"},...workspace.options.subjects]} searchable/>
+      <Picker label="Class" placeholder="All classes" value={search.get("class") ?? ""} onChange={(value)=>setFilter("class",value)} options={[{value:"",label:"All classes"},...workspace.options.classes]} searchable/>
+      <Picker label="Teacher" placeholder="All teachers" value={search.get("teacher") ?? ""} onChange={(value)=>setFilter("teacher",value)} options={[{value:"",label:"All teachers"},...workspace.options.teachers]} searchable/>
+      <Picker label="Readiness" placeholder="All readiness" value={search.get("readiness") ?? ""} onChange={(value)=>setFilter("readiness",value)} options={readinessOptions}/>
+      <Picker label="Term" placeholder="All terms" value={search.get("term") ?? ""} onChange={(value)=>setFilter("term",value)} options={[{value:"",label:"All terms"},{value:"1",label:"Term 1"},{value:"2",label:"Term 2"},{value:"3",label:"Term 3"}]}/>
     </section>
 
     <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
