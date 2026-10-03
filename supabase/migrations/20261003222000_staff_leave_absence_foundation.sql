@@ -260,7 +260,7 @@ returns trigger
 language plpgsql
 security definer
 set search_path=pg_catalog,public
-as $
+as $staff_leave_type_rule_finality$
 begin
   if (
     new.tracks_balance is distinct from old.tracks_balance
@@ -275,7 +275,7 @@ begin
   end if;
   return new;
 end;
-$;
+$staff_leave_type_rule_finality$;
 revoke all on function app_private.enforce_staff_leave_type_rule_finality() from public,anon,authenticated;
 
 create trigger staff_leave_type_rule_finality_trg
