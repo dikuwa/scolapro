@@ -107,7 +107,6 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
     const rows = allocationOfferingIds.length ? workspace.classes.filter((item) => selectedOfferingGrades.has(item.gradeId)) : workspace.classes;
     return rows.map((item) => ({ value: item.id, label: item.name, helper: item.gradeName, group: item.gradeName }));
   }, [allocationOfferingIds.length, selectedOfferingGrades, workspace.classes]);
-  const allowedAllocationClassIds = useMemo(() => new Set(allocationClassOptions.map((item) => item.value)), [allocationClassOptions]);
   const slotAllocationOptions = workspace.allocations.filter((item) => !slotClassId || item.classId === slotClassId);
   const upcomingAllocations = workspace.allocations.filter((item) => item.activeFrom > todayIso);
   const visibleSlots = viewerStaffId && !canManage ? workspace.slots.filter((slot) => slot.staffId === viewerStaffId) : workspace.slots;
