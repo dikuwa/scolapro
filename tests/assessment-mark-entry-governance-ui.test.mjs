@@ -33,3 +33,9 @@ test("mark grid uses ScolaPro date, time and picker controls for governance", as
   assert.match(workspace, /row\.editable/);
   assert.match(workspace, /countdownLabel/);
 });
+
+
+test("multi-line paste skips rows outside the bounded correction scope", async () => {
+  const workspace = await read("src/features/assessment/mark-grid-workspace.tsx");
+  assert.match(workspace, /if \(!row\.editable\) continue;/);
+});

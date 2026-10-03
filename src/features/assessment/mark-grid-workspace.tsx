@@ -196,6 +196,7 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
     for (let offset=0;offset<values.length;offset++) {
       const row=visibleRows[startIndex+offset];
       if (!row) break;
+      if (!row.editable) continue;
       const value=Number(values[offset].split(/\t/)[0]);
       if (!Number.isFinite(value) || value<0 || (data.rawMax!=null && value>data.rawMax)) continue;
       patchRow(row.enrolmentId,{draftMark:String(value),markStatus:null});
