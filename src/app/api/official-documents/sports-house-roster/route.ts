@@ -4,6 +4,7 @@ import {
   renderSportsHouseRosterHtml,
   renderSportsHouseRosterPdf,
   renderSportsHouseRosterXlsx,
+  type SportsHouseRosterDocumentInput,
 } from "@/features/documents/server/sports-house-roster-document";
 import { getSportsHousesWorkspace } from "@/features/sports-houses/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -37,9 +38,9 @@ export async function GET(request: Request) {
   const requestedYear = Number(url.searchParams.get("year"));
   const academicYear = Number.isInteger(requestedYear) && requestedYear>=2000 && requestedYear<=2200 ? requestedYear : new Date().getFullYear();
   const format = url.searchParams.get("format")==="pdf" ? "pdf" : url.searchParams.get("format")==="xlsx" ? "xlsx" : "html";
-  const content = url.searchParams.get("content")==="learners" ? "learners" : url.searchParams.get("content")==="staff" ? "staff" : "combined";
+  const content: SportsHouseRosterDocumentInput["content"] = url.searchParams.get("content")==="learners" ? "learners" : url.searchParams.get("content")==="staff" ? "staff" : "combined";
   const groupByRaw = url.searchParams.get("groupBy");
-  const groupBy = ["age_group","sex","grade","class"].includes(groupByRaw ?? "") ? groupByRaw as "age_group"|"sex"|"grade"|"class" : "none";
+  const groupBy: SportsHouseRosterDocumentInput["groupBy"] = ["age_group","sex","grade","class"].includes(groupByRaw ?? "") ? groupByRaw as "age_group"|"sex"|"grade"|"class" : "none";
 
   try {
     const workspace = await getSportsHousesWorkspace(schoolId,academicYear);
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
 
     const header = await getLiveSchoolDocumentHeader(schoolId,"internal_school");
     const generatedAt = new Intl.DateTimeFormat("en-NA",{day:"2-digit",month:"long",year:"numeric"}).format(new Date());
-    const input = {
+    const input: SportsHouseRosterDocumentInput = {
       header,
       schoolName: workspace.schoolName,
       academicYear,
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
 
     if(format==="xlsx"){
       const bytes=renderSportsHouseRosterXlsx(input);
-      return new Response(bytes,{status:200,headers:{
+      return new Response(Uint8Array.from(bytes),{status:200,headers:{
         "Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition":`attachment; filename="${fileBase}.xlsx"`,
         "Cache-Control":"private, no-store, max-age=0","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer",
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
     }
     if(format==="pdf"){
       const bytes=await renderSportsHouseRosterPdf(input);
-      return new Response(Buffer.from(bytes),{status:200,headers:{
+      return new Response(Uint8Array.from(bytes),{status:200,headers:{
         "Content-Type":"application/pdf",
         "Content-Disposition":`${url.searchParams.get("preview")==="1"?"inline":"attachment"}; filename="${fileBase}.pdf"`,
         "Cache-Control":"private, no-store, max-age=0","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer",
