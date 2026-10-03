@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, BookOpenCheck, CheckCircle2, ChevronLeft, ChevronRight, Download, HeartHandshake, Link2, RotateCcw, SkipForward, Trash2, Upload, UsersRound } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Download, HeartHandshake, Link2, RotateCcw, SkipForward, TableProperties, Trash2, Upload, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CompactActionButton, CompactActionLink } from "@/components/ui/compact-action";
@@ -44,6 +44,11 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
 
         {search.error ? <div className="flex flex-col gap-2 rounded-[var(--radius-sm)] bg-danger-soft p-3 text-xs font-medium text-[color:var(--danger)] sm:flex-row sm:items-center sm:justify-between"><span>{search.error}</span><a href="/school/imports" className="inline-flex min-h-8 items-center gap-1.5 self-start rounded-[var(--radius-xs)] bg-surface px-2.5 text-foreground shadow-[var(--shadow-xs)] transition-colors hover:bg-surface-muted sm:self-auto"><RotateCcw className="size-3.5" />Start over</a></div> : null}
         {search.success ? <div className="rounded-[var(--radius-sm)] bg-success-soft p-3 text-xs font-medium text-[color:var(--success)]">{search.success}</div> : null}
+
+        <section className="grid gap-3 sm:grid-cols-2">
+          <a href="/school/imports/operations?adapter=calendar" className="flex items-start gap-3 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] transition hover:bg-surface-muted"><span className="scolapro-tone-sky grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span><span><span className="block text-sm font-semibold">Calendar intake</span><span className="mt-1 block text-xs text-muted-foreground">Structured calendar import with source-class review and scan/OCR staging fallback.</span></span></a>
+          <a href="/school/imports/operations?adapter=timetable" className="flex items-start gap-3 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] transition hover:bg-surface-muted"><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><TableProperties className="size-4" /></span><span><span className="block text-sm font-semibold">Timetable / aSc intake</span><span className="mt-1 block text-xs text-muted-foreground">Map teacher, subject, class/group, day, period, room and plan before canonical slot commit.</span></span></a>
+        </section>
 
         <section className="grid items-stretch gap-5 xl:grid-cols-2 2xl:grid-cols-4">
           <ImportCard icon={<Upload className="size-4" />} tone="scolapro-tone-mint" title="Learners" description="Learner identities and class placement." inputId="learner-csv" action={stageLearnerCsv} templateHref="/templates/learner-import-template.csv" />
