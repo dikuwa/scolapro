@@ -83,7 +83,7 @@ export function renderAcademicAnalysisXlsx(
     const sheet = XLSX.utils.json_to_sheet(rows, { origin: "A5" });
     addHeader(sheet, workspace, header, view);
     XLSX.utils.book_append_sheet(workbook, sheet, "Learners and Risk");
-  } else {
+  } else if (view === "trends") {
     const rows = workspace.trends.map((row) => ({
       Grade: row.grade,
       Subject: row.subject,
