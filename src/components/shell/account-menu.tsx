@@ -5,6 +5,7 @@ import { KeyRound, LogOut, Settings, UserRound, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { signOut } from "@/features/auth/actions";
 import { clearOfflineData } from "@/lib/offline/db";
+import { ThemePreferenceControl } from "@/components/theme/theme-preference";
 
 export function AccountMenu({
   avatar,
@@ -76,6 +77,9 @@ export function AccountMenu({
           <Link role="menuitem" href="/settings#security" onClick={() => setOpen(false)} className="flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-muted hover:text-foreground">
             <KeyRound className="size-4" aria-hidden="true" />Password & security
           </Link>
+          <div className="mt-1 border-y border-border-subtle px-1 py-2">
+            <ThemePreferenceControl compact />
+          </div>
           <button
             role="menuitem"
             type="button"

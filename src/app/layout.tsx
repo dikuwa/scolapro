@@ -4,6 +4,25 @@ import { AppToaster } from "@/components/feedback/app-toaster";
 import { SCOLAPRO_BRAND } from "@/lib/brand";
 import "./globals.css";
 
+const themeBootstrapScript = `
+(() => {
+  try {
+    const stored = window.localStorage.getItem("scolapro-theme");
+    const theme = stored === "light" || stored === "dark" ? stored : "system";
+    const root = document.documentElement;
+    if (theme === "system") {
+      delete root.dataset.theme;
+      root.style.removeProperty("color-scheme");
+    } else {
+      root.dataset.theme = theme;
+      root.style.colorScheme = theme;
+    }
+  } catch {
+    // CSS prefers-color-scheme remains the fallback when storage is unavailable.
+  }
+})();
+`;
+
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
   subsets: ["latin"],
@@ -40,7 +59,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+      </head>
       <body className={plusJakartaSans.variable}>
         {children}
         <AppToaster />
