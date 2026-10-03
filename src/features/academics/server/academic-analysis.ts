@@ -577,7 +577,6 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
 
   const filteredCohortKeys = new Set(
     filteredRows.map((row) => {
-      const offering = offeringMap.get(row.subjectOfferingId);
       const matchingClass = [...classMap.entries()].find(([, name]) => name === row.className)?.[0] ?? "unassigned";
       return `${row.subjectOfferingId}::${matchingClass}`;
     }),
