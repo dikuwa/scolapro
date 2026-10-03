@@ -27,10 +27,12 @@ test("symbol distribution resolves historical grading scale bands", () => {
   assert.doesNotMatch(source, /40%|A–C|A-G|A–G/);
 });
 
-test("missing statuses are not converted to zero and quality is not assumed", () => {
+test("missing statuses are not converted to zero and quality is governed rather than assumed", () => {
   assert.match(source, /row\.result_value != null/);
-  assert.match(source, /qualityCount: null/);
-  assert.match(source, /qualityRate: null/);
+  assert.match(source, /academic_analysis_quality_symbols/);
+  assert.match(source, /qualitySymbolsByScaleId/);
+  assert.match(source, /qualityCount == null \? null/);
+  assert.doesNotMatch(source, /A-C|A–C|\["A","B","C"\]/);
 });
 
 test("phase 1 calculations include average median spread and classified denominators", () => {
