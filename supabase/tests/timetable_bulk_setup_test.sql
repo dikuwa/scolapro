@@ -40,7 +40,7 @@ insert into public.staff_members(id,tenant_id,employee_number,first_name,last_na
 values('fd070000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','BT-T01','Bulk','Teacher','active');
 
 insert into public.staff_school_assignments(id,tenant_id,school_id,staff_member_id,assignment_type,effective_from,effective_to,created_by_user_id)
-values('fd080000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','fd010000-0000-4000-8000-000000000001','fd070000-0000-4000-8000-000000000001','teacher','2026-01-01','2026-12-31','fd020000-0000-4000-8000-000000000001');
+values('fd080000-0000-4000-8000-000000000001','fd000000-0000-4000-8000-000000000001','fd010000-0000-4000-8000-000000000001','fd070000-0000-4000-8000-000000000001','teacher','2026-01-01',null,'fd020000-0000-4000-8000-000000000001');
 
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fd020000-0000-4000-8000-000000000001',true);
