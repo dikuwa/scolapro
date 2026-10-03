@@ -13,6 +13,10 @@ export const dynamic = "force-dynamic";
 
 const readerRoles = new Set(["school_admin","principal","deputy_principal","hod","teacher","class_teacher"]);
 
+function validUuid(value: string | null) {
+  return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+}
+
 function safeFilePart(value: string) {
   return value.trim().replace(/[^a-zA-Z0-9_-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60) || "house-rosters";
 }
@@ -24,6 +28,7 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const requestedSchool = url.searchParams.get("school");
+  if (requestedSchool && !validUuid(requestedSchool)) return Response.json({ error:"Invalid school reference" },{ status:400 });
   const platformAdmin = context.platformMemberships.some((item)=>item.roleKey==="platform_admin");
   const membership = context.memberships.find((item)=>readerRoles.has(item.roleKey));
   const schoolId = platformAdmin && requestedSchool ? requestedSchool : membership?.schoolId;
@@ -32,6 +37,9 @@ export async function GET(request: Request) {
   const requestedYear = Number(url.searchParams.get("year"));
   const academicYear = Number.isInteger(requestedYear) && requestedYear>=2000 && requestedYear<=2200 ? requestedYear : new Date().getFullYear();
   const format = url.searchParams.get("format")==="pdf" ? "pdf" : url.searchParams.get("format")==="xlsx" ? "xlsx" : "html";
+  const content = url.searchParams.get("content")==="learners" ? "learners" : url.searchParams.get("content")==="staff" ? "staff" : "combined";
+  const groupByRaw = url.searchParams.get("groupBy");
+  const groupBy = ["age_group","sex","grade","class"].includes(groupByRaw ?? "") ? groupByRaw as "age_group"|"sex"|"grade"|"class" : "none";
 
   try {
     const workspace = await getSportsHousesWorkspace(schoolId,academicYear);
@@ -47,6 +55,8 @@ export async function GET(request: Request) {
       schoolName: workspace.schoolName,
       academicYear,
       generatedAt,
+      content,
+      groupBy,
       sections: selectedHouses.map((house)=>({
         house,
         learners: workspace.learners.filter((learner)=>learner.houseId===house.id),

@@ -34,6 +34,8 @@ export type SportsHouseRosterDocumentInput = {
   academicYear: number;
   sections: SportsHouseRosterSection[];
   generatedAt: string;
+  content: "learners" | "staff" | "combined";
+  groupBy: "none" | "age_group" | "sex" | "grade" | "class";
 };
 
 function sexLabel(value: string | null) {
@@ -41,6 +43,24 @@ function sexLabel(value: string | null) {
   if (v === "male" || v === "m") return "M";
   if (v === "female" || v === "f") return "F";
   return value ?? "";
+}
+
+function learnerGroupLabel(learner: SportsLearner, groupBy: SportsHouseRosterDocumentInput["groupBy"]) {
+  if (groupBy === "age_group") return learner.ageGroupLabel ?? "Unresolved age group";
+  if (groupBy === "sex") return sexLabel(learner.sex) || "Unspecified sex";
+  if (groupBy === "grade") return learner.gradeName ?? "Unassigned grade";
+  if (groupBy === "class") return learner.registerClassName ?? "Unassigned class";
+  return "";
+}
+
+function groupedLearners(learners: SportsLearner[], groupBy: SportsHouseRosterDocumentInput["groupBy"]) {
+  if (groupBy === "none") return [{ label: "", rows: learners }];
+  const groups = new Map<string,SportsLearner[]>();
+  for (const learner of learners) {
+    const label = learnerGroupLabel(learner,groupBy);
+    groups.set(label,[...(groups.get(label) ?? []),learner]);
+  }
+  return [...groups.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([label,rows])=>({label,rows}));
 }
 
 function safeSheetName(value: string, used: Set<string>) {
@@ -58,20 +78,25 @@ function safeSheetName(value: string, used: Set<string>) {
 export function renderSportsHouseRosterHtml(input: SportsHouseRosterDocumentInput): string {
   const sectionMarkup = input.sections.map(({ house, learners, staff }) => {
     const leaders = staff.filter((person) => person.roleKey === "leader").map((person) => person.name);
-    const learnerRows = learners.map((learner, index) => `<tr>
-      <td>${index + 1}</td><td>${escapeOfficialDocumentHtml(learner.name)}</td>
+    let learnerIndex = 0;
+    const learnerRows = groupedLearners(learners,input.groupBy).map((group) =>
+      `${group.label ? `<tr class="group-row"><td colspan="9">${escapeOfficialDocumentHtml(group.label)}</td></tr>` : ""}${group.rows.map((learner) => {
+        learnerIndex += 1;
+        return `<tr>
+      <td>${learnerIndex}</td><td>${escapeOfficialDocumentHtml(learner.name)}</td>
       <td>${escapeOfficialDocumentHtml(learner.gradeName)}</td><td>${escapeOfficialDocumentHtml(learner.registerClassName)}</td>
       <td>${escapeOfficialDocumentHtml(sexLabel(learner.sex))}</td><td>${escapeOfficialDocumentHtml(learner.ageOnReferenceDate)}</td>
       <td>${escapeOfficialDocumentHtml(learner.ageGroupLabel ?? "Unresolved")}</td>
       <td>${escapeOfficialDocumentHtml(learner.assignmentSource)}</td><td>${learner.isLocked ? "Locked" : "Unlocked"}</td>
-    </tr>`).join("");
+    </tr>`;
+      }).join("")}`
+    ).join("");
     const staffRows = staff.map((person) => `<tr><td>${escapeOfficialDocumentHtml(person.name)}</td><td>${escapeOfficialDocumentHtml(person.employeeNumber)}</td><td>${person.roleKey === "leader" ? "House leader" : "Member"}</td><td>${escapeOfficialDocumentHtml(person.assignmentSource)}</td><td>${person.isLocked ? "Locked" : "Unlocked"}</td></tr>`).join("");
     return `<section class="house-block">
       <h2>${escapeOfficialDocumentHtml(house.name)}</h2>
       <p class="house-summary">Leader: ${escapeOfficialDocumentHtml(leaders.join(", ") || "Not assigned")} · ${learners.length} learners · ${staff.length} staff</p>
-      <table><thead><tr><th>No.</th><th>Learner</th><th>Grade</th><th>Class</th><th>Sex</th><th>Age</th><th>Age group</th><th>Source</th><th>Lock</th></tr></thead><tbody>${learnerRows || '<tr><td colspan="9">No learners assigned.</td></tr>'}</tbody></table>
-      <h3>Staff</h3>
-      <table><thead><tr><th>Staff member</th><th>Employee No.</th><th>Role</th><th>Source</th><th>Lock</th></tr></thead><tbody>${staffRows || '<tr><td colspan="5">No staff assigned.</td></tr>'}</tbody></table>
+      ${input.content !== "staff" ? `<table><thead><tr><th>No.</th><th>Learner</th><th>Grade</th><th>Class</th><th>Sex</th><th>Age</th><th>Age group</th><th>Source</th><th>Lock</th></tr></thead><tbody>${learnerRows || '<tr><td colspan="9">No learners assigned.</td></tr>'}</tbody></table>` : ""}
+      ${input.content !== "learners" ? `<h3>Staff</h3><table><thead><tr><th>Staff member</th><th>Employee No.</th><th>Role</th><th>Source</th><th>Lock</th></tr></thead><tbody>${staffRows || '<tr><td colspan="5">No staff assigned.</td></tr>'}</tbody></table>` : ""}
     </section>`;
   }).join("");
 
@@ -83,7 +108,7 @@ ${OFFICIAL_DOCUMENT_A4_PAGE_RULE}
 html,body{margin:0;padding:0;background:#fff;color:var(--ink)}body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:8px;line-height:1.25}
 .report{padding:6mm 7mm 5mm}${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
 .house-block{margin-top:10px;break-inside:auto}.house-block h2{font-size:12px;margin:0 0 2px}.house-summary{margin:0 0 6px;color:var(--muted)}
-.house-block h3{font-size:9px;margin:8px 0 3px}table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);padding:2.5px 3px;vertical-align:middle}th{text-align:left;font-weight:700}thead{display:table-header-group}tr{break-inside:avoid}
+.house-block h3{font-size:9px;margin:8px 0 3px}.group-row td{font-weight:700;background:#eef1f5}table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);padding:2.5px 3px;vertical-align:middle}th{text-align:left;font-weight:700}thead{display:table-header-group}tr{break-inside:avoid}
 ${OFFICIAL_DOCUMENT_METADATA_RULE}
 @media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.report{padding:0}${OFFICIAL_DOCUMENT_PRINT_RULE}.house-block{break-after:page}.house-block:last-child{break-after:auto}}
 </style></head><body><main class="report">
@@ -105,11 +130,18 @@ export function renderSportsHouseRosterXlsx(input: SportsHouseRosterDocumentInpu
       [`Leader: ${leaders}`],
       [`Learners: ${learners.length} · Staff: ${staff.length}`],
       [],
-      ["No.","Learner","Admission No.","Grade","Register Class","Sex","Age","Age Group","Source","Lock"],
-      ...learners.map((learner,index) => [index+1,learner.name,learner.admissionNumber ?? "",learner.gradeName ?? "",learner.registerClassName ?? "",sexLabel(learner.sex),learner.ageOnReferenceDate ?? "",learner.ageGroupLabel ?? "Unresolved",learner.assignmentSource ?? "",learner.isLocked ? "Locked" : "Unlocked"]),
-      [],
-      ["Staff member","Employee No.","Role","Source","Lock"],
-      ...staff.map((person) => [person.name,person.employeeNumber ?? "",person.roleKey === "leader" ? "House leader" : "Member",person.assignmentSource ?? "",person.isLocked ? "Locked" : "Unlocked"]),
+      ...(input.content !== "staff" ? [
+        ["No.","Learner","Admission No.","Grade","Register Class","Sex","Age","Age Group","Source","Lock"],
+        ...groupedLearners(learners,input.groupBy).flatMap((group) => [
+          ...(group.label ? [[group.label]] : []),
+          ...group.rows.map((learner,index) => [index+1,learner.name,learner.admissionNumber ?? "",learner.gradeName ?? "",learner.registerClassName ?? "",sexLabel(learner.sex),learner.ageOnReferenceDate ?? "",learner.ageGroupLabel ?? "Unresolved",learner.assignmentSource ?? "",learner.isLocked ? "Locked" : "Unlocked"]),
+        ]),
+      ] : []),
+      ...(input.content === "combined" ? [[]] : []),
+      ...(input.content !== "learners" ? [
+        ["Staff member","Employee No.","Role","Source","Lock"],
+        ...staff.map((person) => [person.name,person.employeeNumber ?? "",person.roleKey === "leader" ? "House leader" : "Member",person.assignmentSource ?? "",person.isLocked ? "Locked" : "Unlocked"]),
+      ] : []),
     ];
     const sheet = XLSX.utils.aoa_to_sheet(rows);
     sheet["!cols"] = [{wch:6},{wch:28},{wch:16},{wch:14},{wch:16},{wch:8},{wch:8},{wch:13},{wch:14},{wch:10}];
@@ -140,8 +172,8 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
       for(const [label,width] of columns){page.drawRectangle({x,y:y-rowHeight+3,width,height:rowHeight,borderWidth:.5,borderColor:rgb(.3,.3,.3)});page.drawText(label,{x:x+2,y:y-7,size:5.5,font:bold});x+=width;}
       y-=rowHeight;
     };
-    headerRow();
-    for(let i=0;i<section.learners.length;i+=1){
+    if (input.content !== "staff") headerRow();
+    if (input.content !== "staff") for(let i=0;i<section.learners.length;i+=1){
       if(y<margin+80){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:"Continued"}})-16;headerRow();}
       const learner=section.learners[i];
       const values=[String(i+1),learner.name,learner.gradeName??"",learner.registerClassName??"",sexLabel(learner.sex),learner.ageOnReferenceDate===null?"":String(learner.ageOnReferenceDate),learner.ageGroupLabel??"Unresolved",learner.assignmentSource??"",learner.isLocked?"Locked":"Unlocked"];
@@ -149,9 +181,11 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
       columns.forEach(([,width],ci)=>{page.drawRectangle({x,y:y-rowHeight+3,width,height:rowHeight,borderWidth:.4,borderColor:rgb(.45,.45,.45)});page.drawText(fitOfficialDocumentPdfText(regular,values[ci],5.2,width-4),{x:x+2,y:y-7,size:5.2,font:regular});x+=width;});
       y-=rowHeight;
     }
-    y-=10;
-    page.drawText("Staff",{x:margin,y,size:7,font:bold});y-=11;
-    for(const person of section.staff){
+    if (input.content !== "learners") {
+      y-=10;
+      page.drawText("Staff",{x:margin,y,size:7,font:bold});y-=11;
+    }
+    if (input.content !== "learners") for(const person of section.staff){
       if(y<margin+20){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:"Staff continued"}})-16;}
       page.drawText(fitOfficialDocumentPdfText(regular,`${person.name} · ${person.roleKey==="leader"?"House leader":"Member"} · ${person.assignmentSource??"Unknown source"} · ${person.isLocked?"Locked":"Unlocked"}`,6.2,tableWidth),{x:margin,y,size:6.2,font:regular});y-=10;
     }

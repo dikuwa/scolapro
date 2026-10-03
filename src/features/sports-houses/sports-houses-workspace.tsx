@@ -308,6 +308,8 @@ export function SportsHousesWorkspace({
   const [staffHouseFilter, setStaffHouseFilter] = useState("all");
   const [rosterHouseId, setRosterHouseId] = useState<string | null>(null);
   const [exportHouseIds, setExportHouseIds] = useState<string[]>([]);
+  const [exportContent, setExportContent] = useState("combined");
+  const [exportGroup, setExportGroup] = useState("none");
 
   const uniqueOptions = (values: Array<string | null>) =>
     [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
@@ -338,7 +340,12 @@ export function SportsHousesWorkspace({
   const rosterStaff = rosterHouse ? staff.filter((person) => person.houseId === rosterHouse.id) : [];
   const activeSourceProposal = sourceAgeGroupProposals.find((item) => item.status !== "retired") ?? null;
   const exportSelection = exportHouseIds.length ? exportHouseIds : activeHouses.map((house) => house.id);
-  const exportQuery = new URLSearchParams({ year: String(academicYear), houses: exportSelection.join(",") }).toString();
+  const exportQuery = new URLSearchParams({
+    year: String(academicYear),
+    houses: exportSelection.join(","),
+    content: exportContent,
+    groupBy: exportGroup,
+  }).toString();
 
   return (
     <div className="space-y-5">
@@ -464,7 +471,11 @@ export function SportsHousesWorkspace({
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="scolapro-section-title">House roster exports</h2><p className="scolapro-section-description">Choose one or multiple houses; leave empty to export all active houses.</p></div><div className="flex flex-wrap gap-2"><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=html`} target="_blank" rel="noreferrer">Preview</a><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf`}>Print / PDF</a><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=xlsx`}>Excel</a></div></div>
-        <SearchableSelect label="Houses" value="" options={activeHouses.map((house) => ({ value: house.id, label: house.name }))} placeholder="All active houses" searchPlaceholder="Search houses" multiple selectedValues={exportHouseIds} onToggle={(id) => setExportHouseIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current,id])} />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <SearchableSelect label="Houses" value="" options={activeHouses.map((house) => ({ value: house.id, label: house.name }))} placeholder="All active houses" searchPlaceholder="Search houses" multiple selectedValues={exportHouseIds} onToggle={(id) => setExportHouseIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current,id])} />
+          <Picker label="Include" value={exportContent} onChange={setExportContent} options={[{ value: "combined", label: "Learners + staff" },{ value: "learners", label: "Learners only" },{ value: "staff", label: "Staff only" }]} />
+          <Picker label="Group learners by" value={exportGroup} onChange={setExportGroup} options={[{ value: "none", label: "No grouping" },{ value: "age_group", label: "Age group" },{ value: "sex", label: "Sex" },{ value: "grade", label: "Grade" },{ value: "class", label: "Register class" }]} />
+        </div>
       </section>
 
       {canManage ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">

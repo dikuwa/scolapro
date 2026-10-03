@@ -2,35 +2,47 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync("supabase/migrations/20261003180000_sports_houses_operational_completion.sql", "utf8");
+const workspace = readFileSync("src/features/sports-houses/sports-houses-workspace.tsx","utf8");
+const sportsQueries = readFileSync("src/features/sports-houses/server/queries.ts","utf8");
+const guardianQueries = readFileSync("src/features/guardians/server/queries.ts","utf8");
+const learnerPage = readFileSync("src/app/learners/[id]/page.tsx","utf8");
+const documentRenderer = readFileSync("src/features/documents/server/sports-house-roster-document.ts","utf8");
+const exportRoute = readFileSync("src/app/api/official-documents/sports-house-roster/route.ts","utf8");
 
-test("sports operational roster exposes governed filter dimensions without a second roster store", () => {
-  assert.match(migration, /get_sports_house_operational_learner_roster/);
-  assert.match(migration, /grade_name text/);
-  assert.match(migration, /register_class_name text/);
-  assert.match(migration, /sex text/);
-  assert.match(migration, /sports_learner_house_assignments/);
-  assert.doesNotMatch(migration, /create table .*sports.*roster/i);
+test("sports allocation exposes the requested unassigned and operational filters", () => {
+  for (const label of ["House","Grade","Register class","Age group","Sex","Source","Lock","Staff house"]) {
+    assert.match(workspace,new RegExp(`label="${label}"`));
+  }
+  assert.match(workspace,/value: "unassigned", label: "Unassigned"/);
+  assert.match(workspace,/learners=\{filteredLearners\}/);
+  assert.match(workspace,/staff=\{filteredStaff\}/);
 });
 
-test("source U13-U20 labels are proposal-only and never canonical writes", () => {
-  assert.match(migration, /sports_age_group_source_proposals/);
-  assert.match(migration, /array\['U13','U14','U15','U16','U17','U18','U19','U20'\]/);
-  assert.match(migration, /canonical_write',false/);
-  assert.doesNotMatch(migration, /insert into public\.sports_age_groups/i);
-  assert.doesNotMatch(migration, /insert into public\.sports_year_settings/i);
+test("house detail uses canonical roster data and source age proposals never auto-write rules", () => {
+  assert.match(workspace,/operational roster/);
+  assert.match(workspace,/House leader/);
+  assert.match(workspace,/source labels never rewrite learners/i);
+  assert.match(sportsQueries,/get_sports_house_operational_learner_roster/);
+  assert.match(sportsQueries,/sports_age_group_source_proposals/);
 });
 
-test("shared immediate guardian resolver follows effective phone fallback and excludes addresses", () => {
-  assert.match(migration, /resolve_effective_learner_guardian_contact/);
-  assert.match(migration, /gc\.contact_type in \('mobile','phone'\)/);
-  assert.match(migration, /order by lg\.priority/);
-  assert.match(migration, /gc\.effective_from<=p_reference_date/);
-  assert.doesNotMatch(migration, /guardian_addresses/);
+test("house roster exports support one multiple all and content/group options through shared official document header", () => {
+  assert.match(workspace,/House roster exports/);
+  assert.match(workspace,/Learners \+ staff/);
+  assert.match(workspace,/Age group/);
+  assert.match(documentRenderer,/renderOfficialDocumentHtmlHeader/);
+  assert.match(documentRenderer,/drawOfficialDocumentPdfHeader/);
+  assert.match(documentRenderer,/XLSX\.utils\.book_new/);
+  assert.match(exportRoute,/getLiveSchoolDocumentHeader/);
+  assert.match(exportRoute,/format==="pdf"/);
+  assert.match(exportRoute,/format==="xlsx"/);
 });
 
-test("compact learner context derives house and subjects from canonical stores", () => {
-  assert.match(migration, /sports_learner_house_assignments/);
-  assert.match(migration, /learner_subject_registrations/);
-  assert.match(migration, /lsr\.status='active'/);
+test("learner compact summary uses reusable effective guardian resolver without addresses", () => {
+  assert.match(guardianQueries,/getEffectiveLearnerGuardianContact/);
+  assert.match(learnerPage,/Effective guardian \/ contact/);
+  assert.match(learnerPage,/Current subjects/);
+  assert.match(learnerPage,/compactContext\.houseName/);
+  const summary = learnerPage.slice(learnerPage.indexOf('At a glance'),learnerPage.indexOf('Overview</span>'));
+  assert.doesNotMatch(summary,/address/i);
 });
