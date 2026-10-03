@@ -168,6 +168,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
             </form>
             <SubjectMaintenanceList subjects={workspace.subjects} />
             <form action={offeringAction} className="mt-4 grid gap-3 border-t border-border-subtle pt-4 sm:grid-cols-2 sm:items-start">
+              <div className="sm:col-span-2"><p className="text-xs font-semibold">Create offerings in bulk</p><p className="mt-0.5 text-[0.68rem] leading-5 text-muted-foreground">Tick several subjects and grades without closing the menus. Review the combinations, then save once.</p></div>
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name="academicYear" value={academicYear} />
               <input type="hidden" name="subjectIds" value={JSON.stringify(offeringSubjectIds)} />
@@ -220,7 +221,7 @@ export function TimetableWorkspaceView({ schoolId, academicYear, canManage, canV
           </section>
 
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-mint grid size-8 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Teacher allocations</h2><p className="scolapro-section-description !mt-0">Connect a teacher to an offered subject and class. Set effective dates to prepare a replacement before a planned handover.</p></div></div>
+            <div className="mb-4 flex items-center gap-2"><span className="scolapro-tone-mint grid size-8 place-items-center rounded-[var(--radius-sm)]"><UserRoundCheck className="size-4" /></span><div><h2 className="scolapro-section-title">Teacher allocations</h2><p className="scolapro-section-description !mt-0">Connect one teacher to multiple offered subjects and matching register classes in one save. Effective dates still govern planned handovers.</p></div></div>
             <form action={allocationAction} className="grid gap-3 sm:grid-cols-2 sm:items-start">
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name="academicYear" value={academicYear} />
