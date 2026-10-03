@@ -21,7 +21,7 @@ test("CRC Administration derives readiness and transfer register from canonical 
 
 test("administration read models are role-gated and metadata-only for documents", () => {
   assert.match(migration,/is_school_leadership\(auth\.uid\(\),p_school_id\)/);
-  assert.match(migration,/is_crc_custodian\\(auth\\.uid\\(\\),p_school_id\\)/);
+  assert.match(migration,/is_crc_custodian\(auth\.uid\(\),p_school_id\)/);
   assert.match(migration,/revoke all on function public\.list_crc_administration_documents\(uuid\) from public,anon/);
   assert.doesNotMatch(migration,/returns table\([\s\S]*storage_path/i);
 });
