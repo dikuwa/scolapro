@@ -195,6 +195,8 @@ declare
   v_employee text;
   v_subject_code text;
   v_class_code text;
+  v_group_code text;
+  v_group_id uuid;
   v_count integer;
 begin
   select * into v_job
@@ -383,6 +385,7 @@ begin
   )),'')); 
   v_subject_code:=upper(nullif(btrim(p_payload->>'subject_code'),''));
   v_class_code:=upper(nullif(btrim(coalesce(p_payload->>'class_code',p_payload->>'register_class')),''));
+  v_group_code:=upper(nullif(btrim(p_payload->>'group_code'),''));
   v_cycle_code:=upper(coalesce(nullif(btrim(coalesce(p_payload->>'cycle_code',p_payload->>'plan')),''),'A'));
 
   begin
@@ -458,6 +461,34 @@ begin
     end if;
   end if;
 
+  if jsonb_array_length(v_issues)=0 and v_group_code is not null then
+    select count(*),min(tg.id::text)::uuid
+    into v_count,v_group_id
+    from public.teaching_groups tg
+    where tg.school_id=v_job.school_id
+      and tg.academic_year=v_job.academic_year
+      and tg.status='active'
+      and upper(tg.code)=v_group_code;
+
+    if v_count=0 then
+      v_issues:=v_issues||jsonb_build_array('Teaching group code is unmatched.');
+    elsif v_count>1 then
+      v_issues:=v_issues||jsonb_build_array('Teaching group code is ambiguous.');
+    elsif not exists(
+      select 1
+      from public.teaching_group_allocations tga
+      where tga.school_id=v_job.school_id
+        and tga.academic_year=v_job.academic_year
+        and tga.teaching_group_id=v_group_id
+        and tga.teacher_allocation_id=v_allocation_id
+        and tga.effective_to is null
+    ) then
+      v_issues:=v_issues||jsonb_build_array(
+        'Teaching group is not linked to the resolved teacher allocation.'
+      );
+    end if;
+  end if;
+
   if jsonb_array_length(v_issues)>0 then
     v_resolution:='unmatched';
   else
@@ -500,7 +531,8 @@ begin
     'teacher_employee_number',v_employee,
     'subject_code',v_subject_code,
     'class_code',v_class_code,
-    'group_code',nullif(btrim(p_payload->>'group_code'),''),
+    'group_code',v_group_code,
+    'teaching_group_id',v_group_id,
     'weekday',v_weekday,
     'period_number',v_period_number,
     'cycle_code',v_cycle_code,

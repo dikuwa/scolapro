@@ -41,6 +41,12 @@ test("timetable adapter requires explicit canonical mapping",()=>{
   assert.match(migration,/period_id/);
   assert.match(migration,/cycle_code/);
   assert.match(migration,/room_label/);
+  assert.match(migration,/Teaching group code is unmatched/);
+  assert.match(migration,/Teaching group code is ambiguous/);
+  assert.match(migration,/public\.teaching_group_allocations/);
+  assert.match(migration,/tga\.teacher_allocation_id=v_allocation_id/);
+  assert.match(migration,/Teaching group is not linked to the resolved teacher allocation/);
+  assert.match(migration,/'teaching_group_id',v_group_id/);
 });
 
 test("human review and correction are mandatory before commit",()=>{

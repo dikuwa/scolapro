@@ -1,6 +1,6 @@
 begin;
 
-select plan(14);
+select plan(17);
 
 select has_table(
   'public',
@@ -82,6 +82,33 @@ select ok(
     'app_private.can_manage_document_intake(uuid,text)'::regprocedure
   ) like '%p_intake_type=''timetable''%',
   'shared intake authorization explicitly covers calendar and timetable adapters'
+);
+
+select ok(
+  pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%Teaching group code is unmatched.%'
+  and pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%Teaching group code is ambiguous.%',
+  'timetable intake fails closed on missing or ambiguous teaching-group codes'
+);
+
+select ok(
+  pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%public.teaching_group_allocations%'
+  and pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%tga.teacher_allocation_id=v_allocation_id%',
+  'supplied teaching group must be linked to the resolved canonical teacher allocation'
+);
+
+select ok(
+  pg_get_functiondef(
+    'app_private.classify_operational_intake_payload(uuid,jsonb)'::regprocedure
+  ) like '%'||quote_literal('teaching_group_id')||',v_group_id%',
+  'resolved canonical teaching-group id is retained in normalized staged provenance'
 );
 
 select * from finish();
