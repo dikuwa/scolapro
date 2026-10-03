@@ -29,7 +29,7 @@ test("administration read models are role-gated and metadata-only for documents"
 test("workspace exposes exactly the five first-class CRC Administration views", () => {
   assert.match(page,/CRC Administration/);
   for (const label of ["Overview","Learners","Requests","Transfers","Documents"]) {
-    assert.match(workspace,new RegExp(\`"\${label}"\`));
+    assert.match(workspace,new RegExp(`"${label}"`));
   }
   assert.doesNotMatch(workspace,/\["incoming", "Incoming"\]/);
   assert.doesNotMatch(workspace,/\["training", "Training"\]/);
