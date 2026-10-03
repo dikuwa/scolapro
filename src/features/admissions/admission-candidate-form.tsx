@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { saveAdmissionIntakeCandidate } from "@/features/admissions/server/actions";
 
@@ -14,6 +15,8 @@ export function AdmissionCandidateForm({
   candidate: Record<string, string>;
   grades: Array<{ id: string; grade_code: string; display_name: string }>;
 }) {
+  const [requestedGradeId, setRequestedGradeId] = useState(candidate.requested_grade_id ?? "");
+
   return (
     <form action={saveAdmissionIntakeCandidate} className="space-y-4">
       <input type="hidden" name="jobId" value={jobId} />
@@ -30,12 +33,13 @@ export function AdmissionCandidateForm({
         <SearchableSelect
           label="Intended grade"
           name="requested_grade_id"
-          value={candidate.requested_grade_id ?? ""}
-          onChange={() => undefined}
+          value={requestedGradeId}
+          onChange={setRequestedGradeId}
           options={grades.map((grade) => ({ value: grade.id, label: grade.display_name, helper: grade.grade_code }))}
           placeholder="Choose intended grade"
           searchPlaceholder="Search grades"
           clearable
+          onClear={() => setRequestedGradeId("")}
         />
       </div>
 

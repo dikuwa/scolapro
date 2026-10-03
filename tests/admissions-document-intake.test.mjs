@@ -7,6 +7,7 @@ const actions = readFileSync("src/features/admissions/server/actions.ts","utf8")
 const page = readFileSync("src/app/school/admissions/page.tsx","utf8");
 const printPage = readFileSync("src/app/school/admissions/application-form/page.tsx","utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
+const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
 
 test("shared intake is staged and cannot directly mutate authoritative learner domains", () => {
   assert.match(migration,/document_intake_jobs/);
@@ -57,6 +58,9 @@ test("admissions workspace is summary-first staged review with source provenance
   assert.match(page,/Identity match review/);
   assert.match(page,/Commit to admissions queue/);
   assert.match(page,/does not enrol the learner/);
+  assert.match(candidateForm,/useState\(candidate\.requested_grade_id \?\? ""\)/);
+  assert.match(candidateForm,/onChange=\{setRequestedGradeId\}/);
+  assert.match(candidateForm,/onClear=\{\(\) => setRequestedGradeId\(""\)\}/);
 });
 
 test("printable simple school application exists without overloading later administration", () => {
