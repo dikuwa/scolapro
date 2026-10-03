@@ -29,6 +29,8 @@ test("profile-level supersession is honored across governance conflict checks", 
 
 test("published profiles have a database-wide deferred nonempty invariant", () => {
   assert.match(migration,/create constraint trigger zz_curriculum_time_profile_nonempty_publication_ctr/i);
+  assert.match(migration,/create constraint trigger zz_curriculum_time_profile_nonempty_allocation_ctr/i);
+  assert.match(migration,/after delete or update of profile_id on public\.curriculum_time_allocations/i);
   assert.match(migration,/deferrable initially deferred/i);
   assert.match(migration,/profile publication requires at least one reviewed allocation/i);
 });

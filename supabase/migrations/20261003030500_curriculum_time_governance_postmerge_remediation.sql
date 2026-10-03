@@ -670,6 +670,42 @@ comment on function app_private.curriculum_time_profile_supersedes(uuid,uuid) is
 comment on function app_private.enforce_published_curriculum_time_profile_nonempty() is
 'Deferred database-wide invariant: a transaction may stage profile-first, but it may not commit a published curriculum-time profile with no reviewed allocation.';
 
+create or replace function app_private.enforce_published_curriculum_time_profile_nonempty_from_allocation()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $published_profile_nonempty_from_allocation$
+declare
+  v_profile_id uuid:=old.profile_id;
+begin
+  if exists(
+    select 1 from public.curriculum_time_profiles p
+    where p.id=v_profile_id and p.status='published'
+  )
+  and not exists(
+    select 1 from public.curriculum_time_allocations a
+    where a.profile_id=v_profile_id
+  ) then
+    raise exception 'Curriculum time profile publication requires at least one reviewed allocation';
+  end if;
+  return null;
+end;
+$published_profile_nonempty_from_allocation$;
+
+revoke all on function app_private.enforce_published_curriculum_time_profile_nonempty_from_allocation()
+from public,anon,authenticated;
+
+drop trigger if exists zz_curriculum_time_profile_nonempty_allocation_ctr
+on public.curriculum_time_allocations;
+create constraint trigger zz_curriculum_time_profile_nonempty_allocation_ctr
+after delete or update of profile_id on public.curriculum_time_allocations
+deferrable initially deferred
+for each row execute function app_private.enforce_published_curriculum_time_profile_nonempty_from_allocation();
+
+comment on function app_private.enforce_published_curriculum_time_profile_nonempty_from_allocation() is
+'Deferred companion invariant: deleting or reassigning the last allocation cannot leave a published curriculum-time profile empty.';
+
 
 -- Align allocation publication with the resolver's profile-level supersession semantics.
 create or replace function app_private.guard_curriculum_time_allocation()

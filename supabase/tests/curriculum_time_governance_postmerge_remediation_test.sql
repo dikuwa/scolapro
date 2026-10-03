@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(19);
 
 select has_function(
   'app_private',
@@ -236,6 +236,49 @@ select throws_ok(
 );
 
 set constraints zz_curriculum_time_profile_nonempty_publication_ctr deferred;
+
+select ok(
+  exists(
+    select 1 from pg_trigger
+    where tgrelid='public.curriculum_time_allocations'::regclass
+      and tgname='zz_curriculum_time_profile_nonempty_allocation_ctr'
+      and tgdeferrable and tginitdeferred and not tgisinternal
+  ),
+  'allocation delete/reassignment companion invariant is deferred at the database boundary'
+);
+
+insert into public.curriculum_time_profiles(
+  id,source_id,profile_key,title,phase_code,cycle_kind,cycle_length,effective_from_year,status,provenance
+) values(
+  'fc150000-0000-4000-8000-000000000005',
+  'fc130000-0000-4000-8000-000000000001',
+  'gov-remediation-delete-guard','Governance Remediation Delete Guard',
+  'junior_secondary','rotating',7,2029,'draft','{"locator":"delete guard profile"}'::jsonb
+);
+insert into public.curriculum_time_allocations(
+  id,profile_id,curriculum_subject_id,allocation_key,target_kind,display_label,
+  grade_from,grade_to,periods_per_cycle,rule_strength,source_locator,status
+) values(
+  'fc160000-0000-4000-8000-000000000005',
+  'fc150000-0000-4000-8000-000000000005',
+  'fc140000-0000-4000-8000-000000000001',
+  'gov-remediation-delete-guard-g9','subject','Governance Delete Guard',
+  9,9,5,'prescribed','Delete guard source Grade 9','draft'
+);
+select public.govern_curriculum_time_registry(
+  'profile','fc150000-0000-4000-8000-000000000005','verify',null,null
+);
+select public.govern_curriculum_time_registry(
+  'profile','fc150000-0000-4000-8000-000000000005','publish',null,null
+);
+set constraints zz_curriculum_time_profile_nonempty_allocation_ctr immediate;
+select throws_ok(
+  $delete from public.curriculum_time_allocations
+    where id='fc160000-0000-4000-8000-000000000005'$,
+  'Curriculum time profile publication requires at least one reviewed allocation',
+  'deleting the last draft allocation cannot leave a published profile empty'
+);
+set constraints zz_curriculum_time_profile_nonempty_allocation_ctr deferred;
 
 select * from finish();
 rollback;
