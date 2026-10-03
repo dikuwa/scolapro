@@ -58,6 +58,7 @@ export type TimetableWorkspace = {
   staff: { id: string; name: string; employeeNumber: string | null }[];
   subjects: { id: string; code: string; name: string; used: boolean }[];
   offerings: { id: string; subjectId: string; subjectName: string; gradeId: string; gradeName: string; periodsPerCycle: number }[];
+  teachingGroups: { id: string; offeringId: string; name: string; code: string; effectiveFrom: string; effectiveTo: string | null }[];
   allocations: { id: string; offeringId: string; classId: string; className: string; staffId: string; staffName: string; staffCode: string | null; subjectName: string; gradeName: string; activeFrom: string; activeTo: string | null }[];
   periods: { id: string; number: number; name: string; startsAt: string | null; endsAt: string | null; isTeaching: boolean }[];
   rooms: { id: string; code: string; name: string; block: string | null; capacity: number | null }[];
@@ -77,7 +78,7 @@ function isCurrentOrFuture(date: string, endsOn: string | null): boolean {
 export async function getTimetableWorkspace(schoolId: string, academicYear: number): Promise<TimetableWorkspace> {
   const supabase = await createSupabaseServerClient();
   const today = getNamibiaDateKey();
-  const [schoolResult, todayDayResult, gradesResult, classesResult, membershipsResult, staffAssignmentsResult, subjectsResult, offeringsResult, allocationsResult, periodsResult, roomsResult, slotsResult, demandResult] = await Promise.all([
+  const [schoolResult, todayDayResult, gradesResult, classesResult, membershipsResult, staffAssignmentsResult, subjectsResult, offeringsResult, teachingGroupsResult, allocationsResult, periodsResult, roomsResult, slotsResult, demandResult] = await Promise.all([
     supabase.from("schools").select("timetable_cycle_mode,timetable_cycle_length").eq("id", schoolId).single(),
     supabase.rpc("resolve_timetable_day", { p_school_id: schoolId, p_academic_year: academicYear, p_target_date: today }),
     supabase.from("grades").select("id,display_name").eq("school_id", schoolId).eq("academic_year", academicYear).order("grade_code"),
@@ -86,6 +87,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.from("staff_school_assignments").select("staff_member_id,staff_code,effective_from,effective_to,staff_members(id,first_name,last_name,employee_number,status)").eq("school_id", schoolId),
     supabase.from("subjects").select("id,subject_code,display_name").eq("school_id", schoolId).eq("status", "active").order("display_name"),
     supabase.from("subject_offerings").select("id,subject_id,grade_id,periods_per_cycle,subjects(display_name),grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active"),
+    supabase.from("teaching_groups").select("id,subject_offering_id,name,code,effective_from,effective_to").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("name"),
     supabase.from("teacher_allocations").select("id,subject_offering_id,register_class_id,staff_member_id,active_from,active_to,subject_offerings(subjects(display_name),grades(display_name)),register_classes(display_name),staff_members(first_name,last_name)").eq("school_id", schoolId).eq("academic_year", academicYear),
     supabase.from("timetable_periods").select("id,period_number,display_name,starts_at,ends_at,is_teaching_period").eq("school_id", schoolId).eq("academic_year", academicYear).order("period_number"),
     supabase.from("school_rooms").select("id,room_code,display_name,block_name,capacity").eq("school_id", schoolId).eq("status", "active").order("display_name"),
@@ -93,7 +95,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     supabase.rpc("get_timetable_curriculum_demand_matrix", { p_school_id: schoolId, p_academic_year: academicYear, p_as_of: today }),
   ]);
 
-  const error = schoolResult.error || todayDayResult.error || gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error || demandResult.error;
+  const error = schoolResult.error || todayDayResult.error || gradesResult.error || classesResult.error || membershipsResult.error || staffAssignmentsResult.error || subjectsResult.error || offeringsResult.error || teachingGroupsResult.error || allocationsResult.error || periodsResult.error || roomsResult.error || slotsResult.error || demandResult.error;
   if (error) throw new Error(`Unable to load timetable workspace: ${error.message}`);
 
   const eligibleStaffMap = new Map<string, { id: string; name: string; employeeNumber: string | null }>();
@@ -179,6 +181,7 @@ export async function getTimetableWorkspace(schoolId: string, academicYear: numb
     staff: Array.from(eligibleStaffMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
     subjects: (subjectsResult.data ?? []).map((subject) => ({ id: subject.id, code: subject.subject_code, name: subject.display_name, used: usedSubjectIds.has(subject.id) })),
     offerings: (offeringsResult.data ?? []).map((item) => ({ id: item.id, subjectId: item.subject_id, subjectName: one(item.subjects)?.display_name ?? "Subject", gradeId: item.grade_id, gradeName: one(item.grades)?.display_name ?? "Grade", periodsPerCycle: item.periods_per_cycle })),
+    teachingGroups: (teachingGroupsResult.data ?? []).map((item) => ({ id: item.id, offeringId: item.subject_offering_id, name: item.name, code: item.code, effectiveFrom: item.effective_from, effectiveTo: item.effective_to })),
     allocations: planningAllocations.map((item) => {
       const offering = one(item.subject_offerings); const subject = offering ? one(offering.subjects) : null; const grade = offering ? one(offering.grades) : null; const classRow = one(item.register_classes); const staff = one(item.staff_members);
       return { id: item.id, offeringId: item.subject_offering_id, classId: item.register_class_id, className: classRow?.display_name ?? "Class", staffId: item.staff_member_id, staffName: staff ? [staff.first_name, staff.last_name].filter(Boolean).join(" ") : "Teacher", staffCode: staffCodeMap.get(item.staff_member_id) ?? null, subjectName: subject?.display_name ?? "Subject", gradeName: grade?.display_name ?? "Grade", activeFrom: item.active_from, activeTo: item.active_to };
