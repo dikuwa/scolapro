@@ -5,6 +5,7 @@ import test from "node:test";
 const source = fs.readFileSync("src/features/academics/server/academic-analysis.ts", "utf8");
 const pageSource = fs.readFileSync("src/app/academics/analysis/page.tsx", "utf8");
 const filtersSource = fs.readFileSync("src/features/academics/components/academic-analysis-filters.tsx", "utf8");
+const viewsSource = fs.readFileSync("src/features/academics/components/academic-analysis-views.tsx", "utf8");
 const printSource = fs.readFileSync("src/app/academics/analysis/print/page.tsx", "utf8");
 const excelSource = fs.readFileSync("src/app/academics/analysis/export.xlsx/route.ts", "utf8");
 
@@ -140,19 +141,19 @@ test("subject and teacher filters remain in the governed analysis scope and expo
   assert.match(source, /teacher\?:/);
 });
 
-test("phase-one subject and teacher reports stay descriptive and unranked", () => {
-  assert.match(pageSource, /Subject summary/);
-  assert.match(pageSource, /Teacher–subject analysis/);
-  assert.match(pageSource, /No ranking or competence score is applied/);
-  assert.doesNotMatch(pageSource, /Best teacher|Worst teacher|Teacher rank|Teacher score/);
+test("subject and teacher reports stay descriptive and unranked inside Results", () => {
+  assert.match(viewsSource, /Subject results/);
+  assert.match(viewsSource, /Teacher–subject context/);
+  assert.match(viewsSource, /No teacher ranking, competence score or winner\/loser label is produced/);
+  assert.doesNotMatch(viewsSource, /Best teacher|Worst teacher|Teacher rank|Teacher score/);
 });
 
-test("phase-one grade and class reports use shared governed aggregates", () => {
-  assert.match(pageSource, /Grade analysis/);
-  assert.match(pageSource, /workspace\.gradeSummaries\.map/);
-  assert.match(pageSource, /Class analysis/);
-  assert.match(pageSource, /workspace\.classSummaries\.map/);
-  assert.match(pageSource, /historical register class/);
+test("grade and class view uses shared governed aggregates", () => {
+  assert.match(viewsSource, /Grades/);
+  assert.match(viewsSource, /workspace\.gradeSummaries\.map/);
+  assert.match(viewsSource, /Classes/);
+  assert.match(viewsSource, /workspace\.classSummaries\.map/);
+  assert.match(viewsSource, /Historical register-class cohorts/);
 });
 
 test("management analysis does not expose learner or parent routes", () => {
@@ -198,5 +199,5 @@ test("analysis page and exports enforce the same three-term scope", () => {
 });
 
 test("provisional empty state does not present itself as official", () => {
-  assert.match(pageSource, /basis === "official" \? "No official results available" : "No provisional results available"/);
+  assert.match(viewsSource, /basis === "official" \? "No official results available" : "No provisional results available"/);
 });
