@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(21);
 
 select has_table('public','academic_schedule_snapshots','academic schedule snapshot table exists');
 select has_function(
