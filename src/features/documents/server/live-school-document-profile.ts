@@ -66,7 +66,6 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
   const profile = record(root.document_profile);
   const logoStoragePath = String(profile.logo_storage_path ?? "").trim();
   let signedLogoUrl = "";
-  let resolvedLogoStoragePath = logoStoragePath;
 
   if (logoStoragePath) {
     const signedLogo = await withAssetTimeout(
@@ -81,7 +80,6 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
         schoolId,
         message: logoError.message,
       });
-      resolvedLogoStoragePath = "";
     } else {
       signedLogoUrl = signedLogo.data?.signedUrl ?? "";
     }
@@ -98,7 +96,7 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
     schoolDocumentProfile: {
       ...profile,
       logo_url: signedLogoUrl || profile.logo_url,
-      logo_storage_path: resolvedLogoStoragePath,
+      logo_storage_path: logoStoragePath,
     },
   });
 }
@@ -118,4 +116,35 @@ export async function getLiveSchoolDocumentHeader(
     mode,
     provenanceSource: "live_school_profile",
   });
+}
+
+
+/**
+ * Re-signs an immutable frozen document logo from its persisted storage path.
+ * Historical output never trusts an expired signed URL when a storage path exists.
+ */
+export async function resolveFrozenOfficialDocumentHeaderAssets(
+  header: OfficialDocumentHeaderModel,
+): Promise<OfficialDocumentHeaderModel> {
+  const frozen: OfficialDocumentHeaderModel = {
+    ...header,
+    provenance: { ...header.provenance, source: "frozen_snapshot" },
+  };
+  if (!header.logoStoragePath) return frozen;
+
+  const supabase = await createSupabaseServerClient();
+  const signedLogo = await withAssetTimeout(
+    supabase.storage
+      .from("school-document-assets")
+      .createSignedUrl(header.logoStoragePath, 3600),
+    SIGNED_LOGO_UNAVAILABLE,
+  );
+  if (signedLogo.error || !signedLogo.data?.signedUrl) {
+    console.warn("frozen school document logo unavailable; retaining immutable storage reference", {
+      path: header.logoStoragePath,
+      message: signedLogo.error?.message ?? "Signed URL unavailable.",
+    });
+    return { ...frozen, logoUrl: "" };
+  }
+  return { ...frozen, logoUrl: signedLogo.data.signedUrl };
 }
