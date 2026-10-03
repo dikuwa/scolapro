@@ -912,15 +912,15 @@ begin
       'assessment_instance_id',new.assessment_instance_id,
       'enrolment_id',new.enrolment_id,
       'authorization_id',new.correction_authorization_id,
-      'scope_kind',v_reopen.scope_kind,
-      'reason',v_reopen.reason,
+      'scope_kind',v_authorization.scope_kind,
+      'reason',v_authorization.reason,
       'old_mark_id',v_previous.id,
       'old_numeric_mark',v_previous.numeric_mark,
       'old_mark_status',v_previous.mark_status,
       'new_numeric_mark',new.numeric_mark,
       'new_mark_status',new.mark_status,
       'changed_at',new.recorded_at,
-      'requires_reverification',v_reopen.requires_reverification
+      'requires_reverification',v_authorization.requires_reverification
     )
   );
 
