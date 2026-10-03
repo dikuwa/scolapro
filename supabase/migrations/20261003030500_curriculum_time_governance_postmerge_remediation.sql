@@ -635,3 +635,185 @@ comment on function app_private.curriculum_time_profile_supersedes(uuid,uuid) is
 'Returns true when the first curriculum-time profile explicitly supersedes the second through its governed predecessor chain.';
 comment on function app_private.enforce_published_curriculum_time_profile_nonempty() is
 'Deferred database-wide invariant: a transaction may stage profile-first, but it may not commit a published curriculum-time profile with no reviewed allocation.';
+
+
+-- Align allocation publication with the resolver's profile-level supersession semantics.
+create or replace function app_private.guard_curriculum_time_allocation()
+returns trigger
+language plpgsql
+security definer
+set search_path=pg_catalog,public
+as $allocation_guard$
+declare
+  v_profile public.curriculum_time_profiles%rowtype;
+  v_version_subject_id uuid;
+  v_conflict boolean:=false;
+  v_content_changed boolean:=false;
+begin
+  if tg_op='DELETE' then
+    if old.status<>'draft' then
+      raise exception 'Only draft curriculum time allocations may be deleted';
+    end if;
+    return old;
+  end if;
+
+  if tg_op='INSERT' and new.status<>'draft' then
+    raise exception 'Curriculum time allocations must begin in draft state';
+  end if;
+
+  select * into v_profile
+  from public.curriculum_time_profiles
+  where id=new.profile_id;
+  if not found then raise exception 'Curriculum time profile not found'; end if;
+
+  if new.curriculum_version_id is not null then
+    select curriculum_subject_id into v_version_subject_id
+    from public.curriculum_versions
+    where id=new.curriculum_version_id;
+    if v_version_subject_id is null
+       or v_version_subject_id is distinct from new.curriculum_subject_id then
+      raise exception 'Curriculum time allocation version does not match its canonical curriculum subject';
+    end if;
+  end if;
+
+  if new.supersedes_allocation_id is not null then
+    if not exists(
+      select 1
+      from public.curriculum_time_allocations previous
+      where previous.id=new.supersedes_allocation_id
+        and (
+          (new.target_kind='subject' and previous.target_kind='subject' and previous.curriculum_subject_id=new.curriculum_subject_id)
+          or
+          (new.target_kind<>'subject' and previous.target_kind=new.target_kind and previous.allocation_key=new.allocation_key)
+          or
+          (
+            new.target_kind='subject'
+            and previous.target_kind<>'subject'
+            and exists(
+              select 1
+              from public.curriculum_time_slot_subjects slot_subject
+              where slot_subject.allocation_id=previous.id
+                and slot_subject.curriculum_subject_id=new.curriculum_subject_id
+            )
+          )
+        )
+    ) then
+      raise exception 'Superseded curriculum time allocation must describe the same canonical target';
+    end if;
+  end if;
+
+  if tg_op='UPDATE' then
+    v_content_changed :=
+      new.profile_id is distinct from old.profile_id
+      or new.curriculum_subject_id is distinct from old.curriculum_subject_id
+      or new.curriculum_version_id is distinct from old.curriculum_version_id
+      or new.allocation_key is distinct from old.allocation_key
+      or new.target_kind is distinct from old.target_kind
+      or new.display_label is distinct from old.display_label
+      or new.grade_from is distinct from old.grade_from
+      or new.grade_to is distinct from old.grade_to
+      or new.periods_per_cycle is distinct from old.periods_per_cycle
+      or new.percentage_time is distinct from old.percentage_time
+      or new.rule_strength is distinct from old.rule_strength
+      or new.source_locator is distinct from old.source_locator
+      or new.notes is distinct from old.notes
+      or new.supersedes_allocation_id is distinct from old.supersedes_allocation_id
+      or new.created_at is distinct from old.created_at;
+
+    if old.status='verified' and v_content_changed and new.status<>'draft' then
+      raise exception 'Verified curriculum time allocation must return to draft before content is changed';
+    end if;
+  end if;
+
+  if new.status='draft' then
+    new.verified_by_user_id:=null;
+    new.verified_at:=null;
+    new.conflict_acknowledged_by_user_id:=null;
+    new.conflict_acknowledged_at:=null;
+  elsif new.status='verified' and (tg_op='INSERT' or old.status is distinct from 'verified') then
+    if auth.uid() is null then raise exception 'Authentication required'; end if;
+    new.verified_by_user_id:=auth.uid();
+    new.verified_at:=now();
+  end if;
+
+  if (old.status='draft' and new.status not in ('draft','verified'))
+     or (old.status='verified' and new.status not in ('draft','verified','published'))
+     or (old.status='published' and new.status not in ('published','superseded','withdrawn'))
+     or (old.status='superseded' and new.status not in ('superseded','withdrawn'))
+     or (old.status='withdrawn' and new.status<>'withdrawn') then
+    raise exception 'Curriculum time allocation lifecycle transition is not allowed';
+  end if;
+
+  if new.status='published' and old.status<>'verified' then
+    raise exception 'Curriculum time allocation must be verified before publication';
+  end if;
+
+  if new.status='published' then
+    if v_profile.status<>'published' then
+      raise exception 'Curriculum time allocations can only be published under a published profile';
+    end if;
+    if new.source_locator is null or btrim(new.source_locator)='' then
+      raise exception 'Published curriculum time allocations require a source locator';
+    end if;
+
+    select exists(
+      select 1
+      from public.curriculum_time_allocations other
+      join public.curriculum_time_profiles other_profile on other_profile.id=other.profile_id
+      where other.id<>new.id
+        and other.status='published'
+        and other_profile.status='published'
+        and other_profile.cycle_kind=v_profile.cycle_kind
+        and other_profile.cycle_length=v_profile.cycle_length
+        and other_profile.effective_from_year<=coalesce(v_profile.effective_to_year,2200)
+        and coalesce(other_profile.effective_to_year,2200)>=v_profile.effective_from_year
+        and coalesce(other.grade_from,0)<=coalesce(new.grade_to,20)
+        and coalesce(other.grade_to,20)>=coalesce(new.grade_from,0)
+        and (
+          (new.target_kind='subject' and other.target_kind='subject' and other.curriculum_subject_id=new.curriculum_subject_id)
+          or
+          (new.target_kind<>'subject' and other.target_kind=new.target_kind and other.allocation_key=new.allocation_key)
+        )
+        and other.id is distinct from new.supersedes_allocation_id
+        and other.supersedes_allocation_id is distinct from new.id
+        and not app_private.curriculum_time_profile_supersedes(new.profile_id,other.profile_id)
+        and not app_private.curriculum_time_profile_supersedes(other.profile_id,new.profile_id)
+    ) into v_conflict;
+
+    if v_conflict then
+      if new.conflict_acknowledgement_reason is null or btrim(new.conflict_acknowledgement_reason)='' then
+        raise exception 'Publishing this curriculum time allocation would create an unresolved source conflict';
+      end if;
+      if auth.uid() is null then raise exception 'Authentication required'; end if;
+      new.conflict_acknowledged_by_user_id:=auth.uid();
+      new.conflict_acknowledged_at:=now();
+    end if;
+  end if;
+
+  if tg_op='UPDATE' and old.status in ('published','superseded','withdrawn') then
+    if old.status='withdrawn' and new.status<>'withdrawn' then
+      raise exception 'Withdrawn curriculum time allocations cannot return to an active lifecycle state';
+    end if;
+    if old.status='superseded' and new.status not in ('superseded','withdrawn') then
+      raise exception 'Superseded curriculum time allocations cannot return to an active lifecycle state';
+    end if;
+    if old.status='published' and new.status not in ('published','superseded','withdrawn') then
+      raise exception 'Published curriculum time allocations cannot return to a mutable lifecycle state';
+    end if;
+    if v_content_changed
+      or new.verified_by_user_id is distinct from old.verified_by_user_id
+      or new.verified_at is distinct from old.verified_at
+      or new.conflict_acknowledged_by_user_id is distinct from old.conflict_acknowledged_by_user_id
+      or new.conflict_acknowledged_at is distinct from old.conflict_acknowledged_at then
+      raise exception 'Published curriculum time allocation content and provenance are immutable';
+    end if;
+  end if;
+
+  new.updated_at:=now();
+  return new;
+end;
+$allocation_guard$;
+
+
+revoke all on function app_private.guard_curriculum_time_allocation()
+from public,anon,authenticated;
