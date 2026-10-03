@@ -30,7 +30,13 @@ export async function GET(request: Request) {
   const requestedSchool = url.searchParams.get("school");
   if (requestedSchool && !validUuid(requestedSchool)) return Response.json({ error:"Invalid school reference" },{ status:400 });
   const platformAdmin = context.platformMemberships.some((item)=>item.roleKey==="platform_admin");
-  const membership = context.memberships.find((item)=>readerRoles.has(item.roleKey));
+  const requestedMembership = requestedSchool
+    ? context.memberships.find((item)=>item.schoolId===requestedSchool && readerRoles.has(item.roleKey))
+    : null;
+  if (requestedSchool && !platformAdmin && !requestedMembership) {
+    return Response.json({ error:"Permission denied" },{ status:403 });
+  }
+  const membership = requestedMembership ?? context.memberships.find((item)=>readerRoles.has(item.roleKey));
   const schoolId = platformAdmin && requestedSchool ? requestedSchool : membership?.schoolId;
   if (!schoolId) return Response.json({ error:"School membership required" },{ status:403 });
 

@@ -103,6 +103,14 @@ begin
     where e.school_id=p_school_id
       and e.academic_year=p_academic_year
       and e.status in ('current','completed','transferred')
+      and (
+        app_private.has_platform_role(array['platform_admin'])
+        or app_private.has_school_local_role(
+          p_school_id,
+          array['school_admin','principal','deputy_principal']
+        )
+        or app_private.can_read_learner_identity(p_school_id,e.learner_id)
+      )
     order by e.learner_id,
       case e.status when 'current' then 1 when 'completed' then 2 when 'transferred' then 3 else 4 end,
       e.enrolled_from desc,e.id
@@ -174,8 +182,8 @@ begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if app_private.has_platform_role(array['platform_support']) then raise exception 'Permission denied'; end if;
   if p_reference_date is null then raise exception 'Reference date is required'; end if;
-  if not app_private.has_school_access(p_school_id)
-     and not app_private.has_platform_role(array['platform_admin']) then
+  if not app_private.has_platform_role(array['platform_admin'])
+     and not app_private.is_guardian_current_school(p_school_id) then
     raise exception 'Permission denied';
   end if;
 
@@ -215,6 +223,7 @@ begin
     limit 1
   ) contact on true
   where lg.learner_id=p_learner_id
+    and app_private.can_read_guardian(lg.guardian_id)
     and lg.effective_from<=p_reference_date
     and (lg.effective_to is null or lg.effective_to>=p_reference_date)
   order by lg.priority,lg.effective_from,lg.id
@@ -246,8 +255,7 @@ as $compact_operational_context$
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if app_private.has_platform_role(array['platform_support']) then raise exception 'Permission denied'; end if;
-  if not app_private.has_school_access(p_school_id)
-     and not app_private.has_platform_role(array['platform_admin']) then
+  if not app_private.can_read_learner_identity(p_school_id,p_learner_id) then
     raise exception 'Permission denied';
   end if;
 

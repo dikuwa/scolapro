@@ -24,6 +24,8 @@ test("house detail uses canonical roster data and source age proposals never aut
   assert.match(workspace,/source labels never rewrite learners/i);
   assert.match(sportsQueries,/get_sports_house_operational_learner_roster/);
   assert.match(sportsQueries,/sports_age_group_source_proposals/);
+  assert.match(workspace,/school: schoolId/);
+  assert.match(workspace,/school=\$\{schoolId\}/);
 });
 
 test("house roster exports support one multiple all and content/group options through shared official document header", () => {
@@ -36,6 +38,8 @@ test("house roster exports support one multiple all and content/group options th
   assert.match(exportRoute,/getLiveSchoolDocumentHeader/);
   assert.match(exportRoute,/format==="pdf"/);
   assert.match(exportRoute,/format==="xlsx"/);
+  assert.match(exportRoute,/item\.schoolId===requestedSchool/);
+  assert.match(exportRoute,/requestedSchool && !platformAdmin && !requestedMembership/);
 });
 
 test("learner compact summary uses reusable effective guardian resolver without addresses", () => {
@@ -45,4 +49,6 @@ test("learner compact summary uses reusable effective guardian resolver without 
   assert.match(learnerPage,/compactContext\.houseName/);
   const summary = learnerPage.slice(learnerPage.indexOf('At a glance'),learnerPage.indexOf('Overview</span>'));
   assert.doesNotMatch(summary,/address/i);
+  assert.match(readFileSync("supabase/migrations/20261003180000_sports_houses_operational_completion.sql","utf8"),/can_read_guardian\(lg\.guardian_id\)/);
+  assert.match(readFileSync("supabase/migrations/20261003180000_sports_houses_operational_completion.sql","utf8"),/can_read_learner_identity\(p_school_id,e\.learner_id\)/);
 });

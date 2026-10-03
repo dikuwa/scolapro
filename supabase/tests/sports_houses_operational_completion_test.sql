@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(18);
 
 select has_function('public','get_sports_house_operational_learner_roster',array['uuid','integer'],'operational sports learner roster exists');
 select has_function('public','resolve_effective_learner_guardian_contact',array['uuid','uuid','date'],'shared guardian contact resolver exists');
@@ -85,6 +85,34 @@ select ok(
     'public.get_learner_compact_operational_context(uuid,uuid,integer,uuid)'::regprocedure
   ) ilike '%has_platform_role(array[''platform_support''])%Permission denied%',
   'Platform Support is explicitly denied learner compact operational context'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.get_sports_house_operational_learner_roster(uuid,integer)'::regprocedure
+  ) ilike '%can_read_learner_identity(p_school_id,e.learner_id)%',
+  'operational roster applies canonical per-learner identity scope'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.resolve_effective_learner_guardian_contact(uuid,uuid,date)'::regprocedure
+  ) ilike '%can_read_guardian(lg.guardian_id)%',
+  'guardian resolver applies canonical guardian-read authorization'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.resolve_effective_learner_guardian_contact(uuid,uuid,date)'::regprocedure
+  ) ilike '%is_guardian_current_school(p_school_id)%',
+  'guardian resolver preserves current-school boundary'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.get_learner_compact_operational_context(uuid,uuid,integer,uuid)'::regprocedure
+  ) ilike '%can_read_learner_identity(p_school_id,p_learner_id)%',
+  'compact learner context applies canonical learner identity scope'
 );
 
 select * from finish();

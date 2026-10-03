@@ -341,6 +341,7 @@ export function SportsHousesWorkspace({
   const activeSourceProposal = sourceAgeGroupProposals.find((item) => item.status !== "retired") ?? null;
   const exportSelection = exportHouseIds.length ? exportHouseIds : activeHouses.map((house) => house.id);
   const exportQuery = new URLSearchParams({
+    school: schoolId,
     year: String(academicYear),
     houses: exportSelection.join(","),
     content: exportContent,
@@ -406,9 +407,9 @@ export function SportsHousesWorkspace({
                   <p className="mt-1 text-[0.68rem] text-muted-foreground">Display order {house.sortOrder} · Created {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(house.createdAt))}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button type="button" variant="neutral" size="sm" onClick={() => setRosterHouseId(rosterHouseId === house.id ? null : house.id)}>Open roster</Button>
-                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?year=${academicYear}&houses=${house.id}&format=html`} target="_blank" rel="noreferrer">Preview</a>
-                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?year=${academicYear}&houses=${house.id}&format=pdf`}>PDF</a>
-                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?year=${academicYear}&houses=${house.id}&format=xlsx`}>Excel</a>
+                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=html`} target="_blank" rel="noreferrer">Preview</a>
+                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=pdf`}>PDF</a>
+                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=xlsx`}>Excel</a>
                   </div>
                 </div>
                 {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingHouseId(editing ? null : house.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
