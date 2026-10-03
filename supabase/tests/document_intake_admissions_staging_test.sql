@@ -1,5 +1,5 @@
 begin;
-select plan(24);
+select plan(30);
 
 select has_table('public','document_intake_jobs','shared document intake jobs exist');
 select has_table('public','document_intake_artifacts','shared document intake source artifacts exist');
