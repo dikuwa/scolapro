@@ -18,14 +18,6 @@ begin
       raise exception 'Curriculum time profile publication requires profile provenance';
     end if;
 
-    if not exists(
-      select 1
-      from public.curriculum_time_allocations a
-      where a.profile_id=new.id
-    ) then
-      raise exception 'Curriculum time profile publication requires at least one reviewed allocation';
-    end if;
-
     if exists(
       select 1
       from public.curriculum_time_allocations a
@@ -471,6 +463,13 @@ begin
     elsif p_action='publish' then
       if v_status<>'verified' then
         raise exception 'Curriculum time profile must be verified before publication';
+      end if;
+      if not exists(
+        select 1
+        from public.curriculum_time_allocations a
+        where a.profile_id=p_entity_id
+      ) then
+        raise exception 'Curriculum time profile publication requires at least one reviewed allocation';
       end if;
       update public.curriculum_time_profiles set status='published' where id=p_entity_id;
     elsif p_action='withdraw' then
