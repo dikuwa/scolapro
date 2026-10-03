@@ -32,7 +32,7 @@ begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not (
     app_private.is_school_leadership(auth.uid(),p_school_id)
-    or app_private.is_support_role_member(auth.uid(),p_school_id)
+    or app_private.is_crc_custodian(auth.uid(),p_school_id)
   ) then raise exception 'Permission denied'; end if;
 
   select coalesce(max(ay.year),v_year) into v_year
@@ -181,7 +181,7 @@ begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not (
     app_private.is_school_leadership(auth.uid(),p_school_id)
-    or app_private.is_support_role_member(auth.uid(),p_school_id)
+    or app_private.is_crc_custodian(auth.uid(),p_school_id)
   ) then raise exception 'Permission denied'; end if;
 
   return query
@@ -306,7 +306,7 @@ begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   if not (
     app_private.is_school_leadership(auth.uid(),p_school_id)
-    or app_private.is_support_role_member(auth.uid(),p_school_id)
+    or app_private.is_crc_custodian(auth.uid(),p_school_id)
   ) then raise exception 'Permission denied'; end if;
 
   return query
