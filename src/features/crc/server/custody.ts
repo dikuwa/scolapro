@@ -149,6 +149,56 @@ export type CrcClassCompleteness = {
   followUpCount: number;
 };
 
+export type CrcAdministrationLearner = {
+  learnerId: string;
+  learnerName: string;
+  admissionNumber: string | null;
+  gradeId: string;
+  gradeLabel: string;
+  registerClassId: string;
+  registerClassLabel: string;
+  routineActivity: boolean;
+  openRequest: boolean;
+  overdueRequest: boolean;
+  missingIncoming: boolean;
+  temporaryCrc: boolean;
+  outgoingTransfer: boolean;
+  awaitingAcknowledgement: boolean;
+  readinessStatus: "complete" | "incomplete" | "temporary" | "missing_incoming";
+};
+
+export type CrcTransferRegisterRow = {
+  registerKey: string;
+  learnerId: string;
+  learnerName: string;
+  admissionNumber: string | null;
+  direction: "incoming" | "outgoing";
+  counterpartSchoolName: string;
+  transferStatus: string | null;
+  custodyStatus: string | null;
+  requestedOn: string | null;
+  effectiveOn: string | null;
+  dispatchedAt: string | null;
+  acknowledgedAt: string | null;
+  closedAt: string | null;
+  documentCount: number;
+  transferEventId: string | null;
+  custodyId: string | null;
+};
+
+export type CrcAdministrationDocument = {
+  documentId: string;
+  custodyId: string;
+  learnerId: string;
+  learnerName: string;
+  admissionNumber: string | null;
+  direction: "incoming" | "outgoing";
+  custodyStatus: string;
+  fileName: string;
+  mimeType: string | null;
+  createdAt: string;
+};
+
 export async function getMyCrcContributionContext(
   learnerId: string,
   schoolId: string,
@@ -310,5 +360,71 @@ export async function getMyCrcRequestEscalations(): Promise<CrcNetworkEscalation
     requestStatus: String(row.request_status ?? "requested"),
     escalationStatus: String(row.escalation_status ?? "open"),
     escalatedAt: String(row.escalated_at ?? ""),
+  }));
+}
+
+
+export async function listCrcAdministrationLearners(schoolId: string): Promise<CrcAdministrationLearner[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_crc_administration_learners", { p_school_id: schoolId });
+  if (error) throw new Error("Unable to load CRC learner readiness.");
+  return rpcRows<RpcRow>(data).map((row) => ({
+    learnerId: String(row.learner_id),
+    learnerName: String(row.learner_name ?? "Learner"),
+    admissionNumber: row.admission_number ? String(row.admission_number) : null,
+    gradeId: String(row.grade_id),
+    gradeLabel: String(row.grade_label ?? "Grade"),
+    registerClassId: String(row.register_class_id),
+    registerClassLabel: String(row.register_class_label ?? "Class"),
+    routineActivity: Boolean(row.routine_activity),
+    openRequest: Boolean(row.open_request),
+    overdueRequest: Boolean(row.overdue_request),
+    missingIncoming: Boolean(row.missing_incoming),
+    temporaryCrc: Boolean(row.temporary_crc),
+    outgoingTransfer: Boolean(row.outgoing_transfer),
+    awaitingAcknowledgement: Boolean(row.awaiting_acknowledgement),
+    readinessStatus: String(row.readiness_status) as CrcAdministrationLearner["readinessStatus"],
+  }));
+}
+
+export async function listCrcTransferRegister(schoolId: string): Promise<CrcTransferRegisterRow[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_crc_transfer_register", { p_school_id: schoolId });
+  if (error) throw new Error("Unable to load the CRC transfer register.");
+  return rpcRows<RpcRow>(data).map((row) => ({
+    registerKey: String(row.register_key),
+    learnerId: String(row.learner_id),
+    learnerName: String(row.learner_name ?? "Learner"),
+    admissionNumber: row.admission_number ? String(row.admission_number) : null,
+    direction: String(row.direction) as CrcTransferRegisterRow["direction"],
+    counterpartSchoolName: String(row.counterpart_school_name ?? "School"),
+    transferStatus: row.transfer_status ? String(row.transfer_status) : null,
+    custodyStatus: row.custody_status ? String(row.custody_status) : null,
+    requestedOn: row.requested_on ? String(row.requested_on) : null,
+    effectiveOn: row.effective_on ? String(row.effective_on) : null,
+    dispatchedAt: row.dispatched_at ? String(row.dispatched_at) : null,
+    acknowledgedAt: row.acknowledged_at ? String(row.acknowledged_at) : null,
+    closedAt: row.closed_at ? String(row.closed_at) : null,
+    documentCount: Number(row.document_count ?? 0),
+    transferEventId: row.transfer_event_id ? String(row.transfer_event_id) : null,
+    custodyId: row.custody_id ? String(row.custody_id) : null,
+  }));
+}
+
+export async function listCrcAdministrationDocuments(schoolId: string): Promise<CrcAdministrationDocument[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_crc_administration_documents", { p_school_id: schoolId });
+  if (error) throw new Error("Unable to load CRC document metadata.");
+  return rpcRows<RpcRow>(data).map((row) => ({
+    documentId: String(row.document_id),
+    custodyId: String(row.custody_id),
+    learnerId: String(row.learner_id),
+    learnerName: String(row.learner_name ?? "Learner"),
+    admissionNumber: row.admission_number ? String(row.admission_number) : null,
+    direction: String(row.direction) as CrcAdministrationDocument["direction"],
+    custodyStatus: String(row.custody_status ?? ""),
+    fileName: String(row.file_name ?? "CRC document"),
+    mimeType: row.mime_type ? String(row.mime_type) : null,
+    createdAt: String(row.created_at ?? ""),
   }));
 }
