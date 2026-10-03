@@ -186,6 +186,9 @@ begin
      and not app_private.is_guardian_current_school(p_school_id) then
     raise exception 'Permission denied';
   end if;
+  if not app_private.can_read_learner_identity(p_school_id,p_learner_id) then
+    raise exception 'Permission denied';
+  end if;
 
   if not exists(
     select 1 from public.enrolments e
