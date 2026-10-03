@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { AppToaster } from "@/components/feedback/app-toaster";
+import { PublicThemeMenu } from "@/components/theme/theme-preference";
 import { SCOLAPRO_BRAND } from "@/lib/brand";
 import "./globals.css";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
       </head>
       <body className={plusJakartaSans.variable}>
         {children}
+        <PublicThemeMenu />
         <AppToaster />
       </body>
     </html>

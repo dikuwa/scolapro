@@ -176,6 +176,10 @@ body {
   text-rendering: optimizeLegibility;
   caret-color: transparent;
 }
+
+body:has([data-scolapro-shell="true"]) .scolapro-public-theme-launcher {
+  display: none;
+}
 input, textarea, [contenteditable="true"] { caret-color: var(--brand); }
 button, a, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }

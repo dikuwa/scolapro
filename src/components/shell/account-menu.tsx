@@ -5,7 +5,7 @@ import { KeyRound, LogOut, Settings, UserRound, X } from "lucide-react";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { signOut } from "@/features/auth/actions";
 import { clearOfflineData } from "@/lib/offline/db";
-import { ThemePreferenceControl } from "@/components/theme/theme-preference";
+import { ThemeMenu } from "@/components/theme/theme-preference";
 
 export function AccountMenu({
   avatar,
@@ -61,7 +61,7 @@ export function AccountMenu({
           id={menuId}
           role="menu"
           aria-label="Account actions"
-          className={`absolute z-[150] w-56 overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)] ${compact ? "bottom-full left-0 mb-2 group-data-[collapsed=true]/sidebar:left-full group-data-[collapsed=true]/sidebar:bottom-0 group-data-[collapsed=true]/sidebar:mb-0 group-data-[collapsed=true]/sidebar:ml-2" : "right-0 top-full mt-2"}`}
+          className={`absolute z-[150] w-56 rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-1.5 shadow-[var(--shadow-md)] ${compact ? "bottom-full left-0 mb-2 group-data-[collapsed=true]/sidebar:left-full group-data-[collapsed=true]/sidebar:bottom-0 group-data-[collapsed=true]/sidebar:mb-0 group-data-[collapsed=true]/sidebar:ml-2" : "right-0 top-full mt-2"}`}
         >
           <div className="flex items-start gap-2 border-b border-border-subtle px-2.5 py-2.5">
             <span className="mt-0.5 text-brand"><UserRound className="size-4" aria-hidden="true" /></span>
@@ -77,8 +77,8 @@ export function AccountMenu({
           <Link role="menuitem" href="/settings#security" onClick={() => setOpen(false)} className="flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-xs font-medium text-muted-foreground transition hover:bg-surface-muted hover:text-foreground">
             <KeyRound className="size-4" aria-hidden="true" />Password & security
           </Link>
-          <div className="mt-1 border-y border-border-subtle px-1 py-2">
-            <ThemePreferenceControl compact />
+          <div className="mt-1 border-y border-border-subtle py-1">
+            <ThemeMenu variant="account" />
           </div>
           <button
             role="menuitem"

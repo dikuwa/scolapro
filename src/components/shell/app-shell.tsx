@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ScolaProMark, ScolaProWordmark } from "@/components/brand/scolapro-brand";
 import { AccountMenu } from "@/components/shell/account-menu";
+import { ThemeMenu } from "@/components/theme/theme-preference";
 import { ShellFrame } from "@/components/shell/shell-frame";
 import { DestructiveActionGuard } from "@/components/ui/destructive-action-guard";
 import { NotificationCenter } from "@/features/notifications/notification-center";
@@ -185,6 +186,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <span className="block max-w-[12rem] truncate text-[0.68rem] text-muted-foreground sm:max-w-xs">{schoolName}</span>
         </div>
         <div className="ml-auto flex min-w-0 items-center gap-1.5">
+          <ThemeMenu variant="icon" />
           {notificationContext ? (
             <Suspense fallback={<NotificationCenter unreadCount={0} notifications={[]} />}>
               <ShellNotificationCenter {...notificationContext} />
