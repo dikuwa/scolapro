@@ -37,10 +37,6 @@ function unique(values: string[]): string[] {
   return [...new Set(values)];
 }
 
-function sameNullableDate(left: string | null, right: string | undefined): boolean {
-  return (left ?? null) === (right ?? null);
-}
-
 const subjectSchema = z.object({
   code: z.string().trim().min(1, "Subject code is required."),
   name: z.string().trim().min(1, "Subject name is required."),
@@ -163,22 +159,23 @@ export async function saveOfferingsBulk(_state: TimetableActionState, formData: 
     p_periods_per_cycle: parsed.data.periods,
   });
   if (error) {
-    if (error.message.includes("outside school")) return { message: "One or more selected subjects or grades is outside this school/year. Refresh and try again." };
-    if (error.message.includes("Permission denied")) return { message: "You do not have permission to manage this timetable." };
-    return { message: "Bulk subject offerings were not saved. No partial batch was committed." };
+    if (error.message.includes("outside school") || error.message.includes("outside school/year")) {
+      return { message: "One or more selected subjects or grades no longer matches this school/year. Refresh and try again." };
+    }
+    return { message: "Subject offerings could not be saved. Review the selection and try again." };
   }
 
   const result = (data ?? {}) as Record<string, unknown>;
   const created = Number(result.created ?? 0);
   const existing = Number(result.existing ?? 0);
-  if (created) revalidateTimetablePaths();
+  revalidateTimetablePaths();
   const parts = [
     created ? `${created} offering${created === 1 ? "" : "s"} created` : "No new offerings created",
     existing ? `${existing} existing combination${existing === 1 ? "" : "s"} skipped` : "",
   ].filter(Boolean);
   return {
     success: true,
-    message: `${parts.join(". ")}.${existing ? " Use Offering corrections to change periods on existing offerings." : ""}`,
+    message: `${parts.join(". ")}.${existing ? " Existing offerings were left unchanged; use Offering corrections to edit them." : ""}`,
   };
 }
 
@@ -213,7 +210,6 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     academicYear: z.coerce.number().int(),
     offeringIds: z.array(z.string().uuid()).min(1, "Choose at least one subject offering.").max(50),
     classIds: z.array(z.string().uuid()).min(1, "Choose at least one class.").max(60),
-    teachingGroupIds: z.array(z.string().uuid()).max(60),
     staffId: z.string().uuid(),
     activeFrom: allocationDateSchema,
     activeTo: z.preprocess((value) => {
@@ -230,7 +226,6 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     academicYear: formData.get("academicYear"),
     offeringIds: jsonArray(formData.get("offeringIds")),
     classIds: jsonArray(formData.get("classIds")),
-    teachingGroupIds: jsonArray(formData.get("teachingGroupIds")),
     staffId: formData.get("staffId"),
     activeFrom: formData.get("activeFrom"),
     activeTo: formData.get("activeTo"),
@@ -239,7 +234,6 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
 
   const offeringIds = unique(parsed.data.offeringIds);
   const classIds = unique(parsed.data.classIds);
-  const teachingGroupIds = unique(parsed.data.teachingGroupIds);
   if (offeringIds.length * classIds.length > 300) {
     return { message: "Choose fewer subject offerings or classes so one bulk save evaluates at most 300 combinations." };
   }
@@ -251,41 +245,27 @@ export async function saveAllocationsBulk(_state: TimetableActionState, formData
     p_academic_year: parsed.data.academicYear,
     p_subject_offering_ids: offeringIds,
     p_register_class_ids: classIds,
-    p_teaching_group_ids: teachingGroupIds,
+    p_teaching_group_ids: [],
     p_staff_member_id: parsed.data.staffId,
     p_active_from: parsed.data.activeFrom,
     p_active_to: parsed.data.activeTo ?? null,
   });
-  if (error) {
-    if (error.message.includes("placement does not cover")) return { message: "The selected teacher is not placed at this school for the full allocation period." };
-    if (error.message.includes("Teaching group selection must match")) return { message: "Every selected teaching group must belong to one of the selected subject offerings." };
-    if (error.message.includes("outside school/year scope")) return { message: "One or more selected offerings, classes, or teaching groups is outside this school/year. Refresh and try again." };
-    if (error.message.includes("Permission denied")) return { message: "You do not have permission to manage this timetable." };
-    return { message: "Bulk teacher allocations were not saved. No partial batch was committed." };
-  }
+  if (error) return { message: allocationError(error.message) };
 
   const result = (data ?? {}) as Record<string, unknown>;
   const created = Number(result.created ?? 0);
-  const skipped = Number(result.duplicates ?? 0);
+  const duplicates = Number(result.duplicates ?? 0);
   const conflicts = Number(result.conflicts ?? 0);
-  const gradeMismatches = Number(result.incompatible ?? 0);
-  const groupLinksCreated = Number(result.group_links_created ?? 0);
-  const groupLinksExisting = Number(result.group_links_existing ?? 0);
-  const groupLinkConflicts = Number(result.group_link_conflicts ?? 0);
-  const groupsWithoutAllocations = Number(result.groups_without_allocations ?? 0);
+  const incompatible = Number(result.incompatible ?? 0);
+  revalidateTimetablePaths();
 
-  if (created || groupLinksCreated) revalidateTimetablePaths();
   const parts = [
     created ? `${created} teacher allocation${created === 1 ? "" : "s"} created` : "No new teacher allocations created",
-    skipped ? `${skipped} exact existing allocation${skipped === 1 ? "" : "s"} skipped` : "",
-    gradeMismatches ? `${gradeMismatches} grade-mismatched combination${gradeMismatches === 1 ? "" : "s"} ignored` : "",
-    conflicts ? `${conflicts} existing allocation${conflicts === 1 ? "" : "s"} has different end dates` : "",
-    groupLinksCreated ? `${groupLinksCreated} teaching-group link${groupLinksCreated === 1 ? "" : "s"} created` : "",
-    groupLinksExisting ? `${groupLinksExisting} existing teaching-group link${groupLinksExisting === 1 ? "" : "s"} skipped` : "",
-    groupLinkConflicts ? `${groupLinkConflicts} teaching-group link${groupLinkConflicts === 1 ? "" : "s"} has different end dates` : "",
-    groupsWithoutAllocations ? `${groupsWithoutAllocations} teaching group${groupsWithoutAllocations === 1 ? "" : "s"} had no matching class allocation` : "",
+    duplicates ? `${duplicates} exact existing allocation${duplicates === 1 ? "" : "s"} skipped` : "",
+    incompatible ? `${incompatible} grade-mismatched combination${incompatible === 1 ? "" : "s"} ignored` : "",
+    conflicts ? `${conflicts} existing allocation${conflicts === 1 ? "" : "s"} has a different end date` : "",
   ].filter(Boolean);
-  return { success: conflicts === 0 && groupLinkConflicts === 0, message: `${parts.join(". ")}.` };
+  return { success: conflicts === 0, message: `${parts.join(". ")}.` };
 }
 
 export async function savePeriod(_state: TimetableActionState, formData: FormData): Promise<TimetableActionState> {
