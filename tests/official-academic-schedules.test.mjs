@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration=readFileSync("supabase/migrations/20261003123000_official_academic_schedules.sql","utf8");
+const scopeMigration=readFileSync("supabase/migrations/20261004014000_academic_schedule_snapshot_scope.sql","utf8");
 const server=readFileSync("src/features/reporting/server/academic-schedules.ts","utf8");
 const page=readFileSync("src/app/reports/academic-schedules/page.tsx","utf8");
 const printPage=readFileSync("src/app/reports/academic-schedules/print/page.tsx","utf8");
@@ -12,6 +13,8 @@ const academicAnalysis=readFileSync("src/features/academics/server/academic-anal
 const exportRoute=readFileSync("src/app/reports/academic-schedules/export.xlsx/route.ts","utf8");
 const liveProfile=readFileSync("src/features/documents/server/live-school-document-profile.ts","utf8");
 const finalizeForm=readFileSync("src/features/reporting/academic-schedule-finalize-form.tsx","utf8");
+const filters=readFileSync("src/features/reporting/academic-schedule-filters.tsx","utf8");
+const analysisPage=readFileSync("src/app/academics/analysis/page.tsx","utf8");
 
 test("finalized official schedules are immutable, versioned and audited",()=>{
   assert.match(migration,/academic_schedule_snapshots/);
@@ -35,22 +38,57 @@ test("schedule generation reuses canonical current results, assessment readiness
   assert.doesNotMatch(server,/evaluate_promotion_recommendation/);
 });
 
-test("all eight required schedule families are exposed",()=>{
+test("legacy schedule keys stay server compatible and official UI is document-first",()=>{
   for(const key of ["term_schedule","promotion_schedule","retention_at_risk","incomplete_results","subject_failure","top_achievers","class_grade_summary","promotion_exceptions"]){
     assert.match(server,new RegExp(key));
   }
+  assert.match(server,/promotion_all_terms/);
+  assert.match(filters,/Promotion Schedule/);
+  assert.match(filters,/All Results Schedule/);
+  assert.doesNotMatch(filters,/Group By|Promotion Subjects|Active Subjects|Show Progression Code/);
 });
 
 test("preview, print PDF path and Excel export preserve explicit basis",()=>{
   assert.match(page,/Print \/ PDF/);
   assert.match(page,/Excel/);
-  assert.match(page,/Template fidelity pending/);
+  assert.doesNotMatch(page,/Template fidelity pending/);
+  assert.match(actions,/supplied_source_verified/);
   assert.match(page,/Open issued version/);
   assert.doesNotMatch(page,/<select\b/i);
   assert.match(printPage,/PROVISIONAL/);
   assert.match(printPage,/counter\(page\)/);
   assert.match(xlsx,/Basis: /);
   assert.match(printPage,/getAcademicScheduleSnapshot/);
+});
+
+test("supplied-source document semantics are represented without invented fields",()=>{
+  for(const label of ["Home Language","Birth Date","Days Absent","Years in Grade","Years in Phase","Support comments","Recommendation","Ruling","Remarks","Maximum Mark","Minimum pass \/ promotion threshold"]){
+    assert.match(server,new RegExp(label,"i"));
+  }
+  assert.match(printPage,/@page\{size:A4 landscape/);
+  assert.match(printPage,/Class Teacher/);
+  assert.match(printPage,/Regional Director/);
+  assert.match(printPage,/Outcome analysis/);
+  assert.match(printPage,/School Stamp/);
+  assert.match(server,/official_results_current/);
+  assert.match(server,/daily_register_current/);
+  assert.match(server,/year_end_progressions/);
+});
+
+test("all-terms scope is explicit and cannot collide with ordinary finalized terms",()=>{
+  assert.match(server,/period: allTerms \? "all_terms" : "term"/);
+  assert.match(scopeMigration,/scope_key/);
+  assert.match(scopeMigration,/promotion_all_terms/);
+  assert.match(scopeMigration,/academic_schedule_snapshot_scope_version_key/);
+  assert.match(scopeMigration,/p_payload->>'scopeKey' is distinct from v_scope_key/);
+  assert.match(actions,/p_scope_key: payload\.scopeKey/);
+});
+
+test("analytical families are exposed under Academic Analysis",()=>{
+  for(const label of ["Retention / At-Risk","Incomplete Results","Subject Failure","Top Achievers","Class / Grade Results Summary","Promotion Decision Exceptions"]){
+    assert.match(analysisPage,new RegExp(label.replace("/","\\/")));
+  }
+  assert.match(page,/ANALYSIS_COMPAT/);
 });
 
 

@@ -15,6 +15,8 @@ const schema = z.object({
   scheduleType: z.enum(ACADEMIC_SCHEDULE_TYPES),
   basis: z.literal("official"),
   supersessionReason: z.string().trim().max(1000).optional(),
+  grade: z.string().trim().max(180).optional(),
+  classNames: z.string().max(4000).optional(),
 });
 
 export async function finalizeAcademicSchedule(
@@ -27,8 +29,16 @@ export async function finalizeAcademicSchedule(
     scheduleType: formData.get("scheduleType"),
     basis: formData.get("basis"),
     supersessionReason: String(formData.get("supersessionReason") ?? ""),
+    grade: String(formData.get("grade") ?? ""),
+    classNames: String(formData.get("classNames") ?? "[]"),
   });
   if (!parsed.success) return { message: "Choose a valid official schedule, year and term." };
+  let classNames: string[];
+  try {
+    const value=JSON.parse(parsed.data.classNames||"[]");
+    if(!Array.isArray(value)||value.some((item)=>typeof item!=="string"))return {message:"Choose a valid class scope."};
+    classNames=value.map((item)=>item.trim()).filter(Boolean);
+  } catch { return {message:"Choose a valid class scope."}; }
 
   const context = await getUserContext();
   const membership = context.currentSchoolMembership;
@@ -37,7 +47,7 @@ export async function finalizeAcademicSchedule(
   }
 
   try {
-    const payload = await getAcademicSchedulePayload(parsed.data);
+    const payload = await getAcademicSchedulePayload({ ...parsed.data, grade:parsed.data.grade||undefined, classNames });
     if (!payload) return { message: "Unable to build this schedule from canonical academic data." };
 
     const [db, documentHeader] = await Promise.all([
@@ -56,11 +66,18 @@ export async function finalizeAcademicSchedule(
         sourceDescription: payload.sourceDescription,
         rowCount: payload.rowCount,
         generatedAt: payload.generatedAt,
-        templateFidelity: "pending_official_sample",
+        templateFidelity: "supplied_source_verified",
+        sourceArtifacts: [
+          { name: "Schedule - Namibia.pdf", sha256: "f93d41b15ea9fb26970372b000ae49fe20d09afc0737947077b4d62bc9b4df22" },
+          { name: "Schedule - Namibia All Terms.pdf", sha256: "2593a895583bb392fb121f9f30f2d7b908b2c9bb443cef62d99d2c557416ed1b" },
+          { name: "Generic Mark Schedule.pdf", sha256: "1e7f47d0eb4298f928eb844346c129ae2603dd7f7618684dd3840eeafdf6368c" },
+        ],
+        scope: { key: payload.scopeKey, period: payload.period, grade: payload.grade, classNames: payload.classNames },
         documentHeader,
       },
       p_supersession_reason: parsed.data.supersessionReason || null,
       p_actor_user_id: context.user.id,
+      p_scope_key: payload.scopeKey,
     });
     if (error) return { message: error.message || "Unable to finalize the academic schedule." };
     revalidatePath("/reports/academic-schedules");

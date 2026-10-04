@@ -66,6 +66,21 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
       {basis === "provisional" ? <div role="status" className="rounded-[var(--radius-sm)] border border-warning/40 bg-warning/10 px-4 py-3 text-sm"><strong>Provisional analysis.</strong> These values are calculated from current working assessment evidence and are not approved official results.</div> : null}
       {view === "trends" ? <div role="status" className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-4 py-3 text-sm text-muted-foreground"><strong className="text-foreground">Offering-wide trends.</strong> Class and teacher filters are intentionally not applied because the governed official-series comparator does not provide class/teacher-scoped comparisons.</div> : null}
 
+      <section className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]">
+        <h2 className="scolapro-section-title">Academic analysis views</h2>
+        <p className="scolapro-section-description">Analytical schedules live here; official document production remains in Academic Schedules.</p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          {[
+            ["Retention / At-Risk",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"learners"}).toString()}`],
+            ["Incomplete Results","/assessment/quality"],
+            ["Subject Failure",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"results"}).toString()}`],
+            ["Top Achievers",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"overview"}).toString()}`],
+            ["Class / Grade Results Summary",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"grades"}).toString()}`],
+            ["Promotion Decision Exceptions",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"learners"}).toString()}`],
+          ].map(([label,href])=><Link key={label} href={href} className="scolapro-cta rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 font-medium hover:text-foreground">{label}</Link>)}
+        </div>
+      </section>
+
       <nav className="flex gap-2 overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-2" aria-label="Academic analysis views">
         {([
           ["overview","Overview"],

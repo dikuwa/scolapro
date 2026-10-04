@@ -30,11 +30,15 @@ export function AcademicScheduleFinalizeForm({
   termNumber,
   scheduleType,
   replacingFinalizedVersion,
+  grade,
+  classNames,
 }: {
   academicYear: number;
   termNumber: number;
   scheduleType: AcademicScheduleType;
   replacingFinalizedVersion: boolean;
+  grade?: string;
+  classNames?: string[];
 }) {
   const [state, formAction] = useActionState(finalizeAcademicSchedule, initialState);
   return (
@@ -43,6 +47,8 @@ export function AcademicScheduleFinalizeForm({
       <input type="hidden" name="termNumber" value={termNumber} />
       <input type="hidden" name="scheduleType" value={scheduleType} />
       <input type="hidden" name="basis" value="official" />
+      <input type="hidden" name="grade" value={grade??""} />
+      <input type="hidden" name="classNames" value={JSON.stringify(classNames??[])} />
       {replacingFinalizedVersion ? (
         <input
           required

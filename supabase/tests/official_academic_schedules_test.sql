@@ -1,12 +1,27 @@
 begin;
 
-select plan(21);
+select plan(24);
 
 select has_table('public','academic_schedule_snapshots','academic schedule snapshot table exists');
 select has_function(
   'public','finalize_academic_schedule_snapshot',
   array['uuid','integer','smallint','text','text','text','jsonb','jsonb','text','uuid'],
   'governed finalization RPC exists'
+);
+select has_column('public','academic_schedule_snapshots','scope_key','academic schedule snapshots have an immutable visible scope key');
+select has_function(
+  'public','finalize_academic_schedule_snapshot',
+  array['uuid','integer','smallint','text','text','text','jsonb','text','jsonb','text','uuid'],
+  'scoped governed finalization RPC exists'
+);
+select is(
+  has_function_privilege(
+    'service_role',
+    'public.finalize_academic_schedule_snapshot(uuid,integer,smallint,text,text,text,jsonb,text,jsonb,text,uuid)',
+    'EXECUTE'
+  ),
+  true,
+  'trusted server service role can finalize an explicit visible document scope'
 );
 
 select is(
