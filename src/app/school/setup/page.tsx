@@ -107,9 +107,7 @@ export default async function SchoolSetupPage() {
               <AcademicStructureForms
                 schoolId={membership.schoolId}
                 academicYear={academicYear}
-                grades={structure.grades}
-                rooms={rooms}
-                classes={structure.classes}
+                grades={structure.grades} rooms={rooms} classes={structure.classes}
               />
             </div>
 
