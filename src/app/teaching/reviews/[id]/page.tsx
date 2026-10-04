@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReviewDetail } from "@/features/teaching/components/review-detail";
 import { getReviewDetail, resolveReviewScope } from "@/features/teaching/server/review-queries";
@@ -27,10 +26,7 @@ export default async function ReviewDetailPage({ params }: { params: Promise<{ i
   return (
     <AppShell>
       <section className="pb-10">
-        <Link href="/teaching/reviews" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Preparation review
-        </Link>
+        <AppBackLink href="/teaching/reviews" label="Preparation review" className="mb-4" />
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Review submission</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">

@@ -9,14 +9,26 @@ const dynamicRoutes = [
   "src/app/learners/[id]/page.tsx",
   "src/app/teaching/reviews/[id]/page.tsx",
   "src/app/teaching/reviews/professional-files/[id]/page.tsx",
+  "src/features/teaching/curriculum-access-workspace.tsx",
 ];
 
-test("dynamic internal detail routes retain the shared back-arrow pattern", async () => {
+test("dynamic internal detail routes use the shared application back control", async () => {
   for (const route of dynamicRoutes) {
     const source = await read(route);
-    assert.match(source, /import \{[^}]*ArrowLeft/);
-    assert.match(source, /<Link href=(?:\{)?(?:"[^"]+"|`[^`]+`)(?:\})?[^>]*>[\s\S]*ArrowLeft/);
+    assert.match(source, /import \{ AppBackLink \} from "@\/components\/navigation\/app-back-link"/);
+    assert.match(source, /<AppBackLink href=/);
+    assert.doesNotMatch(source, /ArrowLeft/);
   }
+});
+
+test("official document pages reuse the application back control", async () => {
+  const [applicationControl, documentControl] = await Promise.all([
+    read("src/components/navigation/app-back-link.tsx"),
+    read("src/components/documents/document-back-link.tsx"),
+  ]);
+  assert.match(applicationControl, /scolapro-cta/);
+  assert.match(applicationControl, /ArrowLeft/);
+  assert.match(documentControl, /AppBackLink/);
 });
 
 test("the containment batch does not add global scroll hijacking", async () => {

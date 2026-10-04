@@ -178,7 +178,7 @@ export async function renderOfficialClassListPdf(
   const resources = await createOfficialDocumentPdfResources(pdf, input.header, input.logoBytes);
   const { regular, bold } = resources;
 
-  const documentColumns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
+  const documentColumns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 3);
   const columns = fitColumnWidths(documentColumns.map((column) => column.key));
   const tableWidth = columns.reduce((sum, width) => sum + width, 0);
   const documentX = MARGIN;

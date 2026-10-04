@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReviewQueue } from "@/features/teaching/components/review-queue";
 import { ProfessionalFileReviewQueue } from "@/features/teaching/components/professional-file-review-queue";
@@ -49,10 +49,7 @@ export default async function ReviewsPage() {
   return (
     <AppShell>
       <section className="pb-10">
-        <Link href="/teaching" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden="true" />
-          Teaching
-        </Link>
+        <AppBackLink href="/teaching" label="Teaching" className="mb-4" />
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Preparation review</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">

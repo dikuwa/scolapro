@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  ArrowLeft,
   BookOpenText,
   CircleAlert,
   ClipboardCheck,
@@ -12,6 +11,7 @@ import {
   Search,
   ShieldCheck,
 } from "lucide-react";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { Picker } from "@/components/ui/picker";
 import type {
   CurriculumAccessAllocation,
@@ -343,13 +343,7 @@ export function CurriculumAccessWorkspace({ data }: { data: CurriculumAccessData
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/teaching"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition hover:text-foreground"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        Teaching
-      </Link>
+      <AppBackLink href="/teaching" label="Teaching" />
 
       <div>
         <h1 className="scolapro-page-title">Curriculum & syllabus registry</h1>

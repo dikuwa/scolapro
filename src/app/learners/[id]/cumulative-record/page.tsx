@@ -1,6 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft, ArrowRightLeft, Brain, Building2, CalendarDays, FileText, GraduationCap, HeartPulse, MessageSquareText, Scale, ShieldCheck, UserRound } from "lucide-react";
+import { ArrowRightLeft, Brain, Building2, CalendarDays, FileText, GraduationCap, HeartPulse, MessageSquareText, Scale, ShieldCheck, UserRound } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { CrcRoutineContributionCard } from "@/features/crc/crc-routine-contribution-card";
 import { getMyCrcContributionContext } from "@/features/crc/server/custody";
@@ -41,7 +41,7 @@ export default async function LearnerCumulativeRecordPage({ params }: { params: 
     <AppShell>
       <div className="space-y-5">
         <div>
-          <Link href={`/learners/${id}`} className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground"><ArrowLeft className="size-4" aria-hidden="true" />Learner profile</Link>
+          <AppBackLink href={`/learners/${id}`} label="Learner profile" className="mb-4" />
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div><p className="text-xs font-medium text-brand-strong">Cumulative learner record</p><h1 className="scolapro-page-title mt-1 text-xl">{learner.name}</h1><p className="mt-1 text-sm text-muted-foreground">{learner.admissionNumber ?? "No admission number"} · {learner.grade} · {learner.registerClass}</p></div>
             <span className="inline-flex w-fit items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-[0.68rem] font-semibold text-muted-foreground"><ShieldCheck className="size-3.5" aria-hidden="true" />Role-scoped record</span>

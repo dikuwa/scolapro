@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarDays, Camera, FileText, GraduationCap, MapPin, UserRound } from "lucide-react";
+import { CalendarDays, Camera, FileText, GraduationCap, MapPin, UserRound } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { GuardianPanel } from "@/features/guardians/guardian-panel";
 import { getEffectiveLearnerGuardianContact, getLearnerGuardians, getReusableGuardians, type EffectiveGuardianContact, type LearnerGuardian, type ReusableGuardian } from "@/features/guardians/server/queries";
@@ -91,7 +92,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   return (
     <AppShell>
       <section>
-        <Link href="/learners" className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition duration-[var(--motion-fast)] hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" /> Learners</Link>
+        <AppBackLink href="/learners" label="Learners" className="mb-4" />
 
         <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">

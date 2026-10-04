@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 
 export default function NotFound() {
   return (
@@ -10,13 +9,7 @@ export default function NotFound() {
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
           The link may be outdated, or your role may not have access to this area.
         </p>
-        <Link
-          href="/"
-          className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-xl bg-surface-muted px-4 text-sm font-medium text-foreground transition duration-200 hover:bg-surface-subtle"
-        >
-          <ArrowLeft aria-hidden="true" className="size-4" />
-          Return to dashboard
-        </Link>
+        <AppBackLink href="/" label="Return to dashboard" className="mt-5" />
       </section>
     </main>
   );

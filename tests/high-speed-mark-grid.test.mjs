@@ -72,8 +72,8 @@ test("locked and review states are not ordinary-editable",()=>{
 
 
 test("marks entry keeps an explicit back path to Assessment",()=>{
-  assert.match(marksPage,/href="\/assessment"/);
-  assert.match(marksPage,/>Assessment<\/Link>/);
+  assert.match(marksPage,/import \{ AppBackLink \} from "@\/components\/navigation\/app-back-link"/);
+  assert.match(marksPage,/<AppBackLink href="\/assessment" label="Assessment"/);
 });
 
 

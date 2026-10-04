@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { AcademicAnalysisFilters } from "@/features/academics/components/academic-analysis-filters";
 import { AcademicAnalysisViews } from "@/features/academics/components/academic-analysis-views";
@@ -34,9 +34,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
   return (
     <AppShell>
       <div className="space-y-5">
-      <Link href="/assessment" className="scolapro-cta inline-flex items-center gap-2 text-sm text-muted-foreground">
-        <ArrowLeft className="scolapro-cta-icon size-4" aria-hidden="true" /> Assessment
-      </Link>
+      <AppBackLink href="/assessment" label="Assessment" />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="scolapro-page-title">Academic analysis</h1>

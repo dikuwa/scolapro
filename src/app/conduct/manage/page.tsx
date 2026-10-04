@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { ConductManagementDashboard } from "@/features/conduct/conduct-management-dashboard";
 import { getConductManagementView } from "@/features/conduct/server/management";
@@ -60,9 +59,7 @@ export default async function ConductManagementPage({
   return (
     <AppShell>
       <section>
-        <Link href="/conduct" className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden="true" /> Conduct
-        </Link>
+        <AppBackLink href="/conduct" label="Conduct" className="mb-4" />
         <div className="mb-6">
           <h1 className="scolapro-page-title">Conduct management</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">School-wide Recognition and Violation overview for leadership review.</p>

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight, LockKeyhole, PencilLine } from "lucide-react";
+import { ArrowUpRight, LockKeyhole, PencilLine } from "lucide-react";
 import { redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { getMarkGridQueue } from "@/features/assessment/server/mark-grid";
 
@@ -11,7 +12,7 @@ export default async function AssessmentMarksPage() {
   return (
     <AppShell>
       <section>
-        <Link href="/assessment" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" aria-hidden="true" />Assessment</Link>
+        <AppBackLink href="/assessment" label="Assessment" className="mb-4" />
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Marks entry</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">Open and returned assessments remain editable. Review, verified and locked assessments are available as read-only evidence.</p>

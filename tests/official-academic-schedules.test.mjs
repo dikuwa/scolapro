@@ -142,8 +142,10 @@ test("legacy issued snapshots normalize missing source-fidelity fields before pr
   assert.ok(server.includes("classIds=Array.isArray(raw.classIds)"));
   assert.ok(server.includes("scopeKey:typeof raw.scopeKey"));
   assert.ok(printPage.includes("(payload.classNames??[]).join"));
-  assert.ok(xlsx.includes("(payload.classNames??[]).join"));
-  assert.ok(xlsx.includes("payload.period??"));
+  assert.match(xlsx,/\(payload\.classNames\s*\?\?\s*\[\]\)\.join/);
+  assert.ok(xlsx.includes("payload.periodLabel"));
+  assert.ok(xlsx.includes("buildOfficialDocumentWorkbookSheet"));
+  assert.ok(xlsx.includes("finalizeOfficialDocumentWorkbook"));
 });
 
 test("legacy analytical schedule redirects preserve historical scope",()=>{

@@ -11,7 +11,7 @@ const inspection = readFileSync("src/app/api/teaching/subject-file/inspection-pa
 test("academic analysis stays inside the authenticated application shell", () => {
   assert.match(analysis, /import \{ AppShell \} from "@\/components\/shell\/app-shell";/);
   assert.match(analysis, /<AppShell>/);
-  assert.match(analysis, /<Link href="\/assessment"/);
+  assert.match(analysis, /<AppBackLink href="\/assessment" label="Assessment"/);
   assert.doesNotMatch(analysis, /<main className="scolapro-content-width mx-auto/);
 });
 
