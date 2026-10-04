@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(40);
 
 -- ==========================================================================
 -- Fixtures: tenant A with two schools, tenant B with one school.
@@ -90,7 +90,8 @@ values
   ('cd500000-0000-4000-8000-000000000001', 'cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000001', 2026, '8', 'Grade 8'),
   ('cd500000-0000-4000-8000-000000000002', 'cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000001', 2026, '12', 'Grade 12'),
   ('cd500000-0000-4000-8000-000000000003', 'cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000002', 2026, '1', 'Grade 1'),
-  ('cd500000-0000-4000-8000-000000000004', 'cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000002', 2026, '7', 'Grade 7');
+  ('cd500000-0000-4000-8000-000000000004', 'cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000002', 2026, '7', 'Grade 7'),
+  ('cd500000-0000-4000-8000-000000000005', 'cd1f1111-1111-4111-8111-111111111111', 'cd100000-0000-4000-8000-000000000002', 2026, 'G10', 'Grade G10');
 
 -- ==========================================================================
 -- R1: authenticated school A can find school B directory row
@@ -199,6 +200,36 @@ select is(
   (select grades_offered_display from public.search_school_directory() where school_id = 'cd100000-0000-4000-8000-000000000001'),
   '8–12',
   'grades offered display derives a truthful numeric range'
+);
+
+select is(
+  (select minimum_grade from public.search_school_directory() where school_id = 'cd100000-0000-4000-8000-000000000001'),
+  '8',
+  'numeric grade minimum uses numeric ordering'
+);
+
+select is(
+  (select maximum_grade from public.search_school_directory() where school_id = 'cd100000-0000-4000-8000-000000000001'),
+  '12',
+  'numeric grade maximum uses numeric ordering'
+);
+
+select is(
+  (select grades_offered_display from public.search_school_directory() where school_id = 'cd100000-0000-4000-8000-000000000002'),
+  '1, 7, G10',
+  'mixed alphanumeric grade codes use the deterministic nonnumeric display path without throwing'
+);
+
+select is(
+  (select minimum_grade from public.search_school_directory() where school_id = 'cd100000-0000-4000-8000-000000000002'),
+  '1',
+  'mixed alphanumeric minimum grade remains deterministic'
+);
+
+select is(
+  (select maximum_grade from public.search_school_directory() where school_id = 'cd100000-0000-4000-8000-000000000002'),
+  'G10',
+  'mixed alphanumeric maximum grade remains deterministic'
 );
 
 -- R5: the RPC surface itself carries no staff-identity parameters or output.
