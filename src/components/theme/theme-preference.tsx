@@ -220,7 +220,7 @@ export function ThemeMenu({
 
 export function PublicThemeMenu() {
   return (
-    <div className="scolapro-public-theme-launcher fixed right-4 top-4 z-[210] rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated shadow-[var(--shadow-sm)] sm:right-5 sm:top-5">
+    <div className="scolapro-public-theme-launcher fixed right-4 top-4 z-[210] rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated shadow-[var(--shadow-sm)] print:hidden sm:right-5 sm:top-5">
       <ThemeMenu variant="icon" />
     </div>
   );

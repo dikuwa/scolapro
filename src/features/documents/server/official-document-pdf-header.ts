@@ -5,6 +5,7 @@ import { join } from "node:path";
 import fontkit from "@pdf-lib/fontkit";
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
 import {
+  OFFICIAL_DOCUMENT_BACKDROP_OPACITY,
   OFFICIAL_DOCUMENT_BACKDROP_URL,
   OFFICIAL_DOCUMENT_PDF_GEOMETRY,
   officialDocumentPdfContentWidth,
@@ -335,7 +336,7 @@ export function drawOfficialDocumentPdfHeader(
       y: 0,
       width: PAGE_WIDTH,
       height: PAGE_HEIGHT,
-      opacity: 1,
+      opacity: OFFICIAL_DOCUMENT_BACKDROP_OPACITY,
     });
   }
 

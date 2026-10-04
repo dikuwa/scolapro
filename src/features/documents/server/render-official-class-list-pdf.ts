@@ -132,7 +132,6 @@ function preferredColumnWidth(key: string): number {
 function fitColumnWidths(keys: string[]): number[] {
   const preferred = keys.map(preferredColumnWidth);
   const total = preferred.reduce((sum, width) => sum + width, 0);
-  if (total <= CONTENT_WIDTH) return preferred;
   const scale = CONTENT_WIDTH / total;
   return preferred.map((width) => width * scale);
 }
@@ -182,7 +181,7 @@ export async function renderOfficialClassListPdf(
   const documentColumns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
   const columns = fitColumnWidths(documentColumns.map((column) => column.key));
   const tableWidth = columns.reduce((sum, width) => sum + width, 0);
-  const documentX = Math.max(MARGIN, (PAGE_WIDTH - tableWidth) / 2);
+  const documentX = MARGIN;
   const availableRowsHeight = PAGE_HEIGHT - MARGIN * 2 - CLASS_LIST_HEADER_RESERVE - TABLE_HEADER_HEIGHT - FOOTER_RESERVE;
   const rowHeight = documentColumns.some((column) => column.key === "guardianAddress") ? 22 : ROW_HEIGHT;
   const rowsPerPage = Math.max(1, Math.floor(availableRowsHeight / rowHeight));

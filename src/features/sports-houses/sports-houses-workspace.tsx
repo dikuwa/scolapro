@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, LockKeyhole, Pencil, Plus, ShieldCheck, User
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { AssistedBalancingPanel } from "@/features/sports-houses/assisted-balancing-panel";
 import { Picker } from "@/components/ui/picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -310,6 +311,7 @@ export function SportsHousesWorkspace({
   const [exportHouseIds, setExportHouseIds] = useState<string[]>([]);
   const [exportContent, setExportContent] = useState("combined");
   const [exportGroup, setExportGroup] = useState("none");
+  const [exportBlankColumns, setExportBlankColumns] = useState("3");
 
   const uniqueOptions = (values: Array<string | null>) =>
     [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
@@ -346,6 +348,7 @@ export function SportsHousesWorkspace({
     houses: exportSelection.join(","),
     content: exportContent,
     groupBy: exportGroup,
+    blankColumns: exportBlankColumns,
   }).toString();
 
   return (
@@ -407,9 +410,12 @@ export function SportsHousesWorkspace({
                   <p className="mt-1 text-[0.68rem] text-muted-foreground">Display order {house.sortOrder} · Created {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(house.createdAt))}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button type="button" variant="neutral" size="sm" onClick={() => setRosterHouseId(rosterHouseId === house.id ? null : house.id)}>Open roster</Button>
-                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=html`} target="_blank" rel="noreferrer">Preview</a>
-                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=pdf`}>PDF</a>
-                    <a className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.68rem] font-semibold" href={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&format=xlsx`}>Excel</a>
+                    <OfficialDocumentActions
+                      previewHref={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&blankColumns=3&format=pdf&preview=1`}
+                      downloadHref={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&blankColumns=3&format=pdf`}
+                      spreadsheetHref={`/api/official-documents/sports-house-roster?school=${schoolId}&year=${academicYear}&houses=${house.id}&blankColumns=3&format=xlsx`}
+                      compact
+                    />
                   </div>
                 </div>
                 {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingHouseId(editing ? null : house.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
@@ -471,11 +477,12 @@ export function SportsHousesWorkspace({
       </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="scolapro-section-title">House roster exports</h2><p className="scolapro-section-description">Choose one or multiple houses; leave empty to export all active houses.</p></div><div className="flex flex-wrap gap-2"><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=html`} target="_blank" rel="noreferrer">Preview</a><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf`}>Print / PDF</a><a className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong" href={`/api/official-documents/sports-house-roster?${exportQuery}&format=xlsx`}>Excel</a></div></div>
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="scolapro-section-title">House roster exports</h2><p className="scolapro-section-description">Choose one or multiple houses; leave empty to export all active houses.</p></div><OfficialDocumentActions previewHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf&preview=1`} downloadHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf`} spreadsheetHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=xlsx`} /></div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SearchableSelect label="Houses" value="" options={activeHouses.map((house) => ({ value: house.id, label: house.name }))} placeholder="All active houses" searchPlaceholder="Search houses" multiple selectedValues={exportHouseIds} onToggle={(id) => setExportHouseIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current,id])} />
           <Picker label="Include" placeholder="Choose content" value={exportContent} onChange={setExportContent} options={[{ value: "combined", label: "Learners + staff" },{ value: "learners", label: "Learners only" },{ value: "staff", label: "Staff only" }]} />
           <Picker label="Group learners by" placeholder="Choose grouping" value={exportGroup} onChange={setExportGroup} options={[{ value: "none", label: "No grouping" },{ value: "age_group", label: "Age group" },{ value: "sex", label: "Sex" },{ value: "grade", label: "Grade" },{ value: "class", label: "Register class" }]} />
+          <Picker label="Blank columns" placeholder="Choose blank columns" value={exportBlankColumns} onChange={setExportBlankColumns} options={Array.from({ length: 7 }, (_, index) => ({ value: String(index), label: index === 0 ? "None" : `${index} blank column${index === 1 ? "" : "s"}` }))} />
         </div>
       </section>
 

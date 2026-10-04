@@ -1,5 +1,6 @@
 import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
+import { loadOfficialDocumentLogoBytes } from "@/features/documents/server/official-document-logo-bytes";
 import {
   renderSportsHouseRosterHtml,
   renderSportsHouseRosterPdf,
@@ -47,6 +48,10 @@ export async function GET(request: Request) {
   const content: SportsHouseRosterDocumentInput["content"] = url.searchParams.get("content")==="learners" ? "learners" : url.searchParams.get("content")==="staff" ? "staff" : "combined";
   const groupByRaw = url.searchParams.get("groupBy");
   const groupBy: SportsHouseRosterDocumentInput["groupBy"] = ["age_group","sex","grade","class"].includes(groupByRaw ?? "") ? groupByRaw as "age_group"|"sex"|"grade"|"class" : "none";
+  const requestedBlankColumns = Number(url.searchParams.get("blankColumns") ?? 3);
+  const blankColumns = Number.isInteger(requestedBlankColumns)
+    ? Math.min(6, Math.max(0, requestedBlankColumns))
+    : 3;
 
   try {
     const workspace = await getSportsHousesWorkspace(schoolId,academicYear);
@@ -64,6 +69,7 @@ export async function GET(request: Request) {
       generatedAt,
       content,
       groupBy,
+      blankColumns,
       sections: selectedHouses.map((house)=>({
         house,
         learners: workspace.learners.filter((learner)=>learner.houseId===house.id),
@@ -73,7 +79,8 @@ export async function GET(request: Request) {
     const fileBase=safeFilePart(`sports-house-rosters-${academicYear}-${selectedHouses.length}`);
 
     if(format==="xlsx"){
-      const bytes=renderSportsHouseRosterXlsx(input);
+      const logoBytes=await loadOfficialDocumentLogoBytes(header.logoStoragePath,header.logoUrl);
+      const bytes=renderSportsHouseRosterXlsx(input,logoBytes);
       return new Response(Uint8Array.from(bytes),{status:200,headers:{
         "Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition":`attachment; filename="${fileBase}.xlsx"`,

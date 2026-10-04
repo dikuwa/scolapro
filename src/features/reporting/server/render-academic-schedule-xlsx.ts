@@ -2,6 +2,7 @@ import "server-only";
 
 import * as XLSX from "xlsx";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { academicScheduleColumnWidth } from "@/features/reporting/academic-schedule-column-layout";
 import type { AcademicSchedulePayload } from "@/features/reporting/server/academic-schedules";
 
 export type AcademicScheduleIssuedLifecycle = {
@@ -56,7 +57,8 @@ export function renderAcademicScheduleXlsx(
   }else{
     XLSX.utils.sheet_add_aoa(sheet,[["Name","Signature","Date","School Stamp"],["* Adjustment","_ Mark below governed pass mark"]],{origin:"A"+nextRow});
   }
-  sheet["!cols"] = payload.columns.map((column) => ({wch:Math.min(32,Math.max(12,column.length+2))}));
+  const subjectNames=(payload.subjects??[]).map((subject)=>subject.name);
+  sheet["!cols"] = payload.columns.map((column) => ({wch:academicScheduleColumnWidth(column,subjectNames)}));
   const workbook=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook,sheet,payload.title.slice(0,31));
   return Buffer.from(XLSX.write(workbook,{type:"buffer",bookType:"xlsx",compression:true}));

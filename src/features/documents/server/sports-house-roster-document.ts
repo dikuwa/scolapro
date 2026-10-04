@@ -20,6 +20,7 @@ import {
   renderOfficialDocumentHtmlHeader,
 } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { applyOfficialDocumentXlsxChrome } from "@/features/documents/server/render-official-class-list-xlsx";
 import type { SportsHouse, SportsLearner, SportsStaff } from "@/features/sports-houses/server/queries";
 
 export type SportsHouseRosterSection = {
@@ -36,7 +37,12 @@ export type SportsHouseRosterDocumentInput = {
   generatedAt: string;
   content: "learners" | "staff" | "combined";
   groupBy: "none" | "age_group" | "sex" | "grade" | "class";
+  blankColumns: number;
 };
+
+function blankColumnLabels(count: number) {
+  return Array.from({ length: count }, () => "");
+}
 
 function sexLabel(value: string | null) {
   const v = value?.trim().toLowerCase();
@@ -76,18 +82,20 @@ function safeSheetName(value: string, used: Set<string>) {
 }
 
 export function renderSportsHouseRosterHtml(input: SportsHouseRosterDocumentInput): string {
+  const blankHeaders = blankColumnLabels(input.blankColumns).map(() => "<th></th>").join("");
+  const blankCells = blankColumnLabels(input.blankColumns).map(() => "<td></td>").join("");
   const sectionMarkup = input.sections.map(({ house, learners, staff }) => {
     const leaders = staff.filter((person) => person.roleKey === "leader").map((person) => person.name);
     let learnerIndex = 0;
     const learnerRows = groupedLearners(learners,input.groupBy).map((group) =>
-      `${group.label ? `<tr class="group-row"><td colspan="9">${escapeOfficialDocumentHtml(group.label)}</td></tr>` : ""}${group.rows.map((learner) => {
+      `${group.label ? `<tr class="group-row"><td colspan="${9 + input.blankColumns}">${escapeOfficialDocumentHtml(group.label)}</td></tr>` : ""}${group.rows.map((learner) => {
         learnerIndex += 1;
         return `<tr>
       <td>${learnerIndex}</td><td>${escapeOfficialDocumentHtml(learner.name)}</td>
       <td>${escapeOfficialDocumentHtml(learner.gradeName)}</td><td>${escapeOfficialDocumentHtml(learner.registerClassName)}</td>
       <td>${escapeOfficialDocumentHtml(sexLabel(learner.sex))}</td><td>${escapeOfficialDocumentHtml(learner.ageOnReferenceDate)}</td>
       <td>${escapeOfficialDocumentHtml(learner.ageGroupLabel ?? "Unresolved")}</td>
-      <td>${escapeOfficialDocumentHtml(learner.assignmentSource)}</td><td>${learner.isLocked ? "Locked" : "Unlocked"}</td>
+      <td>${escapeOfficialDocumentHtml(learner.assignmentSource)}</td><td>${learner.isLocked ? "Locked" : "Unlocked"}</td>${blankCells}
     </tr>`;
       }).join("")}`
     ).join("");
@@ -95,7 +103,7 @@ export function renderSportsHouseRosterHtml(input: SportsHouseRosterDocumentInpu
     return `<section class="house-block">
       <h2>${escapeOfficialDocumentHtml(house.name)}</h2>
       <p class="house-summary">Leader: ${escapeOfficialDocumentHtml(leaders.join(", ") || "Not assigned")} · ${learners.length} learners · ${staff.length} staff</p>
-      ${input.content !== "staff" ? `<table><thead><tr><th>No.</th><th>Learner</th><th>Grade</th><th>Class</th><th>Sex</th><th>Age</th><th>Age group</th><th>Source</th><th>Lock</th></tr></thead><tbody>${learnerRows || '<tr><td colspan="9">No learners assigned.</td></tr>'}</tbody></table>` : ""}
+      ${input.content !== "staff" ? `<table><thead><tr><th>No.</th><th>Learner</th><th>Grade</th><th>Class</th><th>Sex</th><th>Age</th><th>Age group</th><th>Source</th><th>Lock</th>${blankHeaders}</tr></thead><tbody>${learnerRows || `<tr><td colspan="${9 + input.blankColumns}">No learners assigned.</td></tr>`}</tbody></table>` : ""}
       ${input.content !== "learners" ? `<h3>Staff</h3><table><thead><tr><th>Staff member</th><th>Employee No.</th><th>Role</th><th>Source</th><th>Lock</th></tr></thead><tbody>${staffRows || '<tr><td colspan="5">No staff assigned.</td></tr>'}</tbody></table>` : ""}
     </section>`;
   }).join("");
@@ -118,46 +126,74 @@ ${sectionMarkup}
 </main></body></html>`;
 }
 
-export function renderSportsHouseRosterXlsx(input: SportsHouseRosterDocumentInput): Buffer {
+export function renderSportsHouseRosterXlsx(input: SportsHouseRosterDocumentInput, logoBytes: Uint8Array | null = null): Buffer {
   const workbook = XLSX.utils.book_new();
   const used = new Set<string>();
+  const chromeSheets: Array<{ tableHeaderRow: number; dataRowCount: number; columnCount: number; metaStartColumn: number }> = [];
   for (const { house, learners, staff } of input.sections) {
     const leaders = staff.filter((person) => person.roleKey === "leader").map((person) => person.name).join(", ") || "Not assigned";
+    const baseLearnerHeaders = ["No.","Learner","Admission No.","Grade","Register Class","Sex","Age","Age Group","Source","Lock"];
+    const learnerHeaders = [...baseLearnerHeaders, ...blankColumnLabels(input.blankColumns)];
+    const staffHeaders = ["Staff member","Employee No.","Role","Source","Lock"];
+    const columnCount = Math.max(input.content === "staff" ? staffHeaders.length : learnerHeaders.length, 6);
+    const metaStartColumn = Math.max(3, Math.floor(columnCount * 0.58));
+    const blankRow = () => Array.from({ length: columnCount }, () => "");
     const rows: Array<Array<string | number>> = [
-      [input.header.schoolName],
-      [`${house.name}: House Roster`],
-      [`Academic year: ${input.academicYear}`],
-      [`Leader: ${leaders}`],
-      [`Learners: ${learners.length} · Staff: ${staff.length}`],
-      [],
+      blankRow(), blankRow(), blankRow(), blankRow(), blankRow(), blankRow(),
       ...(input.content !== "staff" ? [
-        ["No.","Learner","Admission No.","Grade","Register Class","Sex","Age","Age Group","Source","Lock"],
+        learnerHeaders,
         ...groupedLearners(learners,input.groupBy).flatMap((group) => [
           ...(group.label ? [[group.label]] : []),
-          ...group.rows.map((learner,index) => [index+1,learner.name,learner.admissionNumber ?? "",learner.gradeName ?? "",learner.registerClassName ?? "",sexLabel(learner.sex),learner.ageOnReferenceDate ?? "",learner.ageGroupLabel ?? "Unresolved",learner.assignmentSource ?? "",learner.isLocked ? "Locked" : "Unlocked"]),
+          ...group.rows.map((learner,index) => [index+1,learner.name,learner.admissionNumber ?? "",learner.gradeName ?? "",learner.registerClassName ?? "",sexLabel(learner.sex),learner.ageOnReferenceDate ?? "",learner.ageGroupLabel ?? "Unresolved",learner.assignmentSource ?? "",learner.isLocked ? "Locked" : "Unlocked", ...blankColumnLabels(input.blankColumns)]),
         ]),
       ] : []),
       ...(input.content === "combined" ? [[]] : []),
       ...(input.content !== "learners" ? [
-        ["Staff member","Employee No.","Role","Source","Lock"],
+        staffHeaders,
         ...staff.map((person) => [person.name,person.employeeNumber ?? "",person.roleKey === "leader" ? "House leader" : "Member",person.assignmentSource ?? "",person.isLocked ? "Locked" : "Unlocked"]),
       ] : []),
     ];
+    rows[0][1] = input.header.schoolName;
+    rows[1][1] = input.header.formerName ? `(${input.header.formerName})` : "";
+    rows[2][1] = input.header.contactLines.find((line) => line.key === "address")?.text ?? "";
+    rows[3][1] = input.header.contactLines.filter((line) => line.key === "telephone" || line.key === "fax").map((line) => line.text).join("   ");
+    rows[4][1] = input.header.contactLines.find((line) => line.key === "email")?.text ?? "";
+    rows[5][1] = `Leader: ${leaders}`;
+    rows[0][metaStartColumn] = `${house.name}: House Roster`;
+    rows[1][metaStartColumn] = `Academic year ${input.academicYear}`;
+    rows[2][metaStartColumn] = `${learners.length} learners · ${staff.length} staff`;
     const sheet = XLSX.utils.aoa_to_sheet(rows);
-    sheet["!cols"] = [{wch:6},{wch:28},{wch:16},{wch:14},{wch:16},{wch:8},{wch:8},{wch:13},{wch:14},{wch:10}];
+    const lastColumn = XLSX.utils.encode_col(columnCount - 1);
+    const leftEnd = XLSX.utils.encode_col(Math.max(1, metaStartColumn - 1));
+    const metaColumn = XLSX.utils.encode_col(metaStartColumn);
+    sheet["!merges"] = [
+      ...Array.from({ length: 6 }, (_, index) => XLSX.utils.decode_range(`B${index + 1}:${leftEnd}${index + 1}`)),
+      ...Array.from({ length: 3 }, (_, index) => XLSX.utils.decode_range(`${metaColumn}${index + 1}:${lastColumn}${index + 1}`)),
+    ];
+    sheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({ wch: [6,28,16,14,16,8,8,13,14,10][index] ?? 14 }));
+    sheet["!rows"] = [{ hpt:22 },{ hpt:9 },{ hpt:9 },{ hpt:9 },{ hpt:9 },{ hpt:11 },{ hpt:21 },...rows.slice(7).map(() => ({ hpt:18 }))];
+    sheet["!margins"] = { left:0.25,right:0.25,top:0.25,bottom:0.35,header:0.1,footer:0.1 };
+    (sheet as XLSX.WorkSheet & { "!pageSetup"?: Record<string, unknown> })["!pageSetup"] = { orientation:"landscape",fitToWidth:1,fitToHeight:0,paperSize:9 };
     XLSX.utils.book_append_sheet(workbook,sheet,safeSheetName(house.name,used));
+    chromeSheets.push({ tableHeaderRow:7,dataRowCount:Math.max(0,rows.length-7),columnCount,metaStartColumn });
   }
-  return Buffer.from(XLSX.write(workbook,{type:"buffer",bookType:"xlsx",compression:true}));
+  const base = Buffer.from(XLSX.write(workbook,{type:"buffer",bookType:"xlsx",compression:true,cellStyles:true}));
+  return applyOfficialDocumentXlsxChrome(base,input.header,logoBytes,chromeSheets);
 }
 
 export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumentInput): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const resources = await createOfficialDocumentPdfResources(pdf,input.header);
   const { pageWidth, pageHeight, margin } = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
-  const columns = [
+  const preferredColumns = [
     ["No.",24],["Learner",120],["Grade",50],["Class",48],["Sex",28],["Age",28],["Age group",55],["Source",60],["Lock",48],
+    ...Array.from({ length: input.blankColumns }, () => ["", 62] as const),
   ] as const;
-  const tableWidth = columns.reduce((sum,entry)=>sum+entry[1],0);
+  const preferredWidth = preferredColumns.reduce((sum,entry)=>sum+entry[1],0);
+  const availableWidth = pageWidth - margin * 2;
+  const widthScale = availableWidth / preferredWidth;
+  const columns = preferredColumns.map(([label, width]) => [label, width * widthScale] as const);
+  const tableWidth = availableWidth;
   const drawSection = (section: SportsHouseRosterSection) => {
     let page = pdf.addPage([pageWidth,pageHeight]);
     let y = drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:`${section.learners.length} learners · ${section.staff.length} staff`}});
@@ -176,7 +212,7 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
     if (input.content !== "staff") for(let i=0;i<section.learners.length;i+=1){
       if(y<margin+80){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:"Continued"}})-16;headerRow();}
       const learner=section.learners[i];
-      const values=[String(i+1),learner.name,learner.gradeName??"",learner.registerClassName??"",sexLabel(learner.sex),learner.ageOnReferenceDate===null?"":String(learner.ageOnReferenceDate),learner.ageGroupLabel??"Unresolved",learner.assignmentSource??"",learner.isLocked?"Locked":"Unlocked"];
+      const values=[String(i+1),learner.name,learner.gradeName??"",learner.registerClassName??"",sexLabel(learner.sex),learner.ageOnReferenceDate===null?"":String(learner.ageOnReferenceDate),learner.ageGroupLabel??"Unresolved",learner.assignmentSource??"",learner.isLocked?"Locked":"Unlocked",...blankColumnLabels(input.blankColumns)];
       let x=margin;
       columns.forEach(([,width],ci)=>{page.drawRectangle({x,y:y-rowHeight+3,width,height:rowHeight,borderWidth:.4,borderColor:rgb(.45,.45,.45)});page.drawText(fitOfficialDocumentPdfText(regular,values[ci],5.2,width-4),{x:x+2,y:y-7,size:5.2,font:regular});x+=width;});
       y-=rowHeight;

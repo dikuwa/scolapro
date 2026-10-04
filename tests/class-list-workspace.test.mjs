@@ -143,7 +143,7 @@ test("official class-list columns place admission before learner and abbreviate 
 
 
 test("class-list exports use the universal internal header across print, PDF and Excel", () => {
-  assert.match(route, /loadClassListLogoBytes/);
+  assert.match(route, /loadOfficialDocumentLogoBytes/);
   assert.match(route, /renderClassListXlsx\(batch\.lists\[0\], header, logoBytes\)/);
 
   assert.match(html, /renderOfficialDocumentHtmlHeader/);
@@ -243,8 +243,9 @@ test("guardian address is permission-gated and available as one compact optional
   assert.match(workspace, /guardianAddress/);
 });
 
-test("compact PDF class-list content is horizontally centered on A4", () => {
-  assert.match(pdf, /const documentX = Math\.max\(MARGIN, \(PAGE_WIDTH - tableWidth\) \/ 2\)/);
+test("PDF class-list content fills the usable A4 width", () => {
+  assert.match(pdf, /const scale = CONTENT_WIDTH \/ total/);
+  assert.match(pdf, /const documentX = MARGIN/);
   assert.match(pdf, /drawClassListHeader\(page, input, resources, tableWidth, documentX\)/);
   assert.match(pdf, /drawTableHeader\([^\n]*documentX\)/);
   assert.match(pdf, /drawRow\([^\n]*documentX, rowHeight\)/);
