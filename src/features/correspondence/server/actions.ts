@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 import { CORRESPONDENCE_TEMPLATES, templateContent } from "@/features/correspondence/templates";
 import { validateCorrespondenceBody } from "@/features/correspondence/rich-text";
@@ -93,7 +94,7 @@ export async function finalizeCorrespondenceDocument(documentId: string): Promis
   if (!parsedId.success) return { success: false, message: "This document reference is invalid." };
   const db = await createSupabaseServerClient();
   const [header, schoolResult] = await Promise.all([
-    getLiveSchoolDocumentHeader(manager.membership.schoolId, "external_correspondence"),
+    getLiveSchoolDocumentHeader(manager.membership.schoolId, officialDocumentHeaderModeForType("external_correspondence")),
     db.from("schools").select("id,tenant_id,name,emis_number,town,status").eq("id", manager.membership.schoolId).single(),
   ]);
   if (schoolResult.error || !schoolResult.data) return { success: false, message: "School identity could not be frozen." };
