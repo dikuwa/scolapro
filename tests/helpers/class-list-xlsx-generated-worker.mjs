@@ -138,6 +138,40 @@ function assertRelationshipTargetsExist(bytes) {
   return paths;
 }
 
+function schoolNameFontName(bytes, sheetNumber = 1) {
+  const CFB = XLSX.CFB ?? XLSX.default?.CFB;
+  assert.ok(CFB, "SheetJS CFB package reader is required");
+  const cfb = CFB.read(Buffer.from(bytes), { type: "buffer" });
+
+  const readPart = (packagePath) => {
+    const found = CFB.find(cfb, packagePath) ?? CFB.find(cfb, "/" + packagePath);
+    assert.ok(found?.content, packagePath + " should be readable");
+    return Buffer.from(found.content).toString("utf8");
+  };
+
+  const sheetXml = readPart(`xl/worksheets/sheet${sheetNumber}.xml`);
+  const b1 = sheetXml.match(/<c\b(?=[^>]*\br="B1")(?=[^>]*\bs="(\d+)")[^>]*>/);
+  assert.ok(b1, "B1 should carry an explicit governed style");
+  const styleId = Number(b1[1]);
+
+  const stylesXml = readPart("xl/styles.xml");
+  const cellXfs = stylesXml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/);
+  assert.ok(cellXfs, "cellXfs should exist");
+  const styles = [...cellXfs[1].matchAll(/<xf\b([^>]*)>/g)];
+  assert.ok(styles[styleId], "B1 style should resolve");
+  const fontIdMatch = styles[styleId][1].match(/\bfontId="(\d+)"/);
+  assert.ok(fontIdMatch, "B1 style should reference a font");
+  const fontId = Number(fontIdMatch[1]);
+
+  const fontsBlock = stylesXml.match(/<fonts\b[^>]*>([\s\S]*?)<\/fonts>/);
+  assert.ok(fontsBlock, "fonts should exist");
+  const fonts = [...fontsBlock[1].matchAll(/<font>([\s\S]*?)<\/font>/g)];
+  assert.ok(fonts[fontId], "B1 font should resolve");
+  const fontName = fonts[fontId][1].match(/<name\s+val="([^"]+)"\s*\/>/);
+  assert.ok(fontName, "B1 font should expose a family name");
+  return fontName[1];
+}
+
 function assertWorkbook(bytes, expectedSheets) {
   const workbook = XLSX.read(Buffer.from(bytes), { type: "buffer", cellStyles: true });
   assert.equal(workbook.SheetNames.length, expectedSheets);
@@ -154,6 +188,7 @@ const logoBytes = new Uint8Array(await import("node:fs/promises").then(({ readFi
 ));
 const single = renderClassListXlsx(input("10A"), header, logoBytes);
 assertWorkbook(single, 1);
+assert.equal(schoolNameFontName(single), "Old English Text MT");
 assertWorksheetCellAttributesAreUnique(single);
 assertNoDuplicateXmlAttributes(single);
 const singlePaths = assertRelationshipTargetsExist(single);
@@ -162,6 +197,8 @@ assert.ok(singlePaths.has("xl/media/class-list-logo.png"));
 
 const batch = renderClassListBatchXlsx([input("10A"), input("10B", 10)], header, logoBytes);
 assertWorkbook(batch, 2);
+assert.equal(schoolNameFontName(batch, 1), "Old English Text MT");
+assert.equal(schoolNameFontName(batch, 2), "Old English Text MT");
 assertWorksheetCellAttributesAreUnique(batch);
 assertNoDuplicateXmlAttributes(batch);
 const batchPaths = assertRelationshipTargetsExist(batch);
@@ -188,6 +225,7 @@ const sportsSheet = sportsWorkbook.Sheets[sportsWorkbook.SheetNames[0]];
 assert.equal(sportsSheet.B1.v,header.schoolName);
 assert.equal(sportsSheet.A7.v,"No.");
 assert.equal(sportsSheet["!cols"].length,13);
+assert.equal(schoolNameFontName(sports), "Old English Text MT");
 assertWorksheetCellAttributesAreUnique(sports);
 assertNoDuplicateXmlAttributes(sports);
 const sportsPaths = assertRelationshipTargetsExist(sports);
@@ -219,10 +257,19 @@ const scheduleWorkbook = XLSX.read(schedule, { type: "buffer", cellStyles: true 
 const scheduleSheet = scheduleWorkbook.Sheets[scheduleWorkbook.SheetNames[0]];
 assert.equal(scheduleSheet.B1.v, header.schoolName);
 assert.equal(scheduleSheet.A7.v, "No.");
+assert.equal(schoolNameFontName(schedule), "Old English Text MT");
 assertWorksheetCellAttributesAreUnique(schedule);
 assertNoDuplicateXmlAttributes(schedule);
 const schedulePaths = assertRelationshipTargetsExist(schedule);
 assert.ok(schedulePaths.has("xl/drawings/drawing1.xml"));
+
+const defaultHeader = { ...header, schoolNameFont: "default" };
+const defaultSingle = renderClassListXlsx(input("10C", 20), defaultHeader, logoBytes);
+assertWorkbook(defaultSingle, 1);
+assert.equal(schoolNameFontName(defaultSingle), "Aptos Display");
+assertWorksheetCellAttributesAreUnique(defaultSingle);
+assertNoDuplicateXmlAttributes(defaultSingle);
+assertRelationshipTargetsExist(defaultSingle);
 
 if (process.env.SCOLAPRO_XLSX_OUTPUT_DIR) {
   await mkdir(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, { recursive: true });
