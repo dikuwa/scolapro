@@ -1,5 +1,5 @@
 import { Buffer } from "node:buffer";
-import { buildOfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialDocumentVerificationQrSvg } from "@/features/documents/server/official-document-verification";
 import { renderVerifiedRoomInventoryHtml } from "@/features/room-inventory/server/render-verified-sheet-html";
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
     const header = buildOfficialDocumentHeaderModel(profile, {
-      mode: "internal_school",
+      mode: officialDocumentHeaderModeForType("room_inventory"),
       provenanceSource: "live_school_profile",
     });
     const origin = url.origin;
