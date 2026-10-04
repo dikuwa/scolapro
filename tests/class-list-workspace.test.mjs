@@ -8,6 +8,7 @@ const route = source("src/app/api/official-documents/class-list/route.ts");
 const html = source("src/features/documents/server/render-official-class-list-html.ts");
 const pdf = source("src/features/documents/server/render-official-class-list-pdf.ts");
 const xlsx = source("src/features/documents/server/render-official-class-list-xlsx.ts");
+const xlsxChrome = source("src/features/documents/server/official-document-xlsx-chrome.ts");
 const workspace = source("src/features/learners/class-list-workspace.tsx");
 const documentActions = source("src/features/learners/class-list-document-actions.tsx");
 const learnerDirectory = source("src/features/learners/learner-directory.tsx");
@@ -157,12 +158,12 @@ test("class-list exports use the universal internal header across print, PDF and
   assert.match(pdf, /Responsible teacher:/);
   assert.match(pdf, /Room:/);
 
-  assert.match(xlsx, /embedLogoAndStyles/);
-  assert.match(xlsx, /class-list-logo/);
-  assert.match(xlsx, /School crest/);
-  assert.match(xlsx, /readImageDimensions/);
-  assert.match(xlsx, /xdr:oneCellAnchor/);
-  assert.doesNotMatch(xlsx, /xdr:twoCellAnchor/);
+  assert.match(xlsx, /applyOfficialDocumentXlsxChrome/);
+  assert.match(xlsxChrome, /class-list-logo/);
+  assert.match(xlsxChrome, /School crest/);
+  assert.match(xlsxChrome, /readImageDimensions/);
+  assert.match(xlsxChrome, /xdr:oneCellAnchor/);
+  assert.doesNotMatch(xlsxChrome, /xdr:twoCellAnchor/);
   assert.match(xlsx, /rows\[0\]\[1\] = header\.schoolName/);
   assert.match(xlsx, /contact\.get\("address"\)/);
   assert.match(xlsx, /contact\.get\("telephone"\)/);
@@ -229,7 +230,7 @@ test("batch exports stay single-request and preserve document boundaries", () =>
   assert.match(route, /renderClassListBatchXlsx/);
   assert.match(xlsx, /renderClassListBatchXlsx/);
   assert.match(xlsx, /safeWorksheetName/);
-  assert.match(xlsx, /index \+ 1/);
+  assert.match(xlsxChrome, /sheetNumber: sheet\.sheetNumber \?\? index \+ 1/);
   assert.match(documentActions, /batch \? "Print all" : "Preview \/ Print"/);
 });
 
@@ -319,21 +320,21 @@ test("guardian postal address prefers parent priority order and stays mail-merge
   assert.match(resolver, /const place = \(item\.town_or_city \|\| item\.suburb_or_locality \|\| ""\)\.trim\(\)/);
   assert.match(resolver, /const codeCountry = \[item\.postal_code\?\.trim\(\), item\.country\?\.trim\(\)\]/);
   assert.match(resolver, /join\("\\n"\)/);
-  assert.match(xlsx, /wrapText="1"/);
+  assert.match(xlsxChrome, /wrapText="1"/);
   assert.match(xlsx, /addressSelected \? 42 : 18/);
 });
 
 
 test("Class List Excel keeps compact header geometry and bold contact labels", () => {
-  assert.match(xlsx, /showGridLines="0"/);
-  assert.match(xlsx, /targetHeightEmu = 700000/);
-  assert.match(xlsx, /setCellRichText/);
-  assert.match(xlsx, /address\.label \+ ":", bold: true/);
-  assert.match(xlsx, /telephone\.label \+ ":", bold: true/);
-  assert.match(xlsx, /fax\.label \+ ":", bold: true/);
-  assert.match(xlsx, /email\.label \+ ":", bold: true/);
-  assert.match(xlsx, /t="inlineStr"/);
-  assert.match(xlsx, /<b\/>/);
+  assert.match(xlsxChrome, /showGridLines="0"/);
+  assert.match(xlsxChrome, /targetHeightEmu = 700000/);
+  assert.match(xlsxChrome, /setCellRichText/);
+  assert.match(xlsxChrome, /address\.label \+ ":", bold: true/);
+  assert.match(xlsxChrome, /telephone\.label \+ ":", bold: true/);
+  assert.match(xlsxChrome, /fax\.label \+ ":", bold: true/);
+  assert.match(xlsxChrome, /email\.label \+ ":", bold: true/);
+  assert.match(xlsxChrome, /t="inlineStr"/);
+  assert.match(xlsxChrome, /<b\/>/);
   assert.match(xlsx, /\{ hpt: 22 \}/);
   assert.match(xlsx, /\{ hpt: 9 \}/);
   assert.match(xlsx, /\{ hpt: 11 \}/);
