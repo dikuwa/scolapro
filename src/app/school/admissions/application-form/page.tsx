@@ -1,5 +1,8 @@
+import Link from "next/link";
+import { FileText } from "lucide-react";
 import { redirect } from "next/navigation";
-import { PrintApplicationButton } from "@/features/admissions/print-application-button";
+import { AppShell } from "@/components/shell/app-shell";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
@@ -8,35 +11,64 @@ const managerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 export default async function BlankAdmissionApplicationPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login");
-  const membership = context.memberships.find((item) => managerRoles.has(item.roleKey));
-  if (!membership) redirect("/");
+  const membership = context.currentSchoolMembership;
+  if (!membership || !managerRoles.has(membership.roleKey)) redirect("/");
+
+  const academicYear = getNamibiaCalendarYear();
+  const pdfHref = `/api/official-documents/admission-application?year=${academicYear}&format=pdf`;
+  const previewHref = `${pdfHref}&preview=1`;
 
   return (
-    <main className="mx-auto min-h-screen max-w-[210mm] bg-white p-8 text-black print:p-0">
-      <div className="mb-5 flex items-start justify-between gap-4 print:hidden"><a href="/school/admissions" className="text-sm font-semibold text-black">← Admissions</a><PrintApplicationButton /></div>
-      <header className="border-b-2 border-black pb-3 text-center">
-        <h1 className="text-xl font-bold">{membership.schoolName}</h1>
-        <p className="mt-1 text-sm">Learner Application · {getNamibiaCalendarYear()}</p>
-      </header>
-      <section className="mt-5 space-y-5 text-sm">
-        <FormSection title="Learner">
-          <Line label="Surname" /><Line label="First names" /><Line label="Preferred name" /><Line label="Date of birth" /><Line label="Sex" /><Line label="Citizenship" /><Line label="Home language" /><Line label="Current / previous school" /><Line label="Current / last grade" /><Line label="Intended grade / year" />
-        </FormSection>
-        <div className="grid grid-cols-2 gap-5">
-          <FormSection title="Guardian 1"><Line label="Name" /><Line label="Relationship" /><Line label="Contact" /></FormSection>
-          <FormSection title="Guardian 2"><Line label="Name" /><Line label="Relationship" /><Line label="Contact" /></FormSection>
+    <AppShell>
+      <div className="space-y-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <Link href="/school/admissions" className="text-xs font-semibold text-muted-foreground transition hover:text-foreground">
+              ← Admissions
+            </Link>
+            <div className="mt-3 flex items-center gap-2">
+              <span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]">
+                <FileText className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <h1 className="scolapro-page-title text-xl">Learner application form</h1>
+                <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+                  Official blank admission form for {membership.schoolName} · {academicYear}. Preview, print or download the same canonical PDF.
+                </p>
+              </div>
+            </div>
+          </div>
+          <OfficialDocumentActions
+            previewHref={previewHref}
+            downloadHref={pdfHref}
+            downloadLabel="Download PDF"
+          />
         </div>
-        <FormSection title="Other"><Line label="Siblings at school (optional)" /><Line label="Declarations / relevant notes" /></FormSection>
-        <FormSection title="Document checklist"><Checklist items={["Birth certificate","Passport / photo / ID","Previous report","Transfer / support documents","Other school-required document"]} /></FormSection>
-        <div className="grid grid-cols-2 gap-8 pt-4"><Line label="Guardian signature" /><Line label="Date" /></div>
-      </section>
-      <p className="mt-6 text-[10px] leading-4">Submission of this form creates an application only. Admission and enrolment are subject to school review and the governed admissions process.</p>
-    </main>
+
+        <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+          <div className="flex flex-col gap-2 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div>
+              <h2 className="text-sm font-semibold">Application form preview</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Official external-document header · Coat of Arms · school details · school logo.
+              </p>
+            </div>
+            <span className="self-start rounded-[var(--radius-xs)] bg-brand-soft px-2.5 py-1 text-[0.68rem] font-semibold text-brand-strong sm:self-auto">
+              A4 · 1 page
+            </span>
+          </div>
+          <div className="p-2 sm:p-4">
+            <iframe
+              title="Learner application form PDF preview"
+              src={previewHref}
+              className="h-[72vh] min-h-[34rem] w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted"
+            />
+            <p className="mt-2 text-[0.68rem] leading-5 text-muted-foreground">
+              If your browser does not render embedded PDFs, use Preview / Print above to open the document in a separate tab.
+            </p>
+          </div>
+        </section>
+      </div>
+    </AppShell>
   );
 }
-
-function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return <section><h2 className="mb-2 border-b border-black pb-1 text-xs font-bold uppercase tracking-wide">{title}</h2><div className="space-y-3">{children}</div></section>;
-}
-function Line({ label }: { label: string }) { return <div className="flex items-end gap-2"><span className="shrink-0 text-xs font-semibold">{label}:</span><span className="h-5 flex-1 border-b border-black" /></div>; }
-function Checklist({ items }: { items: string[] }) { return <div className="grid grid-cols-2 gap-x-6 gap-y-2">{items.map((item) => <span key={item}>□ {item}</span>)}</div>; }
