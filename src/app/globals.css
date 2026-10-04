@@ -288,6 +288,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+@media print {
+  .scolapro-public-theme-launcher,
+  [data-sonner-toaster],
+  .scolapro-screen-only {
+    display: none !important;
+  }
+}
+
 @media (max-width: 390px) {
   .mobile-nav-label { display: none; }
 }

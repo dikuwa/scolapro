@@ -15,6 +15,10 @@ const liveProfile=readFileSync("src/features/documents/server/live-school-docume
 const finalizeForm=readFileSync("src/features/reporting/academic-schedule-finalize-form.tsx","utf8");
 const filters=readFileSync("src/features/reporting/academic-schedule-filters.tsx","utf8");
 const analysisPage=readFileSync("src/app/academics/analysis/page.tsx","utf8");
+const analysisPrintPage=readFileSync("src/app/academics/analysis/print/page.tsx","utf8");
+const scheduleColumnLayout=readFileSync("src/features/reporting/academic-schedule-column-layout.ts","utf8");
+const globals=readFileSync("src/app/globals.css","utf8");
+const documentActions=readFileSync("src/components/documents/official-document-actions.tsx","utf8");
 const timetableFoundation=readFileSync("supabase/migrations/20260827224500_timetable_foundation.sql","utf8");
 
 test("finalized official schedules are immutable, versioned and audited",()=>{
@@ -198,4 +202,29 @@ test("finalization surfaces pending and result feedback",()=>{
   assert.match(finalizeForm,/useFormStatus/);
   assert.match(finalizeForm,/Finalizing…/);
   assert.match(finalizeForm,/role="status"/);
+});
+
+test("document print surfaces share governed chrome, safe navigation and deterministic schedule density",()=>{
+  assert.match(analysisPrintPage,/OFFICIAL_DOCUMENT_HTML_HEADER_RULE/);
+  assert.match(analysisPrintPage,/renderOfficialDocumentHtmlHeader/);
+  assert.match(analysisPrintPage,/DocumentBackLink/);
+  assert.doesNotMatch(analysisPrintPage,/header\.logoUrl \? <img/);
+
+  assert.match(printPage,/DocumentBackLink/);
+  assert.match(printPage,/table-layout:fixed/);
+  assert.match(printPage,/metric-heading/);
+  assert.match(printPage,/subject-heading/);
+  assert.match(printPage,/columnLayout\.map/);
+  assert.match(printPage,/academicScheduleColumnKind/);
+  assert.match(printPage,/academicScheduleColumnWidth/);
+
+  assert.match(scheduleColumnLayout,/IDENTITY_COLUMNS/);
+  assert.match(scheduleColumnLayout,/METRIC_WIDTHS/);
+  assert.match(scheduleColumnLayout,/kind === "subject"/);
+  assert.match(xlsx,/academicScheduleColumnWidth/);
+
+  assert.match(globals,/\[data-sonner-toaster\]/);
+  assert.match(globals,/\.scolapro-screen-only/);
+  assert.match(documentActions,/target="_blank"/);
+  assert.match(documentActions,/rel="noopener noreferrer"/);
 });

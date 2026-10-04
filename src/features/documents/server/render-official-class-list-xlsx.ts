@@ -23,6 +23,11 @@ type CfbApi = {
   };
 };
 
+function workbookPackageApi(): CfbApi | undefined {
+  const xlsxModule = XLSX as unknown as { CFB?: CfbApi; default?: { CFB?: CfbApi } };
+  return xlsxModule.CFB ?? xlsxModule.default?.CFB;
+}
+
 function excelColumnWidth(key: string): number {
   if (key === "number") return 7;
   if (key === "admissionNumber") return 14;
@@ -54,7 +59,7 @@ function stylesXml(): string {
     '</fills>' +
     '<borders count="2">' +
     '<border><left/><right/><top/><bottom/><diagonal/></border>' +
-    '<border><left style="thin"><color rgb="FFB8BDC7"/></left><right style="thin"><color rgb="FFB8BDC7"/></right><top style="thin"><color rgb="FFB8BDC7"/></top><bottom style="thin"><color rgb="FFB8BDC7"/></bottom><diagonal/></border>' +
+    '<border><left style="medium"><color rgb="FF4A4A4A"/></left><right style="medium"><color rgb="FF4A4A4A"/></right><top style="medium"><color rgb="FF4A4A4A"/></top><bottom style="medium"><color rgb="FF4A4A4A"/></bottom><diagonal/></border>' +
     '</borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
     '<cellXfs count="8">' +
@@ -75,7 +80,7 @@ function stylesXml(): string {
 function setCellStyle(sheetXml: string, reference: string, styleId: number): string {
   const pattern = new RegExp('<c([^>]*\\br="' + reference + '"[^>]*)>', "g");
   return sheetXml.replace(pattern, (_match, attributes: string) => {
-    const cleaned = attributes.replace(/\\s+s="\\d+"/g, "");
+    const cleaned = attributes.replace(/\s+s="\d+"/g, "");
     return '<c' + cleaned + ' s="' + styleId + '">';
   });
 }
@@ -94,7 +99,7 @@ function setCellRichText(
 ): string {
   const pattern = new RegExp('<c([^>]*\\br="' + reference + '"[^>]*)>[\\s\\S]*?<\\/c>');
   return sheetXml.replace(pattern, (_match, attributes: string) => {
-    const cleaned = attributes.replace(/\\s+t="[^"]*"/g, "");
+    const cleaned = attributes.replace(/\s+t="[^"]*"/g, "");
     const richText = runs
       .filter((run) => run.text.length > 0)
       .map((run) =>
@@ -180,10 +185,11 @@ function embedLogoAndStyles(
   metaStartColumn: number,
   header: OfficialDocumentHeaderModel,
   sheetNumber = 1,
+  packageState?: { CFB: CfbApi; cfb: CfbContainer },
 ): Buffer {
-  const CFB = (XLSX as unknown as { CFB?: CfbApi }).CFB;
+  const CFB = packageState?.CFB ?? workbookPackageApi();
   if (!CFB) return workbookBytes;
-  const cfb = CFB.read(workbookBytes, { type: "buffer" });
+  const cfb = packageState?.cfb ?? CFB.read(workbookBytes, { type: "buffer" });
   const sheetPath = `xl/worksheets/sheet${sheetNumber}.xml`;
   const worksheetRelsPath = `xl/worksheets/_rels/sheet${sheetNumber}.xml.rels`;
   const drawingPath = `xl/drawings/drawing${sheetNumber}.xml`;
@@ -306,6 +312,38 @@ function embedLogoAndStyles(
   }
 
   writePart(CFB, cfb, sheetPath, sheetXml);
+  if (packageState) return workbookBytes;
+  return Buffer.from(CFB.write(cfb, { type: "buffer", fileType: "zip", compression: true }));
+}
+
+export function applyOfficialDocumentXlsxChrome(
+  workbookBytes: Buffer,
+  header: OfficialDocumentHeaderModel,
+  logoBytes: Uint8Array | null,
+  sheets: Array<{
+    tableHeaderRow: number;
+    dataRowCount: number;
+    columnCount: number;
+    metaStartColumn: number;
+    sheetNumber?: number;
+  }>,
+): Buffer {
+  const CFB = workbookPackageApi();
+  if (!CFB) return workbookBytes;
+  const cfb = CFB.read(workbookBytes, { type: "buffer" });
+  sheets.forEach((sheet, index) => {
+    embedLogoAndStyles(
+      workbookBytes,
+      logoBytes,
+      sheet.tableHeaderRow,
+      sheet.dataRowCount,
+      sheet.columnCount,
+      sheet.metaStartColumn,
+      header,
+      sheet.sheetNumber ?? index + 1,
+      { CFB, cfb },
+    );
+  });
   return Buffer.from(CFB.write(cfb, { type: "buffer", fileType: "zip", compression: true }));
 }
 
@@ -451,19 +489,12 @@ export function renderClassListBatchXlsx(
     Author: inputs[0].schoolName,
   };
 
-  let rendered = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
-  builtSheets.forEach((built, index) => {
-    const input = inputs[index];
-    rendered = embedLogoAndStyles(
-      rendered,
-      logoBytes,
-      7,
-      input.learners.length,
-      built.dataColumnCount,
-      built.metaStartColumn,
-      header,
-      index + 1,
-    );
-  });
-  return arrayBufferFromBuffer(rendered);
+  const rendered = XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true, cellStyles: true }) as Buffer;
+  const decorated = applyOfficialDocumentXlsxChrome(rendered, header, logoBytes, builtSheets.map((built, index) => ({
+    tableHeaderRow: 7,
+    dataRowCount: inputs[index].learners.length,
+    columnCount: built.dataColumnCount,
+    metaStartColumn: built.metaStartColumn,
+  })));
+  return arrayBufferFromBuffer(decorated);
 }

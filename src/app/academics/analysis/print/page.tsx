@@ -1,7 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DocumentBackLink } from "@/components/documents/document-back-link";
 import type { AcademicAnalysisView } from "@/features/academics/server/academic-analysis";
 import { getAcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
+import { OFFICIAL_DOCUMENT_HTML_HEADER_RULE } from "@/features/documents/server/official-document-chrome";
+import { renderOfficialDocumentHtmlHeader } from "@/features/documents/server/official-document-html-header";
 import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 
@@ -32,21 +34,18 @@ export default async function AcademicAnalysisPrintPage({ searchParams }: { sear
   const header = await getLiveSchoolDocumentHeader(workspace.schoolId, officialDocumentHeaderModeForType("academic_analysis"));
   const riskAvailable = workspace.learnerRiskRows.some((row) => row.riskLevel !== "unavailable");
 
-  return <main className="mx-auto max-w-[1100px] space-y-4 bg-white p-6 text-black print:max-w-none print:p-0">
-    <div className="flex justify-between gap-4 print:hidden"><Link href="/academics/analysis" className="text-sm underline">Back to analysis</Link><p className="text-sm">Use your browser Print command to print or save this report as PDF.</p></div>
+  return <main className="analysis-sheet report mx-auto max-w-[1100px] space-y-4 bg-white p-6 text-black print:max-w-none print:p-0">
+    <style>{`@page{size:A4 landscape;margin:7mm 7mm 12mm}:root{--line:#4a4a4a}${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}.analysis-sheet{min-height:auto;border:0}.analysis-sheet table{break-inside:auto}.analysis-sheet thead{display:table-header-group}.analysis-sheet tr{break-inside:avoid}@media print{.analysis-sheet{padding:0}.scolapro-screen-only{display:none!important}}`}</style>
+    <div className="scolapro-screen-only flex justify-between gap-4">
+      <DocumentBackLink href="/academics/analysis" label="Back to analysis" />
+      <p className="text-sm">Use your browser Print command to print or save this report as PDF.</p>
+    </div>
 
-    <header className="grid grid-cols-[96px_1fr_auto] items-center gap-4 border-b-2 border-black pb-3">
-      <div className="grid size-24 place-items-center">{header.logoUrl ? <img src={header.logoUrl} alt={header.schoolName + " logo"} className="max-h-24 max-w-24 object-contain" /> : null}</div>
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">{header.schoolName}</h1>
-        {header.contactLines.length ? <div className="mt-1 text-[10px]">{header.contactLines.map((line) => <div key={line.key}>{line.text}</div>)}</div> : null}
-      </div>
-      <div className="min-w-[220px] text-right text-xs">
-        <p className="font-semibold">Academic Analysis — {VIEW_LABELS[view]}</p>
-        <p>Academic year {academicYear} · Term {termNumber}</p>
-        <p className="font-semibold">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</p>
-      </div>
-    </header>
+    <div dangerouslySetInnerHTML={{__html:renderOfficialDocumentHtmlHeader(header, undefined, { context: {
+      title: `Academic Analysis — ${VIEW_LABELS[view]}`,
+      primaryContext: `Academic year ${academicYear} · Term ${termNumber}`,
+      summary: basis === "official" ? "OFFICIAL" : "PROVISIONAL",
+    } })}} />
 
     {basis === "provisional" ? <p className="border border-black p-2 text-xs font-semibold">PROVISIONAL — calculated from current working assessment evidence; not approved official results.</p> : null}
 

@@ -11,6 +11,7 @@ const PDF_HEADER = "src/features/documents/server/official-document-pdf-header.t
 const REPORT_PDF = "src/features/reporting/server/render-report-card-pdf.ts";
 const CLASS_ROUTE = "src/app/api/official-documents/class-list/route.ts";
 const LIVE_PROFILE = "src/features/documents/server/live-school-document-profile.ts";
+const DOCUMENT_LOGO = "src/features/documents/server/official-document-logo-bytes.ts";
 
 test("optional PNG assets are proven complete before the bundled PDF decoder runs", () => {
   const gate = readFileSync(PNG_GATE, "utf8");
@@ -63,9 +64,11 @@ test("no bundled official-document PNG can stall pdf-lib PNG decoding", async (t
 
 test("remote optional-logo retrieval is bounded and falls back to bundled or no logo", () => {
   const route = readFileSync(CLASS_ROUTE, "utf8");
-  assert.match(route, /AbortSignal\.timeout\(CLASS_LIST_LOGO_FETCH_TIMEOUT_MS\)/);
-  assert.match(route, /class-list remote logo unavailable; continuing with bundled or no logo/);
-  assert.match(route, /CLASS_LIST_LOGO_MAX_BYTES/);
+  assert.match(route, /loadOfficialDocumentLogoBytes/);
+  const loader = readFileSync(DOCUMENT_LOGO, "utf8");
+  assert.match(loader, /AbortSignal\.timeout\(DOCUMENT_LOGO_FETCH_TIMEOUT_MS\)/);
+  assert.match(loader, /official document remote logo unavailable; continuing with bundled or no logo/);
+  assert.match(loader, /DOCUMENT_LOGO_MAX_BYTES/);
 
   const live = readFileSync(LIVE_PROFILE, "utf8");
   assert.match(live, /withAssetTimeout\(/);

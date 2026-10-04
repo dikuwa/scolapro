@@ -1,7 +1,6 @@
 import { Buffer } from "node:buffer";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { loadOfficialDocumentLogoBytes } from "@/features/documents/server/official-document-logo-bytes";
 import { classListDocumentName } from "@/features/documents/server/class-list-document";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialClassListHtml } from "@/features/documents/server/render-official-class-list-html";
@@ -24,44 +23,6 @@ function exportErrorResponse(error: unknown) {
   if (/access|scope|role/i.test(message)) return Response.json({ error: "This class list is outside your active school class-list scope." }, { status: 403 });
   console.error("official class-list export failed", { message });
   return Response.json({ error: "Unable to generate the class list." }, { status: 500, headers: { "Cache-Control": "no-store" } });
-}
-
-/**
- * Bound on remote optional-asset retrieval (issue #863). The school mark is
- * optional to document generation: a stalled/slow signed storage URL must fall
- * back to bundled/no logo instead of leaving the export request pending.
- */
-const CLASS_LIST_LOGO_FETCH_TIMEOUT_MS = 3000;
-/** Remote school marks are small identity art; anything larger is not a logo. */
-const CLASS_LIST_LOGO_MAX_BYTES = 5 * 1024 * 1024;
-
-async function loadClassListLogoBytes(storagePath: string, logoUrl: string): Promise<Uint8Array | null> {
-  if (storagePath && /^https:\/\//i.test(logoUrl)) {
-    try {
-      const response = await fetch(logoUrl, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(CLASS_LIST_LOGO_FETCH_TIMEOUT_MS),
-      });
-      if (response.ok) {
-        const declared = Number(response.headers.get("content-length") ?? "");
-        if (!Number.isNaN(declared) && declared > CLASS_LIST_LOGO_MAX_BYTES) return null;
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        if (bytes.length && bytes.length <= CLASS_LIST_LOGO_MAX_BYTES) return bytes;
-      }
-    } catch (error) {
-      console.warn("class-list remote logo unavailable; continuing with bundled or no logo", {
-        message: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-  if (logoUrl.startsWith("/brand/")) {
-    try {
-      return new Uint8Array(await readFile(join(process.cwd(), "public", logoUrl.replace(/^\/+/, ""))));
-    } catch {
-      return null;
-    }
-  }
-  return null;
 }
 
 const allowedRosterTypes = new Set<ClassListRosterType>(["register_class", "grade", "subject", "teacher_subject", "teaching_group", "field_group"]);
@@ -116,7 +77,7 @@ export async function GET(request: Request) {
     rosterType: (url.searchParams.get("rosterType") ?? "register_class") as ClassListRosterType,
     rosterId: url.searchParams.get("rosterId") ?? "",
     columns: parseColumns(url),
-    blankColumns: Number(url.searchParams.get("blankColumns") ?? 0),
+    blankColumns: Number(url.searchParams.get("blankColumns") ?? 3),
   };
 
   try {
@@ -134,7 +95,7 @@ export async function GET(request: Request) {
         scope: baseConfiguration.scope ?? "all",
         targets: requestedTargets,
         columns: baseConfiguration.columns ?? [],
-        blankColumns: baseConfiguration.blankColumns ?? 0,
+        blankColumns: baseConfiguration.blankColumns ?? 3,
       });
       // Preserve the previous authorization outcome when a mismatched rosterId is
       // supplied alongside valid targets: only school-scoped targets are served.
@@ -178,7 +139,7 @@ export async function GET(request: Request) {
       : `${safeFilePart(classListDocumentName(batch.lists[0].className, batch.lists[0].title))}-${academicYear}`;
 
     if (format === "xlsx") {
-      const logoBytes = await loadClassListLogoBytes(profile.logoStoragePath, profile.logoUrl);
+      const logoBytes = await loadOfficialDocumentLogoBytes(profile.logoStoragePath, profile.logoUrl);
       const bytes = batch.lists.length > 1
         ? renderClassListBatchXlsx(batch.lists, header, logoBytes)
         : renderClassListXlsx(batch.lists[0], header, logoBytes);
@@ -188,7 +149,7 @@ export async function GET(request: Request) {
       } });
     }
     if (format === "pdf") {
-      const logoBytes = await loadClassListLogoBytes(profile.logoStoragePath, profile.logoUrl);
+      const logoBytes = await loadOfficialDocumentLogoBytes(profile.logoStoragePath, profile.logoUrl);
       const previewPdf = url.searchParams.get("preview") === "1";
       const inputsWithLogo = documentInputs.map((item) => ({ ...item, logoBytes }));
       const rendered = inputsWithLogo.length > 1

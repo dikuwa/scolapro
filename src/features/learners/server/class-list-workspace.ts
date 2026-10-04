@@ -18,7 +18,6 @@ import { getNamibiaDateKey } from "@/lib/namibia-date";
 import { formatPersonName } from "@/lib/person-name";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-const managerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const guardianRoles = new Set(["school_admin", "principal", "deputy_principal", "class_teacher", "hod", "counsellor"]);
 const rosterRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher", "counsellor", "learner_support", "social_worker", "librarian", "ltsm", "exam_officer", "emis_officer"]);
 const guardianColumns = new Set<ClassListColumnId>(["guardianName", "guardianPhone", "guardianAddress", "emergencyContact"]);
@@ -68,7 +67,7 @@ export function normalizeClassListConfiguration(
     rosterType,
     rosterId: input.rosterId?.trim() ?? "",
     columns,
-    blankColumns: Math.min(6, Math.max(0, Math.trunc(input.blankColumns ?? 0))),
+    blankColumns: Math.min(6, Math.max(0, Math.trunc(input.blankColumns ?? 3))),
   };
 }
 

@@ -72,11 +72,11 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   html, body { margin: 0; padding: 0; background: #fff; color: var(--ink); }
   body { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 9px; line-height: 1.2; }
   .report { padding: 6mm 7mm 5mm; }
-  .class-document { display: table; width: auto; max-width: 100%; }
+  .class-document { width: 100%; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   .class-operational-meta { display:flex; align-items:center; gap:16px; min-height:16px; border:1px solid var(--line); border-top:0; padding:2px 7px; font-size:6.5px; line-height:1.1; }
   .class-operational-meta strong { font-weight:700; }
-  .class-list { width: auto; max-width: 100%; border-collapse: collapse; table-layout: auto; }
+  .class-list { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .class-list col[data-column="number"] { width: 34px; }
   .class-list col[data-column="admissionNumber"] { width: 82px; }
   .class-list col[data-column="learner"] { width: 168px; }

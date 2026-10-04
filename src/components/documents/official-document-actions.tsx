@@ -27,7 +27,7 @@ export function OfficialDocumentActions({
       <Link
         href={previewHref}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
         className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${sizeClass}`}
       >
         <Printer aria-hidden="true" className="size-3.5" />
