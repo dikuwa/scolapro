@@ -99,7 +99,7 @@ test("internal header restores the full frame and top-aligns crest with school i
 });
 
 
-test("governed document art is bundled and the Namib High crest matches the supplied replacement", () => {
+test("governed document art is bundled and matches the supplied replacements", () => {
   const crestPath = "public/brand/schools/namib-high/crest.png";
   const backdropPath = "public/brand/governed/scolapro-document-backdrop.png";
   assert.equal(existsSync(crestPath), true);
@@ -109,9 +109,9 @@ test("governed document art is bundled and the Namib High crest matches the supp
   // deflate payload stalled the bundled PNG decoder on every official-document
   // PDF export.
   assert.equal(createHash("sha256").update(readFileSync(crestPath)).digest("hex"), "69fe007cb344a712a7e6723e6b6aaa83c05c464be248e12331e26a9273cadc49");
-  // #865 restores the authoritative ScolaPro document backdrop from
-  // dikuwa/martinmukoya:public/assets/backgrounds/PNG/document-backdrop.png.
-  assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "7b5993206844eddf410930f358e9f1b75172dd201e8fd71d94323d6970229892");
+  // The governed app-wide backdrop is the supplied A4 PNG. The same raster is
+  // used by browser-print HTML and direct PDF generation to keep output aligned.
+  assert.equal(createHash("sha256").update(readFileSync(backdropPath)).digest("hex"), "a7e07d4bdb32b981f58c1d2f8589bbb72845dfa7b777d6cc28789a50be1ec3ef");
   assert.match(profile, /\/brand\/schools\/namib-high\/crest\.png/);
 });
 

@@ -16,4 +16,4 @@ When Vercel Hobby build limits block newer `main` deployments, do not promote an
 
 ## Document assets
 
-`watermark-A4.svg` is a universal ScolaPro A4 document watermark. It is not school-specific and should be reusable across governed system documents. School logos and identity remain school-scoped settings/snapshot data.
+`public/brand/governed/scolapro-document-backdrop.png` is the universal ScolaPro A4 document backdrop. The shared HTML and direct-PDF renderers both use this governed asset. It is not school-specific; school logos and identity remain school-scoped settings/snapshot data.
