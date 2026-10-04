@@ -5,10 +5,13 @@ import type { SchoolDocumentNameFont } from "@/features/documents/server/school-
 export type OfficialDocumentHeaderMode = "internal_school" | "external_correspondence";
 
 export type OfficialDocumentType =
+  | "admission_application"
   | "class_list"
   | "teaching_print_pack"
   | "report_card"
   | "external_correspondence";
+
+export type OfficialDocumentHeaderFamily = "school_document" | "official_external";
 
 export type OfficialDocumentHeaderProvenance = {
   source: "live_school_profile" | "frozen_snapshot";
@@ -23,10 +26,20 @@ export const PLATFORM_GOVERNED_NAMIBIA_COAT_OF_ARMS = Object.freeze({
   alt: "Coat of Arms of Namibia",
 });
 
+export function officialDocumentHeaderFamilyForType(
+  documentType: OfficialDocumentType,
+): OfficialDocumentHeaderFamily {
+  return documentType === "admission_application" || documentType === "external_correspondence"
+    ? "official_external"
+    : "school_document";
+}
+
 export function officialDocumentHeaderModeForType(
   documentType: OfficialDocumentType,
 ): OfficialDocumentHeaderMode {
-  return documentType === "external_correspondence" ? "external_correspondence" : "internal_school";
+  return officialDocumentHeaderFamilyForType(documentType) === "official_external"
+    ? "external_correspondence"
+    : "internal_school";
 }
 
 export type OfficialDocumentHeaderContactLine = {
