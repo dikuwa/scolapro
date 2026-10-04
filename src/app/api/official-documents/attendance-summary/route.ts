@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import * as XLSX from "xlsx";
-import { buildOfficialDocumentHeaderModel, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialAttendanceSummaryPdf } from "@/features/documents/server/render-official-attendance-summary-pdf";
 import { renderOfficialAttendanceSummaryHtml } from "@/features/documents/server/render-official-attendance-summary-html";
@@ -147,7 +147,7 @@ export async function GET(request: Request) {
     const fileBase = `${safeFilePart(summary.term?.displayName ?? "weekly")}-${mode}-attendance-${finalization.revision}`;
 
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
-    const header = buildOfficialDocumentHeaderModel(profile, { mode: "internal_school", provenanceSource: "live_school_profile" });
+    const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("attendance_summary"), provenanceSource: "live_school_profile" });
     if (format === "xlsx") {
       const bytes = xlsxBytes(summary, {
         header,

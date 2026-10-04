@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { AcademicAnalysisView } from "@/features/academics/server/academic-analysis";
 import { getAcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
 import { academicAnalysisXlsxFilename, renderAcademicAnalysisXlsx } from "@/features/academics/server/render-academic-analysis-xlsx";
+import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 
 export async function GET(request: Request) {
@@ -25,7 +26,7 @@ export async function GET(request: Request) {
   });
   if (!workspace) return NextResponse.json({ error: "Not authorized." }, { status: 403 });
 
-  const header = await getLiveSchoolDocumentHeader(workspace.schoolId, "internal_school");
+  const header = await getLiveSchoolDocumentHeader(workspace.schoolId, officialDocumentHeaderModeForType("academic_analysis"));
   const body = renderAcademicAnalysisXlsx(workspace, header, view);
   return new NextResponse(new Uint8Array(body), {
     headers: {

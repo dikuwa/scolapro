@@ -65,7 +65,7 @@ test("HTML and PDF use the canonical external header and handle multi-page table
   assert.match(pdf, /drawOfficialDocumentPdfHeader/);
   assert.match(pdf, /newPage/);
   assert.match(pdf, /rowIndex>0/);
-  assert.match(route, /getLiveSchoolDocumentHeader\(document\.schoolId,"external_correspondence"\)/);
+  assert.match(route, /officialDocumentHeaderModeForType\("external_correspondence"\)/);
   assert.match(route, /document\.headerSnapshot/);
 });
 

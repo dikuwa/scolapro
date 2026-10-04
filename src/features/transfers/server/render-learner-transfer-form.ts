@@ -2,7 +2,7 @@ import "server-only";
 
 import { Buffer } from "node:buffer";
 import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
-import { buildOfficialDocumentHeaderModel, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType, type OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import { createOfficialDocumentPdfResources, officialDocumentPdfSafeText } from "@/features/documents/server/official-document-pdf-header";
 
 type JsonRecord = Record<string, unknown>;
@@ -74,7 +74,7 @@ export function parseFinalizedLearnerTransferForm(value: unknown): FinalizedLear
     postalAddress:text(headerRaw.postalAddress),
     town:text(headerRaw.town)||text(school.town),
     schoolNameFont:text(headerRaw.schoolNameFont)==="old_english"?"old_english":"default",
-  },{mode:"external_correspondence",provenanceSource:"frozen_snapshot"});
+  },{mode:officialDocumentHeaderModeForType("learner_transfer_form"),provenanceSource:"frozen_snapshot"});
 
   return {
     source:{

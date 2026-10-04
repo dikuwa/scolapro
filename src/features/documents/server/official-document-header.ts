@@ -6,12 +6,24 @@ export type OfficialDocumentHeaderMode = "internal_school" | "external_correspon
 
 export type OfficialDocumentType =
   | "admission_application"
-  | "class_list"
-  | "teaching_print_pack"
   | "report_card"
-  | "external_correspondence";
+  | "academic_schedule"
+  | "external_correspondence"
+  | "crc_outbound_document"
+  | "class_list"
+  | "sports_house_roster"
+  | "room_inventory"
+  | "attendance_summary"
+  | "teaching_print_pack"
+  | "teaching_plan"
+  | "subject_file_inspection_pack"
+  | "academic_analysis"
+  | "learner_transfer_form";
 
-export type OfficialDocumentHeaderFamily = "school_document" | "official_external";
+export type OfficialDocumentHeaderFamily =
+  | "school_document"
+  | "official_external"
+  | "prescribed_statutory";
 
 export type OfficialDocumentHeaderProvenance = {
   source: "live_school_profile" | "frozen_snapshot";
@@ -29,17 +41,32 @@ export const PLATFORM_GOVERNED_NAMIBIA_COAT_OF_ARMS = Object.freeze({
 export function officialDocumentHeaderFamilyForType(
   documentType: OfficialDocumentType,
 ): OfficialDocumentHeaderFamily {
-  return documentType === "admission_application" || documentType === "external_correspondence"
-    ? "official_external"
-    : "school_document";
+  switch (documentType) {
+    case "admission_application":
+    case "report_card":
+    case "academic_schedule":
+    case "external_correspondence":
+    case "crc_outbound_document":
+    case "attendance_summary":
+      return "official_external";
+    case "learner_transfer_form":
+      return "prescribed_statutory";
+    case "class_list":
+    case "sports_house_roster":
+    case "room_inventory":
+    case "teaching_print_pack":
+    case "teaching_plan":
+    case "subject_file_inspection_pack":
+    case "academic_analysis":
+      return "school_document";
+  }
 }
 
 export function officialDocumentHeaderModeForType(
   documentType: OfficialDocumentType,
 ): OfficialDocumentHeaderMode {
-  return officialDocumentHeaderFamilyForType(documentType) === "official_external"
-    ? "external_correspondence"
-    : "internal_school";
+  const family = officialDocumentHeaderFamilyForType(documentType);
+  return family === "school_document" ? "internal_school" : "external_correspondence";
 }
 
 export type OfficialDocumentHeaderContactLine = {
