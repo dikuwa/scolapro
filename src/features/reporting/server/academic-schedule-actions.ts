@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getAcademicSchedulePayload, ACADEMIC_SCHEDULE_TYPES } from "@/features/reporting/server/academic-schedules";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 
 export type AcademicScheduleActionState = { success?: boolean; message?: string; snapshotId?: string };
@@ -70,7 +71,7 @@ export async function finalizeAcademicSchedule(
 
     const [db,documentHeader]=await Promise.all([
       Promise.resolve(createSupabaseAdminClient()),
-      getLiveSchoolDocumentHeader(membership.schoolId,"internal_school"),
+      getLiveSchoolDocumentHeader(membership.schoolId,officialDocumentHeaderModeForType("academic_schedule")),
     ]);
 
     const {data,error}=await db.rpc("finalize_academic_schedule_snapshot",{
