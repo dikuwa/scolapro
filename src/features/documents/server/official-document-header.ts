@@ -47,13 +47,13 @@ export function officialDocumentHeaderFamilyForType(
     case "academic_schedule":
     case "external_correspondence":
     case "crc_outbound_document":
+    case "attendance_summary":
       return "official_external";
     case "learner_transfer_form":
       return "prescribed_statutory";
     case "class_list":
     case "sports_house_roster":
     case "room_inventory":
-    case "attendance_summary":
     case "teaching_print_pack":
     case "teaching_plan":
     case "subject_file_inspection_pack":

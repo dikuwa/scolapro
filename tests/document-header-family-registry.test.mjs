@@ -28,6 +28,7 @@ test("document header registry has exactly governed official, school and prescri
     "academic_schedule",
     "external_correspondence",
     "crc_outbound_document",
+    "attendance_summary",
   ]) {
     assert.match(registry, new RegExp(`case "${type}"`));
   }
@@ -36,7 +37,6 @@ test("document header registry has exactly governed official, school and prescri
     "class_list",
     "sports_house_roster",
     "room_inventory",
-    "attendance_summary",
     "teaching_print_pack",
     "teaching_plan",
     "subject_file_inspection_pack",
@@ -54,6 +54,7 @@ test("outbound generic documents resolve through the official external family", 
   assert.match(schedulePrint, /officialDocumentHeaderModeForType\("academic_schedule"\)/);
   assert.match(scheduleExport, /officialDocumentHeaderModeForType\("academic_schedule"\)/);
   assert.match(scheduleActions, /officialDocumentHeaderModeForType\("academic_schedule"\)/);
+  assert.match(attendance, /officialDocumentHeaderModeForType\("attendance_summary"\)/);
 });
 
 test("academic schedule print uses the shared header renderer rather than one-off school identity markup", () => {
@@ -67,7 +68,6 @@ test("school operational exports stay on the school-document family", () => {
   assert.match(classList, /officialDocumentHeaderModeForType\("class_list"\)/);
   assert.match(sports, /officialDocumentHeaderModeForType\("sports_house_roster"\)/);
   assert.match(room, /officialDocumentHeaderModeForType\("room_inventory"\)/);
-  assert.match(attendance, /officialDocumentHeaderModeForType\("attendance_summary"\)/);
   assert.match(teaching, /officialDocumentHeaderModeForType\("teaching_print_pack"\)/);
 });
 
