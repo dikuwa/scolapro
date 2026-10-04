@@ -84,14 +84,21 @@ function escapeExcelXmlText(value: string): string {
  * One shared style sheet. Border colour is intentionally darker than the old
  * `FFB8BDC7` grey so governed table rules read clearly in Excel and print.
  */
-export function officialDocumentWorkbookStylesXml(): string {
+export function officialDocumentWorkbookStylesXml(
+  schoolNameFont: OfficialDocumentHeaderModel["schoolNameFont"] = "default",
+): string {
+  const schoolNameFontFamily =
+    schoolNameFont === "old_english" ? "Old English Text MT" : "Aptos Display";
+
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
     '<fonts count="4">' +
     '<font><sz val="10"/><name val="Aptos"/></font>' +
     '<font><b/><sz val="10"/><name val="Aptos"/></font>' +
-    '<font><b/><sz val="16"/><name val="Aptos Display"/></font>' +
+    '<font><b/><sz val="16"/><name val="' +
+    schoolNameFontFamily +
+    '"/></font>' +
     '<font><b/><sz val="12"/><name val="Aptos"/></font>' +
     "</fonts>" +
     '<fills count="3">' +
@@ -554,7 +561,12 @@ export function finalizeOfficialDocumentWorkbook(
   if (!CFB || !sheets.length) return workbookBytes;
   const cfb = CFB.read(workbookBytes, { type: "buffer" });
 
-  writePart(CFB, cfb, "xl/styles.xml", officialDocumentWorkbookStylesXml());
+  writePart(
+    CFB,
+    cfb,
+    "xl/styles.xml",
+    officialDocumentWorkbookStylesXml(sheets[0]?.header.schoolNameFont ?? "default"),
+  );
 
   const contentTypesState = { xml: readText(CFB, cfb, "[Content_Types].xml") };
   for (const spec of sheets) {
