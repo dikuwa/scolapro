@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { ProfessionalFileReviewDetail } from "@/features/teaching/components/professional-file-review-detail";
 import { getProfessionalFileReviewDetail } from "@/features/teaching/server/professional-file-review";
@@ -16,9 +15,7 @@ export default async function ProfessionalFileReviewPage({ params }: { params: P
   return (
     <AppShell>
       <section className="pb-10">
-        <Link href="/teaching/reviews" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden="true" /> Teaching reviews
-        </Link>
+        <AppBackLink href="/teaching/reviews" label="Teaching reviews" className="mb-4" />
         <div className="mb-6">
           <h1 className="scolapro-page-title">Professional-file review</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">

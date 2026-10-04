@@ -325,7 +325,7 @@ export function DetentionPlanner({
                         <div><StepBadge number={2} label="Supervisors" /><p className="mt-1 text-sm font-semibold">{formatDate(selectedSession.sessionDate)}</p><p className="text-xs text-muted-foreground">{selectedSession.supervisorIds.length} supervisors rostered. Expand only when the team needs changing.</p></div>
                         <ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${existingTeamOpen ? "rotate-180" : ""}`} aria-hidden="true" />
                       </button>
-                      <Link href={`/late-arrivals/print-roster?session=${selectedSession.id}`} target="_blank" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-xs)] border border-border-subtle bg-surface px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted">
+                      <Link href={`/late-arrivals/print-roster?session=${selectedSession.id}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-xs)] border border-border-subtle bg-surface px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted">
                         <Printer className="size-3.5" aria-hidden="true" /> Print roster
                       </Link>
                     </div>

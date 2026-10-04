@@ -54,12 +54,25 @@ test("governed asset is bundled and not school-configurable", () => {
 });
 
 
-test("known Namib High branding is local, blackletter and resilient to stale remote URLs", () => {
+test("known Namib High branding is local and honors its configured document font", () => {
   assert.match(profile, /bundledLogoUrl \|\| explicitLogoUrl/);
-  assert.match(profile, /isNamibHigh/);
-  assert.match(profile, /schoolNameFont: isNamibHigh/);
+  assert.match(profile, /schoolNameFont: text\(profile\.school_name_font\)\.toLowerCase\(\) === "old_english"/);
   assert.match(html, /localPublicAssetDataUrl/);
   assert.match(html, /readFileSync/);
+});
+
+test("configured Old English remains school-profile driven for every school", () => {
+  assert.doesNotMatch(profile, /schoolNameFont:\s*isNamibHigh/);
+  assert.match(profile, /schoolNameFont: text\(profile\.school_name_font\)\.toLowerCase\(\) === "old_english"/);
+});
+
+test("class-list renderers default to three blank columns without overriding explicit zero", () => {
+  const classHtml = read("src/features/documents/server/render-official-class-list-html.ts");
+  const classPdf = read("src/features/documents/server/render-official-class-list-pdf.ts");
+  assert.match(classHtml, /input\.blankColumns \?\? 3/);
+  assert.match(classPdf, /input\.blankColumns \?\? 3/);
+  assert.doesNotMatch(classHtml, /input\.blankColumns \|\| 3/);
+  assert.doesNotMatch(classPdf, /input\.blankColumns \|\| 3/);
 });
 
 test("shared official chrome uses the governed A4 backdrop and universal internal header", () => {

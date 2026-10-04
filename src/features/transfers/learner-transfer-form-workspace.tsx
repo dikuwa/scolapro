@@ -94,6 +94,7 @@ export function LearnerTransferFormWorkspace({
               <Link
                 href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}`}
                 target="_blank"
+                rel="noopener noreferrer"
                 className="scolapro-cta inline-flex min-h-9 items-center rounded-[var(--radius-xs)] bg-surface-muted px-3 text-xs font-medium hover:bg-surface"
               >
                 Preview / Print

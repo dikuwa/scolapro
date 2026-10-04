@@ -41,7 +41,7 @@ function normalizedSex(value: string | null): "M" | "F" | "" {
 
 export function renderOfficialClassListHtml(input: OfficialClassListDocumentInput): string {
   const { header } = input;
-  const columns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 0);
+  const columns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 3);
   const rowMarkup = input.rows
     .map(
       (row, index) => `<tr>${columns.map((column) => `<td class="${column.key === "number" ? "number-cell" : ""} column-${column.key}">${escapeOfficialDocumentHtml(column.value(row, index))}</td>`).join("")}</tr>`,

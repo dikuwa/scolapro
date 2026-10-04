@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { LearnerConductProfileView } from "@/features/conduct/learner-conduct-profile";
 import { getLearnerConductProfile } from "@/features/conduct/server/profile";
@@ -44,9 +43,7 @@ export default async function LearnerConductProfilePage({
   return (
     <AppShell>
       <section>
-        <Link href="/conduct" className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden="true" /> Conduct
-        </Link>
+        <AppBackLink href="/conduct" label="Conduct" className="mb-4" />
         <div className="mb-6">
           <h1 className="scolapro-page-title">{learner.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{learner.grade} · {learner.registerClass} · Conduct profile</p>

@@ -42,7 +42,7 @@ export default async function AdmissionsPage({
             <h1 className="scolapro-page-title text-xl">Admissions & document intake</h1>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Stage scanned or online applications, review extracted/corrected fields and possible matches, then commit only into the governed admissions workflow.</p>
           </div>
-          <a href="/school/admissions/application-form" target="_blank" className="inline-flex min-h-10 items-center gap-2 self-start rounded-[var(--radius-sm)] bg-surface-muted px-3 text-sm font-semibold text-foreground">
+          <a href="/school/admissions/application-form" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10 items-center gap-2 self-start rounded-[var(--radius-sm)] bg-surface-muted px-3 text-sm font-semibold text-foreground">
             <FileText className="size-4" /> Blank application form
           </a>
         </div>

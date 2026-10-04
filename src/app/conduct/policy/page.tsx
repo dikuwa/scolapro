@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { ConductPolicySettings } from "@/features/conduct/policy-settings";
@@ -19,9 +18,7 @@ export default async function ConductPolicyPage() {
   return (
     <AppShell>
       <section>
-        <Link href="/conduct" className="mb-4 inline-flex items-center gap-2 rounded-[var(--radius-sm)] py-1 text-xs font-medium text-muted-foreground transition hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden="true" /> Conduct
-        </Link>
+        <AppBackLink href="/conduct" label="Conduct" className="mb-4" />
         <div className="mb-6">
           <h1 className="scolapro-page-title">Conduct policy</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">

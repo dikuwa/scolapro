@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getAcademicScheduleFilterOptions, getAcademicSchedulePayload, getAcademicScheduleSnapshot, type AcademicScheduleType } from "@/features/reporting/server/academic-schedules";
 import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader, resolveFrozenOfficialDocumentHeaderAssets } from "@/features/documents/server/live-school-document-profile";
+import { loadOfficialDocumentLogoBytes } from "@/features/documents/server/official-document-logo-bytes";
 import { academicScheduleXlsxFilename, renderAcademicScheduleXlsx } from "@/features/reporting/server/render-academic-schedule-xlsx";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -42,7 +43,7 @@ export async function GET(request:Request){
     ? await resolveFrozenOfficialDocumentHeaderAssets(frozen.header)
     : await getLiveSchoolDocumentHeader(context.currentSchoolMembership.schoolId,officialDocumentHeaderModeForType("academic_schedule"));
   const lifecycle=frozen?{version:frozen.version,status:frozen.status,finalizedAt:frozen.finalizedAt,supersessionReason:frozen.supersessionReason}:undefined;
-  const body=renderAcademicScheduleXlsx(payload,header,lifecycle);
+  const body=renderAcademicScheduleXlsx(payload,header,lifecycle,await loadOfficialDocumentLogoBytes(header.logoStoragePath,header.logoUrl));
   return new NextResponse(new Uint8Array(body),{headers:{
     "Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition":'attachment; filename="'+academicScheduleXlsxFilename(payload,lifecycle)+'"',

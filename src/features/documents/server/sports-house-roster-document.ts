@@ -20,7 +20,7 @@ import {
   renderOfficialDocumentHtmlHeader,
 } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
-import { applyOfficialDocumentXlsxChrome } from "@/features/documents/server/render-official-class-list-xlsx";
+import { applyOfficialDocumentXlsxChrome } from "@/features/documents/server/official-document-xlsx-chrome";
 import type { SportsHouse, SportsLearner, SportsStaff } from "@/features/sports-houses/server/queries";
 
 export type SportsHouseRosterSection = {

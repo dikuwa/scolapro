@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { AssessmentQualityWorkspaceView } from "@/features/assessment/assessment-quality-workspace";
 import { getAssessmentQualityWorkspace } from "@/features/assessment/server/quality-readiness";
@@ -22,7 +21,7 @@ export default async function AssessmentQualityPage({ searchParams }: { searchPa
   if (!workspace) redirect("/assessment");
 
   return <AppShell><section className="space-y-5">
-    <Link href="/assessment" className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4"/>Assessment</Link>
+    <AppBackLink href="/assessment" label="Assessment" />
     <header><h1 className="scolapro-page-title">Assessment quality & readiness</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">Completion, component statistics, CA–exam comparison and moderation readiness from the existing assessment lifecycle.</p></header>
     <AssessmentQualityWorkspaceView workspace={workspace}/>
   </section></AppShell>;

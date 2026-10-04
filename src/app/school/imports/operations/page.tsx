@@ -1,5 +1,6 @@
 import { CalendarDays, CheckCircle2, FileScan, TableProperties, TriangleAlert } from "lucide-react";
 import { redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { ImportDropField, ImportStageButton } from "@/features/imports/import-drop-field";
 import {
@@ -40,7 +41,7 @@ export default async function OperationalImportsPage({
         <h1 className="scolapro-page-title text-xl">Calendar & timetable intake</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Stage structured exports first; scanned/PDF sources remain private staging until extraction produces reviewable rows. Every authoritative write still passes through the existing Calendar or Timetable governance.</p>
       </div>
-      <a href="/school/imports" className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold">Back to bulk import</a>
+      <AppBackLink href="/school/imports" label="Back to bulk import" />
     </div>
 
     <div className="flex gap-2">

@@ -73,7 +73,6 @@ export function buildSchoolDocumentProfile(input: BuildSchoolDocumentProfileInpu
   const logoStoragePath = text(profile.logo_storage_path);
   const explicitLogoUrl = text(profile.logo_url);
   const bundledLogoUrl = bundledSchoolLogoUrl(schoolName);
-  const isNamibHigh = normalizedSchoolName(schoolName) === "namib high school" || normalizedSchoolName(schoolName) === "namib high";
 
   return {
     schoolName,
@@ -87,6 +86,6 @@ export function buildSchoolDocumentProfile(input: BuildSchoolDocumentProfileInpu
     email: text(profile.email),
     postalAddress: text(profile.postal_address),
     town: text(profile.town) || text(identity.town),
-    schoolNameFont: isNamibHigh || text(profile.school_name_font).toLowerCase() === "old_english" ? "old_english" : "default",
+    schoolNameFont: text(profile.school_name_font).toLowerCase() === "old_english" ? "old_english" : "default",
   };
 }

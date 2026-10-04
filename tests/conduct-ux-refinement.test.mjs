@@ -38,5 +38,5 @@ test("management Recognition and Violation values explain event count and points
 
 test("Conduct policy has standard back navigation to Conduct", () => {
   assert.match(policyPage,/href="\/conduct"/);
-  assert.match(policyPage,/ArrowLeft/);
+  assert.match(policyPage,/AppBackLink/);
 });

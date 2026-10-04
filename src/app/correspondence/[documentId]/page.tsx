@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
+import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { CorrespondenceEditor } from "@/features/correspondence/correspondence-editor";
 import { getCorrespondenceDocument } from "@/features/correspondence/server/queries";
@@ -18,7 +17,7 @@ export default async function CorrespondenceDocumentPage({ params }: { params: P
   const document = await getCorrespondenceDocument(documentId);
   if (!document || document.schoolId !== membership.schoolId) notFound();
   return <AppShell><div className="space-y-5">
-    <div><Link href="/correspondence" className="scolapro-cta inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-brand-strong"><ArrowLeft className="scolapro-cta-icon size-3.5" />Correspondence register</Link><h1 className="scolapro-page-title mt-3">{document.subject || "Official correspondence"}</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">Revision {document.revisionNumber}{document.revisionReason ? ` · ${document.revisionReason}` : ""}</p></div>
+    <div><AppBackLink href="/correspondence" label="Correspondence register" /><h1 className="scolapro-page-title mt-3">{document.subject || "Official correspondence"}</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">Revision {document.revisionNumber}{document.revisionReason ? ` · ${document.revisionReason}` : ""}</p></div>
     <CorrespondenceEditor document={document} />
   </div></AppShell>;
 }

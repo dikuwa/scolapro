@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import * as XLSX from "xlsx";
 import {
@@ -6,6 +7,7 @@ import {
   renderClassListXlsx,
 } from "../../src/features/documents/server/render-official-class-list-xlsx.ts";
 import { renderSportsHouseRosterXlsx } from "../../src/features/documents/server/sports-house-roster-document.ts";
+import { renderAcademicScheduleXlsx } from "../../src/features/reporting/server/render-academic-schedule-xlsx.ts";
 
 const header = {
   mode: "internal_school",
@@ -190,5 +192,46 @@ assertWorksheetCellAttributesAreUnique(sports);
 assertNoDuplicateXmlAttributes(sports);
 const sportsPaths = assertRelationshipTargetsExist(sports);
 assert.ok(sportsPaths.has("xl/drawings/drawing1.xml"));
+
+const schedule = renderAcademicScheduleXlsx({
+  scheduleType: "term_schedule",
+  title: "Term Schedule",
+  basis: "official",
+  academicYear: 2026,
+  termNumber: 1,
+  scopeKey: "period:term|grade-id:grade-10|class-ids:class-10a",
+  period: "term",
+  periodLabel: "Term 1",
+  gradeId: "grade-10",
+  grade: "Grade 10",
+  classIds: ["class-10a"],
+  classNames: ["10A"],
+  generatedAt: "04 October 2026",
+  sourceDescription: "Acceptance fixture",
+  columns: ["No.", "Learner", "Mathematics", "English", "Average %", "Rank"],
+  rows: [{ "No.": 1, Learner: "Learner One", Mathematics: 72, English: 68, "Average %": 70, Rank: 1 }],
+  rowCount: 1,
+  notes: [],
+  subjects: [],
+  footerRows: [],
+}, header, undefined, logoBytes);
+const scheduleWorkbook = XLSX.read(schedule, { type: "buffer", cellStyles: true });
+const scheduleSheet = scheduleWorkbook.Sheets[scheduleWorkbook.SheetNames[0]];
+assert.equal(scheduleSheet.B1.v, header.schoolName);
+assert.equal(scheduleSheet.A7.v, "No.");
+assertWorksheetCellAttributesAreUnique(schedule);
+assertNoDuplicateXmlAttributes(schedule);
+const schedulePaths = assertRelationshipTargetsExist(schedule);
+assert.ok(schedulePaths.has("xl/drawings/drawing1.xml"));
+
+if (process.env.SCOLAPRO_XLSX_OUTPUT_DIR) {
+  await mkdir(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, { recursive: true });
+  await Promise.all([
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "class-list-single.xlsx"), Buffer.from(single)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "class-list-batch.xlsx"), Buffer.from(batch)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "sports-house-roster.xlsx"), Buffer.from(sports)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "academic-schedule.xlsx"), Buffer.from(schedule)),
+  ]);
+}
 
 process.stdout.write("generated class-list XLSX packages are internally consistent\n");
