@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { AcademicAnalysisView } from "@/features/academics/server/academic-analysis";
 import { getAcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
+import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 
 const VIEW_LABELS: Record<AcademicAnalysisView,string> = {
@@ -28,7 +29,7 @@ export default async function AcademicAnalysisPrintPage({ searchParams }: { sear
   const teacher = view === "trends" ? undefined : params.teacher;
   const workspace = await getAcademicAnalysisWorkspace({ academicYear, termNumber, basis, grade: params.grade, className, subjectOfferingId: params.subject, teacher });
   if (!workspace) redirect("/");
-  const header = await getLiveSchoolDocumentHeader(workspace.schoolId, "internal_school");
+  const header = await getLiveSchoolDocumentHeader(workspace.schoolId, officialDocumentHeaderModeForType("academic_analysis"));
   const riskAvailable = workspace.learnerRiskRows.some((row) => row.riskLevel !== "unavailable");
 
   return <main className="mx-auto max-w-[1100px] space-y-4 bg-white p-6 text-black print:max-w-none print:p-0">
