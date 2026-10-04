@@ -6,6 +6,7 @@ const migration = readFileSync("supabase/migrations/20261003190000_document_inta
 const actions = readFileSync("src/features/admissions/server/actions.ts","utf8");
 const page = readFileSync("src/app/school/admissions/page.tsx","utf8");
 const printPage = readFileSync("src/app/school/admissions/application-form/page.tsx","utf8");
+const printDocument = readFileSync("src/features/admissions/server/render-admission-application-pdf.ts","utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
 const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
 
@@ -67,11 +68,12 @@ test("admissions workspace is summary-first staged review with source provenance
 });
 
 test("printable simple school application exists without overloading later administration", () => {
-  assert.match(printPage,/Learner Application/);
-  assert.match(printPage,/Guardian 1/);
-  assert.match(printPage,/Guardian 2/);
-  assert.match(printPage,/Document checklist/);
-  assert.match(printPage,/Admission and enrolment are subject to school review/);
+  assert.match(printPage,/Learner Application Form/);
+  assert.match(printPage,/OfficialDocumentActions/);
+  assert.match(printDocument,/Guardian 1/);
+  assert.match(printDocument,/Guardian 2/);
+  assert.match(printDocument,/Document Checklist/);
+  assert.match(printDocument,/Admission and enrolment are subject to school review/);
 });
 
 test("admissions navigation is limited to enrolment workflow leaders", () => {
