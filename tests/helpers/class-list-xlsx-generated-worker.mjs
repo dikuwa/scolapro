@@ -90,6 +90,24 @@ function assertWorksheetCellAttributesAreUnique(bytes) {
   }
 }
 
+function assertNoDuplicateXmlAttributes(bytes) {
+  const CFB = XLSX.CFB ?? XLSX.default?.CFB;
+  assert.ok(CFB, "SheetJS CFB package reader is required");
+  const cfb = CFB.read(Buffer.from(bytes), { type: "buffer" });
+  const paths = normalizedPackagePaths(cfb);
+  for (const packagePath of paths) {
+    if (!packagePath.endsWith(".xml") && !packagePath.endsWith(".rels")) continue;
+    const found = CFB.find(cfb, packagePath) ?? CFB.find(cfb, `/${packagePath}`);
+    if (!found?.content) continue;
+    const xml = Buffer.from(found.content).toString("utf8");
+    for (const tag of xml.matchAll(/<([A-Za-z_][^\s/>]*)([^<>]*?)\/?>(?![^<]*>)/g)) {
+      const names = [...tag[2].matchAll(/\s([A-Za-z_:][\w:.-]*)\s*=/g)].map((match) => match[1]);
+      const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
+      assert.deepEqual(duplicates, [], `${packagePath} <${tag[1]}> must not contain duplicate attributes`);
+    }
+  }
+}
+
 function assertRelationshipTargetsExist(bytes) {
   const CFB = XLSX.CFB ?? XLSX.default?.CFB;
   assert.ok(CFB, "SheetJS CFB package reader is required");
@@ -135,6 +153,7 @@ const logoBytes = new Uint8Array(await import("node:fs/promises").then(({ readFi
 const single = renderClassListXlsx(input("10A"), header, logoBytes);
 assertWorkbook(single, 1);
 assertWorksheetCellAttributesAreUnique(single);
+assertNoDuplicateXmlAttributes(single);
 const singlePaths = assertRelationshipTargetsExist(single);
 assert.ok(singlePaths.has("xl/drawings/drawing1.xml"));
 assert.ok(singlePaths.has("xl/media/class-list-logo.png"));
@@ -142,6 +161,7 @@ assert.ok(singlePaths.has("xl/media/class-list-logo.png"));
 const batch = renderClassListBatchXlsx([input("10A"), input("10B", 10)], header, logoBytes);
 assertWorkbook(batch, 2);
 assertWorksheetCellAttributesAreUnique(batch);
+assertNoDuplicateXmlAttributes(batch);
 const batchPaths = assertRelationshipTargetsExist(batch);
 assert.ok(batchPaths.has("xl/drawings/drawing1.xml"));
 assert.ok(batchPaths.has("xl/drawings/drawing2.xml"));
@@ -167,6 +187,7 @@ assert.equal(sportsSheet.B1.v,header.schoolName);
 assert.equal(sportsSheet.A7.v,"No.");
 assert.equal(sportsSheet["!cols"].length,13);
 assertWorksheetCellAttributesAreUnique(sports);
+assertNoDuplicateXmlAttributes(sports);
 const sportsPaths = assertRelationshipTargetsExist(sports);
 assert.ok(sportsPaths.has("xl/drawings/drawing1.xml"));
 
