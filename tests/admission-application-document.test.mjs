@@ -39,6 +39,22 @@ test("admission form resolves through the shared official external header family
   assert.match(renderer, /drawOfficialDocumentPdfHeader/);
 });
 
+test("guardian panels contain the full contact stack before the next section", () => {
+  const heightMatch = renderer.match(/const GUARDIAN_PANEL_HEIGHT = (\d+);/);
+  assert.ok(heightMatch, "guardian panel height constant is present");
+
+  const panelHeight = Number(heightMatch[1]);
+  const contentStartOffset = 31;
+  const fieldHeights = [17, 17, 17, 22, 22, 17, 17];
+  const requiredHeight = contentStartOffset + fieldHeights.reduce((total, height) => total + height, 0);
+
+  assert.ok(
+    panelHeight >= requiredHeight,
+    "guardian panel height " + panelHeight + " must contain " + requiredHeight + "pt of header/field geometry",
+  );
+  assert.match(renderer, /y = Math\.min\(guardianBottom1, guardianBottom2\) - 14;/);
+});
+
 test("application PDF contains the requested labelled form sections", () => {
   assert.match(renderer, /LEARNER APPLICATION FORM/);
   assert.match(renderer, /LEARNER PASSPORT PHOTO/);

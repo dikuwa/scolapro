@@ -16,6 +16,7 @@ const INK = rgb(0.07, 0.07, 0.08);
 const LINE = rgb(0.26, 0.28, 0.31);
 const MUTED = rgb(0.38, 0.4, 0.44);
 const SOFT = rgb(0.965, 0.97, 0.98);
+const GUARDIAN_PANEL_HEIGHT = 160;
 
 export type AdmissionApplicationPdfInput = {
   header: OfficialDocumentHeaderModel;
@@ -85,7 +86,7 @@ function guardianPanel(
   topY: number,
   width: number,
 ) {
-  const height = 134;
+  const height = GUARDIAN_PANEL_HEIGHT;
   page.drawRectangle({
     x,
     y: topY - height,
