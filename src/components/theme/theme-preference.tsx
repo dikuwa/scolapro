@@ -121,6 +121,12 @@ export function ThemeMenu({
   const TriggerIcon = effectiveDark ? Moon : Sun;
 
   useEffect(() => {
+    const current = storedThemePreference();
+    applyThemePreference(current);
+    window.dispatchEvent(new CustomEvent<ThemePreference>(THEME_CHANGE_EVENT, { detail: current }));
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
     const closeOnPointer = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
