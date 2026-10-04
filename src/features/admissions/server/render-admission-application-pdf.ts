@@ -116,12 +116,12 @@ function guardianPanel(
 }
 
 function checkbox(page: PDFPage, font: PDFFont, label: string, x: number, y: number, maxWidth: number) {
-  const box = 8;
+  const box = 10;
   page.drawRectangle({ x, y: y - 1, width: box, height: box, borderWidth: 0.7, borderColor: INK });
-  page.drawText(fitOfficialDocumentPdfText(font, label, 6.8, maxWidth - box - 8), {
+  page.drawText(fitOfficialDocumentPdfText(font, label, 7, maxWidth - box - 8), {
     x: x + box + 5,
     y,
-    size: 6.8,
+    size: 7,
     font,
     color: INK,
   });
