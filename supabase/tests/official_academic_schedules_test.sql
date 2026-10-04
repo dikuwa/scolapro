@@ -1,42 +1,56 @@
 begin;
 
-select plan(21);
+select plan(24);
 
 select has_table('public','academic_schedule_snapshots','academic schedule snapshot table exists');
-select has_function(
+select hasnt_function(
   'public','finalize_academic_schedule_snapshot',
   array['uuid','integer','smallint','text','text','text','jsonb','jsonb','text','uuid'],
-  'governed finalization RPC exists'
+  'legacy unscoped finalization RPC is removed'
 );
-
+select has_column('public','academic_schedule_snapshots','scope_key','academic schedule snapshots have an immutable canonical scope key');
+select has_function(
+  'public','finalize_academic_schedule_snapshot',
+  array['uuid','integer','smallint','text','text','text','jsonb','text','jsonb','text','uuid'],
+  'scoped governed finalization RPC exists'
+);
+select is(
+  has_function_privilege(
+    'service_role',
+    'public.finalize_academic_schedule_snapshot(uuid,integer,smallint,text,text,text,jsonb,text,jsonb,text,uuid)',
+    'EXECUTE'
+  ),
+  true,
+  'trusted server service role can finalize an explicit canonical document scope'
+);
 select is(
   has_function_privilege(
     'anon',
-    'public.finalize_academic_schedule_snapshot(uuid,integer,smallint,text,text,text,jsonb,jsonb,text,uuid)',
+    'public.finalize_academic_schedule_snapshot(uuid,integer,smallint,text,text,text,jsonb,text,jsonb,text,uuid)',
     'EXECUTE'
   ),
   false,
-  'anonymous finalization is revoked'
+  'anonymous scoped finalization is revoked'
 );
-
 select is(
   has_function_privilege(
     'authenticated',
-    'public.finalize_academic_schedule_snapshot(uuid,integer,smallint,text,text,text,jsonb,jsonb,text,uuid)',
+    'public.finalize_academic_schedule_snapshot(uuid,integer,smallint,text,text,text,jsonb,text,jsonb,text,uuid)',
     'EXECUTE'
   ),
   false,
   'authenticated clients cannot submit arbitrary official schedule payloads'
 );
-
 select is(
-  has_function_privilege(
-    'service_role',
-    'public.finalize_academic_schedule_snapshot(uuid,integer,smallint,text,text,text,jsonb,jsonb,text,uuid)',
-    'EXECUTE'
+  (
+    select column_default::text
+    from information_schema.columns
+    where table_schema='public'
+      and table_name='academic_schedule_snapshots'
+      and column_name='scope_key'
   ),
-  true,
-  'trusted server service role owns the finalization boundary'
+  null::text,
+  'scope key has no generic default and must be supplied explicitly'
 );
 
 insert into public.tenants(id,name,slug)
@@ -77,7 +91,8 @@ select ok(
   public.finalize_academic_schedule_snapshot(
     'fe110000-0000-4000-8000-000000000001',2026,2::smallint,
     'term_schedule','official','Term Schedule',
-    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":["Learner"],"rows":[{"Learner":"A"}],"rowCount":1}'::jsonb,
+    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":["Learner"],"rows":[{"Learner":"A"}],"rowCount":1,"scopeKey":"period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all"}'::jsonb,
+    'period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all',
     '{"generatedFrom":"canonical"}'::jsonb,
     null,
     'fe120000-0000-4000-8000-000000000001'::uuid
@@ -100,7 +115,8 @@ select ok(
   public.finalize_academic_schedule_snapshot(
     'fe110000-0000-4000-8000-000000000001',2026,2::smallint,
     'term_schedule','official','Term Schedule',
-    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":["Learner"],"rows":[{"Learner":"B"}],"rowCount":1}'::jsonb,
+    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":["Learner"],"rows":[{"Learner":"B"}],"rowCount":1,"scopeKey":"period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all"}'::jsonb,
+    'period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all',
     '{"generatedFrom":"canonical"}'::jsonb,
     'Corrected canonical evidence after governed result correction',
     'fe120000-0000-4000-8000-000000000001'::uuid
@@ -140,7 +156,8 @@ select throws_ok(
   $$select public.finalize_academic_schedule_snapshot(
     'fe110000-0000-4000-8000-000000000001',2026,2::smallint,
     'top_achievers','provisional','Top Achievers',
-    '{"scheduleType":"top_achievers","basis":"provisional","academicYear":2026,"termNumber":2,"title":"Top Achievers","columns":[],"rows":[],"rowCount":0}'::jsonb,
+    '{"scheduleType":"top_achievers","basis":"provisional","academicYear":2026,"termNumber":2,"title":"Top Achievers","columns":[],"rows":[],"rowCount":0,"scopeKey":"period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all"}'::jsonb,
+    'period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all',
     '{}'::jsonb,
     null,
     'fe120000-0000-4000-8000-000000000001'::uuid
@@ -170,7 +187,8 @@ select throws_ok(
   $$select public.finalize_academic_schedule_snapshot(
     'fe110000-0000-4000-8000-000000000001',2026,2::smallint,
     'term_schedule','official','Term Schedule',
-    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":[],"rows":[],"rowCount":0}'::jsonb,
+    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":[],"rows":[],"rowCount":0,"scopeKey":"period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all"}'::jsonb,
+    'period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all',
     '{}'::jsonb,
     null,
     'fe120000-0000-4000-8000-000000000001'::uuid
@@ -183,7 +201,8 @@ select throws_ok(
   $$select public.finalize_academic_schedule_snapshot(
     'fe110000-0000-4000-8000-000000000001',2026,2::smallint,
     'subject_failure','official','Wrong title',
-    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Wrong title","columns":[],"rows":[],"rowCount":0}'::jsonb,
+    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Wrong title","columns":[],"rows":[],"rowCount":0,"scopeKey":"period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all"}'::jsonb,
+    'period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all',
     '{}'::jsonb,
     null,
     'fe120000-0000-4000-8000-000000000001'::uuid
@@ -199,7 +218,8 @@ select throws_ok(
   $$select public.finalize_academic_schedule_snapshot(
     'fe110000-0000-4000-8000-000000000001',2026,2::smallint,
     'term_schedule','official','Term Schedule',
-    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":[],"rows":[],"rowCount":0}'::jsonb,
+    '{"scheduleType":"term_schedule","basis":"official","academicYear":2026,"termNumber":2,"title":"Term Schedule","columns":[],"rows":[],"rowCount":0,"scopeKey":"period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all"}'::jsonb,
+    'period:term|grade-id:fe140000-0000-4000-8000-000000000001|class-ids:all',
     '{}'::jsonb,
     null,
     'fe120000-0000-4000-8000-000000000002'::uuid

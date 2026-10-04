@@ -101,6 +101,39 @@ function LearnersAndRisk({ workspace }: { workspace: AcademicAnalysisWorkspace }
   </section>;
 }
 
+function PromotionExceptions({ workspace }: { workspace: AcademicAnalysisWorkspace }) {
+  const rows=workspace.promotionExceptionRows;
+  return <section className="space-y-3">
+    <div>
+      <h2 className="scolapro-section-title">Promotion decision exceptions</h2>
+      <p className="scolapro-section-description">Governed promotion-readiness failures and authorized final decisions that differ from their preserved recommendation. No report-side promotion decision is calculated here.</p>
+    </div>
+    {rows.length ? <div className="overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle">
+      <table className="w-full min-w-[1040px] text-left text-sm">
+        <thead className="bg-surface-muted text-xs text-muted-foreground"><tr>
+          <th className="px-3 py-2">Learner</th><th className="px-3 py-2">Grade / class</th><th className="px-3 py-2">Recommended</th><th className="px-3 py-2">Final ruling</th><th className="px-3 py-2">Exception / reason</th><th className="px-3 py-2">Rule provenance</th><th className="px-3 py-2">Status</th>
+        </tr></thead>
+        <tbody className="divide-y divide-border-subtle">{rows.map((row)=>{
+          const decision=row.promotionDecision;
+          const finalRuling=decision&&["approved","locked"].includes(decision.status)?decision.outcome:null;
+          const reason=decision?.overrideReason ?? (row.promotionReadiness.failedConditions ? row.promotionReadiness.failedConditions+" failed governed condition"+(row.promotionReadiness.failedConditions===1?"":"s") : "Governed promotion-readiness exception");
+          const ruleKey=decision?.ruleSetKey ?? row.promotionReadiness.ruleSetKey;
+          const ruleVersion=decision?.ruleSetVersion ?? row.promotionReadiness.ruleSetVersion;
+          return <tr key={row.enrolmentId}>
+            <td className="px-3 py-2"><p className="font-medium">{row.learnerName}</p><p className="text-xs text-muted-foreground">{row.admissionNumber||"No admission no."}</p></td>
+            <td className="px-3 py-2">{row.grade} · {row.className||"—"}</td>
+            <td className="px-3 py-2">{row.promotionReadiness.recommendedOutcome ?? decision?.recommendedOutcome ?? "Not available"}</td>
+            <td className="px-3 py-2">{finalRuling ?? "—"}</td>
+            <td className="px-3 py-2">{reason}</td>
+            <td className="px-3 py-2">{ruleKey ? ruleKey+(ruleVersion?" · "+ruleVersion:"") : "Not available"}</td>
+            <td className="px-3 py-2">{decision?.status ?? row.promotionReadiness.status}</td>
+          </tr>;
+        })}</tbody>
+      </table>
+    </div> : <div className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-6 text-center text-sm text-muted-foreground">No governed promotion exceptions exist for this selection.</div>}
+  </section>;
+}
+
 function Trends({ workspace }: { workspace: AcademicAnalysisWorkspace }) {
   return <section className="space-y-3">
     <div><h2 className="scolapro-section-title">Trends</h2><p className="scolapro-section-description">Term-on-term and year-on-year comparisons use the governed official-series comparator. Mixed provenance, changed grading/rule versions, different subjects or grades are shown as not comparable rather than forced into a trend.</p></div>
@@ -113,6 +146,7 @@ export function AcademicAnalysisViews({ workspace, view }: { workspace: Academic
   if (view === "results") return <Results workspace={workspace} />;
   if (view === "grades") return <GradesAndClasses workspace={workspace} />;
   if (view === "learners") return <LearnersAndRisk workspace={workspace} />;
+  if (view === "promotion_exceptions") return <PromotionExceptions workspace={workspace} />;
   if (view === "trends") return <Trends workspace={workspace} />;
   return <Overview workspace={workspace} />;
 }
