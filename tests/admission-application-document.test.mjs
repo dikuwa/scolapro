@@ -32,8 +32,9 @@ test("admission PDF route matches the class-list preview and download contract",
 
 test("admission form resolves through the shared official external header family", () => {
   assert.match(header, /"admission_application"/);
-  assert.match(header, /OfficialDocumentHeaderFamily = "school_document" \| "official_external"/);
-  assert.match(header, /documentType === "admission_application"/);
+  assert.match(header, /"official_external"/);
+  assert.match(header, /"prescribed_statutory"/);
+  assert.match(header, /case "admission_application"/);
   assert.match(route, /officialDocumentHeaderModeForType\("admission_application"\)/);
   assert.match(renderer, /drawOfficialDocumentPdfHeader/);
 });
