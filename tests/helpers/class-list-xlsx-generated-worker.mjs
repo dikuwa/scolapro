@@ -138,6 +138,40 @@ function assertRelationshipTargetsExist(bytes) {
   return paths;
 }
 
+function workbookSchoolNameFont(bytes, sheetNumber = 1) {
+  const CFB = XLSX.CFB ?? XLSX.default?.CFB;
+  assert.ok(CFB, "SheetJS CFB package reader is required");
+  const cfb = CFB.read(Buffer.from(bytes), { type: "buffer" });
+  const readPart = (packagePath) => {
+    const found = CFB.find(cfb, packagePath) ?? CFB.find(cfb, "/" + packagePath);
+    assert.ok(found?.content, packagePath + " should be readable");
+    return Buffer.from(found.content).toString("utf8");
+  };
+  const sheetXml = readPart("xl/worksheets/sheet" + sheetNumber + ".xml");
+  const b1 = sheetXml.match(/<c\b(?=[^>]*\br="B1")([^>]*)>/);
+  assert.ok(b1, "B1 school-name cell should exist");
+  const styleId = Number(b1[1].match(/\bs="(\d+)"/)?.[1] ?? "0");
+
+  const stylesXml = readPart("xl/styles.xml");
+  const cellXfs = stylesXml.match(/<cellXfs\b[^>]*>([\s\S]*?)<\/cellXfs>/)?.[1] ?? "";
+  const xfs = [...cellXfs.matchAll(/<xf\b[^>]*>/g)].map((match) => match[0]);
+  assert.ok(xfs[styleId], "B1 style should resolve in cellXfs");
+  const fontId = Number(xfs[styleId].match(/\bfontId="(\d+)"/)?.[1] ?? "0");
+
+  const fontsXml = stylesXml.match(/<fonts\b[^>]*>([\s\S]*?)<\/fonts>/)?.[1] ?? "";
+  const fonts = [...fontsXml.matchAll(/<font>[\s\S]*?<\/font>/g)].map((match) => match[0]);
+  assert.ok(fonts[fontId], "B1 font should resolve in fonts");
+  return fonts[fontId].match(/<name\s+val="([^"]+)"/)?.[1] ?? "";
+}
+
+function assertSchoolNameFont(bytes, expected, sheetNumber = 1) {
+  assert.equal(
+    workbookSchoolNameFont(bytes, sheetNumber),
+    expected,
+    "sheet " + sheetNumber + " should use " + expected + " for the configured school-name font",
+  );
+}
+
 function assertWorkbook(bytes, expectedSheets) {
   const workbook = XLSX.read(Buffer.from(bytes), { type: "buffer", cellStyles: true });
   assert.equal(workbook.SheetNames.length, expectedSheets);
@@ -154,6 +188,13 @@ const logoBytes = new Uint8Array(await import("node:fs/promises").then(({ readFi
 ));
 const single = renderClassListXlsx(input("10A"), header, logoBytes);
 assertWorkbook(single, 1);
+assertSchoolNameFont(single, "Old English Text MT");
+const defaultFontSingle = renderClassListXlsx(
+  input("10A"),
+  { ...header, schoolNameFont: "default" },
+  null,
+);
+assertSchoolNameFont(defaultFontSingle, "Aptos Display");
 assertWorksheetCellAttributesAreUnique(single);
 assertNoDuplicateXmlAttributes(single);
 const singlePaths = assertRelationshipTargetsExist(single);
@@ -162,6 +203,8 @@ assert.ok(singlePaths.has("xl/media/class-list-logo.png"));
 
 const batch = renderClassListBatchXlsx([input("10A"), input("10B", 10)], header, logoBytes);
 assertWorkbook(batch, 2);
+assertSchoolNameFont(batch, "Old English Text MT", 1);
+assertSchoolNameFont(batch, "Old English Text MT", 2);
 assertWorksheetCellAttributesAreUnique(batch);
 assertNoDuplicateXmlAttributes(batch);
 const batchPaths = assertRelationshipTargetsExist(batch);
@@ -186,6 +229,7 @@ const sports = renderSportsHouseRosterXlsx({
 const sportsWorkbook = XLSX.read(sports,{type:"buffer",cellStyles:true});
 const sportsSheet = sportsWorkbook.Sheets[sportsWorkbook.SheetNames[0]];
 assert.equal(sportsSheet.B1.v,header.schoolName);
+assertSchoolNameFont(sports, "Old English Text MT");
 assert.equal(sportsSheet.A7.v,"No.");
 assert.equal(sportsSheet["!cols"].length,13);
 assertWorksheetCellAttributesAreUnique(sports);
@@ -218,6 +262,7 @@ const schedule = renderAcademicScheduleXlsx({
 const scheduleWorkbook = XLSX.read(schedule, { type: "buffer", cellStyles: true });
 const scheduleSheet = scheduleWorkbook.Sheets[scheduleWorkbook.SheetNames[0]];
 assert.equal(scheduleSheet.B1.v, header.schoolName);
+assertSchoolNameFont(schedule, "Old English Text MT");
 assert.equal(scheduleSheet.A7.v, "No.");
 assertWorksheetCellAttributesAreUnique(schedule);
 assertNoDuplicateXmlAttributes(schedule);

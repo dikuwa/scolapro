@@ -88,11 +88,12 @@ export function officialDocumentWorkbookStylesXml(): string {
   return (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<fonts count="4">' +
+    '<fonts count="5">' +
     '<font><sz val="10"/><name val="Aptos"/></font>' +
     '<font><b/><sz val="10"/><name val="Aptos"/></font>' +
     '<font><b/><sz val="16"/><name val="Aptos Display"/></font>' +
     '<font><b/><sz val="12"/><name val="Aptos"/></font>' +
+    '<font><sz val="16"/><name val="Old English Text MT"/></font>' +
     "</fonts>" +
     '<fills count="3">' +
     '<fill><patternFill patternType="none"/></fill>' +
@@ -104,7 +105,7 @@ export function officialDocumentWorkbookStylesXml(): string {
     '<border><left style="medium"><color rgb="FF4A4A4A"/></left><right style="medium"><color rgb="FF4A4A4A"/></right><top style="medium"><color rgb="FF4A4A4A"/></top><bottom style="medium"><color rgb="FF4A4A4A"/></bottom><diagonal/></border>' +
     "</borders>" +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="8">' +
+    '<cellXfs count="9">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
@@ -113,6 +114,7 @@ export function officialDocumentWorkbookStylesXml(): string {
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
     "</cellXfs>" +
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
     '<dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>' +
@@ -360,7 +362,11 @@ function styleSheet(
   );
 
   const metaColumn = XLSX.utils.encode_col(spec.metaStartColumn);
-  sheetXml = setCellStyle(sheetXml, "B1", 1);
+  sheetXml = setCellStyle(
+    sheetXml,
+    "B1",
+    spec.header.schoolNameFont === "old_english" ? 8 : 1,
+  );
   sheetXml = setCellStyle(sheetXml, "B2", 7);
   sheetXml = setCellStyle(sheetXml, "B3", 7);
   sheetXml = setCellStyle(sheetXml, "B4", 7);
