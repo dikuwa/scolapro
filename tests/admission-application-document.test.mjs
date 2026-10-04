@@ -1,0 +1,61 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import test from "node:test";
+
+const read = (path) => readFileSync(path, "utf8");
+const page = read("src/app/school/admissions/application-form/page.tsx");
+const route = read("src/app/api/official-documents/admission-application/route.ts");
+const renderer = read("src/features/admissions/server/render-admission-application-pdf.ts");
+const header = read("src/features/documents/server/official-document-header.ts");
+const classActions = read("src/features/learners/class-list-document-actions.tsx");
+const sharedActions = read("src/components/documents/official-document-actions.tsx");
+
+test("admission application uses the normal AppShell and previews the canonical PDF", () => {
+  assert.match(page, /<AppShell>/);
+  assert.match(page, /OfficialDocumentActions/);
+  assert.match(page, /Learner application form PDF preview/);
+  assert.match(page, /src=\{previewHref\}/);
+  assert.match(page, /Download PDF/);
+  assert.doesNotMatch(page, /window\.print/);
+  assert.doesNotMatch(page, /FormSection|Checklist|function Line/);
+});
+
+test("admission PDF route matches the class-list preview and download contract", () => {
+  assert.match(route, /preview = url\.searchParams\.get\("preview"\) === "1"/);
+  assert.match(route, /Content-Type": "application\/pdf"/);
+  assert.match(route, /Content-Disposition/);
+  assert.match(route, /preview \? "inline" : "attachment"/);
+  assert.match(route, /Cache-Control": "private, no-store, max-age=0"/);
+  assert.match(route, /X-ScolaPro-Page-Count/);
+  assert.match(route, /currentSchoolMembership/);
+});
+
+test("admission form resolves through the shared official external header family", () => {
+  assert.match(header, /"admission_application"/);
+  assert.match(header, /OfficialDocumentHeaderFamily = "school_document" \| "official_external"/);
+  assert.match(header, /documentType === "admission_application"/);
+  assert.match(route, /officialDocumentHeaderModeForType\("admission_application"\)/);
+  assert.match(renderer, /drawOfficialDocumentPdfHeader/);
+});
+
+test("application PDF contains the requested labelled form sections", () => {
+  assert.match(renderer, /LEARNER APPLICATION FORM/);
+  assert.match(renderer, /LEARNER PASSPORT PHOTO/);
+  assert.match(renderer, /Guardian 1/);
+  assert.match(renderer, /Guardian 2/);
+  assert.match(renderer, /Residential address/);
+  assert.match(renderer, /Postal address/);
+  assert.match(renderer, /Occupation/);
+  assert.match(renderer, /Work telephone \/ number/);
+  assert.match(renderer, /Document Checklist/);
+  assert.match(renderer, /Passport \/ learner photo \/ ID/);
+  assert.match(renderer, /const box = 8/);
+  assert.match(renderer, /Guardian signature/);
+});
+
+test("official document actions are shared with Class Lists", () => {
+  assert.match(classActions, /OfficialDocumentActions/);
+  assert.match(sharedActions, /Preview \/ Print/);
+  assert.match(sharedActions, /spreadsheetHref/);
+  assert.equal(existsSync("src/features/admissions/print-application-button.tsx"), false);
+});
