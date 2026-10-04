@@ -10,8 +10,8 @@ const excel = fs.readFileSync("src/features/academics/server/render-academic-ana
 const route = fs.readFileSync("src/app/academics/analysis/export.xlsx/route.ts", "utf8");
 const migration = fs.readFileSync("supabase/migrations/20261003081000_academic_analysis_quality_and_promotion_readiness.sql", "utf8");
 
-test("Academic Analysis consolidates to five primary views", () => {
-  for (const token of ["Overview", "Results", "Grades & Classes", "Learners & Risk", "Trends"]) {
+test("Academic Analysis consolidates to six primary views", () => {
+  for (const token of ["Overview", "Results", "Grades & Classes", "Learners & Risk", "Promotion Exceptions", "Trends"]) {
     assert.match(page + views, new RegExp(token.replace(/[&]/g, "\\&")));
   }
   assert.match(page, /AcademicAnalysisViews/);
@@ -101,7 +101,7 @@ test("print and Excel are per-view and use the shared live school document heade
   assert.match(route, /getLiveSchoolDocumentHeader/);
   assert.match(route, /view/);
   assert.match(excel, /AcademicAnalysisView/);
-  for (const view of ["overview","results","grades","learners","trends"]) {
+  for (const view of ["overview","results","grades","learners","promotion_exceptions","trends"]) {
     assert.match(excel, new RegExp('view === "' + view + '"'));
   }
 });

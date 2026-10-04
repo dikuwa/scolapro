@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const migration=readFileSync("supabase/migrations/20261003123000_official_academic_schedules.sql","utf8");
+const scopeMigration=readFileSync("supabase/migrations/20261004014000_academic_schedule_snapshot_scope.sql","utf8");
 const server=readFileSync("src/features/reporting/server/academic-schedules.ts","utf8");
 const page=readFileSync("src/app/reports/academic-schedules/page.tsx","utf8");
 const printPage=readFileSync("src/app/reports/academic-schedules/print/page.tsx","utf8");
@@ -12,6 +13,9 @@ const academicAnalysis=readFileSync("src/features/academics/server/academic-anal
 const exportRoute=readFileSync("src/app/reports/academic-schedules/export.xlsx/route.ts","utf8");
 const liveProfile=readFileSync("src/features/documents/server/live-school-document-profile.ts","utf8");
 const finalizeForm=readFileSync("src/features/reporting/academic-schedule-finalize-form.tsx","utf8");
+const filters=readFileSync("src/features/reporting/academic-schedule-filters.tsx","utf8");
+const analysisPage=readFileSync("src/app/academics/analysis/page.tsx","utf8");
+const timetableFoundation=readFileSync("supabase/migrations/20260827224500_timetable_foundation.sql","utf8");
 
 test("finalized official schedules are immutable, versioned and audited",()=>{
   assert.match(migration,/academic_schedule_snapshots/);
@@ -35,16 +39,21 @@ test("schedule generation reuses canonical current results, assessment readiness
   assert.doesNotMatch(server,/evaluate_promotion_recommendation/);
 });
 
-test("all eight required schedule families are exposed",()=>{
+test("legacy schedule keys stay server compatible and official UI is document-first",()=>{
   for(const key of ["term_schedule","promotion_schedule","retention_at_risk","incomplete_results","subject_failure","top_achievers","class_grade_summary","promotion_exceptions"]){
     assert.match(server,new RegExp(key));
   }
+  assert.match(server,/promotion_all_terms/);
+  assert.match(filters,/Promotion Schedule/);
+  assert.match(filters,/All Results Schedule/);
+  assert.doesNotMatch(filters,/Group By|Promotion Subjects|Active Subjects|Show Progression Code/);
 });
 
 test("preview, print PDF path and Excel export preserve explicit basis",()=>{
   assert.match(page,/Print \/ PDF/);
   assert.match(page,/Excel/);
-  assert.match(page,/Template fidelity pending/);
+  assert.doesNotMatch(page,/Template fidelity pending/);
+  assert.match(actions,/supplied_source_verified/);
   assert.match(page,/Open issued version/);
   assert.doesNotMatch(page,/<select\b/i);
   assert.match(printPage,/PROVISIONAL/);
@@ -53,13 +62,116 @@ test("preview, print PDF path and Excel export preserve explicit basis",()=>{
   assert.match(printPage,/getAcademicScheduleSnapshot/);
 });
 
+test("supplied-source document semantics are represented without invented fields",()=>{
+  for(const label of ["Home Language","Birth Date","Days Absent","Years in Grade","Years in Phase","Support comments","Recommendation","Ruling","Remarks","Maximum Mark","Minimum Promotion Mark"]){
+    assert.match(server,new RegExp(label,"i"));
+  }
+  assert.match(printPage,/@page\{size:A4 landscape/);
+  assert.match(printPage,/Class Teacher/);
+  assert.match(printPage,/Regional Director/);
+  assert.match(printPage,/Outcome analysis/);
+  assert.match(printPage,/School Stamp/);
+  assert.match(server,/official_results_current/);
+  assert.match(server,/daily_register_current/);
+  assert.match(server,/year_end_progressions/);
+  assert.match(server,/learner_subject_registrations/);
+  assert.match(server,/promotion_rule_conditions/);
+  assert.match(server,/subjectScaleRefs\.length===1/);
+  assert.match(server,/competitionRanks/);
+  assert.match(server,/distinctAbsenceCounts/);
+  assert.match(server,/outcome:"Pass",female:null,male:null,total:null/);
+});
+
+test("all-terms scope is immutable, canonical and cannot collide with ordinary finalized terms",()=>{
+  assert.match(server,/grade-id:/);
+  assert.match(server,/class-ids:/);
+  assert.match(server,/classIds=.*sort/);
+  assert.doesNotMatch(server,/encodeURIComponent\(input\.grade/);
+  assert.match(scopeMigration,/scope_key/);
+  assert.match(scopeMigration,/promotion_all_terms/);
+  assert.match(scopeMigration,/academic_schedule_snapshot_scope_version_key/);
+  assert.match(scopeMigration,/drop function if exists public\.finalize_academic_schedule_snapshot/);
+  assert.doesNotMatch(scopeMigration,/scope_key text not null default/);
+  assert.match(scopeMigration,/p_payload->>'scopeKey' is distinct from v_scope_key/);
+  assert.match(actions,/p_scope_key:payload\.scopeKey/);
+});
+
+test("official document cohort and subjects do not disappear when result rows are missing",()=>{
+  assert.match(server,/from\("enrolments"\)/);
+  assert.match(server,/loadAllOfficialResults/);
+  assert.match(server,/loadActiveRegistrations/);
+  assert.match(server,/subject_offerings/);
+  assert.match(server,/gradeEnrolments\.map/);
+  assert.match(server,/result\?\.result_value\?\?/);
+});
+
+test("official schedule screen is summary-first with simple scope controls and readiness",()=>{
+  for(const label of ["Document","Period","Scope","Status","Source readiness","Open Academic Analysis with this scope"]){
+    assert.match(page,new RegExp(label));
+  }
+  assert.match(filters,/Advanced/);
+  assert.match(filters,/All classes in grade/);
+  assert.doesNotMatch(filters,/All grades/);
+  assert.doesNotMatch(filters,/Group By|Promotion Subjects|Active Subjects|Show Progression Code/);
+});
+
+test("analytical families are exposed under Academic Analysis",()=>{
+  for(const label of ["Retention / At-Risk","Incomplete Results","Subject Failure","Top Achievers","Class / Grade Results Summary","Promotion Decision Exceptions"]){
+    assert.match(analysisPage,new RegExp(label.replace("/","\\/")));
+  }
+  assert.match(page,/ANALYSIS_COMPAT/);
+});
+
 
 test("official finalization is server-trusted and authenticated clients cannot submit payloads directly",()=>{
   assert.match(migration,/to service_role/);
   assert.match(migration,/from public,anon,authenticated/);
   assert.match(migration,/p_actor_user_id uuid/);
   assert.match(actions,/createSupabaseAdminClient/);
-  assert.match(actions,/p_actor_user_id: context\.user\.id/);
+  assert.match(actions,/p_actor_user_id:\s*context\.user\.id/);
+});
+
+test("legacy issued snapshots normalize missing source-fidelity fields before print or XLSX rendering",()=>{
+  assert.ok(server.includes("normalizeFrozenAcademicSchedulePayload"));
+  assert.ok(server.includes('raw.period==="all_terms"||scheduleType==="promotion_all_terms"'));
+  assert.ok(server.includes("classNames=Array.isArray(raw.classNames)"));
+  assert.ok(server.includes("classIds=Array.isArray(raw.classIds)"));
+  assert.ok(server.includes("scopeKey:typeof raw.scopeKey"));
+  assert.ok(printPage.includes("(payload.classNames??[]).join"));
+  assert.ok(xlsx.includes("(payload.classNames??[]).join"));
+  assert.ok(xlsx.includes("payload.period??"));
+});
+
+test("legacy analytical schedule redirects preserve historical scope",()=>{
+  assert.ok(page.includes('bridge.set("basis",params.basis)'));
+  assert.ok(page.includes('bridge.set("grade",params.grade)'));
+  assert.ok(page.includes('bridge.set("class",params.class)'));
+  assert.ok(exportRoute.includes('["year","term","basis","grade","class"]'));
+  assert.ok(printPage.includes('basis:params.basis??"official"'));
+  assert.ok(printPage.includes('bridge.set("grade",params.grade)'));
+  assert.ok(printPage.includes('bridge.set("class",params.class)'));
+});
+
+test("required grade scope is protected by the canonical one-offering-per-subject invariant",()=>{
+  assert.ok(server.includes('.eq("grade_id",input.gradeId)'));
+  assert.ok(timetableFoundation.includes("unique (school_id, academic_year, subject_id, grade_id)"));
+});
+
+test("direct print and XLSX routes canonicalize legacy grade and class references and fail closed",()=>{
+  assert.ok(printPage.includes("row.value===params.grade||row.label===params.grade||row.code===params.grade"));
+  assert.ok(printPage.includes("rawClassScope.map"));
+  assert.ok(printPage.includes("notFound()"));
+  assert.ok(exportRoute.includes("row.value===gradeRef||row.label===gradeRef||row.code===gradeRef"));
+  assert.ok(exportRoute.includes("Invalid academic schedule grade scope."));
+  assert.ok(exportRoute.includes("Invalid academic schedule class scope."));
+});
+
+test("provisional schedules do not mix official progression rulings and finalization requires canonical structure",()=>{
+  assert.ok(server.includes('input.basis==="official"&&gradeEnrolmentIds.length'));
+  assert.ok(server.includes('{label:"Academic terms"'));
+  assert.ok(server.includes('"Subjects",status:subjects.length?"available":"unavailable"'));
+  assert.ok(actions.includes('["Academic terms","Learner roster","Subjects"]'));
+  assert.ok(actions.includes("Cannot finalize until governed "));
 });
 
 test("issued history fails closed and visibly preserves lifecycle metadata",()=>{
@@ -79,8 +191,8 @@ test("frozen document assets are re-signed from immutable storage paths",()=>{
 });
 
 test("finalization surfaces pending and result feedback",()=>{
-  assert.match(actions,/try \{/);
-  assert.match(actions,/catch \{/);
+  assert.match(actions,/try\s*\{/);
+  assert.match(actions,/catch\s*\{/);
   assert.match(actions,/Unable to finalize the academic schedule from canonical academic data/);
   assert.match(finalizeForm,/useActionState/);
   assert.match(finalizeForm,/useFormStatus/);

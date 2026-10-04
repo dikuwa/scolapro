@@ -19,7 +19,7 @@ function addHeader(
   XLSX.utils.sheet_add_aoa(sheet, [
     [header.schoolName],
     [header.contactLines.map((line) => line.text).join(" · ")],
-    ["Academic Analysis — " + ({ overview: "Overview", results: "Results", grades: "Grades & Classes", learners: "Learners & Risk", trends: "Trends" }[view])],
+    ["Academic Analysis — " + ({ overview: "Overview", results: "Results", grades: "Grades & Classes", learners: "Learners & Risk", promotion_exceptions: "Promotion Exceptions", trends: "Trends" }[view])],
     ["Academic year " + workspace.academicYear + " · Term " + workspace.termNumber + " · Basis: " + workspace.basis.toUpperCase()],
   ], { origin: "A1" });
 }
@@ -90,6 +90,26 @@ export function renderAcademicAnalysisXlsx(
     const sheet = sheetFromRows(rows, "A5");
     addHeader(sheet, workspace, header, view);
     XLSX.utils.book_append_sheet(workbook, sheet, "Learners and Risk");
+  } else if (view === "promotion_exceptions") {
+    const rows = workspace.promotionExceptionRows.map((row) => {
+      const decision=row.promotionDecision;
+      const finalRuling=decision&&["approved","locked"].includes(decision.status)?decision.outcome:null;
+      return {
+        Learner: row.learnerName,
+        "Admission No.": row.admissionNumber,
+        Grade: row.grade,
+        Class: row.className,
+        Recommended: row.promotionReadiness.recommendedOutcome ?? decision?.recommendedOutcome ?? null,
+        "Final ruling": finalRuling,
+        "Failed conditions": row.promotionReadiness.failedConditions,
+        "Exception / reason": decision?.overrideReason ?? (row.promotionReadiness.failedConditions ? row.promotionReadiness.failedConditions+" failed governed condition"+(row.promotionReadiness.failedConditions===1?"":"s") : "Governed promotion-readiness exception"),
+        "Rule set": (decision?.ruleSetKey ?? row.promotionReadiness.ruleSetKey) ? (decision?.ruleSetKey ?? row.promotionReadiness.ruleSetKey)+" · "+(decision?.ruleSetVersion ?? row.promotionReadiness.ruleSetVersion ?? "") : null,
+        Status: decision?.status ?? row.promotionReadiness.status,
+      };
+    });
+    const sheet = sheetFromRows(rows, "A5");
+    addHeader(sheet, workspace, header, view);
+    XLSX.utils.book_append_sheet(workbook, sheet, "Promotion Exceptions");
   } else if (view === "trends") {
     const rows = workspace.trends.map((row) => ({
       Grade: row.grade,
