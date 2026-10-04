@@ -15,6 +15,9 @@ const room = read("src/app/api/official-documents/room-inventory/route.ts");
 const attendance = read("src/app/api/official-documents/attendance-summary/route.ts");
 const teaching = read("src/app/api/official-documents/teaching-pack/route.ts");
 const transfer = read("src/features/transfers/server/render-learner-transfer-form.ts");
+const teachingFilesInspection = read("src/app/api/teaching/files/inspection-pack/route.ts");
+const detentionRoster = read("src/app/late-arrivals/print-roster/page.tsx");
+const printButton = read("src/components/documents/document-print-button.tsx");
 
 test("document header registry has exactly governed official, school and prescribed families", () => {
   assert.match(registry, /OfficialDocumentHeaderFamily =/);
@@ -39,7 +42,9 @@ test("document header registry has exactly governed official, school and prescri
     "room_inventory",
     "teaching_print_pack",
     "teaching_plan",
+    "teaching_files_inspection_pack",
     "subject_file_inspection_pack",
+    "detention_roster",
     "academic_analysis",
   ]) {
     assert.match(registry, new RegExp(`case "${type}"`));
@@ -69,6 +74,15 @@ test("school operational exports stay on the school-document family", () => {
   assert.match(sports, /officialDocumentHeaderModeForType\("sports_house_roster"\)/);
   assert.match(room, /officialDocumentHeaderModeForType\("room_inventory"\)/);
   assert.match(teaching, /officialDocumentHeaderModeForType\("teaching_print_pack"\)/);
+  assert.match(teachingFilesInspection, /officialDocumentHeaderModeForType\("teaching_files_inspection_pack"\)/);
+  assert.match(teachingFilesInspection, /renderOfficialDocumentHtmlHeader\(header/);
+  assert.match(teachingFilesInspection, /OFFICIAL_DOCUMENT_HTML_HEADER_RULE/);
+  assert.doesNotMatch(teachingFilesInspection, /<header><div class="school">/);
+  assert.match(detentionRoster, /officialDocumentHeaderModeForType\("detention_roster"\)/);
+  assert.match(detentionRoster, /renderOfficialDocumentHtmlHeader\(header/);
+  assert.match(detentionRoster, /OFFICIAL_DOCUMENT_HTML_HEADER_RULE/);
+  assert.doesNotMatch(detentionRoster, /Official Friday Detention Register/);
+  assert.match(printButton, /onClick=\{\(\) => window\.print\(\)\}/);
 });
 
 test("prescribed transfer form remains source-faithful and explicitly classified", () => {
