@@ -7,6 +7,7 @@ import {
   OFFICIAL_DOCUMENT_METADATA_RULE,
   OFFICIAL_DOCUMENT_PRINT_RULE,
 } from "@/features/documents/server/official-document-chrome";
+import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
 import {
@@ -48,7 +49,7 @@ export async function GET(request:Request) {
   }
 
   const {row}=result;
-  const header=await getLiveSchoolDocumentHeader(membership.schoolId,"internal_school");
+  const header=await getLiveSchoolDocumentHeader(membership.schoolId,officialDocumentHeaderModeForType("subject_file_inspection_pack"));
   const sourceRows=row.sourceLinks
     .map((item)=>`<tr><td>${escapeOfficialDocumentHtml(item.label)}</td><td>${escapeOfficialDocumentHtml(item.description)}</td></tr>`)
     .join("");
