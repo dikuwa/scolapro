@@ -7,8 +7,10 @@ export type ThemePreference = "system" | "light" | "dark";
 export type ThemeMenuVariant = "icon" | "account" | "settings";
 
 export const THEME_STORAGE_KEY = "scolapro-theme";
-const THEME_CHANGE_EVENT = "scolapro-theme-change";
-const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
+export const THEME_CHANGE_EVENT = "scolapro-theme-change";
+export const SYSTEM_DARK_QUERY = "(prefers-color-scheme: dark)";
+const LIGHT_FAVICON = "/brand/scolapro/icon-blue.svg";
+const DARK_FAVICON = "/brand/scolapro/icon-white.svg";
 
 const options: Array<{
   value: ThemePreference;
@@ -38,10 +40,24 @@ function systemDarkSnapshot() {
   return window.matchMedia(SYSTEM_DARK_QUERY).matches;
 }
 
+function syncThemeFavicon(preference: ThemePreference) {
+  const systemDark = window.matchMedia(SYSTEM_DARK_QUERY).matches;
+  const effectiveDark = preference === "dark" || (preference === "system" && systemDark);
+  const href = effectiveDark ? DARK_FAVICON : LIGHT_FAVICON;
+  for (const id of ["scolapro-favicon", "scolapro-shortcut-icon"]) {
+    document.getElementById(id)?.setAttribute("href", href);
+  }
+}
+
 function subscribeSystemTheme(onStoreChange: () => void) {
   const query = window.matchMedia(SYSTEM_DARK_QUERY);
-  query.addEventListener("change", onStoreChange);
-  return () => query.removeEventListener("change", onStoreChange);
+  const onChange = () => {
+    const preference = storedThemePreference();
+    if (preference === "system") syncThemeFavicon(preference);
+    onStoreChange();
+  };
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
 }
 
 export function applyThemePreference(preference: ThemePreference) {
@@ -49,10 +65,11 @@ export function applyThemePreference(preference: ThemePreference) {
   if (preference === "system") {
     delete root.dataset.theme;
     root.style.removeProperty("color-scheme");
-    return;
+  } else {
+    root.dataset.theme = preference;
+    root.style.colorScheme = preference;
   }
-  root.dataset.theme = preference;
-  root.style.colorScheme = preference;
+  syncThemeFavicon(preference);
 }
 
 function persistThemePreference(preference: ThemePreference) {
