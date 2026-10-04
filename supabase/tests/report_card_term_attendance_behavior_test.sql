@@ -8,23 +8,6 @@ values('fb000000-0000-4000-8000-000000000001','report-attendance-principal@examp
 insert into public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
 values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fb000000-0000-4000-8000-000000000001','principal','2026-01-01');
 
-insert into public.academic_years(id,tenant_id,school_id,year,status,starts_on,ends_on)
-values('fb100000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'active','2026-01-12','2026-12-04')
-on conflict (school_id,year) do update
-set starts_on=excluded.starts_on,ends_on=excluded.ends_on,status=excluded.status;
-
-insert into public.academic_terms(tenant_id,school_id,academic_year_id,term_number,display_name,starts_on,ends_on,status)
-select '11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',ay.id,v.term_number,v.display_name,v.starts_on,v.ends_on,'active'
-from public.academic_years ay
-cross join (values
-  (1::smallint,'Term 1'::text,'2026-01-12'::date,'2026-03-27'::date),
-  (2::smallint,'Term 2'::text,'2026-05-18'::date,'2026-08-21'::date),
-  (3::smallint,'Term 3'::text,'2026-09-07'::date,'2026-11-27'::date)
-) v(term_number,display_name,starts_on,ends_on)
-where ay.school_id='22222222-2222-4222-8222-222222222222' and ay.year=2026
-on conflict (academic_year_id,term_number) do update
-set display_name=excluded.display_name,starts_on=excluded.starts_on,ends_on=excluded.ends_on,status=excluded.status;
-
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status)
 values('fb200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','RPT-ATT','Report Attendance Fixture','active');
 
@@ -82,10 +65,10 @@ select ok((select (s.data_snapshot#>>'{attendance,expected_school_days}')::integ
 select is((select (s.data_snapshot#>>'{attendance,register_coverage_complete}')::boolean from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=1),false,'partial register coverage remains explicitly incomplete');
 select is((select s.data_snapshot->'year_end_progression' from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=1),'null'::jsonb,'non-final term report does not expose a year-end progression decision');
 select is((select (s.data_snapshot#>>'{term,is_final_term}')::boolean from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=1),false,'term 1 snapshot is not marked final when later configured terms exist');
-select is((select (s.data_snapshot#>>'{attendance,recorded_school_days}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),2,'final-term report remains term-bounded instead of silently becoming cumulative annual attendance');
+select is((select (s.data_snapshot#>>'{attendance,recorded_school_days}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),3,'final-term report remains term-bounded instead of silently becoming cumulative annual attendance');
 select is((select (s.data_snapshot#>>'{attendance,excused}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),1,'final-term report preserves excused attendance semantics');
 select is((select (s.data_snapshot#>>'{attendance,absent}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),1,'final-term report preserves absent attendance semantics');
-select is((select (s.data_snapshot#>>'{attendance,present}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),0,'attendance exceptions override the register default status in final-term reporting');
+select is((select (s.data_snapshot#>>'{attendance,present}')::integer from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),1,'attendance exceptions override their register defaults while other governed term days remain present');
 select is((select (s.data_snapshot#>>'{term,is_final_term}')::boolean from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),true,'highest configured term is marked as the final term');
 select is((select s.data_snapshot#>>'{year_end_progression,outcome}' from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),'promoted','final-term snapshot includes the learner year-end progression outcome');
 select is((select s.data_snapshot#>>'{year_end_progression,status}' from public.report_card_snapshots s join report_attendance_snapshot_ids x on x.snapshot_id=s.id where x.term_number=3),'approved','final-term snapshot preserves progression approval status for certification governance');

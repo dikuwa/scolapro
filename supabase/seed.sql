@@ -28,6 +28,10 @@ values
   ('40000000-0000-4000-8000-00000000001b', '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', '30000000-0000-4000-8000-000000000010', 2026, '10B', 'Grade 10/B')
 on conflict (id) do nothing;
 
+-- Migrations precede seed.sql on a clean reset. Apply the same fail-closed
+-- Issue #1050 recovery after the exact school and its 2026 structure exist.
+select app_private.recover_namib_high_2026_learner_calendar();
+
 insert into public.learners (id, tenant_id, first_names, surname, preferred_name, date_of_birth, sex)
 values
   ('50000000-0000-4000-8000-000000000001', '11111111-1111-4111-8111-111111111111', 'Amara N.', 'Demo', 'Amara', '2010-05-14', 'female'),
