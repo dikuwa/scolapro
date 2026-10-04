@@ -27,6 +27,17 @@ import type {
 } from "@/features/sports-houses/server/queries";
 
 const initialState: SportsHousesActionState = {};
+const SPORTS_EXPORT_COLUMN_OPTIONS = [
+  { value: "admission", label: "Admission No." },
+  { value: "grade", label: "Grade" },
+  { value: "class", label: "Class" },
+  { value: "sex", label: "Sex" },
+  { value: "age", label: "Age" },
+  { value: "age_group", label: "Age group" },
+  { value: "source", label: "Source" },
+  { value: "lock", label: "Lock" },
+] as const;
+const DEFAULT_SPORTS_EXPORT_COLUMNS = ["grade", "class", "sex", "age", "age_group"];
 const fieldClass =
   "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm text-foreground shadow-[var(--shadow-xs)] outline-none transition duration-[var(--motion-fast)] placeholder:text-muted-foreground/65 hover:border-border focus:border-[color:var(--brand)]/45 focus:ring-4 focus:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-55";
 
@@ -312,6 +323,7 @@ export function SportsHousesWorkspace({
   const [exportContent, setExportContent] = useState("combined");
   const [exportGroup, setExportGroup] = useState("none");
   const [exportBlankColumns, setExportBlankColumns] = useState("3");
+  const [exportColumns, setExportColumns] = useState<string[]>(DEFAULT_SPORTS_EXPORT_COLUMNS);
 
   const uniqueOptions = (values: Array<string | null>) =>
     [...new Set(values.filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
@@ -349,6 +361,7 @@ export function SportsHousesWorkspace({
     content: exportContent,
     groupBy: exportGroup,
     blankColumns: exportBlankColumns,
+    columns: exportColumns.join(","),
   }).toString();
 
   return (
@@ -478,11 +491,12 @@ export function SportsHousesWorkspace({
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="scolapro-section-title">House roster exports</h2><p className="scolapro-section-description">Choose one or multiple houses; leave empty to export all active houses.</p></div><OfficialDocumentActions previewHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf&preview=1`} downloadHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf`} spreadsheetHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=xlsx`} /></div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <SearchableSelect label="Houses" value="" options={activeHouses.map((house) => ({ value: house.id, label: house.name }))} placeholder="All active houses" searchPlaceholder="Search houses" multiple selectedValues={exportHouseIds} onToggle={(id) => setExportHouseIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current,id])} />
           <Picker label="Include" placeholder="Choose content" value={exportContent} onChange={setExportContent} options={[{ value: "combined", label: "Learners + staff" },{ value: "learners", label: "Learners only" },{ value: "staff", label: "Staff only" }]} />
           <Picker label="Group learners by" placeholder="Choose grouping" value={exportGroup} onChange={setExportGroup} options={[{ value: "none", label: "No grouping" },{ value: "age_group", label: "Age group" },{ value: "sex", label: "Sex" },{ value: "grade", label: "Grade" },{ value: "class", label: "Register class" }]} />
           <Picker label="Blank columns" placeholder="Choose blank columns" value={exportBlankColumns} onChange={setExportBlankColumns} options={Array.from({ length: 7 }, (_, index) => ({ value: String(index), label: index === 0 ? "None" : `${index} blank column${index === 1 ? "" : "s"}` }))} />
+          <SearchableSelect label="Print columns" value="" options={SPORTS_EXPORT_COLUMN_OPTIONS.map((option) => ({ value: option.value, label: option.label }))} placeholder="Choose columns" searchPlaceholder="Search columns" multiple selectedValues={exportColumns} onToggle={(value) => setExportColumns((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value])} />
         </div>
       </section>
 

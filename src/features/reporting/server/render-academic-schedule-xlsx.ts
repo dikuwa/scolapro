@@ -8,7 +8,7 @@ import {
   finalizeOfficialDocumentWorkbook,
   type OfficialDocumentWorkbookSheetSpec,
 } from "@/features/documents/server/official-document-xlsx-chrome";
-import { academicScheduleColumnWidth } from "@/features/reporting/academic-schedule-column-layout";
+import { academicScheduleColumnWidth, academicScheduleHeadingOrientation } from "@/features/reporting/academic-schedule-column-layout";
 import type { AcademicSchedulePayload } from "@/features/reporting/server/academic-schedules";
 
 export type AcademicScheduleIssuedLifecycle = {
@@ -91,6 +91,9 @@ export function renderAcademicScheduleXlsx(
     columnCount,
     metaStartColumn,
     header,
+    verticalHeaderColumns: columns
+      .map((column, index) => academicScheduleHeadingOrientation(column, payload.subjects?.map((subject) => subject.name) ?? []) === "vertical" ? index : -1)
+      .filter((index) => index >= 0),
   };
 
   const worksheet = buildOfficialDocumentWorkbookSheet({
@@ -115,8 +118,12 @@ export function renderAcademicScheduleXlsx(
     dataRows: tableRows,
     trailingRows,
     operationalLine: supersededNotice || undefined,
+    rowHeights: tableRows.map(() => ({ hpt: 18 })),
     landscape: true,
   });
+  if (worksheet["!rows"]?.[OFFICIAL_DOCUMENT_WORKBOOK_TABLE_HEADER_ROW - 1]) {
+    worksheet["!rows"]![OFFICIAL_DOCUMENT_WORKBOOK_TABLE_HEADER_ROW - 1] = { hpt: 72 };
+  }
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, payload.title.slice(0, 31));

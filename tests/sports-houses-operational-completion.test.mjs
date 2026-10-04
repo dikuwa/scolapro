@@ -42,6 +42,17 @@ test("house roster exports support one multiple all and content/group options th
   assert.match(exportRoute,/requestedSchool && !platformAdmin && !requestedMembership/);
 });
 
+test("house roster exports keep operational Source and Lock optional through configurable print columns", () => {
+  assert.match(workspace,/Print columns/);
+  assert.match(workspace,/DEFAULT_SPORTS_EXPORT_COLUMNS = \["grade", "class", "sex", "age", "age_group"\]/);
+  assert.match(workspace,/columns: exportColumns\.join\(","\)/);
+  assert.match(exportRoute,/SPORTS_ROSTER_COLUMN_KEYS/);
+  assert.match(exportRoute,/DEFAULT_SPORTS_HOUSE_ROSTER_COLUMNS/);
+  assert.match(documentRenderer,/selectedLearnerColumns/);
+  assert.match(documentRenderer,/input\.learnerColumns\.includes\("source"\)/);
+  assert.match(documentRenderer,/input\.learnerColumns\.includes\("lock"\)/);
+});
+
 test("learner compact summary uses reusable effective guardian resolver without addresses", () => {
   assert.match(guardianQueries,/getEffectiveLearnerGuardianContact/);
   assert.match(learnerPage,/Effective guardian \/ contact/);

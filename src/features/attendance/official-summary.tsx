@@ -3,7 +3,8 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowUpRight, CalendarCheck2, CheckCircle2, ChevronLeft, ChevronRight, Download, FileText, Lock, Percent, Printer, QrCode, ShieldCheck, UsersRound } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarCheck2, CheckCircle2, ChevronLeft, ChevronRight, Lock, Percent, QrCode, ShieldCheck, UsersRound } from "lucide-react";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import type { OfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
@@ -177,7 +178,6 @@ export function OfficialSummary({
       </section>
 
       <FinalizationPanel
-        summary={summary}
         mode={mode}
         readinessComplete={readiness.complete}
         canFinalize={canFinalize}
@@ -212,7 +212,6 @@ export function OfficialSummary({
 }
 
 function FinalizationPanel({
-  summary,
   mode,
   readinessComplete,
   canFinalize,
@@ -222,7 +221,6 @@ function FinalizationPanel({
   onFinalize,
   exportUrl,
 }: {
-  summary: OfficialAttendanceSummary;
   mode: "week" | "term";
   readinessComplete: boolean;
   canFinalize: boolean;
@@ -251,10 +249,12 @@ function FinalizationPanel({
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <a className="scolapro-cta inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted" href={exportUrl("html")} target="_blank" rel="noopener noreferrer"><FileText className="scolapro-cta-icon size-3.5" aria-hidden="true" />Preview</a>
-            <a className="scolapro-cta inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted" href={exportUrl("pdf")} target="_blank" rel="noopener noreferrer"><Printer className="scolapro-cta-icon size-3.5" aria-hidden="true" />Print</a>
-            <a className="scolapro-cta inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted" href={exportUrl("pdf")}><Download className="scolapro-cta-icon size-3.5" aria-hidden="true" />PDF</a>
-            <a className="scolapro-cta inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface px-3 py-2 text-xs font-medium text-foreground shadow-[var(--shadow-xs)] hover:bg-surface-muted" href={exportUrl("xlsx")}><Download className="scolapro-cta-icon size-3.5" aria-hidden="true" />Excel</a>
+            <OfficialDocumentActions
+              previewHref={`${exportUrl("pdf")}&preview=1`}
+              downloadHref={exportUrl("pdf")}
+              spreadsheetHref={exportUrl("xlsx")}
+              compact
+            />
             {canFinalize ? (
               <button type="button" onClick={onFinalize} disabled={pending} className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 py-2 text-xs font-semibold text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
                 {pending ? <Spinner className="size-3.5" /> : <ArrowUpRight className="size-3.5" aria-hidden="true" />}

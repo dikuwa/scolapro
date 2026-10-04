@@ -5,6 +5,8 @@ import {
   renderSportsHouseRosterHtml,
   renderSportsHouseRosterPdf,
   renderSportsHouseRosterXlsx,
+  DEFAULT_SPORTS_HOUSE_ROSTER_COLUMNS,
+  type SportsHouseRosterColumn,
   type SportsHouseRosterDocumentInput,
 } from "@/features/documents/server/sports-house-roster-document";
 import { getSportsHousesWorkspace } from "@/features/sports-houses/server/queries";
@@ -14,6 +16,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const readerRoles = new Set(["school_admin","principal","deputy_principal","hod","teacher","class_teacher"]);
+
+const SPORTS_ROSTER_COLUMN_KEYS = new Set<SportsHouseRosterColumn>(["admission","grade","class","sex","age","age_group","source","lock"]);
+
 
 function validUuid(value: string | null) {
   return Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
@@ -52,6 +57,11 @@ export async function GET(request: Request) {
   const blankColumns = Number.isInteger(requestedBlankColumns)
     ? Math.min(6, Math.max(0, requestedBlankColumns))
     : 3;
+  const requestedColumns = (url.searchParams.get("columns") ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter((value): value is SportsHouseRosterColumn => SPORTS_ROSTER_COLUMN_KEYS.has(value as SportsHouseRosterColumn));
+  const learnerColumns = requestedColumns.length ? [...new Set(requestedColumns)] : [...DEFAULT_SPORTS_HOUSE_ROSTER_COLUMNS];
 
   try {
     const workspace = await getSportsHousesWorkspace(schoolId,academicYear);
@@ -70,6 +80,7 @@ export async function GET(request: Request) {
       content,
       groupBy,
       blankColumns,
+      learnerColumns,
       sections: selectedHouses.map((house)=>({
         house,
         learners: workspace.learners.filter((learner)=>learner.houseId===house.id),

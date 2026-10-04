@@ -1,6 +1,7 @@
 "use client";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Button } from "@/components/ui/button";
 import { NumberStepper } from "@/components/ui/number-stepper";
 import { Picker } from "@/components/ui/picker";
@@ -368,9 +369,11 @@ export function RoomInventoryWorkspace({
                 {canAssign ? <Button type="button" variant="neutral" onClick={() => setResponsibilityOpen((open) => !open)}>{responsibilityOpen ? "Close responsibility" : "Manage responsibility"}</Button> : null}
                 {room.lastVerified ? (
                   <>
-                    <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}`, "_blank", "noopener,noreferrer")}>Preview sheet</Button>
-                    <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&print=1`, "_blank", "noopener,noreferrer")}>Print</Button>
-                    <Button type="button" variant="neutral" size="sm" onClick={() => window.open(`/api/official-documents/room-inventory?room=${room.id}&format=pdf`, "_blank", "noopener,noreferrer")}>PDF</Button>
+                    <OfficialDocumentActions
+                      previewHref={`/api/official-documents/room-inventory?room=${room.id}&format=pdf&preview=1`}
+                      downloadHref={`/api/official-documents/room-inventory?room=${room.id}&format=pdf`}
+                      compact
+                    />
                   </>
                 ) : null}
               </div>

@@ -73,7 +73,7 @@ export async function GET(request: Request) {
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="${fileBase}.pdf"`,
+          "Content-Disposition": `${url.searchParams.get("preview") === "1" ? "inline" : "attachment"}; filename="${fileBase}.pdf"`,
           "Cache-Control": "private, no-store, max-age=0",
           "X-Content-Type-Options": "nosniff",
           "Referrer-Policy": "no-referrer",

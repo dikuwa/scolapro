@@ -29,6 +29,10 @@ export type SportsHouseRosterSection = {
   staff: SportsStaff[];
 };
 
+export type SportsHouseRosterColumn = "admission" | "grade" | "class" | "sex" | "age" | "age_group" | "source" | "lock";
+
+export const DEFAULT_SPORTS_HOUSE_ROSTER_COLUMNS: readonly SportsHouseRosterColumn[] = ["grade", "class", "sex", "age", "age_group"];
+
 export type SportsHouseRosterDocumentInput = {
   header: OfficialDocumentHeaderModel;
   schoolName: string;
@@ -38,6 +42,7 @@ export type SportsHouseRosterDocumentInput = {
   content: "learners" | "staff" | "combined";
   groupBy: "none" | "age_group" | "sex" | "grade" | "class";
   blankColumns: number;
+  learnerColumns: SportsHouseRosterColumn[];
 };
 
 function blankColumnLabels(count: number) {
@@ -49,6 +54,30 @@ function sexLabel(value: string | null) {
   if (v === "male" || v === "m") return "M";
   if (v === "female" || v === "f") return "F";
   return value ?? "";
+}
+
+
+type LearnerColumnDefinition = {
+  key: SportsHouseRosterColumn;
+  label: string;
+  width: number;
+  value: (learner: SportsLearner) => string;
+};
+
+const LEARNER_COLUMN_DEFINITIONS: Record<SportsHouseRosterColumn, LearnerColumnDefinition> = {
+  admission: { key: "admission", label: "Admission No.", width: 68, value: (learner) => learner.admissionNumber ?? "" },
+  grade: { key: "grade", label: "Grade", width: 50, value: (learner) => learner.gradeName ?? "" },
+  class: { key: "class", label: "Class", width: 48, value: (learner) => learner.registerClassName ?? "" },
+  sex: { key: "sex", label: "Sex", width: 28, value: (learner) => sexLabel(learner.sex) },
+  age: { key: "age", label: "Age", width: 28, value: (learner) => learner.ageOnReferenceDate === null ? "" : String(learner.ageOnReferenceDate) },
+  age_group: { key: "age_group", label: "Age group", width: 55, value: (learner) => learner.ageGroupLabel ?? "Unresolved" },
+  source: { key: "source", label: "Source", width: 60, value: (learner) => learner.assignmentSource ?? "" },
+  lock: { key: "lock", label: "Lock", width: 48, value: (learner) => learner.isLocked ? "Locked" : "Unlocked" },
+};
+
+function selectedLearnerColumns(input: SportsHouseRosterDocumentInput) {
+  const selected = input.learnerColumns.length ? input.learnerColumns : [...DEFAULT_SPORTS_HOUSE_ROSTER_COLUMNS];
+  return selected.map((key) => LEARNER_COLUMN_DEFINITIONS[key]);
 }
 
 function learnerGroupLabel(learner: SportsLearner, groupBy: SportsHouseRosterDocumentInput["groupBy"]) {
@@ -82,29 +111,30 @@ function safeSheetName(value: string, used: Set<string>) {
 }
 
 export function renderSportsHouseRosterHtml(input: SportsHouseRosterDocumentInput): string {
+  const columns = selectedLearnerColumns(input);
   const blankHeaders = blankColumnLabels(input.blankColumns).map(() => "<th></th>").join("");
   const blankCells = blankColumnLabels(input.blankColumns).map(() => "<td></td>").join("");
+  const learnerColumnCount = 2 + columns.length + input.blankColumns;
+  const includeSource = input.learnerColumns.includes("source");
+  const includeLock = input.learnerColumns.includes("lock");
   const sectionMarkup = input.sections.map(({ house, learners, staff }) => {
     const leaders = staff.filter((person) => person.roleKey === "leader").map((person) => person.name);
     let learnerIndex = 0;
     const learnerRows = groupedLearners(learners,input.groupBy).map((group) =>
-      `${group.label ? `<tr class="group-row"><td colspan="${9 + input.blankColumns}">${escapeOfficialDocumentHtml(group.label)}</td></tr>` : ""}${group.rows.map((learner) => {
+      `${group.label ? `<tr class="group-row"><td colspan="${learnerColumnCount}">${escapeOfficialDocumentHtml(group.label)}</td></tr>` : ""}${group.rows.map((learner) => {
         learnerIndex += 1;
-        return `<tr>
-      <td>${learnerIndex}</td><td>${escapeOfficialDocumentHtml(learner.name)}</td>
-      <td>${escapeOfficialDocumentHtml(learner.gradeName)}</td><td>${escapeOfficialDocumentHtml(learner.registerClassName)}</td>
-      <td>${escapeOfficialDocumentHtml(sexLabel(learner.sex))}</td><td>${escapeOfficialDocumentHtml(learner.ageOnReferenceDate)}</td>
-      <td>${escapeOfficialDocumentHtml(learner.ageGroupLabel ?? "Unresolved")}</td>
-      <td>${escapeOfficialDocumentHtml(learner.assignmentSource)}</td><td>${learner.isLocked ? "Locked" : "Unlocked"}</td>${blankCells}
-    </tr>`;
+        const values = columns.map((column) => `<td>${escapeOfficialDocumentHtml(column.value(learner))}</td>`).join("");
+        return `<tr><td>${learnerIndex}</td><td>${escapeOfficialDocumentHtml(learner.name)}</td>${values}${blankCells}</tr>`;
       }).join("")}`
     ).join("");
-    const staffRows = staff.map((person) => `<tr><td>${escapeOfficialDocumentHtml(person.name)}</td><td>${escapeOfficialDocumentHtml(person.employeeNumber)}</td><td>${person.roleKey === "leader" ? "House leader" : "Member"}</td><td>${escapeOfficialDocumentHtml(person.assignmentSource)}</td><td>${person.isLocked ? "Locked" : "Unlocked"}</td></tr>`).join("");
+    const staffHeaderExtras = `${includeSource ? "<th>Source</th>" : ""}${includeLock ? "<th>Lock</th>" : ""}`;
+    const staffRows = staff.map((person) => `<tr><td>${escapeOfficialDocumentHtml(person.name)}</td><td>${escapeOfficialDocumentHtml(person.employeeNumber)}</td><td>${person.roleKey === "leader" ? "House leader" : "Member"}</td>${includeSource ? `<td>${escapeOfficialDocumentHtml(person.assignmentSource)}</td>` : ""}${includeLock ? `<td>${person.isLocked ? "Locked" : "Unlocked"}</td>` : ""}</tr>`).join("");
+    const staffColumnCount = 3 + Number(includeSource) + Number(includeLock);
     return `<section class="house-block">
       <h2>${escapeOfficialDocumentHtml(house.name)}</h2>
       <p class="house-summary">Leader: ${escapeOfficialDocumentHtml(leaders.join(", ") || "Not assigned")} · ${learners.length} learners · ${staff.length} staff</p>
-      ${input.content !== "staff" ? `<table><thead><tr><th>No.</th><th>Learner</th><th>Grade</th><th>Class</th><th>Sex</th><th>Age</th><th>Age group</th><th>Source</th><th>Lock</th>${blankHeaders}</tr></thead><tbody>${learnerRows || `<tr><td colspan="${9 + input.blankColumns}">No learners assigned.</td></tr>`}</tbody></table>` : ""}
-      ${input.content !== "learners" ? `<h3>Staff</h3><table><thead><tr><th>Staff member</th><th>Employee No.</th><th>Role</th><th>Source</th><th>Lock</th></tr></thead><tbody>${staffRows || '<tr><td colspan="5">No staff assigned.</td></tr>'}</tbody></table>` : ""}
+      ${input.content !== "staff" ? `<table><thead><tr><th>No.</th><th>Learner</th>${columns.map((column) => `<th>${escapeOfficialDocumentHtml(column.label)}</th>`).join("")}${blankHeaders}</tr></thead><tbody>${learnerRows || `<tr><td colspan="${learnerColumnCount}">No learners assigned.</td></tr>`}</tbody></table>` : ""}
+      ${input.content !== "learners" ? `<h3>Staff</h3><table><thead><tr><th>Staff member</th><th>Employee No.</th><th>Role</th>${staffHeaderExtras}</tr></thead><tbody>${staffRows || `<tr><td colspan="${staffColumnCount}">No staff assigned.</td></tr>`}</tbody></table>` : ""}
     </section>`;
   }).join("");
 
@@ -130,11 +160,13 @@ export function renderSportsHouseRosterXlsx(input: SportsHouseRosterDocumentInpu
   const workbook = XLSX.utils.book_new();
   const used = new Set<string>();
   const chromeSheets: Array<{ tableHeaderRow: number; dataRowCount: number; columnCount: number; metaStartColumn: number }> = [];
+  const selectedColumns = selectedLearnerColumns(input);
+  const includeSource = input.learnerColumns.includes("source");
+  const includeLock = input.learnerColumns.includes("lock");
   for (const { house, learners, staff } of input.sections) {
     const leaders = staff.filter((person) => person.roleKey === "leader").map((person) => person.name).join(", ") || "Not assigned";
-    const baseLearnerHeaders = ["No.","Learner","Admission No.","Grade","Register Class","Sex","Age","Age Group","Source","Lock"];
-    const learnerHeaders = [...baseLearnerHeaders, ...blankColumnLabels(input.blankColumns)];
-    const staffHeaders = ["Staff member","Employee No.","Role","Source","Lock"];
+    const learnerHeaders = ["No.","Learner",...selectedColumns.map((column) => column.label), ...blankColumnLabels(input.blankColumns)];
+    const staffHeaders = ["Staff member","Employee No.","Role",...(includeSource ? ["Source"] : []),...(includeLock ? ["Lock"] : [])];
     const columnCount = Math.max(input.content === "staff" ? staffHeaders.length : learnerHeaders.length, 6);
     const metaStartColumn = Math.max(3, Math.floor(columnCount * 0.58));
     const blankRow = () => Array.from({ length: columnCount }, () => "");
@@ -144,13 +176,13 @@ export function renderSportsHouseRosterXlsx(input: SportsHouseRosterDocumentInpu
         learnerHeaders,
         ...groupedLearners(learners,input.groupBy).flatMap((group) => [
           ...(group.label ? [[group.label]] : []),
-          ...group.rows.map((learner,index) => [index+1,learner.name,learner.admissionNumber ?? "",learner.gradeName ?? "",learner.registerClassName ?? "",sexLabel(learner.sex),learner.ageOnReferenceDate ?? "",learner.ageGroupLabel ?? "Unresolved",learner.assignmentSource ?? "",learner.isLocked ? "Locked" : "Unlocked", ...blankColumnLabels(input.blankColumns)]),
+          ...group.rows.map((learner,index) => [index+1,learner.name,...selectedColumns.map((column) => column.value(learner)), ...blankColumnLabels(input.blankColumns)]),
         ]),
       ] : []),
       ...(input.content === "combined" ? [[]] : []),
       ...(input.content !== "learners" ? [
         staffHeaders,
-        ...staff.map((person) => [person.name,person.employeeNumber ?? "",person.roleKey === "leader" ? "House leader" : "Member",person.assignmentSource ?? "",person.isLocked ? "Locked" : "Unlocked"]),
+        ...staff.map((person) => [person.name,person.employeeNumber ?? "",person.roleKey === "leader" ? "House leader" : "Member",...(includeSource ? [person.assignmentSource ?? ""] : []),...(includeLock ? [person.isLocked ? "Locked" : "Unlocked"] : [])]),
       ] : []),
     ];
     rows[0][1] = input.header.schoolName;
@@ -170,7 +202,8 @@ export function renderSportsHouseRosterXlsx(input: SportsHouseRosterDocumentInpu
       ...Array.from({ length: 6 }, (_, index) => XLSX.utils.decode_range(`B${index + 1}:${leftEnd}${index + 1}`)),
       ...Array.from({ length: 3 }, (_, index) => XLSX.utils.decode_range(`${metaColumn}${index + 1}:${lastColumn}${index + 1}`)),
     ];
-    sheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({ wch: [6,28,16,14,16,8,8,13,14,10][index] ?? 14 }));
+    const widthMap = [6,28,...selectedColumns.map((column) => Math.max(8, Math.round(column.width / 4.2))), ...Array.from({ length: input.blankColumns }, () => 14)];
+    sheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({ wch: widthMap[index] ?? 14 }));
     sheet["!rows"] = [{ hpt:22 },{ hpt:9 },{ hpt:9 },{ hpt:9 },{ hpt:9 },{ hpt:11 },{ hpt:21 },...rows.slice(7).map(() => ({ hpt:18 }))];
     sheet["!margins"] = { left:0.25,right:0.25,top:0.25,bottom:0.35,header:0.1,footer:0.1 };
     (sheet as XLSX.WorkSheet & { "!pageSetup"?: Record<string, unknown> })["!pageSetup"] = { orientation:"landscape",fitToWidth:1,fitToHeight:0,paperSize:9 };
@@ -185,10 +218,11 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
   const pdf = await PDFDocument.create();
   const resources = await createOfficialDocumentPdfResources(pdf,input.header);
   const { pageWidth, pageHeight, margin } = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
-  const preferredColumns = [
-    ["No.",24],["Learner",120],["Grade",50],["Class",48],["Sex",28],["Age",28],["Age group",55],["Source",60],["Lock",48],
+  const selectedColumns = selectedLearnerColumns(input);
+  const preferredColumns: Array<readonly [string, number]> = [
+    ["No.",24],["Learner",120],...selectedColumns.map((column) => [column.label, column.width] as const),
     ...Array.from({ length: input.blankColumns }, () => ["", 62] as const),
-  ] as const;
+  ];
   const preferredWidth = preferredColumns.reduce((sum,entry)=>sum+entry[1],0);
   const availableWidth = pageWidth - margin * 2;
   const widthScale = availableWidth / preferredWidth;
@@ -212,7 +246,7 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
     if (input.content !== "staff") for(let i=0;i<section.learners.length;i+=1){
       if(y<margin+80){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:"Continued"}})-16;headerRow();}
       const learner=section.learners[i];
-      const values=[String(i+1),learner.name,learner.gradeName??"",learner.registerClassName??"",sexLabel(learner.sex),learner.ageOnReferenceDate===null?"":String(learner.ageOnReferenceDate),learner.ageGroupLabel??"Unresolved",learner.assignmentSource??"",learner.isLocked?"Locked":"Unlocked",...blankColumnLabels(input.blankColumns)];
+      const values=[String(i+1),learner.name,...selectedColumns.map((column) => column.value(learner)),...blankColumnLabels(input.blankColumns)];
       let x=margin;
       columns.forEach(([,width],ci)=>{page.drawRectangle({x,y:y-rowHeight+3,width,height:rowHeight,borderWidth:.4,borderColor:rgb(.45,.45,.45)});page.drawText(fitOfficialDocumentPdfText(regular,values[ci],5.2,width-4),{x:x+2,y:y-7,size:5.2,font:regular});x+=width;});
       y-=rowHeight;
@@ -223,7 +257,11 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
     }
     if (input.content !== "learners") for(const person of section.staff){
       if(y<margin+20){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:"Staff continued"}})-16;}
-      page.drawText(fitOfficialDocumentPdfText(regular,`${person.name} · ${person.roleKey==="leader"?"House leader":"Member"} · ${person.assignmentSource??"Unknown source"} · ${person.isLocked?"Locked":"Unlocked"}`,6.2,tableWidth),{x:margin,y,size:6.2,font:regular});y-=10;
+      const extras = [
+        input.learnerColumns.includes("source") ? person.assignmentSource ?? "Unknown source" : "",
+        input.learnerColumns.includes("lock") ? (person.isLocked ? "Locked" : "Unlocked") : "",
+      ].filter(Boolean);
+      page.drawText(fitOfficialDocumentPdfText(regular,[person.name,person.roleKey==="leader"?"House leader":"Member",...extras].join(" · "),6.2,tableWidth),{x:margin,y,size:6.2,font:regular});y-=10;
     }
   };
   input.sections.forEach(drawSection);

@@ -7,10 +7,11 @@ import TextAlign from "@tiptap/extension-text-align";
 import { TableKit } from "@tiptap/extension-table";
 import { FontFamily, FontSize, TextStyle } from "@tiptap/extension-text-style";
 import {
-  AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Download, Eye, Heading2, Italic, Link2,
-  List, ListOrdered, Mail, PenLine, Printer, Redo2, Rows3, Save, Share2, Signature, Sparkles, Underline as UnderlineIcon, Undo2,
+  AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Heading2, Italic, Link2,
+  List, ListOrdered, Mail, PenLine, Redo2, Rows3, Save, Share2, Signature, Sparkles, Underline as UnderlineIcon, Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { DateField } from "@/components/ui/date-field";
@@ -228,7 +229,7 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
     if (result.success) router.refresh();
     return result.success;
   };
-  const preview = (format: "html" | "print" | "pdf") => {
+  const preview = (format: "print" | "pdf") => {
     const target = window.open("about:blank", format === "pdf" ? "_self" : "_blank");
     startTransition(async () => {
       if (!readOnly && !(await save())) { target?.close(); return; }
@@ -310,9 +311,11 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
         {!readOnly ? <Button loading={pending} onClick={() => startTransition(async () => { await save(); })}><Save className="size-4" />{pending ? "Saving…" : "Save draft"}</Button> : null}
-        <Button variant="neutral" disabled={pending} onClick={() => preview("html")}><Eye className="size-4" />Preview</Button>
-        <Button variant="neutral" disabled={pending} onClick={() => preview("print")}><Printer className="size-4" />Print</Button>
-        <Button variant="neutral" disabled={pending} onClick={() => preview("pdf")}><Download className="size-4" />PDF</Button>
+        <OfficialDocumentActions
+          onPreview={() => preview("print")}
+          onDownload={() => preview("pdf")}
+          disabled={pending}
+        />
         {!readOnly ? <Button variant="success" loading={pending} onClick={() => startTransition(async () => { if (!(await save())) return; const result = await finalizeCorrespondenceDocument(document.id); if (result.success) toast.success(result.message); else toast.error(result.message); if (result.success) router.refresh(); })}><Signature className="size-4" />Finalize</Button> : <>
           <Button variant="neutral" disabled={pending} onClick={() => setEmailOpen(true)}><Mail className="size-4" />Email PDF</Button>
           <Button variant="neutral" disabled={pending} onClick={shareFinalizedPdf}><Share2 className="size-4" />Share / WhatsApp</Button>

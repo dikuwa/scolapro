@@ -148,7 +148,8 @@ test("class-list exports use the universal internal header across print, PDF and
   assert.match(route, /renderClassListXlsx\(batch\.lists\[0\], header, logoBytes\)/);
 
   assert.match(html, /renderOfficialDocumentHtmlHeader/);
-  assert.match(html, /class-operational-meta/);
+  assert.doesNotMatch(html, /class-operational-meta/);
+  assert.match(html, /secondaryContext: `Male \${maleCount} · Female \${femaleCount}/);
   assert.match(html, /Responsible teacher:/);
   assert.match(html, /Male \$\{maleCount\} · Female \$\{femaleCount\}/);
 

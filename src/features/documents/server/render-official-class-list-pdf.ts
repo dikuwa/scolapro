@@ -61,55 +61,22 @@ function drawClassListHeader(
   tableWidth: number,
   documentX: number,
 ): number {
-  const { regular, bold } = resources;
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
-  let y = drawOfficialDocumentPdfHeader(page, input.header, resources, PAGE_HEIGHT - MARGIN, {
+  const y = drawOfficialDocumentPdfHeader(page, input.header, resources, PAGE_HEIGHT - MARGIN, {
     documentX,
     documentWidth: tableWidth,
     context: {
       title: classListDocumentName(input.registerClass, input.rosterTitle),
       primaryContext: `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`,
-      summary: `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`,
+      secondaryContext: `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`,
+      summary: [
+        input.roomName ? `Room: ${input.roomName}` : "",
+        input.responsibleTeacherName ? `Responsible teacher: ${input.responsibleTeacherName}` : "",
+      ].filter(Boolean).join(" · ") || undefined,
     },
   });
 
-  if (input.roomName || input.responsibleTeacherName) {
-    const stripHeight = 14;
-    page.drawRectangle({
-      x: documentX,
-      y: y - stripHeight,
-      width: tableWidth,
-      height: stripHeight,
-      borderWidth: 0.55,
-      borderColor: LINE,
-    });
-    const half = tableWidth / 2;
-    if (input.roomName) {
-      page.drawText("Room:", { x: documentX + 5, y: y - 9.5, size: 5.7, font: bold, color: INK });
-      page.drawText(fitOfficialDocumentPdfText(regular, input.roomName, 5.7, half - 34), {
-        x: documentX + 31,
-        y: y - 9.5,
-        size: 5.7,
-        font: regular,
-        color: INK,
-      });
-    }
-    if (input.responsibleTeacherName) {
-      const label = "Responsible teacher:";
-      const labelWidth = bold.widthOfTextAtSize(label, 5.7);
-      const x = documentX + half;
-      page.drawText(label, { x: x + 5, y: y - 9.5, size: 5.7, font: bold, color: INK });
-      page.drawText(fitOfficialDocumentPdfText(regular, input.responsibleTeacherName, 5.7, half - labelWidth - 14), {
-        x: x + 8 + labelWidth,
-        y: y - 9.5,
-        size: 5.7,
-        font: regular,
-        color: INK,
-      });
-    }
-    y -= stripHeight;
-  }
 
   return y;
 }
