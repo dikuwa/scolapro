@@ -30,7 +30,9 @@ test("inspection pack keeps readiness and review conceptually separate", () => {
 });
 
 test("operational pack is private print-ready A4 and supports browser Save PDF", () => {
-  assert.match(operationalRoute, /@page\{size:A4/);
+  assert.match(operationalRoute, /OFFICIAL_DOCUMENT_A4_PAGE_RULE/);
+  assert.match(operationalRoute, /renderOfficialDocumentHtmlHeader\(header/);
+  assert.match(operationalRoute, /officialDocumentHeaderModeForType\("teaching_files_inspection_pack"\)/);
   assert.match(operationalRoute, /Print \/ Save PDF/);
   assert.match(operationalRoute, /cache-control": "private, no-store"/);
   assert.match(operationalRoute, /content-type": "text\/html; charset=utf-8"/);
