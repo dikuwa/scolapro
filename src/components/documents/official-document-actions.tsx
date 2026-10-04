@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Download, FileSpreadsheet, Printer } from "lucide-react";
 
@@ -9,14 +11,20 @@ export function OfficialDocumentActions({
   previewLabel = "Preview / Print",
   downloadLabel = "PDF",
   spreadsheetLabel = "Excel",
+  onPreview,
+  onDownload,
+  disabled = false,
 }: {
-  previewHref: string;
-  downloadHref: string;
+  previewHref?: string;
+  downloadHref?: string;
   spreadsheetHref?: string;
   compact?: boolean;
   previewLabel?: string;
   downloadLabel?: string;
   spreadsheetLabel?: string;
+  onPreview?: () => void;
+  onDownload?: () => void;
+  disabled?: boolean;
 }) {
   const sizeClass = compact
     ? "min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem]"
@@ -24,22 +32,28 @@ export function OfficialDocumentActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Link
-        href={previewHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${sizeClass}`}
-      >
-        <Printer aria-hidden="true" className="size-3.5" />
-        {previewLabel}
-      </Link>
-      <a
-        href={downloadHref}
-        className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${sizeClass}`}
-      >
-        <Download aria-hidden="true" className="size-3.5" />
-        {downloadLabel}
-      </a>
+      {onPreview ? (
+        <button type="button" onClick={onPreview} disabled={disabled} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass}`}>
+          <Printer aria-hidden="true" className="size-3.5" />
+          {previewLabel}
+        </button>
+      ) : previewHref ? (
+        <Link href={previewHref} target="_blank" rel="noopener noreferrer" className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${sizeClass}`}>
+          <Printer aria-hidden="true" className="size-3.5" />
+          {previewLabel}
+        </Link>
+      ) : null}
+      {onDownload ? (
+        <button type="button" onClick={onDownload} disabled={disabled} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass}`}>
+          <Download aria-hidden="true" className="size-3.5" />
+          {downloadLabel}
+        </button>
+      ) : downloadHref ? (
+        <a href={downloadHref} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${sizeClass}`}>
+          <Download aria-hidden="true" className="size-3.5" />
+          {downloadLabel}
+        </a>
+      ) : null}
       {spreadsheetHref ? (
         <a
           href={spreadsheetHref}

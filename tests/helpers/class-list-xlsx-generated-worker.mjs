@@ -6,8 +6,10 @@ import {
   renderClassListBatchXlsx,
   renderClassListXlsx,
 } from "../../src/features/documents/server/render-official-class-list-xlsx.ts";
-import { renderSportsHouseRosterXlsx } from "../../src/features/documents/server/sports-house-roster-document.ts";
+import { renderOfficialClassListPdf } from "../../src/features/documents/server/render-official-class-list-pdf.ts";
+import { renderSportsHouseRosterPdf, renderSportsHouseRosterXlsx } from "../../src/features/documents/server/sports-house-roster-document.ts";
 import { renderAcademicScheduleXlsx } from "../../src/features/reporting/server/render-academic-schedule-xlsx.ts";
+import { renderAcademicSchedulePdf } from "../../src/features/reporting/server/render-academic-schedule-pdf.ts";
 
 const header = {
   mode: "internal_school",
@@ -194,6 +196,30 @@ assertNoDuplicateXmlAttributes(single);
 const singlePaths = assertRelationshipTargetsExist(single);
 assert.ok(singlePaths.has("xl/drawings/drawing1.xml"));
 assert.ok(singlePaths.has("xl/media/class-list-logo.png"));
+const classPdfInput = input("10A");
+const classPdf = await renderOfficialClassListPdf({
+  header,
+  logoBytes,
+  academicYear: classPdfInput.academicYear,
+  grade: classPdfInput.grade,
+  registerClass: classPdfInput.className,
+  rows: classPdfInput.learners.map((learner) => ({
+    learnerName: learner.learnerName,
+    admissionNumber: learner.admissionNumber,
+    sex: learner.sex,
+    registerClass: learner.registerClass,
+    status: learner.status,
+    guardianName: learner.guardianName,
+    guardianPhone: learner.guardianPhone,
+    guardianAddress: learner.guardianAddress,
+    emergencyContact: learner.emergencyContact,
+  })),
+  columns: classPdfInput.configuration.columns,
+  blankColumns: classPdfInput.configuration.blankColumns,
+  roomName: classPdfInput.roomName,
+  responsibleTeacherName: classPdfInput.responsibleTeacherName,
+  rosterTitle: classPdfInput.title,
+});
 
 const batch = renderClassListBatchXlsx([input("10A"), input("10B", 10)], header, logoBytes);
 assertWorkbook(batch, 2);
@@ -206,7 +232,7 @@ assert.ok(batchPaths.has("xl/drawings/drawing1.xml"));
 assert.ok(batchPaths.has("xl/drawings/drawing2.xml"));
 assert.equal([...batchPaths].filter((entry) => entry === "xl/media/class-list-logo.png").length, 1);
 
-const sports = renderSportsHouseRosterXlsx({
+const sportsInput = {
   header,
   schoolName: header.schoolName,
   academicYear: 2026,
@@ -214,24 +240,31 @@ const sports = renderSportsHouseRosterXlsx({
   content: "combined",
   groupBy: "none",
   blankColumns: 3,
+  learnerColumns: ["grade", "class", "sex", "age", "age_group"],
   sections: [{
     house: { id:"house-1",name:"Cheetahs",shortCode:"CH",colorHex:null,sortOrder:1,status:"active",createdByUserId:null,createdAt:"2026-01-01",updatedAt:"2026-01-01" },
     learners: [{ id:"sports-learner-1",name:"Learner One",admissionNumber:"4001",houseId:"house-1",houseName:"Cheetahs",houseColorHex:null,assignmentSource:"manual",isLocked:true,assignedAt:"2026-01-01",ageOnReferenceDate:15,ageGroupLabel:"U17",sex:"female",gradeId:"grade-10",gradeName:"Grade 10",registerClassId:"class-10a",registerClassName:"10A" }],
     staff: [{ id:"staff-1",name:"House Leader",employeeNumber:"E1",houseId:"house-1",houseName:"Cheetahs",roleKey:"leader",assignmentSource:"manual",isLocked:true,assignedAt:"2026-01-01" }],
   }],
-}, logoBytes);
+};
+const sports = renderSportsHouseRosterXlsx(sportsInput, logoBytes);
+const sportsPdf = await renderSportsHouseRosterPdf(sportsInput);
 const sportsWorkbook = XLSX.read(sports,{type:"buffer",cellStyles:true});
 const sportsSheet = sportsWorkbook.Sheets[sportsWorkbook.SheetNames[0]];
 assert.equal(sportsSheet.B1.v,header.schoolName);
 assert.equal(sportsSheet.A7.v,"No.");
-assert.equal(sportsSheet["!cols"].length,13);
+assert.equal(sportsSheet["!cols"].length,10);
+assert.equal(sportsSheet.C7.v,"Grade");
+assert.equal(sportsSheet.G7.v,"Age group");
+assert.notEqual(sportsSheet.H7?.v,"Source");
+assert.notEqual(sportsSheet.H7?.v,"Lock");
 assert.equal(schoolNameFontName(sports), "Old English Text MT");
 assertWorksheetCellAttributesAreUnique(sports);
 assertNoDuplicateXmlAttributes(sports);
 const sportsPaths = assertRelationshipTargetsExist(sports);
 assert.ok(sportsPaths.has("xl/drawings/drawing1.xml"));
 
-const schedule = renderAcademicScheduleXlsx({
+const schedulePayload = {
   scheduleType: "term_schedule",
   title: "Term Schedule",
   basis: "official",
@@ -246,13 +279,15 @@ const schedule = renderAcademicScheduleXlsx({
   classNames: ["10A"],
   generatedAt: "04 October 2026",
   sourceDescription: "Acceptance fixture",
-  columns: ["No.", "Learner", "Mathematics", "English", "Average %", "Rank"],
-  rows: [{ "No.": 1, Learner: "Learner One", Mathematics: 72, English: 68, "Average %": 70, Rank: 1 }],
+  columns: ["No.", "Learner", "Mathematics", "English", "Average %", "Rank", "Recommendation", "Remarks"],
+  rows: [{ "No.": 1, Learner: "Learner One", Mathematics: 72, English: 68, "Average %": 70, Rank: 1, Recommendation: "Promote", Remarks: "Good progress" }],
   rowCount: 1,
   notes: [],
   subjects: [],
   footerRows: [],
-}, header, undefined, logoBytes);
+};
+const schedule = renderAcademicScheduleXlsx(schedulePayload, header, undefined, logoBytes);
+const schedulePdf = await renderAcademicSchedulePdf(schedulePayload, header, undefined, logoBytes);
 const scheduleWorkbook = XLSX.read(schedule, { type: "buffer", cellStyles: true });
 const scheduleSheet = scheduleWorkbook.Sheets[scheduleWorkbook.SheetNames[0]];
 assert.equal(scheduleSheet.B1.v, header.schoolName);
@@ -277,7 +312,10 @@ if (process.env.SCOLAPRO_XLSX_OUTPUT_DIR) {
     writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "class-list-single.xlsx"), Buffer.from(single)),
     writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "class-list-batch.xlsx"), Buffer.from(batch)),
     writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "sports-house-roster.xlsx"), Buffer.from(sports)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "class-list.pdf"), Buffer.from(classPdf.bytes)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "sports-house-roster.pdf"), Buffer.from(sportsPdf)),
     writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "academic-schedule.xlsx"), Buffer.from(schedule)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "academic-schedule.pdf"), Buffer.from(schedulePdf)),
   ]);
 }
 

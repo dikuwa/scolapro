@@ -8,6 +8,8 @@ const server=readFileSync("src/features/reporting/server/academic-schedules.ts",
 const page=readFileSync("src/app/reports/academic-schedules/page.tsx","utf8");
 const printPage=readFileSync("src/app/reports/academic-schedules/print/page.tsx","utf8");
 const xlsx=readFileSync("src/features/reporting/server/render-academic-schedule-xlsx.ts","utf8");
+const pdfRenderer=readFileSync("src/features/reporting/server/render-academic-schedule-pdf.ts","utf8");
+const pdfExportRoute=readFileSync("src/app/reports/academic-schedules/export.pdf/route.ts","utf8");
 const actions=readFileSync("src/features/reporting/server/academic-schedule-actions.ts","utf8");
 const academicAnalysis=readFileSync("src/features/academics/server/academic-analysis.ts","utf8");
 const exportRoute=readFileSync("src/app/reports/academic-schedules/export.xlsx/route.ts","utf8");
@@ -54,7 +56,8 @@ test("legacy schedule keys stay server compatible and official UI is document-fi
 });
 
 test("preview, print PDF path and Excel export preserve explicit basis",()=>{
-  assert.match(page,/Print \/ PDF/);
+  assert.match(page,/OfficialDocumentActions/);
+  assert.match(page,/export\.pdf\?.*preview=1/);
   assert.match(page,/Excel/);
   assert.doesNotMatch(page,/Template fidelity pending/);
   assert.match(actions,/supplied_source_verified/);
@@ -64,6 +67,20 @@ test("preview, print PDF path and Excel export preserve explicit basis",()=>{
   assert.match(printPage,/counter\(page\)/);
   assert.match(xlsx,/Basis: /);
   assert.match(printPage,/getAcademicScheduleSnapshot/);
+});
+
+
+test("academic schedules use canonical PDF preview and compact governed heading orientation",()=>{
+  assert.match(page,/OfficialDocumentActions/);
+  assert.match(page,/export\.pdf\?.*preview=1/);
+  assert.match(page,/h-\[210mm\] w-\[297mm\]/);
+  assert.match(pdfExportRoute,/renderAcademicSchedulePdf/);
+  assert.match(pdfExportRoute,/preview.*inline/);
+  assert.match(pdfRenderer,/pageWidth = OFFICIAL_DOCUMENT_PDF_GEOMETRY\.pageHeight/);
+  assert.match(pdfRenderer,/academicScheduleHeadingOrientation/);
+  assert.match(scheduleColumnLayout,/HORIZONTAL_METRIC_HEADINGS = new Set\(\["Recommendation", "Remarks", "Support comments"\]\)/);
+  assert.match(xlsx,/verticalHeaderColumns/);
+  assert.match(documentActions,/Preview \/ Print/);
 });
 
 test("supplied-source document semantics are represented without invented fields",()=>{

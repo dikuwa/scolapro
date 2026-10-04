@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 import { CheckCircle2, FileText, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Button } from "@/components/ui/button";
 import {
   finalizeLearnerTransferForm,
@@ -90,22 +91,10 @@ export function LearnerTransferFormWorkspace({
                 </p>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="scolapro-cta inline-flex min-h-9 items-center rounded-[var(--radius-xs)] bg-surface-muted px-3 text-xs font-medium hover:bg-surface"
-              >
-                Preview / Print
-              </Link>
-              <Link
-                href={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=pdf`}
-                className="scolapro-cta inline-flex min-h-9 items-center rounded-[var(--radius-xs)] bg-brand px-3 text-xs font-medium text-white hover:bg-brand-strong"
-              >
-                Download PDF
-              </Link>
-            </div>
+            <OfficialDocumentActions
+              previewHref={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=pdf&preview=1`}
+              downloadHref={`/api/official-documents/learner-transfer-form/${finalization.snapshotId}?format=pdf`}
+            />
           </div>
           <p className="mt-3 text-xs text-muted-foreground">
             The prescribed two-page government form is rendered from this immutable revision, including the official completion-instructions page. Editing the working fields below does not change this finalized version.

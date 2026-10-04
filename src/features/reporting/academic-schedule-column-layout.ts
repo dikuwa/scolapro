@@ -28,6 +28,8 @@ const METRIC_WIDTHS: Record<string, number> = {
   "Support comments": 12,
 };
 
+const HORIZONTAL_METRIC_HEADINGS = new Set(["Recommendation", "Remarks", "Support comments"]);
+
 const IDENTITY_WIDTHS: Record<string, number> = {
   "No.": 5,
   No: 5,
@@ -60,4 +62,14 @@ export function academicScheduleColumnWidth(
   if (kind === "identity") return IDENTITY_WIDTHS[column] ?? 10;
   if (kind === "subject") return 8;
   return METRIC_WIDTHS[column] ?? Math.min(12, Math.max(7, Math.ceil(column.length / 2)));
+}
+
+
+export function academicScheduleHeadingOrientation(
+  column: string,
+  subjectNames: readonly string[] = [],
+): "horizontal" | "vertical" {
+  const kind = academicScheduleColumnKind(column, subjectNames);
+  if (kind === "identity" || HORIZONTAL_METRIC_HEADINGS.has(column)) return "horizontal";
+  return "vertical";
 }

@@ -52,9 +52,12 @@ test("all eight governed templates and required correspondence fields are presen
 });
 
 test("issue 691 core workflow remains intact while issue 692 owns finalized sharing", () => {
-  for (const label of ["Save draft", "Preview", "Print", "PDF", "Finalize", "Create revision"]) {
+  for (const label of ["Save draft", "Finalize", "Create revision"]) {
     assert.match(editor, new RegExp(label));
   }
+  assert.match(editor, /OfficialDocumentActions/);
+  assert.match(editor, /onPreview=\{\(\) => preview\("print"\)\}/);
+  assert.match(editor, /onDownload=\{\(\) => preview\("pdf"\)\}/);
   assert.doesNotMatch(editor, /navigator\.clipboard|mailto:\?subject/);
 });
 

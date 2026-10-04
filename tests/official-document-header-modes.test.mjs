@@ -97,14 +97,17 @@ test("shared official chrome uses the governed A4 backdrop and universal interna
 
 
 test("internal header restores the full frame and top-aligns crest with school identity", () => {
-  assert.match(chrome, /school-header\.internal-school \{ align-items:start; border-top:1px solid var\(--line\);/);
+  assert.match(chrome, /school-header \{[^}]*border: 0; border-bottom: 2px solid var\(--line\)/);
+  assert.doesNotMatch(chrome, /school-header\.internal-school \{[^}]*border-top/);
   assert.match(chrome, /internal-school > \.logo-wrap \{ align-self:start; padding-top:1px;/);
   assert.match(chrome, /internal-school > \.school-identity \{ align-self:start; padding-top:1px;/);
   assert.match(chrome, /max-width:62px; max-height:64px/);
   assert.match(chrome, /internal-document-context \{[^}]*line-height:1\.05/);
   assert.match(chrome, /document-context-title \{ margin-bottom:1px/);
   assert.match(chrome, /document-context-summary \{ margin-top:0/);
-  assert.match(pdf, /page\.drawRectangle\(\{[\s\S]*borderWidth: 0\.75/);
+  assert.match(pdf, /start: \{ x, y: bottomY \}/);
+  assert.match(pdf, /end: \{ x: x \+ width, y: bottomY \}/);
+  assert.match(pdf, /thickness: 1\.5/);
   assert.doesNotMatch(pdf, /top rule begins only where school identity starts/);
   assert.match(pdf, /y: topY - 4 - imageHeight/);
   assert.match(pdf, /y: topY - 16/);
@@ -130,9 +133,9 @@ test("governed document art is bundled and matches the supplied replacements", (
 });
 
 
-test("internal PDF header repaints the full top rule after the opaque crest", () => {
-  assert.match(pdf, /repaint the top edge/);
-  assert.match(pdf, /start: \{ x, y: topY \}/);
-  assert.match(pdf, /end: \{ x: x \+ width, y: topY \}/);
-  assert.match(pdf, /thickness: 0\.75/);
+test("internal PDF header uses only the shared strong bottom rule", () => {
+  assert.doesNotMatch(pdf, /repaint the top edge/);
+  assert.match(pdf, /start: \{ x, y: bottomY \}/);
+  assert.match(pdf, /end: \{ x: x \+ width, y: bottomY \}/);
+  assert.match(pdf, /thickness: 1\.5/);
 });

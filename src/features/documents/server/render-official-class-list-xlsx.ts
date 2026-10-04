@@ -65,13 +65,12 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
   rows[2][1] = address ? address.label + ": " + address.value : "";
   rows[3][1] = [telephone ? telephone.label + ": " + telephone.value : "", fax ? fax.label + ": " + fax.value : ""].filter(Boolean).join("   ");
   rows[4][1] = email ? email.label + ": " + email.value : "";
-  rows[5][1] = [
-    input.roomName ? "Room: " + input.roomName : "",
-    input.responsibleTeacherName ? "Responsible teacher: " + input.responsibleTeacherName : "",
-  ].filter(Boolean).join("   ");
+  rows[5][1] = "";
   rows[0][metaStartColumn] = classListDocumentName(input.className, input.title);
   rows[1][metaStartColumn] = input.grade + " · " + input.className + " · " + input.academicYear;
   rows[2][metaStartColumn] = "Male " + maleCount + " · Female " + femaleCount + " · " + input.learners.length + " learners";
+  rows[3][metaStartColumn] = input.roomName ? "Room: " + input.roomName : "";
+  rows[4][metaStartColumn] = input.responsibleTeacherName ? "Responsible teacher: " + input.responsibleTeacherName : "";
 
   const worksheet = XLSX.utils.aoa_to_sheet(rows);
   const lastColumnName = XLSX.utils.encode_col(lastColumn);
@@ -87,6 +86,8 @@ function buildClassListWorksheet(input: ClassListWorkspaceData, header: Official
     XLSX.utils.decode_range(metaStartColumnName + "1:" + lastColumnName + "1"),
     XLSX.utils.decode_range(metaStartColumnName + "2:" + lastColumnName + "2"),
     XLSX.utils.decode_range(metaStartColumnName + "3:" + lastColumnName + "3"),
+    XLSX.utils.decode_range(metaStartColumnName + "4:" + lastColumnName + "4"),
+    XLSX.utils.decode_range(metaStartColumnName + "5:" + lastColumnName + "5"),
   ];
   worksheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({
     wch: columns[index] ? excelColumnWidth(columns[index].key) : 12,

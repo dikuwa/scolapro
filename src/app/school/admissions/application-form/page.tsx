@@ -57,11 +57,11 @@ export default async function BlankAdmissionApplicationPage() {
               A4 · 1 page
             </span>
           </div>
-          <div className="p-2 sm:p-4">
+          <div className="max-w-full overflow-auto bg-surface-muted p-2 sm:p-4">
             <iframe
               title="Learner application form PDF preview"
               src={previewHref}
-              className="h-[72vh] min-h-[34rem] w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted"
+              className="block h-[297mm] w-[210mm] min-w-[210mm] border-0 bg-white shadow-[var(--shadow-sm)]"
             />
             <p className="mt-2 text-[0.68rem] leading-5 text-muted-foreground">
               If your browser does not render embedded PDFs, use Preview / Print above to open the document in a separate tab.

@@ -81,8 +81,9 @@ test("prescribed government transfer-form rendering matches the governed source 
   assert.match(renderer, /must complete this form in triplicate/);
   assert.match(renderer, /certified post/);
   assert.match(renderer, /clear, legible writing/);
-  assert.match(workspace, /Preview \/ Print/);
-  assert.match(workspace, /Download PDF/);
+  assert.match(workspace, /OfficialDocumentActions/);
+  assert.match(workspace, /format=pdf&preview=1/);
+  assert.match(workspace, /downloadHref=/);
   assert.match(workspace, /api\/official-documents\/learner-transfer-form/);
   assert.match(exportRoute, /renderOfficialLearnerTransferFormHtml/);
   assert.match(exportRoute, /renderOfficialLearnerTransferFormPdf/);

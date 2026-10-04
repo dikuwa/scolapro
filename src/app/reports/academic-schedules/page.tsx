@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { AlertTriangle, CheckCircle2, CircleSlash2, History, Printer, Sheet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CircleSlash2, History } from "lucide-react";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { AppShell } from "@/components/shell/app-shell";
 import { getReportCardAcademicTerm } from "@/features/reporting/server/report-card-academic-term";
 import { getReportCardAcademicYear } from "@/features/reporting/server/report-card-academic-year";
@@ -137,8 +138,11 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
           <p className="scolapro-section-description">{payload.title} · {payload.grade} · {scopeText} · {payload.periodLabel}</p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
-          <Link href={"/reports/academic-schedules/print?"+query.toString()} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium"><Printer className="size-3.5"/>Print / PDF</Link>
-          <Link href={"/reports/academic-schedules/export.xlsx?"+query.toString()} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium"><Sheet className="size-3.5"/>Excel</Link>
+          <OfficialDocumentActions
+            previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}
+            downloadHref={"/reports/academic-schedules/export.pdf?"+query.toString()}
+            spreadsheetHref={"/reports/academic-schedules/export.xlsx?"+query.toString()}
+          />
           {basis==="official"
             ? <AcademicScheduleFinalizeForm academicYear={year} termNumber={term} scheduleType={scheduleType} gradeId={gradeId} classIds={classIds} replacingFinalizedVersion={Boolean(currentIssued)}/>
             : null}
@@ -146,7 +150,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
       </div>
       <div className="bg-surface-muted px-4 py-2 text-xs text-muted-foreground">{payload.sourceDescription}</div>
       {payload.rows.length
-        ? <div className="max-w-full overflow-x-auto"><table className="w-max min-w-full whitespace-nowrap text-left text-xs"><thead className="sticky top-0 bg-surface-muted text-muted-foreground"><tr>{payload.columns.map((column)=><th key={column} className="px-2 py-2 font-medium">{column}</th>)}</tr></thead><tbody className="divide-y divide-border-subtle">{payload.rows.map((row,index)=><tr key={index}>{payload.columns.map((column)=><td key={column} className="px-2 py-2">{row[column]??""}</td>)}</tr>)}{payload.footerRows?.map((row,index)=><tr key={"footer-"+index} className="bg-surface-muted font-medium">{payload.columns.map((column)=><td key={column} className="px-2 py-2">{row[column]??""}</td>)}</tr>)}</tbody></table></div>
+        ? <div className="max-w-full overflow-auto bg-surface-muted p-3 sm:p-4"><iframe title={`${payload.title} document preview`} src={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"} className="block h-[210mm] w-[297mm] min-w-[297mm] border-0 bg-white shadow-[var(--shadow-sm)]" /></div>
         : <div className="p-8 text-center text-sm text-muted-foreground">No canonical rows are available for this document scope.</div>}
       <div className="border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground">{payload.notes.join(" ")}</div>
     </section>
@@ -154,7 +158,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
     <section className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]">
       <div className="flex items-center gap-2"><History className="size-4"/><h2 className="scolapro-section-title">Issued versions</h2></div>
       {history.length
-        ? <div className="mt-3 space-y-2">{history.map((row)=><div key={row.id} className="rounded-[var(--radius-xs)] bg-surface-muted px-3 py-2 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><span>v{row.version} · {row.status}</span><span className="text-xs text-muted-foreground">{new Date(row.finalizedAt).toLocaleString("en-NA")}</span></div>{row.supersessionReason?<p className="mt-1 text-xs text-muted-foreground">Superseded: {row.supersessionReason}</p>:null}<div className="mt-2 flex gap-3"><Link href={"/reports/academic-schedules/print?snapshot="+row.id} className="text-xs font-medium underline">Open issued version</Link><Link href={"/reports/academic-schedules/export.xlsx?snapshot="+row.id} className="text-xs font-medium underline">Excel</Link></div></div>)}</div>
+        ? <div className="mt-3 space-y-2">{history.map((row)=><div key={row.id} className="rounded-[var(--radius-xs)] bg-surface-muted px-3 py-2 text-sm"><div className="flex flex-wrap items-center justify-between gap-2"><span>v{row.version} · {row.status}</span><span className="text-xs text-muted-foreground">{new Date(row.finalizedAt).toLocaleString("en-NA")}</span></div>{row.supersessionReason?<p className="mt-1 text-xs text-muted-foreground">Superseded: {row.supersessionReason}</p>:null}<div className="mt-2 flex gap-3"><Link href={"/reports/academic-schedules/export.pdf?snapshot="+row.id+"&preview=1"} target="_blank" rel="noopener noreferrer" className="text-xs font-medium underline">Open issued version</Link><Link href={"/reports/academic-schedules/export.xlsx?snapshot="+row.id} className="text-xs font-medium underline">Excel</Link></div></div>)}</div>
         : <p className="mt-3 text-sm text-muted-foreground">No finalized version exists for this document scope.</p>}
     </section>
   </section></AppShell>;

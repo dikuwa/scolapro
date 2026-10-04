@@ -177,13 +177,13 @@ function drawInternalHeader(
   const contextX = x + width - contextWidth - 6;
 
   const bottomY = topY - height;
-  page.drawRectangle({
-    x,
-    y: bottomY,
-    width,
-    height,
-    borderWidth: 0.75,
-    borderColor: LINE,
+  // Shared document headers are open on the top/sides and use one strong
+  // bottom rule, matching the canonical Class List/document treatment.
+  page.drawLine({
+    start: { x, y: bottomY },
+    end: { x: x + width, y: bottomY },
+    thickness: 1.5,
+    color: LINE,
   });
 
   if (logo) {
@@ -254,15 +254,6 @@ function drawInternalHeader(
     }
   }
 
-  // The crest asset has an opaque white background, so repaint the top edge
-  // after all header content to guarantee one continuous visible frame.
-  page.drawLine({
-    start: { x, y: topY },
-    end: { x: x + width, y: topY },
-    thickness: 0.75,
-    color: LINE,
-  });
-
   return topY - height;
 }
 
@@ -273,13 +264,12 @@ function drawExternalHeader(
   topY: number,
 ): number {
   const { regular, schoolNameFont, logo, coatOfArms } = resources;
-  page.drawRectangle({
-    x: MARGIN,
-    y: topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
-    width: CONTENT_WIDTH,
-    height: OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT,
-    borderWidth: 0.85,
-    borderColor: LINE,
+  const externalBottomY = topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT;
+  page.drawLine({
+    start: { x: MARGIN, y: externalBottomY },
+    end: { x: MARGIN + CONTENT_WIDTH, y: externalBottomY },
+    thickness: 1.5,
+    color: LINE,
   });
 
   const centreX = MARGIN + LOGO_WIDTH;
@@ -334,8 +324,8 @@ export function drawOfficialDocumentPdfHeader(
     page.drawImage(resources.backdrop, {
       x: 0,
       y: 0,
-      width: PAGE_WIDTH,
-      height: PAGE_HEIGHT,
+      width: page.getWidth(),
+      height: page.getHeight(),
       opacity: OFFICIAL_DOCUMENT_BACKDROP_OPACITY,
     });
   }

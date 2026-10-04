@@ -50,10 +50,6 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
 
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
-  const operationalMeta = [
-    input.roomName ? `<span><strong>Room:</strong> ${escapeOfficialDocumentHtml(input.roomName)}</span>` : "",
-    input.responsibleTeacherName ? `<span><strong>Responsible teacher:</strong> ${escapeOfficialDocumentHtml(input.responsibleTeacherName)}</span>` : "",
-  ].filter(Boolean).join("");
   const metadataFooter = renderOfficialDocumentHtmlFooter({
     left: `Total learners: ${input.rows.length}`,
     right: `${input.registerClass} · ${input.academicYear}`,
@@ -74,8 +70,6 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   .report { padding: 6mm 7mm 5mm; }
   .class-document { width: 100%; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
-  .class-operational-meta { display:flex; align-items:center; gap:16px; min-height:16px; border:1px solid var(--line); border-top:0; padding:2px 7px; font-size:6.5px; line-height:1.1; }
-  .class-operational-meta strong { font-weight:700; }
   .class-list { width: 100%; border-collapse: collapse; table-layout: fixed; }
   .class-list col[data-column="number"] { width: 34px; }
   .class-list col[data-column="admissionNumber"] { width: 82px; }
@@ -95,15 +89,12 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   ${OFFICIAL_DOCUMENT_METADATA_RULE}
   .document-meta { width: 100%; font-size: 5.7px; }
   .document-meta span:last-child { text-align: right; }
-  @media (max-width: 640px) {
-    .class-operational-meta { align-items:flex-start; flex-direction:column; gap:2px; }
-  }
   @media print {
     body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     .report { padding: 0; }
     ${OFFICIAL_DOCUMENT_PRINT_RULE}
     .class-document { break-inside: auto; }
-    .school-header, .class-operational-meta, thead, tr, .document-meta { break-inside: avoid; page-break-inside: avoid; }
+    .school-header, thead, tr, .document-meta { break-inside: avoid; page-break-inside: avoid; }
   }
 </style>
 </head>
@@ -114,10 +105,13 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
       context: {
         title: classListDocumentName(input.registerClass, input.rosterTitle),
         primaryContext: `${input.grade || "—"} · ${input.registerClass || "—"} · ${input.academicYear}`,
-        summary: `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`,
+        secondaryContext: `Male ${maleCount} · Female ${femaleCount} · ${input.rows.length} learners`,
+        summary: [
+          input.roomName ? `Room: ${input.roomName}` : "",
+          input.responsibleTeacherName ? `Responsible teacher: ${input.responsibleTeacherName}` : "",
+        ].filter(Boolean).join(" · ") || undefined,
       },
     })}
-    ${operationalMeta ? `<div class="class-operational-meta">${operationalMeta}</div>` : ""}
 
     <table class="class-list">
       <colgroup>${columns.map((column) => `<col data-column="${escapeOfficialDocumentHtml(column.key)}" />`).join("")}</colgroup>

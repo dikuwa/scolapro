@@ -22,7 +22,8 @@ export async function GET(
   if (!context.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const { snapshotId } = await params;
-  const format = new URL(request.url).searchParams.get("format") === "pdf" ? "pdf" : "html";
+  const url = new URL(request.url);
+  const format = url.searchParams.get("format") === "pdf" ? "pdf" : "html";
 
   try {
     const snapshot = await getLearnerTransferFormRenderSnapshot(snapshotId);
@@ -36,7 +37,7 @@ export async function GET(
         status: 200,
         headers: {
           "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${fileBase}.pdf"`,
+          "Content-Disposition": `${url.searchParams.get("preview") === "1" ? "inline" : "attachment"}; filename="${fileBase}.pdf"`,
           "Cache-Control": "private, no-store, max-age=0",
           "X-Content-Type-Options": "nosniff",
           "Referrer-Policy": "no-referrer",

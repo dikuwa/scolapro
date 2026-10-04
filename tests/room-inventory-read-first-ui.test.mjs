@@ -62,8 +62,8 @@ test("room cards surface health, verification and custodian provenance", () => {
 
 test("verified rooms retain preview print and PDF actions", () => {
   assert.match(source, /room\.lastVerified \? \(/);
-  assert.match(source, /Preview sheet/);
-  assert.match(source, /&print=1/);
+  assert.match(source, /OfficialDocumentActions/);
+  assert.match(source, /format=pdf&preview=1/);
   assert.match(source, /&format=pdf/);
 });
 
