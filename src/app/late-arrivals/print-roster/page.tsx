@@ -1,7 +1,18 @@
 import { redirect } from "next/navigation";
+import { DocumentPrintButton } from "@/components/documents/document-print-button";
+import {
+  OFFICIAL_DOCUMENT_A4_PAGE_RULE,
+  OFFICIAL_DOCUMENT_FRAME_RULE,
+  OFFICIAL_DOCUMENT_HTML_HEADER_RULE,
+  OFFICIAL_DOCUMENT_METADATA_RULE,
+  OFFICIAL_DOCUMENT_PRINT_RULE,
+} from "@/features/documents/server/official-document-chrome";
+import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
+import { renderOfficialDocumentHtmlFooter } from "@/features/documents/server/official-document-html-footer";
+import { renderOfficialDocumentHtmlHeader } from "@/features/documents/server/official-document-html-header";
+import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 import { getDetentionPlanning } from "@/features/late-arrivals/server/planning-queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -34,14 +45,10 @@ export default async function DetentionPrintRosterPage({
     day: "2-digit",
   }).format(new Date());
 
-  const supabase = await createSupabaseServerClient();
-  const { data: schoolData } = await supabase
-    .from("schools")
-    .select("name, code")
-    .eq("id", schoolId)
-    .maybeSingle();
-
-  const planning = await getDetentionPlanning(schoolId, today);
+  const [planning, header] = await Promise.all([
+    getDetentionPlanning(schoolId, today),
+    getLiveSchoolDocumentHeader(schoolId, officialDocumentHeaderModeForType("detention_roster")),
+  ]);
 
   const targetSession = targetSessionId
     ? planning.sessions.find((s) => s.id === targetSessionId)
@@ -78,46 +85,48 @@ export default async function DetentionPrintRosterPage({
     groupedByClass.set(item.registerClass, group);
   }
 
+  const headerHtml = renderOfficialDocumentHtmlHeader(header, undefined, {
+    context: {
+      title: "Detention Register",
+      primaryContext: formatDate(sessionDate),
+      secondaryContext: targetSession?.location || "Designated Detention Room",
+      summary: `${assignments.length} learner${assignments.length === 1 ? "" : "s"}`,
+    },
+  });
+  const footerHtml = renderOfficialDocumentHtmlFooter({
+    left: `Generated ${new Intl.DateTimeFormat("en-NA", { timeZone: "Africa/Windhoek", day: "2-digit", month: "short", year: "numeric" }).format(new Date())}`,
+    right: "Detention roster",
+  });
+
   return (
-    <div className="min-h-screen bg-white p-8 text-black print:p-0">
+    <div className="min-h-screen bg-slate-100 p-3 text-black print:bg-white print:p-0 sm:p-6">
       <style>{`
+        ${OFFICIAL_DOCUMENT_A4_PAGE_RULE}
+        :root { --line:#4a4a4a; }
+        ${OFFICIAL_DOCUMENT_FRAME_RULE}
+        ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
+        ${OFFICIAL_DOCUMENT_METADATA_RULE}
+        .report { max-width:210mm; margin:0 auto; background:#fff; box-shadow:0 14px 36px rgba(20,28,40,.12); }
         @media print {
-          @page { size: A4 portrait; margin: 15mm; }
-          .no-print { display: none !important; }
-          body { background: white !important; color: black !important; font-size: 11pt; }
+          .no-print { display:none !important; }
+          body { background:white !important; color:black !important; }
+          .report { max-width:none; margin:0; box-shadow:none; }
+          ${OFFICIAL_DOCUMENT_PRINT_RULE}
         }
       `}</style>
 
-      <div className="no-print mb-6 flex items-center justify-between border-b pb-4">
+      <div className="no-print mx-auto mb-3 flex w-full max-w-[210mm] items-center justify-between gap-4 rounded-md border bg-background p-3 text-foreground shadow-sm">
         <div>
-          <h1 className="text-lg font-bold">Print Detention Roster</h1>
-          <p className="text-xs text-gray-600">Clean print surface for session attendance and outcome recording.</p>
+          <h1 className="text-sm font-bold">Detention Register</h1>
+          <p className="text-xs text-muted-foreground">Print-ready attendance and outcome roster.</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={undefined}
-            className="rounded border border-gray-300 bg-gray-100 px-3 py-1.5 text-xs font-semibold hover:bg-gray-200"
-          >
-            <script dangerouslySetInnerHTML={{ __html: `/* inline script */` }} />
-            Print Roster
-          </button>
-        </div>
+        <DocumentPrintButton label="Print Roster" />
       </div>
 
-      <header className="border-b-2 border-black pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-xl font-bold uppercase tracking-wide">{schoolData?.name ?? "ScolaPro Partner School"}</h1>
-            <p className="text-sm font-semibold uppercase text-gray-700">Official Friday Detention Register</p>
-          </div>
-          <div className="text-right text-xs">
-            <p className="font-semibold">Date: {formatDate(sessionDate)}</p>
-            <p className="text-gray-600">Generated: {new Date().toLocaleDateString("en-NA")}</p>
-          </div>
-        </div>
+      <main className="report text-black">
+        <div dangerouslySetInnerHTML={{ __html: headerHtml }} />
 
-        <div className="mt-4 grid grid-cols-3 gap-4 border-t border-gray-300 pt-3 text-xs">
+        <section className="mt-4 grid grid-cols-3 gap-4 border-y border-gray-300 py-3 text-xs">
           <div>
             <span className="font-semibold text-gray-600">Venue / Location:</span>
             <p className="font-bold">{targetSession?.location || "Designated Detention Room"}</p>
@@ -134,10 +143,9 @@ export default async function DetentionPrintRosterPage({
               {supervisors.length ? supervisors.map((s) => s?.name).join(", ") : "Duty Staff Assigned"}
             </p>
           </div>
-        </div>
-      </header>
+        </section>
 
-      <main className="mt-6 space-y-6">
+        <div className="mt-6 space-y-6">
         {groupedByClass.size > 0 ? (
           Array.from(groupedByClass.entries()).map(([className, classLearners]) => (
             <section key={className} className="break-inside-avoid">
@@ -189,6 +197,8 @@ export default async function DetentionPrintRosterPage({
             </div>
           </div>
         </section>
+        </div>
+        <div dangerouslySetInnerHTML={{ __html: footerHtml }} />
       </main>
     </div>
   );

@@ -16,7 +16,9 @@ export type OfficialDocumentType =
   | "attendance_summary"
   | "teaching_print_pack"
   | "teaching_plan"
+  | "teaching_files_inspection_pack"
   | "subject_file_inspection_pack"
+  | "detention_roster"
   | "academic_analysis"
   | "learner_transfer_form";
 
@@ -56,7 +58,9 @@ export function officialDocumentHeaderFamilyForType(
     case "room_inventory":
     case "teaching_print_pack":
     case "teaching_plan":
+    case "teaching_files_inspection_pack":
     case "subject_file_inspection_pack":
+    case "detention_roster":
     case "academic_analysis":
       return "school_document";
   }
