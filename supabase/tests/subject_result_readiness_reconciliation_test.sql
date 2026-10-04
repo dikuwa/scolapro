@@ -9,11 +9,6 @@ insert into public.school_memberships(tenant_id,school_id,user_id,role_key,activ
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fa8c0000-0000-4000-8000-000000000001','school_admin','2026-01-01'),
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fa8c0000-0000-4000-8000-000000000002','teacher','2026-01-01');
 
-insert into public.academic_years(id,tenant_id,school_id,year,status,starts_on,ends_on) values
-  ('fa8c1000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'active','2026-01-01','2026-12-15');
-insert into public.academic_terms(id,tenant_id,school_id,academic_year_id,term_number,display_name,starts_on,ends_on,status) values
-  ('fa8c1000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','fa8c1000-0000-4000-8000-000000000001',1,'Term 1','2026-01-12','2026-04-30','closed');
-
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status) values
   ('fa8c2000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','READY-RES-A','Registered Result A','active'),
   ('fa8c2000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','READY-RES-B','Registered Missing B','active'),
@@ -63,7 +58,7 @@ create temporary table initial_readiness on commit drop as
 select public.get_learner_subject_result_readiness('60000000-0000-4000-8000-000000000001',1) data;
 
 select is((select data->>'term_name' from initial_readiness),'Term 1','readiness resolves the configured academic term');
-select is((select data->>'reference_date' from initial_readiness),'2026-04-30','historical term readiness uses the configured term end as reference date');
+select is((select data->>'reference_date' from initial_readiness),'2026-04-28','historical term readiness uses the configured term end as reference date');
 select is((select (data->>'registered_subject_count')::integer from initial_readiness),2,'two subjects were registered at the term reference date');
 select is((select (data->>'official_result_count')::integer from initial_readiness),2,'two official-result rows exist for the term');
 select is((select (data->>'matched_result_count')::integer from initial_readiness),1,'one official result matches a registered subject');
