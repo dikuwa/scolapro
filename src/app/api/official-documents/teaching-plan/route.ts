@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     const document = await getTeachingPlanDocument(membership.schoolId, planId);
     if (!document) continue;
     const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
-    const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("teaching_print_pack"), provenanceSource: "live_school_profile" });
+    const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("teaching_plan"), provenanceSource: "live_school_profile" });
     const generatedAt = new Intl.DateTimeFormat("en-NA", { dateStyle: "medium", timeStyle: "short", timeZone: "Africa/Windhoek" }).format(new Date());
     const fileBase = `${safeFilePart(document.subject)}-${safeFilePart(document.grade)}-${view}`;
     if (format === "pdf") {
