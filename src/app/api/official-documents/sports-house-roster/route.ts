@@ -1,3 +1,4 @@
+import { officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { getLiveSchoolDocumentHeader } from "@/features/documents/server/live-school-document-profile";
 import {
   renderSportsHouseRosterHtml,
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     if (!selectedHouses.length) return Response.json({ error:"No valid houses were selected." },{ status:404 });
     if (requestedIds.size && selectedHouses.length!==requestedIds.size) return Response.json({ error:"A selected house is outside this school." },{ status:403 });
 
-    const header = await getLiveSchoolDocumentHeader(schoolId,"internal_school");
+    const header = await getLiveSchoolDocumentHeader(schoolId,officialDocumentHeaderModeForType("sports_house_roster"));
     const generatedAt = new Intl.DateTimeFormat("en-NA",{day:"2-digit",month:"long",year:"numeric"}).format(new Date());
     const input: SportsHouseRosterDocumentInput = {
       header,
