@@ -523,7 +523,7 @@ async function buildOfficialDocument(input: {
     return result.result_value;
   };
 
-  const {data:progressions,error:progressionError}=gradeEnrolmentIds.length
+  const {data:progressions,error:progressionError}=input.basis==="official"&&gradeEnrolmentIds.length
     ? await db.from("year_end_progressions")
         .select("enrolment_id,outcome,recommended_outcome,status,rule_set_key,rule_set_version,override_reason")
         .eq("school_id",input.schoolId)
@@ -702,9 +702,10 @@ async function buildOfficialDocument(input: {
   const gradingThresholdCount=subjects.filter((subject)=>subject.minimumPassMarkSource==="grading_scale").length;
   const missingThresholdCount=subjects.filter((subject)=>subject.minimumPassMark==null).length;
   const sourceReadiness:AcademicScheduleSourceReadiness[]=[
+    {label:"Academic terms",status:(allTerms?configuredTerms.length>0:Boolean(selectedTerm))?"available":"unavailable",detail:allTerms?(configuredTerms.length?String(configuredTerms.length)+" governed term"+(configuredTerms.length===1?"":"s")+" configured":"No governed academic terms are configured"):(selectedTerm?selectedTerm.label+" has governed dates":"Selected term is not configured")},
     {label:"Learner roster",status:datedScopeReady?"available":"unavailable",detail:datedScopeReady?String(outputEnrolments.length)+" governed enrolment"+(outputEnrolments.length===1?"":"s"):"Academic period dates are not configured"},
-    {label:"Official results",status:input.basis==="official"?(results.length?"available":"partial"):"unavailable",detail:input.basis==="official"?String(results.length)+" current governed result record"+(results.length===1?"":"s"):"No official result is substituted into provisional preview"},
-    {label:"Subjects",status:subjects.length?"available":"partial",detail:String(subjects.length)+" governed subject offering"+(subjects.length===1?"":"s")+" in scope"},
+    {label:"Official results",status:input.basis==="official"?(outputResultRows.length?"available":"partial"):"unavailable",detail:input.basis==="official"?String(outputResultRows.length)+" current governed result record"+(outputResultRows.length===1?"":"s")+" in output scope":"No official result is substituted into provisional preview"},
+    {label:"Subjects",status:subjects.length?"available":"unavailable",detail:subjects.length?String(subjects.length)+" governed subject offering"+(subjects.length===1?"":"s")+" in scope":"No governed subject offerings are available in this scope"},
     {label:"Promotion thresholds",status:missingThresholdCount?((promotionThresholdCount||gradingThresholdCount)?"partial":"unavailable"):"available",detail:String(promotionThresholdCount)+" promotion-rule · "+String(gradingThresholdCount)+" grading-scale fallback · "+String(missingThresholdCount)+" unavailable"},
     {label:"Attendance",status:yearStart&&yearEnd?"available":"partial",detail:yearStart&&yearEnd?"Distinct governed absence dates":"Academic-year dates incomplete"},
     {label:"Optional source fields",status:"unavailable",detail:"Home language, years-in-grade/phase, support comments, remarks and signatures stay blank when not canonical"},

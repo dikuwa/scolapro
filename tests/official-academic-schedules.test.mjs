@@ -157,6 +157,23 @@ test("required grade scope is protected by the canonical one-offering-per-subjec
   assert.ok(timetableFoundation.includes("unique (school_id, academic_year, subject_id, grade_id)"));
 });
 
+test("direct print and XLSX routes canonicalize legacy grade and class references and fail closed",()=>{
+  assert.ok(printPage.includes("row.value===params.grade||row.label===params.grade||row.code===params.grade"));
+  assert.ok(printPage.includes("rawClassScope.map"));
+  assert.ok(printPage.includes("notFound()"));
+  assert.ok(exportRoute.includes("row.value===gradeRef||row.label===gradeRef||row.code===gradeRef"));
+  assert.ok(exportRoute.includes("Invalid academic schedule grade scope."));
+  assert.ok(exportRoute.includes("Invalid academic schedule class scope."));
+});
+
+test("provisional schedules do not mix official progression rulings and finalization requires canonical structure",()=>{
+  assert.ok(server.includes('input.basis==="official"&&gradeEnrolmentIds.length'));
+  assert.ok(server.includes('{label:"Academic terms"'));
+  assert.ok(server.includes('"Subjects",status:subjects.length?"available":"unavailable"'));
+  assert.ok(actions.includes('["Academic terms","Learner roster","Subjects"]'));
+  assert.ok(actions.includes("Cannot finalize until governed "));
+});
+
 test("issued history fails closed and visibly preserves lifecycle metadata",()=>{
   assert.match(printPage,/if\(params\.snapshot && !frozen\) notFound\(\)/);
   assert.match(printPage,/SUPERSEDED — retained historical version/);

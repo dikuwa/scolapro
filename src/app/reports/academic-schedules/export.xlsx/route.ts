@@ -24,8 +24,14 @@ export async function GET(request:Request){
   const term=allTerms?(options.terms.at(-1)?.number??1):Math.min(6,Math.max(1,Number(url.searchParams.get("period")??url.searchParams.get("term"))||1));
   const basis=url.searchParams.get("basis")==="provisional"?"provisional":"official";
   const scheduleType:AcademicScheduleType=document==="all_results"?"term_schedule":allTerms?"promotion_all_terms":"promotion_schedule";
-  const gradeId=url.searchParams.get("grade")||undefined;
-  const classIds=(url.searchParams.get("classes")??"").split(",").map((value)=>value.trim()).filter(Boolean);
+  const gradeRef=url.searchParams.get("grade");
+  const gradeOption=options.grades.find((row)=>row.value===gradeRef||row.label===gradeRef||row.code===gradeRef);
+  if(!frozen&&gradeRef&&!gradeOption)return NextResponse.json({error:"Invalid academic schedule grade scope."},{status:400});
+  const gradeId=gradeOption?.value??options.grades[0]?.value;
+  const classOptions=gradeId?(options.classesByGrade[gradeId]??[]):[];
+  const rawClassScope=(url.searchParams.get("classes")??"").split(",").map((value)=>value.trim()).filter(Boolean);
+  const classIds=[...new Set(rawClassScope.map((value)=>classOptions.find((row)=>row.value===value||row.label===value||row.code===value)?.value).filter((value):value is string=>Boolean(value)))].sort();
+  if(!frozen&&rawClassScope.length&&classIds.length!==new Set(rawClassScope).size)return NextResponse.json({error:"Invalid academic schedule class scope."},{status:400});
   const payload=frozen?.payload ?? await getAcademicSchedulePayload({academicYear:year,termNumber:term,basis,scheduleType,gradeId,classIds});
   if(!payload)return NextResponse.json({error:"Not authorized."},{status:403});
   const context=await getUserContext();

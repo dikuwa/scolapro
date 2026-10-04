@@ -23,8 +23,13 @@ export default async function AcademicSchedulePrintPage({searchParams}:{searchPa
   const term=allTerms?(options.terms.at(-1)?.number??1):Math.min(6,Math.max(1,Number(params.period??params.term)||1));
   const basis=params.basis==="provisional"?"provisional":"official";
   const scheduleType:AcademicScheduleType=document==="all_results"?"term_schedule":allTerms?"promotion_all_terms":"promotion_schedule";
-  const gradeId=params.grade||undefined;
-  const classIds=(params.classes??"").split(",").map((value)=>value.trim()).filter(Boolean);
+  const gradeOption=options.grades.find((row)=>row.value===params.grade||row.label===params.grade||row.code===params.grade);
+  if(!frozen&&params.grade&&!gradeOption) notFound();
+  const gradeId=gradeOption?.value??options.grades[0]?.value;
+  const classOptions=gradeId?(options.classesByGrade[gradeId]??[]):[];
+  const rawClassScope=(params.classes??"").split(",").map((value)=>value.trim()).filter(Boolean);
+  const classIds=[...new Set(rawClassScope.map((value)=>classOptions.find((row)=>row.value===value||row.label===value||row.code===value)?.value).filter((value):value is string=>Boolean(value)))].sort();
+  if(!frozen&&rawClassScope.length&&classIds.length!==new Set(rawClassScope).size) notFound();
   const payload=frozen?.payload ?? await getAcademicSchedulePayload({academicYear:year,termNumber:term,basis,scheduleType,gradeId,classIds});
   if(!payload)redirect("/");
   const context=await import("@/lib/auth/get-user-context").then((m)=>m.getUserContext());

@@ -51,6 +51,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
   if(!filterOptions.grades.length) redirect("/assessment");
   const requestedGrade=params.grade??"";
   const requestedGradeOption=filterOptions.grades.find((grade)=>grade.value===requestedGrade||grade.label===requestedGrade||grade.code===requestedGrade);
+  if(requestedGrade&&!requestedGradeOption) notFound();
   const gradeId=requestedGradeOption?.value??filterOptions.grades[0].value;
   const classOptions=filterOptions.classesByGrade[gradeId]??[];
   const rawClassScope=(params.classes??"").split(",").map((value)=>value.trim()).filter(Boolean);

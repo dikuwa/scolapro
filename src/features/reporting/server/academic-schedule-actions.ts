@@ -61,6 +61,12 @@ export async function finalizeAcademicSchedule(
       classIds,
     });
     if(!payload) return {message:"Unable to build this schedule from canonical academic data."};
+    const unavailableRequiredSources=(payload.sourceReadiness??[])
+      .filter((item)=>["Academic terms","Learner roster","Subjects"].includes(item.label)&&item.status==="unavailable")
+      .map((item)=>item.label);
+    if(unavailableRequiredSources.length){
+      return {message:"Cannot finalize until governed "+unavailableRequiredSources.join(", ").toLowerCase()+" are available."};
+    }
 
     const [db,documentHeader]=await Promise.all([
       Promise.resolve(createSupabaseAdminClient()),
