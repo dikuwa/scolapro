@@ -68,6 +68,28 @@ function normalizedPackagePaths(cfb) {
     .replace(/^\//, "")));
 }
 
+function assertWorksheetCellAttributesAreUnique(bytes) {
+  const CFB = XLSX.CFB ?? XLSX.default?.CFB;
+  assert.ok(CFB, "SheetJS CFB package reader is required");
+  const cfb = CFB.read(Buffer.from(bytes), { type: "buffer" });
+  const paths = normalizedPackagePaths(cfb);
+  const worksheetPaths = [...paths].filter((entry) => /^xl\/worksheets\/sheet\d+\.xml$/.test(entry));
+
+  for (const worksheetPath of worksheetPaths) {
+    const found = CFB.find(cfb, worksheetPath) ?? CFB.find(cfb, "/" + worksheetPath);
+    assert.ok(found?.content, "Worksheet part " + worksheetPath + " should be readable");
+    const xml = Buffer.from(found.content).toString("utf8");
+    for (const match of xml.matchAll(/<c\b([^>]*)>/g)) {
+      const attributes = [...match[1].matchAll(/([A-Za-z_:][\w:.-]*)\s*=/g)].map((item) => item[1]);
+      assert.equal(
+        new Set(attributes).size,
+        attributes.length,
+        worksheetPath + " cell tag must not contain duplicate attributes: <c" + match[1] + ">",
+      );
+    }
+  }
+}
+
 function assertRelationshipTargetsExist(bytes) {
   const CFB = XLSX.CFB ?? XLSX.default?.CFB;
   assert.ok(CFB, "SheetJS CFB package reader is required");
@@ -112,12 +134,14 @@ const logoBytes = new Uint8Array(await import("node:fs/promises").then(({ readFi
 ));
 const single = renderClassListXlsx(input("10A"), header, logoBytes);
 assertWorkbook(single, 1);
+assertWorksheetCellAttributesAreUnique(single);
 const singlePaths = assertRelationshipTargetsExist(single);
 assert.ok(singlePaths.has("xl/drawings/drawing1.xml"));
 assert.ok(singlePaths.has("xl/media/class-list-logo.png"));
 
 const batch = renderClassListBatchXlsx([input("10A"), input("10B", 10)], header, logoBytes);
 assertWorkbook(batch, 2);
+assertWorksheetCellAttributesAreUnique(batch);
 const batchPaths = assertRelationshipTargetsExist(batch);
 assert.ok(batchPaths.has("xl/drawings/drawing1.xml"));
 assert.ok(batchPaths.has("xl/drawings/drawing2.xml"));
@@ -142,6 +166,7 @@ const sportsSheet = sportsWorkbook.Sheets[sportsWorkbook.SheetNames[0]];
 assert.equal(sportsSheet.B1.v,header.schoolName);
 assert.equal(sportsSheet.A7.v,"No.");
 assert.equal(sportsSheet["!cols"].length,13);
+assertWorksheetCellAttributesAreUnique(sports);
 const sportsPaths = assertRelationshipTargetsExist(sports);
 assert.ok(sportsPaths.has("xl/drawings/drawing1.xml"));
 

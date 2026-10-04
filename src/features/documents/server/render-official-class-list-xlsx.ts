@@ -80,7 +80,7 @@ function stylesXml(): string {
 function setCellStyle(sheetXml: string, reference: string, styleId: number): string {
   const pattern = new RegExp('<c([^>]*\\br="' + reference + '"[^>]*)>', "g");
   return sheetXml.replace(pattern, (_match, attributes: string) => {
-    const cleaned = attributes.replace(/\\s+s="\\d+"/g, "");
+    const cleaned = attributes.replace(/\s+s="\d+"/g, "");
     return '<c' + cleaned + ' s="' + styleId + '">';
   });
 }
@@ -99,7 +99,7 @@ function setCellRichText(
 ): string {
   const pattern = new RegExp('<c([^>]*\\br="' + reference + '"[^>]*)>[\\s\\S]*?<\\/c>');
   return sheetXml.replace(pattern, (_match, attributes: string) => {
-    const cleaned = attributes.replace(/\\s+t="[^"]*"/g, "");
+    const cleaned = attributes.replace(/\s+t="[^"]*"/g, "");
     const richText = runs
       .filter((run) => run.text.length > 0)
       .map((run) =>
