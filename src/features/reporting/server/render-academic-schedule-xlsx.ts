@@ -22,7 +22,7 @@ export function renderAcademicScheduleXlsx(
     ["EMIS " + (header.schoolEmisNumber || "Not recorded")],
     [header.contactLines.map((line) => line.text).join(" · ")],
     [payload.title],
-    ["Academic year " + payload.academicYear + " · " + payload.periodLabel + " · " + (payload.grade || "All grades") + " · " + (payload.classNames.join(", ") || "All classes") + " · Basis: " + payload.basis.toUpperCase()],
+    ["Academic year " + payload.academicYear + " · " + payload.periodLabel + " · " + (payload.grade || "Not recorded") + " · " + ((payload.classNames??[]).join(", ") || "All classes in grade") + " · Basis: " + payload.basis.toUpperCase()],
   ];
   if (lifecycle) {
     headingRows.push(["Issued version v" + lifecycle.version + " · " + lifecycle.status.toUpperCase()]);
@@ -67,5 +67,5 @@ export function academicScheduleXlsxFilename(
   lifecycle?: AcademicScheduleIssuedLifecycle,
 ) {
   const issued=lifecycle?"-v"+lifecycle.version+"-"+lifecycle.status:"";
-  return payload.scheduleType + "-" + payload.academicYear + "-" + (payload.period==="all_terms"?"all-terms":"term-"+payload.termNumber) + "-" + payload.basis + issued + ".xlsx";
+  return payload.scheduleType + "-" + payload.academicYear + "-" + ((payload.period??(payload.scheduleType==="promotion_all_terms"?"all_terms":"term"))==="all_terms"?"all-terms":"term-"+payload.termNumber) + "-" + payload.basis + issued + ".xlsx";
 }

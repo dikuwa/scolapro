@@ -19,7 +19,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
   const year = Number(params.year) || new Date().getFullYear();
   const term = Math.min(3, Math.max(1, Number(params.term) || 1));
   const basis = params.basis === "provisional" ? "provisional" : "official";
-  const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","trends"];
+  const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","promotion_exceptions","trends"];
   const view: AcademicAnalysisView = allowedViews.includes(params.view as AcademicAnalysisView) ? params.view as AcademicAnalysisView : "overview";
   const className = view === "trends" ? undefined : params.class;
   const teacher = view === "trends" ? undefined : params.teacher;
@@ -37,9 +37,17 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
       <Link href="/assessment" className="scolapro-cta inline-flex items-center gap-2 text-sm text-muted-foreground">
         <ArrowLeft className="scolapro-cta-icon size-4" aria-hidden="true" /> Assessment
       </Link>
-      <header>
-        <h1 className="scolapro-page-title">Academic analysis</h1>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Performance analysis from canonical academic results. Official results are the default analysis basis.</p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="scolapro-page-title">Academic analysis</h1>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Performance analysis from canonical academic results. Official results are the default analysis basis.</p>
+        </div>
+        <Link
+          href={"/reports/academic-schedules?"+new URLSearchParams({year:String(year),period:String(term),document:"promotion",...(params.grade?{grade:params.grade}:{})}).toString()}
+          className="scolapro-cta inline-flex min-h-9 items-center rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium"
+        >
+          Open Official Academic Schedules →
+        </Link>
       </header>
 
       <section className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)]">
@@ -76,7 +84,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
             ["Subject Failure",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"results"}).toString()}`],
             ["Top Achievers",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"overview"}).toString()}`],
             ["Class / Grade Results Summary",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"grades"}).toString()}`],
-            ["Promotion Decision Exceptions",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"learners"}).toString()}`],
+            ["Promotion Decision Exceptions",`/academics/analysis?${new URLSearchParams({...Object.fromEntries(exportParams),view:"promotion_exceptions"}).toString()}`],
           ].map(([label,href])=><Link key={label} href={href} className="scolapro-cta rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 font-medium hover:text-foreground">{label}</Link>)}
         </div>
       </section>
@@ -87,6 +95,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
           ["results","Results"],
           ["grades","Grades & Classes"],
           ["learners","Learners & Risk"],
+          ["promotion_exceptions","Promotion Exceptions"],
           ["trends","Trends"],
         ] as Array<[AcademicAnalysisView,string]>).map(([value,label]) => {
           const query = new URLSearchParams(exportParams);

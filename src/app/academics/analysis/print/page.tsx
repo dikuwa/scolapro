@@ -9,6 +9,7 @@ const VIEW_LABELS: Record<AcademicAnalysisView,string> = {
   results: "Results",
   grades: "Grades & Classes",
   learners: "Learners & Risk",
+  promotion_exceptions: "Promotion Exceptions",
   trends: "Trends",
 };
 
@@ -21,7 +22,7 @@ export default async function AcademicAnalysisPrintPage({ searchParams }: { sear
   const academicYear = Number(params.year) || new Date().getFullYear();
   const termNumber = Math.min(3, Math.max(1, Number(params.term) || 1));
   const basis = params.basis === "provisional" ? "provisional" : "official";
-  const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","trends"];
+  const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","promotion_exceptions","trends"];
   const view: AcademicAnalysisView = allowedViews.includes(params.view as AcademicAnalysisView) ? params.view as AcademicAnalysisView : "overview";
   const className = view === "trends" ? undefined : params.class;
   const teacher = view === "trends" ? undefined : params.teacher;
@@ -67,6 +68,8 @@ export default async function AcademicAnalysisPrintPage({ searchParams }: { sear
     </div> : null}
 
     {view === "learners" ? <table className="w-full border-collapse text-xs"><thead><tr>{["Learner","Adm. no.","Grade/Class","Average","Failures","Promotional","Near threshold","Promotion readiness","Risk"].map((h)=><th key={h} className="border border-black p-1.5 text-left">{h}</th>)}</tr></thead><tbody>{workspace.learnerRiskRows.map((row)=><tr key={row.enrolmentId}><td className="border border-black p-1.5">{row.learnerName}</td><td className="border border-black p-1.5">{row.admissionNumber || "—"}</td><td className="border border-black p-1.5">{row.grade} · {row.className}</td><td className="border border-black p-1.5">{row.average ?? "—"}</td><td className="border border-black p-1.5">{row.riskLevel === "unavailable" ? "—" : row.failedSubjects}</td><td className="border border-black p-1.5">{row.riskLevel === "unavailable" ? "—" : row.promotionalSubjectFailures}</td><td className="border border-black p-1.5">{row.riskLevel === "unavailable" ? "—" : row.nearThresholdSubjects}</td><td className="border border-black p-1.5">{row.promotionReadiness.recommendedOutcome ?? row.promotionReadiness.status}</td><td className="border border-black p-1.5">{row.riskLevel}</td></tr>)}</tbody></table> : null}
+
+    {view === "promotion_exceptions" ? <table className="w-full border-collapse text-xs"><thead><tr>{["Learner","Grade/Class","Recommended","Final ruling","Exception / reason","Rule provenance","Status"].map((h)=><th key={h} className="border border-black p-1.5 text-left">{h}</th>)}</tr></thead><tbody>{workspace.promotionExceptionRows.map((row)=>{const decision=row.promotionDecision;const finalRuling=decision&&["approved","locked"].includes(decision.status)?decision.outcome:null;const reason=decision?.overrideReason ?? (row.promotionReadiness.failedConditions ? row.promotionReadiness.failedConditions+" failed governed condition"+(row.promotionReadiness.failedConditions===1?"":"s") : "Governed promotion-readiness exception");const ruleKey=decision?.ruleSetKey ?? row.promotionReadiness.ruleSetKey;const ruleVersion=decision?.ruleSetVersion ?? row.promotionReadiness.ruleSetVersion;return <tr key={row.enrolmentId}><td className="border border-black p-1.5">{row.learnerName}</td><td className="border border-black p-1.5">{row.grade} · {row.className}</td><td className="border border-black p-1.5">{row.promotionReadiness.recommendedOutcome ?? decision?.recommendedOutcome ?? "—"}</td><td className="border border-black p-1.5">{finalRuling ?? "—"}</td><td className="border border-black p-1.5">{reason}</td><td className="border border-black p-1.5">{ruleKey ? ruleKey+(ruleVersion?" · "+ruleVersion:"") : "—"}</td><td className="border border-black p-1.5">{decision?.status ?? row.promotionReadiness.status}</td></tr>;})}</tbody></table> : null}
 
     {view === "trends" ? <table className="w-full border-collapse text-xs"><thead><tr>{["Grade","Subject","Term-on-term","Year-on-year","Comparability"].map((h)=><th key={h} className="border border-black p-1.5 text-left">{h}</th>)}</tr></thead><tbody>{workspace.trends.map((row)=><tr key={row.subjectOfferingId}><td className="border border-black p-1.5">{row.grade}</td><td className="border border-black p-1.5">{row.subject}</td><td className="border border-black p-1.5">{row.termOnTerm.passRateDelta == null ? "—" : String(row.termOnTerm.passRateDelta) + " pp"}</td><td className="border border-black p-1.5">{row.yearOnYear.passRateDelta == null ? "—" : String(row.yearOnYear.passRateDelta) + " pp"}</td><td className="border border-black p-1.5">{[row.termOnTerm.reason,row.yearOnYear.reason].filter(Boolean).join(" · ") || "Comparable governed series"}</td></tr>)}</tbody></table> : null}
 

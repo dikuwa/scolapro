@@ -7,10 +7,10 @@ import { getUserContext } from "@/lib/auth/get-user-context";
 export async function GET(request:Request){
   const url=new URL(request.url);
   const legacyType=url.searchParams.get("type")??"";
-  const analysisCompat:Record<string,string>={retention_at_risk:"learners",incomplete_results:"results",subject_failure:"results",top_achievers:"overview",class_grade_summary:"grades",promotion_exceptions:"learners"};
+  const analysisCompat:Record<string,string>={retention_at_risk:"learners",incomplete_results:"results",subject_failure:"results",top_achievers:"overview",class_grade_summary:"grades",promotion_exceptions:"promotion_exceptions"};
   if(analysisCompat[legacyType]){
     const target=new URL("/academics/analysis/export.xlsx",url);
-    for(const key of ["year","term","basis"])if(url.searchParams.get(key))target.searchParams.set(key,url.searchParams.get(key)!);
+    for(const key of ["year","term","basis","grade","class"])if(url.searchParams.get(key))target.searchParams.set(key,url.searchParams.get(key)!);
     target.searchParams.set("view",analysisCompat[legacyType]);
     return NextResponse.redirect(target);
   }
@@ -24,8 +24,9 @@ export async function GET(request:Request){
   const term=allTerms?(options.terms.at(-1)?.number??1):Math.min(6,Math.max(1,Number(url.searchParams.get("period")??url.searchParams.get("term"))||1));
   const basis=url.searchParams.get("basis")==="provisional"?"provisional":"official";
   const scheduleType:AcademicScheduleType=document==="all_results"?"term_schedule":allTerms?"promotion_all_terms":"promotion_schedule";
-  const classNames=(url.searchParams.get("classes")??"").split(",").map((value)=>value.trim()).filter(Boolean);
-  const payload=frozen?.payload ?? await getAcademicSchedulePayload({academicYear:year,termNumber:term,basis,scheduleType,grade:url.searchParams.get("grade")||undefined,classNames});
+  const gradeId=url.searchParams.get("grade")||undefined;
+  const classIds=(url.searchParams.get("classes")??"").split(",").map((value)=>value.trim()).filter(Boolean);
+  const payload=frozen?.payload ?? await getAcademicSchedulePayload({academicYear:year,termNumber:term,basis,scheduleType,gradeId,classIds});
   if(!payload)return NextResponse.json({error:"Not authorized."},{status:403});
   const context=await getUserContext();
   if(!context.currentSchoolMembership)return NextResponse.json({error:"Not authorized."},{status:403});

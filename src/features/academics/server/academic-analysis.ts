@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
 
 export type AcademicAnalysisBasis = "official" | "provisional";
-export type AcademicAnalysisView = "overview" | "results" | "grades" | "learners" | "trends";
+export type AcademicAnalysisView = "overview" | "results" | "grades" | "learners" | "promotion_exceptions" | "trends";
 
 const NEAR_THRESHOLD_MARGIN = 5;
 
@@ -85,6 +85,15 @@ export type PromotionReadiness = {
   failedConditions: number;
 };
 
+export type PromotionDecisionContext = {
+  status: string;
+  outcome: string | null;
+  recommendedOutcome: string | null;
+  overrideReason: string | null;
+  ruleSetKey: string | null;
+  ruleSetVersion: string | null;
+};
+
 export type LearnerRiskRow = {
   enrolmentId: string;
   learnerId: string;
@@ -103,6 +112,7 @@ export type LearnerRiskRow = {
   sharedImprovementSubjects: number;
   riskLevel: "high" | "watch" | "stable" | "unavailable";
   promotionReadiness: PromotionReadiness;
+  promotionDecision: PromotionDecisionContext | null;
 };
 
 export type AcademicTrendComparison = {
@@ -133,6 +143,7 @@ export type AcademicAnalysisWorkspace = {
   teacherSummaries: AcademicAnalysisAggregate[];
   qualityConfigured: boolean;
   learnerRiskRows: LearnerRiskRow[];
+  promotionExceptionRows: LearnerRiskRow[];
   topLearners: LearnerRiskRow[];
   topImprovers: LearnerRiskRow[];
   trends: AcademicTrendRow[];
@@ -629,6 +640,23 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     }
   }
 
+  const { data: progressionRows, error: progressionError } = basis === "official" && enrolmentIds.length
+    ? await db.from("year_end_progressions")
+        .select("enrolment_id,status,outcome,recommended_outcome,override_reason,rule_set_key,rule_set_version")
+        .eq("school_id",membership.schoolId)
+        .eq("academic_year",scope.academicYear)
+        .in("enrolment_id",enrolmentIds)
+    : { data: [], error: null };
+  if (progressionError) throw new Error("Unable to load governed promotion decisions.");
+  const progressionByEnrolment = new Map((progressionRows ?? []).map((row) => [row.enrolment_id, {
+    status: String(row.status),
+    outcome: row.outcome ? String(row.outcome) : null,
+    recommendedOutcome: row.recommended_outcome ? String(row.recommended_outcome) : null,
+    overrideReason: row.override_reason ? String(row.override_reason) : null,
+    ruleSetKey: row.rule_set_key ? String(row.rule_set_key) : null,
+    ruleSetVersion: row.rule_set_version ? String(row.rule_set_version) : null,
+  }]));
+
   const learnerRiskRows: LearnerRiskRow[] = [...resultGroups.entries()].map(([enrolmentId, learnerRows]) => {
     const enrolment = enrolmentMap.get(enrolmentId);
     const numeric = learnerRows.filter((row) => row.result_value != null).map((row) => Number(row.result_value));
@@ -708,12 +736,24 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
       sharedImprovementSubjects: sharedImprovements.length,
       riskLevel,
       promotionReadiness: readiness,
+      promotionDecision: progressionByEnrolment.get(enrolmentId) ?? null,
     };
   }).sort((a, b) => {
     const severity: Record<LearnerRiskRow["riskLevel"], number> = { high: 0, watch: 1, stable: 2, unavailable: 3 };
     return severity[a.riskLevel] - severity[b.riskLevel]
       || b.failedSubjects - a.failedSubjects
       || a.learnerName.localeCompare(b.learnerName);
+  });
+
+  const promotionExceptionRows = learnerRiskRows.filter((row) => {
+    if (row.promotionReadiness.status === "not_ready" || row.promotionReadiness.failedConditions > 0) return true;
+    const decision=row.promotionDecision;
+    if (!decision) return false;
+    if (decision.overrideReason) return true;
+    return ["approved","locked"].includes(decision.status)
+      && Boolean(decision.outcome)
+      && Boolean(decision.recommendedOutcome)
+      && decision.outcome !== decision.recommendedOutcome;
   });
 
   const topLearners = learnerRiskRows
@@ -833,6 +873,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     teacherSummaries: aggregateBy((row) => row.teacher),
     qualityConfigured: qualitySymbolsByScaleId.size > 0,
     learnerRiskRows,
+    promotionExceptionRows,
     topLearners,
     topImprovers,
     trends,

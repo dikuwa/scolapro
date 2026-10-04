@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   const academicYear = Number(url.searchParams.get("year")) || new Date().getFullYear();
   const termNumber = Math.min(3, Math.max(1, Number(url.searchParams.get("term")) || 1));
   const basis = url.searchParams.get("basis") === "provisional" ? "provisional" : "official";
-  const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","trends"];
+  const allowedViews: AcademicAnalysisView[] = ["overview","results","grades","learners","promotion_exceptions","trends"];
   const requestedView = url.searchParams.get("view") as AcademicAnalysisView | null;
   const view: AcademicAnalysisView = requestedView && allowedViews.includes(requestedView) ? requestedView : "overview";
   const className = view === "trends" ? undefined : url.searchParams.get("class") || undefined;
