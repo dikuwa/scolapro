@@ -18,6 +18,8 @@ export function ClassListDocumentActions({
       spreadsheetHref={`${baseHref}&format=xlsx`}
       compact={compact}
       previewLabel={batch ? "Print all" : "Preview / Print"}
+      downloadLabel="PDF"
+      spreadsheetLabel="Excel"
     />
   );
 }
