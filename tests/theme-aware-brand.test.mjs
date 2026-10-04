@@ -45,6 +45,8 @@ test("favicon bootstraps from effective theme and changes with live theme update
   assert.match(theme, /LIGHT_FAVICON = "\/brand\/scolapro\/icon-blue\.svg"/);
   assert.match(theme, /DARK_FAVICON = "\/brand\/scolapro\/icon-white\.svg"/);
   assert.match(theme, /applyThemePreference\(preference/);
+  assert.match(theme, /const current = storedThemePreference\(\);/);
+  assert.match(theme, /window\.dispatchEvent\(new CustomEvent<ThemePreference>\(THEME_CHANGE_EVENT/);
   assert.match(theme, /if \(preference === "system"\) syncThemeFavicon\(preference\)/);
 });
 
