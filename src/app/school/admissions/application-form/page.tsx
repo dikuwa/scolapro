@@ -31,7 +31,7 @@ export default async function BlankAdmissionApplicationPage() {
                 <FileText className="size-4" aria-hidden="true" />
               </span>
               <div>
-                <h1 className="scolapro-page-title text-xl">Learner application form</h1>
+                <h1 className="scolapro-page-title text-xl">Learner Application Form</h1>
                 <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
                   Official blank admission form for {membership.schoolName} · {academicYear}. Preview, print or download the same canonical PDF.
                 </p>
