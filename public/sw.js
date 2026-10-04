@@ -4,6 +4,9 @@ const IS_LOOPBACK = ["localhost", "127.0.0.1", "[::1]"].includes(self.location.h
 const SHELL = [
   "/manifest.webmanifest",
   "/brand/scolapro/icon-blue.svg",
+  "/brand/scolapro/icon-white.svg",
+  "/brand/scolapro/logo-blue.svg",
+  "/brand/scolapro/logo-white.svg",
   "/brand/scolapro/icon-180.png",
   "/brand/scolapro/icon-192.png",
   "/brand/scolapro/icon-512.png",

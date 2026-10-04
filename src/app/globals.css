@@ -180,6 +180,17 @@ body {
 body:has([data-scolapro-shell="true"]) .scolapro-public-theme-launcher {
   display: none;
 }
+
+.scolapro-brand-dark { display: none; }
+.scolapro-brand-light { display: block; }
+
+:root[data-theme="dark"] .scolapro-brand-light { display: none; }
+:root[data-theme="dark"] .scolapro-brand-dark { display: block; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .scolapro-brand-light { display: none; }
+  :root:not([data-theme]) .scolapro-brand-dark { display: block; }
+}
 input, textarea, [contenteditable="true"] { caret-color: var(--brand); }
 button, a, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
