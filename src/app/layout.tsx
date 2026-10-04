@@ -24,6 +24,21 @@ const themeBootstrapScript = `
 })();
 `;
 
+const faviconBootstrapScript = `
+(() => {
+  try {
+    const root = document.documentElement;
+    const explicit = root.dataset.theme;
+    const dark = explicit === "dark" || (!explicit && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    const href = dark ? "/brand/scolapro/icon-white.svg" : "/brand/scolapro/icon-blue.svg";
+    document.getElementById("scolapro-favicon")?.setAttribute("href", href);
+    document.getElementById("scolapro-shortcut-icon")?.setAttribute("href", href);
+  } catch {
+    // Blue remains the safe light-theme fallback.
+  }
+})();
+`;
+
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
   subsets: ["latin"],
@@ -43,12 +58,6 @@ export const metadata: Metadata = {
     title: SCOLAPRO_BRAND.shortName,
   },
   icons: {
-    icon: [
-      { url: "/brand/scolapro/icon-blue.svg", type: "image/svg+xml" },
-      { url: "/brand/scolapro/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/brand/scolapro/icon-512.png", sizes: "512x512", type: "image/png" },
-    ],
-    shortcut: "/brand/scolapro/icon-blue.svg",
     apple: [{ url: "/brand/scolapro/icon-180.png", sizes: "180x180", type: "image/png" }],
   },
   manifest: "/manifest.webmanifest",
@@ -63,6 +72,9 @@ export default function RootLayout({
     <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
+        <link id="scolapro-favicon" rel="icon" type="image/svg+xml" href="/brand/scolapro/icon-blue.svg" />
+        <link id="scolapro-shortcut-icon" rel="shortcut icon" type="image/svg+xml" href="/brand/scolapro/icon-blue.svg" />
+        <script dangerouslySetInnerHTML={{ __html: faviconBootstrapScript }} />
       </head>
       <body className={plusJakartaSans.variable}>
         {children}
