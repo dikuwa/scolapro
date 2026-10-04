@@ -49,7 +49,7 @@ test("application PDF contains the requested labelled form sections", () => {
   assert.match(renderer, /Work telephone \/ number/);
   assert.match(renderer, /Document Checklist/);
   assert.match(renderer, /Passport \/ learner photo \/ ID/);
-  assert.match(renderer, /const box = 8/);
+  assert.match(renderer, /const box = 10/);
   assert.match(renderer, /Guardian signature/);
 });
 
