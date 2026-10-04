@@ -393,7 +393,10 @@ Feature-owned files likely involved:
 5. Repair workbook validity before changing its appearance.
 6. End every meaningful implementation slice with the exact Control Room completion contract and do not report `DONE` while required CI or manual Excel verification is outstanding.
 
-## 10. Planning-workstream handback
+## 10. Planning-workstream handback (historical)
+
+> Historical planning state only. The implementation programme described below was subsequently completed through #1063/#1067, with the final print-surface audit completed through #1068/#1069. Do not use this block as current Control Room status.
+
 
 ```text
 STATUS: DONE
@@ -411,4 +414,55 @@ DEPENDENCIES: Implementation requires new Control Room issue ownership and isola
 CONFLICT CHECK: Planning was isolated from active deployment-reconciliation PR #1058; implementation must recheck ownership
 SAFE TO MERGE: NO
 NEXT UNLOCKED WORK: Open and execute Slice A — workbook validity and shared XLSX chrome
+```
+
+
+## 11. Implementation completion record
+
+The recovery programme described in this handoff is complete. The implementation was executed under Issue #1063 and merged in PR #1067, followed by the remaining operational print-surface audit under Issue #1068 / PR #1069.
+
+Implemented outcomes:
+
+- **Slice A — workbook validity and shared XLSX chrome:** repaired Class List single/batch OOXML generation, added package/relationship validation, prevented duplicate XML cell attributes, and migrated Sports/Houses XLSX to the shared governed workbook identity layer.
+- **Slice B — defaults and full-width layout:** Class Lists and Sports/Houses default to three bounded adjustable blank columns; Class List HTML/PDF uses the full usable A4 width.
+- **Slice C — shared actions, back link, print isolation:** shared document actions/back controls are adopted, preview links open safely in a new tab, and theme/toaster/screen-only chrome is hidden in print.
+- **Slice D — shared visual chrome and typography:** governed backdrop opacity is centralized; Academic Analysis and Academic Schedules use shared document chrome and profile-driven school typography.
+- **Slice E — academic schedule density:** fixed metric/subject column layout is deterministic, compact and landscape-safe, with vertical headings where appropriate.
+- **Post-implementation audit:** detention/late-arrival roster and Teaching Files inspection pack were the final two printable surfaces bypassing governed school chrome; both were migrated in #1068/#1069.
+
+Verification completed:
+
+- targeted document regressions: **94/94 PASS** on #1067 before merge;
+- Microsoft Excel opened generated single Class List, multi-sheet Class List batch and Sports/House workbooks without repair prompts;
+- openpyxl independently opened the same generated workbooks;
+- Class List and Sports/House portrait output visually passed governed-header/backdrop/table-width checks;
+- high-subject Academic Schedule landscape output visually passed density/header checks;
+- exact-head Application CI passed before merge and post-merge;
+- #1067 contained no database migration;
+- #1068/#1069 completed the final printable-surface audit with no database migration.
+
+Authoritative implementation references:
+
+- Issue #1063 — document output recovery implementation
+- PR #1067 — merged at main `9c8720a22c2404821df74f5ad3222cdbec0392b3`
+- Issue #1068 — remaining operational print surfaces
+- PR #1069 — merged at main `bdf9e633d2dd7e5ef337beac2264c9c10dfc2700`
+
+Final Control Room handback:
+
+```text
+STATUS: DONE
+WORKSTREAM: Document output recovery and app-wide document consistency
+IMPLEMENTATION ISSUE: #1063
+IMPLEMENTATION PR: #1067 — MERGED
+POST-AUDIT ISSUE: #1068
+POST-AUDIT PR: #1069 — MERGED
+PLANNING SOURCE: docs/11-roadmap/2026-10-04-DOCUMENT-OUTPUT-RECOVERY-HANDOFF.md
+MIGRATIONS: NONE
+ACCEPTANCE VERIFIED: Workbook validity; independent Excel/openpyxl opening; shared XLSX chrome; full-width Class List print/PDF; three adjustable blank columns; shared actions/back controls; print isolation; governed backdrop/typography; Academic Analysis/Schedule shared chrome; schedule density; final print-surface audit
+NOT VERIFIED: NONE REMAINING FOR THIS WORKSTREAM
+DEPENDENCIES: NONE
+CONFLICT CHECK: Final implementation and post-audit changes were merged independently through governed Control Room PRs
+SAFE TO MERGE: YES — implementation already merged and verified
+NEXT UNLOCKED WORK: None; document output recovery programme is complete
 ```
