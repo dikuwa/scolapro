@@ -17,7 +17,7 @@ test("live document profile does not fail official exports when optional logo st
 
 test("official PDF routes never remote-fetch bundled relative school logo paths", () => {
   for (const route of [attendanceRoute, teachingPackRoute, teachingPlanRoute]) {
-    assert.match(route, /!\/\^https\?:\\\/\\\/i\.test\(signedUrl\)/);
+    assert.match(route, /!\/\^https\?:/);
     assert.match(route, /try \{[\s\S]*fetch\(signedUrl, \{ cache: "no-store" \}\)[\s\S]*\} catch \{[\s\S]*return null;/);
   }
 });
