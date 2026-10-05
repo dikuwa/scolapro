@@ -35,8 +35,8 @@ export type OfficialDocumentHeaderProvenance = {
 
 export const PLATFORM_GOVERNED_NAMIBIA_COAT_OF_ARMS = Object.freeze({
   key: "namibia-coat-of-arms" as const,
-  version: "2026-09-22",
-  url: "/brand/governed/namibia-coat-of-arms.svg",
+  version: "2026-10-05",
+  url: "/brand/governed/namibia-coat-of-arms.png",
   alt: "Coat of Arms of Namibia",
 });
 
