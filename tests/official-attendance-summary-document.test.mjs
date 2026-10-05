@@ -60,3 +60,14 @@ test("school totals retain boys, girls, total and weekly absence percentage", ()
 test("shared PDF footer aligns to actual page width for landscape documents", () => {
   assert.match(footer, /input\.page\.getWidth\(\)/);
 });
+
+test("unfinalized attendance summaries expose a live draft preview without verification identity", () => {
+  assert.match(component, /draftPreviewHref/);
+  assert.match(component, /preview=1&draft=1/);
+  assert.match(component, /Preview \/ Print/);
+  assert.match(pdf, /DRAFT - NOT FINALIZED/);
+  assert.match(pdf, /isDraft/);
+  assert.match(pdf, /Preview only/);
+  assert.match(route, /summary: liveSummary/);
+  assert.match(route, /X-ScolaPro-Document-State/);
+});

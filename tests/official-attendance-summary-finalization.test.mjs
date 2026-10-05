@@ -44,13 +44,16 @@ test("a new finalization of the same scope supersedes the prior revision", () =>
   assert.match(migration, /set status = 'superseded'\s*where id = v_supersedes_snapshot_id/);
 });
 
-test("the export route is a node runtime, dynamic, and never caches or leaks drafts", () => {
+test("the export route is dynamic, never caches, and limits unfinalized output to explicit draft PDF preview", () => {
   assert.match(route, /export const runtime = "nodejs"/);
   assert.match(route, /export const dynamic = "force-dynamic"/);
   assert.match(route, /Cache-Control": "private, no-store, max-age=0"/);
-  // A non-finalized summary is never exportable.
+  assert.match(route, /draftPreview = url\.searchParams\.get\("draft"\) === "1" && url\.searchParams\.get\("preview"\) === "1" && format === "pdf"/);
   assert.match(route, /if \(!finalization\)/);
+  assert.match(route, /if \(!draftPreview\)/);
   assert.match(route, /status: 404/);
+  assert.match(route, /X-ScolaPro-Document-State": "draft"/);
+  assert.match(route, /isDraft: true/);
 });
 
 test("the export route produces a real PDF (pdf-lib) and a real XLSX workbook (xlsx), plus an HTML preview", () => {

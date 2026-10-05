@@ -156,6 +156,7 @@ export async function GET(request: Request) {
   const date = url.searchParams.get("date") ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek" }).format(new Date());
   const termId = url.searchParams.get("term") || null;
   const format = url.searchParams.get("format") === "pdf" ? "pdf" : url.searchParams.get("format") === "xlsx" ? "xlsx" : "html";
+  const draftPreview = url.searchParams.get("draft") === "1" && url.searchParams.get("preview") === "1" && format === "pdf";
 
   try {
     // Compute the exact reporting scope so we can resolve the frozen, finalized
@@ -168,9 +169,36 @@ export async function GET(request: Request) {
       scopeEnd: liveSummary.scopeEnd,
       termId,
     });
+    const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
+    const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("attendance_summary"), provenanceSource: "live_school_profile" });
+
     if (!finalization) {
-      // No draft leakage: a non-finalized summary is never exportable.
-      return Response.json({ error: "This summary has not been finalized yet." }, { status: 404, headers: { "Cache-Control": "no-store" } });
+      if (!draftPreview) {
+        // Drafts remain preview-only: immutable exports require finalization.
+        return Response.json({ error: "This summary has not been finalized yet." }, { status: 404, headers: { "Cache-Control": "no-store" } });
+      }
+
+      const generatedAt = new Date().toISOString();
+      const fileBase = `${safeFilePart(liveSummary.term?.displayName ?? "weekly")}-${mode}-attendance-draft`;
+      const rendered = await renderOfficialAttendanceSummaryPdf({
+        header,
+        summary: liveSummary,
+        generatedAt,
+        isDraft: true,
+        logoBytes: await storedLogoBytes(profile.logoStoragePath, profile.logoUrl),
+      });
+      return new Response(Buffer.from(rendered.bytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="${fileBase}.pdf"`,
+          "Cache-Control": "private, no-store, max-age=0",
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "no-referrer",
+          "X-ScolaPro-Document-State": "draft",
+          "X-ScolaPro-Page-Count": String(rendered.pageCount),
+        },
+      });
     }
 
     const summary = finalization.dataSnapshot as OfficialAttendanceSummary;
@@ -179,8 +207,6 @@ export async function GET(request: Request) {
     const verificationUrl = `${origin}${finalization.verificationPath}`;
     const fileBase = `${safeFilePart(summary.term?.displayName ?? "weekly")}-${mode}-attendance-${finalization.revision}`;
 
-    const profile = await getLiveSchoolDocumentProfile(membership.schoolId);
-    const header = buildOfficialDocumentHeaderModel(profile, { mode: officialDocumentHeaderModeForType("attendance_summary"), provenanceSource: "live_school_profile" });
     if (format === "xlsx") {
       const bytes = xlsxBytes(summary, {
         header,

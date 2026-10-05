@@ -234,6 +234,15 @@ function FinalizationPanel({
   onFinalize: () => void;
   exportUrl: (format: string) => string;
 }) {
+  const draftPreviewHref = `${exportUrl("pdf")}&preview=1&draft=1`;
+  const draftActions = (
+    <OfficialDocumentActions
+      previewHref={draftPreviewHref}
+      previewLabel="Preview / Print"
+      compact
+    />
+  );
+
   if (finalization) {
     const finalizedLabel = new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(finalization.finalizedAt));
     return (
@@ -284,8 +293,11 @@ function FinalizationPanel({
     return (
       <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground"><Lock className="mr-1 inline size-3.5 align-[-0.1rem] text-[color:var(--muted-foreground)]" aria-hidden="true" />Finalize once all expected registers are confirmed for this period.</p>
-          <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-xs font-semibold text-muted-foreground opacity-70"><Lock className="size-3.5" aria-hidden="true" />Finalize official summary</button>
+          <p className="text-xs text-muted-foreground"><Lock className="mr-1 inline size-3.5 align-[-0.1rem] text-[color:var(--muted-foreground)]" aria-hidden="true" />Preview the current live summary as a DRAFT. Finalize once all expected registers are confirmed for this period.</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {draftActions}
+            <button type="button" disabled className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-xs font-semibold text-muted-foreground opacity-70"><Lock className="size-3.5" aria-hidden="true" />Finalize official summary</button>
+          </div>
         </div>
       </section>
     );
@@ -294,7 +306,10 @@ function FinalizationPanel({
   if (!canFinalize) {
     return (
       <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <p className="text-xs text-muted-foreground"><Lock className="mr-1 inline size-3.5 align-[-0.1rem]" aria-hidden="true" />Finalization requires Principal, Deputy Principal or School Admin authority. The summary can be finalized once all registers are confirmed.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-muted-foreground"><Lock className="mr-1 inline size-3.5 align-[-0.1rem]" aria-hidden="true" />Finalization requires Principal, Deputy Principal or School Admin authority. Preview is available as a draft.</p>
+          {draftActions}
+        </div>
       </section>
     );
   }
@@ -303,10 +318,13 @@ function FinalizationPanel({
     <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">All expected registers are confirmed. Finalizing freezes this summary as an immutable, verifiable official document.</p>
-        <button type="button" onClick={onFinalize} disabled={pending} className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 py-2 text-xs font-semibold text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
-          {pending ? <Spinner className="size-3.5" /> : <ShieldCheck className="size-3.5" aria-hidden="true" />}
-          Finalize official summary
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {draftActions}
+          <button type="button" onClick={onFinalize} disabled={pending} className="inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 py-2 text-xs font-semibold text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
+            {pending ? <Spinner className="size-3.5" /> : <ShieldCheck className="size-3.5" aria-hidden="true" />}
+            Finalize official summary
+          </button>
+        </div>
       </div>
     </section>
   );
