@@ -80,3 +80,9 @@ test("national calendar baseline shows governed events before add-event controls
   assert.match(source, /showAddEvent/);
   assert.match(source, /aria-expanded=\{showAddEvent\}/);
 });
+
+
+test("voluntary contributions page shows contribution state before campaign setup", () => {
+  const source = read("src/app/school/contributions/page.tsx");
+  assert.ok(source.indexOf("<ContributionWorkspace") < source.indexOf("<ContributionSetup"));
+});
