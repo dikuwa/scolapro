@@ -14,21 +14,50 @@ function Label({ children }: { children: React.ReactNode }) { return <span class
 
 export function PaymentSettingsForm({ schoolId, settings }: { schoolId: string; settings: SchoolPaymentSettings | null }) {
   const [state, action, pending] = useActionState(savePaymentSettings, initial);
-  useEffect(() => { if (state.message) state.success ? toast.success(state.message) : toast.error(state.message); }, [state]);
-  return <form action={action} className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-    <input type="hidden" name="schoolId" value={schoolId}/><div><h2 className="scolapro-section-title">Banking & payment details</h2><p className="scolapro-section-description">Payer-safe instructions only. Never enter banking passwords, PINs or online-banking credentials.</p></div>
-    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-      <label><Label>Bank name</Label><input className={field} name="bankName" required defaultValue={settings?.bankName ?? ""}/></label>
-      <label><Label>Account name</Label><input className={field} name="accountName" required defaultValue={settings?.accountName ?? ""}/></label>
-      <label><Label>Account number</Label><input className={field} name="accountNumber" required defaultValue={settings?.accountNumber ?? ""}/></label>
-      <label><Label>Account type</Label><input className={field} name="accountType" defaultValue={settings?.accountType ?? ""}/></label>
-      <label><Label>Branch name</Label><input className={field} name="branchName" defaultValue={settings?.branchName ?? ""}/></label>
-      <label><Label>Branch code</Label><input className={field} name="branchCode" defaultValue={settings?.branchCode ?? ""}/></label>
-      <label className="sm:col-span-2"><Label>Payment reference instructions</Label><textarea className={`${field} min-h-20 py-2`} name="referenceInstructions" defaultValue={settings?.referenceInstructions ?? ""} placeholder="Example: use the learner admission number or invoice number."/></label>
-      <label className="sm:col-span-2"><Label>Payment instructions</Label><textarea className={`${field} min-h-20 py-2`} name="paymentInstructions" defaultValue={settings?.paymentInstructions ?? ""}/></label>
-      <Checkbox name="active" defaultChecked={settings?.active ?? true} label="Show these instructions to eligible payers" />
-    </div><div className="mt-4 flex justify-start sm:justify-end"><Button type="submit" loading={pending} disabled={pending}>Save banking details</Button></div>
-  </form>;
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setOpen(false));
+    } else {
+      toast.error(state.message);
+    }
+  }, [state]);
+
+  return (
+    <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="scolapro-section-title">Banking & payment details</h2>
+          <p className="scolapro-section-description">Payer-safe instructions only. Never enter banking passwords, PINs or online-banking credentials.</p>
+        </div>
+        <Button type="button" variant="soft" size="sm" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+          {open ? "Close" : "Edit banking details"}
+        </Button>
+      </div>
+      {open ? (
+        <form action={action} className="mt-4 border-t border-border-subtle pt-4">
+          <input type="hidden" name="schoolId" value={schoolId}/>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label><Label>Bank name</Label><input className={field} name="bankName" required defaultValue={settings?.bankName ?? ""}/></label>
+            <label><Label>Account name</Label><input className={field} name="accountName" required defaultValue={settings?.accountName ?? ""}/></label>
+            <label><Label>Account number</Label><input className={field} name="accountNumber" required defaultValue={settings?.accountNumber ?? ""}/></label>
+            <label><Label>Account type</Label><input className={field} name="accountType" defaultValue={settings?.accountType ?? ""}/></label>
+            <label><Label>Branch name</Label><input className={field} name="branchName" defaultValue={settings?.branchName ?? ""}/></label>
+            <label><Label>Branch code</Label><input className={field} name="branchCode" defaultValue={settings?.branchCode ?? ""}/></label>
+            <label className="sm:col-span-2"><Label>Payment reference instructions</Label><textarea className={`${field} min-h-20 py-2`} name="referenceInstructions" defaultValue={settings?.referenceInstructions ?? ""} placeholder="Example: use the learner admission number or invoice number."/></label>
+            <label className="sm:col-span-2"><Label>Payment instructions</Label><textarea className={`${field} min-h-20 py-2`} name="paymentInstructions" defaultValue={settings?.paymentInstructions ?? ""}/></label>
+            <Checkbox name="active" defaultChecked={settings?.active ?? true} label="Show these instructions to eligible payers" />
+          </div>
+          <div className="mt-4 flex justify-start sm:justify-end">
+            <Button type="submit" loading={pending} disabled={pending}>Save banking details</Button>
+          </div>
+        </form>
+      ) : null}
+    </section>
+  );
 }
 
 export function FinanceWorkspace({ schoolId, today, settings, payments }: { schoolId: string; today: string; settings: SchoolPaymentSettings | null; payments: FinancePayment[] }) {
