@@ -19,11 +19,9 @@ import {
 } from "@/features/documents/server/official-document-header";
 
 const {
-  pageWidth: PAGE_WIDTH,
   pageHeight: PAGE_HEIGHT,
   margin: MARGIN,
   logoColumnWidth: LOGO_WIDTH,
-  postalColumnWidth: POSTAL_WIDTH,
 } = OFFICIAL_DOCUMENT_PDF_GEOMETRY;
 const CONTENT_WIDTH = officialDocumentPdfContentWidth();
 const INK = rgb(0.08, 0.08, 0.08);
