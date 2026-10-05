@@ -137,6 +137,7 @@ export function FinanceWorkspace({ schoolId, today, settings, payments }: { scho
 
   return (
     <div className="space-y-5">
+      <div className="grid gap-5 lg:grid-cols-2">
       <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <h2 className="scolapro-section-title">School payment instructions</h2>
         {settings?.active ? (
@@ -193,6 +194,7 @@ export function FinanceWorkspace({ schoolId, today, settings, payments }: { scho
           <p className="mt-3 text-sm text-muted-foreground">No payments have been recorded yet.</p>
         )}
       </section>
+      </div>
 
       {showRecordPayment ? (
         <form action={action} className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
