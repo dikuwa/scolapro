@@ -34,14 +34,33 @@ export function NationalCalendarManager({ year, events }: { year: number; events
   const [endsAt, setEndsAt] = useState("");
   const [impact, setImpact] = useState("NORMAL");
   const [category, setCategory] = useState("Information");
+  const [showAddEvent, setShowAddEvent] = useState(false);
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) toast.success(state.message); else toast.error(state.message);
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setShowAddEvent(false));
+    } else {
+      toast.error(state.message);
+    }
   }, [state]);
 
   return <div className="space-y-5">
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="scolapro-section-title">{year} baseline events</h2>
+          <p className="scolapro-section-description">Append-only records preserve the national source and historical teaching impact.</p>
+        </div>
+        <Button type="button" size="sm" variant="soft" aria-expanded={showAddEvent} onClick={() => setShowAddEvent((current) => !current)}>
+          {showAddEvent ? "Close" : "Add national event"}
+        </Button>
+      </div>
+      {events.length ? <div className="mt-3 divide-y divide-border-subtle">{events.map((event) => <article key={event.id} className="grid gap-2 py-3 sm:grid-cols-[1fr_auto_auto] sm:items-start"><div><h3 className="scolapro-record-title">{event.title}</h3><p className="mt-1 text-xs text-muted-foreground">{event.category}{event.description ? ` · ${event.description}` : ""}</p></div><p className="text-xs text-muted-foreground">{dateLabel(event)}</p><span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.68rem] font-semibold text-brand-strong">{event.teachingImpact.replaceAll("_", " ")}</span></article>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-5 text-sm text-muted-foreground">No national learner events are configured for {year}.</div>}
+    </section>
+
+    {showAddEvent ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex items-start gap-2.5 border-b border-border-subtle pb-4"><span className="scolapro-tone-brand grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Globe2 className="size-4" /></span><div><h2 className="scolapro-section-title">National learner baseline</h2><p className="scolapro-section-description !mt-0">Add learner-calendar facts once for every school. Normal is informational; teaching changes only when an explicit impact is selected.</p></div></div>
       <form action={action} className="mt-5 grid gap-4 lg:grid-cols-2">
         <input type="hidden" name="academicYear" value={year} />
@@ -55,11 +74,6 @@ export function NationalCalendarManager({ year, events }: { year: number; events
         <div><label htmlFor="national-event-description" className={formFieldLabelClass}>Description (optional)</label><textarea id="national-event-description" name="description" rows={3} maxLength={2000} className={`${inputClass} ${formFieldControlOffsetClass} resize-y py-2.5`} /></div>
         <div className="lg:col-span-2"><Button type="submit" loading={pending}>Add national event</Button></div>
       </form>
-    </section>
-    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <h2 className="scolapro-section-title">{year} baseline events</h2>
-      <p className="scolapro-section-description">Append-only records preserve the national source and historical teaching impact.</p>
-      {events.length ? <div className="mt-3 divide-y divide-border-subtle">{events.map((event) => <article key={event.id} className="grid gap-2 py-3 sm:grid-cols-[1fr_auto_auto] sm:items-start"><div><h3 className="scolapro-record-title">{event.title}</h3><p className="mt-1 text-xs text-muted-foreground">{event.category}{event.description ? ` · ${event.description}` : ""}</p></div><p className="text-xs text-muted-foreground">{dateLabel(event)}</p><span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.68rem] font-semibold text-brand-strong">{event.teachingImpact.replaceAll("_", " ")}</span></article>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-5 text-sm text-muted-foreground">No national learner events are configured for {year}.</div>}
-    </section>
+    </section> : null}
   </div>;
 }

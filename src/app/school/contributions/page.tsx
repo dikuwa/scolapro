@@ -23,8 +23,8 @@ export default async function ContributionsPage() {
     <AppShell>
       <div className="space-y-5">
         <div><h1 className="scolapro-page-title text-xl">Voluntary contributions</h1><p className="mt-1 text-sm text-muted-foreground">Configure voluntary campaigns and record parent/learner contributions such as fundraising, goods and raffle participation.</p></div>
-        {setupRoles.has(membership.roleKey) ? <ContributionSetup schoolId={membership.schoolId} academicYear={academicYear} today={today} campaigns={workspace.campaigns} /> : null}
         <ContributionWorkspace campaigns={workspace.campaigns} items={workspace.items} contributions={workspace.contributions} academicYear={academicYear} today={today} operationId={randomUUID()} />
+        {setupRoles.has(membership.roleKey) ? <ContributionSetup schoolId={membership.schoolId} academicYear={academicYear} today={today} campaigns={workspace.campaigns} /> : null}
       </div>
     </AppShell>
   );

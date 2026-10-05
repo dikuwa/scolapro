@@ -106,6 +106,23 @@ export function AssessmentSchemeConfigurationWorkspace({data}:{data:AssessmentSc
     </section>
 
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <h2 className="scolapro-section-title">Verification & publication</h2>
+      <p className="scolapro-section-description">Verification records human accountability. Publication is a separate finality action and creates a versioned canonical assessment scheme.</p>
+      <div className="mt-4 space-y-3">
+        {candidates.length ? candidates.map((candidate)=><article key={candidate.id} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div><p className="text-sm font-semibold">{candidate.sourceLabel}</p><p className="mt-1 text-xs text-muted-foreground">{candidate.captureMode.replaceAll("_"," ")} · Terms {candidate.termNumbers.join(", ")} · {candidate.components.length} component{candidate.components.length===1?"":"s"}</p></div>
+            <span className="self-start rounded-full bg-surface px-2.5 py-1 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">{candidate.status}</span>
+          </div>
+          {candidate.components.length ? <div className="mt-3 overflow-x-auto"><table className="min-w-full text-left text-xs"><thead><tr className="text-muted-foreground"><th className="px-2 py-1.5">Component</th><th className="px-2 py-1.5">Max</th><th className="px-2 py-1.5">Weight</th><th className="px-2 py-1.5">Terms</th><th className="px-2 py-1.5">Moderation</th></tr></thead><tbody>{candidate.components.map((component,index)=><tr key={`${component.code}-${index}`} className="border-t border-border-subtle"><td className="px-2 py-2 font-medium">{component.name}</td><td className="px-2 py-2">{component.rawMax ?? "—"}</td><td className="px-2 py-2">{component.weight ?? "—"}</td><td className="px-2 py-2">{component.termNumbers.join(", ")}</td><td className="px-2 py-2">{component.moderationRequired ? "Required" : "No"}</td></tr>)}</tbody></table></div> : null}
+          {candidate.status==="candidate" ? <form action={verifyAction} className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"><input type="hidden" name="candidateId" value={candidate.id}/><label className="text-xs font-medium">Verification note<input className={fieldClass} name="note" placeholder="Optional verification note"/></label><Button type="submit" variant="soft" loading={verifyPending}><BadgeCheck className="size-4"/>Verify candidate</Button></form> : null}
+          {candidate.status==="verified" ? <form action={publishAction} className="mt-3 flex justify-end"><input type="hidden" name="candidateId" value={candidate.id}/><Button type="submit" loading={publishPending}><Send className="size-4"/>Publish verified scheme</Button></form> : null}
+        </article>) : <p className="text-sm text-muted-foreground">No candidates exist for this subject offering yet.</p>}
+      </div>
+      <Message state={verifyState}/><Message state={publishState}/>
+    </section>
+
+    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex items-start gap-3"><BookOpenCheck className="mt-0.5 size-5 text-brand"/><div><h2 className="scolapro-section-title">Extract from verified syllabus metadata</h2><p className="scolapro-section-description">Extraction creates a candidate only. It cannot publish official assessment configuration without human verification.</p></div></div>
       <form action={extractAction} className="mt-4">
         <input type="hidden" name="offeringId" value={offeringId}/>
@@ -113,6 +130,7 @@ export function AssessmentSchemeConfigurationWorkspace({data}:{data:AssessmentSc
       </form>
       <Message state={extractState}/>
     </section>
+
 
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <h2 className="scolapro-section-title">Manual candidate</h2>
@@ -154,21 +172,6 @@ export function AssessmentSchemeConfigurationWorkspace({data}:{data:AssessmentSc
       <Message state={manualState}/>
     </section>
 
-    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <h2 className="scolapro-section-title">Verification & publication</h2>
-      <p className="scolapro-section-description">Verification records human accountability. Publication is a separate finality action and creates a versioned canonical assessment scheme.</p>
-      <div className="mt-4 space-y-3">
-        {candidates.length ? candidates.map((candidate)=><article key={candidate.id} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-4">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div><p className="text-sm font-semibold">{candidate.sourceLabel}</p><p className="mt-1 text-xs text-muted-foreground">{candidate.captureMode.replaceAll("_"," ")} · Terms {candidate.termNumbers.join(", ")} · {candidate.components.length} component{candidate.components.length===1?"":"s"}</p></div>
-            <span className="self-start rounded-full bg-surface px-2.5 py-1 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">{candidate.status}</span>
-          </div>
-          {candidate.components.length ? <div className="mt-3 overflow-x-auto"><table className="min-w-full text-left text-xs"><thead><tr className="text-muted-foreground"><th className="px-2 py-1.5">Component</th><th className="px-2 py-1.5">Max</th><th className="px-2 py-1.5">Weight</th><th className="px-2 py-1.5">Terms</th><th className="px-2 py-1.5">Moderation</th></tr></thead><tbody>{candidate.components.map((component,index)=><tr key={`${component.code}-${index}`} className="border-t border-border-subtle"><td className="px-2 py-2 font-medium">{component.name}</td><td className="px-2 py-2">{component.rawMax ?? "—"}</td><td className="px-2 py-2">{component.weight ?? "—"}</td><td className="px-2 py-2">{component.termNumbers.join(", ")}</td><td className="px-2 py-2">{component.moderationRequired ? "Required" : "No"}</td></tr>)}</tbody></table></div> : null}
-          {candidate.status==="candidate" ? <form action={verifyAction} className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"><input type="hidden" name="candidateId" value={candidate.id}/><label className="text-xs font-medium">Verification note<input className={fieldClass} name="note" placeholder="Optional verification note"/></label><Button type="submit" variant="soft" loading={verifyPending}><BadgeCheck className="size-4"/>Verify candidate</Button></form> : null}
-          {candidate.status==="verified" ? <form action={publishAction} className="mt-3 flex justify-end"><input type="hidden" name="candidateId" value={candidate.id}/><Button type="submit" loading={publishPending}><Send className="size-4"/>Publish verified scheme</Button></form> : null}
-        </article>) : <p className="text-sm text-muted-foreground">No candidates exist for this subject offering yet.</p>}
-      </div>
-      <Message state={verifyState}/><Message state={publishState}/>
-    </section>
+
   </div>;
 }

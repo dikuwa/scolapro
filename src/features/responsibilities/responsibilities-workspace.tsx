@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -42,12 +43,25 @@ function EndDutyForm({
   pending: boolean;
 }) {
   const [activeTo, setActiveTo] = useState(today);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button type="button" variant="neutral" size="sm" onClick={() => setOpen(true)}>
+        End responsibility
+      </Button>
+    );
+  }
+
   return (
     <form action={action} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="assignmentId" value={assignmentId} />
       <DateField label="End on" name="activeTo" value={activeTo} onChange={setActiveTo} required />
       <Button type="submit" variant="neutral" loading={pending} disabled={pending}>
         End responsibility
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+        Cancel
       </Button>
     </form>
   );
@@ -72,64 +86,41 @@ export function ResponsibilitiesWorkspace({
   const [dutyKey, setDutyKey] = useState(capabilities[0]?.dutyKey ?? "");
   const [activeFrom, setActiveFrom] = useState(today);
   const [activeTo, setActiveTo] = useState("");
+  const [showAssignment, setShowAssignment] = useState(false);
 
   useNotice(assignmentState);
   useNotice(endState);
+
+  useEffect(() => {
+    if (assignmentState.success) {
+      queueMicrotask(() => setShowAssignment(false));
+    }
+  }, [assignmentState.success]);
 
   const activeAssignments = assignments.filter((item) => item.currentlyEffective);
   const historicalAssignments = assignments.filter((item) => !item.currentlyEffective);
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div>
-          <h2 className="scolapro-section-title">Assign responsibility</h2>
-          <p className="scolapro-section-description">
-            Add a bounded operational duty without changing the staff member&apos;s base role. Access ends automatically when the duty or school placement ends.
-          </p>
-        </div>
-        <form action={assignAction} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <input type="hidden" name="schoolId" value={schoolId} />
-          <Picker
-            label="Staff member"
-            name="staffMemberId"
-            value={staffMemberId}
-            onChange={setStaffMemberId}
-            placeholder="Choose staff member"
-            options={staff.map((item) => ({
-              value: item.staffMemberId,
-              label: item.employeeNumber ? `${item.staffName} · ${item.employeeNumber}` : item.staffName,
-            }))}
-          />
-          <Picker
-            label="Responsibility"
-            name="dutyKey"
-            value={dutyKey}
-            onChange={setDutyKey}
-            placeholder="Choose responsibility"
-            options={capabilities.map((item) => ({ value: item.dutyKey, label: item.label }))}
-          />
-          <DateField label="Starts" name="activeFrom" value={activeFrom} onChange={setActiveFrom} required />
-          <DateField label="Ends (optional)" name="activeTo" value={activeTo} onChange={setActiveTo} />
-          <div className="sm:col-span-2 lg:col-span-4">
-            {dutyKey ? (
-              <p className="mb-3 text-xs text-muted-foreground">
-                {capabilities.find((item) => item.dutyKey === dutyKey)?.description}
-              </p>
-            ) : null}
-            <Button type="submit" loading={assigning} disabled={assigning || !staffMemberId || !dutyKey}>
-              Assign responsibility
-            </Button>
-          </div>
-        </form>
-      </section>
-
       <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
-        <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
-          <h2 className="scolapro-section-title">Current responsibilities</h2>
-          <p className="scolapro-section-description">
-            {activeAssignments.length} active delegated {activeAssignments.length === 1 ? "responsibility" : "responsibilities"}.
-          </p>
+        <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+          <div>
+            <h2 className="scolapro-section-title">Current responsibilities</h2>
+            <p className="scolapro-section-description">
+              {activeAssignments.length} active delegated {activeAssignments.length === 1 ? "responsibility" : "responsibilities"}.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="soft"
+            className="shrink-0"
+            aria-expanded={showAssignment}
+            onClick={() => setShowAssignment((current) => !current)}
+          >
+            {showAssignment ? <X className="size-3.5" aria-hidden="true" /> : <Plus className="size-3.5" aria-hidden="true" />}
+            {showAssignment ? "Close" : "Assign responsibility"}
+          </Button>
         </div>
         {activeAssignments.length ? (
           <div className="divide-y divide-border-subtle">
@@ -163,6 +154,51 @@ export function ResponsibilitiesWorkspace({
           </div>
         )}
       </section>
+
+      {showAssignment ? (
+        <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div>
+            <h2 className="scolapro-section-title">Assign responsibility</h2>
+            <p className="scolapro-section-description">
+              Add a bounded operational duty without changing the staff member&apos;s base role. Access ends automatically when the duty or school placement ends.
+            </p>
+          </div>
+          <form action={assignAction} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <Picker
+              label="Staff member"
+              name="staffMemberId"
+              value={staffMemberId}
+              onChange={setStaffMemberId}
+              placeholder="Choose staff member"
+              options={staff.map((item) => ({
+                value: item.staffMemberId,
+                label: item.employeeNumber ? `${item.staffName} · ${item.employeeNumber}` : item.staffName,
+              }))}
+            />
+            <Picker
+              label="Responsibility"
+              name="dutyKey"
+              value={dutyKey}
+              onChange={setDutyKey}
+              placeholder="Choose responsibility"
+              options={capabilities.map((item) => ({ value: item.dutyKey, label: item.label }))}
+            />
+            <DateField label="Starts" name="activeFrom" value={activeFrom} onChange={setActiveFrom} required />
+            <DateField label="Ends (optional)" name="activeTo" value={activeTo} onChange={setActiveTo} />
+            <div className="sm:col-span-2 lg:col-span-4">
+              {dutyKey ? (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {capabilities.find((item) => item.dutyKey === dutyKey)?.description}
+                </p>
+              ) : null}
+              <Button type="submit" loading={assigning} disabled={assigning || !staffMemberId || !dutyKey}>
+                Assign responsibility
+              </Button>
+            </div>
+          </form>
+        </section>
+      ) : null}
 
       <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle px-4 py-4 sm:px-5">

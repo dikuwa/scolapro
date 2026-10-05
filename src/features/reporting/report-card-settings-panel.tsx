@@ -81,10 +81,16 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   const [schoolNameFont, setSchoolNameFont] = useState<"default" | "old_english">(isNamibHigh ? profile.schoolNameFont : "default");
   const [logoUrl, setLogoUrl] = useState(profile.logoUrl);
   const [logoStoragePath, setLogoStoragePath] = useState(profile.logoStoragePath);
+  const [documentOpen, setDocumentOpen] = useState(false);
+  const [subjectsOpen, setSubjectsOpen] = useState(false);
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) toast.success(state.message);
-    else toast.error(state.message);
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setDocumentOpen(false));
+    } else {
+      toast.error(state.message);
+    }
   }, [state]);
 
   async function uploadLogo(file?: File) {
@@ -154,8 +160,16 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   return (
     <section className="mt-5 space-y-5">
       <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="flex items-start gap-3 border-b border-border-subtle pb-4"><span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span><div><h2 className="scolapro-section-title">Report card & document identity</h2><p className="scolapro-section-description">These values belong to {schoolName}. They are frozen into each generated report so historical certified cards do not change when settings are edited later.</p></div></div>
-        <form action={action} className="mt-5 space-y-5" noValidate>
+        <div className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${documentOpen ? "border-b border-border-subtle pb-4" : ""}`}>
+          <div className="flex items-start gap-3">
+            <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span>
+            <div><h2 className="scolapro-section-title">Report card & document identity</h2><p className="scolapro-section-description">These values belong to {schoolName}. They are frozen into each generated report so historical certified cards do not change when settings are edited later.</p></div>
+          </div>
+          <button type="button" aria-expanded={documentOpen} onClick={() => setDocumentOpen((current) => !current)} className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
+            {documentOpen ? "Close" : "Edit document settings"}
+          </button>
+        </div>
+        {documentOpen ? <form action={action} className="mt-5 space-y-5" noValidate>
           <input type="hidden" name="schoolId" value={schoolId} />
           <input type="hidden" name="logoUrl" value={logoStoragePath ? "" : legacyLogoUrl} />
           <input type="hidden" name="logoStoragePath" value={logoStoragePath} />
@@ -208,12 +222,20 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
           </div>
 
           <div className="flex justify-end border-t border-border-subtle pt-4"><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}{pending ? "Saving…" : "Save document settings"}</button></div>
-        </form>
+        </form> : null}
       </div>
 
       <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="flex items-start gap-3 border-b border-border-subtle pb-4"><span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span><div><h2 className="scolapro-section-title">Subject report rules</h2><p className="scolapro-section-description">Set each subject&apos;s minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark.</p></div></div>
-        {settings.subjects.length ? (
+        <div className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${subjectsOpen ? "border-b border-border-subtle pb-4" : ""}`}>
+          <div className="flex items-start gap-3">
+            <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span>
+            <div><h2 className="scolapro-section-title">Subject report rules</h2><p className="scolapro-section-description">Set each subject&apos;s minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark.</p></div>
+          </div>
+          <button type="button" aria-expanded={subjectsOpen} onClick={() => setSubjectsOpen((current) => !current)} className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
+            {subjectsOpen ? "Close" : "Manage subject rules"}
+          </button>
+        </div>
+        {subjectsOpen ? (settings.subjects.length ? (
           <div className="mt-2">
             <div className="hidden grid-cols-[minmax(0,1.5fr)_110px_140px_150px_auto] items-center gap-3 border-b border-border-subtle px-0 py-2 text-[0.68rem] font-medium text-muted-foreground sm:grid" aria-hidden="true">
               <span>Subject</span>
@@ -226,7 +248,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
               {settings.subjects.map((subject) => <SubjectRule key={subject.subjectId} schoolId={schoolId} subject={subject} />)}
             </div>
           </div>
-        ) : <p className="py-6 text-sm text-muted-foreground">Configure active subjects first; their report-card rules will appear here.</p>}
+        ) : <p className="py-6 text-sm text-muted-foreground">Configure active subjects first; their report-card rules will appear here.</p>) : null}
       </div>
     </section>
   );
