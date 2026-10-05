@@ -17,7 +17,7 @@ export default async function BlankAdmissionApplicationPage() {
 
   const academicYear = getNamibiaCalendarYear();
   const pdfHref = `/api/official-documents/admission-application?year=${academicYear}&format=pdf`;
-  const previewHref = `${pdfHref}&preview=1`;
+  const pdfPreviewHref = `${pdfHref}&preview=1`;
 
   return (
     <AppShell>
@@ -40,13 +40,13 @@ export default async function BlankAdmissionApplicationPage() {
             </div>
           </div>
           <OfficialDocumentActions
-            previewHref={previewHref}
+            previewHref="#application-form-preview"
             downloadHref={pdfHref}
             downloadLabel="PDF"
           />
         </div>
 
-        <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+        <section id="application-form-preview" className="scroll-mt-4 overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
           <div className="flex flex-col gap-2 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div>
               <h2 className="text-sm font-semibold">Application form preview</h2>
@@ -59,10 +59,11 @@ export default async function BlankAdmissionApplicationPage() {
             </span>
           </div>
           <OfficialDocumentPreview
-            src={previewHref}
+            src={pdfPreviewHref}
             title="Learner application form PDF preview"
             orientation="portrait"
-            helper="If your browser does not render embedded PDFs, use Preview / Print above to open the document in a separate tab."
+            fit="viewport"
+            helper="The canonical A4 PDF is shown here in the application workspace. Use PDF above only when you need the downloaded file."
           />
         </section>
       </div>
