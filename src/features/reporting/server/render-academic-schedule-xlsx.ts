@@ -8,7 +8,7 @@ import {
   finalizeOfficialDocumentWorkbook,
   type OfficialDocumentWorkbookSheetSpec,
 } from "@/features/documents/server/official-document-xlsx-chrome";
-import { academicScheduleColumnWidth, academicScheduleHeadingOrientation } from "@/features/reporting/academic-schedule-column-layout";
+import { academicScheduleCellAlignment, academicScheduleColumnLabel, academicScheduleColumnWidth, academicScheduleHeadingOrientation } from "@/features/reporting/academic-schedule-column-layout";
 import type { AcademicSchedulePayload } from "@/features/reporting/server/academic-schedules";
 
 export type AcademicScheduleIssuedLifecycle = {
@@ -46,9 +46,10 @@ export function renderAcademicScheduleXlsx(
   const classNamesContextValue = classNamesContext(payload);
 
   const scopeContext =
-    "Academic year " + payload.academicYear + " · " + payload.periodLabel + " · " +
-    (payload.grade || "Not recorded") + " · " + classNamesContextValue +
-    " · Basis: " + payload.basis.toUpperCase();
+    "Grade: " + (payload.grade || "Not recorded") + " · Class: " + classNamesContextValue;
+  const periodContext =
+    "Term: " + payload.periodLabel + " · Year: " + payload.academicYear + " · Basis: " + payload.basis.toUpperCase();
+  const generatedContext = "Generated: " + new Date(payload.generatedAt).toLocaleDateString("en-NA");
 
   const supersededNotice = lifecycle?.status === "superseded"
     ? "SUPERSEDED — retained historical version; not the current official schedule." +
@@ -94,6 +95,12 @@ export function renderAcademicScheduleXlsx(
     verticalHeaderColumns: columns
       .map((column, index) => academicScheduleHeadingOrientation(column, payload.subjects?.map((subject) => subject.name) ?? []) === "vertical" ? index : -1)
       .filter((index) => index >= 0),
+    centeredHeaderColumns: columns
+      .map((column, index) => academicScheduleHeadingOrientation(column, payload.subjects?.map((subject) => subject.name) ?? []) === "horizontal" && academicScheduleCellAlignment(column, payload.subjects?.map((subject) => subject.name) ?? []) === "center" ? index : -1)
+      .filter((index) => index >= 0),
+    centeredDataColumns: columns
+      .map((column, index) => academicScheduleCellAlignment(column, payload.subjects?.map((subject) => subject.name) ?? []) === "center" ? index : -1)
+      .filter((index) => index >= 0),
   };
 
   const worksheet = buildOfficialDocumentWorkbookSheet({
@@ -103,8 +110,9 @@ export function renderAcademicScheduleXlsx(
       primaryContext: scopeContext,
       summary: lifecycle
         ? "Issued version v" + lifecycle.version + " · " + lifecycle.status.toUpperCase() +
-          " · Finalized " + new Date(lifecycle.finalizedAt).toLocaleString("en-NA")
-        : "Generated " + payload.generatedAt,
+          " · Finalized " + new Date(lifecycle.finalizedAt).toLocaleDateString("en-NA")
+        : generatedContext,
+      secondaryContext: periodContext,
     },
     metaStartColumn,
     columnCount,
@@ -114,7 +122,7 @@ export function renderAcademicScheduleXlsx(
         columns[index] ? academicScheduleColumnWidth(columns[index], subjectNames) : 12,
       );
     })(),
-    dataHeaders: columns,
+    dataHeaders: columns.map(academicScheduleColumnLabel),
     dataRows: tableRows,
     trailingRows,
     operationalLine: supersededNotice || undefined,

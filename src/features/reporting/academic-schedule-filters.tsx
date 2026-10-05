@@ -1,11 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Check } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { Check, LoaderCircle } from "lucide-react";
 import { Picker } from "@/components/ui/picker";
 import type { AcademicScheduleBasis, AcademicScheduleFilterOptions } from "@/features/reporting/server/academic-schedules";
 
 export type OfficialScheduleDocument = "promotion" | "all_results";
+
+function GenerateScheduleButton({ externalPending = false }: { externalPending?: boolean }) {
+  const { pending } = useFormStatus();
+  const busy = pending || externalPending;
+  return (
+    <button disabled={busy} aria-busy={busy} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-70 sm:col-span-2 lg:col-span-4">
+      {busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : null}
+      {busy ? "Generating preview…" : "Generate / refresh preview"}
+    </button>
+  );
+}
 
 export function AcademicScheduleFilters({ document, academicYear, period, basis, gradeId, classIds, options }: {
   document: OfficialScheduleDocument;
@@ -21,6 +33,7 @@ export function AcademicScheduleFilters({ document, academicYear, period, basis,
   const [basisValue,setBasisValue]=useState(basis);
   const [gradeValue,setGradeValue]=useState(gradeId);
   const [selectedClasses,setSelectedClasses]=useState(classIds);
+  const [submitting,setSubmitting]=useState(false);
   const availableClasses=useMemo(()=>options.classesByGrade[gradeValue]??[],[gradeValue,options.classesByGrade]);
 
   const toggleClass=(classId:string)=>setSelectedClasses((current)=>
@@ -33,7 +46,7 @@ export function AcademicScheduleFilters({ document, academicYear, period, basis,
         <h2 id="schedule-filters-title" className="scolapro-section-title">Document scope</h2>
         <p className="scolapro-section-description">Choose the formal document, reporting period and required grade. Class scope may include the whole grade or selected classes.</p>
       </div>
-      <form method="get" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <form method="get" onSubmit={()=>setSubmitting(true)} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Picker
           label="Document"
           name="document"
@@ -120,9 +133,7 @@ export function AcademicScheduleFilters({ document, academicYear, period, basis,
           </div>
         </details>
 
-        <button className="min-h-10 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white sm:col-span-2 lg:col-span-4">
-          Generate / refresh preview
-        </button>
+        <GenerateScheduleButton externalPending={submitting} />
       </form>
     </section>
   );

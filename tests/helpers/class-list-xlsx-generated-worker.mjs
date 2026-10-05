@@ -266,24 +266,24 @@ assert.ok(sportsPaths.has("xl/drawings/drawing1.xml"));
 
 const schedulePayload = {
   scheduleType: "term_schedule",
-  title: "Term Schedule",
+  title: "All Results Schedule",
   basis: "official",
   academicYear: 2026,
-  termNumber: 1,
+  termNumber: 3,
   scopeKey: "period:term|grade-id:grade-10|class-ids:class-10a",
   period: "term",
-  periodLabel: "Term 1",
+  periodLabel: "Term 3",
   gradeId: "grade-10",
   grade: "Grade 10",
   classIds: ["class-10a"],
   classNames: ["10A"],
-  generatedAt: "04 October 2026",
+  generatedAt: "2026-10-05T11:30:00.000Z",
   sourceDescription: "Acceptance fixture",
-  columns: ["No.", "Learner", "Mathematics", "English", "Average %", "Rank", "Recommendation", "Remarks"],
-  rows: [{ "No.": 1, Learner: "Learner One", Mathematics: 72, English: 68, "Average %": 70, Rank: 1, Recommendation: "Promote", Remarks: "Good progress" }],
+  columns: ["No.", "Admission Number", "Student", "DOB", "Home Language", "Gender", "Age", "Days Absent", "Years in Grade", "Years in Phase", "Mathematics Symbol", "Mathematics Mark", "Overall %", "Support comments"],
+  rows: [{ "No.": 1, "Admission Number": "4806", Student: "Adams, Dawid", DOB: "2012-02-01", "Home Language": "Afrikaans", Gender: "M", Age: 14, "Days Absent": 0, "Years in Grade": 1, "Years in Phase": 1, "Mathematics Symbol": "B", "Mathematics Mark": 72, "Overall %": 70, "Support comments": "" }],
   rowCount: 1,
   notes: [],
-  subjects: [],
+  subjects: [{ key: "math", name: "Mathematics", code: "5134", maximumMark: 100, minimumPassMark: 40, minimumPassMarkSource: "promotion_rule" }],
   footerRows: [],
 };
 const schedule = renderAcademicScheduleXlsx(schedulePayload, header, undefined, logoBytes);
@@ -297,6 +297,27 @@ assertWorksheetCellAttributesAreUnique(schedule);
 assertNoDuplicateXmlAttributes(schedule);
 const schedulePaths = assertRelationshipTargetsExist(schedule);
 assert.ok(schedulePaths.has("xl/drawings/drawing1.xml"));
+
+const promotionPayload = {
+  ...schedulePayload,
+  scheduleType: "promotion_schedule",
+  title: "Promotion Schedule",
+  columns: ["No.", "Admission Number", "Learner", "DOB", "Home Language", "Gender", "Age", "Days Absent", "Years in Grade", "Years in Phase", "Average %", "Rank", "Mathematics", "Recommendation", "Ruling", "Remarks"],
+  rows: [{ "No.": 1, "Admission Number": "4806", Learner: "Adams, Dawid", DOB: "2012-02-01", "Home Language": "Afrikaans", Gender: "M", Age: 14, "Days Absent": 0, "Years in Grade": 1, "Years in Phase": 1, "Average %": 70, Rank: 1, Mathematics: 72, Recommendation: "Promote", Ruling: "Promoted", Remarks: "" }],
+};
+const promotionSchedule = renderAcademicScheduleXlsx(promotionPayload, header, undefined, logoBytes);
+const promotionSchedulePdf = await renderAcademicSchedulePdf(promotionPayload, header, undefined, logoBytes);
+const promotionWorkbook = XLSX.read(promotionSchedule, { type: "buffer", cellStyles: true });
+const promotionSheet = promotionWorkbook.Sheets[promotionWorkbook.SheetNames[0]];
+assert.equal(promotionSheet.B1.v, header.schoolName);
+assert.equal(promotionSheet.A7.v, "No.");
+assert.equal(promotionSheet.B7.v, "Admission Number");
+assert.equal(promotionSheet.F7.v, "Gender");
+assert.equal(promotionSheet.N7.v, "Recommendation");
+assert.equal(promotionSheet.P7.v, "Remarks");
+assertWorksheetCellAttributesAreUnique(promotionSchedule);
+assertNoDuplicateXmlAttributes(promotionSchedule);
+assertRelationshipTargetsExist(promotionSchedule);
 
 const defaultHeader = { ...header, schoolNameFont: "default" };
 const defaultSingle = renderClassListXlsx(input("10C", 20), defaultHeader, logoBytes);
@@ -316,6 +337,8 @@ if (process.env.SCOLAPRO_XLSX_OUTPUT_DIR) {
     writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "sports-house-roster.pdf"), Buffer.from(sportsPdf)),
     writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "academic-schedule.xlsx"), Buffer.from(schedule)),
     writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "academic-schedule.pdf"), Buffer.from(schedulePdf)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "promotion-schedule.xlsx"), Buffer.from(promotionSchedule)),
+    writeFile(path.join(process.env.SCOLAPRO_XLSX_OUTPUT_DIR, "promotion-schedule.pdf"), Buffer.from(promotionSchedulePdf)),
   ]);
 }
 

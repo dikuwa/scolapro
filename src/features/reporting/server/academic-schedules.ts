@@ -587,19 +587,25 @@ async function buildOfficialDocument(input: {
           "No.":learnerIndex+1,
           "Admission Number":enrolment.admission_number??"",
           Student:[learner?.surname,learner?.first_names].filter(Boolean).join(", "),
+          DOB:learner?.date_of_birth??"",
           "Home Language":"",
-          "Birth Date":learner?.date_of_birth??"",
+          Gender:sexCode(learner?.sex),
           Age:ageOn(learner?.date_of_birth,String(reportDate)),
           "Days Absent":selectedTermAbsences.get(enrolment.id)??0,
-          Gender:sexCode(learner?.sex),
           "Years in Grade":"",
           "Years in Phase":"",
         }
       : {
           "No.":learnerIndex+1,
+          "Admission Number":enrolment.admission_number??"",
           Learner:[learner?.surname,learner?.first_names].filter(Boolean).join(", "),
-          Sex:sexCode(learner?.sex),
           DOB:learner?.date_of_birth??"",
+          "Home Language":"",
+          Gender:sexCode(learner?.sex),
+          Age:ageOn(learner?.date_of_birth,String(reportDate)),
+          "Days Absent":selectedTermAbsences.get(enrolment.id)??0,
+          "Years in Grade":"",
+          "Years in Phase":"",
           "Average %":currentAverages.get(enrolment.id)??null,
           Rank:currentRanks.get(enrolment.id)??null,
         };
@@ -665,8 +671,8 @@ async function buildOfficialDocument(input: {
   });
 
   const columns=input.scheduleType==="term_schedule"
-    ? ["No.","Admission Number","Student","Home Language","Birth Date","Age","Days Absent","Gender","Years in Grade","Years in Phase",...subjects.flatMap((subject)=>[subject.name+" Symbol",subject.name+" Mark"]),"Overall %","Support comments"]
-    : ["No.","Learner","Sex","DOB","Average %","Rank",...(allTerms?["Cycle"]:[]),...subjects.map((subject)=>subject.name),"Days Absent","Years in Phase","Recommendation","Ruling","Remarks"];
+    ? ["No.","Admission Number","Student","DOB","Home Language","Gender","Age","Days Absent","Years in Grade","Years in Phase",...subjects.flatMap((subject)=>[subject.name+" Symbol",subject.name+" Mark"]),"Overall %","Support comments"]
+    : ["No.","Admission Number","Learner","DOB","Home Language","Gender","Age","Days Absent","Years in Grade","Years in Phase","Average %","Rank",...(allTerms?["Cycle"]:[]),...subjects.map((subject)=>subject.name),"Recommendation","Ruling","Remarks"];
 
   const outputResults=displayResults;
   const footerRows=input.scheduleType==="term_schedule"?[]:[

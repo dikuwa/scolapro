@@ -73,6 +73,10 @@ export type OfficialDocumentWorkbookSheetSpec = {
   header: OfficialDocumentHeaderModel;
   /** 0-based data-header columns rendered vertically to preserve narrow numeric columns. */
   verticalHeaderColumns?: number[];
+  /** 0-based horizontal header columns centered in their cells. */
+  centeredHeaderColumns?: number[];
+  /** 0-based data columns centered in body rows. */
+  centeredDataColumns?: number[];
 };
 
 function escapeExcelXmlText(value: string): string {
@@ -113,7 +117,7 @@ export function officialDocumentWorkbookStylesXml(
     '<border><left style="medium"><color rgb="FF4A4A4A"/></left><right style="medium"><color rgb="FF4A4A4A"/></right><top style="medium"><color rgb="FF4A4A4A"/></top><bottom style="medium"><color rgb="FF4A4A4A"/></bottom><diagonal/></border>' +
     "</borders>" +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="9">' +
+    '<cellXfs count="10">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf>' +
@@ -123,6 +127,7 @@ export function officialDocumentWorkbookStylesXml(
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf>' +
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" textRotation="90" wrapText="0"/></xf>' +
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>' +
     "</cellXfs>" +
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
     '<dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>' +
@@ -420,11 +425,13 @@ function styleSheet(
   sheetXml = setCellStyle(sheetXml, metaColumn + "5", 3);
 
   const verticalHeaderColumns = new Set(spec.verticalHeaderColumns ?? []);
+  const centeredHeaderColumns = new Set(spec.centeredHeaderColumns ?? []);
+  const centeredDataColumns = new Set(spec.centeredDataColumns ?? []);
   for (let columnIndex = 0; columnIndex < spec.columnCount; columnIndex += 1) {
     sheetXml = setCellStyle(
       sheetXml,
       XLSX.utils.encode_col(columnIndex) + spec.tableHeaderRow,
-      verticalHeaderColumns.has(columnIndex) ? 8 : 4,
+      verticalHeaderColumns.has(columnIndex) ? 8 : centeredHeaderColumns.has(columnIndex) ? 9 : 4,
     );
   }
   for (
@@ -440,7 +447,7 @@ function styleSheet(
       sheetXml = setCellStyle(
         sheetXml,
         XLSX.utils.encode_col(columnIndex) + row,
-        columnIndex === 0 ? 6 : 5,
+        columnIndex === 0 || centeredDataColumns.has(columnIndex) ? 6 : 5,
       );
     }
   }
@@ -613,6 +620,8 @@ export function applyOfficialDocumentXlsxChrome(
     metaStartColumn: number;
     sheetNumber?: number;
     verticalHeaderColumns?: number[];
+    centeredHeaderColumns?: number[];
+    centeredDataColumns?: number[];
   }>,
 ): Buffer {
   return finalizeOfficialDocumentWorkbook(
