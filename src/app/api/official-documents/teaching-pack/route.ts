@@ -17,10 +17,14 @@ function safeFilePart(value: string) {
 }
 
 async function storedLogoBytes(storagePath: string, signedUrl: string): Promise<Uint8Array | null> {
-  if (!storagePath || !signedUrl) return null;
-  const response = await fetch(signedUrl, { cache: "no-store" });
-  if (!response.ok) return null;
-  return new Uint8Array(await response.arrayBuffer());
+  if (!storagePath || !/^https?:\/\//i.test(signedUrl)) return null;
+  try {
+    const response = await fetch(signedUrl, { cache: "no-store" });
+    if (!response.ok) return null;
+    return new Uint8Array(await response.arrayBuffer());
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(request: Request) {
