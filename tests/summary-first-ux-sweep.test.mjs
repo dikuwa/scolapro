@@ -72,3 +72,11 @@ test("library circulation lists and filters loans before opening the issue form"
   assert.match(circulation, /showIssue/);
   assert.match(circulation, /aria-expanded={showIssue}/);
 });
+
+
+test("national calendar baseline shows governed events before add-event controls", () => {
+  const source = read("src/features/calendar/national-calendar-manager.tsx");
+  assert.ok(source.indexOf("{year} baseline events") < source.indexOf("<form action={action}"));
+  assert.match(source, /showAddEvent/);
+  assert.match(source, /aria-expanded=\{showAddEvent\}/);
+});
