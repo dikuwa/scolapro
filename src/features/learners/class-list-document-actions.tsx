@@ -5,7 +5,6 @@ import { OfficialDocumentActions } from "@/components/documents/official-documen
 export function ClassListDocumentActions({
   baseHref,
   compact = false,
-  batch = false,
 }: {
   baseHref: string;
   compact?: boolean;
@@ -17,7 +16,7 @@ export function ClassListDocumentActions({
       downloadHref={`${baseHref}&format=pdf`}
       spreadsheetHref={`${baseHref}&format=xlsx`}
       compact={compact}
-      previewLabel={batch ? "Print all" : "Preview / Print"}
+      previewLabel="Preview / Print"
       downloadLabel="PDF"
       spreadsheetLabel="Excel"
     />

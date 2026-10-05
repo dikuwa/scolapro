@@ -128,8 +128,9 @@ test("analysis workspace exposes a filtered Excel export action", () => {
   assert.match(pageSource, /exportParams/);
 });
 
-test("print PDF view receives the same filtered analysis scope", () => {
-  assert.match(pageSource, /\/academics\/analysis\/print\?\$\{exportParams\.toString\(\)\}/);
+test("canonical PDF preview and download receive the same filtered analysis scope", () => {
+  assert.match(pageSource, /\/academics\/analysis\/export\.pdf\?\$\{exportParams\.toString\(\)\}&preview=1/);
+  assert.match(pageSource, /downloadHref=\{\`\/academics\/analysis\/export\.pdf\?\$\{exportParams\.toString\(\)\}\`\}/);
 });
 
 test("subject and teacher filters remain in the governed analysis scope and export query", () => {

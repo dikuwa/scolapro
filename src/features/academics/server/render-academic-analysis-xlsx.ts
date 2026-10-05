@@ -1,133 +1,207 @@
 import "server-only";
 
+import { Buffer } from "node:buffer";
 import * as XLSX from "xlsx";
 import type { AcademicAnalysisView, AcademicAnalysisWorkspace } from "@/features/academics/server/academic-analysis";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
+import {
+  buildOfficialDocumentWorkbookSheet,
+  finalizeOfficialDocumentWorkbook,
+  OFFICIAL_DOCUMENT_WORKBOOK_TABLE_HEADER_ROW,
+} from "@/features/documents/server/official-document-xlsx-chrome";
 
-function sheetFromRows<T extends Record<string, unknown>>(rows: T[], origin: string): XLSX.WorkSheet {
-  const sheet = XLSX.utils.aoa_to_sheet([]);
-  XLSX.utils.sheet_add_json(sheet, rows, { origin });
-  return sheet;
+const VIEW_LABELS: Record<AcademicAnalysisView, string> = {
+  overview: "Overview",
+  results: "Results",
+  grades: "Grades & Classes",
+  learners: "Learners & Risk",
+  promotion_exceptions: "Promotion Exceptions",
+  trends: "Trends",
+};
+
+type AnalysisSheetData = {
+  name: string;
+  headers: string[];
+  rows: Array<Array<string | number>>;
+  trailingRows?: Array<Array<string | number>>;
+};
+
+function cell(value: string | number | null | undefined): string | number {
+  return value === null || value === undefined ? "" : value;
 }
 
-function addHeader(
-  sheet: XLSX.WorkSheet,
+function analysisSheetData(
   workspace: AcademicAnalysisWorkspace,
-  header: OfficialDocumentHeaderModel,
   view: AcademicAnalysisView,
-) {
-  XLSX.utils.sheet_add_aoa(sheet, [
-    [header.schoolName],
-    [header.contactLines.map((line) => line.text).join(" · ")],
-    ["Academic Analysis — " + ({ overview: "Overview", results: "Results", grades: "Grades & Classes", learners: "Learners & Risk", promotion_exceptions: "Promotion Exceptions", trends: "Trends" }[view])],
-    ["Academic year " + workspace.academicYear + " · Term " + workspace.termNumber + " · Basis: " + workspace.basis.toUpperCase()],
-  ], { origin: "A1" });
+): AnalysisSheetData {
+  if (view === "overview") {
+    const riskAvailable = workspace.learnerRiskRows.some((row) => row.riskLevel !== "unavailable");
+    return {
+      name: "Overview",
+      headers: ["Learner", "Admission No.", "Grade", "Class", "Average", "Risk"],
+      rows: workspace.topLearners.map((row) => [
+        row.learnerName,
+        row.admissionNumber,
+        row.grade,
+        row.className,
+        cell(row.average),
+        row.riskLevel,
+      ]),
+      trailingRows: [[
+        "Learners analysed",
+        workspace.learnerRiskRows.length,
+        "High risk",
+        riskAvailable ? workspace.learnerRiskRows.filter((row) => row.riskLevel === "high").length : "Unavailable",
+        "2+ failures",
+        riskAvailable ? workspace.learnerRiskRows.filter((row) => row.failedSubjects >= 2).length : "Unavailable",
+      ]],
+    };
+  }
+
+  if (view === "results") {
+    return {
+      name: "Results",
+      headers: ["Grade", "Class", "Subject", "Teacher", "Assessed", "Average", "Median", "Pass %", "Fail %", "Quality %", "Symbols"],
+      rows: workspace.rows.map((row) => [
+        row.grade,
+        row.className ?? "",
+        row.subject,
+        row.teacher ?? "",
+        row.summary.assessedLearners,
+        cell(row.summary.average),
+        cell(row.summary.median),
+        cell(row.summary.passRate),
+        cell(row.summary.failRate),
+        cell(row.summary.qualityRate),
+        row.summary.symbolDistribution.map((band) => band.symbol + " " + band.count).join(" · "),
+      ]),
+    };
+  }
+
+  if (view === "grades") {
+    return {
+      name: "Grades and Classes",
+      headers: ["Type", "Group", "Assessed", "Average", "Pass %", "Fail %"],
+      rows: [
+        ...workspace.gradeSummaries.map((row) => [
+          "Grade", row.label, row.summary.assessedLearners, cell(row.summary.average), cell(row.summary.passRate), cell(row.summary.failRate),
+        ]),
+        ...workspace.classSummaries.map((row) => [
+          "Class", row.label, row.summary.assessedLearners, cell(row.summary.average), cell(row.summary.passRate), cell(row.summary.failRate),
+        ]),
+      ],
+    };
+  }
+
+  if (view === "learners") {
+    return {
+      name: "Learners and Risk",
+      headers: ["Learner", "Admission No.", "Grade", "Class", "Average", "Failures", "Promotional failures", "Near threshold", "Promotion readiness", "Risk"],
+      rows: workspace.learnerRiskRows.map((row) => [
+        row.learnerName,
+        row.admissionNumber,
+        row.grade,
+        row.className,
+        cell(row.average),
+        row.riskLevel === "unavailable" ? "" : row.failedSubjects,
+        row.riskLevel === "unavailable" ? "" : row.promotionalSubjectFailures,
+        row.riskLevel === "unavailable" ? "" : row.nearThresholdSubjects,
+        row.promotionReadiness.recommendedOutcome ?? row.promotionReadiness.status,
+        row.riskLevel,
+      ]),
+    };
+  }
+
+  if (view === "promotion_exceptions") {
+    return {
+      name: "Promotion Exceptions",
+      headers: ["Learner", "Admission No.", "Grade", "Class", "Recommended", "Final ruling", "Failed conditions", "Exception / reason", "Rule set", "Status"],
+      rows: workspace.promotionExceptionRows.map((row) => {
+        const decision = row.promotionDecision;
+        const finalRuling = decision && ["approved", "locked"].includes(decision.status) ? decision.outcome : "";
+        const ruleKey = decision?.ruleSetKey ?? row.promotionReadiness.ruleSetKey;
+        const ruleVersion = decision?.ruleSetVersion ?? row.promotionReadiness.ruleSetVersion;
+        return [
+          row.learnerName,
+          row.admissionNumber,
+          row.grade,
+          row.className,
+          row.promotionReadiness.recommendedOutcome ?? decision?.recommendedOutcome ?? "",
+          finalRuling ?? "",
+          row.promotionReadiness.failedConditions,
+          decision?.overrideReason ?? (row.promotionReadiness.failedConditions
+            ? row.promotionReadiness.failedConditions + " failed governed condition" + (row.promotionReadiness.failedConditions === 1 ? "" : "s")
+            : "Governed promotion-readiness exception"),
+          ruleKey ? ruleKey + (ruleVersion ? " · " + ruleVersion : "") : "",
+          decision?.status ?? row.promotionReadiness.status,
+        ];
+      }),
+    };
+  }
+
+  return {
+    name: "Trends",
+    headers: ["Grade", "Subject", "Term-on-term pp", "Year-on-year pp", "Term comparability", "Year comparability"],
+    rows: workspace.trends.map((row) => [
+      row.grade,
+      row.subject,
+      cell(row.termOnTerm.passRateDelta),
+      cell(row.yearOnYear.passRateDelta),
+      row.termOnTerm.reason ?? "Comparable governed series",
+      row.yearOnYear.reason ?? "Comparable governed series",
+    ]),
+  };
 }
 
 export function renderAcademicAnalysisXlsx(
   workspace: AcademicAnalysisWorkspace,
   header: OfficialDocumentHeaderModel,
   view: AcademicAnalysisView,
+  logoBytes: Uint8Array | null = null,
 ): Buffer {
+  const data = analysisSheetData(workspace, view);
+  const columnCount = data.headers.length;
+  const metaStartColumn = Math.max(3, Math.floor(columnCount * 0.58));
+  const columnWidths = data.headers.map((label) => Math.max(11, Math.min(28, label.length + 5)));
+  const worksheet = buildOfficialDocumentWorkbookSheet({
+    header,
+    context: {
+      title: "Academic Analysis — " + VIEW_LABELS[view],
+      primaryContext: "Academic year " + workspace.academicYear + " · Term " + workspace.termNumber,
+      secondaryContext: "Basis: " + workspace.basis.toUpperCase(),
+      summary: data.rows.length + " row" + (data.rows.length === 1 ? "" : "s"),
+    },
+    metaStartColumn,
+    columnCount,
+    columnWidths,
+    dataHeaders: data.headers,
+    dataRows: data.rows,
+    trailingRows: data.trailingRows,
+    landscape: true,
+  });
+
   const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, data.name.slice(0, 31));
+  workbook.Props = {
+    Title: "Academic Analysis — " + VIEW_LABELS[view],
+    Subject: "ScolaPro academic analysis",
+    Author: header.schoolName,
+  };
+  const base = Buffer.from(XLSX.write(workbook, {
+    type: "buffer",
+    bookType: "xlsx",
+    compression: true,
+    cellStyles: true,
+  }));
 
-  if (view === "overview") {
-    const riskAvailable = workspace.learnerRiskRows.some((row) => row.riskLevel !== "unavailable");
-    const rows = workspace.topLearners.map((row) => ({
-      Learner: row.learnerName,
-      "Admission No.": row.admissionNumber,
-      Grade: row.grade,
-      Class: row.className,
-      Average: row.average,
-      Risk: row.riskLevel,
-    }));
-    const sheet = sheetFromRows(rows, "A6");
-    addHeader(sheet, workspace, header, view);
-    XLSX.utils.sheet_add_aoa(sheet, [[
-      "Learners analysed", workspace.learnerRiskRows.length,
-      "High risk", riskAvailable ? workspace.learnerRiskRows.filter((row) => row.riskLevel === "high").length : "Unavailable",
-      "2+ failures", riskAvailable ? workspace.learnerRiskRows.filter((row) => row.failedSubjects >= 2).length : "Unavailable",
-    ]], { origin: "A5" });
-    XLSX.utils.book_append_sheet(workbook, sheet, "Overview");
-  } else if (view === "results") {
-    const rows = workspace.rows.map((row) => ({
-      Grade: row.grade,
-      Class: row.className ?? "",
-      Subject: row.subject,
-      Teacher: row.teacher ?? "",
-      Assessed: row.summary.assessedLearners,
-      Average: row.summary.average,
-      Median: row.summary.median,
-      "Pass %": row.summary.passRate,
-      "Fail %": row.summary.failRate,
-      "Quality %": row.summary.qualityRate,
-      Symbols: row.summary.symbolDistribution.map((band) => band.symbol + " " + band.count).join(" · "),
-    }));
-    const sheet = sheetFromRows(rows, "A5");
-    addHeader(sheet, workspace, header, view);
-    XLSX.utils.book_append_sheet(workbook, sheet, "Results");
-  } else if (view === "grades") {
-    const rows = [
-      ...workspace.gradeSummaries.map((row) => ({ Type: "Grade", Group: row.label, Assessed: row.summary.assessedLearners, Average: row.summary.average, "Pass %": row.summary.passRate, "Fail %": row.summary.failRate })),
-      ...workspace.classSummaries.map((row) => ({ Type: "Class", Group: row.label, Assessed: row.summary.assessedLearners, Average: row.summary.average, "Pass %": row.summary.passRate, "Fail %": row.summary.failRate })),
-    ];
-    const sheet = sheetFromRows(rows, "A5");
-    addHeader(sheet, workspace, header, view);
-    XLSX.utils.book_append_sheet(workbook, sheet, "Grades and Classes");
-  } else if (view === "learners") {
-    const rows = workspace.learnerRiskRows.map((row) => ({
-      Learner: row.learnerName,
-      "Admission No.": row.admissionNumber,
-      Grade: row.grade,
-      Class: row.className,
-      Average: row.average,
-      Failures: row.riskLevel === "unavailable" ? null : row.failedSubjects,
-      "Promotional failures": row.riskLevel === "unavailable" ? null : row.promotionalSubjectFailures,
-      "Near threshold": row.riskLevel === "unavailable" ? null : row.nearThresholdSubjects,
-      "Promotion readiness": row.promotionReadiness.recommendedOutcome ?? row.promotionReadiness.status,
-      Risk: row.riskLevel,
-    }));
-    const sheet = sheetFromRows(rows, "A5");
-    addHeader(sheet, workspace, header, view);
-    XLSX.utils.book_append_sheet(workbook, sheet, "Learners and Risk");
-  } else if (view === "promotion_exceptions") {
-    const rows = workspace.promotionExceptionRows.map((row) => {
-      const decision=row.promotionDecision;
-      const finalRuling=decision&&["approved","locked"].includes(decision.status)?decision.outcome:null;
-      return {
-        Learner: row.learnerName,
-        "Admission No.": row.admissionNumber,
-        Grade: row.grade,
-        Class: row.className,
-        Recommended: row.promotionReadiness.recommendedOutcome ?? decision?.recommendedOutcome ?? null,
-        "Final ruling": finalRuling,
-        "Failed conditions": row.promotionReadiness.failedConditions,
-        "Exception / reason": decision?.overrideReason ?? (row.promotionReadiness.failedConditions ? row.promotionReadiness.failedConditions+" failed governed condition"+(row.promotionReadiness.failedConditions===1?"":"s") : "Governed promotion-readiness exception"),
-        "Rule set": (decision?.ruleSetKey ?? row.promotionReadiness.ruleSetKey) ? (decision?.ruleSetKey ?? row.promotionReadiness.ruleSetKey)+" · "+(decision?.ruleSetVersion ?? row.promotionReadiness.ruleSetVersion ?? "") : null,
-        Status: decision?.status ?? row.promotionReadiness.status,
-      };
-    });
-    const sheet = sheetFromRows(rows, "A5");
-    addHeader(sheet, workspace, header, view);
-    XLSX.utils.book_append_sheet(workbook, sheet, "Promotion Exceptions");
-  } else if (view === "trends") {
-    const rows = workspace.trends.map((row) => ({
-      Grade: row.grade,
-      Subject: row.subject,
-      "Term-on-term pp": row.termOnTerm.passRateDelta,
-      "Year-on-year pp": row.yearOnYear.passRateDelta,
-      "Term comparability": row.termOnTerm.reason ?? "Comparable governed series",
-      "Year comparability": row.yearOnYear.reason ?? "Comparable governed series",
-    }));
-    const sheet = sheetFromRows(rows, "A5");
-    addHeader(sheet, workspace, header, view);
-    XLSX.utils.book_append_sheet(workbook, sheet, "Trends");
-  }
-
-  for (const name of workbook.SheetNames) {
-    workbook.Sheets[name]["!cols"] = Array.from({ length: 12 }, () => ({ wch: 20 }));
-  }
-  return Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx", compression: true }));
+  return finalizeOfficialDocumentWorkbook(base, [{
+    sheetNumber: 1,
+    tableHeaderRow: OFFICIAL_DOCUMENT_WORKBOOK_TABLE_HEADER_ROW,
+    dataRowCount: data.rows.length,
+    columnCount,
+    metaStartColumn,
+    header,
+  }], logoBytes);
 }
 
 export function academicAnalysisXlsxFilename(workspace: AcademicAnalysisWorkspace, view: AcademicAnalysisView): string {

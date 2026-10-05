@@ -3,6 +3,7 @@ import { FileText } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
+import { OfficialDocumentPreview } from "@/components/documents/official-document-preview";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
@@ -41,7 +42,7 @@ export default async function BlankAdmissionApplicationPage() {
           <OfficialDocumentActions
             previewHref={previewHref}
             downloadHref={pdfHref}
-            downloadLabel="Download PDF"
+            downloadLabel="PDF"
           />
         </div>
 
@@ -57,16 +58,12 @@ export default async function BlankAdmissionApplicationPage() {
               A4 · 1 page
             </span>
           </div>
-          <div className="max-w-full overflow-auto bg-surface-muted p-2 sm:p-4">
-            <iframe
-              title="Learner application form PDF preview"
-              src={previewHref}
-              className="block h-[297mm] w-[210mm] min-w-[210mm] border-0 bg-white shadow-[var(--shadow-sm)]"
-            />
-            <p className="mt-2 text-[0.68rem] leading-5 text-muted-foreground">
-              If your browser does not render embedded PDFs, use Preview / Print above to open the document in a separate tab.
-            </p>
-          </div>
+          <OfficialDocumentPreview
+            src={previewHref}
+            title="Learner application form PDF preview"
+            orientation="portrait"
+            helper="If your browser does not render embedded PDFs, use Preview / Print above to open the document in a separate tab."
+          />
         </section>
       </div>
     </AppShell>

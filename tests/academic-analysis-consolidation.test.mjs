@@ -102,8 +102,17 @@ test("print and Excel are per-view and use the shared live school document heade
   assert.match(route, /view/);
   assert.match(excel, /AcademicAnalysisView/);
   for (const view of ["overview","results","grades","learners","promotion_exceptions","trends"]) {
-    assert.match(excel, new RegExp('view === "' + view + '"'));
+    assert.match(excel, new RegExp(view + ': "' + ({
+      overview: "Overview",
+      results: "Results",
+      grades: "Grades & Classes",
+      learners: "Learners & Risk",
+      promotion_exceptions: "Promotion Exceptions",
+      trends: "Trends",
+    })[view].replace(/[&]/g, "\\&") + '"'));
   }
+  assert.match(excel, /buildOfficialDocumentWorkbookSheet/);
+  assert.match(excel, /finalizeOfficialDocumentWorkbook/);
 });
 
 test("mixed grading-scale quality aggregates exclude unconfigured scales from the quality denominator", () => {

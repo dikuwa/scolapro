@@ -59,7 +59,7 @@ export type OfficialDocumentWorkbookHeaderInput = {
   columnCount: number;
   /** 0-based index where the right-side document metadata begins. */
   metaStartColumn: number;
-  /** Optional operational line rendered on header row 6 (e.g. room/teacher). */
+  /** Optional operational line rendered with the right-side document context (e.g. room/teacher). */
   operationalLine?: string | null;
 };
 
@@ -166,10 +166,12 @@ export function buildOfficialDocumentWorkbookHeaderRows(
     .filter(Boolean)
     .join("   ");
   rows[4][1] = email ? email.label + ": " + email.value : "";
-  rows[5][1] = input.operationalLine ?? "";
+  rows[5][1] = "";
   rows[0][metaStartColumn] = context.title;
   rows[1][metaStartColumn] = context.primaryContext ?? "";
   rows[2][metaStartColumn] = context.summary ?? "";
+  rows[3][metaStartColumn] = context.secondaryContext ?? "";
+  rows[4][metaStartColumn] = input.operationalLine ?? "";
   return rows;
 }
 
@@ -192,6 +194,8 @@ export function officialDocumentWorkbookHeaderMerges(
     XLSX.utils.decode_range(metaName + "1:" + lastName + "1"),
     XLSX.utils.decode_range(metaName + "2:" + lastName + "2"),
     XLSX.utils.decode_range(metaName + "3:" + lastName + "3"),
+    XLSX.utils.decode_range(metaName + "4:" + lastName + "4"),
+    XLSX.utils.decode_range(metaName + "5:" + lastName + "5"),
   ];
 }
 

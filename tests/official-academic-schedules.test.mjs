@@ -22,6 +22,7 @@ const analysisPrintPage=readFileSync("src/app/academics/analysis/print/page.tsx"
 const scheduleColumnLayout=readFileSync("src/features/reporting/academic-schedule-column-layout.ts","utf8");
 const globals=readFileSync("src/app/globals.css","utf8");
 const documentActions=readFileSync("src/components/documents/official-document-actions.tsx","utf8");
+const documentPreview=readFileSync("src/components/documents/official-document-preview.tsx","utf8");
 const timetableFoundation=readFileSync("supabase/migrations/20260827224500_timetable_foundation.sql","utf8");
 
 test("finalized official schedules are immutable, versioned and audited",()=>{
@@ -74,7 +75,9 @@ test("preview, print PDF path and Excel export preserve explicit basis",()=>{
 test("academic schedules use canonical PDF preview and compact governed heading orientation",()=>{
   assert.match(page,/OfficialDocumentActions/);
   assert.match(page,/export\.pdf\?.*preview=1/);
-  assert.match(page,/h-\[210mm\] w-\[297mm\]/);
+  assert.match(page,/OfficialDocumentPreview/);
+  assert.match(page,/orientation="landscape"/);
+  assert.match(documentPreview,/h-\[210mm\] w-\[297mm\]/);
   assert.match(pdfExportRoute,/renderAcademicSchedulePdf/);
   assert.match(pdfExportRoute,/preview.*inline/);
   assert.match(pdfRenderer,/pageWidth = OFFICIAL_DOCUMENT_PDF_GEOMETRY\.pageHeight/);

@@ -78,6 +78,7 @@ export async function renderVerifiedRoomInventoryPdf(input: {
       context: {
         title: "VERIFIED ROOM INVENTORY SHEET",
         primaryContext: `Room ${input.sheet.roomDisplayName}`,
+        secondaryContext: `Responsible custodian: ${input.sheet.custodian.staffName || "Not assigned"}`,
         summary: `Verified ${input.sheet.verifiedOn}`,
       },
     });
@@ -99,10 +100,9 @@ export async function renderVerifiedRoomInventoryPdf(input: {
         : "No custodian";
 
   const meta = [
-    [`Room: ${input.sheet.roomDisplayName}`, `Block / section: ${input.sheet.blockName || "—"}`],
-    [`Linked register class: ${classLabel}`, `Responsible custodian: ${input.sheet.custodian.staffName || "Not assigned"}`],
-    [`Custodian source: ${sourceLabel}`, `Verified: ${input.sheet.verifiedOn} · ${input.sheet.verificationStatus.replaceAll("_", " ")}`],
-    [`Revision: ${input.sheet.revision}`, ""],
+    [`Block / section: ${input.sheet.blockName || "—"}`, `Linked register class: ${classLabel}`],
+    [`Custodian source: ${sourceLabel}`, `Revision: ${input.sheet.revision}`],
+    [`Verification status: ${input.sheet.verificationStatus.replaceAll("_", " ")}`, `Verified: ${input.sheet.verifiedOn}`],
   ];
   for (const [left, right] of meta) {
     page.drawText(fitOfficialDocumentPdfText(regular, left, 6.5, CONTENT_WIDTH / 2 - 8), { x: MARGIN, y, size: 6.5, font: regular, color: INK });

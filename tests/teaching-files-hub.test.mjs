@@ -257,8 +257,8 @@ test('teaching files hub only links to existing governed routes', () => {
       `unexpected hub link: ${href}`,
     );
   }
-  assert.match(html, /Open print view/);
-  assert.match(html, /Download PDF/);
+  assert.match(html, /Preview \/ Print/);
+  assert.match(html, />PDF</);
 });
 
 test('teaching files hub cannot surface another teacher allocation or record', () => {

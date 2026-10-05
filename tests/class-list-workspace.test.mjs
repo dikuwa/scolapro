@@ -232,7 +232,7 @@ test("batch exports stay single-request and preserve document boundaries", () =>
   assert.match(xlsx, /renderClassListBatchXlsx/);
   assert.match(xlsx, /safeWorksheetName/);
   assert.match(xlsxChrome, /sheetNumber: sheet\.sheetNumber \?\? index \+ 1/);
-  assert.match(documentActions, /batch \? "Print all" : "Preview \/ Print"/);
+  assert.match(documentActions, /previewLabel="Preview \/ Print"/);
 });
 
 test("guardian address is permission-gated and available as one compact optional field", () => {

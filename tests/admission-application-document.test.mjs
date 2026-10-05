@@ -15,7 +15,8 @@ test("admission application uses the normal AppShell and previews the canonical 
   assert.match(page, /OfficialDocumentActions/);
   assert.match(page, /Learner application form PDF preview/);
   assert.match(page, /src=\{previewHref\}/);
-  assert.match(page, /Download PDF/);
+  assert.match(page, /downloadLabel="PDF"/);
+  assert.doesNotMatch(page, /Download PDF/);
   assert.doesNotMatch(page, /window\.print/);
   assert.doesNotMatch(page, /FormSection|Checklist|function Line/);
 });
