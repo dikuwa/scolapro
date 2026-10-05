@@ -85,9 +85,11 @@ test("school operational exports stay on the school-document family", () => {
   assert.match(printButton, /onClick=\{\(\) => window\.print\(\)\}/);
 });
 
-test("prescribed transfer form remains source-faithful and explicitly classified", () => {
+test("prescribed transfer form keeps the governed form identity while using the shared official header", () => {
   assert.match(transfer, /TRANSFER_FORM_TEMPLATE_CONTRACT = "namibia-prescribed-transfer-form"/);
   assert.match(transfer, /officialDocumentHeaderModeForType\("learner_transfer_form"\)/);
-  assert.match(transfer, /MINISTRY OF BASIC EDUCATION AND CULTURE/);
+  assert.match(transfer, /renderOfficialDocumentHtmlHeader/);
+  assert.match(transfer, /drawOfficialDocumentPdfHeader/);
+  assert.doesNotMatch(transfer, /MINISTRY OF BASIC EDUCATION AND CULTURE/);
   assert.match(transfer, /7-1\/0093/);
 });

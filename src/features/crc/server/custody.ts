@@ -428,3 +428,31 @@ export async function listCrcAdministrationDocuments(schoolId: string): Promise<
     createdAt: String(row.created_at ?? ""),
   }));
 }
+
+
+export type CrcTransferHandoffRequirement = {
+  transferEventId: string;
+  learnerId: string;
+  learnerName: string;
+  admissionNumber: string | null;
+  destinationSchoolId: string | null;
+  destinationName: string;
+  effectiveOn: string | null;
+  handoffStatus: "pending" | "external_required";
+};
+
+export async function listCrcTransferHandoffRequirements(schoolId: string): Promise<CrcTransferHandoffRequirement[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("list_crc_transfer_handoff_requirements", { p_school_id: schoolId });
+  if (error) throw new Error("Unable to load CRC transfer handoff requirements.");
+  return rpcRows<RpcRow>(data).map((row) => ({
+    transferEventId: String(row.transfer_event_id),
+    learnerId: String(row.learner_id),
+    learnerName: String(row.learner_name ?? "Learner"),
+    admissionNumber: row.admission_number ? String(row.admission_number) : null,
+    destinationSchoolId: row.destination_school_id ? String(row.destination_school_id) : null,
+    destinationName: String(row.destination_name ?? "Destination school"),
+    effectiveOn: row.effective_on ? String(row.effective_on) : null,
+    handoffStatus: String(row.handoff_status) as CrcTransferHandoffRequirement["handoffStatus"],
+  }));
+}

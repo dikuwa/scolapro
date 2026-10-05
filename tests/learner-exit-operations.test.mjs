@@ -22,6 +22,16 @@ test('exit UI exposes bounded transfer, withdrawal, confirmation, and history st
   assert.match(ui, /disabled=\{exitPending \|\| currentStatus !== "current"\}/);
   assert.match(ui, /grid-cols-2/);
   assert.match(ui, /sm:grid-cols-2/);
+  assert.match(ui, /Registered school/);
+  assert.match(ui, /External \/ other school/);
+  assert.match(ui, /destinationSchoolId/);
+  assert.match(ui, /destinationAddress/);
+  assert.match(ui, /Open transfer form/);
+  assert.match(ui, /Effective \/ departure date/);
+  assert.doesNotMatch(ui, /label="Effective \/ departure date"[^\n]*max=\{today\}/);
+  assert.match(actions, /destination_address/);
+  assert.match(actions, /destination\.tenant_id !== enrolment\.tenant_id/);
+  assert.match(actions, /destination\.status !== "active"/);
 });
 
 test('server actions call the existing transfer and progression lifecycles', () => {

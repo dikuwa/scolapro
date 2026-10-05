@@ -5,12 +5,15 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const migration = read("supabase/migrations/20260925233000_official_learner_transfer_form.sql");
+const orchestration = read("supabase/migrations/20261005220500_transfer_form_crc_handoff_orchestration.sql");
 const page = read("src/app/school/crc-custody/transfer-form/[transferId]/page.tsx");
 const workspace = read("src/features/transfers/learner-transfer-form-workspace.tsx");
 const actions = read("src/features/transfers/server/actions.ts");
+const transferAi = read("src/features/transfers/server/transfer-form-ai.ts");
 const query = read("src/features/transfers/server/transfer-form.ts");
 const custodyPage = read("src/app/school/crc-custody/page.tsx");
 const custodyWorkspace = read("src/features/crc/crc-custody-workspace.tsx");
+const custodyActions = read("src/features/crc/server/actions.ts");
 const renderer = read("src/features/transfers/server/render-learner-transfer-form.ts");
 const exportRoute = read("src/app/api/official-documents/learner-transfer-form/[snapshotId]/route.ts");
 
@@ -72,11 +75,16 @@ test("CRC Transfers view exposes governed official transfer-form queue", () => {
 
 test("prescribed government transfer-form rendering matches the governed source contract", () => {
   assert.match(renderer, /7-1\/0093/);
-  assert.match(renderer, /MINISTRY OF BASIC EDUCATION AND CULTURE/);
-  assert.match(renderer, /TRANSFER FORM FOR LEARNER \(USE ONE FORM FOR EACH LEARNER\)/);
+  assert.match(renderer, /renderOfficialDocumentHtmlHeader/);
+  assert.match(renderer, /drawOfficialDocumentPdfHeader/);
+  assert.match(renderer, /TRANSFER FORM FOR LEARNER/);
+  assert.match(renderer, /Use one form for each learner/);
   assert.match(renderer, /Medium of instruction \(only grades 1, 2 & 3\)/);
   assert.match(renderer, /SCHOOL STAMP/);
-  assert.match(renderer, /PRINCIPAL/);
+  assert.match(renderer, /PRINCIPAL \/ AUTHORIZED OFFICER/);
+  assert.match(renderer, /Birth certificate/);
+  assert.match(renderer, /CRC \/ cumulative record package/);
+  assert.match(renderer, /newSchoolAddress/);
   assert.match(renderer, /INSTRUCTIONS FOR COMPLETION OF TRANSFER FORMS/);
   assert.match(renderer, /must complete this form in triplicate/);
   assert.match(renderer, /certified post/);
@@ -88,6 +96,30 @@ test("prescribed government transfer-form rendering matches the governed source 
   assert.match(exportRoute, /renderOfficialLearnerTransferFormHtml/);
   assert.match(exportRoute, /renderOfficialLearnerTransferFormPdf/);
   assert.match(exportRoute, /X-ScolaPro-Page-Count/);
+});
+
+test("transfer approval orchestrates CRC handoff without copying confidential content", () => {
+  assert.match(orchestration, /crc_handoff_status/);
+  assert.match(orchestration, /CRC handoff required/);
+  assert.match(orchestration, /list_crc_transfer_handoff_requirements/);
+  assert.match(orchestration, /prepare_crc_custody_for_transfer/);
+  assert.match(orchestration, /complete_external_crc_handoff/);
+  assert.match(orchestration, /transfer_event_id uuid references public\.transfer_events/);
+  assert.match(custodyWorkspace, /Prepare CRC handoff/);
+  assert.match(custodyWorkspace, /Record external handoff/);
+  assert.match(custodyActions, /prepareCrcCustodyForTransfer/);
+  assert.match(custodyActions, /completeExternalCrcHandoff/);
+  const handoffBoundary = orchestration.slice(0, orchestration.indexOf("-- Refresh transfer-form source"));
+  assert.doesNotMatch(handoffBoundary, /learner_health_history|learner_psychometric_records|counselling/);
+});
+
+test("AI transfer-form summaries remain source-bounded, permission-aware, and human editable", () => {
+  assert.match(actions, /generateLearnerTransferFormSummary/);
+  assert.match(actions, /healthAuthorized/);
+  assert.match(workspace, /AI summarize/);
+  assert.match(transferAi, /Use only the supplied source facts/);
+  assert.match(transferAi, /never imply it is verified or final/);
+  assert.match(transferAi, /Do not infer diagnoses/);
 });
 
 test("prescribed medium-of-instruction field remains human verified and frozen", () => {

@@ -45,6 +45,7 @@ export type LearnerTransferFormSource = {
     town: string;
   };
   newSchool: string;
+  newSchoolAddress: string;
   departureDate: string | null;
   reasonForDeparture: string;
   suggestions: {
@@ -124,6 +125,7 @@ function parseSource(value: unknown): LearnerTransferFormSource {
       town: text(school.town),
     },
     newSchool: text(root.newSchool),
+    newSchoolAddress: text(root.newSchoolAddress),
     departureDate: root.departureDate ? text(root.departureDate) : null,
     reasonForDeparture: text(root.reasonForDeparture),
     suggestions: {

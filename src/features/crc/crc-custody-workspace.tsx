@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
-import { ArrowRightLeft, Check, LoaderCircle, Plus, Search, Send, ShieldCheck } from "lucide-react";
+import { ArrowRightLeft, Check, LoaderCircle, Plus, Search, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import {
   acceptCrcCustodyRequest,
+  completeExternalCrcHandoff,
   escalateCrcCustodyRequest,
   fulfillExternalCrcRequest,
   prepareCrcCustody,
+  prepareCrcCustodyForTransfer,
   requestCrcCustody,
   setCrcCustodyRequestPolicy,
   transitionCrcCustody,
@@ -27,6 +29,7 @@ import type {
   CrcAdministrationLearner,
   CrcTransferRegisterRow,
   CrcAdministrationDocument,
+  CrcTransferHandoffRequirement,
 } from "@/features/crc/server/custody";
 import type { LearnerTransferFormCandidate } from "@/features/transfers/server/transfer-form";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -226,6 +229,109 @@ function PrepareForm({ destinations, canPrepare }: { destinations: CrcCustodyDes
   );
 }
 
+
+
+function TransferHandoffAction({ item }: { item: CrcTransferHandoffRequirement }) {
+  const [receivers, setReceivers] = useState<CrcCustodyReceiver[]>([]);
+  const [receiverId, setReceiverId] = useState("");
+  const [loadingReceivers, setLoadingReceivers] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [state, action, pending] = useActionState(
+    item.handoffStatus === "external_required" ? completeExternalCrcHandoff : prepareCrcCustodyForTransfer,
+    initialState,
+  );
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [state]);
+
+  async function openRegisteredHandoff() {
+    setExpanded(true);
+    if (!item.destinationSchoolId || receivers.length) return;
+    setLoadingReceivers(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc("search_crc_custody_receivers", {
+        p_school_id: item.destinationSchoolId,
+      });
+      if (error) {
+        toast.error("Receiving CRC custodians could not be loaded for this school.");
+        setReceivers([]);
+        return;
+      }
+      setReceivers((data ?? []) as CrcCustodyReceiver[]);
+    } finally {
+      setLoadingReceivers(false);
+    }
+  }
+
+  if (item.handoffStatus === "external_required") {
+    return (
+      <div className="sm:min-w-[18rem]">
+        {!expanded ? (
+          <button type="button" onClick={() => setExpanded(true)} className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
+            Record external handoff
+          </button>
+        ) : (
+          <form action={action} className="space-y-2 rounded-[var(--radius-sm)] bg-surface-muted p-3">
+            <input type="hidden" name="transferEventId" value={item.transferEventId} />
+            <label className="block text-[0.68rem] font-medium">
+              Handoff note
+              <textarea name="handoffNote" required minLength={2} maxLength={2000} rows={3} className={`${fieldClass()} mt-1 py-2`} placeholder="Record the physical/manual CRC handover method and receiving school contact." />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-brand px-2.5 text-xs font-semibold text-white disabled:opacity-50">
+                {pending ? "Saving…" : "Complete handoff"}
+              </button>
+              <button type="button" onClick={() => setExpanded(false)} className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface px-2.5 text-xs font-medium">Cancel</button>
+            </div>
+          </form>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="sm:min-w-[18rem]">
+      {!expanded ? (
+        <button type="button" onClick={() => void openRegisteredHandoff()} className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
+          Prepare CRC handoff
+        </button>
+      ) : (
+        <form action={action} className="space-y-2 rounded-[var(--radius-sm)] bg-surface-muted p-3">
+          <input type="hidden" name="transferEventId" value={item.transferEventId} />
+          <input type="hidden" name="receivingUserId" value={receiverId} />
+          <Picker
+            label="Receiving CRC custodian"
+            value={receiverId}
+            onChange={setReceiverId}
+            placeholder={loadingReceivers ? "Loading custodians…" : "Choose receiving custodian"}
+            disabled={loadingReceivers}
+            searchable
+            options={receivers.map((receiver) => ({
+              value: receiver.userId,
+              label: receiver.displayName,
+              helper: receiver.roleKey.replaceAll("_", " "),
+            }))}
+          />
+          {!loadingReceivers && !receivers.length ? <p className="text-[0.68rem] leading-5 text-[color:var(--warning)]">No authorized CRC custodian is currently assigned at the destination school. Assign one before preparing custody.</p> : null}
+          <label className="block text-[0.68rem] font-medium">
+            Custody note
+            <textarea name="custodyNote" maxLength={2000} rows={2} className={`${fieldClass()} mt-1 py-2`} placeholder="Optional handover context — do not place confidential CRC content here." />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={pending || !receiverId} className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-brand px-2.5 text-xs font-semibold text-white disabled:opacity-50">
+              {pending ? "Preparing…" : "Prepare custody"}
+            </button>
+            <button type="button" onClick={() => setExpanded(false)} className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface px-2.5 text-xs font-medium">Cancel</button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
 
 function RequestForm({
   canRequest,
@@ -533,6 +639,27 @@ function RequestQueue({
   );
 }
 
+function ExternalHandoffForm({ transferEventId }: { transferEventId: string }) {
+  const [state, action, pending] = useActionState(completeExternalCrcHandoff, initialState);
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
+  }, [state]);
+  return (
+    <form action={action} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <input type="hidden" name="transferEventId" value={transferEventId} />
+      <label className="grid gap-1">
+        <span className="text-[0.68rem] font-medium text-muted-foreground">External handoff note</span>
+        <input name="handoffNote" required minLength={2} maxLength={2000} className={fieldClass()} placeholder="e.g. Physical CRC sealed and handed to parent / destination school" />
+      </label>
+      <button type="submit" disabled={pending} className="min-h-10 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong disabled:opacity-50">
+        {pending ? "Recording…" : "Mark CRC handed over"}
+      </button>
+    </form>
+  );
+}
+
 function TransferFormQueue({
   transferForms,
 }: {
@@ -607,6 +734,7 @@ export function CrcCustodyWorkspace({
   learners,
   transferRegister,
   documents,
+  handoffRequirements,
 }: {
   records: CrcCustodyRecord[];
   destinations: CrcCustodyDestination[];
@@ -621,6 +749,7 @@ export function CrcCustodyWorkspace({
   learners: CrcAdministrationLearner[];
   transferRegister: CrcTransferRegisterRow[];
   documents: CrcAdministrationDocument[];
+  handoffRequirements: CrcTransferHandoffRequirement[];
 }) {
   const [view, setView] = useState<"overview" | "learners" | "requests" | "transfers" | "documents">("overview");
   const [learnerQuery, setLearnerQuery] = useState("");
@@ -819,6 +948,33 @@ export function CrcCustodyWorkspace({
 
       {view === "transfers" ? (
         <div className="space-y-5">
+          {handoffRequirements.length ? (
+            <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+              <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+                <h2 className="scolapro-section-title">CRC handoff requirements</h2>
+                <p className="scolapro-section-description">Approved learner transfers automatically appear here for the delegated CRC custodian. This queue carries workflow metadata only; confidential CRC content is not exposed.</p>
+              </div>
+              <div className="divide-y divide-border-subtle">
+                {handoffRequirements.map((item) => (
+                  <article key={item.transferEventId} className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="scolapro-record-title">{item.learnerName}</p>
+                        <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--warning)]">{item.handoffStatus === "external_required" ? "External handoff" : "CRC handoff due"}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.admissionNumber ? `${item.admissionNumber} · ` : ""}{item.destinationName}{item.effectiveOn ? ` · effective ${item.effectiveOn}` : ""}</p>
+                      <p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">{item.handoffStatus === "external_required" ? "The destination is outside the registered ScolaPro school network. Prepare the physical/manual CRC handoff under school policy; no confidential record is auto-shared." : "Use Prepare a custody transfer below and select the registered destination and its authorized receiving CRC custodian."}</p>
+                      {item.handoffStatus === "external_required" ? <ExternalHandoffForm transferEventId={item.transferEventId} /> : null}
+                    </div>
+                    <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                      <Link href={`/school/crc-custody/transfer-form/${item.transferEventId}`} className="inline-flex min-h-9 items-center justify-center rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold hover:bg-surface-subtle">Open transfer form</Link>
+                      {item.handoffStatus !== "external_required" ? <TransferHandoffAction item={item} /> : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
           <section className="overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
             <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
               <h2 className="scolapro-section-title">CRC transfer register</h2>

@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { CheckCircle2, FileText, Save, ShieldCheck, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Button } from "@/components/ui/button";
 import {
   finalizeLearnerTransferForm,
+  generateLearnerTransferFormSummary,
   saveLearnerTransferFormDraft,
   type TransferFormActionState,
 } from "@/features/transfers/server/actions";
@@ -47,11 +48,16 @@ export function LearnerTransferFormWorkspace({
   finalization: LearnerTransferFormFinalization | null;
 }) {
   const [saveState, saveAction, saving] = useActionState(saveLearnerTransferFormDraft, initialState);
+  const [aiPending, startAiTransition] = useTransition();
   const [finalizeState, finalizeAction, finalizing] = useActionState(finalizeLearnerTransferForm, initialState);
 
   const [reason, setReason] = useState(draft?.reasonForDeparture || source.reasonForDeparture);
   const [mediumOfInstruction, setMediumOfInstruction] = useState(draft?.mediumOfInstruction ?? "");
-  const [documents, setDocuments] = useState(draft?.documentsAttached ?? "");
+  const documentOptions = ["Birth certificate", "Latest report card", "Previous report card(s)", "Certified ID / passport copy", "CRC / cumulative record package"] as const;
+  const initialDocuments = (draft?.documentsAttached ?? "").split(" · ").map((item) => item.trim()).filter(Boolean);
+  const [documentSelections, setDocumentSelections] = useState<string[]>(initialDocuments.filter((item) => !item.startsWith("Other:")));
+  const [otherDocument, setOtherDocument] = useState(initialDocuments.find((item) => item.startsWith("Other:"))?.replace(/^Other:\s*/, "") ?? "");
+  const documents = [...documentSelections, ...(otherDocument.trim() ? [`Other: ${otherDocument.trim()}`] : [])].join(" · ");
   const [behaviour, setBehaviour] = useState(draft?.behaviourSummary || source.suggestions.behaviour);
   const [health, setHealth] = useState(draft?.healthSummary || source.suggestions.health);
   const [other, setOther] = useState(draft?.otherRelevantInformation || source.suggestions.otherRelevantInformation);
@@ -62,6 +68,24 @@ export function LearnerTransferFormWorkspace({
     if (saveState.success) toast.success(saveState.message);
     else toast.error(saveState.message);
   }, [saveState]);
+
+  function requestAiSummary(field: "behaviour" | "health" | "other") {
+    startAiTransition(async () => {
+      const formData = new FormData();
+      formData.set("transferEventId", source.transferEventId);
+      formData.set("summaryField", field);
+      const result = await generateLearnerTransferFormSummary(initialState, formData);
+      if (result.success && result.suggestionText) {
+        if (field === "behaviour") setBehaviour(result.suggestionText);
+        else if (field === "health") setHealth(result.suggestionText);
+        else setOther(result.suggestionText);
+      }
+      if (result.message) {
+        if (result.success) toast.success(result.message);
+        else toast.error(result.message);
+      }
+    });
+  }
 
   useEffect(() => {
     if (!finalizeState.message) return;
@@ -120,7 +144,7 @@ export function LearnerTransferFormWorkspace({
           <InfoItem label="Present grade" value={source.presentGrade} />
           <InfoItem label="Last grade passed" value={source.lastGradePassed} />
           <InfoItem label="Source school" value={source.school.schoolName} />
-          <InfoItem label="New school" value={source.newSchool} />
+          <InfoItem label="New school" value={[source.newSchool, source.newSchoolAddress].filter(Boolean).join(" · ")} />
           <InfoItem label="Departure date" value={displayDate(source.departureDate)} />
           <InfoItem label="Transfer status" value={source.transferStatus} />
         </div>
@@ -155,20 +179,32 @@ export function LearnerTransferFormWorkspace({
             />
           </label>
 
-          <label className="grid gap-1.5">
-            <span className="text-xs font-medium">Documents attached</span>
-            <textarea name="documentsAttached" rows={3} maxLength={4000} value={documents} onChange={(event) => setDocuments(event.target.value)} className={fieldClass()} placeholder="Record the documents actually attached to this learner's transfer form." />
-          </label>
+          <fieldset className="grid gap-2">
+            <legend className="text-xs font-medium">Documents attached</legend>
+            <input type="hidden" name="documentsAttached" value={documents} />
+            <div className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2">
+              {documentOptions.map((label) => (
+                <label key={label} className="flex items-start gap-2 text-xs">
+                  <input type="checkbox" checked={documentSelections.includes(label)} onChange={(event) => setDocumentSelections((current) => event.target.checked ? [...current, label] : current.filter((item) => item !== label))} className="mt-0.5 size-4 accent-[var(--brand)]" />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+            <label className="grid gap-1.5">
+              <span className="text-[0.68rem] font-medium text-muted-foreground">Other document</span>
+              <input value={otherDocument} onChange={(event) => setOtherDocument(event.target.value)} maxLength={500} className={fieldClass()} placeholder="Optional additional attachment" />
+            </label>
+          </fieldset>
 
           <div className="grid gap-4 lg:grid-cols-3">
             <label className="grid gap-1.5">
               <span className="flex items-center justify-between gap-2 text-xs font-medium">
                 Behaviour
                 {source.suggestions.behaviour ? (
-                  <button type="button" onClick={() => setBehaviour(source.suggestions.behaviour)} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline">
-                    <Sparkles className="size-3" aria-hidden="true" />
-                    Use suggestion
-                  </button>
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => setBehaviour(source.suggestions.behaviour)} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline"><Sparkles className="size-3" aria-hidden="true" />Use source</button>
+                    <button type="button" onClick={() => requestAiSummary("behaviour")} disabled={aiPending} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline disabled:opacity-50"><Sparkles className="size-3" aria-hidden="true" />{aiPending ? "Summarizing…" : "AI summarize"}</button>
+                  </span>
                 ) : null}
               </span>
               <textarea name="behaviourSummary" rows={6} maxLength={4000} value={behaviour} onChange={(event) => setBehaviour(event.target.value)} className={fieldClass()} />
@@ -178,10 +214,10 @@ export function LearnerTransferFormWorkspace({
               <span className="flex items-center justify-between gap-2 text-xs font-medium">
                 State of health
                 {source.suggestions.health ? (
-                  <button type="button" onClick={() => setHealth(source.suggestions.health)} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline">
-                    <Sparkles className="size-3" aria-hidden="true" />
-                    Use suggestion
-                  </button>
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => setHealth(source.suggestions.health)} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline"><Sparkles className="size-3" aria-hidden="true" />Use source</button>
+                    <button type="button" onClick={() => requestAiSummary("health")} disabled={aiPending} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline disabled:opacity-50"><Sparkles className="size-3" aria-hidden="true" />{aiPending ? "Summarizing…" : "AI summarize"}</button>
+                  </span>
                 ) : null}
               </span>
               <textarea name="healthSummary" rows={6} maxLength={4000} value={health} onChange={(event) => setHealth(event.target.value)} className={fieldClass()} placeholder={source.suggestionProvenance.healthAuthorized ? "No authorized health suggestion is available." : "No health suggestion is exposed without explicit support authority."} />
@@ -191,10 +227,10 @@ export function LearnerTransferFormWorkspace({
               <span className="flex items-center justify-between gap-2 text-xs font-medium">
                 Other relevant information
                 {source.suggestions.otherRelevantInformation ? (
-                  <button type="button" onClick={() => setOther(source.suggestions.otherRelevantInformation)} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline">
-                    <Sparkles className="size-3" aria-hidden="true" />
-                    Use suggestion
-                  </button>
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={() => setOther(source.suggestions.otherRelevantInformation)} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline"><Sparkles className="size-3" aria-hidden="true" />Use source</button>
+                    <button type="button" onClick={() => requestAiSummary("other")} disabled={aiPending} className="inline-flex items-center gap-1 text-[color:var(--brand)] hover:underline disabled:opacity-50"><Sparkles className="size-3" aria-hidden="true" />{aiPending ? "Summarizing…" : "AI summarize"}</button>
+                  </span>
                 ) : null}
               </span>
               <textarea name="otherRelevantInformation" rows={6} maxLength={4000} value={other} onChange={(event) => setOther(event.target.value)} className={fieldClass()} />

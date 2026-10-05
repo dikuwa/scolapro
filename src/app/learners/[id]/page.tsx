@@ -146,7 +146,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
         </div>
 
         <div className="mt-5"><GuardianPanel learnerId={learner.id} guardians={guardians} reusableGuardians={reusableGuardians} /></div>
-        {exitOperations && operationalSchoolId ? <LearnerExitOperations learnerId={learner.id} schoolId={operationalSchoolId} enrolmentId={learner.enrolmentId} currentStatus={learner.status} transfers={exitOperations.transfers} completion={exitOperations.completion} /> : null}
+        {exitOperations && operationalSchoolId ? <LearnerExitOperations learnerId={learner.id} schoolId={operationalSchoolId} enrolmentId={learner.enrolmentId} currentStatus={learner.status} transfers={exitOperations.transfers} completion={exitOperations.completion} destinations={exitOperations.destinations} /> : null}
       </section>
     </AppShell>
   );

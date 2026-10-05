@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { getLearnerTransferFormWorkspace } from "@/features/transfers/server/transfer-form";
+import { generateLearnerTransferSummary, LearnerTransferAiUnavailableError, type LearnerTransferSummaryField } from "@/features/transfers/server/transfer-form-ai";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type TransferFormActionState = {
@@ -11,6 +12,8 @@ export type TransferFormActionState = {
   message?: string;
   fieldErrors?: Record<string, string[] | undefined>;
   snapshotId?: string;
+  suggestionField?: LearnerTransferSummaryField;
+  suggestionText?: string;
 };
 
 const draftSchema = z.object({
@@ -66,6 +69,55 @@ export async function saveLearnerTransferFormDraft(
   revalidatePath(`/school/crc-custody/transfer-form/${parsed.data.transferEventId}`);
   revalidatePath("/school/crc-custody");
   return { success: true, message: "Transfer-form draft saved." };
+}
+
+const summarySchema = z.object({
+  transferEventId: z.string().uuid(),
+  summaryField: z.enum(["behaviour", "health", "other"]),
+});
+
+export async function generateLearnerTransferFormSummary(
+  _state: TransferFormActionState,
+  formData: FormData,
+): Promise<TransferFormActionState> {
+  const parsed = summarySchema.safeParse({
+    transferEventId: String(formData.get("transferEventId") ?? ""),
+    summaryField: String(formData.get("summaryField") ?? ""),
+  });
+  if (!parsed.success) return { message: "Choose a valid transfer-form summary field." };
+
+  try {
+    const workspace = await getLearnerTransferFormWorkspace(parsed.data.transferEventId);
+    const sourceText = parsed.data.summaryField === "behaviour"
+      ? workspace.source.suggestions.behaviour
+      : parsed.data.summaryField === "health"
+        ? workspace.source.suggestions.health
+        : workspace.source.suggestions.otherRelevantInformation;
+
+    if (parsed.data.summaryField === "health" && !workspace.source.suggestionProvenance.healthAuthorized) {
+      return { message: "Health AI assistance requires explicit authorized health access." };
+    }
+    if (!sourceText.trim()) {
+      return { message: "No governed source facts are available for this summary." };
+    }
+
+    const suggestionText = await generateLearnerTransferSummary({
+      field: parsed.data.summaryField,
+      sourceText,
+    });
+    return {
+      success: true,
+      message: "AI suggestion prepared for human review.",
+      suggestionField: parsed.data.summaryField,
+      suggestionText,
+    };
+  } catch (error) {
+    return {
+      message: error instanceof LearnerTransferAiUnavailableError
+        ? "AI assistance is not configured for this deployment."
+        : "The AI suggestion could not be prepared.",
+    };
+  }
 }
 
 const finalizeSchema = z.object({

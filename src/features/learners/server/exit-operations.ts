@@ -36,25 +36,50 @@ export async function exitLearnerEnrolment(_state: LearnerExitActionState, formD
 const transferSchema = z.object({
   enrolmentId: z.string().uuid(), learnerId: z.string().uuid(), schoolId: z.string().uuid(),
   effectiveOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), destinationSchoolId: z.string().uuid().optional(),
-  destinationName: z.string().trim().max(240).optional(), reason: z.string().trim().min(2).max(800), confirmation: z.literal("confirmed"),
+  destinationName: z.string().trim().max(240).optional(),
+  destinationAddress: z.string().trim().max(500).optional(),
+  reason: z.string().trim().min(2).max(800), confirmation: z.literal("confirmed"),
 });
 
 export async function requestLearnerTransfer(_state: LearnerExitActionState, formData: FormData): Promise<LearnerExitActionState> {
   const parsed = transferSchema.safeParse({
     enrolmentId: formData.get("enrolmentId"), learnerId: formData.get("learnerId"), schoolId: formData.get("schoolId"),
     effectiveOn: formData.get("effectiveOn"), destinationSchoolId: formData.get("destinationSchoolId") || undefined,
-    destinationName: formData.get("destinationName") || undefined, reason: formData.get("reason"), confirmation: formData.get("confirmation"),
+    destinationName: formData.get("destinationName") || undefined,
+    destinationAddress: formData.get("destinationAddress") || undefined,
+    reason: formData.get("reason"), confirmation: formData.get("confirmation"),
   });
   if (!parsed.success || (!parsed.data.destinationSchoolId && !parsed.data.destinationName)) return { message: "Confirm the transfer and provide a destination school." };
+  if (!parsed.data.destinationSchoolId && !parsed.data.destinationAddress) return { message: "Provide the external school's address before requesting the transfer." };
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { message: "Sign in again before requesting a transfer." };
   const { data: enrolment, error: enrolmentError } = await supabase.from("enrolments").select("id,tenant_id,school_id,learner_id,status").eq("id", parsed.data.enrolmentId).eq("school_id", parsed.data.schoolId).maybeSingle();
   if (enrolmentError || !enrolment || enrolment.learner_id !== parsed.data.learnerId || enrolment.status !== "current") return { message: "The learner's current enrolment could not be verified." };
+
+  if (parsed.data.destinationSchoolId) {
+    const { data: destination, error: destinationError } = await supabase
+      .from("schools")
+      .select("id,tenant_id,status")
+      .eq("id", parsed.data.destinationSchoolId)
+      .maybeSingle();
+    if (
+      destinationError
+      || !destination
+      || destination.tenant_id !== enrolment.tenant_id
+      || destination.status !== "active"
+      || destination.id === enrolment.school_id
+    ) {
+      return { message: "Choose a valid active destination school in the current ScolaPro school network." };
+    }
+  }
+
   const { error } = await supabase.from("transfer_events").insert({
     tenant_id: enrolment.tenant_id, learner_id: enrolment.learner_id, source_school_id: enrolment.school_id,
     source_enrolment_id: enrolment.id, destination_school_id: parsed.data.destinationSchoolId || null,
-    destination_name: parsed.data.destinationName || null, requested_on: getNamibiaDateKey(),
+    destination_name: parsed.data.destinationName || null,
+    destination_address: parsed.data.destinationAddress || null,
+    requested_on: getNamibiaDateKey(),
     effective_on: parsed.data.effectiveOn, reason: parsed.data.reason, status: "requested", initiated_by_user_id: user.id,
   });
   if (error) return { message: error.message || "The learner transfer could not be requested." };
