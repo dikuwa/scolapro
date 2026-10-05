@@ -97,7 +97,7 @@ test("admission preview fills the application workspace without opening a second
 });
 
 test("handwritten application geometry leaves room for writing and school use", () => {
-  assert.match(renderer, /return y - 17;/);
+  assert.match(renderer, /return y - 21;/);
   assert.match(renderer, /bold\.widthOfTextAtSize\(labelText, size\) \+ 11/);
   assert.match(renderer, /height: 24, multiline: true/);
   assert.match(renderer, /SCHOOL_USE_BOX_WIDTH = 112/);
