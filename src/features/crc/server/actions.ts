@@ -246,3 +246,56 @@ export async function acknowledgeCrcRequestEscalation(
   revalidatePath("/network/crc-escalations");
   return { success: true, message: "CRC escalation acknowledged." };
 }
+
+const transferHandoffSchema = z.object({
+  transferEventId: z.string().uuid(),
+  receivingUserId: z.string().uuid("Choose the receiving CRC custodian."),
+  custodyNote: z.string().trim().max(2000).optional(),
+});
+
+export async function prepareCrcCustodyForTransfer(
+  _previousState: CrcCustodyActionState,
+  formData: FormData,
+): Promise<CrcCustodyActionState> {
+  const parsed = transferHandoffSchema.safeParse({
+    transferEventId: formData.get("transferEventId"),
+    receivingUserId: formData.get("receivingUserId"),
+    custodyNote: formData.get("custodyNote"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors, message: "Choose the authorized receiving CRC custodian." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("prepare_crc_custody_for_transfer", {
+    p_transfer_event_id: parsed.data.transferEventId,
+    p_receiving_user_id: parsed.data.receivingUserId,
+    p_custody_note: parsed.data.custodyNote || null,
+  });
+  if (error) return { message: "The CRC handoff could not be prepared. Confirm the destination and receiving custodian." };
+
+  revalidatePath("/school/crc-custody");
+  return { success: true, message: "CRC handoff prepared from the approved learner transfer. Leadership must authorize it before dispatch." };
+}
+
+const externalHandoffSchema = z.object({
+  transferEventId: z.string().uuid(),
+  handoffNote: z.string().trim().min(2).max(2000),
+});
+
+export async function completeExternalCrcHandoff(
+  _previousState: CrcCustodyActionState,
+  formData: FormData,
+): Promise<CrcCustodyActionState> {
+  const parsed = externalHandoffSchema.safeParse({
+    transferEventId: formData.get("transferEventId"),
+    handoffNote: formData.get("handoffNote"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors, message: "Record how the external CRC was handed over." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("complete_external_crc_handoff", {
+    p_transfer_event_id: parsed.data.transferEventId,
+    p_note: parsed.data.handoffNote,
+  });
+  if (error) return { message: "The external CRC handoff could not be completed." };
+  revalidatePath("/school/crc-custody");
+  return { success: true, message: "External CRC handoff recorded and closed." };
+}

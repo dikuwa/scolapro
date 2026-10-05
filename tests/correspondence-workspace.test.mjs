@@ -59,6 +59,8 @@ test("issue 691 core workflow remains intact while issue 692 owns finalized shar
   assert.match(editor, /previewHref=\{\`\/api\/official-documents\/correspondence\/\$\{document\.id\}\?print=1\`\}/);
   assert.match(editor, /onPreview=\{preparePreview\}/);
   assert.match(editor, /onDownload=\{downloadPdf\}/);
+  assert.doesNotMatch(editor, /format=pdf&preview=1/);
+  assert.doesNotMatch(editor, /target="_blank"/);
   assert.doesNotMatch(editor, /window\.open/);
   assert.doesNotMatch(editor, /navigator\.clipboard|mailto:\?subject/);
 });

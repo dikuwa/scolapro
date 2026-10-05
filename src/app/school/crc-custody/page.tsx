@@ -11,6 +11,7 @@ import {
   getMyCrcCustodyRequests,
   listCrcAdministrationDocuments,
   listCrcAdministrationLearners,
+  listCrcTransferHandoffRequirements,
   listCrcTransferRegister,
 } from "@/features/crc/server/custody";
 import { listLearnerTransferFormCandidates } from "@/features/transfers/server/transfer-form";
@@ -26,7 +27,7 @@ export default async function CrcCustodyPage() {
   const access = await getCrcCustodyAccessContext(membership.schoolId);
   if (!access.canManageCustody && !access.leadership) redirect("/");
 
-  const [records, requests, destinations, administration, requestPolicyDays, transferForms, learners, transferRegister, documents] = await Promise.all([
+  const [records, requests, destinations, administration, requestPolicyDays, transferForms, learners, transferRegister, documents, handoffRequirements] = await Promise.all([
     getMyCrcCustodyRecords(),
     getMyCrcCustodyRequests(),
     access.canManageCustody ? getCrcCustodyDestinations() : Promise.resolve([]),
@@ -36,6 +37,7 @@ export default async function CrcCustodyPage() {
     listCrcAdministrationLearners(membership.schoolId),
     listCrcTransferRegister(membership.schoolId),
     listCrcAdministrationDocuments(membership.schoolId),
+    access.canManageCustody ? listCrcTransferHandoffRequirements(membership.schoolId) : Promise.resolve([]),
   ]);
 
   return (
@@ -63,6 +65,7 @@ export default async function CrcCustodyPage() {
           learners={learners}
           transferRegister={transferRegister}
           documents={documents}
+          handoffRequirements={handoffRequirements}
         />
       </section>
     </AppShell>
