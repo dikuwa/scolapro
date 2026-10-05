@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AlertTriangle, CheckCircle2, CircleSlash2, History } from "lucide-react";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
+import { OfficialDocumentPreview } from "@/components/documents/official-document-preview";
 import { AppShell } from "@/components/shell/app-shell";
 import { getReportCardAcademicTerm } from "@/features/reporting/server/report-card-academic-term";
 import { getReportCardAcademicYear } from "@/features/reporting/server/report-card-academic-year";
@@ -150,7 +151,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
       </div>
       <div className="bg-surface-muted px-4 py-2 text-xs text-muted-foreground">{payload.sourceDescription}</div>
       {payload.rows.length
-        ? <div className="max-w-full overflow-auto bg-surface-muted p-3 sm:p-4"><iframe title={`${payload.title} document preview`} src={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"} className="block h-[210mm] w-[297mm] min-w-[297mm] border-0 bg-white shadow-[var(--shadow-sm)]" /></div>
+        ? <OfficialDocumentPreview title={`${payload.title} document preview`} src={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"} orientation="landscape" />
         : <div className="p-8 text-center text-sm text-muted-foreground">No canonical rows are available for this document scope.</div>}
       <div className="border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground">{payload.notes.join(" ")}</div>
     </section>

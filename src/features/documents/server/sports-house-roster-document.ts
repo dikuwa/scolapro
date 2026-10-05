@@ -131,8 +131,7 @@ export function renderSportsHouseRosterHtml(input: SportsHouseRosterDocumentInpu
     const staffRows = staff.map((person) => `<tr><td>${escapeOfficialDocumentHtml(person.name)}</td><td>${escapeOfficialDocumentHtml(person.employeeNumber)}</td><td>${person.roleKey === "leader" ? "House leader" : "Member"}</td>${includeSource ? `<td>${escapeOfficialDocumentHtml(person.assignmentSource)}</td>` : ""}${includeLock ? `<td>${person.isLocked ? "Locked" : "Unlocked"}</td>` : ""}</tr>`).join("");
     const staffColumnCount = 3 + Number(includeSource) + Number(includeLock);
     return `<section class="house-block">
-      <h2>${escapeOfficialDocumentHtml(house.name)}</h2>
-      <p class="house-summary">Leader: ${escapeOfficialDocumentHtml(leaders.join(", ") || "Not assigned")} · ${learners.length} learners · ${staff.length} staff</p>
+      <div class="house-heading"><h2>${escapeOfficialDocumentHtml(house.name)}</h2><p class="house-summary">Leader: ${escapeOfficialDocumentHtml(leaders.join(", ") || "Not assigned")} · ${learners.length} learners · ${staff.length} staff</p></div>
       ${input.content !== "staff" ? `<table><thead><tr><th>No.</th><th>Learner</th>${columns.map((column) => `<th>${escapeOfficialDocumentHtml(column.label)}</th>`).join("")}${blankHeaders}</tr></thead><tbody>${learnerRows || `<tr><td colspan="${learnerColumnCount}">No learners assigned.</td></tr>`}</tbody></table>` : ""}
       ${input.content !== "learners" ? `<h3>Staff</h3><table><thead><tr><th>Staff member</th><th>Employee No.</th><th>Role</th>${staffHeaderExtras}</tr></thead><tbody>${staffRows || `<tr><td colspan="${staffColumnCount}">No staff assigned.</td></tr>`}</tbody></table>` : ""}
     </section>`;
@@ -145,7 +144,7 @@ ${OFFICIAL_DOCUMENT_A4_PAGE_RULE}
 *{box-sizing:border-box}:root{--ink:#151515;--line:#4a4a4a;--muted:#666}
 html,body{margin:0;padding:0;background:#fff;color:var(--ink)}body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;font-size:8px;line-height:1.25}
 .report{padding:6mm 7mm 5mm}${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
-.house-block{margin-top:10px;break-inside:auto}.house-block h2{font-size:12px;margin:0 0 2px}.house-summary{margin:0 0 6px;color:var(--muted)}
+.house-block{margin-top:10px;break-inside:auto}.house-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 6px}.house-block h2{font-size:12px;margin:0}.house-summary{margin:0;color:var(--muted);text-align:right}
 .house-block h3{font-size:9px;margin:8px 0 3px}.group-row td{font-weight:700;background:#eef1f5}table{width:100%;border-collapse:collapse}th,td{border:1px solid var(--line);padding:2.5px 3px;vertical-align:middle}th{text-align:left;font-weight:700}thead{display:table-header-group}tr{break-inside:avoid}
 ${OFFICIAL_DOCUMENT_METADATA_RULE}
 @media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.report{padding:0}${OFFICIAL_DOCUMENT_PRINT_RULE}.house-block{break-after:page}.house-block:last-child{break-after:auto}}
@@ -190,17 +189,18 @@ export function renderSportsHouseRosterXlsx(input: SportsHouseRosterDocumentInpu
     rows[2][1] = input.header.contactLines.find((line) => line.key === "address")?.text ?? "";
     rows[3][1] = input.header.contactLines.filter((line) => line.key === "telephone" || line.key === "fax").map((line) => line.text).join("   ");
     rows[4][1] = input.header.contactLines.find((line) => line.key === "email")?.text ?? "";
-    rows[5][1] = `Leader: ${leaders}`;
+    rows[5][1] = "";
     rows[0][metaStartColumn] = `${house.name}: House Roster`;
     rows[1][metaStartColumn] = `Academic year ${input.academicYear}`;
     rows[2][metaStartColumn] = `${learners.length} learners · ${staff.length} staff`;
+    rows[3][metaStartColumn] = `Leader: ${leaders}`;
     const sheet = XLSX.utils.aoa_to_sheet(rows);
     const lastColumn = XLSX.utils.encode_col(columnCount - 1);
     const leftEnd = XLSX.utils.encode_col(Math.max(1, metaStartColumn - 1));
     const metaColumn = XLSX.utils.encode_col(metaStartColumn);
     sheet["!merges"] = [
       ...Array.from({ length: 6 }, (_, index) => XLSX.utils.decode_range(`B${index + 1}:${leftEnd}${index + 1}`)),
-      ...Array.from({ length: 3 }, (_, index) => XLSX.utils.decode_range(`${metaColumn}${index + 1}:${lastColumn}${index + 1}`)),
+      ...Array.from({ length: 4 }, (_, index) => XLSX.utils.decode_range(`${metaColumn}${index + 1}:${lastColumn}${index + 1}`)),
     ];
     const widthMap = [6,28,...selectedColumns.map((column) => Math.max(8, Math.round(column.width / 4.2))), ...Array.from({ length: input.blankColumns }, () => 14)];
     sheet["!cols"] = Array.from({ length: columnCount }, (_, index) => ({ wch: widthMap[index] ?? 14 }));
@@ -230,12 +230,10 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
   const tableWidth = availableWidth;
   const drawSection = (section: SportsHouseRosterSection) => {
     let page = pdf.addPage([pageWidth,pageHeight]);
-    let y = drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:`${section.learners.length} learners · ${section.staff.length} staff`}});
+    const leader = section.staff.filter((p)=>p.roleKey==="leader").map((p)=>p.name).join(", ") || "Not assigned";
+    let y = drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),secondaryContext:`House leader: ${leader}`,summary:`${section.learners.length} learners · ${section.staff.length} staff`}});
     const { regular,bold } = resources;
     y -= 13;
-    const leader = section.staff.filter((p)=>p.roleKey==="leader").map((p)=>p.name).join(", ") || "Not assigned";
-    page.drawText(fitOfficialDocumentPdfText(regular,`House leader: ${leader}`,7,tableWidth),{x:margin,y,size:7,font:regular,color:rgb(.15,.15,.15)});
-    y -= 12;
     const rowHeight=14;
     const headerRow=()=>{
       let x=margin;
@@ -244,7 +242,7 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
     };
     if (input.content !== "staff") headerRow();
     if (input.content !== "staff") for(let i=0;i<section.learners.length;i+=1){
-      if(y<margin+80){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:"Continued"}})-16;headerRow();}
+      if(y<margin+80){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),secondaryContext:`House leader: ${leader}`,summary:"Continued"}})-16;headerRow();}
       const learner=section.learners[i];
       const values=[String(i+1),learner.name,...selectedColumns.map((column) => column.value(learner)),...blankColumnLabels(input.blankColumns)];
       let x=margin;
@@ -256,7 +254,7 @@ export async function renderSportsHouseRosterPdf(input: SportsHouseRosterDocumen
       page.drawText("Staff",{x:margin,y,size:7,font:bold});y-=11;
     }
     if (input.content !== "learners") for(const person of section.staff){
-      if(y<margin+20){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),summary:"Staff continued"}})-16;}
+      if(y<margin+20){page=pdf.addPage([pageWidth,pageHeight]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,pageHeight-margin,{context:{title:`${section.house.name}: House Roster`,primaryContext:String(input.academicYear),secondaryContext:`House leader: ${leader}`,summary:"Staff continued"}})-16;}
       const extras = [
         input.learnerColumns.includes("source") ? person.assignmentSource ?? "Unknown source" : "",
         input.learnerColumns.includes("lock") ? (person.isLocked ? "Locked" : "Unlocked") : "",

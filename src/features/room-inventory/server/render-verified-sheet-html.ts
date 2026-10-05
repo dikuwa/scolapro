@@ -97,15 +97,14 @@ export function renderVerifiedRoomInventoryHtml(input: {
     context: {
       title: "VERIFIED ROOM INVENTORY SHEET",
       primaryContext: `Room ${input.sheet.roomDisplayName}`,
+      secondaryContext: `Responsible custodian: ${input.sheet.custodian.staffName || "Not assigned"}`,
       summary: `Verified ${input.sheet.verifiedOn}`,
     },
   })}
 
   <section class="summary">
-    <div><strong>Room:</strong> ${escapeOfficialDocumentHtml(input.sheet.roomDisplayName)}</div>
     <div><strong>Block / section:</strong> ${escapeOfficialDocumentHtml(input.sheet.blockName || "—")}</div>
     <div><strong>Linked register class:</strong> ${escapeOfficialDocumentHtml(linkedClasses)}</div>
-    <div><strong>Responsible custodian:</strong> ${escapeOfficialDocumentHtml(input.sheet.custodian.staffName || "Not assigned")}</div>
     <div><strong>Custodian source:</strong> ${escapeOfficialDocumentHtml(sourceLabel[input.sheet.custodian.source])}</div>
     <div><strong>Verified on:</strong> ${escapeOfficialDocumentHtml(input.sheet.verifiedOn)}</div>
     <div><strong>Verification status:</strong> ${escapeOfficialDocumentHtml(input.sheet.verificationStatus.replaceAll("_", " "))}</div>

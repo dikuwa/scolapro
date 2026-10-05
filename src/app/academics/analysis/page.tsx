@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
+import { OfficialDocumentPreview } from "@/components/documents/official-document-preview";
 import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { AcademicAnalysisFilters } from "@/features/academics/components/academic-analysis-filters";
@@ -54,7 +56,13 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
             <h2 className="scolapro-section-title">Results analysis</h2>
             <p className="scolapro-section-description">{year} · Term {term} · {basis === "official" ? "Official" : "Provisional"}</p>
           </div>
-          <div className="flex items-center gap-2"><Link href={`/academics/analysis/print?${exportParams.toString()}`} className="min-h-9 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium">Print / PDF</Link><Link href={`/academics/analysis/export.xlsx?${exportParams.toString()}`} className="min-h-9 rounded-[var(--radius-xs)] border border-border px-3 py-2 text-xs font-medium">Export Excel</Link><span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</span></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <OfficialDocumentActions
+              previewHref={`/academics/analysis/print?${exportParams.toString()}`}
+              spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
+            />
+            <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</span>
+          </div>
         </div>
       </section>
 
@@ -103,6 +111,24 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
       </nav>
 
       <AcademicAnalysisViews workspace={workspace} view={view} />
+
+      <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+        <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="scolapro-section-title">Document preview</h2>
+            <p className="scolapro-section-description">Academic analysis · {year} · Term {term} · {basis === "official" ? "Official" : "Provisional"}</p>
+          </div>
+          <OfficialDocumentActions
+            previewHref={`/academics/analysis/print?${exportParams.toString()}`}
+            spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
+          />
+        </div>
+        <OfficialDocumentPreview
+          src={`/academics/analysis/print?${exportParams.toString()}&embedded=1`}
+          title="Academic analysis document preview"
+          orientation="landscape"
+        />
+      </section>
       </div>
     </AppShell>
   );

@@ -15,12 +15,12 @@ import {
   LibraryBig,
   ListChecks,
   Paperclip,
-  Printer,
   Search,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -831,14 +831,10 @@ export function TeachingFilesHub(props: TeachingFilesHubProps) {
                     {[document.subjectNames.join(", "), `Academic year ${document.academicYear}`].filter(Boolean).join(" · ")}
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-wrap gap-2">
-                  <a href={document.printHref} target="_blank" rel="noopener noreferrer" className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium hover:bg-surface-muted">
-                    <Printer className="size-3.5" aria-hidden="true" /> Open print view
-                  </a>
-                  <a href={document.pdfHref} className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium hover:bg-surface-muted">
-                    <FileDown className="size-3.5" aria-hidden="true" /> Download PDF
-                  </a>
-                </div>
+                <OfficialDocumentActions
+                  previewHref={document.printHref}
+                  downloadHref={document.pdfHref}
+                />
               </li>
             ))}
           </ul>
