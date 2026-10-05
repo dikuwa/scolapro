@@ -183,6 +183,7 @@ export function OfficialSummary({
 
       <FinalizationPanel
         mode={mode}
+        documentContext={mode === "term" ? (summary.term?.displayName ?? "Selected term") : lastReportedOn}
         readinessComplete={readiness.complete}
         canFinalize={canFinalize}
         finalization={finalization}
@@ -217,6 +218,7 @@ export function OfficialSummary({
 
 function FinalizationPanel({
   mode,
+  documentContext,
   readinessComplete,
   canFinalize,
   finalization,
@@ -226,6 +228,7 @@ function FinalizationPanel({
   exportUrl,
 }: {
   mode: "week" | "term";
+  documentContext: string;
   readinessComplete: boolean;
   canFinalize: boolean;
   finalization: OfficialAttendanceSummaryFinalization | null;
@@ -234,11 +237,15 @@ function FinalizationPanel({
   onFinalize: () => void;
   exportUrl: (format: string) => string;
 }) {
+  const documentTitle = mode === "term" ? "Term Summary of Absentees" : "Weekly Summary of Absentees";
+  const previewDescription = `${documentContext} · Preview remains inside ScolaPro.`;
   const draftPreviewHref = `${exportUrl("pdf")}&preview=1&draft=1`;
   const draftActions = (
     <OfficialDocumentActions
       previewHref={draftPreviewHref}
       previewLabel="Preview / Print"
+      previewTitle={documentTitle}
+      previewDescription={previewDescription}
       compact
     />
   );
@@ -266,6 +273,8 @@ function FinalizationPanel({
               previewHref={`${exportUrl("pdf")}&preview=1`}
               downloadHref={exportUrl("pdf")}
               spreadsheetHref={exportUrl("xlsx")}
+              previewTitle={documentTitle}
+              previewDescription={previewDescription}
               compact
             />
             {canFinalize ? (
