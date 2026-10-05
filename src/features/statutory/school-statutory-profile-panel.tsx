@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Database, LoaderCircle, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
@@ -53,11 +53,16 @@ export function SchoolStatutoryEmisProfilePanel({
   data: SchoolStatutoryEmisProfile;
 }) {
   const [state, action, pending] = useActionState(saveSchoolStatutoryEmisProfile, initialState);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) toast.success(state.message);
-    else toast.error(state.message);
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setOpen(false));
+    } else {
+      toast.error(state.message);
+    }
   }, [state]);
 
   const profile = data.profile;
@@ -69,16 +74,26 @@ export function SchoolStatutoryEmisProfilePanel({
 
   return (
     <section className="mt-6 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex items-start gap-3 border-b border-border-subtle pb-4">
-        <span className="scolapro-tone-amber grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
-          <Database className="size-4" aria-hidden="true" />
-        </span>
-        <div>
-          <h2 className="scolapro-section-title">Statutory / EMIS Profile</h2>
-          <p className="scolapro-section-description">
-            Reusable school facts for future statutory reporting. Canonical EMIS, education-network, contact/address and hostel records stay in their existing sources.
-          </p>
+      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="scolapro-tone-amber grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
+            <Database className="size-4" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="scolapro-section-title">Statutory / EMIS Profile</h2>
+            <p className="scolapro-section-description">
+              Reusable school facts for future statutory reporting. Canonical EMIS, education-network, contact/address and hostel records stay in their existing sources.
+            </p>
+          </div>
         </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center bg-brand-soft px-3 text-xs font-semibold text-brand-strong"
+        >
+          {open ? "Close" : "Edit profile"}
+        </button>
       </div>
 
       <div className="mt-5">
@@ -107,7 +122,7 @@ export function SchoolStatutoryEmisProfilePanel({
         </div>
       </div>
 
-      <form action={action} className="mt-5 border-t border-border-subtle pt-5" noValidate>
+      {open ? <form action={action} className="mt-5 border-t border-border-subtle pt-5" noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
         <div>
           <h3 className="text-sm font-semibold">Reusable statutory profile</h3>
@@ -157,7 +172,7 @@ export function SchoolStatutoryEmisProfilePanel({
             {pending ? "Saving…" : "Save Statutory / EMIS Profile"}
           </button>
         </div>
-      </form>
+      </form> : null}
     </section>
   );
 }
