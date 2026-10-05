@@ -91,7 +91,9 @@ test("admission preview fills the application workspace without opening a second
   assert.match(preview, /fit\?: "page" \| "viewport"/);
   assert.match(preview, /h-\[clamp\(44rem,78vh,70rem\)\] w-full min-w-0/);
   assert.match(actions, /previewIsPageAnchor/);
-  assert.match(actions, /previewIsPageAnchor \? undefined : "_blank"/);
+  assert.match(actions, /setPreviewOpen\(true\)/);
+  assert.match(actions, /Preview remains inside ScolaPro/);
+  assert.doesNotMatch(actions, /target="_blank"/);
   assert.match(page, /id="application-form-preview"/);
   assert.doesNotMatch(page, /helper="[^"]*separate tab/);
 });
