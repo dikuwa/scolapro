@@ -92,28 +92,6 @@ export function StaffLeaveWorkspaceView({
         })}
       </section>
 
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="flex items-start gap-3">
-          <span className="scolapro-tone-sky grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarOff className="size-4" aria-hidden="true" /></span>
-          <div>
-            <h2 className="scolapro-section-title">My leave request</h2>
-            <p className="scolapro-section-description">Submit dates and requested units for review. ScolaPro does not infer Ministry entitlements or automatically change the school timetable.</p>
-          </div>
-        </div>
-        {viewerStaffId ? (
-          <LeaveRequestForm schoolId={schoolId} today={today} workspace={workspace} />
-        ) : (
-          <div className="mt-4 rounded-[var(--radius-sm)] bg-[color:var(--warning-soft)] px-3 py-3 text-xs leading-5 text-[color:var(--warning)]">Your account is not linked to a current staff identity, so you can manage school leave but cannot submit a personal leave request.</div>
-        )}
-      </section>
-
-      {canManage ? (
-        <div className="grid gap-5 xl:grid-cols-2">
-          <LeaveTypeForm schoolId={schoolId} />
-          <LedgerForm schoolId={schoolId} today={today} workspace={workspace} />
-        </div>
-      ) : null}
-
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle p-4 sm:p-5">
           <h2 className="scolapro-section-title">{canManage ? "School leave requests" : "My leave history"}</h2>
@@ -138,6 +116,28 @@ export function StaffLeaveWorkspaceView({
           </div>
         )}
       </section>
+
+      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="scolapro-tone-sky grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarOff className="size-4" aria-hidden="true" /></span>
+          <div>
+            <h2 className="scolapro-section-title">My leave request</h2>
+            <p className="scolapro-section-description">Submit dates and requested units for review. ScolaPro does not infer Ministry entitlements or automatically change the school timetable.</p>
+          </div>
+        </div>
+        {viewerStaffId ? (
+          <LeaveRequestForm schoolId={schoolId} today={today} workspace={workspace} />
+        ) : (
+          <div className="mt-4 rounded-[var(--radius-sm)] bg-[color:var(--warning-soft)] px-3 py-3 text-xs leading-5 text-[color:var(--warning)]">Your account is not linked to a current staff identity, so you can manage school leave but cannot submit a personal leave request.</div>
+        )}
+      </section>
+
+      {canManage ? (
+        <div className="grid gap-5 xl:grid-cols-2">
+          <LeaveTypeForm schoolId={schoolId} />
+          <LedgerForm schoolId={schoolId} today={today} workspace={workspace} />
+        </div>
+      ) : null}
     </div>
   );
 }
