@@ -45,7 +45,7 @@ function sectionTitle(page: PDFPage, font: PDFFont, title: string, y: number, x 
     thickness: 0.65,
     color: LINE,
   });
-  return y - 17;
+  return y - 21;
 }
 
 function fieldLine(
@@ -107,18 +107,18 @@ function guardianPanel(
 ) {
   page.drawRectangle({
     x,
+    y: topY - 19,
+    width,
+    height: 19,
+    color: SOFT,
+  });
+  page.drawRectangle({
+    x,
     y: topY - GUARDIAN_PANEL_HEIGHT,
     width,
     height: GUARDIAN_PANEL_HEIGHT,
     borderWidth: 0.55,
     borderColor: LINE,
-  });
-  page.drawRectangle({
-    x,
-    y: topY - 19,
-    width,
-    height: 19,
-    color: SOFT,
   });
   page.drawText(title.toUpperCase(), { x: x + 7, y: topY - 13, size: 7.2, font: bold, color: INK });
 
