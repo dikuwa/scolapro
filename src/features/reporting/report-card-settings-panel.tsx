@@ -47,12 +47,8 @@ function SubjectRule({ schoolId, subject }: { schoolId: string; subject: ReportC
   const [state, action, pending] = useActionState(saveReportCardSubjectSetting, initialState);
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) {
-      toast.success(state.message);
-      queueMicrotask(() => setDocumentOpen(false));
-    } else {
-      toast.error(state.message);
-    }
+    if (state.success) toast.success(state.message);
+    else toast.error(state.message);
   }, [state]);
   return (
     <form action={action} className="grid gap-3 border-t border-border-subtle py-3 first:border-t-0 sm:grid-cols-[minmax(0,1.5fr)_110px_140px_150px_auto] sm:items-center">
@@ -89,8 +85,12 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   const [subjectsOpen, setSubjectsOpen] = useState(false);
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) toast.success(state.message);
-    else toast.error(state.message);
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setDocumentOpen(false));
+    } else {
+      toast.error(state.message);
+    }
   }, [state]);
 
   async function uploadLogo(file?: File) {
