@@ -182,7 +182,7 @@ function drawInternalHeader(
   page.drawLine({
     start: { x, y: bottomY },
     end: { x: x + width, y: bottomY },
-    thickness: 1.5,
+    thickness: 0.75,
     color: LINE,
   });
 
@@ -262,49 +262,80 @@ function drawExternalHeader(
   header: OfficialDocumentHeaderModel,
   resources: OfficialDocumentPdfResources,
   topY: number,
+  options: {
+    documentX?: number;
+    documentWidth?: number;
+  },
 ): number {
-  const { regular, schoolNameFont, logo, coatOfArms } = resources;
+  const { regular, bold, schoolNameFont, logo, coatOfArms } = resources;
+  const x = options.documentX ?? MARGIN;
+  const width = options.documentWidth ?? Math.max(120, page.getWidth() - x - MARGIN);
   const externalBottomY = topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT;
+  const assetColumnWidth = Math.min(82, Math.max(62, width * 0.13));
+  const gutter = Math.min(10, Math.max(6, width * 0.012));
+  const centreX = x + assetColumnWidth + gutter;
+  const centreWidth = Math.max(120, width - assetColumnWidth * 2 - gutter * 2);
+  const leftAssetX = x;
+  const rightAssetX = x + width - assetColumnWidth;
+
   page.drawLine({
-    start: { x: MARGIN, y: externalBottomY },
-    end: { x: MARGIN + CONTENT_WIDTH, y: externalBottomY },
-    thickness: 1.5,
+    start: { x, y: externalBottomY },
+    end: { x: x + width, y: externalBottomY },
+    thickness: 0.75,
     color: LINE,
   });
 
-  const centreX = MARGIN + LOGO_WIDTH;
-  const centreWidth = CONTENT_WIDTH - LOGO_WIDTH - POSTAL_WIDTH;
-  const leftX = MARGIN + 5;
-  const imageY = topY - 72;
-  if (coatOfArms) {
-    const scale = Math.min(58 / coatOfArms.width, 56 / coatOfArms.height);
-    const width = coatOfArms.width * scale;
-    const height = coatOfArms.height * scale;
-    page.drawImage(coatOfArms, { x: leftX + (66 - width) / 2, y: imageY + (64 - height) / 2, width, height });
-  }
+  const drawCenteredAsset = (image: PDFImage | null, columnX: number) => {
+    if (!image) return;
+    const scale = Math.min(64 / image.width, 68 / image.height);
+    const imageWidth = image.width * scale;
+    const imageHeight = image.height * scale;
+    page.drawImage(image, {
+      x: columnX + Math.max(0, (assetColumnWidth - imageWidth) / 2),
+      y: externalBottomY + Math.max(4, (OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT - imageHeight) / 2),
+      width: imageWidth,
+      height: imageHeight,
+    });
+  };
+
+  drawCenteredAsset(coatOfArms, leftAssetX);
+  drawCenteredAsset(logo, rightAssetX);
 
   let schoolFontSize = header.schoolNameFont === "old_english" ? 19 : 16;
   while (schoolFontSize > 11 && schoolNameFont.widthOfTextAtSize(header.schoolName, schoolFontSize) > centreWidth - 8) {
     schoolFontSize -= 0.5;
   }
-  drawOfficialDocumentPdfCentered(page, schoolNameFont, header.schoolName, schoolFontSize, centreX, centreWidth, topY - 22);
-  if (header.formerName) drawOfficialDocumentPdfCentered(page, regular, `(${header.formerName})`, 6.8, centreX, centreWidth, topY - 34);
-  header.contactLines.slice(0, 4).forEach((line, index) => {
-    drawOfficialDocumentPdfCentered(page, regular, line.text, 5.8, centreX, centreWidth, topY - 47 - index * 8);
-  });
-  [...header.postalLines, ...(header.schoolEmisNumber ? [`EMIS: ${header.schoolEmisNumber}`] : [])].slice(0, 3).forEach((line, index) => {
-    drawOfficialDocumentPdfCentered(page, regular, line, 5.4, centreX, centreWidth, topY - 79 - index * 7);
-  });
-
-  if (logo) {
-    const scale = Math.min(58 / logo.width, 56 / logo.height);
-    const width = logo.width * scale;
-    const height = logo.height * scale;
-    const logoX = PAGE_WIDTH - MARGIN - POSTAL_WIDTH + 8;
-    page.drawImage(logo, { x: logoX + (66 - width) / 2, y: imageY + (64 - height) / 2, width, height });
+  drawOfficialDocumentPdfCentered(page, schoolNameFont, header.schoolName, schoolFontSize, centreX, centreWidth, topY - 18.5);
+  if (header.formerName) {
+    drawOfficialDocumentPdfCentered(page, regular, `(${header.formerName})`, 6.5, centreX, centreWidth, topY - 30);
   }
 
-  return topY - OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT;
+  const contactStartY = topY - 39.5;
+  header.contactLines.slice(0, 4).forEach((line, index) => {
+    const size = 5.8;
+    const label = `${line.label}:`;
+    const gap = 2.2;
+    const labelWidth = bold.widthOfTextAtSize(label, size);
+    const availableValueWidth = Math.max(24, centreWidth - labelWidth - gap - 6);
+    const value = fitOfficialDocumentPdfText(regular, line.value, size, availableValueWidth);
+    const valueWidth = regular.widthOfTextAtSize(value, size);
+    const totalWidth = labelWidth + gap + valueWidth;
+    const lineX = centreX + Math.max(3, (centreWidth - totalWidth) / 2);
+    const lineY = contactStartY - index * 6.2;
+    page.drawText(label, { x: lineX, y: lineY, size, font: bold, color: INK });
+    page.drawText(value, { x: lineX + labelWidth + gap, y: lineY, size, font: regular, color: INK });
+  });
+
+  const postalStartY = topY - 65;
+  const postalLines = [
+    ...header.postalLines,
+    ...(header.schoolEmisNumber ? [`EMIS: ${header.schoolEmisNumber}`] : []),
+  ].slice(0, 3);
+  postalLines.forEach((line, index) => {
+    drawOfficialDocumentPdfCentered(page, regular, line, 5.3, centreX, centreWidth, postalStartY - index * 6.1);
+  });
+
+  return externalBottomY;
 }
 
 /** Draws the canonical school identity block and returns the next content Y. */
@@ -331,7 +362,10 @@ export function drawOfficialDocumentPdfHeader(
   }
 
   if (header.mode === "external_correspondence") {
-    return drawExternalHeader(page, header, resources, topY);
+    return drawExternalHeader(page, header, resources, topY, {
+      documentX: options.documentX,
+      documentWidth: options.documentWidth,
+    });
   }
   return drawInternalHeader(page, header, resources, topY, options);
 }
