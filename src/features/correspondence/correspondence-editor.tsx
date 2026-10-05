@@ -229,12 +229,14 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
     if (result.success) router.refresh();
     return result.success;
   };
-  const preview = (format: "print" | "pdf") => {
-    const target = window.open("about:blank", format === "pdf" ? "_self" : "_blank");
+  const preparePreview = async () => {
+    if (readOnly) return true;
+    return save();
+  };
+  const downloadPdf = () => {
     startTransition(async () => {
-      if (!readOnly && !(await save())) { target?.close(); return; }
-      const suffix = format === "pdf" ? "?format=pdf" : format === "print" ? "?print=1" : "";
-      if (target) target.location.href = `/api/official-documents/correspondence/${document.id}${suffix}`;
+      if (!readOnly && !(await save())) return;
+      window.location.href = `/api/official-documents/correspondence/${document.id}?format=pdf`;
     });
   };
   const shareFinalizedPdf = async () => {
@@ -312,8 +314,9 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
         {!readOnly ? <Button loading={pending} onClick={() => startTransition(async () => { await save(); })}><Save className="size-4" />{pending ? "Saving…" : "Save draft"}</Button> : null}
         <OfficialDocumentActions
-          onPreview={() => preview("print")}
-          onDownload={() => preview("pdf")}
+          previewHref={`/api/official-documents/correspondence/${document.id}?print=1`}
+          onPreview={preparePreview}
+          onDownload={downloadPdf}
           disabled={pending}
         />
         {!readOnly ? <Button variant="success" loading={pending} onClick={() => startTransition(async () => { if (!(await save())) return; const result = await finalizeCorrespondenceDocument(document.id); if (result.success) toast.success(result.message); else toast.error(result.message); if (result.success) router.refresh(); })}><Signature className="size-4" />Finalize</Button> : <>
