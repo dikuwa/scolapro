@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
-import { FileCheck2 } from "lucide-react";
+import { FileCheck2, LoaderCircle } from "lucide-react";
 import { finalizeAcademicSchedule, type AcademicScheduleActionState } from "@/features/reporting/server/academic-schedule-actions";
 import type { AcademicScheduleType } from "@/features/reporting/server/academic-schedules";
 
@@ -11,7 +11,7 @@ const initialState:AcademicScheduleActionState={};
 function SubmitButton(){
   const {pending}=useFormStatus();
   return <button type="submit" disabled={pending} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] bg-brand px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
-    <FileCheck2 className="size-3.5" aria-hidden="true"/>
+    {pending?<LoaderCircle className="size-3.5 animate-spin" aria-hidden="true"/>:<FileCheck2 className="size-3.5" aria-hidden="true"/>}
     {pending?"Finalizing…":"Finalize version"}
   </button>;
 }

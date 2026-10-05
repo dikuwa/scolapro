@@ -9,6 +9,8 @@ import {
 } from "@/features/documents/server/official-document-pdf-header";
 import { OFFICIAL_DOCUMENT_PDF_GEOMETRY } from "@/features/documents/server/official-document-chrome";
 import {
+  academicScheduleCellAlignment,
+  academicScheduleColumnLabel,
   academicScheduleColumnWidth,
   academicScheduleHeadingOrientation,
 } from "@/features/reporting/academic-schedule-column-layout";
@@ -47,11 +49,11 @@ export async function renderAcademicSchedulePdf(
 
   const headerContext = {
     title: payload.title,
-    primaryContext: `${payload.grade || "Not recorded"} · ${(payload.classNames ?? []).join(", ") || "All classes in grade"} · ${payload.academicYear}`,
-    secondaryContext: `${payload.periodLabel} · Basis: ${payload.basis.toUpperCase()}`,
+    primaryContext: `Grade: ${payload.grade || "Not recorded"} · Class: ${(payload.classNames ?? []).join(", ") || "All classes in grade"}`,
+    secondaryContext: `Term: ${payload.periodLabel} · Year: ${payload.academicYear} · Basis: ${payload.basis.toUpperCase()}`,
     summary: lifecycle
-      ? `Issued v${lifecycle.version} · ${lifecycle.status.toUpperCase()}`
-      : `Generated ${payload.generatedAt}`,
+      ? `Issued v${lifecycle.version} · ${lifecycle.status.toUpperCase()} · ${new Date(lifecycle.finalizedAt).toLocaleDateString("en-NA")}`
+      : `Generated: ${new Date(payload.generatedAt).toLocaleDateString("en-NA")}`,
   };
 
   const addPage = (continued = false) => {
@@ -73,7 +75,7 @@ export async function renderAcademicSchedulePdf(
       page.drawRectangle({ x, y: top - headerHeight, width, height: headerHeight, borderWidth: 0.55, borderColor: LINE, color: HEADER_FILL });
       if (orientations[index] === "vertical") {
         const size = 5.4;
-        const text = fitOfficialDocumentPdfText(bold, column, size, headerHeight - 8);
+        const text = fitOfficialDocumentPdfText(bold, academicScheduleColumnLabel(column), size, headerHeight - 8);
         const textLength = bold.widthOfTextAtSize(text, size);
         page.drawText(text, {
           x: x + width / 2 + size * 0.35,
@@ -85,9 +87,11 @@ export async function renderAcademicSchedulePdf(
         });
       } else {
         const size = 5.4;
-        const text = fitOfficialDocumentPdfText(bold, column, size, width - 5);
+        const text = fitOfficialDocumentPdfText(bold, academicScheduleColumnLabel(column), size, width - 5);
+        const textWidth = bold.widthOfTextAtSize(text, size);
+        const centered = academicScheduleCellAlignment(column, subjectNames) === "center";
         page.drawText(text, {
-          x: x + 2.5,
+          x: centered ? x + Math.max(2.5, (width - textWidth) / 2) : x + 2.5,
           y: top - headerHeight / 2 - size * 0.34,
           size,
           font: bold,
@@ -116,7 +120,7 @@ export async function renderAcademicSchedulePdf(
         borderColor: LINE,
       });
       const value = safeValue(row[column]);
-      const centered = orientations[columnIndex] === "vertical" || /^No\.?$|^Sex$|^Rank$|^Average %$|^Overall %$/.test(column);
+      const centered = academicScheduleCellAlignment(column, subjectNames) === "center";
       const size = 5.2;
       const text = fitOfficialDocumentPdfText(regular, value, size, width - 4);
       const textWidth = regular.widthOfTextAtSize(text, size);

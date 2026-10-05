@@ -9,37 +9,38 @@ const IDENTITY_COLUMNS = new Set([
   "Gender",
   "DOB",
   "Birth Date",
+  "Home Language",
   "Admission Number",
 ]);
 
 const METRIC_WIDTHS: Record<string, number> = {
-  "Home Language": 9,
-  Age: 6,
-  "Days Absent": 7,
-  "Years in Grade": 7,
-  "Years in Phase": 7,
-  "Average %": 7,
-  "Overall %": 7,
-  Rank: 6,
-  Cycle: 7,
-  Recommendation: 8,
-  Ruling: 7,
-  Remarks: 10,
-  "Support comments": 12,
+  Age: 4.5,
+  "Days Absent": 5.5,
+  "Years in Grade": 5.5,
+  "Years in Phase": 5.5,
+  "Average %": 5.5,
+  "Overall %": 5.5,
+  Rank: 4.5,
+  Cycle: 6,
+  Recommendation: 7,
+  Ruling: 6,
+  Remarks: 7,
+  "Support comments": 11,
 };
 
-const HORIZONTAL_METRIC_HEADINGS = new Set(["Recommendation", "Remarks", "Support comments"]);
+const HORIZONTAL_METRIC_HEADINGS = new Set(["Support comments"]);
 
 const IDENTITY_WIDTHS: Record<string, number> = {
-  "No.": 5,
-  No: 5,
-  Learner: 22,
-  Student: 22,
-  Sex: 6,
-  Gender: 7,
-  DOB: 10,
-  "Birth Date": 10,
-  "Admission Number": 14,
+  "No.": 4,
+  No: 4,
+  Learner: 20,
+  Student: 20,
+  Sex: 5,
+  Gender: 5,
+  DOB: 9,
+  "Birth Date": 9,
+  "Home Language": 9,
+  "Admission Number": 9,
 };
 
 export function academicScheduleColumnKind(
@@ -60,7 +61,7 @@ export function academicScheduleColumnWidth(
 ): number {
   const kind = academicScheduleColumnKind(column, subjectNames);
   if (kind === "identity") return IDENTITY_WIDTHS[column] ?? 10;
-  if (kind === "subject") return 8;
+  if (kind === "subject") return column.endsWith(" Symbol") ? 5 : 6;
   return METRIC_WIDTHS[column] ?? Math.min(12, Math.max(7, Math.ceil(column.length / 2)));
 }
 
@@ -70,6 +71,24 @@ export function academicScheduleHeadingOrientation(
   subjectNames: readonly string[] = [],
 ): "horizontal" | "vertical" {
   const kind = academicScheduleColumnKind(column, subjectNames);
+  if (column === "Admission Number") return "vertical";
   if (kind === "identity" || HORIZONTAL_METRIC_HEADINGS.has(column)) return "horizontal";
   return "vertical";
+}
+
+export function academicScheduleCellAlignment(
+  column: string,
+  subjectNames: readonly string[] = [],
+): "left" | "center" {
+  if (["Learner", "Student", "Home Language", "Support comments"].includes(column)) return "left";
+  const kind = academicScheduleColumnKind(column, subjectNames);
+  return kind === "subject" || kind === "metric" || ["No.", "No", "Admission Number", "Sex", "Gender", "DOB", "Birth Date"].includes(column)
+    ? "center"
+    : "left";
+}
+
+export function academicScheduleColumnLabel(column: string): string {
+  if (column === "Sex") return "Gender";
+  if (column === "Birth Date") return "DOB";
+  return column;
 }

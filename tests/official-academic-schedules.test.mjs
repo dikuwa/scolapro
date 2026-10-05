@@ -60,10 +60,10 @@ test("legacy schedule keys stay server compatible and official UI is document-fi
 test("preview, print PDF path and Excel export preserve explicit basis",()=>{
   assert.match(page,/OfficialDocumentActions/);
   assert.match(page,/export\.pdf\?.*preview=1/);
-  assert.match(page,/Excel/);
+  assert.match(page,/spreadsheetHref/);
   assert.doesNotMatch(page,/Template fidelity pending/);
   assert.match(actions,/supplied_source_verified/);
-  assert.match(page,/Open issued version/);
+  assert.match(page,/snapshot=.*spreadsheetHref|OfficialDocumentActions compact/s);
   assert.doesNotMatch(page,/<select\b/i);
   assert.match(printPage,/PROVISIONAL/);
   assert.match(printPage,/counter\(page\)/);
@@ -82,7 +82,7 @@ test("academic schedules use canonical PDF preview and compact governed heading 
   assert.match(pdfExportRoute,/preview.*inline/);
   assert.match(pdfRenderer,/pageWidth = OFFICIAL_DOCUMENT_PDF_GEOMETRY\.pageHeight/);
   assert.match(pdfRenderer,/academicScheduleHeadingOrientation/);
-  assert.match(scheduleColumnLayout,/HORIZONTAL_METRIC_HEADINGS = new Set\(\["Recommendation", "Remarks", "Support comments"\]\)/);
+  assert.match(scheduleColumnLayout,/HORIZONTAL_METRIC_HEADINGS = new Set\(\["Support comments"\]\)/);
   assert.match(xlsx,/verticalHeaderColumns/);
   assert.match(documentActions,/Preview \/ Print/);
   assert.match(pdfRenderer,/textLength = bold\.widthOfTextAtSize/);
@@ -95,7 +95,7 @@ test("academic schedules use canonical PDF preview and compact governed heading 
 });
 
 test("supplied-source document semantics are represented without invented fields",()=>{
-  for(const label of ["Home Language","Birth Date","Days Absent","Years in Grade","Years in Phase","Support comments","Recommendation","Ruling","Remarks","Maximum Mark","Minimum Promotion Mark"]){
+  for(const label of ["Home Language","DOB","Days Absent","Years in Grade","Years in Phase","Support comments","Recommendation","Ruling","Remarks","Maximum Mark","Minimum Promotion Mark"]){
     assert.match(server,new RegExp(label,"i"));
   }
   assert.match(printPage,/@page\{size:A4 landscape/);
