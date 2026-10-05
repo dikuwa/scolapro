@@ -7,6 +7,7 @@ const page = fs.readFileSync("src/app/academics/analysis/page.tsx", "utf8");
 const views = fs.readFileSync("src/features/academics/components/academic-analysis-views.tsx", "utf8");
 const print = fs.readFileSync("src/app/academics/analysis/print/page.tsx", "utf8");
 const excel = fs.readFileSync("src/features/academics/server/render-academic-analysis-xlsx.ts", "utf8");
+const pdf = fs.readFileSync("src/features/academics/server/render-academic-analysis-pdf.ts", "utf8");
 const route = fs.readFileSync("src/app/academics/analysis/export.xlsx/route.ts", "utf8");
 const migration = fs.readFileSync("supabase/migrations/20261003081000_academic_analysis_quality_and_promotion_readiness.sql", "utf8");
 
@@ -125,4 +126,14 @@ test("Academic Analysis remains a read layer without a parallel result store", (
   assert.match(source, /from\("official_results_current"\)/);
   assert.doesNotMatch(migration, /create table .*result/i);
   assert.doesNotMatch(source, /\.insert\(|\.update\(|\.delete\(/);
+});
+
+
+test("Academic Analysis governed document exports add a deterministic numbering column first", () => {
+  assert.match(pdf, /headers: \["No\.", \.\.\.sourceTable\.headers\]/);
+  assert.match(pdf, /rows: sourceTable\.rows\.map\(\(row, index\) => \[String\(index \+ 1\), \.\.\.row\]\)/);
+  assert.match(excel, /headers: \["No\.", \.\.\.sourceData\.headers\]/);
+  assert.match(excel, /rows: sourceData\.rows\.map\(\(row, index\) => \[index \+ 1, \.\.\.row\]\)/);
+  assert.match(excel, /centeredHeaderColumns: \[0\]/);
+  assert.match(excel, /centeredDataColumns: \[0\]/);
 });

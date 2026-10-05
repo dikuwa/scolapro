@@ -159,10 +159,16 @@ export function renderAcademicAnalysisXlsx(
   view: AcademicAnalysisView,
   logoBytes: Uint8Array | null = null,
 ): Buffer {
-  const data = analysisSheetData(workspace, view);
+  const sourceData = analysisSheetData(workspace, view);
+  const data = {
+    ...sourceData,
+    headers: ["No.", ...sourceData.headers],
+    rows: sourceData.rows.map((row, index) => [index + 1, ...row]),
+    trailingRows: sourceData.trailingRows?.map((row) => ["", ...row]),
+  };
   const columnCount = data.headers.length;
   const metaStartColumn = Math.max(3, Math.floor(columnCount * 0.58));
-  const columnWidths = data.headers.map((label) => Math.max(11, Math.min(28, label.length + 5)));
+  const columnWidths = data.headers.map((label, index) => index === 0 ? 5 : Math.max(11, Math.min(28, label.length + 5)));
   const worksheet = buildOfficialDocumentWorkbookSheet({
     header,
     context: {
@@ -201,6 +207,8 @@ export function renderAcademicAnalysisXlsx(
     columnCount,
     metaStartColumn,
     header,
+    centeredHeaderColumns: [0],
+    centeredDataColumns: [0],
   }], logoBytes);
 }
 
