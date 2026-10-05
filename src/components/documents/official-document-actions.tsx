@@ -10,6 +10,8 @@ export function OfficialDocumentActions({
   spreadsheetHref,
   compact = false,
   previewLabel = "Preview / Print",
+  previewTitle = "Document preview",
+  previewDescription = "Preview remains inside ScolaPro.",
   downloadLabel = "PDF",
   spreadsheetLabel = "Excel",
   onPreview,
@@ -21,6 +23,8 @@ export function OfficialDocumentActions({
   spreadsheetHref?: string;
   compact?: boolean;
   previewLabel?: string;
+  previewTitle?: string;
+  previewDescription?: string;
   downloadLabel?: string;
   spreadsheetLabel?: string;
   onPreview?: () => void | boolean | Promise<void | boolean>;
@@ -118,13 +122,13 @@ export function OfficialDocumentActions({
           <section
             role="dialog"
             aria-modal="true"
-            aria-label="Document preview"
+            aria-label={previewTitle}
             className="mx-auto flex h-[calc(100dvh-1rem)] w-full max-w-[96rem] flex-col overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-2xl sm:h-[calc(100dvh-2rem)]"
           >
             <div className="flex min-h-12 items-center justify-between gap-3 border-b border-border-subtle bg-surface px-3 sm:px-4">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">Document preview</p>
-                <p className="truncate text-[0.68rem] text-muted-foreground">Preview remains inside ScolaPro.</p>
+                <p className="truncate text-sm font-semibold text-foreground">{previewTitle}</p>
+                <p className="truncate text-[0.68rem] text-muted-foreground">{previewDescription}</p>
               </div>
               <button
                 type="button"

@@ -183,7 +183,9 @@ export async function GET(request: Request) {
       }
 
       const generatedAt = new Date().toISOString();
-      const fileBase = `${safeFilePart(liveSummary.term?.displayName ?? "weekly")}-${mode}-attendance-draft`;
+      const fileBase = mode === "term"
+        ? `term-summary-of-absentees-${safeFilePart(liveSummary.term?.displayName ?? liveSummary.scopeEnd)}-draft`
+        : `weekly-summary-of-absentees-${safeFilePart(liveSummary.scopeEnd)}-draft`;
       const rendered = await renderOfficialAttendanceSummaryPdf({
         header,
         summary: liveSummary,
@@ -209,7 +211,9 @@ export async function GET(request: Request) {
     const finalizedLabel = new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(finalization.finalizedAt));
     const origin = new URL(request.url).origin;
     const verificationUrl = `${origin}${finalization.verificationPath}`;
-    const fileBase = `${safeFilePart(summary.term?.displayName ?? "weekly")}-${mode}-attendance-${finalization.revision}`;
+    const fileBase = mode === "term"
+      ? `term-summary-of-absentees-${safeFilePart(summary.term?.displayName ?? summary.scopeEnd)}-rev-${finalization.revision}`
+      : `weekly-summary-of-absentees-${safeFilePart(summary.scopeEnd)}-rev-${finalization.revision}`;
 
     if (format === "xlsx") {
       const bytes = xlsxBytes(summary, {
