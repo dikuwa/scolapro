@@ -351,3 +351,10 @@ test("optional academic roster sources cannot take down core register and grade 
   assert.match(resolver, /class-list teaching group allocations unavailable; continuing without allocation links/);
   assert.match(resolver, /class-list teaching groups unavailable; continuing with register\/grade\/subject rosters/);
 });
+
+
+test("class-list route defaults blank writable columns to three while preserving explicit zero", () => {
+  assert.match(page, /requestedBlankColumns == null \? 3 : Number\(requestedBlankColumns\)/);
+  assert.match(page, /Math\.min\(6, Math\.max\(0, Math\.trunc\(parsedBlankColumns\)\)\)/);
+  assert.match(page, /: 3;/);
+});

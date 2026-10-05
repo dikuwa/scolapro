@@ -57,3 +57,12 @@ test("school identity remains left while contextual metadata is right", () => {
   const htmlSummary = roomHtml.split('<section class="summary">')[1] ?? "";
   assert.doesNotMatch(htmlSummary, /<strong>Responsible custodian:/);
 });
+
+
+test("shared governed document preview fills the available workspace by default without removing paper geometry modes", () => {
+  const preview = read("src/components/documents/official-document-preview.tsx");
+  assert.match(preview, /fit = "viewport"/);
+  assert.match(preview, /h-\[clamp\(44rem,78vh,70rem\)\] w-full min-w-0/);
+  assert.match(preview, /h-\[210mm\] w-\[297mm\]/);
+  assert.match(preview, /h-\[297mm\] w-\[210mm\]/);
+});

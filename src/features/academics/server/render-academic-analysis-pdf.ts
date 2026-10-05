@@ -137,8 +137,12 @@ export async function renderAcademicAnalysisPdf(
   const pageHeight = OFFICIAL_DOCUMENT_PDF_GEOMETRY.pageWidth;
   const margin = 24;
   const width = pageWidth - margin * 2;
-  const table = tableFor(workspace, view);
-  const unitWeights = table.headers.map((label) => Math.max(6, Math.min(18, label.length + 2)));
+  const sourceTable = tableFor(workspace, view);
+  const table: Table = {
+    headers: ["No.", ...sourceTable.headers],
+    rows: sourceTable.rows.map((row, index) => [String(index + 1), ...row]),
+  };
+  const unitWeights = table.headers.map((label, index) => index === 0 ? 4 : Math.max(6, Math.min(18, label.length + 2)));
   const unitTotal = unitWeights.reduce((sum, item) => sum + item, 0);
   const widths = unitWeights.map((item) => width * item / unitTotal);
   const headerHeight = 24;
@@ -165,21 +169,25 @@ export async function renderAcademicAnalysisPdf(
     table.headers.forEach((label, index) => {
       const cellWidth = widths[index];
       page.drawRectangle({ x, y: y - headerHeight, width: cellWidth, height: headerHeight, color: FILL, borderColor: LINE, borderWidth: 0.5 });
-      page.drawText(fitOfficialDocumentPdfText(bold, label, 5.5, cellWidth - 5), { x: x + 2.5, y: y - headerHeight / 2 - 2, font: bold, size: 5.5, color: INK });
+      const headerText = fitOfficialDocumentPdfText(bold, label, 5.5, cellWidth - 5);
+      const headerTextWidth = bold.widthOfTextAtSize(headerText, 5.5);
+      page.drawText(headerText, { x: index === 0 ? x + Math.max(2.5, (cellWidth - headerTextWidth) / 2) : x + 2.5, y: y - headerHeight / 2 - 2, font: bold, size: 5.5, color: INK });
       x += cellWidth;
     });
     return { page, y: y - headerHeight };
   };
 
   let current = addPage();
-  const rows = table.rows.length ? table.rows : [table.headers.map((_, index) => index === 0 ? "No rows available for this analysis scope." : "")];
+  const rows = table.rows.length ? table.rows : [table.headers.map((_, index) => index === 1 ? "No rows available for this analysis scope." : "")];
   rows.forEach((row) => {
     if (current.y - rowHeight < margin + 30) current = addPage(true);
     let x = margin;
     row.forEach((cell, index) => {
       const cellWidth = widths[index];
       current.page.drawRectangle({ x, y: current.y - rowHeight, width: cellWidth, height: rowHeight, borderColor: LINE, borderWidth: 0.4 });
-      current.page.drawText(fitOfficialDocumentPdfText(regular, value(cell), 5.2, cellWidth - 5), { x: x + 2.5, y: current.y - rowHeight / 2 - 1.8, font: regular, size: 5.2, color: INK });
+      const rendered = fitOfficialDocumentPdfText(regular, value(cell), 5.2, cellWidth - 5);
+      const renderedWidth = regular.widthOfTextAtSize(rendered, 5.2);
+      current.page.drawText(rendered, { x: index === 0 ? x + Math.max(2.5, (cellWidth - renderedWidth) / 2) : x + 2.5, y: current.y - rowHeight / 2 - 1.8, font: regular, size: 5.2, color: INK });
       x += cellWidth;
     });
     current.y -= rowHeight;

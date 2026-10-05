@@ -3,7 +3,7 @@ export function OfficialDocumentPreview({
   title,
   orientation = "portrait",
   helper,
-  fit = "page",
+  fit = "viewport",
 }: {
   src: string;
   title: string;

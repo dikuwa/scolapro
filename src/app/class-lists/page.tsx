@@ -31,7 +31,11 @@ export default async function ClassListsPage({ searchParams }: { searchParams: P
   const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const scope = single(params.scope) === "my" ? "my" : "all";
   const columns = (single(params.columns) ?? "admissionNumber,sex,registerClass,status").split(",") as ClassListColumnId[];
-  const blankColumns = Number(single(params.blankColumns) ?? 0);
+  const requestedBlankColumns = single(params.blankColumns);
+  const parsedBlankColumns = requestedBlankColumns == null ? 3 : Number(requestedBlankColumns);
+  const blankColumns = Number.isFinite(parsedBlankColumns)
+    ? Math.min(6, Math.max(0, Math.trunc(parsedBlankColumns)))
+    : 3;
   const requestedTargets = parseTargets(params.target);
   const fallbackRosterType = (single(params.rosterType) ?? requestedTargets[0]?.rosterType ?? "register_class") as ClassListRosterType;
   const fallbackRosterId = single(params.rosterId) ?? requestedTargets[0]?.rosterId ?? "";
