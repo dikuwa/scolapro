@@ -38,10 +38,16 @@ export function ContributionWorkspace({ campaigns, items, contributions, academi
   const [contributionDate, setContributionDate] = useState(today);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
+  const [showRecord, setShowRecord] = useState(false);
 
   useEffect(() => {
     if (!state.message) return;
-    state.success ? toast.success(state.message) : toast.error(state.message);
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setShowRecord(false));
+    } else {
+      toast.error(state.message);
+    }
   }, [state]);
 
   const campaignItems = useMemo(() => items.filter((i) => i.campaignId === campaignId), [campaignId, items]);
@@ -62,7 +68,75 @@ export function ContributionWorkspace({ campaigns, items, contributions, academi
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+        <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="scolapro-section-title">Recent contributions</h2>
+              <p className="scolapro-section-description">Recorded contributions across all campaigns for this academic year.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {totalMoney > 0 ? (
+                <span className="rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--success)]">
+                  N${totalMoney.toFixed(2)} total
+                </span>
+              ) : null}
+              <button
+                type="button"
+                aria-expanded={showRecord}
+                onClick={() => setShowRecord((current) => !current)}
+                className="scolapro-cta inline-flex min-h-9 items-center gap-1.5 bg-brand-soft px-3 text-xs font-semibold text-brand-strong"
+              >
+                {showRecord ? <X className="size-3.5" /> : <Plus className="size-3.5" />}
+                {showRecord ? "Close" : "Record contribution"}
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="scolapro-control-surface flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3">
+              <Search className="size-4 text-muted-foreground" />
+              <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search by learner, campaign, item…"
+                className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
+              {searchQuery ? <button type="button" onClick={() => setSearchQuery("")} className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}
+            </label>
+            <Picker ariaLabel="Filter by type" name="type-filter" value={filterType} onChange={setFilterType} placeholder="All types"
+              options={[{ value: "all", label: "All types" }, { value: "goods", label: "Goods" }, { value: "money", label: "Money" }, { value: "raffle", label: "Raffle" }]} className="max-w-[10rem]" />
+          </div>
+        </div>
+
+        {filteredContributions.length ? (
+          <div className="divide-y divide-border-subtle">
+            {filteredContributions.map((c) => (
+              <div key={c.id} className="flex items-start justify-between gap-3 px-4 py-3 sm:px-5">
+                <div className="min-w-0">
+                  <p className="scolapro-record-title">{c.learnerName}</p>
+                  <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{c.campaignTitle} · {c.itemLabel}</p>
+                  {c.note ? <p className="mt-1 text-[0.68rem] text-muted-foreground italic">{c.note}</p> : null}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-sm font-semibold tabular-nums">
+                    {c.amount ? `${c.currency} ${c.amount.toFixed(2)}` : c.quantity ? `${c.quantity}×` : "—"}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-[0.65rem] text-muted-foreground">{new Date(c.contributionDate).toLocaleDateString()}</span>
+                    <span className={`rounded-[var(--radius-xs)] px-1.5 py-0.5 text-[0.6rem] font-medium capitalize ${statusStyle(c.status)}`}>{c.status}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-5 py-10 text-center">
+            <span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground">
+              <Coins className="size-5" />
+            </span>
+            <h3 className="mt-3 text-sm font-semibold">No contributions recorded</h3>
+            <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">Use Record contribution to capture the first voluntary contribution.</p>
+          </div>
+        )}
+      </section>
+
+      {showRecord ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex items-start gap-3">
           <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
             <Plus className="size-4" />
@@ -118,64 +192,8 @@ export function ContributionWorkspace({ campaigns, items, contributions, academi
             </button>
           </div>
         </form>
-      </section>
+      </section> : null}
 
-      <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
-        <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h2 className="scolapro-section-title">Recent contributions</h2>
-              <p className="scolapro-section-description">Recorded contributions across all campaigns for this academic year.</p>
-            </div>
-            {totalMoney > 0 ? (
-              <span className="rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 text-xs font-semibold text-[color:var(--success)]">
-                N${totalMoney.toFixed(2)} total
-              </span>
-            ) : null}
-          </div>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="scolapro-control-surface flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3">
-              <Search className="size-4 text-muted-foreground" />
-              <input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search by learner, campaign, item…"
-                className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
-              {searchQuery ? <button type="button" onClick={() => setSearchQuery("")} className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}
-            </label>
-            <Picker ariaLabel="Filter by type" name="type-filter" value={filterType} onChange={setFilterType} placeholder="All types"
-              options={[{ value: "all", label: "All types" }, { value: "goods", label: "Goods" }, { value: "money", label: "Money" }, { value: "raffle", label: "Raffle" }]} className="max-w-[10rem]" />
-          </div>
-        </div>
-
-        {filteredContributions.length ? (
-          <div className="divide-y divide-border-subtle">
-            {filteredContributions.map((c) => (
-              <div key={c.id} className="flex items-start justify-between gap-3 px-4 py-3 sm:px-5">
-                <div className="min-w-0">
-                  <p className="scolapro-record-title">{c.learnerName}</p>
-                  <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{c.campaignTitle} · {c.itemLabel}</p>
-                  {c.note ? <p className="mt-1 text-[0.68rem] text-muted-foreground italic">{c.note}</p> : null}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold tabular-nums">
-                    {c.amount ? `${c.currency} ${c.amount.toFixed(2)}` : c.quantity ? `${c.quantity}×` : "—"}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className="text-[0.65rem] text-muted-foreground">{new Date(c.contributionDate).toLocaleDateString()}</span>
-                    <span className={`rounded-[var(--radius-xs)] px-1.5 py-0.5 text-[0.6rem] font-medium capitalize ${statusStyle(c.status)}`}>{c.status}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="px-5 py-10 text-center">
-            <span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground">
-              <Coins className="size-5" />
-            </span>
-            <h3 className="mt-3 text-sm font-semibold">No contributions recorded</h3>
-            <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">Record the first contribution using the form above.</p>
-          </div>
-        )}
-      </section>
     </div>
   );
 }
