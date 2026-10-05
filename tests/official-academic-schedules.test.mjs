@@ -9,6 +9,7 @@ const page=readFileSync("src/app/reports/academic-schedules/page.tsx","utf8");
 const printPage=readFileSync("src/app/reports/academic-schedules/print/page.tsx","utf8");
 const xlsx=readFileSync("src/features/reporting/server/render-academic-schedule-xlsx.ts","utf8");
 const pdfRenderer=readFileSync("src/features/reporting/server/render-academic-schedule-pdf.ts","utf8");
+const pdfHeader=readFileSync("src/features/documents/server/official-document-pdf-header.ts","utf8");
 const pdfExportRoute=readFileSync("src/app/reports/academic-schedules/export.pdf/route.ts","utf8");
 const actions=readFileSync("src/features/reporting/server/academic-schedule-actions.ts","utf8");
 const academicAnalysis=readFileSync("src/features/academics/server/academic-analysis.ts","utf8");
@@ -81,6 +82,13 @@ test("academic schedules use canonical PDF preview and compact governed heading 
   assert.match(scheduleColumnLayout,/HORIZONTAL_METRIC_HEADINGS = new Set\(\["Recommendation", "Remarks", "Support comments"\]\)/);
   assert.match(xlsx,/verticalHeaderColumns/);
   assert.match(documentActions,/Preview \/ Print/);
+  assert.match(pdfRenderer,/textLength = bold\.widthOfTextAtSize/);
+  assert.match(pdfRenderer,/top - headerHeight \/ 2 - textLength \/ 2/);
+  assert.match(pdfRenderer,/rowHeight \/ 2 - size \* 0\.34/);
+  assert.match(printPage,/heading-label/);
+  assert.match(printPage,/translate\(-50%,-50%\) rotate\(180deg\)/);
+  assert.match(pdfHeader,/documentX: options\.documentX/);
+  assert.match(pdfHeader,/documentWidth: options\.documentWidth/);
 });
 
 test("supplied-source document semantics are represented without invented fields",()=>{
