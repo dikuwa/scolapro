@@ -39,7 +39,18 @@ export function FinanceWorkspace({ schoolId, today, settings, payments }: { scho
   const [selectedLearner, setSelectedLearner] = useState<FinanceLearner | null>(null);
   const [learnerSearchPending, setLearnerSearchPending] = useState(false);
   const [learnerSearchError, setLearnerSearchError] = useState("");
-  useEffect(() => { if (state.message) state.success ? toast.success(state.message) : toast.error(state.message); }, [state]);
+  const [showRecordPayment, setShowRecordPayment] = useState(false);
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setShowRecordPayment(false));
+    } else {
+      toast.error(state.message);
+    }
+  }, [state]);
+
   function handleLearnerSearchChange(next: string) {
     setLearnerQuery(next);
     if (next.trim().length < 2) {
@@ -51,6 +62,7 @@ export function FinanceWorkspace({ schoolId, today, settings, payments }: { scho
       setLearnerSearchError("");
     }
   }
+
   useEffect(() => {
     const query = learnerQuery.trim();
     if (query.length < 2) return;
@@ -75,6 +87,7 @@ export function FinanceWorkspace({ schoolId, today, settings, payments }: { scho
       window.clearTimeout(timer);
     };
   }, [learnerQuery, schoolId]);
+
   const learnerSelectOptions = useMemo(() => {
     const options = selectedLearner && !learnerOptions.some((learner) => learner.id === selectedLearner.id)
       ? [selectedLearner, ...learnerOptions]
@@ -86,45 +99,114 @@ export function FinanceWorkspace({ schoolId, today, settings, payments }: { scho
       searchText: learner.admissionNumber ?? undefined,
     }));
   }, [learnerOptions, selectedLearner]);
+
   const learnerEmptyMessage = (query: string) => {
     if (learnerSearchError) return learnerSearchError;
     if (query.trim().length < 2) return "Type at least 2 characters to search.";
     return "No current learners found.";
   };
-  return <div className="space-y-5">
-    <div className="grid gap-4 lg:grid-cols-2">
-      <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"><h2 className="scolapro-section-title">School payment instructions</h2>{settings?.active ? <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Bank</dt><dd className="mt-1 font-medium">{settings.bankName}</dd></div><div><dt className="text-xs text-muted-foreground">Account name</dt><dd className="mt-1 font-medium">{settings.accountName}</dd></div><div><dt className="text-xs text-muted-foreground">Account number</dt><dd className="mt-1 font-medium">{settings.accountNumber}</dd></div><div><dt className="text-xs text-muted-foreground">Branch/code</dt><dd className="mt-1 font-medium">{[settings.branchName,settings.branchCode].filter(Boolean).join(" · ") || "—"}</dd></div><div className="col-span-2"><dt className="text-xs text-muted-foreground">Reference</dt><dd className="mt-1">{settings.referenceInstructions || "Use the learner admission number or invoice/payment reference supplied by the school."}</dd></div>{settings.paymentInstructions ? <div className="col-span-2"><dt className="text-xs text-muted-foreground">Instructions</dt><dd className="mt-1">{settings.paymentInstructions}</dd></div> : null}</dl> : <p className="mt-3 text-sm text-muted-foreground">Banking details have not been published yet.</p>}</section>
-      <form action={action} className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"><input type="hidden" name="schoolId" value={schoolId}/><h2 className="scolapro-section-title">Record received payment</h2><p className="scolapro-section-description">Records an offline/manual payment in the canonical received state for later verification/allocation.</p><div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <SearchableSelect
-          label="Learner (optional)"
-          name="learnerId"
-          value={learnerId}
-          onChange={(value) => {
-            const learner = learnerOptions.find((option) => option.id === value) ?? selectedLearner;
-            setLearnerId(value);
-            setSelectedLearner(learner?.id === value ? learner : null);
-          }}
-          onSearchChange={handleLearnerSearchChange}
-          onClear={() => {
-            setLearnerId("");
-            setSelectedLearner(null);
-            setLearnerOptions([]);
-            setLearnerQuery("");
-          }}
-          options={learnerSelectOptions}
-          placeholder="School-level / not linked"
-          searchPlaceholder="Search name or admission number"
-          emptyMessage={learnerEmptyMessage}
-          loading={learnerSearchPending}
-          clearable
-          className="sm:col-span-2"
-        />
-        <label><Label>Payment reference</Label><input className={field} name="reference" required/></label><label><Label>Bank/deposit reference</Label><input className={field} name="bankReference"/></label>
-        <label><Label>Method</Label><select className={field} name="method" defaultValue="bank_transfer"><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="mobile">Mobile</option><option value="card">Card</option><option value="other">Other</option></select></label>
-        <label><Label>Amount (NAD)</Label><input className={field} name="amount" type="number" min="0.01" step="0.01" required/></label>
-        <label><Label>Date received</Label><input className={field} name="paidOn" type="date" defaultValue={today} required/></label><label><Label>Note</Label><input className={field} name="note"/></label>
-      </div><div className="mt-4 flex justify-start sm:justify-end"><Button type="submit" loading={pending} disabled={pending}>Record payment</Button></div></form>
+
+  return (
+    <div className="space-y-5">
+      <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <h2 className="scolapro-section-title">School payment instructions</h2>
+        {settings?.active ? (
+          <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <div><dt className="text-xs text-muted-foreground">Bank</dt><dd className="mt-1 font-medium">{settings.bankName}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Account name</dt><dd className="mt-1 font-medium">{settings.accountName}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Account number</dt><dd className="mt-1 font-medium">{settings.accountNumber}</dd></div>
+            <div><dt className="text-xs text-muted-foreground">Branch/code</dt><dd className="mt-1 font-medium">{[settings.branchName, settings.branchCode].filter(Boolean).join(" · ") || "—"}</dd></div>
+            <div className="col-span-2"><dt className="text-xs text-muted-foreground">Reference</dt><dd className="mt-1">{settings.referenceInstructions || "Use the learner admission number or invoice/payment reference supplied by the school."}</dd></div>
+            {settings.paymentInstructions ? <div className="col-span-2"><dt className="text-xs text-muted-foreground">Instructions</dt><dd className="mt-1">{settings.paymentInstructions}</dd></div> : null}
+          </dl>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">Banking details have not been published yet.</p>
+        )}
+      </section>
+
+      <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="scolapro-section-title">Recent payments</h2>
+            <p className="scolapro-section-description">Review received payments before recording another entry.</p>
+          </div>
+          <Button
+            type="button"
+            variant="soft"
+            size="sm"
+            aria-expanded={showRecordPayment}
+            onClick={() => setShowRecordPayment((current) => !current)}
+          >
+            {showRecordPayment ? "Close" : "Record payment"}
+          </Button>
+        </div>
+        {payments.length ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[680px] text-left text-sm">
+              <thead className="text-xs text-muted-foreground">
+                <tr><th className="py-2">Date</th><th>Reference</th><th>Learner</th><th>Method</th><th>Status</th><th className="text-right">Amount</th></tr>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id} className="border-t border-border-subtle">
+                    <td className="py-3">{p.paidOn}</td>
+                    <td>{p.reference}</td>
+                    <td>{p.learnerId ? p.learnerName ?? "Learner" : "School-level"}</td>
+                    <td>{p.method.replaceAll("_", " ")}</td>
+                    <td>{p.status}</td>
+                    <td className="text-right font-medium">N$ {p.amount.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted-foreground">No payments have been recorded yet.</p>
+        )}
+      </section>
+
+      {showRecordPayment ? (
+        <form action={action} className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <input type="hidden" name="schoolId" value={schoolId}/>
+          <h2 className="scolapro-section-title">Record received payment</h2>
+          <p className="scolapro-section-description">Records an offline/manual payment in the canonical received state for later verification/allocation.</p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <SearchableSelect
+              label="Learner (optional)"
+              name="learnerId"
+              value={learnerId}
+              onChange={(value) => {
+                const learner = learnerOptions.find((option) => option.id === value) ?? selectedLearner;
+                setLearnerId(value);
+                setSelectedLearner(learner?.id === value ? learner : null);
+              }}
+              onSearchChange={handleLearnerSearchChange}
+              onClear={() => {
+                setLearnerId("");
+                setSelectedLearner(null);
+                setLearnerOptions([]);
+                setLearnerQuery("");
+              }}
+              options={learnerSelectOptions}
+              placeholder="School-level / not linked"
+              searchPlaceholder="Search name or admission number"
+              emptyMessage={learnerEmptyMessage}
+              loading={learnerSearchPending}
+              clearable
+              className="sm:col-span-2"
+            />
+            <label><Label>Payment reference</Label><input className={field} name="reference" required/></label>
+            <label><Label>Bank/deposit reference</Label><input className={field} name="bankReference"/></label>
+            <label><Label>Method</Label><select className={field} name="method" defaultValue="bank_transfer"><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="mobile">Mobile</option><option value="card">Card</option><option value="other">Other</option></select></label>
+            <label><Label>Amount (NAD)</Label><input className={field} name="amount" type="number" min="0.01" step="0.01" required/></label>
+            <label><Label>Date received</Label><input className={field} name="paidOn" type="date" defaultValue={today} required/></label>
+            <label><Label>Note</Label><input className={field} name="note"/></label>
+          </div>
+          <div className="mt-4 flex justify-start sm:justify-end">
+            <Button type="submit" loading={pending} disabled={pending}>Record payment</Button>
+          </div>
+        </form>
+      ) : null}
     </div>
-    <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"><h2 className="scolapro-section-title">Recent payments</h2>{payments.length ? <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm"><thead className="text-xs text-muted-foreground"><tr><th className="py-2">Date</th><th>Reference</th><th>Learner</th><th>Method</th><th>Status</th><th className="text-right">Amount</th></tr></thead><tbody>{payments.map((p)=><tr key={p.id} className="border-t border-border-subtle"><td className="py-3">{p.paidOn}</td><td>{p.reference}</td><td>{p.learnerId ? p.learnerName ?? "Learner" : "School-level"}</td><td>{p.method.replaceAll("_"," ")}</td><td>{p.status}</td><td className="text-right font-medium">N$ {p.amount.toFixed(2)}</td></tr>)}</tbody></table></div> : <p className="mt-3 text-sm text-muted-foreground">No payments have been recorded yet.</p>}</section>
-  </div>;
+  );
 }
