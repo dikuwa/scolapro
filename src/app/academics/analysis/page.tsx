@@ -58,7 +58,8 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <OfficialDocumentActions
-              previewHref={`/academics/analysis/print?${exportParams.toString()}`}
+              previewHref={`/academics/analysis/export.pdf?${exportParams.toString()}&preview=1`}
+              downloadHref={`/academics/analysis/export.pdf?${exportParams.toString()}`}
               spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
             />
             <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">{basis === "official" ? "OFFICIAL" : "PROVISIONAL"}</span>
@@ -119,12 +120,13 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
             <p className="scolapro-section-description">Academic analysis · {year} · Term {term} · {basis === "official" ? "Official" : "Provisional"}</p>
           </div>
           <OfficialDocumentActions
-            previewHref={`/academics/analysis/print?${exportParams.toString()}`}
+            previewHref={`/academics/analysis/export.pdf?${exportParams.toString()}&preview=1`}
+            downloadHref={`/academics/analysis/export.pdf?${exportParams.toString()}`}
             spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
           />
         </div>
         <OfficialDocumentPreview
-          src={`/academics/analysis/print?${exportParams.toString()}&embedded=1`}
+          src={`/academics/analysis/export.pdf?${exportParams.toString()}&preview=1`}
           title="Academic analysis document preview"
           orientation="landscape"
         />

@@ -20,7 +20,7 @@ function pct(value: number | null) {
   return value == null ? "—" : String(value) + "%";
 }
 
-export default async function AcademicAnalysisPrintPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string; basis?: string; grade?: string; class?: string; subject?: string; teacher?: string; view?: string; embedded?: string }> }) {
+export default async function AcademicAnalysisPrintPage({ searchParams }: { searchParams: Promise<{ year?: string; term?: string; basis?: string; grade?: string; class?: string; subject?: string; teacher?: string; view?: string }> }) {
   const params = await searchParams;
   const academicYear = Number(params.year) || new Date().getFullYear();
   const termNumber = Math.min(3, Math.max(1, Number(params.term) || 1));
@@ -29,7 +29,6 @@ export default async function AcademicAnalysisPrintPage({ searchParams }: { sear
   const view: AcademicAnalysisView = allowedViews.includes(params.view as AcademicAnalysisView) ? params.view as AcademicAnalysisView : "overview";
   const className = view === "trends" ? undefined : params.class;
   const teacher = view === "trends" ? undefined : params.teacher;
-  const embedded = params.embedded === "1";
   const workspace = await getAcademicAnalysisWorkspace({ academicYear, termNumber, basis, grade: params.grade, className, subjectOfferingId: params.subject, teacher });
   if (!workspace) redirect("/");
   const header = await getLiveSchoolDocumentHeader(workspace.schoolId, officialDocumentHeaderModeForType("academic_analysis"));
@@ -37,10 +36,10 @@ export default async function AcademicAnalysisPrintPage({ searchParams }: { sear
 
   return <main className="analysis-sheet report mx-auto max-w-[1100px] space-y-4 bg-white p-6 text-black print:max-w-none print:p-0">
     <style>{`@page{size:A4 landscape;margin:7mm 7mm 12mm}:root{--line:#4a4a4a}${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}.analysis-sheet{min-height:auto;border:0}.analysis-sheet table{break-inside:auto}.analysis-sheet thead{display:table-header-group}.analysis-sheet tr{break-inside:avoid}@media print{.analysis-sheet{padding:0}.scolapro-screen-only{display:none!important}}`}</style>
-    {!embedded ? <div className="scolapro-screen-only flex justify-between gap-4">
+    <div className="scolapro-screen-only flex justify-between gap-4">
       <DocumentBackLink href="/academics/analysis" label="Back to analysis" />
       <p className="text-sm">Use your browser Print command to print or save this report as PDF.</p>
-    </div> : null}
+    </div>
 
     <div dangerouslySetInnerHTML={{__html:renderOfficialDocumentHtmlHeader(header, undefined, { context: {
       title: `Academic Analysis — ${VIEW_LABELS[view]}`,

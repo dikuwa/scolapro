@@ -32,7 +32,8 @@ test("document previews preserve governed A4 orientation", () => {
   const analysis = read("src/app/academics/analysis/page.tsx");
   assert.match(analysis, /Document preview/);
   assert.match(analysis, /orientation="landscape"/);
-  assert.match(analysis, /embedded=1/);
+  assert.match(analysis, /export\.pdf/);
+  assert.match(analysis, /downloadHref=/);
   assert.match(admission, /OfficialDocumentPreview/);
   assert.match(admission, /orientation="portrait"/);
 });
@@ -42,7 +43,10 @@ test("school identity remains left while contextual metadata is right", () => {
   const sports = read("src/features/documents/server/sports-house-roster-document.ts");
   const roomPdf = read("src/features/room-inventory/server/render-verified-sheet-pdf.ts");
   const roomHtml = read("src/features/room-inventory/server/render-verified-sheet-html.ts");
+  const academicXlsx = read("src/features/academics/server/render-academic-analysis-xlsx.ts");
   assert.match(xlsx, /rows\[5\]\[1\] = ""/);
+  assert.match(academicXlsx, /buildOfficialDocumentWorkbookSheet/);
+  assert.match(academicXlsx, /finalizeOfficialDocumentWorkbook/);
   assert.match(xlsx, /rows\[3\]\[metaStartColumn\] = context\.secondaryContext/);
   assert.match(xlsx, /rows\[4\]\[metaStartColumn\] = input\.operationalLine/);
   assert.match(sports, /rows\[3\]\[metaStartColumn\] = `Leader:/);
