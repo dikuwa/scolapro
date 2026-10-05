@@ -14,7 +14,9 @@ test("admission application uses the normal AppShell and previews the canonical 
   assert.match(page, /<AppShell>/);
   assert.match(page, /OfficialDocumentActions/);
   assert.match(page, /Learner application form PDF preview/);
-  assert.match(page, /src=\{previewHref\}/);
+  assert.match(page, /src=\{pdfPreviewHref\}/);
+  assert.match(page, /previewHref="#application-form-preview"/);
+  assert.match(page, /fit="viewport"/);
   assert.match(page, /downloadLabel="PDF"/);
   assert.doesNotMatch(page, /Download PDF/);
   assert.doesNotMatch(page, /window\.print/);
@@ -69,6 +71,10 @@ test("application PDF contains the requested labelled form sections", () => {
   assert.match(renderer, /Passport \/ learner photo \/ ID/);
   assert.match(renderer, /const box = 10/);
   assert.match(renderer, /Guardian signature/);
+  assert.match(renderer, /SCHOOL STAMP \/ OFFICIAL USE/);
+  assert.match(renderer, /const SCHOOL_USE_BOX_HEIGHT = 76/);
+  assert.match(renderer, /fieldPair\(page, bold, "Date of birth", "Sex"/);
+  assert.match(renderer, /fieldPair\(page, bold, "Current \/ last grade", "Intended grade \/ year"/);
 });
 
 test("official document actions are shared with Class Lists", () => {
@@ -76,4 +82,25 @@ test("official document actions are shared with Class Lists", () => {
   assert.match(sharedActions, /Preview \/ Print/);
   assert.match(sharedActions, /spreadsheetHref/);
   assert.equal(existsSync("src/features/admissions/print-application-button.tsx"), false);
+});
+
+
+test("admission preview fills the application workspace without opening a second app page", () => {
+  const preview = read("src/components/documents/official-document-preview.tsx");
+  const actions = read("src/components/documents/official-document-actions.tsx");
+  assert.match(preview, /fit\?: "page" \| "viewport"/);
+  assert.match(preview, /h-\[clamp\(44rem,78vh,70rem\)\] w-full min-w-0/);
+  assert.match(actions, /previewIsPageAnchor/);
+  assert.match(actions, /previewIsPageAnchor \? undefined : "_blank"/);
+  assert.match(page, /id="application-form-preview"/);
+  assert.doesNotMatch(page, /helper="[^"]*separate tab/);
+});
+
+test("handwritten application geometry leaves room for writing and school use", () => {
+  assert.match(renderer, /return y - 17;/);
+  assert.match(renderer, /bold\.widthOfTextAtSize\(labelText, size\) \+ 11/);
+  assert.match(renderer, /height: 24, multiline: true/);
+  assert.match(renderer, /SCHOOL_USE_BOX_WIDTH = 112/);
+  assert.match(renderer, /SCHOOL_USE_BOX_HEIGHT = 76/);
+  assert.match(renderer, /disclaimerWidth = CONTENT_WIDTH - SCHOOL_USE_BOX_WIDTH - 18/);
 });
