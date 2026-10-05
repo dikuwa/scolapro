@@ -140,7 +140,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
         </div>
         <div className="flex flex-wrap items-start gap-2">
           <OfficialDocumentActions
-            previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}
+            previewHref="#academic-schedule-preview"
             downloadHref={"/reports/academic-schedules/export.pdf?"+query.toString()}
             spreadsheetHref={"/reports/academic-schedules/export.xlsx?"+query.toString()}
           />
