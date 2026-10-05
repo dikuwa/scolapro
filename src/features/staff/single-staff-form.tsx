@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Plus, UserPlus } from "lucide-react";
+import { Plus, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
@@ -27,21 +27,37 @@ export function SingleStaffForm({ schoolId, today, suggestedEmployeeNumber }: { 
   const [state, action, pending] = useActionState(createSingleStaff, initialState);
   const [assignmentType, setAssignmentType] = useState("teacher");
   const [effectiveFrom, setEffectiveFrom] = useState(today);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) toast.success(state.message);
-    else toast.error(state.message);
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setOpen(false));
+    } else {
+      toast.error(state.message);
+    }
   }, [state]);
 
   return (
     <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex items-start gap-3">
-        <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><UserPlus className="size-4" aria-hidden="true" /></span>
-        <div><h2 className="scolapro-section-title">Add staff member</h2><p className="scolapro-section-description">Create one staff record and school placement. A ScolaPro login is optional and can be invited separately.</p></div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><UserPlus className="size-4" aria-hidden="true" /></span>
+          <div><h2 className="scolapro-section-title">Add staff member</h2><p className="scolapro-section-description">Create one staff record and school placement. A ScolaPro login is optional and can be invited separately.</p></div>
+        </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 bg-brand-soft px-3 text-xs font-semibold text-brand-strong"
+        >
+          {open ? <X className="size-3.5" aria-hidden="true" /> : <Plus className="size-3.5" aria-hidden="true" />}
+          {open ? "Close" : "Add staff"}
+        </button>
       </div>
 
-      <form action={action} className="mt-5 space-y-4" noValidate>
+      {open ? <form action={action} className="mt-5 space-y-4 border-t border-border-subtle pt-5" noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
         <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
           <div>
@@ -84,7 +100,7 @@ export function SingleStaffForm({ schoolId, today, suggestedEmployeeNumber }: { 
             {pending ? "Adding…" : "Add staff member"}
           </button>
         </div>
-      </form>
+      </form> : null}
     </section>
   );
 }
