@@ -39,6 +39,7 @@ export function OfficialDocumentActions({
   }
 
   const busy = disabled || activeAction !== null;
+  const previewIsPageAnchor = previewHref?.startsWith("#") ?? false;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -48,7 +49,7 @@ export function OfficialDocumentActions({
           {activeAction === "preview" ? "Opening preview…" : previewLabel}
         </button>
       ) : previewHref ? (
-        <Link href={previewHref} target="_blank" rel="noopener noreferrer" onClick={() => beginAction("preview")} aria-busy={activeAction === "preview"} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}>
+        <Link href={previewHref} target={previewIsPageAnchor ? undefined : "_blank"} rel={previewIsPageAnchor ? undefined : "noopener noreferrer"} onClick={() => beginAction("preview")} aria-busy={activeAction === "preview"} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}>
           {activeAction === "preview" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" /> : <Printer aria-hidden="true" className="size-3.5" />}
           {activeAction === "preview" ? "Opening preview…" : previewLabel}
         </Link>
