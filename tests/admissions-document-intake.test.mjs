@@ -54,6 +54,8 @@ test("server actions upload source artifacts but commit only through governed RP
 
 test("admissions workspace is summary-first staged review with source provenance", () => {
   assert.match(page,/Admissions & document intake/);
+  assert.match(page,/href="\/school\/admissions\/application-form"/);
+  assert.doesNotMatch(page,/href="\/school\/admissions\/application-form"[^>]*target="_blank"/);
   assert.match(page,/Scan \/ upload paper application/);
   assert.match(page,/Online equivalent/);
   assert.match(page,/Intake queue/);
