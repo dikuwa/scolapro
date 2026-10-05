@@ -1,6 +1,7 @@
 import { BookOpenCheck, School, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { AcademicSetupCore } from "@/features/academics/academic-setup-core";
 import { AcademicStructureForms } from "@/features/academics/structure-forms";
 import { ClassManagement } from "@/features/academics/class-management";
 import { getSchoolStructure } from "@/features/academics/server/structure";
@@ -26,6 +27,9 @@ export default async function SchoolSetupPage() {
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
     getHodScopeConfiguration(membership.schoolId),
   ]);
+  const activeHodScopeCount = hodScope.responsibilities.filter(
+    (row) => row.effectiveFrom <= hodScope.today && (!row.effectiveTo || row.effectiveTo >= hodScope.today),
+  ).length;
 
   return (
     <AppShell>
@@ -40,41 +44,91 @@ export default async function SchoolSetupPage() {
         </div>
 
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
-          <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">School</p><p className="mt-1.5 text-sm font-semibold text-[color:var(--accent-indigo)]">{membership.schoolName}</p></div><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span></div>
-          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Configured grades</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-mint)]">{structure.grades.length}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><BookOpenCheck className="size-4" aria-hidden="true" /></span></div>
-          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Register classes</p><p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-amber)]">{structure.classes.length}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span></div>
+          <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">School</p>
+              <p className="mt-1.5 text-sm font-semibold text-[color:var(--accent-indigo)]">{membership.schoolName}</p>
+            </div>
+            <span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]">
+              <School className="size-4" aria-hidden="true" />
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Configured grades</p>
+              <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-mint)]">{structure.grades.length}</p>
+            </div>
+            <span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]">
+              <BookOpenCheck className="size-4" aria-hidden="true" />
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Register classes</p>
+              <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-amber)]">{structure.classes.length}</p>
+            </div>
+            <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]">
+              <UsersRound className="size-4" aria-hidden="true" />
+            </span>
+          </div>
         </div>
 
-        <div className="mt-5">
-          <TimetableCycleSettings
-            schoolId={membership.schoolId}
-            academicYear={academicYear}
-            initialMode={structure.timetableCycleMode}
-            initialLength={structure.timetableCycleLength}
-            initialAnchorDate={structure.timetableCycleAnchorDate}
-            initialAnchorDay={structure.timetableCycleAnchorDay}
-          />
-        </div>
-
-
-        <HodScopeConfiguration
-          schoolId={membership.schoolId}
-          subjects={hodScope.subjects}
-          heads={hodScope.heads}
-          responsibilities={hodScope.responsibilities}
-          today={hodScope.today}
+        <AcademicSetupCore
+          timetableModeLabel={structure.timetableCycleMode === "rotating" ? "Rotating cycle" : "Standard week"}
+          cycleLength={structure.timetableCycleLength}
+          anchorDate={structure.timetableCycleAnchorDate}
+          anchorDay={structure.timetableCycleAnchorDay}
+          rotating={structure.timetableCycleMode === "rotating"}
+          hodScopeCount={activeHodScopeCount}
+          timetableEditor={
+            <TimetableCycleSettings
+              schoolId={membership.schoolId}
+              academicYear={academicYear}
+              initialMode={structure.timetableCycleMode}
+              initialLength={structure.timetableCycleLength}
+              initialAnchorDate={structure.timetableCycleAnchorDate}
+              initialAnchorDay={structure.timetableCycleAnchorDay}
+            />
+          }
+          hodEditor={
+            <HodScopeConfiguration
+              schoolId={membership.schoolId}
+              subjects={hodScope.subjects}
+              heads={hodScope.heads}
+              responsibilities={hodScope.responsibilities}
+              today={hodScope.today}
+            />
+          }
         />
 
         {canManageAcademicStructure ? (
           <>
-            <div className="mt-5"><AcademicStructureForms schoolId={membership.schoolId} academicYear={academicYear} grades={structure.grades} rooms={rooms} classes={structure.classes} /></div>
+            <div className="mt-5">
+              <AcademicStructureForms
+                schoolId={membership.schoolId}
+                academicYear={academicYear}
+                grades={structure.grades} rooms={rooms} classes={structure.classes}
+              />
+            </div>
 
-            <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-              <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4"><div><h2 className="scolapro-section-title">Current register structure</h2><p className="scolapro-section-description">Classes are grouped by grade. Edit incorrect labels/codes here; deletion is allowed only before a class is used by enrolment, attendance or timetable records.</p></div><span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span></div>
-              <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} />
-            </section>
+            <div className="mt-5 grid gap-5 xl:grid-cols-2 xl:items-start">
+              <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+                <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4">
+                  <div>
+                    <h2 className="scolapro-section-title">Current register structure</h2>
+                    <p className="scolapro-section-description">
+                      Classes are grouped by grade. Edit incorrect labels/codes here; deletion is allowed only before a class is used by enrolment, attendance or timetable records.
+                    </p>
+                  </div>
+                  <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span>
+                </div>
+                <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} />
+              </section>
 
-            <RoomManagement schoolId={membership.schoolId} rooms={rooms} />
+              <div className="[&>section]:mt-0">
+                <RoomManagement schoolId={membership.schoolId} rooms={rooms} />
+              </div>
+            </div>
           </>
         ) : null}
       </section>
