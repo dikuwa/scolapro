@@ -43,7 +43,7 @@ export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPu
           {open ? "Close" : "Edit contact"}
         </button>
       </div>
-      {open ? <form action={action} className="mt-5 grid gap-4 md:grid-cols-2" noValidate>
+      <form action={action} className={open ? "mt-5 grid gap-4 md:grid-cols-2" : "hidden"} noValidate aria-hidden={!open}>
         <input type="hidden" name="schoolId" value={schoolId} />
         <div>
           <label className={formFieldLabelClass} htmlFor="directory-cellphone">Cellphone</label>
@@ -62,7 +62,7 @@ export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPu
             {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}{pending ? "Saving…" : "Save directory contact"}
           </button>
         </div>
-      </form> : null}
+      </form>
     </div>
   );
 }
