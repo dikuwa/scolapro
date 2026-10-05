@@ -240,7 +240,7 @@ export async function renderOfficialAttendanceSummaryPdf(
 
   const qrPng = !isDraft && input.verificationUrl ? await (async () => {
     try {
-      const dataUrl = await QRCode.toDataURL(input.verificationUrl, { errorCorrectionLevel: "M", margin: 1, width: 160 });
+      const dataUrl = await QRCode.toDataURL(input.verificationUrl!, { errorCorrectionLevel: "M", margin: 1, width: 160 });
       return await pdf.embedPng(Buffer.from(dataUrl.split(",")[1], "base64"));
     } catch {
       return null;
