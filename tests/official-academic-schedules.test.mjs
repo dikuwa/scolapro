@@ -255,6 +255,6 @@ test("document print surfaces share governed chrome, safe navigation and determi
 
   assert.match(globals,/\[data-sonner-toaster\]/);
   assert.match(globals,/\.scolapro-screen-only/);
-  assert.match(documentActions,/target="_blank"/);
-  assert.match(documentActions,/rel="noopener noreferrer"/);
+  assert.match(documentActions,/previewIsPageAnchor \? undefined : "_blank"/);
+  assert.match(documentActions,/previewIsPageAnchor \? undefined : "noopener noreferrer"/);
 });
