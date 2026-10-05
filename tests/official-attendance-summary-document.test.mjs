@@ -71,3 +71,13 @@ test("unfinalized attendance summaries expose a live draft preview without verif
   assert.match(route, /summary: liveSummary/);
   assert.match(route, /X-ScolaPro-Document-State/);
 });
+
+test("weekly and term absentee summaries expose specific preview and export names", () => {
+  const actions = readFileSync("src/components/documents/official-document-actions.tsx", "utf8");
+  assert.match(actions, /previewTitle = "Document preview"/);
+  assert.match(component, /Weekly Summary of Absentees/);
+  assert.match(component, /Term Summary of Absentees/);
+  assert.match(component, /previewTitle=\{documentTitle\}/);
+  assert.match(route, /weekly-summary-of-absentees/);
+  assert.match(route, /term-summary-of-absentees/);
+});
