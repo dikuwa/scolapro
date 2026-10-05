@@ -1,7 +1,7 @@
 import "server-only";
 
 import QRCode from "qrcode";
-import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { OFFICIAL_DOCUMENT_PDF_GEOMETRY } from "@/features/documents/server/official-document-chrome";
 import { drawOfficialDocumentPdfFooter } from "@/features/documents/server/official-document-pdf-footer";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
@@ -21,12 +21,13 @@ import type {
 export type OfficialAttendanceSummaryPdfInput = {
   header: OfficialDocumentHeaderModel;
   summary: OfficialAttendanceSummary;
-  revision: number;
-  scolaproReference: string;
-  verificationToken: string;
-  verificationUrl: string;
-  finalizedAt: string;
+  revision?: number;
+  scolaproReference?: string;
+  verificationToken?: string;
+  verificationUrl?: string;
+  finalizedAt?: string;
   generatedAt?: string | null;
+  isDraft?: boolean;
   logoBytes?: Uint8Array | null;
 };
 
@@ -222,7 +223,9 @@ export async function renderOfficialAttendanceSummaryPdf(
   const summary = input.summary;
   const weeks = summary.schoolTotals.weekly;
   const weekWidth = weeks.length ? (CONTENT_WIDTH - CLASS_WIDTH) / weeks.length : CONTENT_WIDTH - CLASS_WIDTH;
-  const finalizedLabel = new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(input.finalizedAt));
+  const isDraft = input.isDraft === true;
+  const statusDate = input.finalizedAt ?? input.generatedAt ?? new Date().toISOString();
+  const statusDateLabel = new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(statusDate));
   const titleText = summary.mode === "term"
     ? `Term-to-date${summary.term ? ` - ${summary.term.displayName}` : ""}`
     : `Current week${weeks[0] ? ` - ${weeks[0].weekLabel}` : ""}`;
@@ -235,14 +238,14 @@ export async function renderOfficialAttendanceSummaryPdf(
   for (let index = 0; index < rows.length; index += rowsPerPage) chunks.push(rows.slice(index, index + rowsPerPage));
   if (!chunks.length) chunks.push([]);
 
-  const qrPng = await (async () => {
+  const qrPng = !isDraft && input.verificationUrl ? await (async () => {
     try {
       const dataUrl = await QRCode.toDataURL(input.verificationUrl, { errorCorrectionLevel: "M", margin: 1, width: 160 });
       return await pdf.embedPng(Buffer.from(dataUrl.split(",")[1], "base64"));
     } catch {
       return null;
     }
-  })();
+  })() : null;
 
   for (let pageIndex = 0; pageIndex < chunks.length; pageIndex += 1) {
     const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
@@ -261,7 +264,9 @@ export async function renderOfficialAttendanceSummaryPdf(
       `Reporting period: ${officialDocumentPdfSafeText(summary.scopeStart)} - ${officialDocumentPdfSafeText(summary.scopeEnd)}`,
       { x: MARGIN, y: y - 10, size: 5.2, font: regular, color: MUTED },
     );
-    const rev = `Revision ${input.revision} · Ref ${officialDocumentPdfSafeText(input.scolaproReference)} · Finalized ${officialDocumentPdfSafeText(finalizedLabel)}`;
+    const rev = isDraft
+      ? `DRAFT · NOT FINALIZED · Generated ${officialDocumentPdfSafeText(statusDateLabel)}`
+      : `Revision ${input.revision ?? 1} · Ref ${officialDocumentPdfSafeText(input.scolaproReference ?? "")} · Finalized ${officialDocumentPdfSafeText(statusDateLabel)}`;
     const revText = fitOfficialDocumentPdfText(regular, rev, 5.2, CONTENT_WIDTH * 0.58);
     page.drawText(revText, {
       x: PAGE_WIDTH - MARGIN - regular.widthOfTextAtSize(revText, 5.2),
@@ -271,6 +276,21 @@ export async function renderOfficialAttendanceSummaryPdf(
       color: MUTED,
     });
     y -= META_HEIGHT;
+
+    if (isDraft) {
+      const watermark = "DRAFT - NOT FINALIZED";
+      const watermarkSize = 34;
+      const watermarkWidth = resources.bold.widthOfTextAtSize(watermark, watermarkSize);
+      page.drawText(watermark, {
+        x: (PAGE_WIDTH - watermarkWidth) / 2,
+        y: PAGE_HEIGHT / 2 - 10,
+        size: watermarkSize,
+        font: resources.bold,
+        color: rgb(0.55, 0.12, 0.12),
+        opacity: 0.12,
+        rotate: degrees(18),
+      });
+    }
 
     y = drawRegisterHeader(page, resources, summary, y, weekWidth);
     for (const row of chunks[pageIndex]) {
@@ -295,8 +315,8 @@ export async function renderOfficialAttendanceSummaryPdf(
       pageNumber: index + 1,
       pageCount: pages.length,
       primaryLeft: `Absent learner-days: ${summary.schoolTotals.absentLearnerDays} · Overall % absence: ${formatPercent(summary.schoolTotals.percentAbsence)}`,
-      secondaryLeft: "ScolaPro official summary of absentees",
-      secondaryRight: `Rev ${input.revision} · ${officialDocumentPdfSafeText(input.scolaproReference)}`,
+      secondaryLeft: isDraft ? "DRAFT · NOT FINALIZED · ScolaPro summary of absentees" : "ScolaPro official summary of absentees",
+      secondaryRight: isDraft ? "Preview only" : `Rev ${input.revision ?? 1} · ${officialDocumentPdfSafeText(input.scolaproReference ?? "")}`,
       primaryLeftMaxWidth: 470,
       secondaryLeftMaxWidth: 470,
       secondaryRightMaxWidth: 220,
