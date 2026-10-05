@@ -101,10 +101,10 @@ test("term mode is wired into the official attendance view", () => {
 
 test("official attendance outputs use the universal internal-school header without changing aggregate hierarchy", () => {
   assert.match(htmlRenderer, /renderOfficialDocumentHtmlHeader/);
-  assert.match(htmlRenderer, /title: "OFFICIAL ATTENDANCE SUMMARY"/);
+  assert.match(htmlRenderer, /title: "SUMMARY OF ABSENTEES"/);
   assert.match(htmlRenderer, /primaryContext: titleText/);
   assert.match(pdfRenderer, /INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT/);
-  assert.match(pdfRenderer, /title: "OFFICIAL ATTENDANCE SUMMARY"/);
+  assert.match(pdfRenderer, /title: "SUMMARY OF ABSENTEES"/);
   assert.doesNotMatch(pdfRenderer, /TITLE_HEIGHT/);
   assert.match(route, /contact\.get\("address"\)/);
   assert.match(route, /contact\.get\("telephone"\)/);

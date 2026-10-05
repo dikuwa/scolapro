@@ -5,7 +5,6 @@ import { OFFICIAL_DOCUMENT_PDF_GEOMETRY } from "@/features/documents/server/offi
 import { fitOfficialDocumentPdfText } from "@/features/documents/server/official-document-pdf-header";
 
 const {
-  pageWidth: PAGE_WIDTH,
   margin: MARGIN,
   metadataClearanceY: META_CLEAR_Y,
   metadataClearanceHeight: META_CLEAR_HEIGHT,
@@ -46,7 +45,7 @@ export function drawOfficialDocumentPdfFooter(input: OfficialDocumentPdfFooterIn
     input.page.drawRectangle({
       x: 0,
       y: META_CLEAR_Y,
-      width: PAGE_WIDTH,
+      width: input.page.getWidth(),
       height: META_CLEAR_HEIGHT,
       color: rgb(1, 1, 1),
     });
@@ -68,7 +67,7 @@ export function drawOfficialDocumentPdfFooter(input: OfficialDocumentPdfFooterIn
 
   const pageText = `Page ${input.pageNumber} of ${input.pageCount}`;
   input.page.drawText(pageText, {
-    x: PAGE_WIDTH - MARGIN - input.font.widthOfTextAtSize(pageText, primarySize),
+    x: input.page.getWidth() - MARGIN - input.font.widthOfTextAtSize(pageText, primarySize),
     y: META_PRIMARY_Y,
     size: primarySize,
     font: input.font,
@@ -103,7 +102,7 @@ export function drawOfficialDocumentPdfFooter(input: OfficialDocumentPdfFooterIn
       input.secondaryRightMaxWidth ?? 180,
     );
     input.page.drawText(rendered, {
-      x: PAGE_WIDTH - MARGIN - input.font.widthOfTextAtSize(rendered, secondarySize),
+      x: input.page.getWidth() - MARGIN - input.font.widthOfTextAtSize(rendered, secondarySize),
       y: META_SECONDARY_Y,
       size: secondarySize,
       font: input.font,

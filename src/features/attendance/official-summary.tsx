@@ -22,6 +22,10 @@ function formatPercent(value: number | null) {
   return value === null ? "—" : `${value.toFixed(1)}%`;
 }
 
+function conciseClassLabel(className: string) {
+  return className.trim().replace(/^grade\s+/i, "");
+}
+
 function shiftWeek(date: string, direction: -1 | 1) {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + direction * 7);
@@ -336,7 +340,7 @@ function WeekTable({ summary }: { summary: OfficialAttendanceSummary }) {
             const shown = cell ?? { boys: 0, girls: 0, total: 0 };
             return (
               <tr key={row.classId} className="text-sm">
-                <th scope="row" className="max-w-56 truncate px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{row.gradeName} {row.className}</span></th>
+                <th scope="row" className="max-w-56 truncate px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{conciseClassLabel(row.className)}</span></th>
                 <td className="px-3 py-3 text-right tabular-nums">{shown.boys}</td>
                 <td className="px-3 py-3 text-right tabular-nums">{shown.girls}</td>
                 <td className="px-3 py-3 text-right font-semibold tabular-nums">{shown.total}</td>
@@ -399,7 +403,7 @@ function TermTable({ summary, formatPercent }: { summary: OfficialAttendanceSumm
         <tbody className="divide-y divide-border-subtle">
           {summary.classRows.map((row) => (
             <tr key={row.classId} className="text-sm">
-              <th scope="row" className="max-w-56 truncate px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{row.gradeName} {row.className}</span></th>
+              <th scope="row" className="max-w-56 truncate px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{conciseClassLabel(row.className)}</span></th>
               {row.weekly.map((week) => <td key={week.weekId} className="px-3 py-3 text-right tabular-nums"><Split value={week.absences} /></td>)}
               <td className="px-3 py-3 text-right font-semibold tabular-nums"><Split value={row.absences} /></td>
             </tr>
