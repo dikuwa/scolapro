@@ -94,3 +94,9 @@ test("school calendar shows the national and school overlay before add-event con
   assert.match(source, /showAddEvent/);
   assert.match(source, /aria-expanded=\{showAddEvent\}/);
 });
+
+
+test("staff directory appears before staff creation controls", () => {
+  const source = read("src/app/staff/page.tsx");
+  assert.ok(source.indexOf("School staff") < source.indexOf("<SingleStaffForm"));
+});
