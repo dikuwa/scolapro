@@ -132,7 +132,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
         ? <div role="status" className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-4 py-3 text-sm text-muted-foreground"><strong className="text-foreground">All Terms scope.</strong> This multi-term issue has a distinct immutable snapshot scope and cannot supersede a single-term document.</div>
         : null}
 
-    <section className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+    <section id="academic-schedule-preview" className="scroll-mt-4 rounded-[var(--radius-sm)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle p-4">
         <div>
           <h2 className="scolapro-section-title">Document preview</h2>
@@ -140,7 +140,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
         </div>
         <div className="flex flex-wrap items-start gap-2">
           <OfficialDocumentActions
-            previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}
+            previewHref="#academic-schedule-preview"
             downloadHref={"/reports/academic-schedules/export.pdf?"+query.toString()}
             spreadsheetHref={"/reports/academic-schedules/export.xlsx?"+query.toString()}
           />
