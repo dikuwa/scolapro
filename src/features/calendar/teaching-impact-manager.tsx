@@ -128,7 +128,7 @@ export function TeachingImpactManager({
           <div className="mt-2 divide-y divide-border-subtle">{overrides.slice(0, 8).map((item) => <div key={item.id} className="grid gap-1 py-2.5 sm:grid-cols-[7.5rem_10rem_1fr]"><span className="text-xs font-medium">{item.date}</span><span className="text-[0.68rem] font-semibold text-brand-strong">{item.impact.replaceAll("_", " ")}</span><span className="text-[0.68rem] text-muted-foreground">{item.bellScheduleName ?? item.reason ?? "—"}</span></div>)}</div>
         </details>
       ) : null}
-      {canManage && showAddEvent ? <form action={action} className="mt-5 grid gap-4 lg:grid-cols-2">
+      {canManage ? <form action={action} className={showAddEvent ? "mt-5 grid gap-4 lg:grid-cols-2" : "hidden"} aria-hidden={!showAddEvent}>
         <input type="hidden" name="schoolId" value={schoolId} />
         <input type="hidden" name="academicYear" value={year} />
         <div>
