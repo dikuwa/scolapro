@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { LoaderCircle, Save } from "lucide-react";
 import { toast } from "sonner";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
@@ -11,24 +11,39 @@ const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-bor
 
 export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPublicEmail }: { schoolId: string; cellphone: string; principalPublicEmail: string }) {
   const [state, action, pending] = useActionState(saveSchoolDirectoryContact, initialState);
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) toast.success(state.message);
-    else toast.error(state.message);
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => setOpen(false));
+    } else {
+      toast.error(state.message);
+    }
   }, [state]);
   const cellphoneError = state.fieldErrors?.cellphone?.[0];
   const emailError = state.fieldErrors?.principalPublicEmail?.[0];
 
   return (
     <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex items-start gap-3 border-b border-border-subtle pb-4">
-        <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Save className="size-4" aria-hidden="true" /></span>
-        <div>
-          <h2 className="scolapro-section-title">School Directory contact</h2>
-          <p className="scolapro-section-description">Public directory fields shown to authenticated ScolaPro schools. Telephone, fax, school email and addresses keep their existing canonical fields above.</p>
+      <div className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${open ? "border-b border-border-subtle pb-4" : ""}`}>
+        <div className="flex items-start gap-3">
+          <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Save className="size-4" aria-hidden="true" /></span>
+          <div>
+            <h2 className="scolapro-section-title">School Directory contact</h2>
+            <p className="scolapro-section-description">Public directory fields shown to authenticated ScolaPro schools. Telephone, fax, school email and addresses keep their existing canonical fields above.</p>
+          </div>
         </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center bg-brand-soft px-3 text-xs font-semibold text-brand-strong"
+        >
+          {open ? "Close" : "Edit contact"}
+        </button>
       </div>
-      <form action={action} className="mt-5 grid gap-4 md:grid-cols-2" noValidate>
+      {open ? <form action={action} className="mt-5 grid gap-4 md:grid-cols-2" noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
         <div>
           <label className={formFieldLabelClass} htmlFor="directory-cellphone">Cellphone</label>
@@ -47,7 +62,7 @@ export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPu
             {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}{pending ? "Saving…" : "Save directory contact"}
           </button>
         </div>
-      </form>
+      </form> : null}
     </div>
   );
 }
