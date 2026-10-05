@@ -86,3 +86,11 @@ test("voluntary contributions page shows contribution state before campaign setu
   const source = read("src/app/school/contributions/page.tsx");
   assert.ok(source.indexOf("<ContributionWorkspace") < source.indexOf("<ContributionSetup"));
 });
+
+
+test("school calendar shows the national and school overlay before add-event configuration", () => {
+  const source = read("src/features/calendar/teaching-impact-manager.tsx");
+  assert.ok(source.indexOf("Baseline and school overlay") < source.indexOf("<form action={action}"));
+  assert.match(source, /showAddEvent/);
+  assert.match(source, /aria-expanded=\{showAddEvent\}/);
+});
