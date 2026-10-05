@@ -24,9 +24,13 @@ function exportErrorResponse(error: unknown) {
 }
 
 async function storedLogoBytes(storagePath: string, signedUrl: string): Promise<Uint8Array | null> {
-  if (!storagePath || !signedUrl) return null;
-  const response = await fetch(signedUrl, { cache: "no-store" });
-  return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+  if (!storagePath || !/^https?:\/\//i.test(signedUrl)) return null;
+  try {
+    const response = await fetch(signedUrl, { cache: "no-store" });
+    return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+  } catch {
+    return null;
+  }
 }
 
 function formatPercent(value: number | null) {
