@@ -44,7 +44,6 @@ export async function renderAcademicSchedulePdf(
   const headerHeight = orientations.some((orientation) => orientation === "vertical") ? 70 : 24;
   const rowHeight = 13;
   const { regular, bold } = resources;
-  let pageNumber = 0;
 
   const headerContext = {
     title: payload.title,
@@ -57,7 +56,6 @@ export async function renderAcademicSchedulePdf(
 
   const addPage = (continued = false) => {
     const page = pdf.addPage([pageWidth, pageHeight]);
-    pageNumber += 1;
     let y = drawOfficialDocumentPdfHeader(page, header, resources, pageHeight - margin, {
       documentX: margin,
       documentWidth: availableWidth,
