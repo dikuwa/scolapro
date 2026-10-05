@@ -58,7 +58,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <OfficialDocumentActions
-              previewHref={`/academics/analysis/export.pdf?${exportParams.toString()}&preview=1`}
+              previewHref="#academic-analysis-preview"
               downloadHref={`/academics/analysis/export.pdf?${exportParams.toString()}`}
               spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
             />
@@ -113,14 +113,14 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
 
       <AcademicAnalysisViews workspace={workspace} view={view} />
 
-      <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+      <section id="academic-analysis-preview" className="scroll-mt-4 overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="scolapro-section-title">Document preview</h2>
             <p className="scolapro-section-description">Academic analysis · {year} · Term {term} · {basis === "official" ? "Official" : "Provisional"}</p>
           </div>
           <OfficialDocumentActions
-            previewHref={`/academics/analysis/export.pdf?${exportParams.toString()}&preview=1`}
+            previewHref="#academic-analysis-preview"
             downloadHref={`/academics/analysis/export.pdf?${exportParams.toString()}`}
             spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
           />
