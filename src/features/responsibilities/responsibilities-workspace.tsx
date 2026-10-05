@@ -43,12 +43,25 @@ function EndDutyForm({
   pending: boolean;
 }) {
   const [activeTo, setActiveTo] = useState(today);
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button type="button" variant="neutral" size="sm" onClick={() => setOpen(true)}>
+        End responsibility
+      </Button>
+    );
+  }
+
   return (
     <form action={action} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="assignmentId" value={assignmentId} />
       <DateField label="End on" name="activeTo" value={activeTo} onChange={setActiveTo} required />
       <Button type="submit" variant="neutral" loading={pending} disabled={pending}>
         End responsibility
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+        Cancel
       </Button>
     </form>
   );
