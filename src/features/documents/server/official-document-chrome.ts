@@ -20,7 +20,7 @@ export const OFFICIAL_DOCUMENT_FRAME_RULE =
   ".report { width: 100%; border: 1.2px solid var(--line); padding: 7mm 7mm 5mm; min-height: 270mm; }";
 
 export const OFFICIAL_DOCUMENT_HEADER_RULE =
-  ".school-header { display: grid; grid-template-columns: 68px minmax(0,1fr) minmax(150px,36%); gap: 8px; align-items: center; border: 0; border-bottom: 2px solid var(--line); padding: 6px 8px 7px; min-height: 76px; }";
+  ".school-header { display: grid; grid-template-columns: 68px minmax(0,1fr) minmax(150px,36%); gap: 8px; align-items: center; border: 0; border-bottom: 1px solid var(--line); padding: 6px 8px 7px; min-height: 76px; }";
 
 export const OFFICIAL_DOCUMENT_PORTRAIT_SCREEN_RULE =
   "@media screen { body { overflow-x:auto; background:#eef0f3; } .report { width:210mm; min-width:210mm; min-height:297mm; margin:0 auto; background:#fff; } }";
@@ -43,24 +43,27 @@ export const OFFICIAL_DOCUMENT_HTML_HEADER_RULE =
   .school-header .logo-wrap { display:flex; align-items:flex-start; justify-content:center; min-height:66px; }
   .school-header .school-logo { display:block; max-width:62px; max-height:64px; object-fit:contain; }
   .school-header .school-identity { min-width:0; text-align:left; }
-  .school-header .school-name { margin:0 0 2px; font-size:17px; line-height:1; font-weight:700; white-space:normal; }
+  .school-header .school-name { margin:0; font-size:17px; line-height:1; font-weight:700; white-space:normal; }
   .school-name.old-english { font-family: "UnifrakturCook","Old English Text MT","Lucida Blackletter","Times New Roman",serif; font-weight: 700; letter-spacing: 0; }
-  .school-header .former-name { margin:0 0 1px; font-size:6.2px; line-height:1.08; }
-  .school-header .school-contact { font-size:6.1px; line-height:1.08; }
+  .school-header .former-name { margin:1px 0 0; font-size:6.2px; line-height:1; }
+  .school-header .school-contact { font-size:6.1px; line-height:1; }
   .school-header .school-contact strong { font-weight:700; }
   .school-header.internal-school .internal-document-context { min-width:0; text-align:right; font-size:6.6px; line-height:1.05; }
   .school-header.internal-school .document-context-title { margin-bottom:1px; font-size:11.5px; line-height:1; font-weight:700; letter-spacing:.01em; }
   .school-header.internal-school .document-context-summary { margin-top:0; }
   .school-header.compact-left { min-height:76px; }
-  .school-header.external-correspondence { grid-template-columns: 88px minmax(0,1fr) 88px; min-height:92px; padding:8px 10px; }
+  .school-header.external-correspondence { grid-template-columns: 82px minmax(0,1fr) 82px; min-height:84px; padding:5px 8px 6px; }
   .external-correspondence .coat-of-arms-wrap,
   .external-correspondence .school-logo-right,
-  .external-correspondence .school-logo-wrap { display: flex; align-items: center; justify-content: center; min-height: 76px; }
+  .external-correspondence .school-logo-wrap { display: flex; align-items: center; justify-content: center; min-height: 72px; }
   .external-correspondence .governed-coat-of-arms,
   .external-correspondence .school-logo { display: block; max-width: 68px; max-height: 68px; object-fit: contain; }
-  .external-correspondence .school-identity { text-align: center; }
-  .external-correspondence .school-contact { text-align: center; }
-  .external-correspondence .external-postal { margin-top: 2px; padding: 0; text-align: center; line-height: 1; }
+  .external-correspondence .school-identity { display:flex; min-width:0; flex-direction:column; align-items:center; justify-content:flex-start; text-align:center; }
+  .external-correspondence .former-name { margin-top:1px; }
+  .external-correspondence .school-contact { margin-top:2px; text-align:center; line-height:1; }
+  .external-correspondence .school-contact > div { margin:0; padding:0; }
+  .external-correspondence .external-postal { margin-top:1px; padding:0; text-align:center; line-height:1; }
+  .external-correspondence .external-postal > div { margin:0; padding:0; }
   @media (max-width: 640px) {
     .school-header.external-correspondence { grid-template-columns: 58px minmax(0,1fr) 58px; gap: 6px; padding: 6px; }
     .external-correspondence .governed-coat-of-arms,

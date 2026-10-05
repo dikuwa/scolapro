@@ -44,7 +44,6 @@ export async function renderAcademicSchedulePdf(
   const headerHeight = orientations.some((orientation) => orientation === "vertical") ? 70 : 24;
   const rowHeight = 13;
   const { regular, bold } = resources;
-  let pageNumber = 0;
 
   const headerContext = {
     title: payload.title,
@@ -57,7 +56,6 @@ export async function renderAcademicSchedulePdf(
 
   const addPage = (continued = false) => {
     const page = pdf.addPage([pageWidth, pageHeight]);
-    pageNumber += 1;
     let y = drawOfficialDocumentPdfHeader(page, header, resources, pageHeight - margin, {
       documentX: margin,
       documentWidth: availableWidth,
@@ -74,18 +72,27 @@ export async function renderAcademicSchedulePdf(
       const width = widths[index];
       page.drawRectangle({ x, y: top - headerHeight, width, height: headerHeight, borderWidth: 0.55, borderColor: LINE, color: HEADER_FILL });
       if (orientations[index] === "vertical") {
-        const text = fitOfficialDocumentPdfText(bold, column, 5.4, headerHeight - 8);
+        const size = 5.4;
+        const text = fitOfficialDocumentPdfText(bold, column, size, headerHeight - 8);
+        const textLength = bold.widthOfTextAtSize(text, size);
         page.drawText(text, {
-          x: x + width / 2 + 2,
-          y: top - headerHeight + 4,
-          size: 5.4,
+          x: x + width / 2 + size * 0.35,
+          y: top - headerHeight / 2 - textLength / 2,
+          size,
           font: bold,
           color: INK,
           rotate: degrees(90),
         });
       } else {
-        const text = fitOfficialDocumentPdfText(bold, column, 5.4, width - 5);
-        page.drawText(text, { x: x + 2.5, y: top - headerHeight / 2 - 2, size: 5.4, font: bold, color: INK });
+        const size = 5.4;
+        const text = fitOfficialDocumentPdfText(bold, column, size, width - 5);
+        page.drawText(text, {
+          x: x + 2.5,
+          y: top - headerHeight / 2 - size * 0.34,
+          size,
+          font: bold,
+          color: INK,
+        });
       }
       x += width;
     });
@@ -115,7 +122,7 @@ export async function renderAcademicSchedulePdf(
       const textWidth = regular.widthOfTextAtSize(text, size);
       current.page.drawText(text, {
         x: centered ? x + Math.max(2, (width - textWidth) / 2) : x + 2,
-        y: current.y - 9,
+        y: current.y - rowHeight / 2 - size * 0.34,
         size,
         font: regular,
         color: INK,
