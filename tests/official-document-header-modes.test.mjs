@@ -21,6 +21,8 @@ test("header modes are governed and document-type selected", () => {
   assert.match(model, /external_correspondence/);
   assert.match(model, /governedAssetVersion/);
   assert.match(model, /Schools cannot replace this asset|PLATFORM_GOVERNED_NAMIBIA_COAT_OF_ARMS/);
+  assert.match(model, /url: "\/brand\/governed\/namibia-coat-of-arms\.png"/);
+  assert.match(model, /version: "2026-10-05"/);
   assert.match(live, /getLiveSchoolDocumentHeader/);
 });
 
@@ -50,6 +52,9 @@ test("governed asset is bundled and not school-configurable", () => {
   assert.equal(existsSync("public/brand/governed/namibia-coat-of-arms.svg"), true);
   assert.equal(existsSync("public/brand/governed/namibia-coat-of-arms.png"), true);
   assert.match(read("public/brand/governed/namibia-coat-of-arms.svg"), /Platform-governed asset/);
+  const governedCoatPng = readFileSync("public/brand/governed/namibia-coat-of-arms.png");
+  assert.equal(governedCoatPng[24], 8, "governed Coat of Arms raster must remain 8-bit for pdf-lib colour fidelity");
+  assert.equal(createHash("sha256").update(governedCoatPng).digest("hex"), "2d4921dd52fed0a8564a4a145e3f0e1e8d5894a6a6ddaace97666d9065c73958");
   assert.doesNotMatch(model, /profile\.coatOfArms|profile\.coat_of_arms/);
 });
 
@@ -96,8 +101,8 @@ test("shared official chrome uses the governed A4 backdrop and universal interna
 });
 
 
-test("internal header restores the full frame and top-aligns crest with school identity", () => {
-  assert.match(chrome, /school-header \{[^}]*border: 0; border-bottom: 2px solid var\(--line\)/);
+test("internal header keeps a thin shared bottom rule and top-aligns crest with school identity", () => {
+  assert.match(chrome, /school-header \{[^}]*border: 0; border-bottom: 1px solid var\(--line\)/);
   assert.doesNotMatch(chrome, /school-header\.internal-school \{[^}]*border-top/);
   assert.match(chrome, /internal-school > \.logo-wrap \{ align-self:start; padding-top:1px;/);
   assert.match(chrome, /internal-school > \.school-identity \{ align-self:start; padding-top:1px;/);
@@ -107,7 +112,7 @@ test("internal header restores the full frame and top-aligns crest with school i
   assert.match(chrome, /document-context-summary \{ margin-top:0/);
   assert.match(pdf, /start: \{ x, y: bottomY \}/);
   assert.match(pdf, /end: \{ x: x \+ width, y: bottomY \}/);
-  assert.match(pdf, /thickness: 1\.5/);
+  assert.match(pdf, /thickness: 0\.75/);
   assert.doesNotMatch(pdf, /top rule begins only where school identity starts/);
   assert.match(pdf, /y: topY - 4 - imageHeight/);
   assert.match(pdf, /y: topY - 16/);
@@ -133,9 +138,9 @@ test("governed document art is bundled and matches the supplied replacements", (
 });
 
 
-test("internal PDF header uses only the shared strong bottom rule", () => {
+test("internal PDF header uses only the shared thin bottom rule", () => {
   assert.doesNotMatch(pdf, /repaint the top edge/);
   assert.match(pdf, /start: \{ x, y: bottomY \}/);
   assert.match(pdf, /end: \{ x: x \+ width, y: bottomY \}/);
-  assert.match(pdf, /thickness: 1\.5/);
+  assert.match(pdf, /thickness: 0\.75/);
 });
