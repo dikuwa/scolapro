@@ -97,10 +97,20 @@ test("admission preview fills the application workspace without opening a second
 });
 
 test("handwritten application geometry leaves room for writing and school use", () => {
-  assert.match(renderer, /return y - 17;/);
+  assert.match(renderer, /return y - 21;/);
   assert.match(renderer, /bold\.widthOfTextAtSize\(labelText, size\) \+ 11/);
   assert.match(renderer, /height: 24, multiline: true/);
   assert.match(renderer, /SCHOOL_USE_BOX_WIDTH = 112/);
   assert.match(renderer, /SCHOOL_USE_BOX_HEIGHT = 76/);
   assert.match(renderer, /disclaimerWidth = CONTENT_WIDTH - SCHOOL_USE_BOX_WIDTH - 18/);
+});
+
+
+test("admission section headings keep clear bottom spacing and guardian borders stay intact", () => {
+  assert.match(renderer, /return y - 21;/);
+  const guardianPanelSource = renderer.split("function guardianPanel")[1]?.split("function checkbox")[0] ?? "";
+  assert.ok(
+    guardianPanelSource.indexOf("color: SOFT") < guardianPanelSource.indexOf("borderWidth: 0.55"),
+    "guardian header fill must render before the panel outline so it cannot paint over the border",
+  );
 });
