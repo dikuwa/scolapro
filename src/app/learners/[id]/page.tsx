@@ -1,5 +1,3 @@
-[Reading 161 lines from start (total: 161 lines, 0 remaining)]
-
 import Link from "next/link";
 import { CalendarDays, Camera, FileText, GraduationCap, MapPin, UserRound } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
@@ -161,5 +159,3 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
     </AppShell>
   );
 }
-
-[executed on device: MacBook-Pro-2.fritz.box (8ccb94b2-5fc5-4a5b-81c0-6db73d8bfbda)]
