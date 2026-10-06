@@ -66,7 +66,7 @@ function totalsRow(label: string, section: RegisterTeacherSection, weeks: Regist
 }
 
 function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacherSection) {
-  const weekHeaders = document.weeks.map((week) => `<th class="week-heading" colspan="${week.dates.length + 1}">Week Ending Friday<br><strong>${escapeHtml(formatDate(week.weekEnding))}</strong></th>`).join("");
+  const weekHeaders = document.weeks.map((week) => `<th class="week-heading" colspan="${week.dates.length + 1}"><span class="week-heading-label">Week Ending Friday</span><strong class="week-heading-date">${escapeHtml(formatDate(week.weekEnding))}</strong></th>`).join("");
   const dayHeaders = document.weeks.map(weeklyColumns).join("");
   const learnerRows = section.learners.map((_, index) => {
     const learner = section.learners[index];
@@ -110,10 +110,10 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
         </tbody>
       </table>
       <div class="balance-strip">
-        <span><strong>Attendance:</strong> ${section.termAttendanceTotal}</span>
-        <span><strong>Absence:</strong> ${section.termAbsenceTotal}</span>
-        <span><strong>Possible:</strong> ${section.termPossibleTotal}</span>
-        <span><strong>Balance:</strong> ${section.termAttendanceTotal + section.termAbsenceTotal} / ${section.termPossibleTotal} ${section.termAttendanceTotal + section.termAbsenceTotal === section.termPossibleTotal ? "✓" : "!"}</span>
+        <div class="balance-item"><span>Attendance</span><strong>${section.termAttendanceTotal}</strong></div>
+        <div class="balance-item"><span>Absence</span><strong>${section.termAbsenceTotal}</strong></div>
+        <div class="balance-item"><span>Possible</span><strong>${section.termPossibleTotal}</strong></div>
+        <div class="balance-item balance-result"><span>Balance</span><strong>${section.termAttendanceTotal + section.termAbsenceTotal} / ${section.termPossibleTotal} ${section.termAttendanceTotal + section.termAbsenceTotal === section.termPossibleTotal ? "✓" : "!"}</strong></div>
       </div>
     </section>
   `;
@@ -164,7 +164,9 @@ export function renderRegisterTeacherHtml(input: {
   .identity.given { width:104px; }
   .identity.dob { width:57px; text-align:center; }
   .name-head { text-align:center; }
-  .week-heading { min-width:92px; color:var(--register-red); }
+  .week-heading { min-width:92px; padding:3px 2px 4px; color:var(--register-red); text-align:center; vertical-align:middle; line-height:1.05; border-right:2px solid var(--register-red); }
+  .week-heading-label { display:block; font-size:6.6px; font-weight:700; letter-spacing:.015em; white-space:nowrap; }
+  .week-heading-date { display:block; margin-top:2px; font-size:7.2px; line-height:1; color:#6d0d12; white-space:nowrap; }
   .day { width:18px; }
   .day small { display:block; margin-top:1px; font-size:6px; color:#555; }
   .week-total { width:24px; background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
@@ -186,10 +188,17 @@ export function renderRegisterTeacherHtml(input: {
   .possible-summary-row th,.possible-summary-row td { background:#eef5d8; color:#263517; }
   .summary-value { font-weight:900; }
   .absence-value { color:var(--register-red) !important; font-weight:900; }
-  .balance-strip { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:14px; border:1px solid var(--register-red); border-top:0; padding:5px 7px; font-size:8px; background:#fffafa; color:#6d0d12; }
+  .balance-strip { display:grid; grid-template-columns:repeat(4,max-content); justify-content:end; align-items:stretch; border:1px solid var(--register-red); border-top:0; background:#fffafa; color:#6d0d12; }
+  .balance-item { display:grid; grid-template-columns:auto auto; align-items:center; gap:4px; min-height:24px; padding:4px 8px; border-left:1px solid rgba(163,18,24,.45); font-size:7.8px; white-space:nowrap; }
+  .balance-item:first-child { border-left:0; }
+  .balance-item span { font-weight:700; text-transform:uppercase; letter-spacing:.02em; }
+  .balance-item strong { font-size:8.4px; }
+  .balance-result { min-width:116px; justify-content:center; background:#fff1f2; }
   .empty { padding:18px; color:#777; font-size:9px; }
-  .legend { margin-top:8px; display:flex; gap:14px; font-size:8px; color:#555; }
-  .legend .mark-sample { font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; color:#111; }
+  .legend { margin:8px 0 2px; display:flex; align-items:center; flex-wrap:wrap; gap:5px 14px; min-height:20px; padding:2px 1px; font-size:8px; line-height:1; color:#555; }
+  .legend > span { display:inline-flex; align-items:center; gap:3px; min-height:16px; white-space:nowrap; }
+  .legend .mark-sample { display:inline-grid; min-width:12px; place-items:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; }
+  .legend .absence-reason-mark { top:-.34em; }
   @page { size:A3 landscape; margin:8mm; }
   @media print {
     html,body { background:white; }
