@@ -81,3 +81,137 @@ export async function saveTeachingImpact(_state:TeachingImpactActionState,formDa
   revalidatePath("/calendar");revalidatePath("/timetable");
   return{success:true,message:"Teaching impact saved for the selected date."};
 }
+
+const operationalEventKinds = [
+  "event","deadline","meeting","class_visit","assessment","submission",
+  "examination","school_activity","teaching_cutoff","ceremony","sport","other",
+] as const;
+const operationalScopes = ["school","department"] as const;
+const operationalAudiences = [
+  "all_school","all_staff","teachers","learners","parents","department_staff","specific_teacher",
+] as const;
+const learnerDayEffects = [
+  "UNCHANGED","NO_TEACHING","SCHOOL_DAY","PARTIAL_DAY","ALTERED_TIMETABLE","EXAM_TIMETABLE",
+] as const;
+
+const operationalCalendarEventSchema = z.object({
+  schoolId: z.string().uuid(),
+  academicYear: z.coerce.number().int().min(2000).max(2200),
+  scopeKind: z.enum(operationalScopes),
+  eventKind: z.enum(operationalEventKinds),
+  title: z.string().trim().min(1,"Event title is required.").max(180),
+  startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startsAt: z.union([z.literal(""),z.string().regex(/^\d{2}:\d{2}$/)]),
+  endsAt: z.union([z.literal(""),z.string().regex(/^\d{2}:\d{2}$/)]),
+  audienceScope: z.enum(operationalAudiences),
+  departmentAssignmentId: z.union([z.literal(""),z.string().uuid()]),
+  targetStaffMemberId: z.union([z.literal(""),z.string().uuid()]),
+  description: z.string().trim().max(3000).optional(),
+  learnerDayEffect: z.enum(learnerDayEffects),
+  bellScheduleId: z.union([z.literal(""),z.string().uuid()]),
+  linkedModule: z.string().trim().max(80).optional(),
+  linkedPath: z.string().trim().max(500).optional(),
+}).superRefine((value,ctx)=>{
+  if(value.endsOn<value.startsOn)ctx.addIssue({code:"custom",path:["endsOn"],message:"End date cannot be before start date."});
+  if(Boolean(value.startsAt)!==Boolean(value.endsAt))ctx.addIssue({code:"custom",path:["endsAt"],message:"Provide both times or leave both blank."});
+  if(value.startsAt&&value.endsAt&&value.endsAt<=value.startsAt)ctx.addIssue({code:"custom",path:["endsAt"],message:"End time must be after start time."});
+  if(value.scopeKind==="department"&&!value.departmentAssignmentId)ctx.addIssue({code:"custom",path:["departmentAssignmentId"],message:"Choose a governed department."});
+  if(value.scopeKind==="department"&&value.learnerDayEffect!=="UNCHANGED")ctx.addIssue({code:"custom",path:["learnerDayEffect"],message:"Department events cannot change learner school-day status."});
+  if(value.audienceScope==="specific_teacher"&&!value.targetStaffMemberId)ctx.addIssue({code:"custom",path:["targetStaffMemberId"],message:"Choose the target teacher."});
+});
+
+export async function saveOperationalCalendarEvent(
+  _state:TeachingImpactActionState,
+  formData:FormData,
+):Promise<TeachingImpactActionState>{
+  const parsed=operationalCalendarEventSchema.safeParse({
+    schoolId:formData.get("schoolId"),
+    academicYear:formData.get("academicYear"),
+    scopeKind:formData.get("scopeKind"),
+    eventKind:formData.get("eventKind"),
+    title:formData.get("title"),
+    startsOn:formData.get("startsOn"),
+    endsOn:formData.get("endsOn"),
+    startsAt:String(formData.get("startsAt")??""),
+    endsAt:String(formData.get("endsAt")??""),
+    audienceScope:formData.get("audienceScope"),
+    departmentAssignmentId:String(formData.get("departmentAssignmentId")??""),
+    targetStaffMemberId:String(formData.get("targetStaffMemberId")??""),
+    description:String(formData.get("description")??""),
+    learnerDayEffect:formData.get("learnerDayEffect"),
+    bellScheduleId:String(formData.get("bellScheduleId")??""),
+    linkedModule:String(formData.get("linkedModule")??""),
+    linkedPath:String(formData.get("linkedPath")??""),
+  });
+  if(!parsed.success)return{fieldErrors:parsed.error.flatten().fieldErrors,message:"Check the highlighted operational-calendar fields."};
+
+  const supabase=await createSupabaseServerClient();
+  const {error}=await supabase.rpc("create_operational_calendar_event",{
+    p_school_id:parsed.data.schoolId,
+    p_academic_year:parsed.data.academicYear,
+    p_scope_kind:parsed.data.scopeKind,
+    p_event_kind:parsed.data.eventKind,
+    p_title:parsed.data.title,
+    p_starts_on:parsed.data.startsOn,
+    p_ends_on:parsed.data.endsOn,
+    p_starts_at:parsed.data.startsAt||null,
+    p_ends_at:parsed.data.endsAt||null,
+    p_audience_scope:parsed.data.audienceScope,
+    p_department_head_staff_assignment_id:parsed.data.departmentAssignmentId||null,
+    p_target_staff_member_id:parsed.data.targetStaffMemberId||null,
+    p_description:parsed.data.description||null,
+    p_learner_day_effect:parsed.data.learnerDayEffect,
+    p_bell_schedule_id:parsed.data.bellScheduleId||null,
+    p_linked_module:parsed.data.linkedModule||null,
+    p_linked_path:parsed.data.linkedPath||null,
+    p_source_kind:"manual",
+    p_source_reference:null,
+    p_source_intake_job_id:null,
+    p_supersedes_event_id:null,
+    p_lifecycle_status:"active",
+  });
+  if(error)return{message:error.message||"Operational calendar event could not be saved."};
+  revalidatePath("/calendar");revalidatePath("/");revalidatePath("/attendance");revalidatePath("/timetable");
+  return{success:true,message:parsed.data.scopeKind==="department"?"Department calendar event added.":"School calendar event added."};
+}
+
+const termCalendarProfileSchema=z.object({
+  academicTermId:z.string().uuid(),
+  teacherStartsOn:z.union([z.literal(""),z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
+  teacherEndsOn:z.union([z.literal(""),z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
+  officialLearnerDayCount:z.union([z.literal(""),z.coerce.number().int().min(0).max(366)]),
+  sourceLabel:z.string().trim().max(240).optional(),
+  sourceReference:z.string().trim().max(500).optional(),
+}).superRefine((value,ctx)=>{
+  if(Boolean(value.teacherStartsOn)!==Boolean(value.teacherEndsOn))ctx.addIssue({code:"custom",path:["teacherEndsOn"],message:"Provide both teacher opening and closing dates or leave both blank."});
+  if(value.teacherStartsOn&&value.teacherEndsOn&&value.teacherEndsOn<value.teacherStartsOn)ctx.addIssue({code:"custom",path:["teacherEndsOn"],message:"Teacher closing date cannot precede opening date."});
+});
+
+export async function saveTermCalendarProfile(
+  _state:TeachingImpactActionState,
+  formData:FormData,
+):Promise<TeachingImpactActionState>{
+  const parsed=termCalendarProfileSchema.safeParse({
+    academicTermId:formData.get("academicTermId"),
+    teacherStartsOn:String(formData.get("teacherStartsOn")??""),
+    teacherEndsOn:String(formData.get("teacherEndsOn")??""),
+    officialLearnerDayCount:String(formData.get("officialLearnerDayCount")??""),
+    sourceLabel:String(formData.get("sourceLabel")??""),
+    sourceReference:String(formData.get("sourceReference")??""),
+  });
+  if(!parsed.success)return{fieldErrors:parsed.error.flatten().fieldErrors,message:"Check the official term-calendar metadata."};
+  const supabase=await createSupabaseServerClient();
+  const {error}=await supabase.rpc("configure_academic_term_calendar_profile",{
+    p_academic_term_id:parsed.data.academicTermId,
+    p_teacher_starts_on:parsed.data.teacherStartsOn||null,
+    p_teacher_ends_on:parsed.data.teacherEndsOn||null,
+    p_official_learner_day_count:parsed.data.officialLearnerDayCount===""?null:parsed.data.officialLearnerDayCount,
+    p_source_kind:"manual",
+    p_source_label:parsed.data.sourceLabel||null,
+    p_source_reference:parsed.data.sourceReference||null,
+  });
+  if(error)return{message:error.message||"Official term-calendar metadata could not be saved."};
+  revalidatePath("/calendar");
+  return{success:true,message:"Official term-calendar metadata saved."};
+}

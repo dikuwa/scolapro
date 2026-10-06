@@ -131,9 +131,23 @@ This workflow must never alter Ministry daily-attendance statistics. Its outputs
 
 ## School-Day Calendar Rules
 
-A calendar date existing does not mean it is an expected attendance day. Monday-Friday are normal candidates; academic-term dates and school-day overrides determine whether a date is actually expected. Public holidays, closures and other non-teaching days are excluded, while explicitly configured special school days can override the baseline.
+The canonical operational-calendar contract is documented in `docs/06-workflows/OPERATIONAL-CALENDAR.md`.
 
-Attendance percentages and absence counts must use expected school days, not raw calendar-day counts.
+A calendar date existing does not mean it is an expected attendance day. Resolution is term-aware:
+
+1. an explicit school-day override wins;
+2. without an override, a date outside the configured learner term is not a normal register day;
+3. an effective learner-calendar `NO_TEACHING` event closes the date;
+4. otherwise Monday-Friday inside the learner term is the normal baseline;
+5. an explicitly configured special/replacement school day can open a normally closed date, including an approved weekend.
+
+Ordinary school events, meetings, commemorations and HOD deadlines do **not** change register eligibility merely because they exist. Only an explicit learner-day effect does so.
+
+Published Ministry school-day totals are validation targets. Resolved learner days are calculated from canonical term dates plus governed closures/special days and are the numbers used by attendance. If a printed source total and the resolved calendar disagree, the system must surface the discrepancy instead of forcing one to match the other.
+
+If an official closure is entered after attendance was already captured, attendance evidence is not deleted. The historical observation remains auditable while the reclassified date is excluded from resolved possible-day totals.
+
+Attendance percentages and absence counts must use resolved expected school days, not raw calendar-day counts or a manually typed total.
 
 ## Late and Retrospective Capture
 

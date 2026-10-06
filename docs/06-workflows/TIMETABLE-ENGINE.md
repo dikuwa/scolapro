@@ -29,7 +29,7 @@ The timetable is a core operational source of truth, not a standalone calendar. 
 - teacher availability
 - class availability
 - room availability
-- school events and closures
+- resolved operational calendar: learner terms, explicit closures/special days and timetable-impacting school events (see `docs/06-workflows/OPERATIONAL-CALENDAR.md`)
 
 ## Constraint Types
 
@@ -92,6 +92,16 @@ The same timetable dataset renders:
 ## Integration
 
 Teacher allocation -> timetable -> lesson schedule -> attendance opportunity -> teaching planning -> actual coverage -> workload/statutory reporting.
+
+The operational calendar is an upstream constraint, not a decorative event list:
+
+- ordinary school/department events with unchanged learner-day effect do not remove timetable capacity;
+- `NO_TEACHING` removes normal learner teaching for the affected date;
+- `PARTIAL_DAY`, `ALTERED_TIMETABLE` and `EXAM_TIMETABLE` alter the available schedule according to the governed bell/calendar configuration;
+- department deadlines/class visits are operational reminders and do not modify learner timetable capacity by themselves;
+- teaching-cutoff events are planning context unless a separate timetable/learner-day effect is explicitly configured.
+
+See `docs/06-workflows/OPERATIONAL-CALENDAR.md`.
 
 ## Capacity Warnings
 

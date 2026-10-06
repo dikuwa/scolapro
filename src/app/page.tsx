@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowUpRight, BookOpenCheck, Building2, School, ShieldCheck, Users } from "lucide-react";
+import { ArrowUpRight, BookOpenCheck, Building2, CalendarClock, School, ShieldCheck, Users } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { getUpcomingOperationalCalendarEvents, type OperationalCalendarEvent } from "@/features/calendar/server/operational-calendar";
 import { getDashboardOverview } from "@/features/dashboard/server/overview";
 import { getPlatformTenants } from "@/features/platform/server/tenants";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -93,6 +94,7 @@ async function HomeOverviewData({
 }) {
   let overview = { currentLearners: 2, gradeCount: 5, registerClassCount: 2 };
   let platformOverview = { activeTenants: 0, schoolCount: 0 };
+  let upcomingEvents: OperationalCalendarEvent[] = [];
 
   if (dashboardMode === "platform") {
     const tenants = await getPlatformTenants();
@@ -102,6 +104,7 @@ async function HomeOverviewData({
     };
   } else if (schoolId) {
     overview = await getDashboardOverview(schoolId, academicYear);
+    upcomingEvents = await getUpcomingOperationalCalendarEvents(schoolId, 30);
   }
 
   const metrics = dashboardMode === "platform"
@@ -129,6 +132,44 @@ async function HomeOverviewData({
       <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
         {metrics.map((metric, index) => { const Icon = metric.icon; return <article key={metric.label} className={["flex items-start justify-between gap-4 px-4 py-4 sm:px-5", index > 0 ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""].join(" ")}><div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">{metric.label}</p><p className={`mt-2 text-[clamp(1.45rem,1.2rem+0.55vw,1.9rem)] font-semibold tracking-[-0.04em] ${metric.valueColor}`}>{metric.value}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{metric.detail}</p></div><span className={`grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] ${metric.tone}`}><Icon aria-hidden="true" className="size-[1.05rem]" strokeWidth={1.8} /></span></article>; })}
       </div>
+      {dashboardMode === "school" ? (
+        <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-2.5">
+              <span className="scolapro-tone-brand grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]">
+                <CalendarClock className="size-4" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 className="scolapro-section-title">Upcoming</h2>
+                <p className="scolapro-section-description !mt-0">Relevant school and department dates for the next 30 days.</p>
+              </div>
+            </div>
+            <Link href="/calendar" className="text-xs font-semibold text-brand-strong hover:underline">View calendar</Link>
+          </div>
+          {upcomingEvents.length ? (
+            <div className="mt-3 divide-y divide-border-subtle">
+              {upcomingEvents.slice(0, 6).map((event) => (
+                <article key={event.id} className="grid gap-1 py-2.5 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:items-center">
+                  <p className="text-xs font-medium tabular-nums text-muted-foreground">
+                    {new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short" }).format(new Date(`${event.startsOn}T12:00:00`))}
+                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">{event.title}</p>
+                    <p className="mt-0.5 truncate text-[0.68rem] capitalize text-muted-foreground">
+                      {event.scopeKind === "department" ? event.departmentLabel ?? "Department" : "School"} · {event.eventKind.replaceAll("_", " ")}
+                    </p>
+                  </div>
+                  <span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.65rem] font-medium text-muted-foreground">
+                    {event.startsOn === event.endsOn ? "1 day" : "Date range"}
+                  </span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-4 text-xs text-muted-foreground">No relevant school or department events in the next 30 days.</p>
+          )}
+        </section>
+      ) : null}
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
         <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="scolapro-section-title">{contextTitle}</h2><p className="scolapro-section-description">{contextDescription}</p></div><span className="w-fit rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 text-xs font-medium capitalize text-muted-foreground shadow-[var(--shadow-xs)]">{roleLabel}</span></div>

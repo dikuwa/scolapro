@@ -1,6 +1,7 @@
 "use server";
 
 import { createHash, randomUUID } from "node:crypto";
+import { CalendarOcrUnavailableError, extractCalendarEventsFromImage } from "@/features/imports/server/calendar-ocr";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -136,6 +137,116 @@ export async function stageOperationalSourceArtifact(formData: FormData) {
 
   revalidatePath("/school/imports/operations");
   redirect(`/school/imports/operations?adapter=${adapter}&job=${jobId}&success=Source+artifact+staged.+Extraction+must+produce+reviewable+rows+before+commit`);
+}
+
+export async function extractCalendarScan(formData: FormData) {
+  const membership = await requireOperationalManager("calendar");
+  const jobId = String(formData.get("jobId") ?? "");
+  const supabase = await createSupabaseServerClient();
+
+  const [{ data: job, error: jobError }, { data: artifacts, error: artifactError }] = await Promise.all([
+    supabase
+      .from("document_intake_jobs")
+      .select("id,school_id,academic_year,intake_type,status,source_kind")
+      .eq("id", jobId)
+      .maybeSingle(),
+    supabase
+      .from("document_intake_artifacts")
+      .select("id,storage_path,file_name,mime_type")
+      .eq("job_id", jobId)
+      .order("created_at"),
+  ]);
+
+  if (
+    jobError ||
+    artifactError ||
+    !job ||
+    job.school_id !== membership.schoolId ||
+    job.intake_type !== "calendar" ||
+    job.status === "committed"
+  ) {
+    redirect("/school/imports/operations?adapter=calendar&error=Calendar+OCR+job+is+not+available");
+  }
+
+  const artifact = (artifacts ?? []).find((item) =>
+    ["image/jpeg", "image/png", "image/webp"].includes(item.mime_type),
+  );
+  if (!artifact) {
+    redirect(
+      `/school/imports/operations?adapter=calendar&job=${jobId}&error=OCR+extraction+currently+requires+a+JPEG,+PNG+or+WebP+source.+PDF+may+remain+staged+or+use+the+structured+calendar+import`,
+    );
+  }
+
+  const { data: download, error: downloadError } = await supabase.storage
+    .from("document-intake-private")
+    .download(artifact.storage_path);
+  if (downloadError || !download) {
+    redirect(`/school/imports/operations?adapter=calendar&job=${jobId}&error=Calendar+source+could+not+be+loaded+for+OCR`);
+  }
+
+  let stagedCount = 0;
+  try {
+    const events = await extractCalendarEventsFromImage({
+      bytes: new Uint8Array(await download.arrayBuffer()),
+      mimeType: artifact.mime_type as "image/jpeg" | "image/png" | "image/webp",
+      academicYear: Number(job.academic_year),
+    });
+
+    const staged = events.map((event, index) => ({
+      row_number: index + 1,
+      source: {
+        calendar_target: "operational",
+        source_class: "school",
+        title: event.title,
+        category: event.category,
+        starts_on: event.startsOn,
+        ends_on: event.endsOn,
+        starts_at: event.startsAt ?? "",
+        ends_at: event.endsAt ?? "",
+        audience_scope: "all_learners",
+        teaching_impact: event.teachingImpact,
+        description: event.description ?? "",
+        source_artifact_id: artifact.id,
+        source_file_name: artifact.file_name,
+      },
+      normalized: {
+        source_class: "school",
+        title: event.title,
+        category: event.category,
+        starts_on: event.startsOn,
+        ends_on: event.endsOn,
+        starts_at: event.startsAt ?? "",
+        ends_at: event.endsAt ?? "",
+        audience_scope: "all_learners",
+        teaching_impact: event.teachingImpact,
+        description: event.description ?? "",
+      },
+    }));
+
+    const { error } = await supabase.rpc("stage_operational_intake_rows", {
+      p_job_id: jobId,
+      p_rows: staged,
+    });
+    if (error) throw error;
+    stagedCount = staged.length;
+  } catch (error) {
+    if (error instanceof CalendarOcrUnavailableError) {
+      redirect(
+        `/school/imports/operations?adapter=calendar&job=${jobId}&error=OCR+is+optional+and+is+not+configured+for+this+deployment.+Use+manual+or+structured+entry`,
+      );
+    }
+    console.error("[calendar-intake] OCR extraction failed", error);
+    redirect(
+      `/school/imports/operations?adapter=calendar&job=${jobId}&error=OCR+could+not+produce+reviewable+calendar+rows.+The+source+remains+staged`,
+    );
+  }
+
+  revalidatePath("/school/imports/operations");
+  redirect(
+    `/school/imports/operations?adapter=calendar&job=${jobId}&success=${encodeURIComponent(
+      `${stagedCount} OCR-extracted event${stagedCount === 1 ? "" : "s"} staged. Review and correct every row before commit.`,
+    )}`,
+  );
 }
 
 export async function reviewOperationalIntakeRow(formData: FormData) {

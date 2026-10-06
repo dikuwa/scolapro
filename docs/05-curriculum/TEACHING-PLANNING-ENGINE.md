@@ -36,16 +36,21 @@ The pacing engine determines **how much curriculum can realistically fit into th
 
 ## Calendar layers
 
+The operational rules are defined in [Operational Calendar](../06-workflows/OPERATIONAL-CALENDAR.md).
+
 ### National calendar
-Includes term dates, public holidays, national examination windows, nationally defined school events, and other official dates.
+Includes term dates, public/school holidays, commemorations, national examination windows, nationally defined school events, teacher term dates and other official dates. Event existence and learner-day effect remain separate.
 
 ### Regional calendar
-Includes regional examinations, workshops, training, moderation, circuit activities, and regional events.
+Includes regional examinations, workshops, training, moderation, circuit activities and regional events. A regional event does not remove teaching capacity unless its governed operational effect says so.
 
 ### School calendar
-Includes assemblies, sports, prize giving, parent meetings, school examinations, internal tests, trips, closures, and other local interruptions.
+Includes assemblies, sports, prize giving, parent meetings, school examinations, internal tests, trips, closures and other local activities. School events default to informational/unchanged.
 
-Calendar layers combine into the effective teaching calendar while preserving source and priority.
+### Department/HOD calendar
+Includes governed departmental deadlines, CASS/target-mark submissions, moderation, class visits, department meetings and similar teacher-facing obligations. Department events may change planning workload but cannot close learner registers or alter the authoritative school-day state.
+
+Calendar layers combine into the effective teaching calendar while preserving source, scope, audience and priority.
 
 ## Timetable capacity
 

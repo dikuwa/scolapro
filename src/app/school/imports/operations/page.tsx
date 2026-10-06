@@ -6,6 +6,7 @@ import { ImportDropField, ImportStageButton } from "@/features/imports/import-dr
 import {
   commitOperationalIntakeJob,
   correctOperationalIntakeRow,
+  extractCalendarScan,
   reviewOperationalIntakeRow,
   stageCalendarStructuredImport,
   stageOperationalSourceArtifact,
@@ -88,10 +89,13 @@ export default async function OperationalImportsPage({
     {job ? <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
       <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
         <div><h2 className="scolapro-section-title">Review staged rows</h2><p className="scolapro-section-description">Job {job.id.slice(0,8)} · {workspace.rows.length} rows · {workspace.pendingReviewCount} awaiting a human decision.</p></div>
-        {job.status==="ready"?<form action={commitOperationalIntakeJob}><input type="hidden" name="adapter" value={adapter}/><input type="hidden" name="jobId" value={job.id}/><button className="min-h-9 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white">Commit reviewed {adapter}</button></form>:null}
+        <div className="flex flex-wrap gap-2">
+          {adapter==="calendar" && job.source_kind==="scan" && workspace.pendingReviewCount===workspace.rows.length ? <form action={extractCalendarScan}><input type="hidden" name="jobId" value={job.id}/><button className="min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold">Extract events with OCR</button></form>:null}
+          {job.status==="ready"?<form action={commitOperationalIntakeJob}><input type="hidden" name="adapter" value={adapter}/><input type="hidden" name="jobId" value={job.id}/><button className="min-h-9 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white">Commit reviewed {adapter}</button></form>:null}
+        </div>
       </div>
 
-      {workspace.artifacts.length ? <div className="border-b border-border-subtle px-4 py-3 text-xs text-muted-foreground sm:px-5">Source artifacts: {workspace.artifacts.map((a)=>a.file_name).join(" · ")}</div>:null}
+      {workspace.artifacts.length ? <div className="border-b border-border-subtle px-4 py-3 text-xs text-muted-foreground sm:px-5">Source artifacts: {workspace.artifacts.map((a)=>a.file_name).join(" · ")}{adapter==="calendar" && job.source_kind==="scan" ? " · OCR is optional; extracted rows remain drafts until reviewed and committed." : ""}</div>:null}
 
       {workspace.rows.length ? <div className="divide-y divide-border-subtle">{workspace.rows.map((row)=>{
         const normalized=row.normalized_payload;

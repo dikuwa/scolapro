@@ -22,6 +22,20 @@ Current authoritative main: `501962946647210bdab7eca6cfb2834adb88e59b` (27 Septe
 
 ScolaPro maintains authoritative operational records from which school, circuit, regional and national information is derived. Do not create parallel authoritative stores merely to satisfy forms, dashboards or reports. Digital-first workflows must still support clean printable evidence where required.
 
+### Operational calendar contract
+
+Issue #1131 owns the operational-calendar expansion. The canonical design is `docs/06-workflows/OPERATIONAL-CALENDAR.md`.
+
+Standing calendar constraints:
+
+- canonical learner term dates remain in the academic-term foundation;
+- published official school-day totals are comparison/validation metadata, not a second attendance counter;
+- learner register eligibility resolves through the governed school-day/learner-calendar engine;
+- an event is informational unless an explicit learner-day effect changes operations;
+- HOD department events derive authority from effective subject-department responsibility and cannot close the whole school;
+- OCR/scan extraction is staging evidence only and cannot publish without human review;
+- hostel dates remain separate from learner/teacher operational calendars.
+
 ## 3. Integrated roadmap state
 
 The following foundations are integrated and must not be reopened as missing without new repository evidence:

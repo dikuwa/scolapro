@@ -1,8 +1,10 @@
 import { CalendarDays, CheckCircle2, Clock3 } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { OperationalCalendarManager } from "@/features/calendar/operational-calendar-manager";
 import { TeachingImpactManager } from "@/features/calendar/teaching-impact-manager";
 import { getGovernedAcademicYear, getSchoolCalendar } from "@/features/calendar/server/calendar";
+import { getOperationalCalendarWorkspace } from "@/features/calendar/server/operational-calendar";
 import { getTeachingImpactWorkspace } from "@/features/calendar/server/teaching-impact";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -17,46 +19,121 @@ export default async function CalendarPage() {
   const membership = context.currentSchoolMembership;
   if (!membership) redirect("/");
 
-  const currentSchoolRoleKeys = new Set(
-    context.memberships
-      .filter((item) => item.schoolId === membership.schoolId)
-      .map((item) => item.roleKey),
-  );
-  const year = await getGovernedAcademicYear(membership.schoolId);
-  const [calendar, teachingImpact] = await Promise.all([
-    getSchoolCalendar(membership.schoolId, year),
-    getTeachingImpactWorkspace(membership.schoolId, year),
-  ]);
-  const canManageTeachingImpact = ["school_admin", "principal", "deputy_principal"].some((roleKey) =>
+  const currentSchoolMemberships = context.memberships.filter((item) => item.schoolId === membership.schoolId);
+  const currentSchoolRoleKeys = new Set(currentSchoolMemberships.map((item) => item.roleKey));
+  const canManageSchool = ["school_admin", "principal", "deputy_principal"].some((roleKey) =>
     currentSchoolRoleKeys.has(roleKey),
   );
+  const canManageDepartment = currentSchoolRoleKeys.has("hod") || canManageSchool;
+  const hodStaffMemberId =
+    currentSchoolMemberships.find((item) => item.roleKey === "hod" && item.staffMemberId)?.staffMemberId ??
+    membership.staffMemberId ??
+    null;
+
+  const year = await getGovernedAcademicYear(membership.schoolId);
+  const [calendar, teachingImpact, operational] = await Promise.all([
+    getSchoolCalendar(membership.schoolId, year),
+    getTeachingImpactWorkspace(membership.schoolId, year),
+    getOperationalCalendarWorkspace({
+      schoolId: membership.schoolId,
+      academicYear: year,
+      staffMemberId: hodStaffMemberId,
+      canManageSchool,
+      canManageDepartment,
+    }),
+  ]);
 
   return (
     <AppShell>
       <section>
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Calendar</h1>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Academic-year, term and learner-event context for {membership.schoolName}. National baseline dates and school events remain separate from teacher and hostel calendars, while explicit teaching impact connects to attendance, bells and timetable cycles.</p>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+            Official learner and teacher dates, school activities and HOD/department deadlines for {membership.schoolName}.
+            Events are informational by default; only an explicit learner-day effect changes registers, attendance or timetable resolution.
+          </p>
         </div>
 
         <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
-          <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Academic year</p><p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-indigo)]">{year}</p></div><span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span></div>
-          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Configured terms</p><p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-mint)]">{calendar.terms.length}</p></div><span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><CheckCircle2 className="size-4" /></span></div>
-          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">Learner events</p><p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-amber)]">{teachingImpact.events.length}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span></div>
+          <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Academic year</p>
+              <p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-indigo)]">{year}</p>
+            </div>
+            <span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" /></span>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Configured terms</p>
+              <p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-mint)]">{calendar.terms.length}</p>
+            </div>
+            <span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]"><CheckCircle2 className="size-4" /></span>
+          </div>
+          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">School / department events</p>
+              <p className="mt-1.5 text-2xl font-semibold text-[color:var(--accent-amber)]">{operational.events.length}</p>
+            </div>
+            <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span>
+          </div>
         </div>
 
         <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-          <div className="border-b border-border-subtle pb-4"><h2 className="scolapro-section-title">Academic calendar structure</h2><p className="scolapro-section-description">Term dates remain the shared source for attendance, teaching plans, assessments, reporting and timetable capacity.</p></div>
+          <div className="border-b border-border-subtle pb-4">
+            <h2 className="scolapro-section-title">Academic calendar structure</h2>
+            <p className="scolapro-section-description">
+              Canonical learner term boundaries remain the shared source for attendance, teaching plans, assessments, reporting and timetable capacity.
+            </p>
+          </div>
           {calendar.academicYear ? (
             <div className="mt-4 space-y-3">
-              <div className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">Year starts</p><p className="mt-1 scolapro-record-title">{dateLabel(calendar.academicYear.startsOn)}</p></div><div><p className="text-xs text-muted-foreground">Year ends</p><p className="mt-1 scolapro-record-title">{dateLabel(calendar.academicYear.endsOn)}</p></div><div><p className="text-xs text-muted-foreground">Status</p><p className="mt-1 scolapro-record-title capitalize">{calendar.academicYear.status}</p></div></div>
-              <div className="divide-y divide-border-subtle">{calendar.terms.map((term) => <div key={term.id} className="grid gap-2 py-3 sm:grid-cols-[8rem_1fr_1fr_auto] sm:items-center"><p className="scolapro-record-title">{term.name}</p><p className="text-xs text-muted-foreground">{dateLabel(term.startsOn)}</p><p className="text-xs text-muted-foreground">{dateLabel(term.endsOn)}</p><span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs capitalize text-muted-foreground">{term.status}</span></div>)}</div>
+              <div className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-3">
+                <div><p className="text-xs text-muted-foreground">Learner year starts</p><p className="mt-1 scolapro-record-title">{dateLabel(calendar.academicYear.startsOn)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Learner year ends</p><p className="mt-1 scolapro-record-title">{dateLabel(calendar.academicYear.endsOn)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Status</p><p className="mt-1 scolapro-record-title capitalize">{calendar.academicYear.status}</p></div>
+              </div>
+              <div className="divide-y divide-border-subtle">
+                {calendar.terms.map((term) => (
+                  <div key={term.id} className="grid gap-2 py-3 sm:grid-cols-[8rem_1fr_1fr_auto] sm:items-center">
+                    <p className="scolapro-record-title">{term.name}</p>
+                    <p className="text-xs text-muted-foreground">{dateLabel(term.startsOn)}</p>
+                    <p className="text-xs text-muted-foreground">{dateLabel(term.endsOn)}</p>
+                    <span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs capitalize text-muted-foreground">{term.status}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-[var(--radius-sm)] bg-warning-soft px-4 py-5"><p className="text-sm font-medium text-[color:var(--warning)]">Academic year dates are not configured yet</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Configure the academic-year foundation before adding effective bell schedules.</p></div>
+            <div className="mt-4 rounded-[var(--radius-sm)] bg-warning-soft px-4 py-5">
+              <p className="text-sm font-medium text-[color:var(--warning)]">Academic year dates are not configured yet</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">Configure the academic-year foundation before adding operational calendar events.</p>
+            </div>
           )}
         </section>
-        <TeachingImpactManager schoolId={membership.schoolId} year={year} schedules={teachingImpact.schedules} events={teachingImpact.events} overrides={teachingImpact.overrides} audienceOptions={teachingImpact.audienceOptions} canManage={canManageTeachingImpact} />
+
+        <div className="mt-5">
+          <OperationalCalendarManager
+            schoolId={membership.schoolId}
+            year={year}
+            terms={operational.terms}
+            events={operational.events}
+            departments={operational.departments}
+            staffOptions={operational.staffOptions}
+            schedules={teachingImpact.schedules}
+            canManageSchool={canManageSchool}
+            canManageDepartment={canManageDepartment}
+          />
+        </div>
+
+        <TeachingImpactManager
+          schoolId={membership.schoolId}
+          year={year}
+          schedules={teachingImpact.schedules}
+          events={teachingImpact.events}
+          overrides={teachingImpact.overrides}
+          audienceOptions={teachingImpact.audienceOptions}
+          canManage={false}
+        />
       </section>
     </AppShell>
   );
