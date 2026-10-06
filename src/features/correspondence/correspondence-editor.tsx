@@ -314,7 +314,7 @@ export function CorrespondenceEditor({ document }: { document: CorrespondenceDoc
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border-subtle pt-4">
         {!readOnly ? <Button loading={pending} onClick={() => startTransition(async () => { await save(); })}><Save className="size-4" />{pending ? "Saving…" : "Save draft"}</Button> : null}
         <OfficialDocumentActions
-          previewHref={`/api/official-documents/correspondence/${document.id}?print=1`}
+          previewHref={`/api/official-documents/correspondence/${document.id}`}
           onPreview={preparePreview}
           onDownload={downloadPdf}
           disabled={pending}

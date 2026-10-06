@@ -51,6 +51,8 @@ export async function requestLearnerTransfer(_state: LearnerExitActionState, for
   });
   if (!parsed.success || (!parsed.data.destinationSchoolId && !parsed.data.destinationName)) return { message: "Confirm the transfer and provide a destination school." };
   if (!parsed.data.destinationSchoolId && !parsed.data.destinationAddress) return { message: "Provide the external school's address before requesting the transfer." };
+  const today = getNamibiaDateKey();
+  if (parsed.data.effectiveOn < today) return { message: "The transfer departure date cannot be in the past." };
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { message: "Sign in again before requesting a transfer." };
@@ -58,19 +60,15 @@ export async function requestLearnerTransfer(_state: LearnerExitActionState, for
   if (enrolmentError || !enrolment || enrolment.learner_id !== parsed.data.learnerId || enrolment.status !== "current") return { message: "The learner's current enrolment could not be verified." };
 
   if (parsed.data.destinationSchoolId) {
-    const { data: destination, error: destinationError } = await supabase
-      .from("schools")
-      .select("id,tenant_id,status")
-      .eq("id", parsed.data.destinationSchoolId)
-      .maybeSingle();
-    if (
-      destinationError
-      || !destination
-      || destination.tenant_id !== enrolment.tenant_id
-      || destination.status !== "active"
-      || destination.id === enrolment.school_id
-    ) {
-      return { message: "Choose a valid active destination school in the current ScolaPro school network." };
+    const { data: destinationAllowed, error: destinationError } = await supabase.rpc(
+      "validate_learner_transfer_destination",
+      {
+        p_source_school_id: enrolment.school_id,
+        p_destination_school_id: parsed.data.destinationSchoolId,
+      },
+    );
+    if (destinationError || destinationAllowed !== true) {
+      return { message: "Choose a valid active destination school in the ScolaPro school network." };
     }
   }
 

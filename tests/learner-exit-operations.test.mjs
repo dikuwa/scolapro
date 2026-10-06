@@ -28,10 +28,13 @@ test('exit UI exposes bounded transfer, withdrawal, confirmation, and history st
   assert.match(ui, /destinationAddress/);
   assert.match(ui, /Open transfer form/);
   assert.match(ui, /Effective \/ departure date/);
+  assert.match(ui, /min=\{today\}/);
+  assert.match(ui, /Complete on or after/);
   assert.doesNotMatch(ui, /label="Effective \/ departure date"[^\n]*max=\{today\}/);
   assert.match(actions, /destination_address/);
-  assert.match(actions, /destination\.tenant_id !== enrolment\.tenant_id/);
-  assert.match(actions, /destination\.status !== "active"/);
+  assert.match(actions, /validate_learner_transfer_destination/);
+  assert.match(actions, /The transfer departure date cannot be in the past/);
+  assert.doesNotMatch(actions, /destination\.tenant_id !== enrolment\.tenant_id/);
 });
 
 test('server actions call the existing transfer and progression lifecycles', () => {

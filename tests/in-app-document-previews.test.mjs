@@ -45,6 +45,7 @@ test("document surfaces without an inline preview use the shared in-app overlay 
 test("correspondence saves before same-page preview and no longer uses window.open", () => {
   assert.match(correspondence, /const preparePreview = async/);
   assert.match(correspondence, /onPreview=\{preparePreview\}/);
-  assert.match(correspondence, /previewHref=\{\`\/api\/official-documents\/correspondence\/\$\{document\.id\}\?print=1\`\}/);
+  assert.match(correspondence, /previewHref=\{\`\/api\/official-documents\/correspondence\/\$\{document\.id\}\`\}/);
+  assert.doesNotMatch(correspondence, /previewHref=.*format=pdf/);
   assert.doesNotMatch(correspondence, /window\.open/);
 });
