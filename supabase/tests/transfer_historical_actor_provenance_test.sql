@@ -23,7 +23,7 @@ insert into public.transfer_events(
   '60000000-0000-4000-8000-000000000001',
   'Historical Actor Receiving School',
   current_date,
-  current_date+1,
+  current_date,
   'Historical actor regression fixture',
   'requested',
   'f6b00000-0000-4000-8000-000000000001'
@@ -33,7 +33,7 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','f6b00000-0000-4000-8000-000000000001',true);
 
 select lives_ok(
-  $$select public.approve_learner_transfer('f6b10000-0000-4000-8000-000000000001',current_date+1,'Approved before placement ended')$$,
+  $$select public.approve_learner_transfer('f6b10000-0000-4000-8000-000000000001',current_date,'Approved before placement ended')$$,
   'authorized historical actor can approve while current'
 );
 

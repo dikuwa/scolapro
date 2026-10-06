@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(20);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fcf00000-0000-4000-8000-000000000001','trf-principal@example.test','authenticated','authenticated',now(),now()),
@@ -52,6 +52,21 @@ insert into public.school_duty_assignments(
   'fcf00000-0000-4000-8000-000000000001'
 );
 
+insert into public.tenants(id,name,slug,status) values(
+  'fcf30000-0000-4000-8000-000000000001',
+  'Receiving School Tenant',
+  'transfer-receiving-school-tenant',
+  'active'
+);
+insert into public.schools(id,tenant_id,name,emis_number,town,status) values(
+  'fcf40000-0000-4000-8000-000000000001',
+  'fcf30000-0000-4000-8000-000000000001',
+  'Cross Tenant Receiving School',
+  'EMIS-XFER-001',
+  'Walvis Bay',
+  'active'
+);
+
 insert into public.transfer_events(
   id,tenant_id,learner_id,source_school_id,source_enrolment_id,destination_name,
   requested_on,effective_on,reason,status,initiated_by_user_id
@@ -72,6 +87,14 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','fcf00000-0000-4000-8000-000000000001',true);
 set local role authenticated;
 
+select is(
+  (select count(*)::integer
+   from public.list_learner_transfer_destination_schools('22222222-2222-4222-8222-222222222222'::uuid)
+   where school_id='fcf40000-0000-4000-8000-000000000001'::uuid),
+  1,
+  'transfer destination picker reuses the authenticated cross-school directory across tenant boundaries'
+);
+
 select lives_ok(
   $$select public.approve_learner_transfer(
     'fcf20000-0000-4000-8000-000000000001'::uuid,
@@ -79,6 +102,12 @@ select lives_ok(
     'Transfer form preparation approved'
   )$$,
   'source-school leadership approves the canonical transfer first'
+);
+
+select throws_ok(
+  $$select public.complete_learner_transfer('fcf20000-0000-4000-8000-000000000001'::uuid)$$,
+  'Transfer cannot be completed before the effective departure date',
+  'future-dated transfer remains planned until its effective departure date'
 );
 
 reset role;
@@ -91,6 +120,22 @@ select is(
   )->>'learnerName',
   'Amara N. Demo',
   'delegated CRC custodian resolves learner identity from the canonical learner record'
+);
+
+select is(
+  (select count(*)::integer
+   from public.list_crc_transfer_handoff_requirements('22222222-2222-4222-8222-222222222222'::uuid)
+   where transfer_event_id='fcf20000-0000-4000-8000-000000000001'),
+  1,
+  'approved learner transfer automatically enters the delegated CRC handoff queue'
+);
+
+select lives_ok(
+  $$select public.complete_external_crc_handoff(
+    'fcf20000-0000-4000-8000-000000000001'::uuid,
+    'Physical CRC handoff recorded for the external destination school.'
+  )$$,
+  'delegated CRC custodian can close a manual external handoff without exposing confidential content'
 );
 
 select is(

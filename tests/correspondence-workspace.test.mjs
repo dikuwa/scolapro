@@ -56,7 +56,8 @@ test("issue 691 core workflow remains intact while issue 692 owns finalized shar
     assert.match(editor, new RegExp(label));
   }
   assert.match(editor, /OfficialDocumentActions/);
-  assert.match(editor, /previewHref=\{\`\/api\/official-documents\/correspondence\/\$\{document\.id\}\?print=1\`\}/);
+  assert.match(editor, /previewHref=\{\`\/api\/official-documents\/correspondence\/\$\{document\.id\}\`\}/);
+  assert.doesNotMatch(editor, /previewHref=.*format=pdf/);
   assert.match(editor, /onPreview=\{preparePreview\}/);
   assert.match(editor, /onDownload=\{downloadPdf\}/);
   assert.doesNotMatch(editor, /format=pdf&preview=1/);
