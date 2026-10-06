@@ -28,9 +28,13 @@ export type RegisterTeacherLearner = {
   enrolledFrom: string;
   enrolledTo: string | null;
   marks: Record<string, RegisterTeacherMark>;
+  reasonedAbsenceDates: Record<string, boolean>;
   attended: number;
   absent: number;
   possible: number;
+  termAttended: number;
+  termAbsent: number;
+  termDays: number;
 };
 
 export type RegisterTeacherWeek = {
@@ -49,6 +53,9 @@ export type RegisterTeacherSection = {
   attendanceTotal: number;
   absenceTotal: number;
   possibleTotal: number;
+  termAttendanceTotal: number;
+  termAbsenceTotal: number;
+  termPossibleTotal: number;
 };
 
 export type RegisterTeacherTermOption = {
@@ -169,38 +176,41 @@ export async function getRegisterTeacherDocument(input: {
   }
 
   const weekDates = schoolWeekDates(input.selectedDate);
-  const scopeStart = input.mode === "week" ? weekDates[0] : (term?.startsOn ?? `${input.academicYear}-01-01`);
+  const termStart = term?.startsOn ?? `${input.academicYear}-01-01`;
   const termEnd = term?.endsOn ?? input.selectedDate;
-  const scopeEnd = input.mode === "week" ? weekDates[4] : (input.selectedDate < termEnd ? input.selectedDate : termEnd);
+  const termActualEnd = input.selectedDate < termEnd ? input.selectedDate : termEnd;
+  const scopeStart = input.mode === "week" ? weekDates[0] : termStart;
+  const scopeEnd = input.mode === "week" ? weekDates[4] : termActualEnd;
   const dates = rangeDates(scopeStart, scopeEnd).filter((date) => {
     const day = new Date(`${date}T12:00:00`).getDay();
     return day >= 1 && day <= 5;
   });
 
+  const queryEnd = scopeEnd > termActualEnd ? scopeEnd : termActualEnd;
   const [{ data: impactRows, error: impactError }, { data: enrolments, error: enrolmentError }, { data: currentRows, error: currentError }, { data: overrideRows, error: overrideError }] = await Promise.all([
-    supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: input.schoolId, p_from: scopeStart, p_to: scopeEnd }),
+    supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: input.schoolId, p_from: termStart, p_to: termEnd }),
     supabase
       .from("enrolments")
       .select("id,learner_id,admission_number,enrolled_from,enrolled_to,learners!inner(first_names,surname,date_of_birth,sex)")
       .eq("school_id", input.schoolId)
       .eq("register_class_id", input.classId)
       .eq("academic_year", input.academicYear)
-      .lte("enrolled_from", scopeEnd)
-      .or(`enrolled_to.is.null,enrolled_to.gte.${scopeStart}`)
+      .lte("enrolled_from", queryEnd)
+      .or(`enrolled_to.is.null,enrolled_to.gte.${termStart}`)
       .order("admission_number"),
     supabase
       .from("daily_register_current")
-      .select("enrolment_id,attendance_date,status")
+      .select("enrolment_id,attendance_date,status,reason_id,note")
       .eq("school_id", input.schoolId)
       .eq("register_class_id", input.classId)
-      .gte("attendance_date", scopeStart)
-      .lte("attendance_date", scopeEnd),
+      .gte("attendance_date", termStart)
+      .lte("attendance_date", queryEnd),
     supabase
       .from("school_day_overrides")
       .select("school_date,reason")
       .eq("school_id", input.schoolId)
-      .gte("school_date", scopeStart)
-      .lte("school_date", scopeEnd),
+      .gte("school_date", termStart)
+      .lte("school_date", termEnd),
   ]);
   if (impactError || enrolmentError || currentError || overrideError) throw new Error("Unable to load register-teacher attendance evidence.");
 
@@ -212,6 +222,16 @@ export async function getRegisterTeacherDocument(input: {
   for (const row of (overrideRows ?? []) as { school_date: string; reason: string | null }[]) {
     if (row.reason) reasonByDate.set(String(row.school_date).slice(0, 10), row.reason);
   }
+
+  const termDates = rangeDates(termStart, termEnd).filter((date) => {
+    const day = new Date(`${date}T12:00:00`).getDay();
+    return day >= 1 && day <= 5;
+  });
+  const termActualDates = rangeDates(termStart, termActualEnd).filter((date) => {
+    const day = new Date(`${date}T12:00:00`).getDay();
+    return day >= 1 && day <= 5 && impactByDate.get(date) !== "NO_TEACHING";
+  });
+  const termTeachingDayCount = termDates.filter((date) => impactByDate.get(date) !== "NO_TEACHING").length;
 
   const dayModels: RegisterTeacherDay[] = dates.map((date) => ({
     date,
@@ -231,9 +251,13 @@ export async function getRegisterTeacherDocument(input: {
   }
   const weeks = [...weekMap.values()];
 
-  const currentByKey = new Map<string, string>();
-  for (const row of (currentRows ?? []) as { enrolment_id: string; attendance_date: string; status: string }[]) {
-    currentByKey.set(`${row.enrolment_id}:${String(row.attendance_date).slice(0, 10)}`, String(row.status));
+  const currentByKey = new Map<string, { status: string; reasonId: string | null; note: string | null }>();
+  for (const row of (currentRows ?? []) as { enrolment_id: string; attendance_date: string; status: string; reason_id: string | null; note: string | null }[]) {
+    currentByKey.set(`${row.enrolment_id}:${String(row.attendance_date).slice(0, 10)}`, {
+      status: String(row.status),
+      reasonId: row.reason_id ? String(row.reason_id) : null,
+      note: row.note ? String(row.note) : null,
+    });
   }
 
   const sections: RegisterTeacherSection[] = (["male", "female"] as RegisterTeacherSex[]).map((sex) => {
@@ -242,6 +266,7 @@ export async function getRegisterTeacherDocument(input: {
       const learner = relation(item.learners);
       if (!learner || validSex(learner.sex) !== sex) continue;
       const marks: Record<string, RegisterTeacherMark> = {};
+      const reasonedAbsenceDates: Record<string, boolean> = {};
       let attended = 0;
       let absent = 0;
       let possible = 0;
@@ -252,15 +277,25 @@ export async function getRegisterTeacherDocument(input: {
           continue;
         }
         possible += 1;
-        const status = currentByKey.get(`${item.id}:${day.date}`);
-        if (status === "absent") {
+        const current = currentByKey.get(`${item.id}:${day.date}`);
+        if (current?.status === "absent") {
           marks[day.date] = "a";
+          reasonedAbsenceDates[day.date] = Boolean(current.reasonId || current.note?.trim());
           absent += 1;
         } else {
           marks[day.date] = "I";
           attended += 1;
         }
       }
+      let termAttended = 0;
+      let termAbsent = 0;
+      for (const date of termActualDates) {
+        if (!isActiveOn(String(item.enrolled_from).slice(0, 10), item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null, date)) continue;
+        const current = currentByKey.get(`${item.id}:${date}`);
+        if (current?.status === "absent") termAbsent += 1;
+        else termAttended += 1;
+      }
+
       learners.push({
         enrolmentId: String(item.id),
         learnerId: String(item.learner_id),
@@ -272,9 +307,13 @@ export async function getRegisterTeacherDocument(input: {
         enrolledFrom: String(item.enrolled_from).slice(0, 10),
         enrolledTo: item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null,
         marks,
+        reasonedAbsenceDates,
         attended,
         absent,
         possible,
+        termAttended,
+        termAbsent,
+        termDays: termTeachingDayCount,
       });
     }
 
@@ -299,6 +338,9 @@ export async function getRegisterTeacherDocument(input: {
       attendanceTotal: learners.reduce((sum, learner) => sum + learner.attended, 0),
       absenceTotal: learners.reduce((sum, learner) => sum + learner.absent, 0),
       possibleTotal: learners.reduce((sum, learner) => sum + learner.possible, 0),
+      termAttendanceTotal: learners.reduce((sum, learner) => sum + learner.termAttended, 0),
+      termAbsenceTotal: learners.reduce((sum, learner) => sum + learner.termAbsent, 0),
+      termPossibleTotal: learners.length * termTeachingDayCount,
     };
   });
 
@@ -314,7 +356,7 @@ export async function getRegisterTeacherDocument(input: {
     scopeStart,
     scopeEnd,
     selectedDate: input.selectedDate,
-    teachingDayCount: dayModels.filter((day) => day.teaching).length,
+    teachingDayCount: termTeachingDayCount,
     weeks,
     sections,
   };
