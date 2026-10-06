@@ -63,3 +63,9 @@ test('exit RPC preserves governed current-school scope and audit provenance', ()
   assert.match(migration, /p_status not in \('left','withdrawn'\)/);
   assert.match(migration, /revoke all on function/);
 });
+
+
+test("learner profile prefers the primary school membership so management authority is not masked", () => {
+  assert.ok(page.includes("context.currentSchoolMembership && learnerOperationalRoles.has(context.currentSchoolMembership.roleKey)"));
+  assert.ok(page.includes("? context.currentSchoolMembership"));
+});
