@@ -1,3 +1,5 @@
+[Reading 65 lines from start (total: 65 lines, 0 remaining)]
+
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import test from 'node:test';
@@ -10,6 +12,14 @@ const migration = fs.readFileSync('supabase/migrations/20260919160000_learner_ex
  test('learner exit operations remain on the canonical learner surface', () => {
   assert.match(page, /LearnerExitOperations/);
   assert.match(page, /getLearnerExitOperations/);
+  assert.match(page, /href="#learner-transfer-workflow"/);
+  assert.match(page, />Transfer learner<\/Link>/);
+  assert.ok(
+    page.indexOf("<LearnerExitOperations") < page.indexOf("<GuardianPanel"),
+    "learner exit operations should appear before the long guardian section",
+  );
+  assert.match(ui, /id="learner-transfer-workflow"/);
+  assert.match(ui, /scroll-mt-4/);
   assert.doesNotMatch(page, /delete.*learner/i);
 });
 
@@ -55,3 +65,5 @@ test('exit RPC preserves governed current-school scope and audit provenance', ()
   assert.match(migration, /p_status not in \('left','withdrawn'\)/);
   assert.match(migration, /revoke all on function/);
 });
+
+[executed on device: MacBook-Pro-2.fritz.box (8ccb94b2-5fc5-4a5b-81c0-6db73d8bfbda)]
