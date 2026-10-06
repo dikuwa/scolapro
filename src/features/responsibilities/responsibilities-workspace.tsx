@@ -1,7 +1,8 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
+import { CloseAction } from "@/components/ui/close-action";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -110,17 +111,24 @@ export function ResponsibilitiesWorkspace({
               {activeAssignments.length} active delegated {activeAssignments.length === 1 ? "responsibility" : "responsibilities"}.
             </p>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="soft"
-            className="shrink-0"
-            aria-expanded={showAssignment}
-            onClick={() => setShowAssignment((current) => !current)}
-          >
-            {showAssignment ? <X className="size-3.5" aria-hidden="true" /> : <Plus className="size-3.5" aria-hidden="true" />}
-            {showAssignment ? "Close" : "Assign responsibility"}
-          </Button>
+          {showAssignment ? (
+            <CloseAction
+              aria-expanded={showAssignment}
+              onClick={() => setShowAssignment(false)}
+            />
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="soft"
+              className="shrink-0"
+              aria-expanded={showAssignment}
+              onClick={() => setShowAssignment(true)}
+            >
+              <Plus className="size-3.5" aria-hidden="true" />
+              Assign responsibility
+            </Button>
+          )}
         </div>
         {activeAssignments.length ? (
           <div className="divide-y divide-border-subtle">
