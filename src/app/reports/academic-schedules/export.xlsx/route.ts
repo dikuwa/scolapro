@@ -31,7 +31,7 @@ export async function GET(request:Request){
   if(!frozen&&gradeRef&&!gradeOption)return NextResponse.json({error:"Invalid academic schedule grade scope."},{status:400});
   const gradeId=gradeOption?.value??options.grades[0]?.value;
   const classOptions=gradeId?(options.classesByGrade[gradeId]??[]):[];
-  const rawClassScope=(url.searchParams.get("classes")??"").split(",").map((value)=>value.trim()).filter(Boolean);
+  const rawClassScope=(url.searchParams.get("classes")??url.searchParams.get("class")??"").split(",").map((value)=>value.trim()).filter(Boolean);
   const classIds=[...new Set(rawClassScope.map((value)=>classOptions.find((row)=>row.value===value||row.label===value||row.code===value)?.value).filter((value):value is string=>Boolean(value)))].sort();
   if(!frozen&&rawClassScope.length&&classIds.length!==new Set(rawClassScope).size)return NextResponse.json({error:"Invalid academic schedule class scope."},{status:400});
   const payload=frozen?.payload ?? await getAcademicSchedulePayload({academicYear:year,termNumber:term,basis,scheduleType,gradeId,classIds});

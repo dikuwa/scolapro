@@ -31,7 +31,7 @@ export default async function AcademicSchedulePrintPage({searchParams}:{searchPa
   if(!frozen&&params.grade&&!gradeOption) notFound();
   const gradeId=gradeOption?.value??options.grades[0]?.value;
   const classOptions=gradeId?(options.classesByGrade[gradeId]??[]):[];
-  const rawClassScope=(params.classes??"").split(",").map((value)=>value.trim()).filter(Boolean);
+  const rawClassScope=(params.classes??params.class??"").split(",").map((value)=>value.trim()).filter(Boolean);
   const classIds=[...new Set(rawClassScope.map((value)=>classOptions.find((row)=>row.value===value||row.label===value||row.code===value)?.value).filter((value):value is string=>Boolean(value)))].sort();
   if(!frozen&&rawClassScope.length&&classIds.length!==new Set(rawClassScope).size) notFound();
   const payload=frozen?.payload ?? await getAcademicSchedulePayload({academicYear:year,termNumber:term,basis,scheduleType,gradeId,classIds});
@@ -56,9 +56,9 @@ export default async function AcademicSchedulePrintPage({searchParams}:{searchPa
     <section className="schedule-context">
       <div>
         <p className="text-[8px] font-bold uppercase">Official school academic record</p>
-        <h1 className="mt-0.5 text-sm font-bold uppercase">{payload.title}</h1>
+        <h1 className="mt-0.5 text-sm font-bold uppercase">{payload.title} — {(payload.classNames??[]).join(", ")||"All classes"}</h1>
       </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-2 text-[8px]"><dt>Grade</dt><dd>{payload.grade||"Not recorded"}</dd><dt>Class</dt><dd>{(payload.classNames??[]).join(", ")||"All classes in grade"}</dd><dt>Term</dt><dd>{payload.periodLabel}</dd><dt>Year</dt><dd>{payload.academicYear}</dd><dt>Basis</dt><dd>{payload.basis.toUpperCase()}</dd><dt>Generated</dt><dd>{new Date(payload.generatedAt).toLocaleDateString("en-NA")}</dd>{frozen?<><dt>Issued</dt><dd>Issued version v{frozen.version} · {frozen.status}</dd></>:null}</dl>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-2 text-[8px]"><dt>Grade</dt><dd className="font-bold">{payload.grade||"Not recorded"}</dd><dt>Class</dt><dd className="font-bold">{(payload.classNames??[]).join(", ")||"All classes in grade"}</dd><dt>Term</dt><dd>{payload.periodLabel}</dd><dt>Year</dt><dd>{payload.academicYear}</dd><dt>Basis</dt><dd>{payload.basis.toUpperCase()}</dd><dt>Generated</dt><dd>{new Date(payload.generatedAt).toLocaleDateString("en-NA")}</dd>{frozen?<><dt>Issued</dt><dd>Issued version v{frozen.version} · {frozen.status}</dd></>:null}</dl>
     </section>
     {payload.basis==="provisional"?<p className="my-2 border border-black p-1 text-[8px] font-bold">PROVISIONAL — not finalized official evidence.</p>:null}
     {frozen?.status==="superseded"?<p className="my-2 border-2 border-black p-1 text-[8px] font-bold">SUPERSEDED — retained historical version; not the current official schedule.</p>:null}

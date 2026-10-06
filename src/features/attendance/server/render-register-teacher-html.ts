@@ -57,7 +57,12 @@ function totalsRow(label: string, section: RegisterTeacherSection, weeks: Regist
     : kind === "absence"
       ? `<td class="term-actual"></td><td class="term-absent absence-value">${section.termAbsenceTotal}</td><td class="term-days"></td>`
       : `<td class="term-actual"></td><td class="term-absent"></td><td class="term-days">${section.termPossibleTotal}</td>`;
-  return `<tr class="summary-row ${kind === "absence" ? "absence-summary-row" : ""}"><th colspan="5">${escapeHtml(label)}</th>${cells}${termCells}</tr>`;
+  const rowClass = kind === "attendance"
+    ? "attendance-summary-row"
+    : kind === "absence"
+      ? "absence-summary-row"
+      : "possible-summary-row";
+  return `<tr class="summary-row ${rowClass}"><th colspan="5">${escapeHtml(label)}</th>${cells}${termCells}</tr>`;
 }
 
 function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacherSection) {
@@ -105,10 +110,10 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
         </tbody>
       </table>
       <div class="balance-strip">
-        <span><strong>Attendance:</strong> ${section.attendanceTotal}</span>
-        <span><strong>Absence:</strong> ${section.absenceTotal}</span>
-        <span><strong>Possible:</strong> ${section.possibleTotal}</span>
-        <span><strong>Balance:</strong> ${section.attendanceTotal + section.absenceTotal} / ${section.possibleTotal} ${section.attendanceTotal + section.absenceTotal === section.possibleTotal ? "✓" : "!"}</span>
+        <span><strong>Attendance:</strong> ${section.termAttendanceTotal}</span>
+        <span><strong>Absence:</strong> ${section.termAbsenceTotal}</span>
+        <span><strong>Possible:</strong> ${section.termPossibleTotal}</span>
+        <span><strong>Balance:</strong> ${section.termAttendanceTotal + section.termAbsenceTotal} / ${section.termPossibleTotal} ${section.termAttendanceTotal + section.termAbsenceTotal === section.termPossibleTotal ? "✓" : "!"}</span>
       </div>
     </section>
   `;
@@ -173,10 +178,14 @@ export function renderRegisterTeacherHtml(input: {
   .absent-mark { color:var(--register-red); }
   .absence-reason-mark { position:relative; top:-.42em; margin-left:1px; font-size:.52em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
   .non-teaching { background:#ececec !important; color:#999; background-image:repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(0,0,0,.035) 3px,rgba(0,0,0,.035) 6px)!important; }
-  .summary-row th { text-align:left; color:var(--register-red); background:#fff7f7; padding-left:6px; }
-  .summary-value { font-weight:700; background:#fffdfd; }
-  .absence-value { color:var(--register-red) !important; font-weight:800; }
-  .absence-summary-row .summary-value { color:var(--register-red); }
+  .summary-row th { text-align:left; padding-left:6px; font-weight:900; }
+  .summary-row td { font-weight:900; }
+  .summary-row:first-of-type th,.summary-row:first-of-type td { border-top:3px solid var(--register-red); }
+  .attendance-summary-row th,.attendance-summary-row td { background:#f1ebf7; color:#291a55; }
+  .absence-summary-row th,.absence-summary-row td { background:#fff1f2; color:var(--register-red); }
+  .possible-summary-row th,.possible-summary-row td { background:#eef5d8; color:#263517; }
+  .summary-value { font-weight:900; }
+  .absence-value { color:var(--register-red) !important; font-weight:900; }
   .balance-strip { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:14px; border:1px solid var(--register-red); border-top:0; padding:5px 7px; font-size:8px; background:#fffafa; color:#6d0d12; }
   .empty { padding:18px; color:#777; font-size:9px; }
   .legend { margin-top:8px; display:flex; gap:14px; font-size:8px; color:#555; }

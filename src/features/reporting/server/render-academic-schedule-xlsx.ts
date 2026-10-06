@@ -106,7 +106,7 @@ export function renderAcademicScheduleXlsx(
   const worksheet = buildOfficialDocumentWorkbookSheet({
     header,
     context: {
-      title: payload.title,
+      title: payload.title + " — " + classNamesContextValue,
       primaryContext: scopeContext,
       summary: lifecycle
         ? "Issued version v" + lifecycle.version + " · " + lifecycle.status.toUpperCase() +

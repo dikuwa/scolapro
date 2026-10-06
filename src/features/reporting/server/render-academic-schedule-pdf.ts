@@ -47,9 +47,10 @@ export async function renderAcademicSchedulePdf(
   const rowHeight = 13;
   const { regular, bold } = resources;
 
+  const classScope = (payload.classNames ?? []).join(", ") || "All classes";
   const headerContext = {
-    title: payload.title,
-    primaryContext: `Grade: ${payload.grade || "Not recorded"} · Class: ${(payload.classNames ?? []).join(", ") || "All classes in grade"}`,
+    title: `${payload.title} — ${classScope}`,
+    primaryContext: `Grade: ${payload.grade || "Not recorded"} · Class: ${classScope}`,
     secondaryContext: `Term: ${payload.periodLabel} · Year: ${payload.academicYear} · Basis: ${payload.basis.toUpperCase()}`,
     summary: lifecycle
       ? `Issued v${lifecycle.version} · ${lifecycle.status.toUpperCase()} · ${new Date(lifecycle.finalizedAt).toLocaleDateString("en-NA")}`

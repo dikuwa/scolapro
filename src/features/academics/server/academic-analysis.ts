@@ -155,6 +155,11 @@ export type AcademicAnalysisWorkspace = {
     teachers: string[];
   };
   exportRows: AcademicAnalysisExportRow[];
+  documentScope: {
+    gradeLabel: string;
+    classLabel: string;
+    classNames: string[];
+  };
 };
 
 type NumericResult = {
@@ -549,6 +554,14 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     .filter((row) => !scope.className || row.className === scope.className)
     .filter((row) => !scope.teacher || row.teacher?.includes(scope.teacher));
 
+  const scopedGrades = [...new Set(filteredRows.map((row) => row.grade).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const scopedClasses = [...new Set(filteredRows.map((row) => row.className).filter((value): value is string => Boolean(value)))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const gradeLabel = scope.grade ?? (scopedGrades.length === 1 ? scopedGrades[0] : scopedGrades.length ? scopedGrades.join(", ") : "All grades");
+  const classNames = scope.className ? [scope.className] : scopedClasses;
+  const classLabel = scope.className ?? (classNames.length ? classNames.join(", ") : "All classes");
+
   function aggregateBy(select: (row: AcademicAnalysisRow) => string | null): AcademicAnalysisAggregate[] {
     const groups = new Map<string, AcademicAnalysisRow[]>();
     for (const row of filteredRows) {
@@ -879,6 +892,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
     trends,
     nearThresholdMargin: NEAR_THRESHOLD_MARGIN,
     filterOptions,
+    documentScope: { gradeLabel, classLabel, classNames },
     exportRows: filteredRows.map((row) => ({
       grade: row.grade,
       className: row.className ?? "",
