@@ -1,3 +1,5 @@
+[Reading 90 lines from start (total: 90 lines, 0 remaining)]
+
 "use client";
 
 import Link from "next/link";
@@ -39,7 +41,7 @@ export function LearnerExitOperations({ learnerId, schoolId, enrolmentId, curren
     helper: [school.town, school.emisNumber ? `EMIS ${school.emisNumber}` : null].filter(Boolean).join(" · "),
   }));
 
-  return <section className="mt-5 bg-surface shadow-[var(--shadow-xs)]" aria-labelledby="learner-exit-heading">
+  return <section id="learner-transfer-workflow" className="mt-5 scroll-mt-4 bg-surface shadow-[var(--shadow-xs)]" aria-labelledby="learner-exit-heading">
     <div className="border-b border-border-subtle px-4 py-3.5 sm:px-5"><h2 id="learner-exit-heading" className="scolapro-section-title">Learner exit operations</h2><p className="scolapro-section-description">Use the governed transfer and enrolment lifecycle. Learner identity and historical records remain intact.</p></div>
     <div className="grid gap-5 p-4 sm:p-5 xl:grid-cols-2">
       <form action={exitAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3 sm:p-4">
@@ -88,3 +90,5 @@ export function LearnerExitOperations({ learnerId, schoolId, enrolmentId, curren
 function TransferLifecycleForm({ learnerId, transferId, action, pending, actionFn, label }: { learnerId: string; transferId: string; action: "approve" | "complete" | "cancel"; pending: boolean; actionFn: (formData: FormData) => void; label: string }) {
   return <form action={actionFn}><input type="hidden" name="learnerId" value={learnerId} /><input type="hidden" name="transferId" value={transferId} /><input type="hidden" name="action" value={action} /><input type="hidden" name="confirmation" value="confirmed" /><button type="submit" disabled={pending} className="min-h-9 rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-xs font-semibold text-brand-strong disabled:opacity-50">{pending ? "Working…" : label}</button></form>;
 }
+
+[executed on device: MacBook-Pro-2.fritz.box (8ccb94b2-5fc5-4a5b-81c0-6db73d8bfbda)]
