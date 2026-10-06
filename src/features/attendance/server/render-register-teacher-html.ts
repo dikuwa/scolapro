@@ -63,6 +63,7 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
         <div><strong>TERM:</strong> ${escapeHtml(document.termName)}</div>
         <div><strong>TOTAL SCHOOL DAYS:</strong> ${document.teachingDayCount}</div>
         <div><strong>REGISTER CLASS:</strong> ${escapeHtml(document.className)}</div>
+        <div><strong>REGISTER TEACHER:</strong> ${escapeHtml(document.registerTeacherName)}</div>
       </div>
       <table>
         <thead>
@@ -130,7 +131,7 @@ export function renderRegisterTeacherHtml(input: {
   .doc-title p { margin:5px 0 0; font-size:10px; }
   .register-section { margin-top:18px; break-after:page; }
   .register-section:last-child { break-after:auto; }
-  .register-meta { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--register-red); border:1px solid var(--register-red); margin-bottom:4px; }
+  .register-meta { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1px; background:var(--register-red); border:1px solid var(--register-red); margin-bottom:4px; }
   .register-meta > div { background:white; padding:5px 7px; font-size:9px; }
   .register-meta strong { color:var(--register-red); }
   table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:7.4px; }
