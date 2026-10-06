@@ -255,15 +255,46 @@ as $$
       where sdo.school_id=target_school_id
         and sdo.school_date=target_date),
     case
-      when not exists (
+      when exists (
         select 1
-        from public.academic_terms term
-        join public.academic_years year on year.id=term.academic_year_id
-        where term.school_id=target_school_id
-          and term.starts_on is not null
-          and term.ends_on is not null
-          and target_date between term.starts_on and term.ends_on
+        from public.academic_years configured_year
+        where configured_year.school_id=target_school_id
+          and configured_year.status in ('setup','active','closed')
+          and configured_year.starts_on is not null
+          and configured_year.ends_on is not null
+      )
+      and not exists (
+        select 1
+        from public.academic_years active_year
+        where active_year.school_id=target_school_id
+          and active_year.status in ('setup','active','closed')
+          and active_year.starts_on is not null
+          and active_year.ends_on is not null
+          and target_date between active_year.starts_on and active_year.ends_on
+      ) then false
+      when exists (
+        select 1
+        from public.academic_years year
+        where year.school_id=target_school_id
+          and year.starts_on is not null
+          and year.ends_on is not null
+          and target_date between year.starts_on and year.ends_on
           and year.status in ('setup','active','closed')
+          and exists (
+            select 1
+            from public.academic_terms configured_term
+            where configured_term.academic_year_id=year.id
+              and configured_term.starts_on is not null
+              and configured_term.ends_on is not null
+          )
+          and not exists (
+            select 1
+            from public.academic_terms active_term
+            where active_term.academic_year_id=year.id
+              and active_term.starts_on is not null
+              and active_term.ends_on is not null
+              and target_date between active_term.starts_on and active_term.ends_on
+          )
       ) then false
       when app_private.resolve_learner_event_teaching_impact(target_school_id,target_date)='NO_TEACHING' then false
       else extract(isodow from target_date) between 1 and 5

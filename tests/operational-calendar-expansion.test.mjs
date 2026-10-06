@@ -28,7 +28,8 @@ test("calendar workspace separates official day metadata from operational events
 test("official published totals remain validation targets while resolved days drive registers", () => {
   assert.match(migration, /official_learner_day_count/);
   assert.match(migration, /app_private\.is_expected_school_day/);
-  assert.match(migration, /target_date between term\.starts_on and term\.ends_on/);
+  assert.match(migration, /target_date between active_term\.starts_on and active_term\.ends_on/);
+  assert.match(migration, /configured_term\.academic_year_id=year\.id/);
   assert.match(migration, /school_day_overrides/);
   assert.match(migration, /resolve_learner_event_teaching_impact/);
   assert.match(docs, /published learner days/);
