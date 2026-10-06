@@ -43,14 +43,14 @@ insert into public.transfer_events(
   id,tenant_id,learner_id,source_school_id,source_enrolment_id,destination_name,
   requested_on,effective_on,reason,status,initiated_by_user_id
 ) values
-  ('fb200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','50000000-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222222','60000000-0000-4000-8000-000000000001','Receiving School',current_date,current_date+1,'Relocation','requested','fb000000-0000-4000-8000-000000000001'),
+  ('fb200000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','50000000-0000-4000-8000-000000000001','22222222-2222-4222-8222-222222222222','60000000-0000-4000-8000-000000000001','Receiving School',current_date,current_date,'Relocation','requested','fb000000-0000-4000-8000-000000000001'),
   ('fb200000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','50000000-0000-4000-8000-000000000002','22222222-2222-4222-8222-222222222222','60000000-0000-4000-8000-000000000002','Other School',current_date,current_date+2,'Guardian request','requested','fb000000-0000-4000-8000-000000000001');
 
 select set_config('request.jwt.claim.sub','fb000000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 
 select lives_ok(
-  $$select public.approve_learner_transfer('fb200000-0000-4000-8000-000000000001',current_date+1,'Verified')$$,
+  $$select public.approve_learner_transfer('fb200000-0000-4000-8000-000000000001',current_date,'Verified')$$,
   'requested transfer can still transition to approved'
 );
 select lives_ok(
