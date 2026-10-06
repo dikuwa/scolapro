@@ -43,7 +43,8 @@ export default async function AcademicAnalysisPrintPage({ searchParams }: { sear
 
     <div dangerouslySetInnerHTML={{__html:renderOfficialDocumentHtmlHeader(header, undefined, { context: {
       title: `Academic Analysis — ${VIEW_LABELS[view]}`,
-      primaryContext: `Academic year ${academicYear} · Term ${termNumber}`,
+      primaryContext: `Grade/Class: ${workspace.documentScope.gradeLabel} · ${workspace.documentScope.classLabel}`,
+      secondaryContext: `Academic year ${academicYear} · Term ${termNumber}`,
       summary: basis === "official" ? "OFFICIAL" : "PROVISIONAL",
     } })}} />
 
