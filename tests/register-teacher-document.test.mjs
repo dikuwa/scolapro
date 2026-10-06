@@ -81,3 +81,33 @@ test("register teacher workspace supports explicit term selection and week navig
   assert.match(model, /registerTeacherName/);
   assert.match(renderer, /REGISTER TEACHER/);
 });
+
+
+test("register absences are red and reasoned absences carry a superscript check", () => {
+  assert.match(model, /reason_id,note/);
+  assert.match(model, /reasonedAbsenceDates/);
+  assert.match(model, /Boolean\(current\.reasonId \|\| current\.note\?\.trim\(\)\)/);
+  assert.match(renderer, /absent-mark/);
+  assert.match(renderer, /absence-reason-mark/);
+  assert.match(renderer, />✓<\/sup>/);
+  assert.match(renderer, /color:var\(--register-red\)/);
+});
+
+test("register term totals are a permanent three-column calendar-governed block", () => {
+  assert.match(renderer, /TOTAL<br>PER TERM/);
+  assert.match(renderer, />Attend\.<\/th>/);
+  assert.match(renderer, />Absent<\/th>/);
+  assert.match(renderer, />Days<\/th>/);
+  assert.match(model, /termTeachingDayCount/);
+  assert.match(model, /p_from: termStart, p_to: termEnd/);
+  assert.match(model, /termDays: termTeachingDayCount/);
+  assert.match(model, /termAttendanceTotal/);
+  assert.match(model, /termAbsenceTotal/);
+  assert.match(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);
+});
+
+test("all absentee summary values and learner term absences render red", () => {
+  assert.match(renderer, /absence-summary-row/);
+  assert.match(renderer, /absence-value/);
+  assert.match(renderer, /term-absent absence-value/);
+});
