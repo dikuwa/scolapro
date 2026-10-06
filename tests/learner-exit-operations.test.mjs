@@ -10,6 +10,14 @@ const migration = fs.readFileSync('supabase/migrations/20260919160000_learner_ex
  test('learner exit operations remain on the canonical learner surface', () => {
   assert.match(page, /LearnerExitOperations/);
   assert.match(page, /getLearnerExitOperations/);
+  assert.match(page, /href="#learner-transfer-workflow"/);
+  assert.match(page, />Transfer learner<\/Link>/);
+  assert.ok(
+    page.indexOf("<LearnerExitOperations") < page.indexOf("<GuardianPanel"),
+    "learner exit operations should appear before the long guardian section",
+  );
+  assert.match(ui, /id="learner-transfer-workflow"/);
+  assert.match(ui, /scroll-mt-4/);
   assert.doesNotMatch(page, /delete.*learner/i);
 });
 

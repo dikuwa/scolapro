@@ -139,14 +139,22 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
           </section>
 
           <aside className="space-y-3">
-            <section className="bg-surface-muted p-4 sm:p-5"><h2 className="scolapro-section-title">Current enrolment</h2><div className="mt-4 space-y-3 text-xs"><div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Admission date</span><span className="font-medium">{formatDate(learner.enrolledFrom)}</span></div><div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Academic year</span><span className="font-medium">{learner.academicYear}</span></div><div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Status</span><span className="font-medium capitalize">{learner.status}</span></div></div></section>
+            <section className="bg-surface-muted p-4 sm:p-5">
+              <h2 className="scolapro-section-title">Current enrolment</h2>
+              <div className="mt-4 space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Admission date</span><span className="font-medium">{formatDate(learner.enrolledFrom)}</span></div>
+                <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Academic year</span><span className="font-medium">{learner.academicYear}</span></div>
+                <div className="flex items-center justify-between gap-4"><span className="text-muted-foreground">Status</span><span className="font-medium capitalize">{learner.status}</span></div>
+              </div>
+              {exitOperations && operationalSchoolId && learner.status === "current" ? <Link href="#learner-transfer-workflow" className="mt-4 inline-flex min-h-10 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-sm font-semibold text-brand-strong transition hover:bg-brand hover:text-white">Transfer learner</Link> : null}
+            </section>
             {canViewConduct ? <section className="bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"><h2 className="scolapro-section-title">Conduct history</h2><p className="scolapro-section-description">Incidents and achievements remain linked across class changes, subject to your access.</p><Link href={`/conduct/learners/${learner.id}`} className="mt-3 inline-flex min-h-10 items-center rounded-[var(--radius-sm)] bg-brand-soft px-3 text-sm font-semibold text-brand-strong">Open conduct profile</Link></section> : null}
             <section className="bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"><div className="flex items-start gap-3"><span className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><FileText aria-hidden="true" className="size-4" /></span><div className="min-w-0"><h2 className="scolapro-section-title">Cumulative record</h2><p className="scolapro-section-description">Academic, attendance, support and transfer history stays linked without rewriting records created by an earlier school.</p><Link href={`/learners/${learner.id}/cumulative-record`} className="mt-3 inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-[0.68rem] font-semibold text-brand-strong transition hover:bg-brand hover:text-white">Open cumulative record</Link></div></div></section>
           </aside>
         </div>
 
-        <div className="mt-5"><GuardianPanel learnerId={learner.id} guardians={guardians} reusableGuardians={reusableGuardians} /></div>
         {exitOperations && operationalSchoolId ? <LearnerExitOperations learnerId={learner.id} schoolId={operationalSchoolId} enrolmentId={learner.enrolmentId} currentStatus={learner.status} transfers={exitOperations.transfers} completion={exitOperations.completion} destinations={exitOperations.destinations} /> : null}
+        <div className="mt-5"><GuardianPanel learnerId={learner.id} guardians={guardians} reusableGuardians={reusableGuardians} /></div>
       </section>
     </AppShell>
   );

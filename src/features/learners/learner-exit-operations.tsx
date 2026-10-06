@@ -39,7 +39,7 @@ export function LearnerExitOperations({ learnerId, schoolId, enrolmentId, curren
     helper: [school.town, school.emisNumber ? `EMIS ${school.emisNumber}` : null].filter(Boolean).join(" · "),
   }));
 
-  return <section className="mt-5 bg-surface shadow-[var(--shadow-xs)]" aria-labelledby="learner-exit-heading">
+  return <section id="learner-transfer-workflow" className="mt-5 scroll-mt-4 bg-surface shadow-[var(--shadow-xs)]" aria-labelledby="learner-exit-heading">
     <div className="border-b border-border-subtle px-4 py-3.5 sm:px-5"><h2 id="learner-exit-heading" className="scolapro-section-title">Learner exit operations</h2><p className="scolapro-section-description">Use the governed transfer and enrolment lifecycle. Learner identity and historical records remain intact.</p></div>
     <div className="grid gap-5 p-4 sm:p-5 xl:grid-cols-2">
       <form action={exitAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3 sm:p-4">
