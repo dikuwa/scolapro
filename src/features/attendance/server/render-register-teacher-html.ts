@@ -32,7 +32,11 @@ function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: Re
   const marks = week.dates.map((day) => {
     const mark = learner.marks[day.date] ?? "";
     const title = !day.teaching && day.reason ? ` title="${escapeHtml(day.reason)}"` : "";
-    return `<td class="mark ${day.teaching ? "" : "non-teaching"}"${title}>${mark ? `<span class="register-mark">${mark}</span>` : ""}</td>`;
+    const reasoned = mark === "a" && Boolean(learner.reasonedAbsenceDates[day.date]);
+    const markHtml = mark
+      ? `<span class="register-mark ${mark === "a" ? "absent-mark" : ""}">${mark}${reasoned ? '<sup class="absence-reason-mark">✓</sup>' : ""}</span>`
+      : "";
+    return `<td class="mark ${day.teaching ? "" : "non-teaching"}"${title}>${markHtml}</td>`;
   }).join("");
   const weekPossible = week.dates.reduce((sum, day) => sum + (learner.marks[day.date] ? 1 : 0), 0);
   const weekAbsent = week.dates.reduce((sum, day) => sum + (learner.marks[day.date] === "a" ? 1 : 0), 0);
@@ -43,18 +47,26 @@ function totalsRow(label: string, section: RegisterTeacherSection, weeks: Regist
   const cells = weeks.map((week) => {
     const values = week.dates.map((day) => {
       const value = kind === "attendance" ? section.attendanceByDate[day.date] : kind === "absence" ? section.absenceByDate[day.date] : section.possibleByDate[day.date];
-      return `<td class="summary-value">${value ?? 0}</td>`;
+      return `<td class="summary-value ${kind === "absence" ? "absence-value" : ""}">${value ?? 0}</td>`;
     }).join("");
     const weekTotal = week.dates.reduce((sum, day) => sum + (kind === "attendance" ? section.attendanceByDate[day.date] : kind === "absence" ? section.absenceByDate[day.date] : section.possibleByDate[day.date]), 0);
-    return values + `<td class="summary-value week-total">${weekTotal}</td>`;
+    return values + `<td class="summary-value week-total ${kind === "absence" ? "absence-value" : ""}">${weekTotal}</td>`;
   }).join("");
-  return `<tr class="summary-row"><th colspan="5">${escapeHtml(label)}</th>${cells}<td class="term-total">${kind === "attendance" ? section.attendanceTotal : kind === "absence" ? section.absenceTotal : section.possibleTotal}</td></tr>`;
+  const termCells = kind === "attendance"
+    ? `<td class="term-actual">${section.termAttendanceTotal}</td><td class="term-absent"></td><td class="term-days"></td>`
+    : kind === "absence"
+      ? `<td class="term-actual"></td><td class="term-absent absence-value">${section.termAbsenceTotal}</td><td class="term-days"></td>`
+      : `<td class="term-actual"></td><td class="term-absent"></td><td class="term-days">${section.termPossibleTotal}</td>`;
+  return `<tr class="summary-row ${kind === "absence" ? "absence-summary-row" : ""}"><th colspan="5">${escapeHtml(label)}</th>${cells}${termCells}</tr>`;
 }
 
 function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacherSection) {
   const weekHeaders = document.weeks.map((week) => `<th class="week-heading" colspan="${week.dates.length + 1}">Week Ending Friday<br><strong>${escapeHtml(formatDate(week.weekEnding))}</strong></th>`).join("");
   const dayHeaders = document.weeks.map(weeklyColumns).join("");
-  const learnerRows = section.learners.map((_, index) => `<tr>${learnerIdentityCells(section, index)}${document.weeks.map((week) => weeklyMarks(section, index, week)).join("")}<td class="term-total">${section.learners[index].attended}</td></tr>`).join("");
+  const learnerRows = section.learners.map((_, index) => {
+    const learner = section.learners[index];
+    return `<tr>${learnerIdentityCells(section, index)}${document.weeks.map((week) => weeklyMarks(section, index, week)).join("")}<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td></tr>`;
+  }).join("");
 
   return `
     <section class="register-section">
@@ -73,13 +85,16 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
             <th colspan="2" rowspan="2" class="identity name-head">NAME</th>
             <th rowspan="3" class="identity dob">DATE OF<br>BIRTH</th>
             ${weekHeaders}
-            <th rowspan="3" class="term-total">TERM<br>ATTEND.</th>
+            <th colspan="3" rowspan="2" class="term-group">TOTAL<br>PER TERM</th>
           </tr>
           <tr></tr>
           <tr>
             <th class="identity surname">Surname</th>
             <th class="identity given">Given Names</th>
             ${dayHeaders}
+            <th class="term-actual">Attend.</th>
+            <th class="term-absent">Absent</th>
+            <th class="term-days">Days</th>
           </tr>
         </thead>
         <tbody>
@@ -148,12 +163,20 @@ export function renderRegisterTeacherHtml(input: {
   .day { width:18px; }
   .day small { display:block; margin-top:1px; font-size:6px; color:#555; }
   .week-total { width:24px; background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
-  .term-total { width:34px; background:#fff2f2; font-weight:800; border-left:2px solid var(--register-red); }
+  .term-group { width:108px; background:#fff; font-weight:800; border-left:2px solid var(--register-red); }
+  .term-actual,.term-absent,.term-days { width:36px; font-weight:800; }
+  .term-actual { background:#f1ebf7; border-left:2px solid var(--register-red); }
+  .term-absent { background:#fff7f7; color:var(--register-red); }
+  .term-days { background:#eef5d8; }
   .mark { font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; font-size:10px; }
-  .register-mark { font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; }
+  .register-mark { position:relative; display:inline-block; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; }
+  .absent-mark { color:var(--register-red); }
+  .absence-reason-mark { position:relative; top:-.42em; margin-left:1px; font-size:.52em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
   .non-teaching { background:#ececec !important; color:#999; background-image:repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(0,0,0,.035) 3px,rgba(0,0,0,.035) 6px)!important; }
   .summary-row th { text-align:left; color:var(--register-red); background:#fff7f7; padding-left:6px; }
   .summary-value { font-weight:700; background:#fffdfd; }
+  .absence-value { color:var(--register-red) !important; font-weight:800; }
+  .absence-summary-row .summary-value { color:var(--register-red); }
   .balance-strip { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:14px; border:1px solid var(--register-red); border-top:0; padding:5px 7px; font-size:8px; background:#fffafa; color:#6d0d12; }
   .empty { padding:18px; color:#777; font-size:9px; }
   .legend { margin-top:8px; display:flex; gap:14px; font-size:8px; color:#555; }
@@ -182,7 +205,7 @@ export function renderRegisterTeacherHtml(input: {
       <p>${escapeHtml(subtitle)}</p>
     </div>
   </header>
-  <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample">a</span> = Absent</span><span>Grey = non-teaching / inactive</span></div>
+  <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span>Grey = non-teaching / inactive</span></div>
   ${document.sections.map((section) => sectionHtml(document, section)).join("")}
 </main>
 </body>
