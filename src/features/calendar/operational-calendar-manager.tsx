@@ -289,15 +289,17 @@ export function OperationalCalendarManager({
     } else toast.error(state.message);
   }, [state]);
 
-  useEffect(() => {
-    if (scopeKind === "department") {
+  function changeScopeKind(value: string) {
+    const next = value as "school" | "department";
+    setScopeKind(next);
+    if (next === "department") {
       setAudienceScope("department_staff");
       setLearnerDayEffect("UNCHANGED");
       setBellScheduleId("");
     } else if (audienceScope === "department_staff") {
       setAudienceScope("all_school");
     }
-  }, [audienceScope, scopeKind]);
+  }
 
   const audienceOptions = scopeKind === "department" ? departmentAudienceOptions : schoolAudienceOptions;
   const canChooseSchedule = learnerDayEffect === "ALTERED_TIMETABLE" || learnerDayEffect === "EXAM_TIMETABLE";
@@ -415,7 +417,7 @@ export function OperationalCalendarManager({
                 label="Calendar scope"
                 name="scopeKind"
                 value={scopeKind}
-                onChange={(value) => setScopeKind(value as "school" | "department")}
+                onChange={changeScopeKind}
                 options={availableScopes}
                 placeholder="Choose scope"
               />
