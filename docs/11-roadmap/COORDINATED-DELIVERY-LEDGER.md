@@ -28,6 +28,7 @@ This ledger is governed with `docs/11-roadmap/CONTROL-ROOM.md`. Current source, 
 - #609 / PR #613 — bounded shell performance fix COMPLETE / MERGED.
 - #610 — security-advisor triage COMPLETE / NO SOURCE CHANGE.
 - #605, #606, #615–#619 — active bounded workstreams.
+- #1131 — operational-calendar expansion: official learner/teacher calendar metadata, resolved attendance days, school events, HOD department deadlines/class visits, staff upcoming events and review-only OCR intake. Canonical contract: `docs/06-workflows/OPERATIONAL-CALENDAR.md`.
 - Offline business mutations follow ADR-0005; generic HTTP cache success is not sufficient.
 - Performance changes remain evidence-led; no speculative mass indexing.
 
