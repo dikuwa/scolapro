@@ -109,6 +109,8 @@ if (view === "register") {
         selectedClassId={workspace.selectedClassId}
         date={date}
         mode={mode}
+        weeklySubmittedDays={workspace.dates.filter((day) => !workspace.nonTeachingDates.includes(day) && Boolean(workspace.submissionIds[day])).length}
+        weeklyExpectedDays={workspace.dates.filter((day) => !workspace.nonTeachingDates.includes(day)).length}
       />
     </section>
   );
