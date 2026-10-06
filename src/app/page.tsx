@@ -103,10 +103,8 @@ async function HomeOverviewData({
       schoolCount: tenants.reduce((total, tenant) => total + tenant.schools.length, 0),
     };
   } else if (schoolId) {
-    [overview, upcomingEvents] = await Promise.all([
-      getDashboardOverview(schoolId, academicYear),
-      getUpcomingOperationalCalendarEvents(schoolId, 30),
-    ]);
+    overview = await getDashboardOverview(schoolId, academicYear);
+    upcomingEvents = await getUpcomingOperationalCalendarEvents(schoolId, 30);
   }
 
   const metrics = dashboardMode === "platform"
