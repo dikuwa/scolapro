@@ -4,7 +4,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { AcademicSetupCore } from "@/features/academics/academic-setup-core";
 import { AcademicStructureForms } from "@/features/academics/structure-forms";
 import { ClassManagement } from "@/features/academics/class-management";
-import { getSchoolStructure } from "@/features/academics/server/structure";
+import { getRegisterTeacherCandidates, getSchoolStructure } from "@/features/academics/server/structure";
 import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
 import { HodScopeConfiguration } from "@/features/academics/hod-scope-configuration";
 import { RoomManagement } from "@/features/timetable/room-management";
@@ -17,15 +17,17 @@ export default async function SchoolSetupPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/school/setup");
 
-  const membership = context.memberships.find((item) => ["school_admin", "principal"].includes(item.roleKey));
+  const membership = context.memberships.find((item) => ["school_admin", "principal", "deputy_principal"].includes(item.roleKey));
   if (!membership) redirect("/");
 
   const canManageAcademicStructure = membership.roleKey === "school_admin";
   const academicYear = getNamibiaCalendarYear();
-  const [structure, rooms, hodScope] = await Promise.all([
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const [structure, rooms, hodScope, registerTeacherCandidates] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
     getHodScopeConfiguration(membership.schoolId),
+    getRegisterTeacherCandidates(membership.schoolId, today),
   ]);
   const activeHodScopeCount = hodScope.responsibilities.filter(
     (row) => row.effectiveFrom <= hodScope.today && (!row.effectiveTo || row.effectiveTo >= hodScope.today),
@@ -102,35 +104,35 @@ export default async function SchoolSetupPage() {
         />
 
         {canManageAcademicStructure ? (
-          <>
-            <div className="mt-5">
-              <AcademicStructureForms
-                schoolId={membership.schoolId}
-                academicYear={academicYear}
-                grades={structure.grades} rooms={rooms} classes={structure.classes}
-              />
-            </div>
-
-            <div className="mt-5 grid gap-5 xl:grid-cols-2 xl:items-start">
-              <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-                <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4">
-                  <div>
-                    <h2 className="scolapro-section-title">Current register structure</h2>
-                    <p className="scolapro-section-description">
-                      Classes are grouped by grade. Edit incorrect labels/codes here; deletion is allowed only before a class is used by enrolment, attendance or timetable records.
-                    </p>
-                  </div>
-                  <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span>
-                </div>
-                <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} />
-              </section>
-
-              <div className="[&>section]:mt-0">
-                <RoomManagement schoolId={membership.schoolId} rooms={rooms} />
-              </div>
-            </div>
-          </>
+          <div className="mt-5">
+            <AcademicStructureForms
+              schoolId={membership.schoolId}
+              academicYear={academicYear}
+              grades={structure.grades} rooms={rooms} classes={structure.classes}
+            />
+          </div>
         ) : null}
+
+        <div className={`mt-5 grid gap-5 ${canManageAcademicStructure ? "xl:grid-cols-2" : ""} xl:items-start`}>
+          <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+            <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4">
+              <div>
+                <h2 className="scolapro-section-title">Current register structure</h2>
+                <p className="scolapro-section-description">
+                  Review grades and register classes here. Register Teacher assignment is available to school leadership; grade/class structure changes remain School Admin controlled.
+                </p>
+              </div>
+              <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span>
+            </div>
+            <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} staff={registerTeacherCandidates} canEditStructure={canManageAcademicStructure} />
+          </section>
+
+          {canManageAcademicStructure ? (
+            <div className="[&>section]:mt-0">
+              <RoomManagement schoolId={membership.schoolId} rooms={rooms} />
+            </div>
+          ) : null}
+        </div>
       </section>
     </AppShell>
   );

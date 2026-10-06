@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Download, FileSpreadsheet, LoaderCircle, Printer, X } from "lucide-react";
+import { Download, FileSpreadsheet, LoaderCircle, Printer } from "lucide-react";
+import { CloseAction } from "@/components/ui/close-action";
 
 export function OfficialDocumentActions({
   previewHref,
@@ -130,15 +131,10 @@ export function OfficialDocumentActions({
                 <p className="truncate text-sm font-semibold text-foreground">{previewTitle}</p>
                 <p className="truncate text-[0.68rem] text-muted-foreground">{previewDescription}</p>
               </div>
-              <button
-                type="button"
+              <CloseAction
                 onClick={() => setPreviewOpen(false)}
-                className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-sm)] bg-[color:var(--danger)] px-4 text-xs font-semibold text-white shadow-[var(--shadow-sm)] transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--danger)] focus-visible:ring-offset-2"
-                aria-label="Close document preview"
-              >
-                <X className="size-4.5" strokeWidth={2.4} aria-hidden="true" />
-                Close
-              </button>
+                ariaLabel="Close document preview"
+              />
             </div>
             <iframe
               title={`${previewLabel} document preview`}
