@@ -33,8 +33,8 @@ function cleanJson(value: string) {
 
 function validIsoDate(value: unknown, year: number) {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  if (!value.startsWith(`\${year}-`)) return false;
-  const parsed = new Date(`\${value}T12:00:00Z`);
+  if (!value.startsWith(`${year}-`)) return false;
+  const parsed = new Date(`${value}T12:00:00Z`);
   return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 }
 
@@ -44,13 +44,13 @@ export async function extractCalendarEventsFromImage(input: {
   academicYear: number;
 }) {
   const { baseUrl, apiKey, model } = config();
-  const imageUrl = `data:\${input.mimeType};base64,\${Buffer.from(input.bytes).toString("base64")}`;
+  const imageUrl = `data:${input.mimeType};base64,${Buffer.from(input.bytes).toString("base64")}`;
 
   const system = [
     "You extract calendar/activity rows from a photographed or scanned school document.",
     "Return JSON only with shape {\\\"events\\\":[...]} and no markdown.",
     "Use only information visibly present in the source. Never invent dates, times, audiences, closures, policy or event text.",
-    `Normalize dates to ISO YYYY-MM-DD using academic year \${input.academicYear}. If a date/range cannot be resolved confidently, omit that row rather than guessing.`,
+    `Normalize dates to ISO YYYY-MM-DD using academic year ${input.academicYear}. If a date/range cannot be resolved confidently, omit that row rather than guessing.`,
     "Preserve the source title meaning while removing table formatting noise.",
     "Allowed category values: Information, Meeting, Assessment, Examination, School activity, Deadline, Teaching cutoff, Ceremony, Sport, School holiday, Public holiday, Other.",
     "Allowed teachingImpact values: NORMAL, NO_TEACHING, PARTIAL_DAY, ALTERED_TIMETABLE, EXAM_TIMETABLE.",
@@ -59,11 +59,11 @@ export async function extractCalendarEventsFromImage(input: {
     "Do not infer start/end times. Use null unless visible.",
   ].join(" ");
 
-  const response = await fetch(`\${baseUrl}/chat/completions`, {
+  const response = await fetch(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer \${apiKey}`,
+      authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       model,
