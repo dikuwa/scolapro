@@ -46,7 +46,7 @@ export function renderAcademicScheduleXlsx(
   const classNamesContextValue = classNamesContext(payload);
 
   const scopeContext =
-    "Grade/Class: " + (payload.grade || "Not recorded") + " · " + classNamesContextValue;
+    "Grade: " + (payload.grade || "Not recorded") + " · Class: " + classNamesContextValue;
   const periodContext =
     "Term: " + payload.periodLabel + " · Year: " + payload.academicYear + " · Basis: " + payload.basis.toUpperCase();
   const generatedContext = "Generated: " + new Date(payload.generatedAt).toLocaleDateString("en-NA");
