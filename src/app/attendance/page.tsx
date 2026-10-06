@@ -10,9 +10,11 @@ import { AbsenceOverview } from "@/features/attendance/absence-overview";
 import { DailyRegister } from "@/features/attendance/daily-register";
 import { OfficialSummary } from "@/features/attendance/official-summary";
 import { WeeklyRegister } from "@/features/attendance/weekly-register";
+import { RegisterTeacherWorkspace } from "@/features/attendance/register-teacher-workspace";
 import { getAbsenceOverviewWorkspace } from "@/features/attendance/server/absence-overview";
 import { getDailyRegisterWorkspace, type AttendanceSortDirection } from "@/features/attendance/server/register";
 import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
+import { getRegisterTeacherTermOptions } from "@/features/attendance/server/register-teacher-document";
 import { getOfficialAttendanceSummaryFinalization } from "@/features/attendance/server/finalization";
 import { getWeeklyRegisterWorkspace, mondayFor } from "@/features/attendance/server/week";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -46,7 +48,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
   const requestedTerm = Array.isArray(params.term) ? params.term[0] : params.term;
   const requestedMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
-  const view = requestedView === "week" ? "week" : requestedView === "official" ? "official" : requestedView === "absences" ? "absences" : "day";
+  const view = requestedView === "week" ? "week" : requestedView === "register" ? "register" : requestedView === "official" ? "official" : requestedView === "absences" ? "absences" : "day";
   const mode: "week" | "term" = requestedMode === "term" ? "term" : "week";
   const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
   const date = safeSchoolDate(requestedDate);
@@ -92,12 +94,37 @@ async function AttendanceWorkspaceData({
   academicYear: number;
   requestedClass?: string;
   date: string;
-  view: "day" | "week" | "official" | "absences";
+  view: "day" | "week" | "register" | "official" | "absences";
   sort: AttendanceSortDirection;
   mode: "week" | "term";
   requestedTerm?: string;
   canFinalize: boolean;
 }) {
+if (view === "register") {
+  const [workspace, terms] = await Promise.all([
+    getWeeklyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort),
+    getRegisterTeacherTermOptions(schoolId, academicYear),
+  ]);
+  const selectedTermId = requestedTerm && terms.some((term) => term.id === requestedTerm)
+    ? requestedTerm
+    : (terms.find((term) => (!term.startsOn || term.startsOn <= date) && (!term.endsOn || term.endsOn >= date))?.id ?? terms[0]?.id ?? null);
+  return (
+    <section className="attendance-page">
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="register" sort={sort} />
+      <RegisterTeacherWorkspace
+        classes={workspace.classes}
+        selectedClassId={workspace.selectedClassId}
+        date={date}
+        mode={mode}
+        weeklySubmittedDays={workspace.dates.filter((day) => !workspace.nonTeachingDates.includes(day) && Boolean(workspace.submissionIds[day])).length}
+        weeklyExpectedDays={workspace.dates.filter((day) => !workspace.nonTeachingDates.includes(day)).length}
+        terms={terms}
+        selectedTermId={selectedTermId}
+      />
+    </section>
+  );
+}
+
 if (view === "official") {
   const summary = await getOfficialAttendanceSummary(schoolId, academicYear, mode, date, requestedTerm ?? null);
   const finalization = await getOfficialAttendanceSummaryFinalization({
@@ -186,10 +213,10 @@ function AttendanceLoading() {
   );
 }
 
-function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; requestedClass?: string; view: "day" | "week" | "official" | "absences"; sort: AttendanceSortDirection }) {
+function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; requestedClass?: string; view: "day" | "week" | "register" | "official" | "absences"; sort: AttendanceSortDirection }) {
   return (
     <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-      <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first registers, a Monday–Friday weekly view, the official weekly/term absence summary, or all absences for a day.</p></div>
+      <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first capture, Monday–Friday entry, a printable Register Teacher balancing copy, official weekly/term summaries, or all absences for a day.</p></div>
       <div className="flex flex-wrap items-center gap-2">
         {view !== "absences" ? <AttendanceSortControl sort={sort} /> : null}
         <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} />

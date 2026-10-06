@@ -20,7 +20,8 @@ export type OfficialDocumentType =
   | "subject_file_inspection_pack"
   | "detention_roster"
   | "academic_analysis"
-  | "learner_transfer_form";
+  | "learner_transfer_form"
+  | "register_teacher";
 
 export type OfficialDocumentHeaderFamily =
   | "school_document"
@@ -62,6 +63,7 @@ export function officialDocumentHeaderFamilyForType(
     case "subject_file_inspection_pack":
     case "detention_roster":
     case "academic_analysis":
+    case "register_teacher":
       return "school_document";
   }
 }

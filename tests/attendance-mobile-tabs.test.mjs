@@ -13,8 +13,9 @@ test("attendance view tabs fit the mobile content width without changing desktop
   assert.match(tabs, /hidden size-3\.5 sm:block/);
 });
 
-test("attendance view tab routing contract is unchanged", () => {
-  assert.match(tabs, /view: "day" \| "week" \| "official" \| "absences"/);
+test("attendance view tab routing contract includes the register teacher surface", () => {
+  assert.match(tabs, /view: "day" \| "week" \| "register" \| "official" \| "absences"/);
   assert.match(tabs, /router\.replace\(`\/attendance\?\$\{params\.toString\(\)\}`/);
   assert.match(tabs, /params\.set\("date", nextView === "week" \|\| nextView === "official" \? weekDate : date\)/);
+  assert.match(tabs, /value: "register", label: "Register"/);
 });
