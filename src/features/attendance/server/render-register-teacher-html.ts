@@ -113,7 +113,7 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
         <div class="balance-item"><span>Attendance</span><strong>${section.termAttendanceTotal}</strong></div>
         <div class="balance-item"><span>Absence</span><strong>${section.termAbsenceTotal}</strong></div>
         <div class="balance-item"><span>Possible</span><strong>${section.termPossibleTotal}</strong></div>
-        <div class="balance-item balance-result"><span>Balance</span><strong>${section.termAttendanceTotal + section.termAbsenceTotal} / ${section.termPossibleTotal} ${section.termAttendanceTotal + section.termAbsenceTotal === section.termPossibleTotal ? "✓" : "!"}</strong></div>
+        <div class="balance-item balance-result"><span>Balance:</span><strong>${section.termAttendanceTotal + section.termAbsenceTotal} / ${section.termPossibleTotal} ${section.termAttendanceTotal + section.termAbsenceTotal === section.termPossibleTotal ? "✓" : "!"}</strong></div>
       </div>
     </section>
   `;
