@@ -151,8 +151,8 @@ export async function renderAcademicAnalysisPdf(
 
   const context = {
     title: "Academic Analysis — " + VIEW_LABELS[view],
-    primaryContext: "Academic year " + workspace.academicYear + " · Term " + workspace.termNumber,
-    secondaryContext: "Basis: " + workspace.basis.toUpperCase(),
+    primaryContext: "Grade/Class: " + workspace.documentScope.gradeLabel + " · " + workspace.documentScope.classLabel,
+    secondaryContext: "Academic year " + workspace.academicYear + " · Term " + workspace.termNumber + " · Basis: " + workspace.basis.toUpperCase(),
     summary: table.rows.length + " row" + (table.rows.length === 1 ? "" : "s"),
   };
 
