@@ -51,12 +51,21 @@ export type RegisterTeacherSection = {
   possibleTotal: number;
 };
 
+export type RegisterTeacherTermOption = {
+  id: string;
+  displayName: string;
+  termNumber: number;
+  startsOn: string | null;
+  endsOn: string | null;
+};
+
 export type RegisterTeacherDocument = {
   mode: RegisterTeacherMode;
   academicYear: number;
   classId: string;
   className: string;
   gradeName: string;
+  registerTeacherName: string;
   termId: string | null;
   termName: string;
   scopeStart: string;
@@ -121,7 +130,7 @@ export async function getRegisterTeacherDocument(input: {
   const [{ data: classRow, error: classError }, { data: terms, error: termError }] = await Promise.all([
     supabase
       .from("register_classes")
-      .select("id,display_name,grade_id,grades(display_name)")
+      .select("id,display_name,grade_id,register_teacher_staff_id,grades(display_name)")
       .eq("school_id", input.schoolId)
       .eq("academic_year", input.academicYear)
       .eq("id", input.classId)
@@ -135,7 +144,7 @@ export async function getRegisterTeacherDocument(input: {
   ]);
   if (classError || !classRow || termError) throw new Error("Unable to load the register-teacher document scope.");
 
-  const normalizedTerms = (terms ?? []).map((row) => ({
+  const normalizedTerms: RegisterTeacherTermOption[] = (terms ?? []).map((row) => ({
     id: String(row.id),
     displayName: String(row.display_name),
     termNumber: Number(row.term_number),
@@ -148,6 +157,16 @@ export async function getRegisterTeacherDocument(input: {
     [...normalizedTerms].reverse().find((item) => !item.startsOn || item.startsOn <= input.selectedDate) ??
     normalizedTerms[0] ??
     null;
+
+  let registerTeacherName = "Not assigned";
+  if (classRow.register_teacher_staff_id) {
+    const { data: staff } = await supabase
+      .from("staff_members")
+      .select("first_name,last_name")
+      .eq("id", classRow.register_teacher_staff_id)
+      .maybeSingle();
+    if (staff) registerTeacherName = `${staff.first_name ?? ""} ${staff.last_name ?? ""}`.trim() || "Not assigned";
+  }
 
   const weekDates = schoolWeekDates(input.selectedDate);
   const scopeStart = input.mode === "week" ? weekDates[0] : (term?.startsOn ?? `${input.academicYear}-01-01`);
@@ -289,6 +308,7 @@ export async function getRegisterTeacherDocument(input: {
     classId: String(classRow.id),
     className: String(classRow.display_name),
     gradeName: relation(classRow.grades)?.display_name ?? "Grade",
+    registerTeacherName,
     termId: term?.id ?? null,
     termName: term?.displayName ?? "Term",
     scopeStart,
@@ -298,4 +318,26 @@ export async function getRegisterTeacherDocument(input: {
     weeks,
     sections,
   };
+}
+
+
+export async function getRegisterTeacherTermOptions(
+  schoolId: string,
+  academicYear: number,
+): Promise<RegisterTeacherTermOption[]> {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("academic_terms")
+    .select("id,term_number,display_name,starts_on,ends_on,academic_years!inner(school_id,year)")
+    .eq("academic_years.school_id", schoolId)
+    .eq("academic_years.year", academicYear)
+    .order("term_number");
+  if (error) throw new Error("Unable to load register-teacher term options.");
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    displayName: String(row.display_name),
+    termNumber: Number(row.term_number),
+    startsOn: row.starts_on ? String(row.starts_on).slice(0, 10) : null,
+    endsOn: row.ends_on ? String(row.ends_on).slice(0, 10) : null,
+  }));
 }
