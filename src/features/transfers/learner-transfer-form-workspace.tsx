@@ -268,12 +268,19 @@ export function LearnerTransferFormWorkspace({
         </p>
         <form action={finalizeAction} className="mt-4">
           <input type="hidden" name="transferEventId" value={source.transferEventId} />
-          <Button type="submit" loading={finalizing} disabled={finalizing || !verification.trim()}>
+          <input type="hidden" name="reasonForDeparture" value={reason} />
+          <input type="hidden" name="mediumOfInstruction" value={mediumOfInstruction} />
+          <input type="hidden" name="documentsAttached" value={documents} />
+          <input type="hidden" name="behaviourSummary" value={behaviour} />
+          <input type="hidden" name="healthSummary" value={health} />
+          <input type="hidden" name="otherRelevantInformation" value={other} />
+          <input type="hidden" name="verificationNote" value={verification} />
+          <Button type="submit" loading={finalizing} disabled={finalizing || !reason.trim() || !verification.trim()}>
             <CheckCircle2 className="size-4" aria-hidden="true" />
             {finalization ? "Finalize new revision" : "Finalize transfer form"}
           </Button>
         </form>
-        {!verification.trim() ? <p className="mt-2 text-xs text-muted-foreground">Save a verification note before finalization.</p> : null}
+        {!verification.trim() ? <p className="mt-2 text-xs text-muted-foreground">Add a verification note before finalization.</p> : null}
       </section>
     </div>
   );
