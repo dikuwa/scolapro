@@ -5,11 +5,14 @@ import test from "node:test";
 const actions = readFileSync("src/components/documents/official-document-actions.tsx", "utf8");
 const register = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
 
-test("shared document preview close action uses the prominent danger treatment", () => {
+test("shared document preview close action stays prominent but minimal", () => {
   assert.match(actions, /Close document preview/);
-  assert.match(actions, /bg-\[color:var\(--danger\)\]/);
-  assert.match(actions, /text-white/);
+  assert.match(actions, /border-border-subtle/);
+  assert.match(actions, /bg-surface/);
+  assert.match(actions, /text-brand-strong/);
+  assert.match(actions, /hover:bg-brand-soft/);
   assert.match(actions, /focus-visible:ring-2/);
+  assert.doesNotMatch(actions, /bg-\[color:var\(--danger\)\]/);
 });
 
 test("register legend is aligned as one compact visual row", () => {
