@@ -26,7 +26,7 @@ export function AttendanceViewTabs({
     if (nextView === view || pending) return;
     const params = new URLSearchParams();
     params.set("view", nextView);
-    params.set("date", nextView === "week" || nextView === "register" || nextView === "official" ? weekDate : date);
+    params.set("date", nextView === "week" || nextView === "official" ? weekDate : date);
     if (requestedClass) params.set("class", requestedClass);
     if (sort === "desc") params.set("sort", "desc");
     startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
