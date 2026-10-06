@@ -153,7 +153,10 @@ export async function getRegisterTeacherDocument(input: {
   const scopeStart = input.mode === "week" ? weekDates[0] : (term?.startsOn ?? `${input.academicYear}-01-01`);
   const termEnd = term?.endsOn ?? input.selectedDate;
   const scopeEnd = input.mode === "week" ? weekDates[4] : (input.selectedDate < termEnd ? input.selectedDate : termEnd);
-  const dates = rangeDates(scopeStart, scopeEnd);
+  const dates = rangeDates(scopeStart, scopeEnd).filter((date) => {
+    const day = new Date(`${date}T12:00:00`).getDay();
+    return day >= 1 && day <= 5;
+  });
 
   const [{ data: impactRows, error: impactError }, { data: enrolments, error: enrolmentError }, { data: currentRows, error: currentError }, { data: overrideRows, error: overrideError }] = await Promise.all([
     supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: input.schoolId, p_from: scopeStart, p_to: scopeEnd }),
