@@ -57,6 +57,15 @@ test("human verification stays editable before immutable leadership finalization
   assert.match(migration, /Finalized learner transfer form content is immutable/);
 });
 
+test("finalization persists the current verified fields instead of requiring a separate draft save", () => {
+  assert.match(workspace, /name="verificationNote" value=\{verification\}/);
+  assert.match(workspace, /name="reasonForDeparture" value=\{reason\}/);
+  assert.match(workspace, /name="documentsAttached" value=\{documents\}/);
+  assert.match(actions, /persistLearnerTransferFormDraft\(parsed\.data\)/);
+  assert.match(actions, /Verification note is required before finalization/);
+  assert.doesNotMatch(workspace, /Save a verification note before finalization/);
+});
+
 test("finalized transfer form uses shared verification revisions and freezes source provenance", () => {
   assert.match(migration, /learner_transfer_form_snapshots/);
   assert.match(migration, /register_official_document_verification/);

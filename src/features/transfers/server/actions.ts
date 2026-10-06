@@ -27,11 +27,8 @@ const draftSchema = z.object({
   verificationNote: z.string().trim().max(2000).optional(),
 });
 
-export async function saveLearnerTransferFormDraft(
-  _state: TransferFormActionState,
-  formData: FormData,
-): Promise<TransferFormActionState> {
-  const parsed = draftSchema.safeParse({
+function parseDraftFormData(formData: FormData) {
+  return draftSchema.safeParse({
     transferEventId: String(formData.get("transferEventId") ?? ""),
     reasonForDeparture: String(formData.get("reasonForDeparture") ?? ""),
     mediumOfInstruction: String(formData.get("mediumOfInstruction") ?? ""),
@@ -41,22 +38,33 @@ export async function saveLearnerTransferFormDraft(
     otherRelevantInformation: String(formData.get("otherRelevantInformation") ?? ""),
     verificationNote: String(formData.get("verificationNote") ?? ""),
   });
+}
+
+async function persistLearnerTransferFormDraft(data: z.infer<typeof draftSchema>) {
+  const supabase = await createSupabaseServerClient();
+  return supabase.rpc("save_learner_transfer_form_draft", {
+    p_transfer_event_id: data.transferEventId,
+    p_reason_for_departure: data.reasonForDeparture,
+    p_documents_attached: data.documentsAttached || null,
+    p_behaviour_summary: data.behaviourSummary || null,
+    p_health_summary: data.healthSummary || null,
+    p_other_relevant_information: data.otherRelevantInformation || null,
+    p_verification_note: data.verificationNote || null,
+    p_medium_of_instruction: data.mediumOfInstruction || null,
+  });
+}
+
+export async function saveLearnerTransferFormDraft(
+  _state: TransferFormActionState,
+  formData: FormData,
+): Promise<TransferFormActionState> {
+  const parsed = parseDraftFormData(formData);
 
   if (!parsed.success) {
     return { fieldErrors: parsed.error.flatten().fieldErrors, message: "Review the highlighted transfer-form fields." };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("save_learner_transfer_form_draft", {
-    p_transfer_event_id: parsed.data.transferEventId,
-    p_reason_for_departure: parsed.data.reasonForDeparture,
-    p_documents_attached: parsed.data.documentsAttached || null,
-    p_behaviour_summary: parsed.data.behaviourSummary || null,
-    p_health_summary: parsed.data.healthSummary || null,
-    p_other_relevant_information: parsed.data.otherRelevantInformation || null,
-    p_verification_note: parsed.data.verificationNote || null,
-    p_medium_of_instruction: parsed.data.mediumOfInstruction || null,
-  });
+  const { error } = await persistLearnerTransferFormDraft(parsed.data);
 
   if (error) {
     return {
@@ -120,8 +128,8 @@ export async function generateLearnerTransferFormSummary(
   }
 }
 
-const finalizeSchema = z.object({
-  transferEventId: z.string().uuid(),
+const finalizeSchema = draftSchema.extend({
+  verificationNote: z.string().trim().min(1, "Verification note is required before finalization.").max(2000),
 });
 
 export async function finalizeLearnerTransferForm(
@@ -130,18 +138,34 @@ export async function finalizeLearnerTransferForm(
 ): Promise<TransferFormActionState> {
   const parsed = finalizeSchema.safeParse({
     transferEventId: String(formData.get("transferEventId") ?? ""),
+    reasonForDeparture: String(formData.get("reasonForDeparture") ?? ""),
+    mediumOfInstruction: String(formData.get("mediumOfInstruction") ?? ""),
+    documentsAttached: String(formData.get("documentsAttached") ?? ""),
+    behaviourSummary: String(formData.get("behaviourSummary") ?? ""),
+    healthSummary: String(formData.get("healthSummary") ?? ""),
+    otherRelevantInformation: String(formData.get("otherRelevantInformation") ?? ""),
+    verificationNote: String(formData.get("verificationNote") ?? ""),
   });
-  if (!parsed.success) return { message: "Invalid transfer-form record." };
+  if (!parsed.success) {
+    return {
+      fieldErrors: parsed.error.flatten().fieldErrors,
+      message: parsed.error.flatten().fieldErrors.verificationNote?.[0]
+        ?? parsed.error.flatten().fieldErrors.reasonForDeparture?.[0]
+        ?? "Review the highlighted transfer-form fields before finalizing.",
+    };
+  }
 
   try {
-    const workspace = await getLearnerTransferFormWorkspace(parsed.data.transferEventId);
-    if (!workspace.draft?.reasonForDeparture.trim()) {
-      return { message: "Save and verify the reason for departure before finalizing." };
-    }
-    if (!workspace.draft.verificationNote.trim()) {
-      return { message: "Add a verification note before finalizing." };
+    const { error: saveError } = await persistLearnerTransferFormDraft(parsed.data);
+    if (saveError) {
+      return {
+        message: /permission|authorized/i.test(saveError.message)
+          ? "You do not have current source-school authority to edit this transfer form."
+          : "The verified transfer-form values could not be saved before finalization.",
+      };
     }
 
+    const workspace = await getLearnerTransferFormWorkspace(parsed.data.transferEventId);
     const profile = await getLiveSchoolDocumentProfile(workspace.source.school.schoolId);
     const headerSnapshot = {
       schoolName: profile.schoolName,
