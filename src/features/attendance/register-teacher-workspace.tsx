@@ -59,6 +59,7 @@ export function RegisterTeacherWorkspace({
               name="register-teacher-mode"
               value={mode}
               onChange={(value) => navigate({ mode: value === "term" ? "term" : "week" })}
+              placeholder="Weekly register"
               options={[
                 { value: "week", label: "Weekly register", helper: "Friday submission / balancing copy" },
                 { value: "term", label: "Term register", helper: "Full current-term balancing ledger" },
