@@ -13,11 +13,15 @@ export function RegisterTeacherWorkspace({
   selectedClassId,
   date,
   mode,
+  weeklySubmittedDays,
+  weeklyExpectedDays,
 }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   date: string;
   mode: "week" | "term";
+  weeklySubmittedDays: number;
+  weeklyExpectedDays: number;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -72,6 +76,24 @@ export function RegisterTeacherWorkspace({
               disabled={!selectedClassId || pending}
             />
           </div>
+        </div>
+      </section>
+
+      <section className="grid gap-px overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-border-subtle sm:grid-cols-3">
+        <div className="bg-surface p-4 sm:p-5">
+          <p className="text-xs font-medium text-muted-foreground">Friday submission readiness</p>
+          <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-foreground">{weeklySubmittedDays}/{weeklyExpectedDays}</p>
+          <p className="mt-1 text-[0.7rem] text-muted-foreground">Teaching-day registers confirmed for the selected week.</p>
+        </div>
+        <div className="bg-surface p-4 sm:p-5">
+          <p className="text-xs font-medium text-muted-foreground">Selected document</p>
+          <p className="mt-1.5 text-sm font-semibold text-brand-strong">{selectedClass?.name ?? "No register class"} · {title}</p>
+          <p className="mt-1 text-[0.7rem] text-muted-foreground">Boys and Girls print as separate physical-register sections.</p>
+        </div>
+        <div className="bg-surface p-4 sm:p-5">
+          <p className="text-xs font-medium text-muted-foreground">Balance rule</p>
+          <p className="mt-1.5 text-sm font-semibold text-foreground">Attendance + absence = possible</p>
+          <p className="mt-1 text-[0.7rem] text-muted-foreground">Possible attendance follows governed school days and enrolment dates.</p>
         </div>
       </section>
 
