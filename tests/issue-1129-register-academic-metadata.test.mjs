@@ -55,8 +55,8 @@ test("academic schedules preserve singular or multi-class scope and print it pro
   assert.match(schedulePrint, /params\.classes\?\?params\.class/);
   assert.match(schedulePdfRoute, /get\("classes"\) \?\? url\.searchParams\.get\("class"\)/);
   assert.match(scheduleXlsxRoute, /get\("classes"\)\?\?url\.searchParams\.get\("class"\)/);
-  assert.match(schedulePrint, /Grade\/Class/);
-  assert.match(schedulePdf, /Grade\/Class:/);
+  assert.match(schedulePrint, />Grade<.*>Class</s);
+  assert.match(schedulePdf, /Grade:.*Class:/s);
   assert.match(schedulePdf, /payload\.title.*classScope/s);
-  assert.match(scheduleXlsx, /Grade\/Class:/);
+  assert.match(scheduleXlsx, /Grade:.*Class:/s);
 });
