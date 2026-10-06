@@ -11,9 +11,6 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${value}T12:00:00`));
 }
 
-function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "2-digit" }).format(new Date(`${value}T12:00:00`));
-}
 
 function learnerIdentityCells(section: RegisterTeacherSection, rowIndex: number) {
   const learner = section.learners[rowIndex];
