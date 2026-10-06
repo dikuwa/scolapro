@@ -173,8 +173,8 @@ export function renderAcademicAnalysisXlsx(
     header,
     context: {
       title: "Academic Analysis — " + VIEW_LABELS[view],
-      primaryContext: "Academic year " + workspace.academicYear + " · Term " + workspace.termNumber,
-      secondaryContext: "Basis: " + workspace.basis.toUpperCase(),
+      primaryContext: "Grade/Class: " + workspace.documentScope.gradeLabel + " · " + workspace.documentScope.classLabel,
+      secondaryContext: "Academic year " + workspace.academicYear + " · Term " + workspace.termNumber + " · Basis: " + workspace.basis.toUpperCase(),
       summary: data.rows.length + " row" + (data.rows.length === 1 ? "" : "s"),
     },
     metaStartColumn,
