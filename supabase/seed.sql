@@ -31,6 +31,7 @@ on conflict (id) do nothing;
 -- Migrations precede seed.sql on a clean reset. Apply the same fail-closed
 -- Issue #1050 recovery after the exact school and its 2026 structure exist.
 select app_private.recover_namib_high_2026_learner_calendar();
+select app_private.apply_namib_high_2026_operational_calendar_source();
 
 insert into public.learners (id, tenant_id, first_names, surname, preferred_name, date_of_birth, sex)
 values

@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(24);
 
 select has_table('public','academic_term_calendar_profiles','official term calendar metadata table exists');
 select has_table('public','operational_calendar_events','operational school/department event table exists');
@@ -116,19 +116,26 @@ select is(
   'explicit special-day override wins even outside the normal term/weekday baseline'
 );
 
-select lives_ok(
-  $$select public.save_hod_subject_portfolio(
-    'c1312000-0000-4000-8000-000000000001',
-    array['c1316000-0000-4000-8000-000000000001']::uuid[],
-    'c1315000-0000-4000-8000-000000000001',
-    'Science',
-    current_date-1,
-    null
-  )$$,
-  'leadership can configure the governed HOD portfolio used by department calendar authority'
+reset role;
+
+insert into public.subject_department_responsibilities(
+  tenant_id,school_id,subject_id,department_head_staff_assignment_id,department_label,effective_from,created_by_user_id
+) values (
+  'c1311000-0000-4000-8000-000000000001',
+  'c1312000-0000-4000-8000-000000000001',
+  'c1316000-0000-4000-8000-000000000001',
+  'c1315000-0000-4000-8000-000000000001',
+  'Science',
+  current_date-1,
+  'c1310000-0000-4000-8000-000000000001'
 );
 
+select pass('governed HOD portfolio fixture is configured for department calendar authority');
+
+set local role authenticated;
+select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','c1310000-0000-4000-8000-000000000002',true);
+
 
 select lives_ok(
   $$select public.create_operational_calendar_event(
@@ -174,6 +181,55 @@ select ok(
   and pg_get_functiondef('public.commit_operational_intake_job(uuid)'::regprocedure)
     like '%create_operational_calendar_event%',
   'reviewed OCR-tagged calendar rows commit through governed operational-event creation'
+);
+
+reset role;
+
+select is(
+  (
+    select sum(profile.official_learner_day_count)::integer
+    from public.academic_term_calendar_profiles profile
+    join public.academic_terms term on term.id=profile.academic_term_id
+    join public.academic_years year on year.id=term.academic_year_id
+    where profile.school_id='22222222-2222-4222-8222-222222222222'::uuid
+      and year.year=2026
+  ),
+  199,
+  'Namib High 2026 published learner-day validation total is source-backed at 199'
+);
+
+select is(
+  (
+    select profile.teacher_starts_on
+    from public.academic_term_calendar_profiles profile
+    join public.academic_terms term on term.id=profile.academic_term_id
+    join public.academic_years year on year.id=term.academic_year_id
+    where profile.school_id='22222222-2222-4222-8222-222222222222'::uuid
+      and year.year=2026
+      and term.term_number=3
+  ),
+  date '2026-09-03',
+  'Namib High 2026 Term 3 teacher opening is stored separately from learner opening'
+);
+
+select is(
+  app_private.is_expected_school_day(
+    '22222222-2222-4222-8222-222222222222'::uuid,
+    date '2026-10-05'
+  ),
+  false,
+  'International Teacher''s Day school holiday closes the learner register'
+);
+
+select is(
+  (
+    select reason
+    from public.school_day_overrides
+    where school_id='22222222-2222-4222-8222-222222222222'::uuid
+      and school_date=date '2026-10-05'
+  ),
+  'School Holiday - International Teacher''s Day',
+  'school-day override retains the supplied official source meaning'
 );
 
 select * from finish();

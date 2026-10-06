@@ -622,7 +622,12 @@ grant execute on function public.list_my_operational_calendar_events(uuid,date,d
 -- Source-backed 2026 Namib High baseline from the Control Room supplied
 -- Republic of Namibia / Ministry Government Schools calendar. This recovery is
 -- intentionally bounded to the already-governed Namib High 2026 calendar.
-do $seed$
+create or replace function app_private.apply_namib_high_2026_operational_calendar_source()
+returns boolean
+language plpgsql
+security definer
+set search_path=pg_catalog,public,app_private
+as $$
 declare
   v_school_id constant uuid := '22222222-2222-4222-8222-222222222222';
   v_tenant_id constant uuid := '11111111-1111-4111-8111-111111111111';
@@ -709,8 +714,13 @@ begin
       );
     end if;
   end if;
+  return true;
 end;
-$seed$;
+$$;
+
+revoke all on function app_private.apply_namib_high_2026_operational_calendar_source() from public,anon,authenticated;
+
+select app_private.apply_namib_high_2026_operational_calendar_source();
 
 comment on table public.academic_term_calendar_profiles is
 'Term-level official calendar metadata layered onto canonical academic_terms. Learner term dates remain canonical in academic_terms; teacher dates and published learner-day counts are comparison metadata.';
