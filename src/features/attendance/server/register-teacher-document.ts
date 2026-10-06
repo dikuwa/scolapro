@@ -287,14 +287,12 @@ export async function getRegisterTeacherDocument(input: {
           attended += 1;
         }
       }
-      let termAttended = 0;
       let termAbsent = 0;
       for (const date of termActualDates) {
-        if (!isActiveOn(String(item.enrolled_from).slice(0, 10), item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null, date)) continue;
         const current = currentByKey.get(`${item.id}:${date}`);
         if (current?.status === "absent") termAbsent += 1;
-        else termAttended += 1;
       }
+      const termAttended = Math.max(0, termTeachingDayCount - termAbsent);
 
       learners.push({
         enrolmentId: String(item.id),
