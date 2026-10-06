@@ -47,6 +47,13 @@ export function RegisterTeacherWorkspace({
     ? `/api/attendance/register-teacher?class=${encodeURIComponent(selectedClassId)}&date=${encodeURIComponent(date)}&mode=${mode}${selectedTermId ? `&term=${encodeURIComponent(selectedTermId)}` : ""}`
     : undefined;
   const title = mode === "term" ? "Term Register" : "Weekly Register";
+  const weekEnding = (() => {
+    const value = new Date(`${date}T12:00:00`);
+    const day = value.getDay();
+    const offsetToFriday = day === 0 ? -2 : 5 - day;
+    value.setDate(value.getDate() + offsetToFriday);
+    return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "short", year: "numeric" }).format(value);
+  })();
 
   return (
     <div className="space-y-5">
@@ -85,6 +92,10 @@ export function RegisterTeacherWorkspace({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" disabled={pending} onClick={() => { const current = new Date(`${date}T12:00:00`); current.setDate(current.getDate() - 7); navigate({ date: current.toISOString().slice(0, 10) }); }} aria-label="Previous register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronLeft className="size-4" /></button>
+            <div className="min-w-[9.5rem] rounded-[var(--radius-xs)] bg-surface-muted px-3 py-2 text-center">
+              <p className="text-[0.62rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">Week ending</p>
+              <p className="mt-0.5 text-xs font-semibold text-foreground">{weekEnding}</p>
+            </div>
             <button type="button" disabled={pending} onClick={() => { const current = new Date(`${date}T12:00:00`); current.setDate(current.getDate() + 7); navigate({ date: current.toISOString().slice(0, 10) }); }} aria-label="Next register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronRight className="size-4" /></button>
             {pending ? <Spinner className="size-4 text-brand" /> : null}
             <OfficialDocumentActions
