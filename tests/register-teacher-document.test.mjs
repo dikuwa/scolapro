@@ -28,6 +28,7 @@ test("register teacher supports weekly Friday blocks and current-term ledgers", 
   assert.match(model, /mode: RegisterTeacherMode/);
   assert.match(model, /schoolWeekDates/);
   assert.match(model, /fridayFor/);
+  assert.match(model, /day >= 1 && day <= 5/);
   assert.match(model, /term\?\.startsOn/);
   assert.match(model, /term\?\.endsOn/);
   assert.match(renderer, /Week Ending Friday/);
