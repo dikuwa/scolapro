@@ -2,11 +2,12 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarRange, FileText, UsersRound } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, FileText, UsersRound } from "lucide-react";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import type { AttendanceClassOption } from "@/features/attendance/server/register";
+import type { RegisterTeacherTermOption } from "@/features/attendance/server/register-teacher-document";
 
 export function RegisterTeacherWorkspace({
   classes,
@@ -15,6 +16,8 @@ export function RegisterTeacherWorkspace({
   mode,
   weeklySubmittedDays,
   weeklyExpectedDays,
+  terms,
+  selectedTermId,
 }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
@@ -22,22 +25,26 @@ export function RegisterTeacherWorkspace({
   mode: "week" | "term";
   weeklySubmittedDays: number;
   weeklyExpectedDays: number;
+  terms: RegisterTeacherTermOption[];
+  selectedTermId: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const selectedClass = classes.find((item) => item.id === selectedClassId) ?? null;
 
-  function navigate(next: { classId?: string; mode?: "week" | "term" }) {
+  function navigate(next: { classId?: string; mode?: "week" | "term"; termId?: string | null; date?: string }) {
     const params = new URLSearchParams();
     params.set("view", "register");
-    params.set("date", date);
+    params.set("date", next.date ?? date);
     params.set("mode", next.mode ?? mode);
     if (next.classId ?? selectedClassId) params.set("class", next.classId ?? selectedClassId ?? "");
+    const termId = next.termId === undefined ? selectedTermId : next.termId;
+    if (termId) params.set("term", termId);
     startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 
   const previewHref = selectedClassId
-    ? `/api/attendance/register-teacher?class=${encodeURIComponent(selectedClassId)}&date=${encodeURIComponent(date)}&mode=${mode}`
+    ? `/api/attendance/register-teacher?class=${encodeURIComponent(selectedClassId)}&date=${encodeURIComponent(date)}&mode=${mode}${selectedTermId ? `&term=${encodeURIComponent(selectedTermId)}` : ""}`
     : undefined;
   const title = mode === "term" ? "Term Register" : "Weekly Register";
 
@@ -62,11 +69,23 @@ export function RegisterTeacherWorkspace({
               placeholder="Weekly register"
               options={[
                 { value: "week", label: "Weekly register", helper: "Friday submission / balancing copy" },
-                { value: "term", label: "Term register", helper: "Full current-term balancing ledger" },
+                { value: "term", label: "Term register", helper: "Full selected-term balancing ledger" },
               ]}
             />
+            {mode === "term" ? (
+              <Picker
+                label="Academic term"
+                name="register-teacher-term"
+                value={selectedTermId ?? ""}
+                onChange={(value) => navigate({ termId: value || null })}
+                placeholder="Choose term"
+                options={terms.map((term) => ({ value: term.id, label: term.displayName, helper: term.startsOn && term.endsOn ? `${term.startsOn} – ${term.endsOn}` : `Term ${term.termNumber}` }))}
+              />
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button type="button" disabled={pending} onClick={() => { const current = new Date(`${date}T12:00:00`); current.setDate(current.getDate() - 7); navigate({ date: current.toISOString().slice(0, 10) }); }} aria-label="Previous register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronLeft className="size-4" /></button>
+            <button type="button" disabled={pending} onClick={() => { const current = new Date(`${date}T12:00:00`); current.setDate(current.getDate() + 7); navigate({ date: current.toISOString().slice(0, 10) }); }} aria-label="Next register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronRight className="size-4" /></button>
             {pending ? <Spinner className="size-4 text-brand" /> : null}
             <OfficialDocumentActions
               previewHref={previewHref}

@@ -70,3 +70,14 @@ test("register teacher is an internal school document with in-app preview", () =
   assert.match(workspace, /Preview \/ Print/);
   assert.match(tabs, /value: "register"/);
 });
+
+
+test("register teacher workspace supports explicit term selection and week navigation", () => {
+  assert.match(workspace, /Academic term/);
+  assert.match(workspace, /selectedTermId/);
+  assert.match(workspace, /Previous register week/);
+  assert.match(workspace, /Next register week/);
+  assert.match(model, /getRegisterTeacherTermOptions/);
+  assert.match(model, /registerTeacherName/);
+  assert.match(renderer, /REGISTER TEACHER/);
+});

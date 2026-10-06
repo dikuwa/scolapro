@@ -14,6 +14,7 @@ import { RegisterTeacherWorkspace } from "@/features/attendance/register-teacher
 import { getAbsenceOverviewWorkspace } from "@/features/attendance/server/absence-overview";
 import { getDailyRegisterWorkspace, type AttendanceSortDirection } from "@/features/attendance/server/register";
 import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
+import { getRegisterTeacherTermOptions } from "@/features/attendance/server/register-teacher-document";
 import { getOfficialAttendanceSummaryFinalization } from "@/features/attendance/server/finalization";
 import { getWeeklyRegisterWorkspace, mondayFor } from "@/features/attendance/server/week";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -100,7 +101,13 @@ async function AttendanceWorkspaceData({
   canFinalize: boolean;
 }) {
 if (view === "register") {
-  const workspace = await getWeeklyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort);
+  const [workspace, terms] = await Promise.all([
+    getWeeklyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort),
+    getRegisterTeacherTermOptions(schoolId, academicYear),
+  ]);
+  const selectedTermId = requestedTerm && terms.some((term) => term.id === requestedTerm)
+    ? requestedTerm
+    : (terms.find((term) => (!term.startsOn || term.startsOn <= date) && (!term.endsOn || term.endsOn >= date))?.id ?? terms[0]?.id ?? null);
   return (
     <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="register" sort={sort} />
@@ -111,6 +118,8 @@ if (view === "register") {
         mode={mode}
         weeklySubmittedDays={workspace.dates.filter((day) => !workspace.nonTeachingDates.includes(day) && Boolean(workspace.submissionIds[day])).length}
         weeklyExpectedDays={workspace.dates.filter((day) => !workspace.nonTeachingDates.includes(day)).length}
+        terms={terms}
+        selectedTermId={selectedTermId}
       />
     </section>
   );
