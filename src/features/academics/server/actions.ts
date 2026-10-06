@@ -109,3 +109,26 @@ export async function deleteRegisterClass(formData: FormData): Promise<AcademicS
   revalidatePath("/school/setup"); revalidatePath("/");
   return { success: true, message: "Register class deleted." };
 }
+
+
+export async function assignRegisterTeacher(formData: FormData): Promise<AcademicStructureState> {
+  const classId = String(formData.get("classId") ?? "");
+  const staffMemberId = String(formData.get("staffMemberId") ?? "");
+  if (!z.string().uuid().safeParse(classId).success) return { message: "This register class could not be identified." };
+  if (staffMemberId && !z.string().uuid().safeParse(staffMemberId).success) return { message: "Choose a valid staff member." };
+  const context = await getUserContext();
+  const allowed = context.memberships.some((membership) =>
+    ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey),
+  );
+  if (!context.user || !allowed) return { message: "You do not have permission to assign a register teacher." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("assign_register_teacher", {
+    p_register_class_id: classId,
+    p_staff_member_id: staffMemberId || null,
+  });
+  if (error) return { message: error.message || "The register teacher could not be updated." };
+  revalidatePath("/school/setup");
+  revalidatePath("/attendance");
+  revalidatePath("/class-lists");
+  return { success: true, message: staffMemberId ? "Register teacher assigned." : "Register teacher cleared." };
+}
