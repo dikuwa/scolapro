@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
-import { OfficialDocumentPreview } from "@/components/documents/official-document-preview";
 import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { AcademicAnalysisFilters } from "@/features/academics/components/academic-analysis-filters";
@@ -58,7 +57,7 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <OfficialDocumentActions
-              previewHref="#academic-analysis-preview"
+              previewHref={`/academics/analysis/export.pdf?${exportParams.toString()}&preview=1`}
               downloadHref={`/academics/analysis/export.pdf?${exportParams.toString()}`}
               spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
             />
@@ -113,24 +112,6 @@ export default async function AcademicAnalysisPage({ searchParams }: { searchPar
 
       <AcademicAnalysisViews workspace={workspace} view={view} />
 
-      <section id="academic-analysis-preview" className="scroll-mt-4 overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
-        <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="scolapro-section-title">Document preview</h2>
-            <p className="scolapro-section-description">Academic analysis · {year} · Term {term} · {basis === "official" ? "Official" : "Provisional"}</p>
-          </div>
-          <OfficialDocumentActions
-            previewHref="#academic-analysis-preview"
-            downloadHref={`/academics/analysis/export.pdf?${exportParams.toString()}`}
-            spreadsheetHref={`/academics/analysis/export.xlsx?${exportParams.toString()}`}
-          />
-        </div>
-        <OfficialDocumentPreview
-          src={`/academics/analysis/export.pdf?${exportParams.toString()}&preview=1`}
-          title="Academic analysis document preview"
-          orientation="landscape"
-        />
-      </section>
       </div>
     </AppShell>
   );

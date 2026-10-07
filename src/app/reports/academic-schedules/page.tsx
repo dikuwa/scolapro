@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AlertTriangle, CheckCircle2, CircleSlash2, History } from "lucide-react";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
-import { OfficialDocumentPreview } from "@/components/documents/official-document-preview";
 import { AppShell } from "@/components/shell/app-shell";
 import { getReportCardAcademicTerm } from "@/features/reporting/server/report-card-academic-term";
 import { getReportCardAcademicYear } from "@/features/reporting/server/report-card-academic-year";
@@ -132,15 +131,15 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
         ? <div role="status" className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-4 py-3 text-sm text-muted-foreground"><strong className="text-foreground">All Terms scope.</strong> This multi-term issue has a distinct immutable snapshot scope and cannot supersede a single-term document.</div>
         : null}
 
-    <section id="academic-schedule-preview" className="scroll-mt-4 rounded-[var(--radius-sm)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]">
+    <section className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)]" aria-labelledby="academic-schedule-document-title">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle p-4">
         <div>
-          <h2 className="scolapro-section-title">Document preview</h2>
+          <h2 id="academic-schedule-document-title" className="scolapro-section-title">Document preview</h2>
           <p className="scolapro-section-description">{payload.title} · {payload.grade} · {scopeText} · {payload.periodLabel}</p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
           <OfficialDocumentActions
-            previewHref="#academic-schedule-preview"
+            previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}
             downloadHref={"/reports/academic-schedules/export.pdf?"+query.toString()}
             spreadsheetHref={"/reports/academic-schedules/export.xlsx?"+query.toString()}
           />
@@ -151,7 +150,7 @@ export default async function AcademicSchedulesPage({ searchParams }: { searchPa
       </div>
       <div className="bg-surface-muted px-4 py-2 text-xs text-muted-foreground">{payload.sourceDescription}</div>
       {payload.rows.length
-        ? <OfficialDocumentPreview title={`${payload.title} document preview`} src={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"} orientation="landscape" />
+        ? <div className="p-4 text-xs text-muted-foreground">Use <strong className="text-foreground">Preview / Print</strong> to open the governed PDF in the in-app document preview.</div>
         : <div className="p-8 text-center text-sm text-muted-foreground">No canonical rows are available for this document scope.</div>}
       <div className="border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground">{payload.notes.join(" ")}</div>
     </section>
