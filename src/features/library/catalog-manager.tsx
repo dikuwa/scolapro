@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { Archive, Boxes, LibraryBig, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { Picker } from "@/components/ui/picker";
 import { addLibraryCopies, saveLibraryTitle, type LibraryActionState } from "@/features/library/server/actions";
 import type { LibraryGrade, LibrarySubject, LibraryTitle } from "@/features/library/server/queries";
@@ -115,7 +116,7 @@ export function CatalogManager({ schoolId, titles, subjects, grades }: { schoolI
 
     {titles.length ? <div className="xl:col-span-2 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex items-start gap-3"><LibraryBig className="mt-0.5 size-4 text-muted-foreground" aria-hidden="true" /><div><h2 className="scolapro-section-title">Manage existing titles</h2><p className="scolapro-section-description">Edit supported metadata or safely inactivate/archive catalog entries.</p></div></div>
-      <div className="mt-3 divide-y divide-border-subtle">{titles.map((title) => <div key={title.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="scolapro-record-title">{title.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{[title.subjectCode, title.gradeCode, title.edition, title.status].filter(Boolean).join(" · ")}</p></div><Button type="button" variant="neutral" size="sm" onClick={() => edit(title)}><Pencil className="size-3.5" aria-hidden="true" />Edit</Button></div>)}</div>
+      <div className="mt-3 divide-y divide-border-subtle">{titles.map((title) => <div key={title.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="scolapro-record-title">{title.title}</p><p className="mt-0.5 text-xs text-muted-foreground">{[title.subjectCode, title.gradeCode, title.edition, title.status].filter(Boolean).join(" · ")}</p></div><RecordActionButton icon={Pencil} label="Edit" onClick={() => edit(title)} /></div>)}</div>
     </div> : null}
   </section>;
 }
