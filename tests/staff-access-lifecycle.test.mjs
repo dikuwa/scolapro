@@ -8,6 +8,7 @@ const directory = await read("src/features/staff/server/directory.ts");
 const access = await read("src/features/staff/staff-access-manager.tsx");
 const actions = await read("src/features/staff/server/access-actions.ts");
 const migration = await read("supabase/migrations/20260919151000_staff_access_lifecycle.sql");
+const revocationMigration = await read("supabase/migrations/20261007081500_staff_role_immediate_revocation.sql");
 
 test("staff directory exposes compact access lifecycle states and identity action", () => {
   assert.match(page, /StaffAccessManager/);
@@ -46,6 +47,14 @@ test("database lifecycle binds invitations to exact staff identity and preserves
   assert.match(migration, /user_can_manage_current_school_membership/);
   assert.match(migration, /audit_events/);
   assert.doesNotMatch(migration, /delete from public\.school_memberships/i);
+});
+
+test("staff role revocation stops current authorization without UI-only filtering", () => {
+  assert.match(revocationMigration, /p_effective_to date default \(current_date - 1\)/);
+  assert.match(revocationMigration, /active_to >= \(active_from - 1\)/);
+  assert.match(revocationMigration, /school_membership\.role_ended/);
+  assert.match(revocationMigration, /revoked_on/);
+  assert.doesNotMatch(revocationMigration, /delete from public\.school_memberships/i);
 });
 
 test("social worker invitations preserve canonical support placement", () => {
