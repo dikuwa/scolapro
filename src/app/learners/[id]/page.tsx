@@ -62,7 +62,11 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
-    const membership = context.memberships.find((candidate) => learnerOperationalRoles.has(candidate.roleKey));
+    const primaryMembership = context.currentSchoolMembership;
+    const membership =
+      primaryMembership && learnerOperationalRoles.has(primaryMembership.roleKey)
+        ? primaryMembership
+        : context.memberships.find((candidate) => learnerOperationalRoles.has(candidate.roleKey));
     if (!membership) redirect("/");
     learner = await getLearnerOverview(id, membership.schoolId);
     canViewConduct = correctionRequestRoles.has(membership.roleKey);
