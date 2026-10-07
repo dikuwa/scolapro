@@ -73,7 +73,7 @@ test("preview, print PDF path and Excel export preserve explicit basis",()=>{
 
 test("academic schedules use the shared popup for canonical PDF preview and compact governed heading orientation",()=>{
   assert.match(page,/OfficialDocumentActions/);
-  assert.match(page,/previewHref=\{"\/reports\/academic-schedules\/export\.pdf\?"\+query\.toString\(\)\+"\\&preview=1"\}/);
+  assert.ok(page.includes('previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}'));
   assert.doesNotMatch(page,/OfficialDocumentPreview|#academic-schedule-preview|id="academic-schedule-preview"/);
   assert.match(page,/Preview \/ Print/);
   assert.match(pdfExportRoute,/renderAcademicSchedulePdf/);
@@ -256,6 +256,6 @@ test("document print surfaces share governed chrome, safe navigation and determi
   assert.match(documentActions,/setPreviewOpen\(true\)/);
   assert.match(documentActions,/role="dialog"/);
   assert.doesNotMatch(documentActions,/target="_blank"/);
-  assert.match(page,/previewHref=\{"\/reports\/academic-schedules\/export\.pdf\?"\+query\.toString\(\)\+"\\&preview=1"\}/);
+  assert.ok(page.includes('previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}'));
   assert.doesNotMatch(page,/#academic-schedule-preview|id="academic-schedule-preview"|OfficialDocumentPreview/);
 });

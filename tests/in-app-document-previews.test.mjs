@@ -31,7 +31,7 @@ test("admission keeps its existing embedded preview anchor", () => {
 
 test("academic analysis and schedules use the shared popup instead of embedded PDF previews", () => {
   assert.match(analysis, /previewHref=\{\`\/academics\/analysis\/export\.pdf\?\$\{exportParams\.toString\(\)\}&preview=1\`\}/);
-  assert.match(schedules, /previewHref=\{"\/reports\/academic-schedules\/export\.pdf\?"\+query\.toString\(\)\+"\\&preview=1"\}/);
+  assert.ok(schedules.includes('previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}'));
   assert.doesNotMatch(analysis, /OfficialDocumentPreview|#academic-analysis-preview|id="academic-analysis-preview"/);
   assert.doesNotMatch(schedules, /OfficialDocumentPreview|#academic-schedule-preview|id="academic-schedule-preview"/);
 });

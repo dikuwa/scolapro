@@ -21,18 +21,17 @@ test("shared document actions use the class-list action vocabulary", () => {
   assert.doesNotMatch(lessonPrep, />Download PDF</);
 });
 
-test("document previews preserve governed A4 orientation", () => {
+test("document previews preserve governed A4 orientation without forcing embedded PDFs", () => {
   const preview = read("src/components/documents/official-document-preview.tsx");
   const schedules = read("src/app/reports/academic-schedules/page.tsx");
+  const analysis = read("src/app/academics/analysis/page.tsx");
   const admission = read("src/app/school/admissions/application-form/page.tsx");
   assert.match(preview, /h-\[210mm\] w-\[297mm\]/);
   assert.match(preview, /h-\[297mm\] w-\[210mm\]/);
-  assert.match(schedules, /OfficialDocumentPreview/);
-  assert.match(schedules, /orientation="landscape"/);
-  const analysis = read("src/app/academics/analysis/page.tsx");
-  assert.match(analysis, /Document preview/);
-  assert.match(analysis, /orientation="landscape"/);
-  assert.match(analysis, /export\.pdf/);
+  assert.doesNotMatch(schedules, /OfficialDocumentPreview|orientation="landscape"/);
+  assert.doesNotMatch(analysis, /OfficialDocumentPreview|orientation="landscape"/);
+  assert.ok(schedules.includes('previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}'));
+  assert.match(analysis, /export\.pdf\?.*preview=1/);
   assert.match(analysis, /downloadHref=/);
   assert.match(admission, /OfficialDocumentPreview/);
   assert.match(admission, /orientation="portrait"/);
