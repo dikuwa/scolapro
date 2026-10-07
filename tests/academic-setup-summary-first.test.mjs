@@ -42,3 +42,8 @@ test("room management remains complete but bounded for scanning", () => {
   assert.match(rooms, /Pencil/);
   assert.match(rooms, /Trash2/);
 });
+
+test("current register structure stays bounded and scrollable like room management", () => {
+  assert.match(page, /max-h-\[33rem\] overflow-y-auto overscroll-contain pr-1/);
+  assert.match(page, /<ClassManagement/);
+});

@@ -133,7 +133,9 @@ export default async function SchoolSetupPage() {
               </div>
               <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span>
             </div>
-            <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} staff={registerTeacherCandidates} canEditStructure={canManageAcademicStructure} />
+            <div className="max-h-[33rem] overflow-y-auto overscroll-contain pr-1">
+              <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} staff={registerTeacherCandidates} canEditStructure={canManageAcademicStructure} />
+            </div>
           </section>
 
           {canManageAcademicStructure ? (
