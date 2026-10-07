@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, LockKeyhole, Pencil, Plus, ShieldCheck, User
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { AssistedBalancingPanel } from "@/features/sports-houses/assisted-balancing-panel";
 import { Picker } from "@/components/ui/picker";
@@ -431,7 +432,7 @@ export function SportsHousesWorkspace({
                     />
                   </div>
                 </div>
-                {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingHouseId(editing ? null : house.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
+                {canManage ? editing ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingHouseId(null)}><ChevronDown className="size-4" />Close</Button> : <RecordActionButton icon={Pencil} label="Edit" onClick={() => setEditingHouseId(house.id)} /> : null}
               </div>
               {editing ? <div className="border-t border-border-subtle p-3 sm:p-4"><HouseForm schoolId={schoolId} house={house} canManage={canManage} /></div> : null}
             </div>;
@@ -470,7 +471,7 @@ export function SportsHousesWorkspace({
             return <div key={group.id} className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated">
               <div className="flex flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                 <div><p className="scolapro-record-title">{group.label}</p><p className="mt-1 text-xs text-muted-foreground">Ages {group.minAge}–{group.maxAge} · Display order {group.sortOrder}</p></div>
-                {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingAgeGroupId(editing ? null : group.id)}>{editing ? <ChevronDown className="size-4" /> : <Pencil className="size-4" />}{editing ? "Close" : "Edit"}</Button> : null}
+                {canManage ? editing ? <Button type="button" variant="neutral" size="sm" onClick={() => setEditingAgeGroupId(null)}><ChevronDown className="size-4" />Close</Button> : <RecordActionButton icon={Pencil} label="Edit" onClick={() => setEditingAgeGroupId(group.id)} /> : null}
               </div>
               {editing ? <div className="border-t border-border-subtle p-3 sm:p-4"><AgeGroupForm schoolId={schoolId} group={group} canManage={canManage} /></div> : null}
             </div>;

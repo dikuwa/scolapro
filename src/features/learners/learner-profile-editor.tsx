@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Camera, ImagePlus, Pencil, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { saveUploadedLearnerPhoto, updateLearnerOperationalProfile, type LearnerProfileState } from "@/features/learners/server/actions";
 import { prepareLearnerPhotoUpload } from "@/features/learners/server/photo-upload";
@@ -154,10 +155,13 @@ export function LearnerProfileEditor({ learnerId, schoolId, preferredName, hasPh
 
   return (
     <div className="w-full sm:w-auto">
-      <button type="button" onClick={() => open ? close() : setOpen(true)} aria-expanded={open} className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium text-foreground shadow-[var(--shadow-xs)] transition duration-[var(--motion-base)] ease-[var(--ease-standard)] hover:border-border hover:bg-surface-muted sm:w-auto">
-        {open ? <X className="size-3.5" aria-hidden="true" /> : <Pencil className="size-3.5" aria-hidden="true" />}
-        {open ? "Close edit" : "Edit learner"}
-      </button>
+      {open ? (
+        <button type="button" onClick={close} aria-expanded={open} className="inline-flex min-h-9 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 text-xs font-medium text-foreground shadow-[var(--shadow-xs)] transition duration-[var(--motion-base)] ease-[var(--ease-standard)] hover:border-border hover:bg-surface-muted sm:w-auto">
+          <X className="size-3.5" aria-hidden="true" /> Close edit
+        </button>
+      ) : (
+        <RecordActionButton icon={Pencil} label="Edit learner" compact={false} onClick={() => setOpen(true)} expanded={open} className="w-full sm:w-auto" />
+      )}
 
       {open ? (
         <form action={action} className="mt-3 w-full rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-sm)] sm:min-w-[28rem] sm:p-5" noValidate>

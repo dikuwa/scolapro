@@ -12,6 +12,7 @@ import {
   LoaderCircle,
   MapPin,
   Pencil,
+  Plus,
   Phone,
   Save,
   ShieldCheck,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import {
   saveCircuitInspectorContact,
   type CircuitInspectorContactState,
@@ -59,9 +61,11 @@ function InspectorContactForm({ circuitId, initial, onSaved }: { circuitId: stri
   const finish = () => { setOpen(false); onSaved(); };
   const hasExisting = Boolean(initial.name || initial.phone || initial.email);
   if (!open) {
-    return (
+    return hasExisting ? (
+      <RecordActionButton icon={Pencil} label="Edit inspector contact" onClick={() => setOpen(true)} />
+    ) : (
       <button type="button" onClick={() => setOpen(true)} className="scolapro-cta inline-flex min-h-8 items-center gap-1.5 bg-surface-muted px-2.5 text-xs font-medium hover:bg-surface-elevated">
-        <Pencil aria-hidden="true" className="size-3" /> {hasExisting ? "Edit inspector contact" : "Add inspector contact"}
+        <Plus aria-hidden="true" className="size-3" /> Add inspector contact
       </button>
     );
   }

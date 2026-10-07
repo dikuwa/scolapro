@@ -5,6 +5,7 @@ import { ChevronRight, Mail, MapPin, Pencil, Phone, Plus, Search, ShieldCheck, T
 import { toast } from "sonner";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Picker } from "@/components/ui/picker";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { GuardianDetailsFields } from "@/features/guardians/guardian-details-fields";
 import { addGuardianRelationship, endGuardianRelationship, linkExistingGuardian, saveGuardianContactDetails, type GuardianActionState } from "@/features/guardians/server/actions";
 import type { LearnerGuardian, ReusableGuardian } from "@/features/guardians/server/queries";
@@ -117,7 +118,7 @@ function GuardianRow({ learnerId, guardian, expanded, editing, onToggleDetails, 
         </span>
       </button>
       <div className="flex shrink-0 gap-1">
-        <button type="button" onClick={onToggleEdit} aria-expanded={editing} aria-label={`${editing ? "Close" : "Edit"} contact details for ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-brand-soft hover:text-brand-strong">{editing ? <X className="size-3.5" /> : <Pencil className="size-3.5" />}</button>
+        {editing ? <button type="button" onClick={onToggleEdit} aria-expanded={editing} aria-label={`Close contact details editor for ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-brand-soft hover:text-brand-strong"><X className="size-3.5" /></button> : <RecordActionButton icon={Pencil} label={`Edit contact details for ${guardian.name}`} iconOnly onClick={onToggleEdit} expanded={editing} />}
         <form action={endAction}><input type="hidden" name="relationshipId" value={guardian.relationshipId} /><input type="hidden" name="learnerId" value={learnerId} /><button type="submit" disabled={endPending} aria-busy={endPending || undefined} aria-label={`End relationship with ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:pointer-events-none disabled:opacity-55"><Trash2 className="size-3.5" /></button></form>
       </div>
     </div>

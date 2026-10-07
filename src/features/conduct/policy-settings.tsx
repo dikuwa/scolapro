@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronUp, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { Picker } from "@/components/ui/picker";
 import {
   archiveConductGroup,
@@ -250,7 +251,7 @@ export function ConductPolicySettings({
                 {open ? (
                   <div className="mt-3 border-t border-border-subtle pt-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="neutral" size="sm" onClick={() => setEditingGroup(group)}>Edit group</Button>
+                      <RecordActionButton icon={Pencil} label="Edit group" onClick={() => setEditingGroup(group)} />
                       <ActionForm action={moveConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Move up" move="up" variant="ghost" />
                       <ActionForm action={moveConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Move down" move="down" variant="ghost" />
                       {group.active ? <ActionForm action={archiveConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Archive group" /> : <ActionForm action={restoreConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Restore group" />}
@@ -266,7 +267,7 @@ export function ConductPolicySettings({
                             <p className="mt-1 text-xs text-muted-foreground">{signed(item.points)}{group.type === "violation" && item.default_severity ? ` · ${item.default_severity}` : ""}{item.requires_management_attention ? " · Management attention" : ""}</p>
                           </div>
                           <div className="flex flex-wrap gap-1.5">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => setEditingItem({ category: item, group })}>Edit</Button>
+                            <RecordActionButton icon={Pencil} label="Edit" variant="ghost" onClick={() => setEditingItem({ category: item, group })} />
                             <ActionForm action={moveConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="↑" move="up" variant="ghost" />
                             <ActionForm action={moveConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="↓" move="down" variant="ghost" />
                             {item.active ? <ActionForm action={archiveConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="Archive" variant="ghost" /> : <ActionForm action={restoreConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="Restore" variant="ghost" />}

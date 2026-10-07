@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { Picker } from "@/components/ui/picker";
 import { archiveConductCategory, saveConductCategory } from "./server/actions";
 import { ConductDialog, ConductForm, useConductFormPending, fieldClass } from "./controls";
@@ -45,7 +46,7 @@ export function ConductCategorySettings({ schoolId, categories }: { schoolId: st
             <div key={c.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0"><p className="scolapro-record-title">{c.display_name}</p><div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"><span>{c.code}</span><span aria-hidden="true">·</span><span>{c.domain === "conduct" ? `${c.direction} incident` : "Achievement"}</span><span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 font-medium text-foreground">{c.active ? "Active" : "Archived"}</span></div></div>
               <div className="flex flex-wrap gap-2 sm:justify-end">
-                <Button type="button" variant="neutral" size="sm" onClick={() => setEditing(c)}>Edit</Button>
+                <RecordActionButton icon={Pencil} label="Edit" onClick={() => setEditing(c)} />
                 {c.active ? (
                   <ConductForm action={archiveConductCategory}>
                     <input type="hidden" name="schoolId" value={schoolId} />

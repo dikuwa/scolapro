@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { CalendarClock, PencilLine, X, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { Spinner } from "@/components/ui/spinner";
 import { getTimetableDayLabel } from "@/features/timetable/day-labels";
 import { cancelTimetableSlot, updatePlannedAllocation } from "@/features/timetable/server/plan-actions";
@@ -70,7 +71,7 @@ export function TimetablePlanManagement({ workspace }: { workspace: TimetableWor
             {upcomingAllocations.map((item) => (
               <div key={item.id} className="flex min-w-0 flex-col gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0"><p className="truncate text-xs font-semibold">{item.subjectName} · {item.className}</p><p className="mt-1 truncate text-[0.68rem] text-muted-foreground">{item.staffName} · starts {formatIsoDate(item.activeFrom)}{item.activeTo ? ` · ends ${formatIsoDate(item.activeTo)}` : " · open ended"}</p></div>
-                <button type="button" onClick={() => startEditing(item)} className="inline-flex min-h-9 shrink-0 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] bg-surface px-2.5 text-[0.68rem] font-semibold text-brand-strong shadow-[var(--shadow-xs)] transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><PencilLine className="size-3.5" aria-hidden="true" />Edit dates</button>
+                <RecordActionButton icon={PencilLine} label="Edit dates" variant="soft" onClick={() => startEditing(item)} />
               </div>
             ))}
           </div>
