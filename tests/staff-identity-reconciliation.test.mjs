@@ -40,5 +40,6 @@ test("directory exposes one governed identity action with responsive states", ()
   assert.match(access, /Reconcile duplicate/);
   assert.match(access, /Manage identity/);
   assert.match(access, /loading|Saving|Reconciling/);
-  assert.match(access, /lg:grid-cols-2/);\n  assert.match(access, /RecordActionButton/);
+  assert.match(access, /lg:grid-cols-2/);
+  assert.match(access, /RecordActionButton/);
 });
