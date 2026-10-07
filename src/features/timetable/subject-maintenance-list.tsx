@@ -5,6 +5,7 @@ import { Archive, ChevronDown, Pencil, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { retireSubject, updateSubject, type TimetableActionState } from "@/features/timetable/server/actions";
 import { Spinner } from "@/components/ui/spinner";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 
 const initialState: TimetableActionState = {};
 const fieldClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition duration-[var(--motion-base)] ease-[var(--ease-standard)] hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
@@ -36,7 +37,7 @@ function SubjectRow({ subject, editing, onEdit, onClose }: { subject: { id: stri
       <span className="shrink-0 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.66rem] font-semibold uppercase tracking-[0.04em] text-brand-strong">{subject.code}</span>
       <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{subject.name}</p>
       {subject.used ? <span className="hidden text-[0.65rem] text-muted-foreground sm:inline">In use</span> : null}
-      <button type="button" onClick={onEdit} className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]" aria-label={`Edit ${subject.name}`}><Pencil className="size-3.5" aria-hidden="true" /></button>
+      <RecordActionButton icon={Pencil} label={`Edit ${subject.name}`} iconOnly onClick={onEdit} />
     </div> : <form action={action} className="space-y-3">
       <input type="hidden" name="subjectId" value={subject.id} />
       <div className="flex items-center justify-between gap-3">
