@@ -110,7 +110,11 @@ if (simulatedCurrentMemberships.some((membership) => membership.schoolId !== "sc
   throw new Error("Current-school regression fixture leaked a role from the non-current school");
 }
 
-if (!shellSource.includes("context.currentSchoolMembership") || !shellSource.includes("context.memberships.map((item) => item.roleKey)")) {
+if (
+  !shellSource.includes("context.currentSchoolMembership") ||
+  !shellSource.includes("context.memberships.filter((item) => item.schoolId === membership.schoolId)") ||
+  !shellSource.includes("currentSchoolMemberships.map((item) => item.roleKey)")
+) {
   throw new Error("Shell must derive school identity and composable roles from the current-school-only context");
 }
 if (!shellSource.includes('const networkMembership = platformMembership || membership ? undefined : context.networkMemberships[0]')) {
