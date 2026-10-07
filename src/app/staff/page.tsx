@@ -31,7 +31,7 @@ function pageHref(query: string, page: number) {
 export default async function StaffPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/staff");
-  const currentSchoolId = context.currentSchoolMembership?.schoolId ?? context.memberships[0]?.schoolId ?? null;
+  const currentSchoolId = context.currentSchoolMembership?.schoolId ?? null;
   const schoolMemberships = currentSchoolId
     ? context.memberships.filter((candidate) => candidate.schoolId === currentSchoolId)
     : [];
