@@ -131,7 +131,7 @@ for (const [label, target] of [
   if (target.includes("context.memberships[0]")) {
     throw new Error(`${label} route must not infer operational school authorization from memberships[0]`);
   }
-  if (!target.includes("context.memberships.find(")) {
+  if (!target.includes("context.memberships.find(") && !target.includes("context.memberships.filter(")) {
     throw new Error(`${label} route must resolve authorization inside the current-school membership set`);
   }
 }
@@ -141,8 +141,11 @@ if (!learnersPageSource.includes('const learnerDirectoryRoles = new Set(["school
 if (!staffPageSource.includes('const staffDirectoryRoles = new Set(["school_admin", "principal", "deputy_principal", "hod"])')) {
   throw new Error("Staff route roles must remain aligned with staff navigation visibility");
 }
-if (!learnersPageSource.includes('canRegisterLearner = membership.roleKey === "school_admin"')) {
-  throw new Error("Learner registration action must stay hidden outside School Admin scope");
+if (!learnersPageSource.includes('canRegisterLearner = roleKeys.has("school_admin")')) {
+  throw new Error("Learner registration action must derive School Admin capability from the current-school role union");
+}
+if (!learnersPageSource.includes('canManageSubjects = ["school_admin", "principal", "deputy_principal", "hod"].some((roleKey) => roleKeys.has(roleKey))')) {
+  throw new Error("Learner subject-management action must derive leadership capability from the current-school role union");
 }
 
 if (!lateArrivalsPageSource.includes('.eq("duty_key", "late_arrival_recorder")')) {
