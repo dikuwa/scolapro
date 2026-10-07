@@ -31,14 +31,18 @@ function pageHref(query: string, page: number) {
 export default async function StaffPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/staff");
-  const membership = context.memberships.find((candidate) => staffDirectoryRoles.has(candidate.roleKey));
-  if (!membership) redirect("/");
+  const currentSchoolId = context.currentSchoolMembership?.schoolId ?? context.memberships[0]?.schoolId ?? null;
+  const schoolMemberships = currentSchoolId
+    ? context.memberships.filter((candidate) => candidate.schoolId === currentSchoolId)
+    : [];
+  const roleKeys = new Set(schoolMemberships.map((candidate) => candidate.roleKey));
+  if (!currentSchoolId || !schoolMemberships.some((candidate) => staffDirectoryRoles.has(candidate.roleKey))) redirect("/");
 
   const params = await searchParams;
   const query = (Array.isArray(params.q) ? params.q[0] : params.q)?.trim() ?? "";
   const requestedPage = Math.max(Number(Array.isArray(params.page) ? params.page[0] : params.page) || 1, 1);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const canAddStaff = membership.roleKey === "school_admin";
+  const canAddStaff = roleKeys.has("school_admin");
 
   return (
     <AppShell>
@@ -46,7 +50,7 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
         <div className="mb-6"><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Staff directory</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">School staff placements are independent of login accounts, so staff can be timetabled before they ever need a ScolaPro invitation.</p></div>
         <Suspense fallback={<StaffDirectoryLoading />}>
           <StaffDirectoryData
-            schoolId={membership.schoolId}
+            schoolId={currentSchoolId}
             query={query}
             requestedPage={requestedPage}
             today={today}
