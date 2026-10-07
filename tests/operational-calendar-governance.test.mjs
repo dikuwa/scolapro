@@ -5,6 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(path, "utf8");
 
 const migration = read("supabase/migrations/20261006212006_operational_calendar_expansion.sql");
+const refinementMigration = read("supabase/migrations/20261007141000_calendar_learner_boundary_refinement.sql");
 const manager = read("src/features/calendar/operational-calendar-manager.tsx");
 const actions = read("src/features/calendar/server/actions.ts");
 const queries = read("src/features/calendar/server/operational-calendar.ts");
@@ -80,4 +81,21 @@ test("calendar documentation defines the shared attendance and planning contract
   assert.match(calendarDoc, /OCR output is staging evidence, never authoritative data before human review/);
   assert.match(attendanceDoc, /canonical operational-calendar contract/);
   assert.match(planningDoc, /Department\/HOD calendar/);
+});
+
+
+test("learner boundaries govern operational activity while teacher dates remain administrative", () => {
+  assert.match(refinementMigration, /p_learner_starts_on date/);
+  assert.match(refinementMigration, /p_learner_ends_on date/);
+  assert.match(refinementMigration, /p_teacher_starts_on date default null/);
+  assert.match(refinementMigration, /update public\.academic_years/);
+  assert.match(calendarDoc, /teacher opening\/closing dates are stored separately as administrative duty\/leave metadata/);
+  assert.match(calendarDoc, /registers do not open before learner term opening or after learner term closing/);
+});
+
+test("calendar correction keeps baseline evidence and exposes school-level exceptions", () => {
+  const impactManager = read("src/features/calendar/teaching-impact-manager.tsx");
+  assert.match(impactManager, /Calendar adjustments & exceptions/);
+  assert.match(impactManager, /without deleting the national\/public baseline/);
+  assert.match(calendarDoc, /school-level adjustment changes the effective learner day/);
 });

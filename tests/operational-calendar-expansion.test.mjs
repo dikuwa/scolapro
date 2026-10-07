@@ -13,6 +13,7 @@ const ocr = read("src/features/imports/server/calendar-ocr.ts");
 const intakeActions = read("src/features/imports/server/operational-intake-actions.ts");
 const intakePage = read("src/app/school/imports/operations/page.tsx");
 const migration = read("supabase/migrations/20261006212006_operational_calendar_expansion.sql");
+const refinementMigration = read("supabase/migrations/20261007141000_calendar_learner_boundary_refinement.sql");
 const docs = read("docs/06-workflows/OPERATIONAL-CALENDAR.md");
 
 test("calendar workspace separates official day metadata from operational events", () => {
@@ -79,4 +80,30 @@ test("source-backed 2026 Namib High official calendar metadata is explicit", () 
   assert.match(migration, /International Teacher''s Day/);
   assert.match(migration, /jsonb_build_array\(75,59,65\)/);
   assert.match(migration, /learner_total_days',199/);
+});
+
+
+test("learner term boundaries are first-class editable operational dates", () => {
+  assert.match(manager, /Learner opening/);
+  assert.match(manager, /Learner closing/);
+  assert.match(manager, /Learner dates are operational/);
+  assert.match(manager, /activeTermId/);
+  assert.match(manager, /ring-\[color:var\(--brand-soft\)\]/);
+  assert.doesNotMatch(manager, /hover:underline/);
+  assert.match(actions, /configure_operational_term_calendar/);
+  assert.match(actions, /p_learner_starts_on/);
+  assert.match(actions, /p_learner_ends_on/);
+  assert.match(refinementMigration, /update public\.academic_terms/);
+  assert.match(refinementMigration, /calendar\.term_boundaries\.configured/);
+});
+
+test("school leadership edits effective calendar adjustments without rewriting national baseline", () => {
+  const impactManager = read("src/features/calendar/teaching-impact-manager.tsx");
+  assert.match(calendarPage, /canManage=\{canManageSchool\}/);
+  assert.match(impactManager, /Calendar adjustments & exceptions/);
+  assert.match(impactManager, /saveTeachingImpact/);
+  assert.match(impactManager, /Adjust/);
+  assert.match(impactManager, /Save adjustment/);
+  assert.match(impactManager, /national\/public baseline/);
+  assert.doesNotMatch(impactManager, /Legacy single-date teaching overrides/);
 });

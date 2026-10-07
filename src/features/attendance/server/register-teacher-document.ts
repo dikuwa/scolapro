@@ -187,7 +187,13 @@ export async function getRegisterTeacherDocument(input: {
   });
 
   const queryEnd = scopeEnd > termActualEnd ? scopeEnd : termActualEnd;
-  const [{ data: impactRows, error: impactError }, { data: enrolments, error: enrolmentError }, { data: currentRows, error: currentError }, { data: overrideRows, error: overrideError }] = await Promise.all([
+  const [
+    { data: impactRows, error: impactError },
+    { data: enrolments, error: enrolmentError },
+    { data: currentRows, error: currentError },
+    { data: overrideRows, error: overrideError },
+    { data: calendarEventRows, error: calendarEventError },
+  ] = await Promise.all([
     supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: input.schoolId, p_from: termStart, p_to: termEnd }),
     supabase
       .from("enrolments")
@@ -211,16 +217,43 @@ export async function getRegisterTeacherDocument(input: {
       .eq("school_id", input.schoolId)
       .gte("school_date", termStart)
       .lte("school_date", termEnd),
+    supabase
+      .from("effective_learner_calendar_events")
+      .select("event_scope,school_id,title,starts_on,ends_on,teaching_impact,audience_scope,created_at")
+      .eq("academic_year", input.academicYear)
+      .eq("audience_scope", "all_learners")
+      .eq("teaching_impact", "NO_TEACHING")
+      .lte("starts_on", termEnd)
+      .gte("ends_on", termStart)
+      .or(`event_scope.eq.national,school_id.eq.${input.schoolId}`),
   ]);
-  if (impactError || enrolmentError || currentError || overrideError) throw new Error("Unable to load register-teacher attendance evidence.");
+  if (impactError || enrolmentError || currentError || overrideError || calendarEventError) {
+    throw new Error("Unable to load register-teacher attendance evidence.");
+  }
 
   const impactByDate = new Map<string, string>();
   for (const row of (impactRows ?? []) as { target_date: string; teaching_impact: string }[]) {
     impactByDate.set(String(row.target_date).slice(0, 10), String(row.teaching_impact));
   }
   const reasonByDate = new Map<string, string>();
+  const calendarClosures = ((calendarEventRows ?? []) as Array<{
+    event_scope: string;
+    title: string;
+    starts_on: string;
+    ends_on: string;
+    created_at: string;
+  }>).sort((a, b) => {
+    const scopeOrder = (a.event_scope === "school" ? 1 : 0) - (b.event_scope === "school" ? 1 : 0);
+    return scopeOrder || String(a.created_at).localeCompare(String(b.created_at));
+  });
+  for (const event of calendarClosures) {
+    const startsOn = String(event.starts_on).slice(0, 10) < termStart ? termStart : String(event.starts_on).slice(0, 10);
+    const endsOn = String(event.ends_on).slice(0, 10) > termEnd ? termEnd : String(event.ends_on).slice(0, 10);
+    for (const date of rangeDates(startsOn, endsOn)) reasonByDate.set(date, String(event.title));
+  }
   for (const row of (overrideRows ?? []) as { school_date: string; reason: string | null }[]) {
-    if (row.reason) reasonByDate.set(String(row.school_date).slice(0, 10), row.reason);
+    const date = String(row.school_date).slice(0, 10);
+    reasonByDate.set(date, row.reason?.trim() || "School calendar adjustment");
   }
 
   const termDates = rangeDates(termStart, termEnd).filter((date) => {
@@ -233,15 +266,22 @@ export async function getRegisterTeacherDocument(input: {
   });
   const termTeachingDayCount = termDates.filter((date) => impactByDate.get(date) !== "NO_TEACHING").length;
 
-  const dayModels: RegisterTeacherDay[] = dates.map((date) => ({
-    date,
-    weekday: compactWeekday(date),
-    dayNumber: compactDay(date),
-    teaching: impactByDate.get(date) !== "NO_TEACHING",
-    reason: reasonByDate.get(date) ?? null,
-    weekId: mondayFor(date),
-    weekEnding: fridayFor(date),
-  }));
+  const dayModels: RegisterTeacherDay[] = dates.map((date) => {
+    const insideLearnerTerm = date >= termStart && date <= termEnd;
+    return {
+      date,
+      weekday: compactWeekday(date),
+      dayNumber: compactDay(date),
+      teaching: insideLearnerTerm && impactByDate.get(date) !== "NO_TEACHING",
+      reason: insideLearnerTerm
+        ? reasonByDate.get(date) ?? null
+        : date < termStart
+          ? "Before learner opening"
+          : "After learner closing",
+      weekId: mondayFor(date),
+      weekEnding: fridayFor(date),
+    };
+  });
 
   const weekMap = new Map<string, RegisterTeacherWeek>();
   for (const day of dayModels) {

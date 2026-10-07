@@ -78,8 +78,8 @@ export async function saveTeachingImpact(_state:TeachingImpactActionState,formDa
   const supabase=await createSupabaseServerClient();
   const {error}=await supabase.rpc("configure_school_teaching_day",{p_school_id:parsed.data.schoolId,p_school_date:parsed.data.date,p_teaching_impact:parsed.data.impact,p_reason:parsed.data.reason||null,p_bell_schedule_id:canChoose&&parsed.data.bellScheduleId?parsed.data.bellScheduleId:null,p_source:"school"});
   if(error)return{message:error.message||"Calendar teaching impact could not be saved."};
-  revalidatePath("/calendar");revalidatePath("/timetable");
-  return{success:true,message:"Teaching impact saved for the selected date."};
+  revalidatePath("/calendar");revalidatePath("/attendance");revalidatePath("/timetable");revalidatePath("/academics");
+  return{success:true,message:"Calendar adjustment saved for the selected learner date."};
 }
 
 const operationalEventKinds = [
@@ -178,12 +178,15 @@ export async function saveOperationalCalendarEvent(
 
 const termCalendarProfileSchema=z.object({
   academicTermId:z.string().uuid(),
+  learnerStartsOn:z.string().regex(/^\d{4}-\d{2}-\d{2}$/,"Learner opening date is required."),
+  learnerEndsOn:z.string().regex(/^\d{4}-\d{2}-\d{2}$/,"Learner closing date is required."),
   teacherStartsOn:z.union([z.literal(""),z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
   teacherEndsOn:z.union([z.literal(""),z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
   officialLearnerDayCount:z.union([z.literal(""),z.coerce.number().int().min(0).max(366)]),
   sourceLabel:z.string().trim().max(240).optional(),
   sourceReference:z.string().trim().max(500).optional(),
 }).superRefine((value,ctx)=>{
+  if(value.learnerEndsOn<value.learnerStartsOn)ctx.addIssue({code:"custom",path:["learnerEndsOn"],message:"Learner closing date cannot precede opening date."});
   if(Boolean(value.teacherStartsOn)!==Boolean(value.teacherEndsOn))ctx.addIssue({code:"custom",path:["teacherEndsOn"],message:"Provide both teacher opening and closing dates or leave both blank."});
   if(value.teacherStartsOn&&value.teacherEndsOn&&value.teacherEndsOn<value.teacherStartsOn)ctx.addIssue({code:"custom",path:["teacherEndsOn"],message:"Teacher closing date cannot precede opening date."});
 });
@@ -194,6 +197,8 @@ export async function saveTermCalendarProfile(
 ):Promise<TeachingImpactActionState>{
   const parsed=termCalendarProfileSchema.safeParse({
     academicTermId:formData.get("academicTermId"),
+    learnerStartsOn:String(formData.get("learnerStartsOn")??""),
+    learnerEndsOn:String(formData.get("learnerEndsOn")??""),
     teacherStartsOn:String(formData.get("teacherStartsOn")??""),
     teacherEndsOn:String(formData.get("teacherEndsOn")??""),
     officialLearnerDayCount:String(formData.get("officialLearnerDayCount")??""),
@@ -202,8 +207,10 @@ export async function saveTermCalendarProfile(
   });
   if(!parsed.success)return{fieldErrors:parsed.error.flatten().fieldErrors,message:"Check the official term-calendar metadata."};
   const supabase=await createSupabaseServerClient();
-  const {error}=await supabase.rpc("configure_academic_term_calendar_profile",{
+  const {error}=await supabase.rpc("configure_operational_term_calendar",{
     p_academic_term_id:parsed.data.academicTermId,
+    p_learner_starts_on:parsed.data.learnerStartsOn,
+    p_learner_ends_on:parsed.data.learnerEndsOn,
     p_teacher_starts_on:parsed.data.teacherStartsOn||null,
     p_teacher_ends_on:parsed.data.teacherEndsOn||null,
     p_official_learner_day_count:parsed.data.officialLearnerDayCount===""?null:parsed.data.officialLearnerDayCount,
@@ -212,6 +219,6 @@ export async function saveTermCalendarProfile(
     p_source_reference:parsed.data.sourceReference||null,
   });
   if(error)return{message:error.message||"Official term-calendar metadata could not be saved."};
-  revalidatePath("/calendar");
-  return{success:true,message:"Official term-calendar metadata saved."};
+  revalidatePath("/calendar");revalidatePath("/attendance");revalidatePath("/timetable");revalidatePath("/academics");
+  return{success:true,message:"Official term calendar saved. Learner boundaries now drive operational dates."};
 }

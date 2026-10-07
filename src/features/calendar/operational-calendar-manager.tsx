@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -91,12 +91,19 @@ function eventDateLabel(event: OperationalCalendarEvent) {
 function TermCalendarProfileEditor({
   term,
   canManage,
+  open,
+  onToggle,
+  onClose,
 }: {
   term: TermCalendarSummary;
   canManage: boolean;
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
 }) {
   const [state, action, pending] = useActionState(saveTermCalendarProfile, initialState);
-  const [open, setOpen] = useState(false);
+  const [learnerStartsOn, setLearnerStartsOn] = useState(term.learnerStartsOn ?? "");
+  const [learnerEndsOn, setLearnerEndsOn] = useState(term.learnerEndsOn ?? "");
   const [teacherStartsOn, setTeacherStartsOn] = useState(term.teacherStartsOn ?? "");
   const [teacherEndsOn, setTeacherEndsOn] = useState(term.teacherEndsOn ?? "");
 
@@ -104,15 +111,22 @@ function TermCalendarProfileEditor({
     if (!state.message) return;
     if (state.success) {
       toast.success(state.message);
-      queueMicrotask(() => setOpen(false));
+      queueMicrotask(onClose);
     } else toast.error(state.message);
-  }, [state]);
+  }, [onClose, state]);
 
   const hasOfficial = term.officialLearnerDayCount != null;
   const matches = hasOfficial && term.officialLearnerDayCount === term.calculatedLearnerDayCount;
 
   return (
-    <article className="rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3.5">
+    <article
+      className={[
+        "rounded-[var(--radius-sm)] border bg-surface p-3.5 transition",
+        open
+          ? "border-[color:var(--brand)]/45 ring-2 ring-[color:var(--brand-soft)] shadow-[var(--shadow-sm)]"
+          : "border-border-subtle",
+      ].join(" ")}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">{term.termName}</h3>
@@ -158,16 +172,29 @@ function TermCalendarProfileEditor({
 
       {canManage ? (
         <>
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            className="mt-3 text-xs font-semibold text-brand-strong hover:underline"
-          >
-            {open ? "Close metadata" : "Edit official metadata"}
-          </button>
+          <div className="mt-3">
+            <Button type="button" size="sm" variant={open ? "neutral" : "soft"} onClick={onToggle} aria-expanded={open}>
+              {open ? "Close " + term.termName : "Edit " + term.termName}
+            </Button>
+          </div>
           {open ? (
             <form action={action} className="mt-3 grid gap-3 sm:grid-cols-2">
               <input type="hidden" name="academicTermId" value={term.academicTermId} />
+              <DateField
+                label="Learner opening"
+                name="learnerStartsOn"
+                value={learnerStartsOn}
+                onChange={setLearnerStartsOn}
+                required
+              />
+              <DateField
+                label="Learner closing"
+                name="learnerEndsOn"
+                value={learnerEndsOn}
+                onChange={setLearnerEndsOn}
+                min={learnerStartsOn || undefined}
+                required
+              />
               <DateField
                 label="Teacher opening"
                 name="teacherStartsOn"
@@ -219,9 +246,12 @@ function TermCalendarProfileEditor({
                   placeholder="Document title, circular number or retained-source reference"
                 />
               </div>
+              <div className="sm:col-span-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-[0.7rem] leading-5 text-muted-foreground">
+                <strong className="text-foreground">Learner dates are operational.</strong> Attendance, register availability, curriculum pacing and normal teaching capacity follow learner opening and closing. Teacher dates remain administrative metadata for staff duty/leave records.
+              </div>
               <div className="sm:col-span-2">
                 <Button type="submit" size="sm" loading={pending}>
-                  Save metadata
+                  Save term calendar
                 </Button>
               </div>
             </form>
@@ -255,6 +285,8 @@ export function OperationalCalendarManager({
 }) {
   const [state, action, pending] = useActionState(saveOperationalCalendarEvent, initialState);
   const [showAdd, setShowAdd] = useState(false);
+  const [activeTermId, setActiveTermId] = useState<string | null>(null);
+  const closeTermEditor = useCallback(() => setActiveTermId(null), []);
   const availableScopes = useMemo(
     () => [
       ...(canManageSchool ? [{ value: "school", label: "School event", helper: "Whole-school operational calendar" }] : []),
@@ -311,8 +343,8 @@ export function OperationalCalendarManager({
           <div>
             <h2 className="scolapro-section-title">Official school calendar</h2>
             <p className="scolapro-section-description">
-              Learner term dates drive register boundaries. Teacher dates are separate. Published school-day totals are
-              validation targets; resolved operational days drive attendance.
+              Learner opening and closing dates are the operational boundaries for registers, curriculum pacing and timetable capacity.
+              Teacher dates are administrative. Published school-day totals remain validation targets; resolved learner days drive attendance.
             </p>
           </div>
           <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-right">
@@ -325,7 +357,14 @@ export function OperationalCalendarManager({
         </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
           {terms.map((term) => (
-            <TermCalendarProfileEditor key={term.academicTermId} term={term} canManage={canManageSchool} />
+            <TermCalendarProfileEditor
+              key={term.academicTermId}
+              term={term}
+              canManage={canManageSchool}
+              open={activeTermId === term.academicTermId}
+              onToggle={() => setActiveTermId((current) => current === term.academicTermId ? null : term.academicTermId)}
+              onClose={closeTermEditor}
+            />
           ))}
         </div>
       </section>
@@ -344,7 +383,7 @@ export function OperationalCalendarManager({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
             <Link
               href="/school/imports/operations?adapter=calendar"
               className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-foreground hover:bg-surface-elevated"

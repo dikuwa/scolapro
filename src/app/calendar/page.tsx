@@ -49,8 +49,8 @@ export default async function CalendarPage() {
         <div className="mb-6">
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Calendar</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-            Official learner and teacher dates, school activities and HOD/department deadlines for {membership.schoolName}.
-            Events are informational by default; only an explicit learner-day effect changes registers, attendance or timetable resolution.
+            Learner opening/closing dates are the operational school calendar for {membership.schoolName}; teacher dates remain administrative.
+            School activities and HOD/department deadlines are informational by default, while approved calendar adjustments change learner attendance and timetable resolution.
           </p>
         </div>
 
@@ -82,7 +82,7 @@ export default async function CalendarPage() {
           <div className="border-b border-border-subtle pb-4">
             <h2 className="scolapro-section-title">Academic calendar structure</h2>
             <p className="scolapro-section-description">
-              Canonical learner term boundaries remain the shared source for attendance, teaching plans, assessments, reporting and timetable capacity.
+              Canonical learner term boundaries are the shared source for attendance, registers, curriculum pacing, teaching plans, assessments, reporting and timetable capacity.
             </p>
           </div>
           {calendar.academicYear ? (
@@ -132,7 +132,7 @@ export default async function CalendarPage() {
           events={teachingImpact.events}
           overrides={teachingImpact.overrides}
           audienceOptions={teachingImpact.audienceOptions}
-          canManage={false}
+          canManage={canManageSchool}
         />
       </section>
     </AppShell>

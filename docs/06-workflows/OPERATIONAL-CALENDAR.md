@@ -15,8 +15,9 @@ The standing rule is:
 ScolaPro resolves four calendar layers together:
 
 1. **Official learner/teacher calendar metadata**
-   - learner term boundaries remain canonical in academic_terms;
-   - teacher opening/closing dates are stored separately;
+   - learner term opening/closing boundaries remain canonical in academic_terms and are the operational calendar for learner-facing school activity;
+   - attendance/register availability, curriculum pacing, teaching-plan capacity and normal timetable availability follow learner boundaries;
+   - teacher opening/closing dates are stored separately as administrative duty/leave metadata and do not open learner registers;
    - published learner school-day totals are validation targets, not manually forced operational totals.
 2. **Learner teaching-impact calendar**
    - national baseline and school overlays in the existing learner-calendar domain;
@@ -88,7 +89,8 @@ Resolution order:
 
 Consequences:
 
-- registers do not open before learner term opening or after learner term closing;
+- registers do not open before learner term opening or after learner term closing, even when teachers are on duty;
+- term-boundary edits are governed calendar changes and re-resolve attendance/timetable/planning consumers;
 - public/school holidays do not create mass absences;
 - school activities do not close registers unless leadership explicitly sets a learner-day effect;
 - a later official closure does not delete already captured attendance; historical observations remain auditable and the date is excluded from resolved operational totals.
@@ -259,6 +261,10 @@ School operational activities with UNCHANGED effect do not remove teaching time.
 Teaching-cutoff events, for example a Grade 11 final teaching day before examinations, are operational planning events unless a separate governed timetable/learner-day effect is configured.
 
 ## Audit and correction
+
+The Calendar workspace exposes **Calendar adjustments & exceptions** for school leadership. National/public baseline events remain visible source evidence. A school-level adjustment changes the effective learner day for the school without rewriting or deleting the baseline event. Existing adjustments can be edited by saving a revised effective state for that date.
+
+Register documents surface the governed non-teaching reason in the affected date column (for example, Good Friday or International Teacher's Day) while keeping attendance/numeric columns compact and content-width driven.
 
 Calendar changes are append/audit oriented.
 
