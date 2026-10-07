@@ -264,6 +264,13 @@ Teaching-cutoff events, for example a Grade 11 final teaching day before examina
 
 The Calendar workspace exposes **Calendar adjustments & exceptions** for school leadership. National/public baseline events remain visible source evidence. A school-level adjustment changes the effective learner day for the school without rewriting or deleting the baseline event. Existing adjustments can be edited by saving a revised effective state for that date.
 
+School-created adjustments can also be deleted. Deletion is a governed restore operation:
+- a school-only adjustment is removed;
+- if the school correction replaced a national/regional baseline on the same date, deleting the correction restores that official baseline;
+- national/regional baseline evidence itself is not deletable from the school workspace.
+
+When resolved and published learner-day totals differ, the term card surfaces the relevant date/reason/source where the difference can be attributed to a calendar exception and links directly to **Calendar adjustments & exceptions**.
+
 Register documents surface the governed non-teaching reason in the affected date column (for example, Good Friday or International Teacher's Day) while keeping attendance/numeric columns compact and content-width driven.
 
 Calendar changes are append/audit oriented.

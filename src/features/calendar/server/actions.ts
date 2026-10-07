@@ -82,6 +82,35 @@ export async function saveTeachingImpact(_state:TeachingImpactActionState,formDa
   return{success:true,message:"Calendar adjustment saved for the selected learner date."};
 }
 
+export async function deleteTeachingImpactAdjustment(
+  _state:TeachingImpactActionState,
+  formData:FormData,
+):Promise<TeachingImpactActionState>{
+  const parsed=z.object({
+    schoolId:z.string().uuid(),
+    date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  }).safeParse({
+    schoolId:formData.get("schoolId"),
+    date:formData.get("date"),
+  });
+  if(!parsed.success)return{message:"Choose a valid calendar adjustment."};
+
+  const supabase=await createSupabaseServerClient();
+  const {data,error}=await supabase.rpc("remove_school_teaching_day_adjustment",{
+    p_school_id:parsed.data.schoolId,
+    p_school_date:parsed.data.date,
+  });
+  if(error)return{message:error.message||"Calendar adjustment could not be deleted."};
+
+  revalidatePath("/calendar");revalidatePath("/attendance");revalidatePath("/timetable");revalidatePath("/academics");
+  return{
+    success:true,
+    message:data==="restored_baseline"
+      ?"School correction deleted. The official calendar baseline is active again."
+      :"Calendar adjustment deleted.",
+  };
+}
+
 const operationalEventKinds = [
   "event","deadline","meeting","class_visit","assessment","submission",
   "examination","school_activity","teaching_cutoff","ceremony","sport","other",

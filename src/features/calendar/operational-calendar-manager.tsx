@@ -11,7 +11,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
@@ -27,6 +27,7 @@ import type {
   OperationalCalendarEvent,
   TermCalendarSummary,
 } from "@/features/calendar/server/operational-calendar";
+import type { TeachingImpactRow } from "@/features/calendar/server/teaching-impact";
 import type { BellScheduleSummary } from "@/features/timetable/server/bell-calendar";
 
 const initialState: TeachingImpactActionState = {};
@@ -78,6 +79,11 @@ function formatDate(value: string | null) {
   );
 }
 
+function isWeekdayDate(value: string) {
+  const day = new Date(`${value}T12:00:00Z`).getUTCDay();
+  return day >= 1 && day <= 5;
+}
+
 function eventDateLabel(event: OperationalCalendarEvent) {
   const range =
     event.startsOn === event.endsOn
@@ -94,12 +100,14 @@ function TermCalendarProfileEditor({
   open,
   onToggle,
   onClose,
+  dayExceptions,
 }: {
   term: TermCalendarSummary;
   canManage: boolean;
   open: boolean;
   onToggle: () => void;
   onClose: () => void;
+  dayExceptions: TeachingImpactRow[];
 }) {
   const [state, action, pending] = useActionState(saveTermCalendarProfile, initialState);
   const [learnerStartsOn, setLearnerStartsOn] = useState(term.learnerStartsOn ?? "");
@@ -117,6 +125,12 @@ function TermCalendarProfileEditor({
 
   const hasOfficial = term.officialLearnerDayCount != null;
   const matches = hasOfficial && term.officialLearnerDayCount === term.calculatedLearnerDayCount;
+  const discrepancyRows = dayExceptions.filter((item) => {
+    if (!term.learnerStartsOn || !term.learnerEndsOn) return false;
+    if (item.date < term.learnerStartsOn || item.date > term.learnerEndsOn) return false;
+    const weekday = isWeekdayDate(item.date);
+    return (weekday && item.impact === "NO_TEACHING") || (!weekday && item.impact !== "NO_TEACHING");
+  });
 
   return (
     <article
@@ -153,13 +167,46 @@ function TermCalendarProfileEditor({
       </div>
 
       {hasOfficial && !matches ? (
-        <div className="mt-3 flex items-start gap-2 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]">
-          <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
-          <span>
-            Resolved school days differ from the published total by{" "}
-            {Math.abs(term.calculatedLearnerDayCount - (term.officialLearnerDayCount ?? 0))}. Attendance uses the resolved
-            calendar; review the source or exceptions rather than forcing the printed total.
-          </span>
+        <div className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]">
+          <div className="flex items-start gap-2">
+            <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
+            <div className="min-w-0">
+              <p>
+                Resolved school days differ from the published total by{" "}
+                <strong>{Math.abs(term.calculatedLearnerDayCount - (term.officialLearnerDayCount ?? 0))}</strong>.
+                Attendance uses the resolved learner calendar.
+              </p>
+              {discrepancyRows.length ? (
+                <div className="mt-2 space-y-1 text-[0.68rem] leading-5 text-muted-foreground">
+                  {discrepancyRows.slice(0, 3).map((item) => (
+                    <p key={item.id}>
+                      <strong className="text-foreground">{formatDate(item.date)}</strong>
+                      {" · "}
+                      {item.impact.replaceAll("_", " ")}
+                      {" · "}
+                      {item.reason ?? "Calendar adjustment"}
+                      {" · "}
+                      {item.source === "national" || item.source === "regional"
+                        ? `${item.source} baseline`
+                        : item.baselineSource
+                          ? `school correction over ${item.baselineSource}`
+                          : "school adjustment"}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-[0.68rem] leading-5 text-muted-foreground">
+                  Review the term source and calendar exceptions to identify the differing date.
+                </p>
+              )}
+              <Link
+                href="#calendar-adjustments"
+                className={`${buttonVariants({ variant: "soft", size: "sm" })} mt-2`}
+              >
+                Review difference
+              </Link>
+            </div>
+          </div>
         </div>
       ) : null}
 
@@ -272,11 +319,13 @@ export function OperationalCalendarManager({
   schedules,
   canManageSchool,
   canManageDepartment,
+  dayExceptions,
 }: {
   schoolId: string;
   year: number;
   terms: TermCalendarSummary[];
   events: OperationalCalendarEvent[];
+  dayExceptions: TeachingImpactRow[];
   departments: DepartmentCalendarOption[];
   staffOptions: CalendarStaffOption[];
   schedules: BellScheduleSummary[];
@@ -364,6 +413,7 @@ export function OperationalCalendarManager({
               open={activeTermId === term.academicTermId}
               onToggle={() => setActiveTermId((current) => current === term.academicTermId ? null : term.academicTermId)}
               onClose={closeTermEditor}
+              dayExceptions={dayExceptions}
             />
           ))}
         </div>

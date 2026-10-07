@@ -122,6 +122,7 @@ export default async function CalendarPage() {
             schedules={teachingImpact.schedules}
             canManageSchool={canManageSchool}
             canManageDepartment={canManageDepartment}
+            dayExceptions={teachingImpact.overrides}
           />
         </div>
 
