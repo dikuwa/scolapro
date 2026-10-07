@@ -138,7 +138,7 @@ export function TeachingImpactManager({
         <div className="flex gap-2"><Clock3 className="mt-0.5 size-4 shrink-0 text-[color:var(--accent-amber)]" /><p className="text-xs leading-5 text-muted-foreground"><strong className="font-semibold text-foreground">No teaching has operational effect.</strong> Attendance capture is blocked and rotating timetables skip only the affected dates.</p></div>
       </div>
 
-      <div className="mt-6 border-t border-border-subtle pt-4">
+      <div id="learner-calendar-events" className="mt-6 border-t border-border-subtle pt-4" style={{ scrollMarginTop: "6rem" }}>
         <h3 className="text-sm font-semibold">Baseline and school overlay</h3>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">National and school events stay identifiable. Only the stated learner teaching impact affects timetable and attendance behavior.</p>
         {events.length ? (

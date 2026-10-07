@@ -111,18 +111,33 @@ test("school leadership edits effective calendar adjustments without rewriting n
 });
 
 
-test("term discrepancy warning identifies candidate dates and links to resolution", () => {
-  assert.match(manager, /discrepancyRows/);
+test("term discrepancy warning attributes overrides and effective learner events with correct precedence", () => {
+  assert.match(manager, /discrepancyCausesForTerm/);
+  assert.match(manager, /event\.audienceScope !== "all_learners"/);
+  assert.match(manager, /event\.teachingImpact !== "NO_TEACHING"/);
+  assert.match(manager, /closureEventByDate/);
+  assert.match(manager, /event\.createdAt > current\.createdAt/);
+  assert.match(manager, /current\.scope === "national" && event\.scope === "school"/);
+  assert.match(manager, /overrideByDate\.has\(date\)/);
+  assert.match(manager, /item\.baselineIsSchoolDay === false \|\| underlyingClosure !== undefined/);
+  assert.match(manager, /href: "#learner-calendar-events"/);
+  assert.match(manager, /href: "#calendar-adjustments"/);
+  assert.match(manager, /href=\{item\.href\}/);
+  assert.match(manager, /href=\{reviewHref\}/);
+  assert.match(manager, /const countDelta/);
+  assert.match(manager, /Math\.sign\(cause\.dayDelta\) === discrepancyDirection/);
   assert.match(manager, /Review difference/);
-  assert.match(manager, /href="#calendar-adjustments"/);
-  assert.match(manager, /item\.reason/);
-  assert.match(manager, /item\.source/);
   assert.match(calendarPage, /dayExceptions=\{teachingImpact\.overrides\}/);
+  assert.match(calendarPage, /learnerEvents=\{teachingImpact\.events\}/);
+  assert.match(impactManager, /id="learner-calendar-events"/);
 });
 
 test("school adjustments can be deleted while official baseline is preserved", () => {
-  assert.match(teachingImpactQuery, /source,baseline_source/);
+  assert.match(teachingImpactQuery, /source,baseline_source,baseline_is_school_day/);
   assert.match(teachingImpactQuery, /baselineSource: item\.baseline_source/);
+  assert.match(teachingImpactQuery, /baselineIsSchoolDay: item\.baseline_is_school_day/);
+  assert.match(teachingImpactQuery, /created_at/);
+  assert.match(teachingImpactQuery, /createdAt: item\.created_at/);
   assert.match(impactManager, /deleteTeachingImpactAdjustment/);
   assert.match(impactManager, /Delete correction/);
   assert.match(impactManager, /National.*baseline|Regional.*baseline/);

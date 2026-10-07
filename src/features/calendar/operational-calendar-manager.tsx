@@ -27,7 +27,7 @@ import type {
   OperationalCalendarEvent,
   TermCalendarSummary,
 } from "@/features/calendar/server/operational-calendar";
-import type { TeachingImpactRow } from "@/features/calendar/server/teaching-impact";
+import type { LearnerCalendarEventRow, TeachingImpactRow } from "@/features/calendar/server/teaching-impact";
 import type { BellScheduleSummary } from "@/features/timetable/server/bell-calendar";
 
 const initialState: TeachingImpactActionState = {};
@@ -94,6 +94,116 @@ function eventDateLabel(event: OperationalCalendarEvent) {
     : range;
 }
 
+type CalendarDiscrepancyCause = {
+  key: string;
+  date: string;
+  impact: string;
+  reason: string;
+  sourceLabel: string;
+  dayDelta: -1 | 1;
+  href: "#calendar-adjustments" | "#learner-calendar-events";
+};
+
+function dateRange(start: string, end: string) {
+  const dates: string[] = [];
+  const cursor = new Date(`${start}T12:00:00Z`);
+  const last = new Date(`${end}T12:00:00Z`);
+  while (cursor <= last) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
+}
+
+function discrepancyCausesForTerm(
+  term: TermCalendarSummary,
+  dayExceptions: TeachingImpactRow[],
+  learnerEvents: LearnerCalendarEventRow[],
+): CalendarDiscrepancyCause[] {
+  const termStart = term.learnerStartsOn;
+  const termEnd = term.learnerEndsOn;
+  if (!termStart || !termEnd) return [];
+
+  const inTerm = (date: string) => date >= termStart && date <= termEnd;
+  const closureEventByDate = new Map<string, LearnerCalendarEventRow>();
+
+  for (const event of learnerEvents) {
+    if (event.audienceScope !== "all_learners" || event.teachingImpact !== "NO_TEACHING") continue;
+    const start = event.startsOn < termStart ? termStart : event.startsOn;
+    const end = event.endsOn > termEnd ? termEnd : event.endsOn;
+    if (start > end) continue;
+
+    for (const date of dateRange(start, end)) {
+      if (!isWeekdayDate(date)) continue;
+      const current = closureEventByDate.get(date);
+      const hasHigherResolverPrecedence =
+        !current ||
+        (current.scope === "national" && event.scope === "school") ||
+        (current.scope === event.scope && event.createdAt > current.createdAt);
+      if (hasHigherResolverPrecedence) {
+        closureEventByDate.set(date, event);
+      }
+    }
+  }
+
+  const overrideByDate = new Map(
+    dayExceptions.filter((item) => inTerm(item.date)).map((item) => [item.date, item] as const),
+  );
+  const causes = new Map<string, CalendarDiscrepancyCause>();
+
+  for (const item of overrideByDate.values()) {
+    const weekday = isWeekdayDate(item.date);
+    const underlyingClosure = closureEventByDate.get(item.date);
+    const closesWeekday = weekday && item.impact === "NO_TEACHING";
+    const opensWeekend = !weekday && item.impact !== "NO_TEACHING";
+    const reopensOfficialWeekday =
+      weekday &&
+      item.impact !== "NO_TEACHING" &&
+      (item.baselineIsSchoolDay === false || underlyingClosure !== undefined);
+
+    if (!closesWeekday && !opensWeekend && !reopensOfficialWeekday) continue;
+
+    const sourceLabel =
+      item.source === "national" || item.source === "regional"
+        ? `${item.source} baseline`
+        : item.baselineSource
+          ? `school correction over ${item.baselineSource}`
+          : underlyingClosure
+            ? `school correction over ${underlyingClosure.scope} event`
+            : "school adjustment";
+
+    causes.set(item.date, {
+      key: `override:${item.id}`,
+      date: item.date,
+      impact: item.impact,
+      reason: item.reason ?? underlyingClosure?.title ?? "Calendar adjustment",
+      sourceLabel,
+      dayDelta: closesWeekday ? -1 : 1,
+      href: "#calendar-adjustments",
+    });
+  }
+
+  for (const [date, event] of closureEventByDate) {
+    if (overrideByDate.has(date)) continue;
+    causes.set(date, {
+      key: `event:${event.id}:${date}`,
+      date,
+      impact: "NO_TEACHING",
+      reason: event.title,
+      sourceLabel: event.scope === "national" ? "national learner event" : "school learner event",
+      dayDelta: -1,
+      href: "#learner-calendar-events",
+    });
+  }
+
+  const countDelta =
+    term.calculatedLearnerDayCount - (term.officialLearnerDayCount ?? term.calculatedLearnerDayCount);
+  const discrepancyDirection = Math.sign(countDelta);
+  return [...causes.values()]
+    .filter((cause) => discrepancyDirection === 0 || Math.sign(cause.dayDelta) === discrepancyDirection)
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
 function TermCalendarProfileEditor({
   term,
   canManage,
@@ -101,6 +211,7 @@ function TermCalendarProfileEditor({
   onToggle,
   onClose,
   dayExceptions,
+  learnerEvents,
 }: {
   term: TermCalendarSummary;
   canManage: boolean;
@@ -108,6 +219,7 @@ function TermCalendarProfileEditor({
   onToggle: () => void;
   onClose: () => void;
   dayExceptions: TeachingImpactRow[];
+  learnerEvents: LearnerCalendarEventRow[];
 }) {
   const [state, action, pending] = useActionState(saveTermCalendarProfile, initialState);
   const [learnerStartsOn, setLearnerStartsOn] = useState(term.learnerStartsOn ?? "");
@@ -125,12 +237,8 @@ function TermCalendarProfileEditor({
 
   const hasOfficial = term.officialLearnerDayCount != null;
   const matches = hasOfficial && term.officialLearnerDayCount === term.calculatedLearnerDayCount;
-  const discrepancyRows = dayExceptions.filter((item) => {
-    if (!term.learnerStartsOn || !term.learnerEndsOn) return false;
-    if (item.date < term.learnerStartsOn || item.date > term.learnerEndsOn) return false;
-    const weekday = isWeekdayDate(item.date);
-    return (weekday && item.impact === "NO_TEACHING") || (!weekday && item.impact !== "NO_TEACHING");
-  });
+  const discrepancyRows = discrepancyCausesForTerm(term, dayExceptions, learnerEvents);
+  const reviewHref = discrepancyRows[0]?.href ?? "#calendar-adjustments";
 
   return (
     <article
@@ -179,18 +287,18 @@ function TermCalendarProfileEditor({
               {discrepancyRows.length ? (
                 <div className="mt-2 space-y-1 text-[0.68rem] leading-5 text-muted-foreground">
                   {discrepancyRows.slice(0, 3).map((item) => (
-                    <p key={item.id}>
+                    <p key={item.key}>
                       <strong className="text-foreground">{formatDate(item.date)}</strong>
                       {" · "}
                       {item.impact.replaceAll("_", " ")}
                       {" · "}
-                      {item.reason ?? "Calendar adjustment"}
+                      {item.reason}
                       {" · "}
-                      {item.source === "national" || item.source === "regional"
-                        ? `${item.source} baseline`
-                        : item.baselineSource
-                          ? `school correction over ${item.baselineSource}`
-                          : "school adjustment"}
+                      {item.sourceLabel}
+                      {" · "}
+                      <Link href={item.href} className="font-semibold text-brand-strong">
+                        Review
+                      </Link>
                     </p>
                   ))}
                 </div>
@@ -200,7 +308,7 @@ function TermCalendarProfileEditor({
                 </p>
               )}
               <Link
-                href="#calendar-adjustments"
+                href={reviewHref}
                 className={`${buttonVariants({ variant: "soft", size: "sm" })} mt-2`}
               >
                 Review difference
@@ -320,12 +428,14 @@ export function OperationalCalendarManager({
   canManageSchool,
   canManageDepartment,
   dayExceptions,
+  learnerEvents,
 }: {
   schoolId: string;
   year: number;
   terms: TermCalendarSummary[];
   events: OperationalCalendarEvent[];
   dayExceptions: TeachingImpactRow[];
+  learnerEvents: LearnerCalendarEventRow[];
   departments: DepartmentCalendarOption[];
   staffOptions: CalendarStaffOption[];
   schedules: BellScheduleSummary[];
@@ -414,6 +524,7 @@ export function OperationalCalendarManager({
               onToggle={() => setActiveTermId((current) => current === term.academicTermId ? null : term.academicTermId)}
               onClose={closeTermEditor}
               dayExceptions={dayExceptions}
+              learnerEvents={learnerEvents}
             />
           ))}
         </div>

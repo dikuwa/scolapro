@@ -115,10 +115,26 @@ test("calendar correction deletion restores official provenance instead of destr
 });
 
 test("official calendar rows are visibly distinct from deletable school adjustments", () => {
-  assert.match(teachingImpactQuery, /source,baseline_source/);
+  assert.match(teachingImpactQuery, /source,baseline_source,baseline_is_school_day/);
   assert.match(impactManager, /isOfficialBaseline/);
   assert.match(impactManager, /isSchoolAdjustment/);
   assert.match(impactManager, /Correct/);
   assert.match(impactManager, /Delete/);
   assert.match(impactManager, /calendar-adjustments/);
+});
+
+
+test("discrepancy attribution uses authoritative learner events and override precedence", () => {
+  assert.match(manager, /discrepancyCausesForTerm/);
+  assert.match(manager, /event\.audienceScope !== "all_learners"/);
+  assert.match(manager, /event\.teachingImpact !== "NO_TEACHING"/);
+  assert.match(manager, /overrideByDate\.has\(date\)/);
+  assert.match(manager, /underlyingClosure/);
+  assert.match(manager, /reopensOfficialWeekday/);
+  assert.match(manager, /item\.baselineIsSchoolDay === false/);
+  assert.match(manager, /Math\.sign\(cause\.dayDelta\) === discrepancyDirection/);
+  assert.match(manager, /event\.createdAt > current\.createdAt/);
+  assert.match(teachingImpactQuery, /createdAt: item\.created_at/);
+  assert.match(calendarPage, /learnerEvents=\{teachingImpact\.events\}/);
+  assert.match(calendarDoc, /effective all-learner NO_TEACHING events/);
 });
