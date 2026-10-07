@@ -18,13 +18,15 @@ test("staff route exposes loading, empty and error states",()=>{
   assert.match(page,/No staff match this search/);
 });
 
-test("staff page remains current-context role scoped without Platform Support",()=>{
+test("staff page remains current-school role scoped without Platform Support",()=>{
   assert.match(page,/school_admin/);
   assert.match(page,/principal/);
   assert.match(page,/deputy_principal/);
   assert.match(page,/hod/);
   assert.doesNotMatch(page,/platform_support/);
-  assert.match(page,/schoolId=\{membership\.schoolId\}/);
+  assert.match(page,/currentSchoolMembership\?\.schoolId/);
+  assert.match(page,/roleKeys = new Set\(schoolMemberships\.map/);
+  assert.match(page,/schoolId=\{currentSchoolId\}/);
   assert.match(page,/getSchoolStaffDirectory\(schoolId/);
 });
 
