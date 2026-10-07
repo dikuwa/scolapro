@@ -21,7 +21,7 @@ test("all school leadership roles retain Academic setup and Responsibilities rou
 
 test("Academic setup is reachable by school admin, principal and deputy principal", () => {
   assert.match(setupPage, /\["school_admin", "principal", "deputy_principal"\]/);
-  assert.match(setupPage, /canManageAcademicStructure = membership\.roleKey === "school_admin"/);
+  assert.match(setupPage, /canManageAcademicStructure = schoolRoleKeys\.has\("school_admin"\)/);
 });
 
 test("register classes expose assigned register teachers and active school staff candidates", () => {
