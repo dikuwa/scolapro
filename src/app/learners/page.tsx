@@ -56,7 +56,7 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
   if (isSupabaseConfigured()) {
     const context = await getUserContext();
     if (!context.user) redirect("/login");
-    const currentSchoolId = context.currentSchoolMembership?.schoolId;
+    const currentSchoolId = context.currentSchoolMembership?.schoolId ?? null;
     const schoolMemberships = currentSchoolId
       ? context.memberships.filter((candidate) => candidate.schoolId === currentSchoolId)
       : [];
