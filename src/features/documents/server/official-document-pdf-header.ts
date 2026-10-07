@@ -263,6 +263,7 @@ function drawExternalHeader(
   options: {
     documentX?: number;
     documentWidth?: number;
+    showBottomRule?: boolean;
   },
 ): number {
   const { regular, bold, schoolNameFont, logo, coatOfArms } = resources;
@@ -276,12 +277,14 @@ function drawExternalHeader(
   const leftAssetX = x;
   const rightAssetX = x + width - assetColumnWidth;
 
-  page.drawLine({
-    start: { x, y: externalBottomY },
-    end: { x: x + width, y: externalBottomY },
-    thickness: 0.75,
-    color: LINE,
-  });
+  if (options.showBottomRule !== false) {
+    page.drawLine({
+      start: { x, y: externalBottomY },
+      end: { x: x + width, y: externalBottomY },
+      thickness: 0.75,
+      color: LINE,
+    });
+  }
 
   const drawCenteredAsset = (image: PDFImage | null, columnX: number) => {
     if (!image) return;
@@ -347,6 +350,7 @@ export function drawOfficialDocumentPdfHeader(
     context?: InternalSchoolDocumentHeaderContext;
     documentX?: number;
     documentWidth?: number;
+    showBottomRule?: boolean;
   } = {},
 ): number {
   if (resources.backdrop) {
@@ -363,6 +367,7 @@ export function drawOfficialDocumentPdfHeader(
     return drawExternalHeader(page, header, resources, topY, {
       documentX: options.documentX,
       documentWidth: options.documentWidth,
+      showBottomRule: options.showBottomRule,
     });
   }
   return drawInternalHeader(page, header, resources, topY, options);
