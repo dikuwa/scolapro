@@ -29,6 +29,16 @@ test("management transfer authority cannot be masked by a lower-priority teacher
   assert.match(learnerPage, /#learner-transfer-workflow/);
 });
 
+test("learner profile capabilities are additive across active roles in the selected school", () => {
+  assert.match(learnerPage, /const currentSchoolMemberships = context\.memberships\.filter/);
+  assert.match(learnerPage, /candidate\.schoolId === membership\.schoolId/);
+  assert.match(learnerPage, /const currentSchoolRoleKeys = new Set\(currentSchoolMemberships\.map/);
+  assert.match(learnerPage, /hasCurrentSchoolRole\(correctionRequestRoles\)/);
+  assert.match(learnerPage, /currentSchoolRoleKeys\.has\("school_admin"\)/);
+  assert.match(learnerPage, /\["school_admin", "principal", "deputy_principal", "hod"\]\.some/);
+  assert.doesNotMatch(learnerPage, /canViewConduct = correctionRequestRoles\.has\(membership\.roleKey\)/);
+});
+
 test("fallback remains current-school scoped and local reset auth seed restores a school-admin identity", () => {
   assert.match(userContext, /const memberships = currentSchoolId[\s\S]*allSchoolMemberships\.filter\(\(membership\) => membership\.schoolId === currentSchoolId\)/);
   assert.match(localAuthSeed, /role_key: "school_admin"/);

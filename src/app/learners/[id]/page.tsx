@@ -68,11 +68,18 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
         ? primaryMembership
         : context.memberships.find((candidate) => learnerOperationalRoles.has(candidate.roleKey));
     if (!membership) redirect("/");
+    const currentSchoolMemberships = context.memberships.filter((candidate) => candidate.schoolId === membership.schoolId);
+    const currentSchoolRoleKeys = new Set(currentSchoolMemberships.map((candidate) => candidate.roleKey));
+    const hasCurrentSchoolRole = (roles: Set<string>) =>
+      [...roles].some((roleKey) => currentSchoolRoleKeys.has(roleKey));
+
     learner = await getLearnerOverview(id, membership.schoolId);
-    canViewConduct = correctionRequestRoles.has(membership.roleKey);
-    canRequestCorrection = Boolean(learner && correctionRequestRoles.has(membership.roleKey));
-    canManageLearner = Boolean(learner && membership.roleKey === "school_admin");
-    canManageSubjects = Boolean(learner && ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey));
+    canViewConduct = hasCurrentSchoolRole(correctionRequestRoles);
+    canRequestCorrection = Boolean(learner && hasCurrentSchoolRole(correctionRequestRoles));
+    canManageLearner = Boolean(learner && currentSchoolRoleKeys.has("school_admin"));
+    canManageSubjects = Boolean(
+      learner && ["school_admin", "principal", "deputy_principal", "hod"].some((roleKey) => currentSchoolRoleKeys.has(roleKey)),
+    );
     managementSchoolId = canManageLearner ? membership.schoolId : null;
     operationalSchoolId = learner && learnerExitRoles.has(membership.roleKey) ? membership.schoolId : null;
     if (learner) {
