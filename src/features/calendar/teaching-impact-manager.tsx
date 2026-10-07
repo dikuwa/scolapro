@@ -181,7 +181,7 @@ export function TeachingImpactManager({
         ) : <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-5 text-sm text-muted-foreground">No learner calendar events are configured for this academic year.</div>}
       </div>
 
-      <div id="calendar-adjustments" className="mt-6 scroll-mt-24 border-t border-border-subtle pt-4">
+      <div id="calendar-adjustments" className="mt-6 border-t border-border-subtle pt-4" style={{ scrollMarginTop: "6rem" }}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold">Calendar adjustments & exceptions</h3>
