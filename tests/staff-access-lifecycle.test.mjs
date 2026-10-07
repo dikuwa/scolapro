@@ -67,7 +67,8 @@ test("social worker invitations preserve canonical support placement", () => {
 test("staff access UI remains responsive and provides loading-safe actions", () => {
   assert.match(page, /md:grid-cols-\[2rem_minmax\(0,1fr\)_minmax\(11rem,0\.8fr\)\]/);
   assert.match(page, /lg:grid-cols-\[2rem_minmax\(15rem,1\.1fr\)_minmax\(12rem,0\.72fr\)_minmax\(24rem,1\.45fr\)\]/);
-  assert.match(access, /disabled=\{invitePending \|\| !email\}/);
+  assert.match(access, /loading=\{invitePending\}/);
+  assert.match(access, /disabled=\{!email\}/);
   assert.match(access, /loading=\{rolePending\}/);
   assert.match(page, /No school staff linked yet/);
 });
