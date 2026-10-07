@@ -144,3 +144,14 @@ test("internal PDF header uses only the shared thin bottom rule", () => {
   assert.match(pdf, /end: \{ x: x \+ width, y: bottomY \}/);
   assert.match(pdf, /thickness: 0\.75/);
 });
+
+
+test("shared school-name font runtime is reusable by custom document layouts", () => {
+  assert.match(html, /export function renderOfficialDocumentSchoolNameFontStyle/);
+  assert.match(html, /export function officialDocumentSchoolNameClass/);
+  assert.match(html, /header\.schoolNameFont === "old_english"/);
+  assert.match(html, /ScolaPro Old English/);
+  const register = read("src/features/attendance/server/render-register-teacher-html.ts");
+  assert.match(register, /renderOfficialDocumentSchoolNameFontStyle\(header\)/);
+  assert.match(register, /officialDocumentSchoolNameClass\(header\)/);
+});

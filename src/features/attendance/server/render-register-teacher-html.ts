@@ -1,5 +1,6 @@
 import "server-only";
 
+import { officialDocumentSchoolNameClass, renderOfficialDocumentSchoolNameFontStyle } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWeek } from "@/features/attendance/server/register-teacher-document";
 
@@ -128,12 +129,15 @@ export function renderRegisterTeacherHtml(input: {
   const subtitle = document.mode === "week"
     ? `Week ending ${formatDate(document.scopeEnd)}`
     : `${document.termName} · ${formatDate(document.scopeStart)} – ${formatDate(document.scopeEnd)}`;
+  const schoolNameClass = officialDocumentSchoolNameClass(header);
+  const schoolNameFontStyle = renderOfficialDocumentSchoolNameFontStyle(header);
 
   return `<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
 <title>${escapeHtml(document.className)} ${title}</title>
+${schoolNameFontStyle}
 <style>
   :root { --register-red:#a31218; --register-red-soft:#fff1f2; --ink:#151515; --grid:#3a3a3a; }
   * { box-sizing:border-box; }
@@ -145,6 +149,7 @@ export function renderRegisterTeacherHtml(input: {
   .school-header { display:grid; grid-template-columns:82px 1fr auto; gap:14px; align-items:center; border-bottom:2px solid var(--register-red); padding-bottom:10px; margin-bottom:10px; }
   .school-header img { max-width:72px; max-height:72px; object-fit:contain; }
   .school-name { font-size:22px; font-weight:800; letter-spacing:.02em; text-transform:uppercase; }
+  .school-name.old-english { font-weight:700; letter-spacing:0; text-transform:none; }
   .school-contact { font-size:10px; line-height:1.45; color:#444; }
   .doc-title { text-align:right; }
   .doc-title h1 { margin:0; font-size:17px; color:var(--register-red); letter-spacing:.08em; }
@@ -214,7 +219,7 @@ export function renderRegisterTeacherHtml(input: {
   <header class="school-header">
     <div>${header.logoUrl ? `<img src="${escapeHtml(header.logoUrl)}" alt="" />` : ""}</div>
     <div>
-      <div class="school-name">${escapeHtml(header.schoolName)}</div>
+      <div class="${schoolNameClass}">${escapeHtml(header.schoolName)}</div>
       <div class="school-contact">${header.contactLines.map((line) => escapeHtml(line.text)).join(" · ")}${header.postalLines.length ? `<br>${header.postalLines.map(escapeHtml).join(" · ")}` : ""}</div>
     </div>
     <div class="doc-title">
