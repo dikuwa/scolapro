@@ -271,6 +271,8 @@ School-created adjustments can also be deleted. Deletion is a governed restore o
 
 When resolved and published learner-day totals differ, the term card surfaces the relevant date/reason/source where the difference can be attributed to a calendar exception and links directly to **Calendar adjustments & exceptions**.
 
+Discrepancy attribution uses the same authoritative inputs as learner-day resolution: school-day overrides plus effective all-learner NO_TEACHING events. A same-date override takes precedence over an event, and a school correction that reopens an official/event closure is identified as the active cause. Scoped grade/class/teaching-group events do not alter the whole-school learner-day total.
+
 Register documents surface the governed non-teaching reason in the affected date column (for example, Good Friday or International Teacher's Day) while keeping attendance/numeric columns compact and content-width driven.
 
 Calendar changes are append/audit oriented.

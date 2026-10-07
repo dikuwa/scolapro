@@ -122,3 +122,15 @@ test("official calendar rows are visibly distinct from deletable school adjustme
   assert.match(impactManager, /Delete/);
   assert.match(impactManager, /calendar-adjustments/);
 });
+
+
+test("discrepancy attribution uses authoritative learner events and override precedence", () => {
+  assert.match(manager, /discrepancyCausesForTerm/);
+  assert.match(manager, /event\.audienceScope !== "all_learners"/);
+  assert.match(manager, /event\.teachingImpact !== "NO_TEACHING"/);
+  assert.match(manager, /overrideByDate\.has\(date\)/);
+  assert.match(manager, /underlyingClosure/);
+  assert.match(manager, /reopensOfficialWeekday/);
+  assert.match(calendarPage, /learnerEvents=\{teachingImpact\.events\}/);
+  assert.match(calendarDoc, /effective all-learner NO_TEACHING events/);
+});
