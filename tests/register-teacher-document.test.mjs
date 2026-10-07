@@ -120,3 +120,24 @@ test("register school name inherits the governed school document font", () => {
   assert.match(renderer, /school-name\.old-english/);
   assert.doesNotMatch(renderer, /Namib High School.*font|old_english.*Namib High/i);
 });
+
+
+test("register non-teaching columns display governed calendar reasons", () => {
+  assert.match(model, /effective_learner_calendar_events/);
+  assert.match(model, /calendarClosures/);
+  assert.match(model, /reasonByDate\.set\(date, String\(event\.title\)\)/);
+  assert.match(model, /Before learner opening/);
+  assert.match(model, /After learner closing/);
+  assert.match(renderer, /compactCalendarReason/);
+  assert.match(renderer, /day-reason/);
+  assert.match(renderer, /writing-mode:vertical-rl/);
+});
+
+test("register operational columns stay compact while identity columns absorb width", () => {
+  assert.match(renderer, /table-layout:auto/);
+  assert.match(renderer, /min-width:max-content/);
+  assert.match(renderer, /\.day \{ width:1%; min-width:22px/);
+  assert.match(renderer, /\.mark \{ width:1%; min-width:22px/);
+  assert.match(renderer, /\.term-actual,\.term-absent,\.term-days \{ width:1%;/);
+  assert.doesNotMatch(renderer, /table-layout:fixed/);
+});

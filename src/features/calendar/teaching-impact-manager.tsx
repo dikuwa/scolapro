@@ -1,14 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { CalendarCog, Clock3, Globe2, School } from "lucide-react";
+import { CalendarCog, Clock3, Globe2, Pencil, Plus, School } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
 import { TimeField } from "@/components/ui/time-field";
-import { saveSchoolCalendarEvent, type TeachingImpactActionState } from "@/features/calendar/server/actions";
+import { saveSchoolCalendarEvent, saveTeachingImpact, type TeachingImpactActionState } from "@/features/calendar/server/actions";
 import type {
   CalendarAudienceOption,
   LearnerCalendarEventRow,
@@ -54,6 +54,7 @@ export function TeachingImpactManager({
   canManage: boolean;
 }) {
   const [state, action, pending] = useActionState(saveSchoolCalendarEvent, initialState);
+  const [adjustmentState, adjustmentAction, adjustmentPending] = useActionState(saveTeachingImpact, initialState);
   const [startsOn, setStartsOn] = useState(`${year}-01-01`);
   const [endsOn, setEndsOn] = useState(`${year}-01-01`);
   const [startsAt, setStartsAt] = useState("");
@@ -63,7 +64,13 @@ export function TeachingImpactManager({
   const [category, setCategory] = useState("Information");
   const [schedule, setSchedule] = useState("");
   const [showAddEvent, setShowAddEvent] = useState(false);
+  const [showAdjustment, setShowAdjustment] = useState(false);
+  const [adjustmentDate, setAdjustmentDate] = useState(`${year}-01-01`);
+  const [adjustmentImpact, setAdjustmentImpact] = useState("NO_TEACHING");
+  const [adjustmentReason, setAdjustmentReason] = useState("");
+  const [adjustmentSchedule, setAdjustmentSchedule] = useState("");
   const canSchedule = impact === "ALTERED_TIMETABLE" || impact === "EXAM_TIMETABLE";
+  const canScheduleAdjustment = adjustmentImpact === "ALTERED_TIMETABLE" || adjustmentImpact === "EXAM_TIMETABLE";
   const audienceLabelByValue = useMemo(() => new Map(audienceOptions.map((option) => [option.value, option.label])), [audienceOptions]);
 
   useEffect(() => {
@@ -75,6 +82,24 @@ export function TeachingImpactManager({
       toast.error(state.message);
     }
   }, [state]);
+
+  useEffect(() => {
+    if (!adjustmentState.message) return;
+    if (adjustmentState.success) {
+      toast.success(adjustmentState.message);
+      queueMicrotask(() => setShowAdjustment(false));
+    } else {
+      toast.error(adjustmentState.message);
+    }
+  }, [adjustmentState]);
+
+  function editAdjustment(input?: { date?: string; impact?: string; reason?: string | null }) {
+    setAdjustmentDate(input?.date ?? `${year}-01-01`);
+    setAdjustmentImpact(input?.impact ?? "NO_TEACHING");
+    setAdjustmentReason(input?.reason ?? "");
+    setAdjustmentSchedule("");
+    setShowAdjustment(true);
+  }
 
   return (
     <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -114,7 +139,24 @@ export function TeachingImpactManager({
                     {event.description ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{event.description}</p> : null}
                   </div>
                   <p className="text-xs leading-5 text-muted-foreground">{eventDateLabel(event)}{event.bellScheduleName ? <><br />{event.bellScheduleName}</> : null}</p>
-                  <span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.68rem] font-semibold text-brand-strong">{event.teachingImpact.replaceAll("_", " ")}</span>
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.68rem] font-semibold text-brand-strong">{event.teachingImpact.replaceAll("_", " ")}</span>
+                    {canManage && event.audienceScope === "all_learners" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => editAdjustment({
+                          date: event.startsOn,
+                          impact: event.teachingImpact === "NO_TEACHING" ? "NO_TEACHING" : "NORMAL",
+                          reason: event.title,
+                        })}
+                      >
+                        <Pencil className="size-3.5" />
+                        Adjust
+                      </Button>
+                    ) : null}
+                  </div>
                 </article>
               );
             })}
@@ -122,12 +164,68 @@ export function TeachingImpactManager({
         ) : <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-5 text-sm text-muted-foreground">No learner calendar events are configured for this academic year.</div>}
       </div>
 
-      {overrides.length ? (
-        <details className="mt-4 border-t border-border-subtle pt-4">
-          <summary className="cursor-pointer text-xs font-semibold text-muted-foreground">Legacy single-date teaching overrides ({overrides.length})</summary>
-          <div className="mt-2 divide-y divide-border-subtle">{overrides.slice(0, 8).map((item) => <div key={item.id} className="grid gap-1 py-2.5 sm:grid-cols-[7.5rem_10rem_1fr]"><span className="text-xs font-medium">{item.date}</span><span className="text-[0.68rem] font-semibold text-brand-strong">{item.impact.replaceAll("_", " ")}</span><span className="text-[0.68rem] text-muted-foreground">{item.bellScheduleName ?? item.reason ?? "—"}</span></div>)}</div>
-        </details>
-      ) : null}
+      <div className="mt-6 border-t border-border-subtle pt-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold">Calendar adjustments & exceptions</h3>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-muted-foreground">
+              School-level corrections override the effective learner day without deleting the national/public baseline. Use these for a shifted Ministry date, local closure, replacement school day or another approved exception.
+            </p>
+          </div>
+          {canManage ? (
+            <Button type="button" size="sm" variant="soft" onClick={() => showAdjustment ? setShowAdjustment(false) : editAdjustment()}>
+              {showAdjustment ? "Close adjustment" : <><Plus className="size-3.5" />Add adjustment</>}
+            </Button>
+          ) : null}
+        </div>
+
+        {canManage ? (
+          <form action={adjustmentAction} className={showAdjustment ? "mt-4 grid gap-4 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-4" : "hidden"} aria-hidden={!showAdjustment}>
+            <input type="hidden" name="schoolId" value={schoolId} />
+            <DateField label="Effective date" name="date" value={adjustmentDate} onChange={setAdjustmentDate} min={`${year}-01-01`} max={`${year}-12-31`} required />
+            <Picker
+              label="Learner-day status"
+              name="impact"
+              value={adjustmentImpact}
+              onChange={(value) => { setAdjustmentImpact(value); if (value !== "ALTERED_TIMETABLE" && value !== "EXAM_TIMETABLE") setAdjustmentSchedule(""); }}
+              placeholder="Choose status"
+              options={impactOptions}
+            />
+            {canScheduleAdjustment ? (
+              <Picker label="Alternate bell schedule" name="bellScheduleId" value={adjustmentSchedule} onChange={setAdjustmentSchedule} placeholder="Use automatically effective schedule" options={schedules.map((item) => ({ value: item.id, label: item.name, helper: `From ${item.effectiveFrom}` }))} />
+            ) : <input type="hidden" name="bellScheduleId" value="" />}
+            <div className={canScheduleAdjustment ? "" : "lg:col-span-2"}>
+              <label htmlFor="calendar-adjustment-reason" className={formFieldLabelClass}>Reason / authority</label>
+              <input id="calendar-adjustment-reason" name="reason" value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} maxLength={500} className={`${inputClass} ${formFieldControlOffsetClass}`} placeholder="For example, Ministry circular moved the school holiday" />
+            </div>
+            <div className="flex items-end">
+              <Button type="submit" loading={adjustmentPending}>Save adjustment</Button>
+            </div>
+          </form>
+        ) : null}
+
+        {overrides.length ? (
+          <div className="mt-3 divide-y divide-border-subtle">
+            {overrides.map((item) => (
+              <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[7.5rem_10rem_minmax(0,1fr)_auto] sm:items-center">
+                <span className="text-xs font-medium">{formatDate(item.date)}</span>
+                <span className="text-[0.68rem] font-semibold text-brand-strong">{item.impact.replaceAll("_", " ")}</span>
+                <span className="text-[0.68rem] text-muted-foreground">{item.bellScheduleName ?? item.reason ?? "School calendar adjustment"}</span>
+                {canManage ? (
+                  <Button type="button" size="sm" variant="ghost" onClick={() => editAdjustment({ date: item.date, impact: item.impact, reason: item.reason })}>
+                    <Pencil className="size-3.5" />
+                    Edit
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-4 text-xs text-muted-foreground">
+            No school-level calendar adjustments are configured for {year}. The national/public baseline remains in effect.
+          </div>
+        )}
+      </div>
       {canManage ? <form action={action} className={showAddEvent ? "mt-5 grid gap-4 lg:grid-cols-2" : "hidden"} aria-hidden={!showAddEvent}>
         <input type="hidden" name="schoolId" value={schoolId} />
         <input type="hidden" name="academicYear" value={year} />

@@ -24,8 +24,23 @@ function learnerIdentityCells(section: RegisterTeacherSection, rowIndex: number)
   `;
 }
 
+function compactCalendarReason(value: string | null) {
+  if (!value) return "";
+  return value
+    .replace(/^school holiday\s*[-:]\s*/i, "")
+    .replace(/^public holiday\s*[-:]\s*/i, "")
+    .replace(/^holiday\s*[-:]\s*/i, "")
+    .trim();
+}
+
 function weeklyColumns(week: RegisterTeacherWeek) {
-  return week.dates.map((day) => `<th class="day ${day.teaching ? "" : "non-teaching"}"><span>${escapeHtml(day.weekday)}</span><small>${escapeHtml(day.dayNumber)}</small></th>`).join("") + '<th class="week-total">Tot.</th>';
+  return week.dates.map((day) => {
+    const reason = !day.teaching ? compactCalendarReason(day.reason) : "";
+    const reasonMarkup = reason
+      ? `<span class="day-reason" title="${escapeHtml(day.reason ?? reason)}">${escapeHtml(reason)}</span>`
+      : "";
+    return `<th class="day ${day.teaching ? "" : "non-teaching"}"><span>${escapeHtml(day.weekday)}</span><small>${escapeHtml(day.dayNumber)}</small>${reasonMarkup}</th>`;
+  }).join("") + '<th class="week-total">Tot.</th>';
 }
 
 function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: RegisterTeacherWeek) {
@@ -154,33 +169,34 @@ ${schoolNameFontStyle}
   .doc-title { text-align:right; }
   .doc-title h1 { margin:0; font-size:17px; color:var(--register-red); letter-spacing:.08em; }
   .doc-title p { margin:5px 0 0; font-size:10px; }
-  .register-section { margin-top:18px; break-after:page; }
+  .register-section { margin-top:18px; break-after:page; overflow-x:auto; }
   .register-section:last-child { break-after:auto; }
   .register-meta { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1px; background:var(--register-red); border:1px solid var(--register-red); margin-bottom:4px; }
   .register-meta > div { background:white; padding:5px 7px; font-size:9px; }
   .register-meta strong { color:var(--register-red); }
-  table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:7.4px; }
+  table { width:100%; min-width:max-content; border-collapse:collapse; table-layout:auto; font-size:7.4px; }
   th,td { border:1px solid var(--grid); padding:2px 2px; text-align:center; height:19px; overflow:hidden; }
   thead th { background:var(--register-red-soft); color:#6d0d12; font-weight:700; }
   .identity { text-align:left; }
-  .identity.admin { width:42px; text-align:center; }
-  .identity.no { width:28px; text-align:center; }
-  .identity.surname { width:86px; }
-  .identity.given { width:104px; }
-  .identity.dob { width:57px; text-align:center; }
+  .identity.admin { width:1%; min-width:42px; text-align:center; white-space:nowrap; }
+  .identity.no { width:1%; min-width:28px; text-align:center; white-space:nowrap; }
+  .identity.surname { min-width:86px; }
+  .identity.given { min-width:104px; }
+  .identity.dob { width:1%; min-width:57px; text-align:center; white-space:nowrap; }
   .name-head { text-align:center; }
-  .week-heading { min-width:92px; padding:3px 2px 4px; color:var(--register-red); text-align:center; vertical-align:middle; line-height:1.05; border-right:2px solid var(--register-red); }
+  .week-heading { padding:3px 2px 4px; color:var(--register-red); text-align:center; vertical-align:middle; line-height:1.05; border-right:2px solid var(--register-red); white-space:nowrap; }
   .week-heading-label { display:block; font-size:6.6px; font-weight:700; letter-spacing:.015em; white-space:nowrap; }
   .week-heading-date { display:block; margin-top:2px; font-size:7.2px; line-height:1; color:#6d0d12; white-space:nowrap; }
-  .day { width:18px; }
+  .day { width:1%; min-width:22px; white-space:nowrap; vertical-align:bottom; }
   .day small { display:block; margin-top:1px; font-size:6px; color:#555; }
-  .week-total { width:24px; background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
-  .term-group { width:108px; background:#fff; font-weight:800; border-left:2px solid var(--register-red); }
-  .term-actual,.term-absent,.term-days { width:36px; font-weight:800; }
+  .day-reason { display:inline-block; max-height:66px; margin-top:3px; overflow:hidden; writing-mode:vertical-rl; transform:rotate(180deg); font-size:5.5px; font-weight:700; line-height:1; letter-spacing:.01em; color:#666; white-space:nowrap; }
+  .week-total { width:1%; min-width:24px; white-space:nowrap; background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
+  .term-group { width:1%; white-space:nowrap; background:#fff; font-weight:800; border-left:2px solid var(--register-red); }
+  .term-actual,.term-absent,.term-days { width:1%; min-width:36px; white-space:nowrap; font-weight:800; }
   .term-actual { background:#f1ebf7; border-left:2px solid var(--register-red); }
   .term-absent { background:#fff7f7; color:var(--register-red); }
   .term-days { background:#eef5d8; }
-  .mark { font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; font-size:10px; }
+  .mark { width:1%; min-width:22px; white-space:nowrap; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; font-size:10px; }
   .register-mark { position:relative; display:inline-block; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; }
   .absent-mark { color:var(--register-red); }
   .absence-reason-mark { position:relative; top:-.42em; margin-left:1px; font-size:.52em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
@@ -228,7 +244,7 @@ ${schoolNameFontStyle}
       <p>${escapeHtml(subtitle)}</p>
     </div>
   </header>
-  <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span>Grey = non-teaching / inactive</span></div>
+  <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span>Grey = non-teaching / inactive; governed holiday or closure name appears in the date column</span></div>
   ${document.sections.map((section) => sectionHtml(document, section)).join("")}
 </main>
 </body>
