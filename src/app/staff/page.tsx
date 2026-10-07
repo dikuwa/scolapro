@@ -103,7 +103,41 @@ async function StaffDirectoryData({
             <div className="sticky top-0 z-10 hidden grid-cols-[2rem_minmax(15rem,1fr)_minmax(12rem,0.7fr)_minmax(18rem,1.3fr)] gap-3 border-b border-border-subtle bg-surface-muted px-5 py-2.5 text-[0.7rem] font-medium uppercase tracking-[0.06em] text-muted-foreground shadow-[0_1px_0_var(--border-subtle)] sm:grid">
               <span className="text-center">No.</span><span>Staff member</span><span>Placement</span><span>ScolaPro access</span>
             </div>
-            <div className="divide-y divide-border-subtle px-4 sm:px-5">{directory.rows.map((row, index) => { const rowNumber=(directory.page-1)*directory.pageSize+index+1; return <article key={row.id} className="grid gap-3 py-3 sm:grid-cols-[2rem_minmax(0,1fr)_minmax(12rem,0.7fr)_minmax(18rem,1.3fr)] sm:items-start"><span className="hidden text-center text-xs tabular-nums text-muted-foreground sm:block">{rowNumber}</span><div className="min-w-0"><div className="flex items-baseline gap-2"><span className="text-xs tabular-nums text-muted-foreground sm:hidden">{rowNumber}.</span><p className="scolapro-record-title truncate">{row.name}</p></div><p className="mt-0.5 text-xs text-muted-foreground">{row.employeeNumber ? `Employee ${row.employeeNumber}` : "Employee number not set"} · {row.hasAccount ? "Account linked" : row.pendingInvitationId ? "Invitation pending" : "No login account yet"}</p></div><div><div className="flex flex-wrap gap-1.5">{row.labels.map((label)=><span key={label} className={`inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] px-2.5 py-1.5 text-xs font-medium capitalize ${roleStyle(label)}`}><BadgeCheck className="size-3.5" aria-hidden="true" />{humanRole(label)}</span>)}</div><p className="mt-1 text-xs tabular-nums text-muted-foreground">From {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${row.activeFrom}T12:00:00`))}</p></div><div><StaffAccessManager schoolId={schoolId} row={row} /><StaffIdentityManager schoolId={schoolId} row={row} candidates={directory.rows} /></div></article>; })}</div>
+            <div className="divide-y divide-border-subtle px-4 sm:px-5">
+              {directory.rows.map((row, index) => {
+                const rowNumber = (directory.page - 1) * directory.pageSize + index + 1;
+                const primaryPlacement = row.labels[0] ?? "Staff";
+                const placementMeta = [row.staffCode ? `Code ${row.staffCode}` : null, row.defaultRoomName].filter(Boolean).join(" · ");
+                return (
+                  <article key={row.id} className="grid gap-2.5 py-2.5 sm:grid-cols-[2rem_minmax(0,1.05fr)_minmax(11rem,0.65fr)_minmax(18rem,1.3fr)] sm:items-start">
+                    <span className="hidden pt-0.5 text-center text-xs tabular-nums text-muted-foreground sm:block">{rowNumber}</span>
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-xs tabular-nums text-muted-foreground sm:hidden">{rowNumber}.</span>
+                        <p className="scolapro-record-title truncate">{row.name}</p>
+                      </div>
+                      <p className="mt-0.5 truncate text-[0.72rem] text-muted-foreground">
+                        {row.employeeNumber ? `Employee ${row.employeeNumber}` : "Employee number not set"}
+                        {placementMeta ? ` · ${placementMeta}` : ""}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <span className={`inline-flex max-w-full items-center gap-1.5 rounded-[var(--radius-xs)] px-2 py-1 text-[0.72rem] font-medium capitalize ${roleStyle(primaryPlacement)}`}>
+                        <BadgeCheck className="size-3.5 shrink-0" aria-hidden="true" />
+                        <span className="truncate">{humanRole(primaryPlacement)}</span>
+                      </span>
+                      <p className="mt-1 text-[0.68rem] tabular-nums text-muted-foreground">
+                        From {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${row.activeFrom}T12:00:00`))}
+                      </p>
+                    </div>
+                    <div className="min-w-0">
+                      <StaffAccessManager schoolId={schoolId} row={row} />
+                      <StaffIdentityManager schoolId={schoolId} row={row} candidates={directory.rows} />
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
           </div>
         ) : <div className="m-4 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-8 text-center sm:m-5"><p className="text-sm font-medium">{query ? "No staff match this search" : "No school staff linked yet"}</p><p className="mt-1 text-xs text-muted-foreground">{query ? "Try a shorter name, employee number, or role." : canAddStaff ? "Add one staff member or use bulk import for a larger roster." : "The School Admin can add or import staff members."}</p></div>}
 
