@@ -69,6 +69,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       displayName = context.displayName ?? displayName;
       const platformMembership = context.platformMemberships[0];
       const membership = platformMembership ? undefined : context.currentSchoolMembership ?? undefined;
+      const currentSchoolMemberships = membership
+        ? context.memberships.filter((item) => item.schoolId === membership.schoolId)
+        : [];
       const networkMembership = platformMembership || membership ? undefined : context.networkMemberships[0];
       const guardianOnly = !membership && !platformMembership && !networkMembership && context.guardianLinks.length > 0;
       offlineScope = membership ? { userId: context.user.id, tenantId: membership.tenantId, schoolId: membership.schoolId } : null;
@@ -80,7 +83,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       roleKeys = platformMembership
         ? [platformMembership.roleKey]
         : membership
-          ? [...new Set(context.memberships.map((item) => item.roleKey))]
+          ? [...new Set(currentSchoolMemberships.map((item) => item.roleKey))]
           : networkMembership
             ? [...new Set(context.networkMemberships.map((item) => item.roleKey))]
             : guardianOnly
@@ -99,7 +102,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         && membership.staffMemberId,
       );
       const staffMemberIds = membership
-        ? [...new Set(context.memberships.map((item) => item.staffMemberId).filter((staffMemberId): staffMemberId is string => Boolean(staffMemberId)))]
+        ? [...new Set(currentSchoolMemberships.map((item) => item.staffMemberId).filter((staffMemberId): staffMemberId is string => Boolean(staffMemberId)))]
         : [];
       const needsInventoryLookup = Boolean(
         membership
