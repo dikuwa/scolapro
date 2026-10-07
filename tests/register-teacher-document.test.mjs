@@ -111,3 +111,12 @@ test("all absentee summary values and learner term absences render red", () => {
   assert.match(renderer, /absence-value/);
   assert.match(renderer, /term-absent absence-value/);
 });
+
+
+test("register school name inherits the governed school document font", () => {
+  assert.match(renderer, /renderOfficialDocumentSchoolNameFontStyle/);
+  assert.match(renderer, /officialDocumentSchoolNameClass/);
+  assert.match(renderer, /schoolNameFontStyle/);
+  assert.match(renderer, /school-name\.old-english/);
+  assert.doesNotMatch(renderer, /Namib High School.*font|old_english.*Namib High/i);
+});

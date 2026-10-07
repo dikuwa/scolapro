@@ -67,6 +67,22 @@ function officialOldEnglishFontFace(): string {
     : "";
 }
 
+/**
+ * Shared school-name typography runtime for document renderers that own their
+ * layout but still use the governed school document profile.
+ */
+export function renderOfficialDocumentSchoolNameFontStyle(
+  header: Pick<OfficialDocumentHeaderModel, "schoolNameFont">,
+): string {
+  return header.schoolNameFont === "old_english" ? officialOldEnglishFontFace() : "";
+}
+
+export function officialDocumentSchoolNameClass(
+  header: Pick<OfficialDocumentHeaderModel, "schoolNameFont">,
+): string {
+  return header.schoolNameFont === "old_english" ? "school-name old-english" : "school-name";
+}
+
 export function renderOfficialDocumentHtmlHeader(
   header: OfficialDocumentHeaderModel,
   logoBytes?: Uint8Array | null,
@@ -81,18 +97,18 @@ export function renderOfficialDocumentHtmlHeader(
     : `<div class="logo-wrap logo-placeholder"></div>`;
   const resolvedCoatOfArmsUrl = localPublicAssetDataUrl(header.governedCoatOfArms.url) || header.governedCoatOfArms.url;
   const coatOfArmsMarkup = `<div class="coat-of-arms-wrap"><img class="governed-coat-of-arms" src="${escapeOfficialDocumentHtml(resolvedCoatOfArmsUrl)}" alt="${escapeOfficialDocumentHtml(header.governedCoatOfArms.alt)}" /></div>`;
-  const nameClass = header.schoolNameFont === "old_english" ? " old-english" : "";
+  const nameClass = officialDocumentSchoolNameClass(header);
   const contactMarkup = header.contactLines
     .map((line) => `<div><strong>${escapeOfficialDocumentHtml(line.label)}:</strong> ${escapeOfficialDocumentHtml(line.value)}</div>`)
     .join("");
   const postalMarkup = header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`).join("");
-  const fontFace = header.schoolNameFont === "old_english" ? officialOldEnglishFontFace() : "";
+  const fontFace = renderOfficialDocumentSchoolNameFontStyle(header);
 
   if (header.mode === "external_correspondence") {
     return `${fontFace}<header class="school-header external-correspondence">
     ${coatOfArmsMarkup}
     <div class="school-identity">
-      <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
+      <h1 class="${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
       ${header.formerName ? `<div class="former-name">(${escapeOfficialDocumentHtml(header.formerName)})</div>` : ""}
       ${contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : ""}
       ${header.schoolEmisNumber ? `<div class="emis">EMIS: ${escapeOfficialDocumentHtml(header.schoolEmisNumber)}</div>` : ""}
@@ -116,7 +132,7 @@ export function renderOfficialDocumentHtmlHeader(
   return `${fontFace}<header class="school-header internal-school${layoutClass}">
     ${schoolLogoMarkup}
     <div class="school-identity">
-      <h1 class="school-name${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
+      <h1 class="${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
       ${header.formerName ? `<div class="former-name">(${escapeOfficialDocumentHtml(header.formerName)})</div>` : ""}
       ${contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : ""}
     </div>
