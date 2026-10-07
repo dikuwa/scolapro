@@ -262,8 +262,6 @@ Teaching-cutoff events, for example a Grade 11 final teaching day before examina
 
 ## Audit and correction
 
-Calendar changes are append/audit oriented.
-
 The Calendar workspace exposes **Calendar adjustments & exceptions** for school leadership. National/public baseline events remain visible source evidence. A school-level adjustment changes the effective learner day for the school without rewriting or deleting the baseline event. Existing adjustments can be edited by saving a revised effective state for that date.
 
 Register documents surface the governed non-teaching reason in the affected date column (for example, Good Friday or International Teacher's Day) while keeping attendance/numeric columns compact and content-width driven.

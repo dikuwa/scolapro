@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   CheckCircle2,
@@ -286,6 +286,7 @@ export function OperationalCalendarManager({
   const [state, action, pending] = useActionState(saveOperationalCalendarEvent, initialState);
   const [showAdd, setShowAdd] = useState(false);
   const [activeTermId, setActiveTermId] = useState<string | null>(null);
+  const closeTermEditor = useCallback(() => setActiveTermId(null), []);
   const availableScopes = useMemo(
     () => [
       ...(canManageSchool ? [{ value: "school", label: "School event", helper: "Whole-school operational calendar" }] : []),
@@ -362,7 +363,7 @@ export function OperationalCalendarManager({
               canManage={canManageSchool}
               open={activeTermId === term.academicTermId}
               onToggle={() => setActiveTermId((current) => current === term.academicTermId ? null : term.academicTermId)}
-              onClose={() => setActiveTermId(null)}
+              onClose={closeTermEditor}
             />
           ))}
         </div>
