@@ -132,6 +132,9 @@ test("discrepancy attribution uses authoritative learner events and override pre
   assert.match(manager, /underlyingClosure/);
   assert.match(manager, /reopensOfficialWeekday/);
   assert.match(manager, /item\.baselineIsSchoolDay === false/);
+  assert.match(manager, /Math\.sign\(cause\.dayDelta\) === discrepancyDirection/);
+  assert.match(manager, /event\.createdAt > current\.createdAt/);
+  assert.match(teachingImpactQuery, /createdAt: item\.created_at/);
   assert.match(calendarPage, /learnerEvents=\{teachingImpact\.events\}/);
   assert.match(calendarDoc, /effective all-learner NO_TEACHING events/);
 });

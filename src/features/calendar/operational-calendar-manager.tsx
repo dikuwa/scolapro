@@ -100,6 +100,7 @@ type CalendarDiscrepancyCause = {
   impact: string;
   reason: string;
   sourceLabel: string;
+  dayDelta: -1 | 1;
   href: "#calendar-adjustments" | "#learner-calendar-events";
 };
 
@@ -135,7 +136,11 @@ function discrepancyCausesForTerm(
     for (const date of dateRange(start, end)) {
       if (!isWeekdayDate(date)) continue;
       const current = closureEventByDate.get(date);
-      if (!current || (current.scope === "national" && event.scope === "school")) {
+      const hasHigherResolverPrecedence =
+        !current ||
+        (current.scope === "national" && event.scope === "school") ||
+        (current.scope === event.scope && event.createdAt > current.createdAt);
+      if (hasHigherResolverPrecedence) {
         closureEventByDate.set(date, event);
       }
     }
@@ -173,6 +178,7 @@ function discrepancyCausesForTerm(
       impact: item.impact,
       reason: item.reason ?? underlyingClosure?.title ?? "Calendar adjustment",
       sourceLabel,
+      dayDelta: closesWeekday ? -1 : 1,
       href: "#calendar-adjustments",
     });
   }
@@ -185,11 +191,17 @@ function discrepancyCausesForTerm(
       impact: "NO_TEACHING",
       reason: event.title,
       sourceLabel: event.scope === "national" ? "national learner event" : "school learner event",
+      dayDelta: -1,
       href: "#learner-calendar-events",
     });
   }
 
-  return [...causes.values()].sort((a, b) => a.date.localeCompare(b.date));
+  const countDelta =
+    term.calculatedLearnerDayCount - (term.officialLearnerDayCount ?? term.calculatedLearnerDayCount);
+  const discrepancyDirection = Math.sign(countDelta);
+  return [...causes.values()]
+    .filter((cause) => discrepancyDirection === 0 || Math.sign(cause.dayDelta) === discrepancyDirection)
+    .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function TermCalendarProfileEditor({

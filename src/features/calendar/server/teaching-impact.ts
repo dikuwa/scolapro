@@ -25,6 +25,7 @@ export type LearnerCalendarEventRow = {
   audienceReferenceId: string | null;
   description: string | null;
   teachingImpact: string;
+  createdAt: string;
   bellScheduleName: string | null;
 };
 
@@ -38,7 +39,7 @@ export async function getNationalLearnerCalendarEvents(academicYear: number) {
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("effective_learner_calendar_events")
-    .select("id,event_scope,title,category,starts_on,ends_on,starts_at,ends_at,audience_scope,audience_reference_id,description,teaching_impact")
+    .select("id,event_scope,title,category,starts_on,ends_on,starts_at,ends_at,audience_scope,audience_reference_id,description,teaching_impact,created_at")
     .eq("event_scope", "national")
     .eq("academic_year", academicYear)
     .order("starts_on");
@@ -56,6 +57,7 @@ export async function getNationalLearnerCalendarEvents(academicYear: number) {
     audienceReferenceId: item.audience_reference_id,
     description: item.description,
     teachingImpact: item.teaching_impact,
+    createdAt: item.created_at,
     bellScheduleName: null,
   })) satisfies LearnerCalendarEventRow[];
 }
@@ -79,7 +81,7 @@ export async function getTeachingImpactWorkspace(schoolId: string, academicYear:
       .order("effective_from", { ascending: false }),
     supabase
       .from("effective_learner_calendar_events")
-      .select("id,event_scope,title,category,starts_on,ends_on,starts_at,ends_at,audience_scope,audience_reference_id,description,teaching_impact,bell_schedule_id")
+      .select("id,event_scope,title,category,starts_on,ends_on,starts_at,ends_at,audience_scope,audience_reference_id,description,teaching_impact,bell_schedule_id,created_at")
       .eq("academic_year", academicYear)
       .or(`event_scope.eq.national,school_id.eq.${schoolId}`)
       .order("starts_on", { ascending: true }),
@@ -134,6 +136,7 @@ export async function getTeachingImpactWorkspace(schoolId: string, academicYear:
       audienceReferenceId: item.audience_reference_id,
       description: item.description,
       teachingImpact: item.teaching_impact,
+      createdAt: item.created_at,
       bellScheduleName: item.bell_schedule_id ? scheduleNameById.get(item.bell_schedule_id) ?? null : null,
     })) as LearnerCalendarEventRow[],
     schedules: (scheduleResult.data ?? []).map((item) => ({
