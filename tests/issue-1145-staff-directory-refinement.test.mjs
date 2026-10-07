@@ -6,10 +6,9 @@ const directory = readFileSync("src/features/staff/server/directory.ts", "utf8")
 const page = readFileSync("src/app/staff/page.tsx", "utf8");
 const access = readFileSync("src/features/staff/staff-access-manager.tsx", "utf8");
 
-test("same-day ended school roles stay removed after staff directory refresh", () => {
-  assert.match(directory, /activeRoles: \(row\.active_roles \?\? \[\]\)\.filter/);
-  assert.match(directory, /!item\.activeTo \|\| item\.activeTo > onDate/);
-  assert.doesNotMatch(directory, /item\.activeTo >= onDate/);
+test("staff directory trusts the authoritative active-role RPC result", () => {
+  assert.match(directory, /activeRoles: row\.active_roles \?\? \[\]/);
+  assert.doesNotMatch(directory, /activeRoles: \(row\.active_roles \?\? \[\]\)\.filter/);
 });
 
 test("staff rows show one placement label instead of duplicating every account role", () => {
