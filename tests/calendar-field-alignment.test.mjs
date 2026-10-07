@@ -36,6 +36,7 @@ function renderTeachingImpactManager() {
     sonner: { toast: { success() {}, error() {} } },
     '@/features/calendar/server/actions': {
       saveTeachingImpact: async () => ({}),
+      deleteTeachingImpactAdjustment: async () => ({}),
       saveSchoolCalendarEvent: async () => ({}),
     },
   });

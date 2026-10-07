@@ -6,6 +6,9 @@ const read = (path) => readFileSync(path, "utf8");
 
 const migration = read("supabase/migrations/20261006212006_operational_calendar_expansion.sql");
 const refinementMigration = read("supabase/migrations/20261007141000_calendar_learner_boundary_refinement.sql");
+const adjustmentMigration = read("supabase/migrations/20261007143000_calendar_adjustment_provenance_delete.sql");
+const impactManager = read("src/features/calendar/teaching-impact-manager.tsx");
+const teachingImpactQuery = read("src/features/calendar/server/teaching-impact.ts");
 const manager = read("src/features/calendar/operational-calendar-manager.tsx");
 const actions = read("src/features/calendar/server/actions.ts");
 const queries = read("src/features/calendar/server/operational-calendar.ts");
@@ -94,8 +97,28 @@ test("learner boundaries govern operational activity while teacher dates remain 
 });
 
 test("calendar correction keeps baseline evidence and exposes school-level exceptions", () => {
-  const impactManager = read("src/features/calendar/teaching-impact-manager.tsx");
   assert.match(impactManager, /Calendar adjustments & exceptions/);
   assert.match(impactManager, /without deleting the national\/public baseline/);
   assert.match(calendarDoc, /school-level adjustment changes the effective learner day/);
+});
+
+
+test("calendar correction deletion restores official provenance instead of destroying it", () => {
+  assert.match(adjustmentMigration, /baseline_is_school_day/);
+  assert.match(adjustmentMigration, /baseline_reason/);
+  assert.match(adjustmentMigration, /baseline_source/);
+  assert.match(adjustmentMigration, /baseline_teaching_impact/);
+  assert.match(adjustmentMigration, /v_result:='restored_baseline'/);
+  assert.match(adjustmentMigration, /calendar\.teaching_impact\.removed/);
+  assert.match(actions, /remove_school_teaching_day_adjustment/);
+  assert.match(calendarDoc, /deleting the correction restores that official baseline/);
+});
+
+test("official calendar rows are visibly distinct from deletable school adjustments", () => {
+  assert.match(teachingImpactQuery, /source,baseline_source/);
+  assert.match(impactManager, /isOfficialBaseline/);
+  assert.match(impactManager, /isSchoolAdjustment/);
+  assert.match(impactManager, /Correct/);
+  assert.match(impactManager, /Delete/);
+  assert.match(impactManager, /calendar-adjustments/);
 });

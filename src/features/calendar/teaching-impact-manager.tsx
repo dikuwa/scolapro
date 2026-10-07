@@ -1,14 +1,19 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { CalendarCog, Clock3, Globe2, Pencil, Plus, School } from "lucide-react";
+import { CalendarCog, Clock3, Globe2, Pencil, Plus, School, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
 import { TimeField } from "@/components/ui/time-field";
-import { saveSchoolCalendarEvent, saveTeachingImpact, type TeachingImpactActionState } from "@/features/calendar/server/actions";
+import {
+  deleteTeachingImpactAdjustment,
+  saveSchoolCalendarEvent,
+  saveTeachingImpact,
+  type TeachingImpactActionState,
+} from "@/features/calendar/server/actions";
 import type {
   CalendarAudienceOption,
   LearnerCalendarEventRow,
@@ -55,6 +60,7 @@ export function TeachingImpactManager({
 }) {
   const [state, action, pending] = useActionState(saveSchoolCalendarEvent, initialState);
   const [adjustmentState, adjustmentAction, adjustmentPending] = useActionState(saveTeachingImpact, initialState);
+  const [deleteState, deleteAction, deletePending] = useActionState(deleteTeachingImpactAdjustment, initialState);
   const [startsOn, setStartsOn] = useState(`${year}-01-01`);
   const [endsOn, setEndsOn] = useState(`${year}-01-01`);
   const [startsAt, setStartsAt] = useState("");
@@ -69,6 +75,7 @@ export function TeachingImpactManager({
   const [adjustmentImpact, setAdjustmentImpact] = useState("NO_TEACHING");
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [adjustmentSchedule, setAdjustmentSchedule] = useState("");
+  const [confirmDeleteDate, setConfirmDeleteDate] = useState<string | null>(null);
   const canSchedule = impact === "ALTERED_TIMETABLE" || impact === "EXAM_TIMETABLE";
   const canScheduleAdjustment = adjustmentImpact === "ALTERED_TIMETABLE" || adjustmentImpact === "EXAM_TIMETABLE";
   const audienceLabelByValue = useMemo(() => new Map(audienceOptions.map((option) => [option.value, option.label])), [audienceOptions]);
@@ -92,6 +99,16 @@ export function TeachingImpactManager({
       toast.error(adjustmentState.message);
     }
   }, [adjustmentState]);
+
+  useEffect(() => {
+    if (!deleteState.message) return;
+    if (deleteState.success) {
+      toast.success(deleteState.message);
+      queueMicrotask(() => setConfirmDeleteDate(null));
+    } else {
+      toast.error(deleteState.message);
+    }
+  }, [deleteState]);
 
   function editAdjustment(input?: { date?: string; impact?: string; reason?: string | null }) {
     setAdjustmentDate(input?.date ?? `${year}-01-01`);
@@ -164,7 +181,7 @@ export function TeachingImpactManager({
         ) : <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-5 text-sm text-muted-foreground">No learner calendar events are configured for this academic year.</div>}
       </div>
 
-      <div className="mt-6 border-t border-border-subtle pt-4">
+      <div id="calendar-adjustments" className="mt-6 border-t border-border-subtle pt-4" style={{ scrollMarginTop: "6rem" }}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h3 className="text-sm font-semibold">Calendar adjustments & exceptions</h3>
@@ -206,19 +223,62 @@ export function TeachingImpactManager({
 
         {overrides.length ? (
           <div className="mt-3 divide-y divide-border-subtle">
-            {overrides.map((item) => (
-              <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[7.5rem_10rem_minmax(0,1fr)_auto] sm:items-center">
-                <span className="text-xs font-medium">{formatDate(item.date)}</span>
-                <span className="text-[0.68rem] font-semibold text-brand-strong">{item.impact.replaceAll("_", " ")}</span>
-                <span className="text-[0.68rem] text-muted-foreground">{item.bellScheduleName ?? item.reason ?? "School calendar adjustment"}</span>
-                {canManage ? (
-                  <Button type="button" size="sm" variant="ghost" onClick={() => editAdjustment({ date: item.date, impact: item.impact, reason: item.reason })}>
-                    <Pencil className="size-3.5" />
-                    Edit
-                  </Button>
-                ) : null}
-              </div>
-            ))}
+            {overrides.map((item) => {
+              const isOfficialBaseline = item.source === "national" || item.source === "regional";
+              const isSchoolAdjustment = item.source === "school" || item.source === "emergency";
+              return (
+                <div key={item.id} className="grid gap-2 py-3 sm:grid-cols-[7.5rem_9rem_minmax(0,1fr)_auto] sm:items-center">
+                  <span className="text-xs font-medium">{formatDate(item.date)}</span>
+                  <div className="space-y-1">
+                    <span className="block text-[0.68rem] font-semibold text-brand-strong">{item.impact.replaceAll("_", " ")}</span>
+                    <span className={[
+                      "inline-flex w-fit rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.62rem] font-semibold",
+                      isOfficialBaseline ? "bg-surface-muted text-muted-foreground" : "bg-brand-soft text-brand-strong",
+                    ].join(" ")}>
+                      {isOfficialBaseline
+                        ? `${item.source === "national" ? "National" : "Regional"} baseline`
+                        : item.baselineSource
+                          ? `School correction · restores ${item.baselineSource}`
+                          : "School adjustment"}
+                    </span>
+                  </div>
+                  <span className="text-[0.68rem] leading-5 text-muted-foreground">
+                    {item.bellScheduleName ?? item.reason ?? (isOfficialBaseline ? "Official calendar evidence" : "School calendar adjustment")}
+                  </span>
+                  {canManage ? (
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button type="button" size="sm" variant="ghost" onClick={() => editAdjustment({ date: item.date, impact: item.impact, reason: item.reason })}>
+                        <Pencil className="size-3.5" />
+                        {isOfficialBaseline ? "Correct" : "Edit"}
+                      </Button>
+                      {isSchoolAdjustment ? (
+                        confirmDeleteDate === item.date ? (
+                          <>
+                            <form action={deleteAction}>
+                              <input type="hidden" name="schoolId" value={schoolId} />
+                              <input type="hidden" name="date" value={item.date} />
+                              <Button type="submit" size="sm" variant="danger" loading={deletePending}>
+                                <Trash2 className="size-3.5" />
+                                {item.baselineSource ? "Delete correction" : "Delete"}
+                              </Button>
+                            </form>
+                            <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmDeleteDate(null)}>
+                              <X className="size-3.5" />
+                              Cancel
+                            </Button>
+                          </>
+                        ) : (
+                          <Button type="button" size="sm" variant="danger" onClick={() => setConfirmDeleteDate(item.date)}>
+                            <Trash2 className="size-3.5" />
+                            Delete
+                          </Button>
+                        )
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-4 text-xs text-muted-foreground">

@@ -14,6 +14,9 @@ const intakeActions = read("src/features/imports/server/operational-intake-actio
 const intakePage = read("src/app/school/imports/operations/page.tsx");
 const migration = read("supabase/migrations/20261006212006_operational_calendar_expansion.sql");
 const refinementMigration = read("supabase/migrations/20261007141000_calendar_learner_boundary_refinement.sql");
+const adjustmentMigration = read("supabase/migrations/20261007143000_calendar_adjustment_provenance_delete.sql");
+const impactManager = read("src/features/calendar/teaching-impact-manager.tsx");
+const teachingImpactQuery = read("src/features/calendar/server/teaching-impact.ts");
 const docs = read("docs/06-workflows/OPERATIONAL-CALENDAR.md");
 
 test("calendar workspace separates official day metadata from operational events", () => {
@@ -98,7 +101,6 @@ test("learner term boundaries are first-class editable operational dates", () =>
 });
 
 test("school leadership edits effective calendar adjustments without rewriting national baseline", () => {
-  const impactManager = read("src/features/calendar/teaching-impact-manager.tsx");
   assert.match(calendarPage, /canManage=\{canManageSchool\}/);
   assert.match(impactManager, /Calendar adjustments & exceptions/);
   assert.match(impactManager, /saveTeachingImpact/);
@@ -106,4 +108,27 @@ test("school leadership edits effective calendar adjustments without rewriting n
   assert.match(impactManager, /Save adjustment/);
   assert.match(impactManager, /national\/public baseline/);
   assert.doesNotMatch(impactManager, /Legacy single-date teaching overrides/);
+});
+
+
+test("term discrepancy warning identifies candidate dates and links to resolution", () => {
+  assert.match(manager, /discrepancyRows/);
+  assert.match(manager, /Review difference/);
+  assert.match(manager, /href="#calendar-adjustments"/);
+  assert.match(manager, /item\.reason/);
+  assert.match(manager, /item\.source/);
+  assert.match(calendarPage, /dayExceptions=\{teachingImpact\.overrides\}/);
+});
+
+test("school adjustments can be deleted while official baseline is preserved", () => {
+  assert.match(teachingImpactQuery, /source,baseline_source/);
+  assert.match(teachingImpactQuery, /baselineSource: item\.baseline_source/);
+  assert.match(impactManager, /deleteTeachingImpactAdjustment/);
+  assert.match(impactManager, /Delete correction/);
+  assert.match(impactManager, /National.*baseline|Regional.*baseline/);
+  assert.match(impactManager, /isSchoolAdjustment/);
+  assert.match(adjustmentMigration, /baseline_source/);
+  assert.match(adjustmentMigration, /remove_school_teaching_day_adjustment/);
+  assert.match(adjustmentMigration, /restored_baseline/);
+  assert.match(adjustmentMigration, /Official national\/regional calendar evidence cannot be deleted/);
 });
