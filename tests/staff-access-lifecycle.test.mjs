@@ -8,21 +8,22 @@ const directory = await read("src/features/staff/server/directory.ts");
 const access = await read("src/features/staff/staff-access-manager.tsx");
 const actions = await read("src/features/staff/server/access-actions.ts");
 const migration = await read("supabase/migrations/20260919151000_staff_access_lifecycle.sql");
+const revocationMigration = await read("supabase/migrations/20261007081500_staff_role_immediate_revocation.sql");
 
-test("staff directory exposes access lifecycle states and selected identity action", () => {
+test("staff directory exposes compact access lifecycle states and identity action", () => {
   assert.match(page, /StaffAccessManager/);
-  assert.match(page, /Invitation pending/);
-  assert.match(page, /Account linked/);
   assert.match(directory, /list_staff_access_directory_page/);
-  assert.match(access, /Enable ScolaPro access/);
+  assert.match(access, /Invitation pending/);
+  assert.match(access, /Account linked/);
+  assert.match(access, /No login access/);
+  assert.match(access, /Manage access/);
   assert.match(access, /staffMemberId/);
-  assert.match(access, /Employee .*bound automatically/);
 });
 
 test("linked staff use governed role management without placement mutation", () => {
   assert.match(access, /Add role/);
   assert.match(access, /endStaffRole/);
-  assert.match(access, /Role changes do not change the staff placement/);
+  assert.match(access, /No active ScolaPro roles/);
   assert.match(actions, /add_staff_school_role/);
   assert.match(actions, /end_staff_school_role/);
   assert.doesNotMatch(access, /setPassword|deleteStaff|assign_staff_to_school/);
@@ -48,6 +49,14 @@ test("database lifecycle binds invitations to exact staff identity and preserves
   assert.doesNotMatch(migration, /delete from public\.school_memberships/i);
 });
 
+test("staff role revocation stops current authorization without UI-only filtering", () => {
+  assert.match(revocationMigration, /p_effective_to date default \(current_date - 1\)/);
+  assert.match(revocationMigration, /active_to >= \(active_from - 1\)/);
+  assert.match(revocationMigration, /school_membership\.role_ended/);
+  assert.match(revocationMigration, /revoked_on/);
+  assert.doesNotMatch(revocationMigration, /delete from public\.school_memberships/i);
+});
+
 test("social worker invitations preserve canonical support placement", () => {
   assert.match(
     migration,
@@ -56,7 +65,7 @@ test("social worker invitations preserve canonical support placement", () => {
 });
 
 test("staff access UI remains responsive and provides loading-safe actions", () => {
-  assert.match(page, /sm:grid-cols-\[2rem_minmax\(0,1fr\)_minmax\(12rem,0\.7fr\)_minmax\(18rem,1\.3fr\)\]/);
+  assert.match(page, /sm:grid-cols-\[2rem_minmax\(0,1\.05fr\)_minmax\(11rem,0\.65fr\)_minmax\(18rem,1\.3fr\)\]/);
   assert.match(access, /disabled=\{invitePending \|\| !email\}/);
   assert.match(access, /disabled=\{rolePending\}/);
   assert.match(page, /No school staff linked yet/);
