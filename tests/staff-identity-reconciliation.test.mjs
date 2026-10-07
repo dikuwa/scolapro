@@ -36,9 +36,9 @@ test("staff corrections are audited without changing Auth identity", () => {
 });
 
 test("directory exposes one governed identity action with responsive states", () => {
-  assert.match(page, /StaffIdentityManager/);
+  assert.match(page, /StaffDirectoryRowControls/);
   assert.match(access, /Reconcile duplicate/);
   assert.match(access, /Manage identity/);
   assert.match(access, /loading|Saving|Reconciling/);
-  assert.match(access, /sm:grid-cols-2/);
+  assert.match(access, /lg:grid-cols-2/);\n  assert.match(access, /RecordActionButton/);
 });
