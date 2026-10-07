@@ -5,7 +5,7 @@ import test from "node:test";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const migration = read("supabase/migrations/20260925233000_official_learner_transfer_form.sql");
-const orchestration = read("supabase/migrations/20261005220500_transfer_form_crc_handoff_orchestration.sql");
+const orchestration = read("supabase/migrations/20261005213145_transfer_form_crc_handoff_orchestration.sql");
 const page = read("src/app/school/crc-custody/transfer-form/[transferId]/page.tsx");
 const workspace = read("src/features/transfers/learner-transfer-form-workspace.tsx");
 const actions = read("src/features/transfers/server/actions.ts");

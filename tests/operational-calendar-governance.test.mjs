@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
 
-const migration = read("supabase/migrations/20261006195000_operational_calendar_expansion.sql");
+const migration = read("supabase/migrations/20261006212006_operational_calendar_expansion.sql");
 const manager = read("src/features/calendar/operational-calendar-manager.tsx");
 const actions = read("src/features/calendar/server/actions.ts");
 const queries = read("src/features/calendar/server/operational-calendar.ts");

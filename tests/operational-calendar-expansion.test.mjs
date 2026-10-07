@@ -12,7 +12,7 @@ const queries = read("src/features/calendar/server/operational-calendar.ts");
 const ocr = read("src/features/imports/server/calendar-ocr.ts");
 const intakeActions = read("src/features/imports/server/operational-intake-actions.ts");
 const intakePage = read("src/app/school/imports/operations/page.tsx");
-const migration = read("supabase/migrations/20261006195000_operational_calendar_expansion.sql");
+const migration = read("supabase/migrations/20261006212006_operational_calendar_expansion.sql");
 const docs = read("docs/06-workflows/OPERATIONAL-CALENDAR.md");
 
 test("calendar workspace separates official day metadata from operational events", () => {
