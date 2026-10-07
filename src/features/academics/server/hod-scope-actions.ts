@@ -39,7 +39,7 @@ async function canConfigureSchool(schoolId: string) {
   const membership = context.memberships.find(
     (item) =>
       item.schoolId === schoolId &&
-      (item.roleKey === "school_admin" || item.roleKey === "principal"),
+      (item.roleKey === "school_admin" || item.roleKey === "principal" || item.roleKey === "deputy_principal"),
   );
   return membership ? context : null;
 }
@@ -84,12 +84,27 @@ export async function saveHodSubjectPortfolio(
   });
 
   if (error) {
-    return {
-      message:
-        error.code === "23505"
-          ? "One of these HOD responsibilities already starts on that date."
-          : "The HOD subject portfolio could not be saved.",
-    };
+    if (error.code === "23505") {
+      return { message: "One of these HOD responsibilities already starts on that date." };
+    }
+    if (error.code === "42501") {
+      return { message: "You do not have permission to configure this HOD portfolio for the current school." };
+    }
+    if (error.code === "22023") {
+      if (error.message.includes("effective HOD placement")) {
+        return { message: "The selected HOD placement is not effective on the chosen start date." };
+      }
+      if (error.message.includes("At least one subject")) {
+        return { message: "Choose at least one subject." };
+      }
+      if (error.message.includes("end date")) {
+        return { message: "The end date cannot be before the start date." };
+      }
+      if (error.message.includes("portfolio label")) {
+        return { message: "The portfolio label is too long." };
+      }
+    }
+    return { message: "The HOD subject portfolio could not be saved. Review the selected HOD, subjects and effective dates." };
   }
 
   return saved("HOD subject portfolio saved.");

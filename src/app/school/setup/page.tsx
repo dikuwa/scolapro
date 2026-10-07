@@ -17,10 +17,19 @@ export default async function SchoolSetupPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/school/setup");
 
-  const membership = context.memberships.find((item) => ["school_admin", "principal", "deputy_principal"].includes(item.roleKey));
+  const leadershipRoles = new Set(["school_admin", "principal", "deputy_principal"]);
+  const currentSchoolId =
+    context.currentSchoolMembership?.schoolId ??
+    context.memberships.find((item) => leadershipRoles.has(item.roleKey))?.schoolId ??
+    null;
+  if (!currentSchoolId) redirect("/");
+
+  const schoolMemberships = context.memberships.filter((item) => item.schoolId === currentSchoolId);
+  const membership = schoolMemberships.find((item) => leadershipRoles.has(item.roleKey));
   if (!membership) redirect("/");
 
-  const canManageAcademicStructure = membership.roleKey === "school_admin";
+  const schoolRoleKeys = new Set(schoolMemberships.map((item) => item.roleKey));
+  const canManageAcademicStructure = schoolRoleKeys.has("school_admin");
   const academicYear = getNamibiaCalendarYear();
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const [structure, rooms, hodScope, registerTeacherCandidates] = await Promise.all([
