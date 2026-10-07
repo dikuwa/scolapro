@@ -185,7 +185,7 @@ function DashboardOverviewLoading() {
   return (
     <div className="space-y-5" aria-busy="true">
       <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface sm:grid-cols-3">
-        {[0, 1, 2].map((item) => <div key={item} className="h-24 animate-pulse bg-surface-muted sm:border-l sm:first:border-l-0" />)}
+        {[0, 1, 2].map((item) => <div key={item} className="h-24 animate-pulse border-border-subtle bg-surface-muted sm:border-l sm:first:border-l-0" />)}
       </div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.75fr)]">
         <div className="h-44 animate-pulse rounded-[var(--radius-md)] bg-surface-muted" />
