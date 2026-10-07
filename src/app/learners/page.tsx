@@ -57,19 +57,16 @@ export default async function LearnersPage({ searchParams }: { searchParams: Pro
     const context = await getUserContext();
     if (!context.user) redirect("/login");
     const currentSchoolId = context.currentSchoolMembership?.schoolId;
-    const membership = currentSchoolId
-      ? context.memberships.find((candidate) =>
-          candidate.schoolId === currentSchoolId && candidate.roleKey === "school_admin",
-        ) ??
-        context.memberships.find((candidate) =>
-          candidate.schoolId === currentSchoolId && learnerDirectoryRoles.has(candidate.roleKey),
-        )
-      : null;
+    const schoolMemberships = currentSchoolId
+      ? context.memberships.filter((candidate) => candidate.schoolId === currentSchoolId)
+      : [];
+    const membership = schoolMemberships.find((candidate) => learnerDirectoryRoles.has(candidate.roleKey)) ?? null;
     if (!membership) redirect("/");
+    const roleKeys = new Set(schoolMemberships.map((candidate) => candidate.roleKey));
     schoolName = membership.schoolName;
-    canRegisterLearner = membership.roleKey === "school_admin";
-    canManageSubjects = ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey);
-    schoolId = membership.schoolId;
+    canRegisterLearner = roleKeys.has("school_admin");
+    canManageSubjects = ["school_admin", "principal", "deputy_principal", "hod"].some((roleKey) => roleKeys.has(roleKey));
+    schoolId = currentSchoolId;
   }
 
   return (
