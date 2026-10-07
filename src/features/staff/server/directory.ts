@@ -97,7 +97,7 @@ export async function getSchoolStaffDirectory(
       linkedUserId: row.linked_user_id,
       pendingInvitationId: row.pending_invitation_id,
       pendingInvitationStatus: row.pending_invitation_status,
-      activeRoles: (row.active_roles ?? []).filter((item) => !item.activeTo || item.activeTo > onDate),
+      activeRoles: row.active_roles ?? [],
     })),
     totalStaff: Number(summary?.total_staff ?? 0),
     activeStaff: Number(summary?.active_staff ?? 0),
