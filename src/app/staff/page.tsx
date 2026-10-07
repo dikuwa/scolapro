@@ -36,7 +36,8 @@ export default async function StaffPage({ searchParams }: { searchParams: Promis
     ? context.memberships.filter((candidate) => candidate.schoolId === currentSchoolId)
     : [];
   const roleKeys = new Set(schoolMemberships.map((candidate) => candidate.roleKey));
-  if (!currentSchoolId || !schoolMemberships.some((candidate) => staffDirectoryRoles.has(candidate.roleKey))) redirect("/");
+  const membership = schoolMemberships.find((candidate) => staffDirectoryRoles.has(candidate.roleKey));
+  if (!currentSchoolId || !membership) redirect("/");
 
   const params = await searchParams;
   const query = (Array.isArray(params.q) ? params.q[0] : params.q)?.trim() ?? "";
