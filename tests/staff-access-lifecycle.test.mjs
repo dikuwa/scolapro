@@ -11,11 +11,11 @@ const migration = await read("supabase/migrations/20260919151000_staff_access_li
 const revocationMigration = await read("supabase/migrations/20261007081500_staff_role_immediate_revocation.sql");
 
 test("staff directory exposes compact access lifecycle states and identity action", () => {
-  assert.match(page, /StaffAccessManager/);
+  assert.match(page, /StaffDirectoryRowControls/);
   assert.match(directory, /list_staff_access_directory_page/);
   assert.match(access, /Invitation pending/);
   assert.match(access, /Account linked/);
-  assert.match(access, /No login access/);
+  assert.match(access, /No login account/);
   assert.match(access, /Manage access/);
   assert.match(access, /staffMemberId/);
 });
@@ -65,8 +65,9 @@ test("social worker invitations preserve canonical support placement", () => {
 });
 
 test("staff access UI remains responsive and provides loading-safe actions", () => {
-  assert.match(page, /sm:grid-cols-\[2rem_minmax\(0,1\.05fr\)_minmax\(11rem,0\.65fr\)_minmax\(18rem,1\.3fr\)\]/);
+  assert.match(page, /md:grid-cols-\[2rem_minmax\(0,1fr\)_minmax\(11rem,0\.8fr\)\]/);
+  assert.match(page, /lg:grid-cols-\[2rem_minmax\(15rem,1\.1fr\)_minmax\(12rem,0\.72fr\)_minmax\(24rem,1\.45fr\)\]/);
   assert.match(access, /disabled=\{invitePending \|\| !email\}/);
-  assert.match(access, /disabled=\{rolePending\}/);
+  assert.match(access, /loading=\{rolePending\}/);
   assert.match(page, /No school staff linked yet/);
 });
