@@ -33,8 +33,8 @@ function wrap(font: PDFFont,text:string,size:number,width:number) { const words=
 export async function renderCorrespondencePdf(input:{document:CorrespondenceDocument;header:OfficialDocumentHeaderModel;logoBytes?:Uint8Array|null}) {
   const pdf=await PDFDocument.create(); pdf.setTitle(input.document.subject||"Official correspondence"); pdf.setAuthor("ScolaPro"); pdf.setCreator("ScolaPro official document renderer"); pdf.setCreationDate(new Date(0)); pdf.setModificationDate(new Date(0));
   const resources=await createOfficialDocumentPdfResources(pdf,input.header,input.logoBytes); const {regular,bold}=resources;
-  let page:PDFPage=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]); let y=drawOfficialDocumentPdfHeader(page,input.header,resources)-18;
-  const newPage=()=>{page=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]);y=drawOfficialDocumentPdfHeader(page,input.header,resources)-18;return page;};
+  let page:PDFPage=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]); let y=drawOfficialDocumentPdfHeader(page,input.header,resources,undefined,{showBottomRule:false})-18;
+  const newPage=()=>{page=pdf.addPage([PAGE_WIDTH,PAGE_HEIGHT]);y=drawOfficialDocumentPdfHeader(page,input.header,resources,undefined,{showBottomRule:false})-18;return page;};
   const ensure=(height:number)=>{if(y-height<42)newPage();};
   const line=(label:string,value:string,right=false)=>{ensure(14);const text=`${label}: ${value||"-"}`;page.drawText(fitOfficialDocumentPdfText(regular,text,8.5,CONTENT_WIDTH),{x:right?PAGE_WIDTH-MARGIN-regular.widthOfTextAtSize(fitOfficialDocumentPdfText(regular,text,8.5,CONTENT_WIDTH/2),8.5):MARGIN,y,size:8.5,font:regular,color:INK});y-=14;};
   line("Date",new Intl.DateTimeFormat("en-NA",{dateStyle:"long",timeZone:"Africa/Windhoek"}).format(new Date(`${input.document.documentDate}T12:00:00+02:00`)));
