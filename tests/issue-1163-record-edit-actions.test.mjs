@@ -33,7 +33,7 @@ test("record action continues to compose the canonical Button design system", ()
 test("sports houses and library use the canonical edit entry action", () => {
   assert.match(sports, /<RecordActionButton icon=\{Pencil\} label="Edit"/);
   assert.match(library, /<RecordActionButton icon=\{Pencil\} label="Edit"/);
-  assert.match(sports, /<Button[^>]*>\s*<ChevronDown[^>]*\/>Close<\/Button>/);
+  assert.match(sports, /setEditingHouseId\(null\)/);\n  assert.match(sports, /setEditingAgeGroupId\(null\)/);\n  assert.match(sports, /<ChevronDown className="size-4" \/>Close/);
 });
 
 test("conduct edit entry actions use the canonical edit affordance", () => {
