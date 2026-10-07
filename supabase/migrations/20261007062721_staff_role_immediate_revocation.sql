@@ -1,0 +1,11 @@
+-- Issue #1149: production migration-ledger bridge for #1146.
+--
+-- The exact #1146 staff-role revocation DDL was applied to connected production
+-- through the Supabase deployment API, which recorded version 20261007062721.
+-- The canonical schema change remains in:
+--   20261007081500_staff_role_immediate_revocation.sql
+--
+-- This migration is intentionally a no-op. Its only purpose is to keep repository
+-- migration history aligned with the already-recorded production ledger without
+-- rewriting production history or applying the DDL twice during a fresh reset.
+select 1;
