@@ -117,7 +117,7 @@ test("term discrepancy warning attributes overrides and effective learner events
   assert.match(manager, /event\.teachingImpact !== "NO_TEACHING"/);
   assert.match(manager, /closureEventByDate/);
   assert.match(manager, /overrideByDate\.has\(date\)/);
-  assert.match(manager, /item\.baselineSource !== null \|\| underlyingClosure !== undefined/);
+  assert.match(manager, /item\.baselineIsSchoolDay === false \|\| underlyingClosure !== undefined/);
   assert.match(manager, /href: "#learner-calendar-events"/);
   assert.match(manager, /href: "#calendar-adjustments"/);
   assert.match(manager, /href=\{item\.href\}/);
@@ -129,8 +129,9 @@ test("term discrepancy warning attributes overrides and effective learner events
 });
 
 test("school adjustments can be deleted while official baseline is preserved", () => {
-  assert.match(teachingImpactQuery, /source,baseline_source/);
+  assert.match(teachingImpactQuery, /source,baseline_source,baseline_is_school_day/);
   assert.match(teachingImpactQuery, /baselineSource: item\.baseline_source/);
+  assert.match(teachingImpactQuery, /baselineIsSchoolDay: item\.baseline_is_school_day/);
   assert.match(impactManager, /deleteTeachingImpactAdjustment/);
   assert.match(impactManager, /Delete correction/);
   assert.match(impactManager, /National.*baseline|Regional.*baseline/);

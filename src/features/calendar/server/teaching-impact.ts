@@ -8,6 +8,7 @@ export type TeachingImpactRow = {
   reason: string | null;
   source: "national" | "regional" | "school" | "emergency";
   baselineSource: "national" | "regional" | null;
+  baselineIsSchoolDay: boolean | null;
   bellScheduleName: string | null;
 };
 
@@ -64,7 +65,7 @@ export async function getTeachingImpactWorkspace(schoolId: string, academicYear:
   const [overrideResult, scheduleResult, eventResult, gradeResult, classResult, groupResult] = await Promise.all([
     supabase
       .from("school_day_overrides")
-      .select("id,school_date,teaching_impact,reason,source,baseline_source,bell_schedule_id,timetable_bell_schedules(display_name)")
+      .select("id,school_date,teaching_impact,reason,source,baseline_source,baseline_is_school_day,bell_schedule_id,timetable_bell_schedules(display_name)")
       .eq("school_id", schoolId)
       .gte("school_date", `${academicYear}-01-01`)
       .lte("school_date", `${academicYear}-12-31`)
@@ -117,6 +118,7 @@ export async function getTeachingImpactWorkspace(schoolId: string, academicYear:
       reason: item.reason,
       source: item.source,
       baselineSource: item.baseline_source,
+      baselineIsSchoolDay: item.baseline_is_school_day,
       bellScheduleName: (item.timetable_bell_schedules as { display_name?: string } | null)?.display_name ?? null,
     })) as TeachingImpactRow[],
     events: (eventResult.data ?? []).map((item) => ({

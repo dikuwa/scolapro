@@ -154,7 +154,7 @@ function discrepancyCausesForTerm(
     const reopensOfficialWeekday =
       weekday &&
       item.impact !== "NO_TEACHING" &&
-      (item.baselineSource !== null || underlyingClosure !== undefined);
+      (item.baselineIsSchoolDay === false || underlyingClosure !== undefined);
 
     if (!closesWeekday && !opensWeekend && !reopensOfficialWeekday) continue;
 

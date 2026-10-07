@@ -115,7 +115,7 @@ test("calendar correction deletion restores official provenance instead of destr
 });
 
 test("official calendar rows are visibly distinct from deletable school adjustments", () => {
-  assert.match(teachingImpactQuery, /source,baseline_source/);
+  assert.match(teachingImpactQuery, /source,baseline_source,baseline_is_school_day/);
   assert.match(impactManager, /isOfficialBaseline/);
   assert.match(impactManager, /isSchoolAdjustment/);
   assert.match(impactManager, /Correct/);
@@ -131,6 +131,7 @@ test("discrepancy attribution uses authoritative learner events and override pre
   assert.match(manager, /overrideByDate\.has\(date\)/);
   assert.match(manager, /underlyingClosure/);
   assert.match(manager, /reopensOfficialWeekday/);
+  assert.match(manager, /item\.baselineIsSchoolDay === false/);
   assert.match(calendarPage, /learnerEvents=\{teachingImpact\.events\}/);
   assert.match(calendarDoc, /effective all-learner NO_TEACHING events/);
 });
