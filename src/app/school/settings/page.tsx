@@ -20,11 +20,17 @@ export default async function SchoolSettingsPage() {
   if (!context.user) redirect("/login?next=/school/settings");
 
   const membership = context.currentSchoolMembership;
-  if (!membership || !settingsRoles.has(membership.roleKey)) redirect("/");
+  if (!membership) redirect("/");
+  const schoolRoleKeys = new Set(
+    context.memberships
+      .filter((item) => item.schoolId === membership.schoolId)
+      .map((item) => item.roleKey),
+  );
+  if (![...schoolRoleKeys].some((roleKey) => settingsRoles.has(roleKey))) redirect("/");
 
   const [reportCardSettings, paymentSettings, schoolRow, directoryContact, statutoryEmisProfile] = await Promise.all([
     getReportCardSchoolSettings(membership.schoolId),
-    financeSettingsRoles.has(membership.roleKey) ? getSchoolPaymentSettings(membership.schoolId) : Promise.resolve(null),
+    [...schoolRoleKeys].some((roleKey) => financeSettingsRoles.has(roleKey)) ? getSchoolPaymentSettings(membership.schoolId) : Promise.resolve(null),
     (async () => {
       const supabase = await createSupabaseServerClient();
       const { data } = await supabase
@@ -55,7 +61,7 @@ export default async function SchoolSettingsPage() {
           <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5"><div><p className="text-xs font-medium text-muted-foreground">EMIS number</p><p className="mt-1.5 text-sm font-semibold text-[color:var(--accent-amber)]">{emis || "Not set"}</p></div><span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span></div>
         </div>
 
-        {financeSettingsRoles.has(membership.roleKey) ? <div className="mt-6"><PaymentSettingsForm schoolId={membership.schoolId} settings={paymentSettings} /></div> : null}
+        {[...schoolRoleKeys].some((roleKey) => financeSettingsRoles.has(roleKey)) ? <div className="mt-6"><PaymentSettingsForm schoolId={membership.schoolId} settings={paymentSettings} /></div> : null}
         <div className="mt-6"><DirectoryContactSettingsPanel schoolId={membership.schoolId} cellphone={directoryContact.cellphone} principalPublicEmail={directoryContact.principalPublicEmail} /></div>
         <SchoolStatutoryEmisProfilePanel schoolId={membership.schoolId} data={statutoryEmisProfile} />
         <ReportCardSettingsPanel schoolId={membership.schoolId} schoolName={membership.schoolName} settings={reportCardSettings} />

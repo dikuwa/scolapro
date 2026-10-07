@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { GitMerge, Link2, Pencil, Plus, ShieldCheck, UserPlus, X } from "lucide-react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { GitMerge, Link2, LoaderCircle, Pencil, Plus, ShieldCheck, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import {
@@ -31,6 +32,7 @@ function roleLabel(value: string) {
 }
 
 export function StaffAccessManager({ schoolId, row }: { schoolId: string; row: StaffDirectoryRow }) {
+  const router = useRouter();
   const [inviteState, inviteAction, invitePending] = useActionState(inviteExistingStaff, initialState);
   const [resendState, resendAction, resendPending] = useActionState(resendExistingStaffInvitation, initialState);
   const [roleState, roleAction, rolePending] = useActionState(addStaffRole, initialState);
@@ -38,6 +40,9 @@ export function StaffAccessManager({ schoolId, row }: { schoolId: string; row: S
   const [resetState, resetAction] = useActionState(sendStaffPasswordReset, initialState);
   const [roleKey, setRoleKey] = useState<string>("teacher");
   const [email, setEmail] = useState("");
+  const [endingRoleId, setEndingRoleId] = useState<string | null>(null);
+  const [hiddenRoleIds, setHiddenRoleIds] = useState<Set<string>>(() => new Set());
+  const [roleEndPending, startRoleEnd] = useTransition();
 
   useEffect(() => {
     if (inviteState.message) (inviteState.success ? toast.success : toast.error)(inviteState.message);
@@ -47,16 +52,26 @@ export function StaffAccessManager({ schoolId, row }: { schoolId: string; row: S
   }, [resendState]);
   useEffect(() => {
     if (roleState.message) (roleState.success ? toast.success : toast.error)(roleState.message);
-  }, [roleState]);
+    if (roleState.success) router.refresh();
+  }, [roleState, router]);
   useEffect(() => {
     if (verificationState.message) (verificationState.success ? toast.success : toast.error)(verificationState.message);
   }, [verificationState]);
   useEffect(() => {
     if (resetState.message) (resetState.success ? toast.success : toast.error)(resetState.message);
   }, [resetState]);
-  async function endRoleAction(formData: FormData) {
-    const result = await endStaffRole(formData);
-    if (result.message) (result.success ? toast.success : toast.error)(result.message);
+  function endRoleAction(formData: FormData) {
+    const membershipId = String(formData.get("membershipId") ?? "");
+    setEndingRoleId(membershipId);
+    startRoleEnd(async () => {
+      const result = await endStaffRole(formData);
+      if (result.message) (result.success ? toast.success : toast.error)(result.message);
+      if (result.success) {
+        setHiddenRoleIds((current) => new Set(current).add(membershipId));
+        router.refresh();
+      }
+      setEndingRoleId(null);
+    });
   }
 
   if (!row.staffId) return <span className="text-xs text-muted-foreground">Membership-only account</span>;
@@ -67,16 +82,26 @@ export function StaffAccessManager({ schoolId, row }: { schoolId: string; row: S
           <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--success)]">
             <ShieldCheck className="size-3.5" aria-hidden="true" /> Account linked
           </span>
-          {row.activeRoles.map((item) => (
-            <span key={item.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] font-medium text-brand-strong">
-              {roleLabel(item.roleKey)}
-              <form action={endRoleAction}>
-                <input type="hidden" name="schoolId" value={schoolId} />
-                <input type="hidden" name="membershipId" value={item.id} />
-                <button type="submit" aria-label={`End ${roleLabel(item.roleKey)} role`} className="text-brand-strong hover:text-danger"><X className="size-3" /></button>
-              </form>
-            </span>
-          ))}
+          {row.activeRoles.filter((item) => !hiddenRoleIds.has(item.id)).map((item) => {
+            const isEnding = roleEndPending && endingRoleId === item.id;
+            return (
+              <span key={item.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] font-medium text-brand-strong">
+                {roleLabel(item.roleKey)}
+                <form action={endRoleAction}>
+                  <input type="hidden" name="schoolId" value={schoolId} />
+                  <input type="hidden" name="membershipId" value={item.id} />
+                  <button
+                    type="submit"
+                    disabled={isEnding}
+                    aria-label={isEnding ? `Ending ${roleLabel(item.roleKey)} role` : `End ${roleLabel(item.roleKey)} role`}
+                    className="grid size-4 place-items-center text-brand-strong transition hover:text-danger disabled:cursor-wait disabled:opacity-60"
+                  >
+                    {isEnding ? <LoaderCircle className="size-3 animate-spin" aria-hidden="true" /> : <X className="size-3" aria-hidden="true" />}
+                  </button>
+                </form>
+              </span>
+            );
+          })}
         </div>
         <form action={roleAction} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="schoolId" value={schoolId} />

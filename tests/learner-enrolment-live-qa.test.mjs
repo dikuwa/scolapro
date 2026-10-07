@@ -45,8 +45,10 @@ test("learner directory keeps the canonical page read independent from auxiliary
 test("learner directory uses the deterministic current-school membership set and Namibia academic year",()=>{
   assert.match(directoryPage,/getNamibiaCalendarYear/);
   assert.match(directoryPage,/context\.currentSchoolMembership/);
-  assert.match(directoryPage,/context\.memberships\.find/);
+  assert.match(directoryPage,/context\.memberships\.filter/);
   assert.match(directoryPage,/candidate\.schoolId === currentSchoolId/);
+  assert.match(directoryPage,/schoolMemberships\.find/);
+  assert.match(directoryPage,/roleKeys = new Set\(schoolMemberships\.map/);
 });
 
 test("learner directory preserves the generic UI error while logging bounded RPC diagnostics",()=>{
