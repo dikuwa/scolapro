@@ -24,13 +24,16 @@ test("shared governed preview actions never open a second dashboard tab", () => 
   assert.match(actions, /Close/);
 });
 
-test("pages with an existing embedded preview focus it in the same page", () => {
+test("admission keeps its existing embedded preview anchor", () => {
   assert.match(admission, /previewHref="#application-form-preview"/);
   assert.match(admission, /id="application-form-preview"/);
-  assert.match(schedules, /previewHref="#academic-schedule-preview"/);
-  assert.match(schedules, /id="academic-schedule-preview"/);
-  assert.match(analysis, /previewHref="#academic-analysis-preview"/);
-  assert.match(analysis, /id="academic-analysis-preview"/);
+});
+
+test("academic analysis and schedules use the shared popup instead of embedded PDF previews", () => {
+  assert.match(analysis, /previewHref=\{\`\/academics\/analysis\/export\.pdf\?\$\{exportParams\.toString\(\)\}&preview=1\`\}/);
+  assert.ok(schedules.includes('previewHref={"/reports/academic-schedules/export.pdf?"+query.toString()+"&preview=1"}'));
+  assert.doesNotMatch(analysis, /OfficialDocumentPreview|#academic-analysis-preview|id="academic-analysis-preview"/);
+  assert.doesNotMatch(schedules, /OfficialDocumentPreview|#academic-schedule-preview|id="academic-schedule-preview"/);
 });
 
 test("document surfaces without an inline preview use the shared in-app overlay contract", () => {
