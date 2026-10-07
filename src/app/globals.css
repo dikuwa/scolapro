@@ -147,6 +147,23 @@
   }
 }
 
+@layer base {
+  /*
+   * Tailwind Preflight defaults border colour to currentColor. That can make
+   * border-width-only loading states flash as black/dark dividers before their
+   * hydrated content applies an explicit semantic border token. Keep the
+   * application-wide fallback inside the base layer so utility border colours
+   * remain authoritative.
+   */
+  *,
+  ::before,
+  ::after,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--border);
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
