@@ -119,7 +119,7 @@ test("AI assist rewrites a selection when present and otherwise returns editable
 });
 
 
-test("correspondence header is borderless in HTML and PDF without changing shared defaults", () => {
+test("correspondence header is borderless in HTML and PDF without changing shared defaults", async () => {
   const sharedPdfHeader = await read("src/features/documents/server/official-document-pdf-header.ts");
   assert.match(html, /\.school-header\{border:0;padding:0 4px 10px\}/);
   assert.doesNotMatch(html, /\.school-header\{border-width:0 0 1px/);
