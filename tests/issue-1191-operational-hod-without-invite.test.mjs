@@ -50,3 +50,23 @@ test("Staff Directory role editor remains independent of invitation and identity
  assert.match(ui,/panel === "access"/);
  assert.match(ui,/endStaffOperationalHod/);
 });
+
+test("Staff preview still loads when only the additive designation table is not deployed",()=>{
+ assert.match(directory,/designationTableMissing/);
+ assert.match(directory,/42P01/);
+ assert.match(directory,/PGRST205/);
+ assert.match(directory,/designationResult\.error && !designationTableMissing/);
+ assert.match(directory,/directoryResult\.error \|\| summaryResult\.error/);
+});
+
+test("Staff search updates list on partial input with debounce and no submit button",()=>{
+ const search=read("src/features/staff/staff-directory-search.tsx");
+ const page=read("src/app/staff/page.tsx");
+ assert.match(page,/StaffDirectorySearch initialQuery=\{query\}/);
+ assert.doesNotMatch(page,/<form action="\/staff" method="get"/);
+ assert.match(search,/onChange=\{\(event\) => setQuery\(event.target.value\)\}/);
+ assert.match(search,/setTimeout\(\(\) =>/);
+ assert.match(search,/router\.replace\(/);
+ assert.match(search,/scroll: false/);
+ assert.match(search,/encodeURIComponent\(normalized\)/);
+});
