@@ -349,69 +349,53 @@ function Split({ value }: { value: { boys: number; girls: number; total: number 
 }
 
 function WeekTable({ summary }: { summary: OfficialAttendanceSummary }) {
-  const lastDate = summary.lastTeachingDate;
+  const weekId = summary.lastTeachingDate ? mondayFor(summary.lastTeachingDate) : null;
+  const schoolSplit = summary.classRows.reduce(
+    (total, row) => {
+      const split = weekId ? row.weekly.find((week) => week.weekId === weekId)?.absences : null;
+      total.boys += split?.boys ?? 0;
+      total.girls += split?.girls ?? 0;
+      total.total += split?.total ?? 0;
+      return total;
+    },
+    { boys: 0, girls: 0, total: 0 },
+  );
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] text-left">
+      <table className="w-full min-w-[19rem] text-left">
         <thead>
           <tr className="border-b border-border-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-muted-foreground">
             <th scope="col" className="px-4 py-2.5 font-semibold sm:px-5">Register class</th>
-            <th scope="col" className="px-3 py-2.5 text-right font-semibold">Boys absent</th>
-            <th scope="col" className="px-3 py-2.5 text-right font-semibold">Girls absent</th>
-            <th scope="col" className="px-3 py-2.5 text-right font-semibold">Total absent</th>
+            <th scope="col" className="px-3 py-2.5 text-right font-semibold sm:px-5">Total absent · Boys / Girls</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-subtle">
           {summary.classRows.map((row) => {
-            const cell = lastDate ? row.weekly.find((week) => week.weekId === mondayFor(lastDate))?.absences : null;
-            const shown = cell ?? { boys: 0, girls: 0, total: 0 };
+            const cell = weekId ? row.weekly.find((week) => week.weekId === weekId)?.absences : null;
             return (
               <tr key={row.classId} className="text-sm">
                 <th scope="row" className="max-w-56 truncate px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{conciseClassLabel(row.className)}</span></th>
-                <td className="px-3 py-3 text-right tabular-nums">{shown.boys}</td>
-                <td className="px-3 py-3 text-right tabular-nums">{shown.girls}</td>
-                <td className="px-3 py-3 text-right font-semibold tabular-nums">{shown.total}</td>
+                <td className="px-3 py-3 text-right sm:px-5"><Split value={cell ?? { boys: 0, girls: 0, total: 0 }} /></td>
               </tr>
             );
           })}
-          <GradeRows summary={summary} weekId={lastDate ? mondayFor(lastDate) : null} />
+          {summary.gradeRows.map((row) => {
+            const cell = weekId ? row.weekly.find((week) => week.weekId === weekId)?.absences : null;
+            return (
+              <tr key={row.gradeId ?? "ungraded"} className="bg-surface-muted/35 text-sm">
+                <th scope="row" className="px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{row.gradeName} (grade total)</span></th>
+                <td className="px-3 py-3 text-right sm:px-5"><Split value={cell ?? { boys: 0, girls: 0, total: 0 }} /></td>
+              </tr>
+            );
+          })}
           <tr className="bg-surface-muted/55 text-sm">
             <th scope="row" className="px-4 py-3 font-semibold sm:px-5"><span className="scolapro-record-title">School total</span></th>
-            {(() => {
-              const week = lastDate ? summary.schoolTotals.weekly.find((item) => item.weekId === mondayFor(lastDate)) : null;
-              const split = { boys: 0, girls: 0, total: week?.absentLearnerDays ?? 0 };
-              return (
-                <>
-                  <td className="px-3 py-3 text-right tabular-nums" aria-label="Boys absent">—</td>
-                  <td className="px-3 py-3 text-right tabular-nums" aria-label="Girls absent">—</td>
-                  <td className="px-3 py-3 text-right font-semibold tabular-nums">{split.total}</td>
-                </>
-              );
-            })()}
+            <td className="px-3 py-3 text-right sm:px-5"><Split value={schoolSplit} /></td>
           </tr>
         </tbody>
       </table>
     </div>
-  );
-}
-
-function GradeRows({ summary, weekId }: { summary: OfficialAttendanceSummary; weekId: string | null }) {
-  if (!summary.gradeRows.length) return null;
-  return (
-    <>
-      {summary.gradeRows.map((row) => {
-        const cell = weekId ? row.weekly.find((week) => week.weekId === weekId)?.absences : null;
-        const shown = cell ?? { boys: 0, girls: 0, total: 0 };
-        return (
-          <tr key={row.gradeId ?? "ungraded"} className="bg-surface-muted/35 text-sm">
-            <th scope="row" className="px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{row.gradeName} (grade total)</span></th>
-            <td className="px-3 py-3 text-right tabular-nums">{shown.boys}</td>
-            <td className="px-3 py-3 text-right tabular-nums">{shown.girls}</td>
-            <td className="px-3 py-3 text-right font-semibold tabular-nums">{shown.total}</td>
-          </tr>
-        );
-      })}
-    </>
   );
 }
 
