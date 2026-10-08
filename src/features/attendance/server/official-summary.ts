@@ -213,7 +213,13 @@ export async function getOfficialAttendanceSummary(
     const weekId = mondayFor(day);
     if (!weekIdByDate.has(weekId)) {
       weekIdByDate.set(weekId, weekId);
-      weeks.push({ weekId, weekLabel: `Week ${weeks.length + 1}`, weekStart: weekId, weekEnd: addDays(weekId, 4), weekEndingReportedOn: null, dates: [], lastDate: null });
+      // Week numbering is anchored to the official selected term's opening
+      // week, not the current reporting window or number of teaching days.
+      // A partial first week is Week 1; holidays do not renumber weeks.
+      const openingMonday = mondayFor(term?.startsOn ?? scopeFromDate);
+      const daysFromOpening = Math.round((Date.parse(`${weekId}T12:00:00Z`) - Date.parse(`${openingMonday}T12:00:00Z`)) / 86400000);
+      const termWeekNumber = Math.floor(daysFromOpening / 7) + 1;
+      weeks.push({ weekId, weekLabel: `Week ${termWeekNumber}`, weekStart: weekId, weekEnd: addDays(weekId, 4), weekEndingReportedOn: null, dates: [], lastDate: null });
     }
     const week = weeks[weeks.length - 1];
     week.dates.push(day);
