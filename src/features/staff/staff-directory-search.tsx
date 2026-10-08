@@ -15,10 +15,6 @@ export function StaffDirectorySearch({ initialQuery }: { initialQuery: string })
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
-    setQuery(initialQuery);
-  }, [initialQuery]);
-
-  useEffect(() => {
     const normalized = query.trim().replace(/\s+/g, " ");
     if (normalized === initialQuery) return;
     const timer = setTimeout(() => {
