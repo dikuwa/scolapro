@@ -322,7 +322,14 @@ export async function getOfficialAttendanceSummary(
   for (const item of classes) if (item.gradeId) gradeById.set(item.gradeId, item.grade);
 
   const classRows: OfficialSummaryClassRow[] = sortedClasses.map((item) => {
-    const total = absentByClassDate.get(item.id) ?? emptySplit();
+    // The source map is keyed by class + date, not class ID alone. Sum every
+    // authoritative teaching-week bucket so term and weekly figures reconcile.
+    const total = emptySplit();
+    for (const split of classWeekly.get(item.id)?.values() ?? []) {
+      total.boys += split.boys;
+      total.girls += split.girls;
+      total.total += split.total;
+    }
     const weekly = weeks
       .filter((week) => week.lastDate)
       .map((week) => ({ weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, absences: classWeekly.get(item.id)?.get(week.weekId) ?? emptySplit() }));
