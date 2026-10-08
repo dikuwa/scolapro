@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
-import { Network, Plus, ShieldCheck, X } from "lucide-react";
+import { ChevronDown, Network, Plus, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
@@ -127,8 +127,7 @@ export function HodScopeConfiguration({
         <div>
           <h2 className="scolapro-section-title">HOD teaching scope</h2>
           <p className="scolapro-section-description">
-            Assign explicit subjects to an HOD. One HOD may hold several subjects, and a school may
-            split or combine portfolios without adopting a fixed national department structure.
+            Create subject portfolios, appoint an HOD when ready, and keep effective-dated responsibility history.
           </p>
         </div>
       </div>
@@ -137,10 +136,8 @@ export function HodScopeConfiguration({
         <div className="flex items-start gap-2">
           <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>
-            These effective-dated subject responsibilities remain the authorization source for HOD
-            preparation review and teaching-plan authoring. Labels such as Languages, Mathematics &
-            Natural Sciences, Commerce, or phase portfolios are suggestions only and are not encoded
-            as official structures.
+            Only effective-dated subject responsibilities grant HOD review and planning authority.
+            Portfolio names are school-defined labels, not official department structures.
           </p>
         </div>
       </div>
@@ -176,7 +173,7 @@ export function HodScopeConfiguration({
           {portfolio.appointments.map((a) => <p key={a.id} className="text-xs text-muted-foreground">{a.headName} · {a.effectiveFrom} → {a.effectiveTo ?? "open"}</p>)}
         </div>;
       })}</div> : null}
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.75fr)]">
+      <div className="mt-5 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Current responsibility history</h3>
           <div className="mt-3 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
@@ -216,7 +213,12 @@ export function HodScopeConfiguration({
           </div>
         </div>
 
-        <div className="space-y-5">
+        <details className="group rounded-[var(--radius-sm)] border border-border-subtle bg-surface">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft [&::-webkit-details-marker]:hidden">
+            Advanced: assign or end individual subject responsibilities
+            <ChevronDown className="size-4 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="grid gap-4 border-t border-border-subtle p-3 lg:grid-cols-2">
           <form action={createAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
             <div>
               <h3 className="text-sm font-semibold text-foreground">Assign subject portfolio</h3>
@@ -339,7 +341,8 @@ export function HodScopeConfiguration({
               </Button>
             </div>
           </form>
-        </div>
+          </div>
+        </details>
       </div>
 
       {!heads.length ? (
