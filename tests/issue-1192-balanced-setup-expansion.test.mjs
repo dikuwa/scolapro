@@ -35,7 +35,9 @@ test("workflow and anchor editors are independent without duplicate headings", (
   assert.match(core, /editor=\{anchorEditor\}/);
 });
 test("HOD portfolio listing precedes editing forms", () => {
-  assert.ok(hod.indexOf("{portfolios.length ?") < hod.indexOf('<form action={portfolioAction}'));
+  assert.match(page, /hodOverview=/);
+  assert.match(page, /hodScope.portfolios.map/);
+  assert.match(hod, /embedded \? ""/);
   assert.match(hod, /Current responsibility history/);
   assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
 });
