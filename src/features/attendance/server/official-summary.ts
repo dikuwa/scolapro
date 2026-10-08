@@ -200,7 +200,10 @@ export async function getOfficialAttendanceSummary(
   }
 
   const scopeFromDate: string = scopeStart; // narrowed non-null by the fallback above
-  const dates = rangeDates(scopeFromDate, date);
+  // A historical term must stop on its official closing date. The selected
+  // "as at" date must never import learner-days from the following term.
+  const scopeEndDate = mode === "term" && term?.endsOn && term.endsOn < date ? term.endsOn : date;
+  const dates = scopeFromDate <= scopeEndDate ? rangeDates(scopeFromDate, scopeEndDate) : [];
   // Day-by-day and summary figures follow the same learner opening/closing
   // boundaries, not the separate teacher reporting calendar.
   const learnerWindows = learnerCalendarResult.error
@@ -240,7 +243,7 @@ export async function getOfficialAttendanceSummary(
   const weekLabelById = new Map(weeks.map((week) => [week.weekId, week.weekLabel]));
 
   const empty = {
-    mode, scopeStart: scopeFromDate, scopeEnd: date, lastTeachingDate, dates, teachingDates, nonTeachingDates, nonTeachingReasons: {} as Record<string, string>,
+    mode, scopeStart: scopeFromDate, scopeEnd: scopeEndDate, lastTeachingDate, dates, teachingDates, nonTeachingDates, nonTeachingReasons: {} as Record<string, string>,
     weeks, classes, classRows: [] as OfficialSummaryClassRow[], gradeRows: [] as OfficialSummaryGradeRow[],
     schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [] as OfficialSummarySchoolTotals["weekly"] },
     readiness: { complete: false, expectedRegisters: 0, submittedRegisters: 0, incomplete: [] as OfficialSummaryReadiness["incomplete"] },
