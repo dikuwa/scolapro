@@ -39,6 +39,9 @@ test("core academic setup keeps one summary row per workflow and renders the act
   assert.match(academicCore, /title="HOD teaching scope"/);
   assert.match(academicCore, /actionKind="edit"/);
   assert.match(academicCore, /actionKind="manage"/);
+  assert.match(academicCore, /!active && "md:grid-cols-/);
+  assert.match(academicCore, /className="min-w-0 \[&>section\]:mt-0"/);
+  assert.doesNotMatch(academicCore, /className="rounded-\[var\(--radius-md\)\] border border-border-subtle bg-surface-elevated p-4 shadow/);
   assert.match(academicCore, />\s*Active\s*</);
   assert.doesNotMatch(academicCore, /lg:grid-cols-3/);
 });
@@ -47,7 +50,7 @@ test("academic structure cards remain balanced in two columns with actions ancho
   assert.match(academicForms, /lg:grid-cols-2 lg:items-start/);
   assert.match(academicForms, /min-h-\[10rem\] flex-col/);
   assert.ok((academicForms.match(/mt-4 flex justify-end/g) ?? []).length >= 2);
-  assert.match(academicPage, /canManageAcademicStructure \? "lg:grid-cols-2"/);
+  assert.match(academicPage, /canManageAcademicStructure \? "xl:grid-cols-2"/);
 });
 
 test("matching school settings cards use shared edit and manage action semantics", () => {

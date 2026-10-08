@@ -57,7 +57,7 @@ function CoreSetupCard({
           : "border-border-subtle",
       )}
     >
-      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)] md:items-start">
+      <div className={cn("grid gap-4", !active && "md:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)] md:items-start")}>
         <div className="flex min-w-0 items-start gap-3">
           <span className={cn(tone, "grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]")}>
             <Icon className="size-4" aria-hidden="true" />
@@ -116,7 +116,7 @@ function CoreSetupRow({
       {summary}
       {open ? (
         <div
-          className="rounded-[var(--radius-md)] border border-border-subtle bg-surface-elevated p-4 shadow-[var(--shadow-xs)] sm:p-5 [&>section]:mt-0"
+          className="min-w-0 [&>section]:mt-0"
           data-academic-setup-panel={panel}
         >
           {editor}
