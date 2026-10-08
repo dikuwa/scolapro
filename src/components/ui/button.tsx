@@ -26,6 +26,7 @@ export const buttonVariants = cva(
         ghost: "bg-transparent text-muted-foreground hover:bg-surface-muted hover:text-foreground",
         success: "bg-success-soft text-[color:var(--success)] hover:bg-[color:var(--success)] hover:text-white",
         danger: "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)] hover:text-white",
+        "danger-ghost": "bg-transparent text-[color:var(--danger)] hover:bg-danger-soft hover:text-[color:var(--danger)]",
       },
       size: {
         md: "min-h-10 px-4 text-sm",
