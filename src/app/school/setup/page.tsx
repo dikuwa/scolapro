@@ -128,6 +128,7 @@ export default async function SchoolSetupPage() {
           }
           hodEditor={
             <HodScopeConfiguration
+              embedded
               schoolId={membership.schoolId}
               subjects={hodScope.subjects}
               heads={hodScope.heads}
