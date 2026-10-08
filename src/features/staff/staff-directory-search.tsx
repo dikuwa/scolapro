@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X } from "lucide-react";
 
@@ -13,11 +13,18 @@ export function StaffDirectorySearch({ initialQuery }: { initialQuery: string })
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [pending, startTransition] = useTransition();
+  const latestQuery = useRef(query);
+  const lastNavigatedQuery = useRef(initialQuery);
+  latestQuery.current = query;
 
   useEffect(() => {
     const normalized = query.trim().replace(/\s+/g, " ");
-    if (normalized === initialQuery) return;
+    // A previous navigation can resolve after more typing. Never let its
+    // stale URL value replace the latest input or trigger a reverse search.
+    if (normalized === initialQuery || normalized === lastNavigatedQuery.current) return;
     const timer = setTimeout(() => {
+      if (latestQuery.current.trim().replace(/\s+/g, " ") !== normalized) return;
+      lastNavigatedQuery.current = normalized;
       startTransition(() => {
         router.replace(normalized ? `/staff?q=${encodeURIComponent(normalized)}` : "/staff", { scroll: false });
       });
@@ -42,7 +49,7 @@ export function StaffDirectorySearch({ initialQuery }: { initialQuery: string })
         />
       </label>
       {query ? (
-        <button type="button" onClick={() => { setQuery(""); startTransition(() => router.replace("/staff", { scroll: false })); }}
+        <button type="button" onClick={() => { setQuery(""); latestQuery.current = ""; lastNavigatedQuery.current = ""; startTransition(() => router.replace("/staff", { scroll: false })); }}
           className="inline-flex min-h-10 items-center gap-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
           aria-label="Clear staff search">
           <X className="size-3.5" aria-hidden="true" /> Clear
