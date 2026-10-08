@@ -91,6 +91,19 @@ export default async function SchoolSetupPage() {
           anchorDay={structure.timetableCycleAnchorDay}
           rotating={structure.timetableCycleMode === "rotating"}
           hodScopeCount={activeHodScopeCount}
+          hodOverview={
+            <div className="mt-3 space-y-2">
+              {hodScope.portfolios.length ? hodScope.portfolios.map((portfolio) => {
+                const appointment = portfolio.appointments.find((item) => item.effectiveFrom <= hodScope.today && (!item.effectiveTo || item.effectiveTo >= hodScope.today));
+                return (
+                  <div key={portfolio.id} className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2">
+                    <p className="text-xs font-semibold text-foreground">{portfolio.label} · {appointment?.headName ?? "Unassigned"}</p>
+                    <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{portfolio.subjectIds.map((id) => hodScope.subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
+                  </div>
+                );
+              }) : <p className="text-xs text-muted-foreground">No subject portfolios configured yet.</p>}
+            </div>
+          }
           timetableEditor={
             <TimetableCycleSettings
               section="workflow"
