@@ -103,6 +103,14 @@ export default async function SchoolSetupPage() {
                   </div>
                 );
               }) : <p className="text-xs text-muted-foreground">No subject portfolios configured yet.</p>}
+              {activeHodScopeCount > 0 ? (
+                <div className="max-h-44 space-y-1 overflow-y-auto border-t border-border-subtle pt-2">
+                  <p className="text-[0.68rem] font-semibold text-foreground">Current subject responsibilities</p>
+                  {hodScope.responsibilities.filter((item) => item.effectiveFrom <= hodScope.today && (!item.effectiveTo || item.effectiveTo >= hodScope.today)).map((item) => (
+                    <p key={item.id} className="text-[0.68rem] text-muted-foreground">{item.subjectName} · {item.headName}</p>
+                  ))}
+                </div>
+              ) : null}
             </div>
           }
           timetableEditor={
