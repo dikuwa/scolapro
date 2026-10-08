@@ -59,7 +59,7 @@ type StaffSummaryRpcRow = {
 
 export async function getSchoolStaffDirectory(
   schoolId: string,
-  options: { query?: string; page?: number; pageSize?: number; onDate?: string } = {},
+  options: { query?: string; page?: number; pageSize?: number; onDate?: string; includePlannedRoles?: boolean } = {},
 ): Promise<StaffDirectoryResult> {
   const supabase = await createSupabaseServerClient();
   const page = Math.max(options.page ?? 1, 1);
@@ -101,10 +101,10 @@ export async function getSchoolStaffDirectory(
   );
 
   const directoryRows = (directoryResult.data ?? []) as StaffDirectoryRpcRow[];
-  const plannedRoleResult = await supabase.rpc("list_staff_planned_roles", {
+  const plannedRoleResult = options.includePlannedRoles ? await supabase.rpc("list_staff_planned_roles", {
     p_school_id: schoolId,
     p_staff_ids: directoryRows.map((row) => row.staff_id).filter((id): id is string => Boolean(id)),
-  });
+  }) : { data: null, error: null };
   const planningMigrationPending = plannedRoleResult.error &&
     (plannedRoleResult.error.code === "PGRST202" || plannedRoleResult.error.code === "42883");
   if (plannedRoleResult.error && !planningMigrationPending) {
