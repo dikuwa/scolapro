@@ -6,6 +6,7 @@ import {
   ChevronDown,
   GitMerge,
   KeyRound,
+  Network,
   Link2,
   LoaderCircle,
   MailCheck,
@@ -17,10 +18,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import {
   addStaffRole,
+  designateStaffOperationalHod,
+  endStaffOperationalHod,
   correctStaffDetails,
   endStaffRole,
   inviteExistingStaff,
@@ -41,7 +45,7 @@ const roleOptions = [
   ["librarian", "Librarian"], ["board_member", "School board member"],
 ] as const;
 
-type StaffRowPanel = "access" | "identity" | null;
+type StaffRowPanel = "access" | "identity" | "hod-placement" | null;
 
 function roleLabel(value: string) {
   return roleOptions.find(([key]) => key === value)?.[1] ?? value.replaceAll("_", " ");
@@ -70,6 +74,9 @@ export function StaffDirectoryRowControls({
   const [correctionState, correctionAction, correctionPending] = useActionState(correctStaffDetails, initialState);
   const [reconciliationState, reconciliationAction, reconciliationPending] = useActionState(reconcileStaffIdentities, initialState);
   const [roleKey, setRoleKey] = useState<string>("teacher");
+  const [hodDate, setHodDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+  const [hodState, hodAction, hodPending] = useActionState(designateStaffOperationalHod, initialState);
+  const [hodEndState, hodEndAction, hodEndPending] = useActionState(endStaffOperationalHod, initialState);
   const [email, setEmail] = useState("");
   const [duplicateId, setDuplicateId] = useState("");
   const [endingRoleId, setEndingRoleId] = useState<string | null>(null);
@@ -100,6 +107,15 @@ export function StaffDirectoryRowControls({
     if (reconciliationState.message) (reconciliationState.success ? toast.success : toast.error)(reconciliationState.message);
     if (reconciliationState.success) router.refresh();
   }, [reconciliationState, router]);
+
+  useEffect(() => {
+    if (hodState.message) (hodState.success ? toast.success : toast.error)(hodState.message);
+    if (hodState.success) router.refresh();
+  }, [hodState, router]);
+  useEffect(() => {
+    if (hodEndState.message) (hodEndState.success ? toast.success : toast.error)(hodEndState.message);
+    if (hodEndState.success) router.refresh();
+  }, [hodEndState, router]);
 
   function togglePanel(next: Exclude<StaffRowPanel, null>) {
     setPanel((current) => current === next ? null : next);
@@ -215,6 +231,13 @@ export function StaffDirectoryRowControls({
                 <ChevronDown className={`size-3.5 transition-transform ${panel === "access" ? "rotate-180" : ""}`} aria-hidden="true" />
               </Button>
             )}
+            <RecordActionButton
+              icon={Network}
+              label={row.operationalHodDesignation ? "HOD placement" : "Assign HOD"}
+              expanded={panel === "hod-placement"}
+              disclosure
+              onClick={() => togglePanel("hod-placement")}
+            />
             <RecordActionButton
               icon={Pencil}
               label="Manage identity"
@@ -349,6 +372,42 @@ export function StaffDirectoryRowControls({
                 </p>
               ) : null}
             </div>
+          )}
+        </div>
+      ) : null}
+
+      {panel === "hod-placement" ? (
+        <div className={panelClassName()} data-staff-operational-hod>
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-foreground">HOD staff placement</h3>
+            <p className="mt-1 text-[0.72rem] leading-5 text-muted-foreground">
+              Designate an existing staff member as HOD without creating a ScolaPro account or sending an invitation.
+              This permits later subject-portfolio appointment; login access and HOD review permissions remain separate.
+            </p>
+          </div>
+          {row.operationalHodDesignation ? (
+            <form action={hodEndAction} className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.7fr)_auto] sm:items-end">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="designationId" value={row.operationalHodDesignation.id} />
+              <div>
+                <p className="font-semibold text-foreground">Operational HOD assigned</p>
+                <p className="mt-1 text-muted-foreground">Effective from {row.operationalHodDesignation.effectiveFrom}. Ending this designation also closes its open portfolio authority on the selected date.</p>
+              </div>
+              <DateField label="Effective to" name="effectiveTo" value={hodDate} onChange={setHodDate} />
+              <Button type="submit" variant="neutral" size="sm" disabled={hodEndPending || hodDate < row.operationalHodDesignation.effectiveFrom} loading={hodEndPending}>
+                End HOD placement
+              </Button>
+            </form>
+          ) : (
+            <form action={hodAction} className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.7fr)_auto] sm:items-end">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="staffMemberId" value={row.staffId} />
+              <p className="text-muted-foreground">No operational HOD designation. The staff member keeps their existing placement and login status.</p>
+              <DateField label="Effective from" name="effectiveFrom" value={hodDate} onChange={setHodDate} />
+              <Button type="submit" size="sm" disabled={hodPending || !hodDate} loading={hodPending}>
+                <Network className="size-3.5" aria-hidden="true" /> Assign HOD placement
+              </Button>
+            </form>
           )}
         </div>
       ) : null}
