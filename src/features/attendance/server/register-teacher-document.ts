@@ -327,12 +327,18 @@ export async function getRegisterTeacherDocument(input: {
           attended += 1;
         }
       }
+      // Term balance is specific to each learner's actual enrolment window.
+      // A learner joining late or leaving early cannot count as present or
+      // absent on days they were not enrolled.
       let termAbsent = 0;
+      let termPossible = 0;
       for (const date of termActualDates) {
+        if (!isActiveOn(String(item.enrolled_from).slice(0, 10), item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null, date)) continue;
+        termPossible += 1;
         const current = currentByKey.get(`${item.id}:${date}`);
         if (current?.status === "absent") termAbsent += 1;
       }
-      const termAttended = Math.max(0, termTeachingDayCount - termAbsent);
+      const termAttended = termPossible - termAbsent;
 
       learners.push({
         enrolmentId: String(item.id),
@@ -351,7 +357,7 @@ export async function getRegisterTeacherDocument(input: {
         possible,
         termAttended,
         termAbsent,
-        termDays: termTeachingDayCount,
+        termDays: termPossible,
       });
     }
 
@@ -378,7 +384,7 @@ export async function getRegisterTeacherDocument(input: {
       possibleTotal: learners.reduce((sum, learner) => sum + learner.possible, 0),
       termAttendanceTotal: learners.reduce((sum, learner) => sum + learner.termAttended, 0),
       termAbsenceTotal: learners.reduce((sum, learner) => sum + learner.termAbsent, 0),
-      termPossibleTotal: learners.length * termTeachingDayCount,
+      termPossibleTotal: learners.reduce((sum, learner) => sum + learner.termDays, 0),
     };
   });
 
