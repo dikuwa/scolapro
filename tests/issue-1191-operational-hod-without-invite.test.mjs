@@ -64,7 +64,7 @@ test("Staff search updates list on partial input with debounce and no submit but
  const page=read("src/app/staff/page.tsx");
  assert.match(page,/StaffDirectorySearch initialQuery=\{query\}/);
  assert.doesNotMatch(page,/<form action="\/staff" method="get"/);
- assert.match(search,/onChange=\{\(event\) => setQuery\(event.target.value\)\}/);
+ assert.match(search,/onChange=\{\(event\) => \{ latestQuery\.current = event\.target\.value; setQuery\(event\.target\.value\); \}\}/);
  assert.match(search,/setTimeout\(\(\) =>/);
  assert.match(search,/router\.replace\(/);
  assert.match(search,/scroll: false/);
