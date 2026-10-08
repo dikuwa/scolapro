@@ -28,12 +28,14 @@ test("registers fit paper width and divide long terms into week panels", () => {
   assert.match(register, /<colgroup>\$\{columns\}<\/colgroup>/);
   assert.match(register, /document\.weeks\.length > 3/);
   assert.match(register, /document\.weeks\.slice\(i \* 3, \(i \+ 1\) \* 3\)/);
-  assert.match(register, /sectionHtml\(document, section, weeks, i \+ 1, panels\.length\)/);
+  assert.match(register, /sectionHtml\(/);
+  assert.match(register, /pageJobs\.map/);
   assert.doesNotMatch(register, /min-width:max-content/);
   assert.doesNotMatch(register, /overflow-x:auto/);
 });
 
 test("register panels retain school context, names, boys girls and totals", () => {
+  assert.match(register, /\$\{repeatedHeader\}/);
   assert.match(register, /<strong>BOYS\/GIRLS:<\/strong>/);
   assert.match(register, /<strong>REGISTER CLASS:<\/strong>/);
   assert.match(register, /<strong>REGISTER TEACHER:<\/strong>/);

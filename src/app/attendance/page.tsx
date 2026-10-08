@@ -32,7 +32,7 @@ function safeSchoolDate(value?: string) {
   return parsed.toISOString().slice(0, 10);
 }
 
-export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; term?: string | string[]; mode?: string | string[] }> }) {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/attendance");
 
@@ -48,8 +48,10 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
   const requestedTerm = Array.isArray(params.term) ? params.term[0] : params.term;
   const requestedMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  const requestedFromWeek = Array.isArray(params.fromWeek) ? params.fromWeek[0] : params.fromWeek;
+  const requestedToWeek = Array.isArray(params.toWeek) ? params.toWeek[0] : params.toWeek;
   const view = requestedView === "week" ? "week" : requestedView === "register" ? "register" : requestedView === "official" ? "official" : requestedView === "absences" ? "absences" : "day";
-  const mode: "week" | "term" = requestedMode === "term" ? "term" : "week";
+  const mode: "week" | "range" | "term" = requestedMode === "term" ? "term" : requestedMode === "range" ? "range" : "week";
   const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
   const date = safeSchoolDate(requestedDate);
   const academicYear = Number(date.slice(0, 4));
@@ -68,6 +70,8 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           sort={sort}
           mode={mode}
           requestedTerm={requestedTerm}
+          requestedFromWeek={requestedFromWeek}
+          requestedToWeek={requestedToWeek}
           canFinalize={canFinalize}
         />
       </Suspense>
@@ -86,6 +90,8 @@ async function AttendanceWorkspaceData({
   sort,
   mode,
   requestedTerm,
+  requestedFromWeek,
+  requestedToWeek,
   canFinalize,
 }: {
   schoolId: string;
@@ -96,8 +102,10 @@ async function AttendanceWorkspaceData({
   date: string;
   view: "day" | "week" | "register" | "official" | "absences";
   sort: AttendanceSortDirection;
-  mode: "week" | "term";
+  mode: "week" | "range" | "term";
   requestedTerm?: string;
+  requestedFromWeek?: string;
+  requestedToWeek?: string;
   canFinalize: boolean;
 }) {
 if (view === "register") {
@@ -120,16 +128,19 @@ if (view === "register") {
         weeklyExpectedDays={workspace.dates.filter((day) => !workspace.nonTeachingDates.includes(day)).length}
         terms={terms}
         selectedTermId={selectedTermId}
+        fromWeek={requestedFromWeek ?? null}
+        toWeek={requestedToWeek ?? null}
       />
     </section>
   );
 }
 
 if (view === "official") {
-  const summary = await getOfficialAttendanceSummary(schoolId, academicYear, mode, date, requestedTerm ?? null);
+    const summaryMode = mode === "term" ? "term" : "week";
+    const summary = await getOfficialAttendanceSummary(schoolId, academicYear, summaryMode, date, requestedTerm ?? null);
   const finalization = await getOfficialAttendanceSummaryFinalization({
     schoolId,
-    mode,
+    mode: summaryMode,
     scopeStart: summary.scopeStart,
     scopeEnd: summary.scopeEnd,
     termId: requestedTerm ?? null,
@@ -149,7 +160,7 @@ if (view === "official") {
       <OfficialSummary
         summary={summary}
         date={date}
-        mode={mode}
+        mode={summaryMode}
         schoolId={schoolId}
         academicYear={academicYear}
         termId={requestedTerm ?? null}

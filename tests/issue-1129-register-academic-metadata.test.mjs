@@ -4,6 +4,7 @@ import test from "node:test";
 
 const registerWorkspace = readFileSync("src/features/attendance/register-teacher-workspace.tsx", "utf8");
 const registerModel = readFileSync("src/features/attendance/server/register-teacher-document.ts", "utf8");
+const schoolDays = readFileSync("src/features/attendance/server/governed-school-day.ts", "utf8");
 const registerRenderer = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
 const analysisModel = readFileSync("src/features/academics/server/academic-analysis.ts", "utf8");
 const analysisPrint = readFileSync("src/app/academics/analysis/print/page.tsx", "utf8");
@@ -18,16 +19,16 @@ const scheduleXlsx = readFileSync("src/features/reporting/server/render-academic
 test("register week navigation displays the active week-ending date between chevrons", () => {
   assert.match(registerWorkspace, /Previous register week/);
   assert.match(registerWorkspace, /Week ending/);
-  assert.match(registerWorkspace, /\{weekEnding\}/);
+  assert.match(registerWorkspace, /\{periodLabel\}/);
   assert.match(registerWorkspace, /Next register week/);
-  assert.match(registerWorkspace, /current\.setDate\(current\.getDate\(\) - 7\)/);
-  assert.match(registerWorkspace, /current\.setDate\(current\.getDate\(\) \+ 7\)/);
+  assert.match(registerWorkspace, /addDays\(selectedFromWeek!, -7\)/);
+  assert.match(registerWorkspace, /addDays\(selectedFromWeek!, 7\)/);
 });
 
 test("weekly register term totals balance against full governed term days", () => {
   assert.match(registerModel, /termTeachingDayCount/);
-  assert.match(registerModel, /const termAttended = termPossible - termAbsent/);
-  assert.match(registerModel, /termDays: termPossible/);
+  assert.match(schoolDays, /const termAttended = termDays - termAbsent/);
+  assert.match(registerModel, /termDays: balance\.termDays/);
   assert.match(registerRenderer, /section\.termAttendanceTotal \+ section\.termAbsenceTotal/);
   assert.match(registerRenderer, /section\.termPossibleTotal/);
 });
