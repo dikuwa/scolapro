@@ -429,7 +429,7 @@ export async function getOfficialAttendanceSummary(
   return {
     mode,
     scopeStart: scopeFromDate,
-    scopeEnd: date,
+    scopeEnd: scopeEndDate,
     lastTeachingDate,
     dates,
     teachingDates,
