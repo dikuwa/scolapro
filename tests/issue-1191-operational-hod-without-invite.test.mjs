@@ -89,7 +89,7 @@ test("pre-migration preview disables HOD writes with explicit readiness feedback
 test("live staff search guards against stale debounced navigation",()=>{
  const search=read("src/features/staff/staff-directory-search.tsx");
  assert.match(search,/latestQuery = useRef\(query\)/);
- assert.match(search,/lastNavigatedQuery = useRef\(initialQuery\)/);
+ assert.doesNotMatch(search,/lastNavigatedQuery/);
  assert.match(search,/latestQuery\.current\.trim\(\)/);
- assert.match(search,/lastNavigatedQuery\.current = normalized/);
+ assert.match(search,/normalized === initialQuery/);
 });
