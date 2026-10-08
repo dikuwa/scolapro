@@ -85,3 +85,11 @@ test("pre-migration preview disables HOD writes with explicit readiness feedback
  assert.match(ui,/!operationalHodReady \|\| hodEndPending/);
  assert.match(ui,/HOD placement changes are unavailable until/);
 });
+
+test("live staff search guards against stale debounced navigation",()=>{
+ const search=read("src/features/staff/staff-directory-search.tsx");
+ assert.match(search,/latestQuery = useRef\(query\)/);
+ assert.match(search,/lastNavigatedQuery = useRef\(initialQuery\)/);
+ assert.match(search,/latestQuery\.current\.trim\(\)/);
+ assert.match(search,/lastNavigatedQuery\.current = normalized/);
+});
