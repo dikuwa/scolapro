@@ -42,13 +42,69 @@ function conciseClassLabel(className: string) {
   return className.trim().replace(/^grade\s+/i, "");
 }
 
-function weekEnding(summary: OfficialAttendanceSummary, weekId: string) {
-  return summary.weeks.find((week) => week.weekId === weekId)?.weekEndingReportedOn ?? null;
+function mondayFor(date: string) {
+  const value = new Date(`${date}T12:00:00`);
+  const day = value.getDay();
+  value.setDate(value.getDate() + (day === 0 ? -6 : 1 - day));
+  return value.toISOString().slice(0, 10);
 }
 
-function shortDate(value: string | null) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "2-digit" }).format(new Date(`${value}T12:00:00`));
+function addDays(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00`);
+  value.setDate(value.getDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+type XlsxSourceRow = OfficialAttendanceSummary["classRows"][number] | OfficialAttendanceSummary["gradeRows"][number];
+type XlsxSplit = { boys: number; girls: number; total: number };
+type XlsxColumn = { label: string; possible: number; percent: number | null; split: (row: XlsxSourceRow) => XlsxSplit };
+
+function emptySplit(): XlsxSplit {
+  return { boys: 0, girls: 0, total: 0 };
+}
+
+function addSplit(target: XlsxSplit, value: XlsxSplit) {
+  target.boys += value.boys;
+  target.girls += value.girls;
+  target.total += value.total;
+  return target;
+}
+
+function xlsxColumns(summary: OfficialAttendanceSummary): XlsxColumn[] {
+  if (summary.mode === "term") {
+    return [...summary.schoolTotals.weekly.map((week) => ({
+      label: week.weekLabel,
+      possible: week.possibleAttendances,
+      percent: week.percentAbsence,
+      split: (row: XlsxSourceRow) => row.weekly.find((item) => item.weekId === week.weekId)?.absences ?? emptySplit(),
+    })), {
+      label: "Term Absent",
+      possible: summary.schoolTotals.possibleAttendances,
+      percent: summary.schoolTotals.percentAbsence,
+      split: (row: XlsxSourceRow) => row.absences,
+    }];
+  }
+  const monday = mondayFor(summary.scopeEnd);
+  const days = Array.from({ length: 5 }, (_, offset) => {
+    const date = addDays(monday, offset);
+    const daily = summary.schoolTotals.daily?.find((item) => item.date === date);
+    return {
+      label: new Intl.DateTimeFormat("en-NA", { weekday: "long" }).format(new Date(`${date}T12:00:00`)),
+      possible: daily?.possibleAttendances ?? 0,
+      percent: daily?.percentAbsence ?? null,
+      split: (row: XlsxSourceRow) => row.daily.find((item) => item.date === date)?.absences ?? emptySplit(),
+    };
+  });
+  return [...days, {
+    label: "Total Absent",
+    possible: summary.schoolTotals.possibleAttendances,
+    percent: summary.schoolTotals.percentAbsence,
+    split: (row: XlsxSourceRow) => row.daily.reduce((total, day) => addSplit(total, day.absences), emptySplit()),
+  }];
+}
+
+function compactSplit(split: XlsxSplit) {
+  return `${split.total} (${split.boys}B / ${split.girls}G)`;
 }
 
 function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialDocumentHeaderModel; revision: number; scolaproReference: string; finalizedLabel: string }): ArrayBuffer {
@@ -57,8 +113,8 @@ function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialD
   const telephone = contact.get("telephone");
   const fax = contact.get("fax");
   const email = contact.get("email");
-  const weeks = summary.schoolTotals.weekly;
-  const totalColumns = 1 + weeks.length * 3;
+  const columns = xlsxColumns(summary);
+  const totalColumns = 1 + columns.length;
 
   const aoa: Array<Array<string | number>> = [
     [meta.header.schoolName],
@@ -67,7 +123,7 @@ function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialD
     [[telephone ? `${telephone.label}: ${telephone.value}` : "", fax ? `${fax.label}: ${fax.value}` : ""].filter(Boolean).join("   ")],
     [email ? `${email.label}: ${email.value}` : ""],
     ["SUMMARY OF ABSENTEES"],
-    [summary.mode === "term" ? `Term-to-date${summary.term ? ` — ${summary.term.displayName}` : ""}` : `Current week${weeks[0] ? ` — ${weeks[0].weekLabel}` : ""}`],
+    [summary.mode === "term" ? `Term-to-date${summary.term ? ` — ${summary.term.displayName}` : ""}` : "Current week"],
     ["Reporting period", `${summary.scopeStart} – ${summary.scopeEnd}`],
     ["Revision", meta.revision],
     ["ScolaPro reference", meta.scolaproReference],
@@ -76,9 +132,7 @@ function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialD
   ];
 
   const headerStart = aoa.length;
-  aoa.push(["WEEK", ...weeks.flatMap((week) => [week.weekLabel.replace(/^Week\s*/i, ""), "", ""])]);
-  aoa.push(["DATE OF WEEK ENDING", ...weeks.flatMap((week) => [shortDate(weekEnding(summary, week.weekId)), "", ""])]);
-  aoa.push(["GRADE / CLASS", ...weeks.flatMap(() => ["B", "G", "TOTAL"])]);
+  aoa.push(["REGISTER CLASS", ...columns.map((column) => column.label)]);
 
   const gradeGroups = summary.gradeRows.map((grade) => ({
     grade,
@@ -87,11 +141,7 @@ function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialD
     ),
   }));
   const covered = new Set(gradeGroups.flatMap((group) => group.classes.map((row) => row.classId)));
-  const splitCells = (row: (typeof summary.classRows)[number] | (typeof summary.gradeRows)[number]) =>
-    weeks.flatMap((week) => {
-      const split = row.weekly.find((item) => item.weekId === week.weekId)?.absences ?? { boys: 0, girls: 0, total: 0 };
-      return [split.boys, split.girls, split.total];
-    });
+  const splitCells = (row: XlsxSourceRow) => columns.map((column) => compactSplit(column.split(row)));
 
   const gradeSectionRows: number[] = [];
   for (const group of gradeGroups) {
@@ -104,42 +154,28 @@ function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialD
     aoa.push([conciseClassLabel(row.className), ...splitCells(row)]);
   }
 
-  const schoolSplit = (weekId: string) =>
+  const schoolSplit = (column: XlsxColumn) =>
     summary.classRows.reduce((total, row) => {
-      const split = row.weekly.find((item) => item.weekId === weekId)?.absences ?? { boys: 0, girls: 0, total: 0 };
-      total.boys += split.boys;
-      total.girls += split.girls;
-      total.total += split.total;
-      return total;
-    }, { boys: 0, girls: 0, total: 0 });
+      return addSplit(total, column.split(row));
+    }, emptySplit());
 
   const schoolTotalRow = aoa.length;
-  aoa.push(["SCHOOL TOTAL", ...weeks.flatMap((week) => {
-    const split = schoolSplit(week.weekId);
-    return [split.boys, split.girls, split.total];
-  })]);
-  aoa.push(["POSSIBLE ATTENDANCES", ...weeks.flatMap((week) => ["", "", week.possibleAttendances])]);
-  aoa.push(["% ABSENCE", ...weeks.flatMap((week) => ["", "", formatPercent(week.percentAbsence)])]);
+  aoa.push(["SCHOOL TOTAL", ...columns.map((column) => compactSplit(schoolSplit(column)))]);
+  aoa.push(["POSSIBLE ATTENDANCES", ...columns.map((column) => column.possible)]);
+  aoa.push(["% ABSENCE", ...columns.map((column) => formatPercent(column.percent))]);
   aoa.push([]);
   aoa.push(["Total absent learner-days", summary.schoolTotals.absentLearnerDays]);
   aoa.push(["Overall % absence", formatPercent(summary.schoolTotals.percentAbsence)]);
 
   const worksheet = XLSX.utils.aoa_to_sheet(aoa);
-  worksheet["!cols"] = [{ wch: 22 }, ...weeks.flatMap(() => [{ wch: 6 }, { wch: 6 }, { wch: 8 }])];
+  worksheet["!cols"] = [{ wch: 22 }, ...columns.map(() => ({ wch: 16 }))];
   worksheet["!merges"] = [
     { s: { r: 0, c: 0 }, e: { r: 0, c: Math.max(0, totalColumns - 1) } },
     { s: { r: 5, c: 0 }, e: { r: 5, c: Math.max(0, totalColumns - 1) } },
-    ...weeks.flatMap((_, index) => {
-      const start = 1 + index * 3;
-      return [
-        { s: { r: headerStart, c: start }, e: { r: headerStart, c: start + 2 } },
-        { s: { r: headerStart + 1, c: start }, e: { r: headerStart + 1, c: start + 2 } },
-      ];
-    }),
     ...gradeSectionRows.map((row) => ({ s: { r: row, c: 0 }, e: { r: row, c: Math.max(0, totalColumns - 1) } })),
   ];
-  worksheet["!freeze"] = { xSplit: 1, ySplit: headerStart + 3, topLeftCell: "B" + (headerStart + 4), activePane: "bottomRight", state: "frozen" };
-  worksheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: headerStart + 2, c: 0 }, e: { r: schoolTotalRow, c: Math.max(0, totalColumns - 1) } }) };
+  worksheet["!freeze"] = { xSplit: 1, ySplit: headerStart + 1, topLeftCell: "B" + (headerStart + 2), activePane: "bottomRight", state: "frozen" };
+  worksheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: headerStart, c: 0 }, e: { r: schoolTotalRow, c: Math.max(0, totalColumns - 1) } }) };
 
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Summary of Absentees");

@@ -96,18 +96,20 @@ test("the public verification resolver returns only minimal provenance (no learn
 
 test("term mode is wired into the official attendance view", () => {
   assert.match(page, /requestedMode/);
-  assert.match(page, /mode: "week" \| "term" = requestedMode === "term" \? "term" : "week"/);
-  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, mode, date/);
+  assert.match(page, /mode: "week" \| "range" \| "term"/);
+  assert.match(page, /summaryMode = mode === "term" \? "term" : "week"/);
+  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, summaryMode, date/);
   assert.match(page, /getOfficialAttendanceSummaryFinalization\(/);
 });
 
 
-test("official attendance outputs use the universal internal-school header without changing aggregate hierarchy", () => {
+test("official attendance outputs retain the shared external official header without changing aggregate hierarchy", () => {
   assert.match(htmlRenderer, /renderOfficialDocumentHtmlHeader/);
-  assert.match(htmlRenderer, /title: "SUMMARY OF ABSENTEES"/);
-  assert.match(htmlRenderer, /primaryContext: titleText/);
-  assert.match(pdfRenderer, /INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT/);
-  assert.match(pdfRenderer, /title: "SUMMARY OF ABSENTEES"/);
+  assert.match(htmlRenderer, /WEEKLY SUMMARY OF ABSENTEES/);
+  assert.match(htmlRenderer, /TERM SUMMARY OF ABSENTEES/);
+  assert.match(pdfRenderer, /OFFICIAL_DOCUMENT_PDF_HEADER_HEIGHT/);
+  assert.match(pdfRenderer, /WEEKLY SUMMARY OF ABSENTEES/);
+  assert.match(pdfRenderer, /TERM SUMMARY OF ABSENTEES/);
   assert.doesNotMatch(pdfRenderer, /TITLE_HEIGHT/);
   assert.match(route, /contact\.get\("address"\)/);
   assert.match(route, /contact\.get\("telephone"\)/);

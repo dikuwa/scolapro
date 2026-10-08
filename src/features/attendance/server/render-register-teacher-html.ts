@@ -34,25 +34,25 @@ function compactCalendarReason(value: string | null) {
 }
 
 function weeklyColumns(week: RegisterTeacherWeek) {
-  return week.dates.map((day) => {
-    const reason = !day.teaching ? compactCalendarReason(day.reason) : "";
-    const reasonMarkup = reason
-      ? `<span class="day-reason" title="${escapeHtml(day.reason ?? reason)}">${escapeHtml(reason)}</span>`
-      : "";
-    return `<th class="day ${day.teaching ? "" : "non-teaching"}"><span>${escapeHtml(day.weekday)}</span><small>${escapeHtml(day.dayNumber)}</small>${reasonMarkup}</th>`;
-  }).join("") + '<th class="week-total">Tot.</th>';
+  return week.dates.map((day) =>
+    `<th class="day ${day.teaching ? "" : "non-teaching"}"><span>${escapeHtml(day.weekday)}</span><small>${escapeHtml(day.dayNumber)}</small></th>`,
+  ).join("") + '<th class="week-total">Tot.</th>';
 }
 
 function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: RegisterTeacherWeek) {
   const learner = section.learners[rowIndex];
   const marks = week.dates.map((day) => {
+    if (!day.teaching) {
+      if (rowIndex > 0) return "";
+      const reason = compactCalendarReason(day.reason) || "Non-teaching day";
+      return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column" title="${escapeHtml(day.reason ?? reason)}"><span class="closure-label">${escapeHtml(reason)}</span></td>`;
+    }
     const mark = learner.marks[day.date] ?? "";
-    const title = !day.teaching && day.reason ? ` title="${escapeHtml(day.reason)}"` : "";
     const reasoned = mark === "a" && Boolean(learner.reasonedAbsenceDates[day.date]);
     const markHtml = mark
       ? `<span class="register-mark ${mark === "a" ? "absent-mark" : ""}">${mark}${reasoned ? '<sup class="absence-reason-mark">✓</sup>' : ""}</span>`
       : "";
-    return `<td class="mark ${day.teaching ? "" : "non-teaching"}"${title}>${markHtml}</td>`;
+    return `<td class="mark">${markHtml}</td>`;
   }).join("");
   const weekPossible = week.dates.reduce((sum, day) => sum + (learner.marks[day.date] ? 1 : 0), 0);
   const weekAbsent = week.dates.reduce((sum, day) => sum + (learner.marks[day.date] === "a" ? 1 : 0), 0);
@@ -62,6 +62,7 @@ function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: Re
 function totalsRow(label: string, section: RegisterTeacherSection, weeks: RegisterTeacherWeek[], kind: "attendance" | "absence" | "possible") {
   const cells = weeks.map((week) => {
     const values = week.dates.map((day) => {
+      if (!day.teaching) return '<td class="summary-value non-teaching"></td>';
       const value = kind === "attendance" ? section.attendanceByDate[day.date] : kind === "absence" ? section.absenceByDate[day.date] : section.possibleByDate[day.date];
       return `<td class="summary-value ${kind === "absence" ? "absence-value" : ""}">${value ?? 0}</td>`;
     }).join("");
@@ -81,7 +82,7 @@ function totalsRow(label: string, section: RegisterTeacherSection, weeks: Regist
   return `<tr class="summary-row ${rowClass}"><th colspan="5">${escapeHtml(label)}</th>${cells}${termCells}</tr>`;
 }
 
-function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacherSection, weeks: RegisterTeacherWeek[], page: number, pages: number) {
+function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacherSection, weeks: RegisterTeacherWeek[], page: number, pages: number, repeatedHeader: string) {
   // Wide term registers are split into print-sized week panels. Repeat the learner
   // identities and official totals rather than clipping dates or shrinking marks.
   const attendanceColumns = weeks.reduce((count, week) => count + week.dates.length + 1, 0);
@@ -102,6 +103,7 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
 
   return `
     <section class="register-section" aria-label="${escapeHtml(section.label)} register page ${page} of ${pages}">
+      ${repeatedHeader}
       <div class="register-meta">
         <div><strong>BOYS/GIRLS:</strong> ${section.label}</div>
         <div><strong>TERM:</strong> ${escapeHtml(document.termName)}${pages > 1 ? ` · Page ${page}/${pages}` : ""}</div>
@@ -152,12 +154,29 @@ export function renderRegisterTeacherHtml(input: {
   document: RegisterTeacherDocument;
 }) {
   const { header, document } = input;
-  const title = document.mode === "week" ? "WEEKLY REGISTER" : "TERM REGISTER";
+  const title = document.mode === "week" ? "WEEKLY REGISTER" : document.mode === "range" ? "WEEK RANGE REGISTER" : "TERM REGISTER";
   const subtitle = document.mode === "week"
     ? `Week ending ${formatDate(document.scopeEnd)}`
+    : document.mode === "range"
+      ? `${formatDate(document.scopeStart)} – ${formatDate(document.scopeEnd)}`
     : `${document.termName} · ${formatDate(document.scopeStart)} – ${formatDate(document.scopeEnd)}`;
   const schoolNameClass = officialDocumentSchoolNameClass(header);
   const schoolNameFontStyle = renderOfficialDocumentSchoolNameFontStyle(header);
+  const learnersPerPage = 40;
+  const repeatedHeader = `
+    <header class="school-header">
+      <div>${header.logoUrl ? `<img src="${escapeHtml(header.logoUrl)}" alt="" />` : ""}</div>
+      <div>
+        <div class="${schoolNameClass}">${escapeHtml(header.schoolName)}</div>
+        <div class="school-contact">${header.contactLines.map((line) => escapeHtml(line.text)).join(" · ")}${header.postalLines.length ? `<br>${header.postalLines.map(escapeHtml).join(" · ")}` : ""}</div>
+      </div>
+      <div class="doc-title">
+        <h1>${title}</h1>
+        <p><strong>${escapeHtml(document.gradeName)} · ${escapeHtml(document.className)} · ${document.academicYear}</strong></p>
+        <p>${escapeHtml(subtitle)}</p>
+      </div>
+    </header>
+    <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span>Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area</span></div>`;
 
   return `<!doctype html>
 <html>
@@ -181,7 +200,7 @@ ${schoolNameFontStyle}
   .doc-title { text-align:right; }
   .doc-title h1 { margin:0; font-size:17px; color:var(--register-red); letter-spacing:.08em; }
   .doc-title p { margin:5px 0 0; font-size:10px; }
-  .register-section { margin-top:18px; break-after:page; overflow:visible; }
+  .register-section { margin-top:0; break-after:page; overflow:visible; }
   .register-section:last-child { break-after:auto; }
   .register-meta { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1px; background:var(--register-red); border:1px solid var(--register-red); margin-bottom:4px; }
   .register-meta > div { background:white; padding:5px 7px; font-size:9px; }
@@ -201,7 +220,8 @@ ${schoolNameFontStyle}
   .week-heading-date { display:block; margin-top:2px; font-size:7.2px; line-height:1; color:#6d0d12; white-space:nowrap; }
   .day { white-space:nowrap; vertical-align:bottom; }
   .day small { display:block; margin-top:1px; font-size:6px; color:#555; }
-  .day-reason { display:inline-block; max-height:66px; margin-top:3px; overflow:hidden; writing-mode:vertical-rl; transform:rotate(180deg); font-size:5.5px; font-weight:700; line-height:1; letter-spacing:.01em; color:#666; white-space:nowrap; }
+  .closure-column { padding:3px 1px; text-align:center; vertical-align:middle; overflow:visible; }
+  .closure-label { display:inline-block; max-height:72mm; overflow:hidden; writing-mode:vertical-rl; transform:rotate(180deg); font-size:6.3px; font-style:normal; font-weight:700; line-height:1.1; letter-spacing:.01em; color:#555; white-space:normal; }
   .week-total { white-space:nowrap; background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
   .term-group { width:1%; white-space:nowrap; background:#fff; font-weight:800; border-left:2px solid var(--register-red); }
   .term-actual,.term-absent,.term-days { white-space:nowrap; font-weight:800; }
@@ -244,24 +264,22 @@ ${schoolNameFontStyle}
 <body>
 <div class="toolbar"><button onclick="window.print()">Print / Save PDF</button></div>
 <main class="sheet">
-  <header class="school-header">
-    <div>${header.logoUrl ? `<img src="${escapeHtml(header.logoUrl)}" alt="" />` : ""}</div>
-    <div>
-      <div class="${schoolNameClass}">${escapeHtml(header.schoolName)}</div>
-      <div class="school-contact">${header.contactLines.map((line) => escapeHtml(line.text)).join(" · ")}${header.postalLines.length ? `<br>${header.postalLines.map(escapeHtml).join(" · ")}` : ""}</div>
-    </div>
-    <div class="doc-title">
-      <h1>${title}</h1>
-      <p><strong>${escapeHtml(document.gradeName)} · ${escapeHtml(document.className)} · ${document.academicYear}</strong></p>
-      <p>${escapeHtml(subtitle)}</p>
-    </div>
-  </header>
-  <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span>Grey = non-teaching / inactive; governed holiday or closure name appears in the date column</span></div>
   ${document.sections.map((section) => {
     const panels = document.weeks.length > 3
       ? Array.from({ length: Math.ceil(document.weeks.length / 3) }, (_, i) => document.weeks.slice(i * 3, (i + 1) * 3))
       : [document.weeks];
-    return panels.map((weeks, i) => sectionHtml(document, section, weeks, i + 1, panels.length)).join("");
+    const learnerChunks = section.learners.length
+      ? Array.from({ length: Math.ceil(section.learners.length / learnersPerPage) }, (_, i) => section.learners.slice(i * learnersPerPage, (i + 1) * learnersPerPage))
+      : [[]];
+    const pageJobs = panels.flatMap((weeks) => learnerChunks.map((learners) => ({ weeks, learners })));
+    return pageJobs.map((job, i) => sectionHtml(
+      document,
+      { ...section, learners: job.learners },
+      job.weeks,
+      i + 1,
+      pageJobs.length,
+      repeatedHeader,
+    )).join("");
   }).join("")}
 </main>
 </body>
