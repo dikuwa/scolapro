@@ -6,9 +6,11 @@ import {
   CalendarDays,
   CheckCircle2,
   FileScan,
+  Pencil,
   School,
   ShieldAlert,
   UsersRound,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -329,6 +331,7 @@ function TermCalendarProfileEditor({
         <>
           <div className="mt-3">
             <Button type="button" size="sm" variant={open ? "neutral" : "soft"} onClick={onToggle} aria-expanded={open}>
+              {open ? <X className="size-3.5" aria-hidden="true" /> : <Pencil className="size-3.5" aria-hidden="true" />}
               {open ? "Close " + term.termName : "Edit " + term.termName}
             </Button>
           </div>

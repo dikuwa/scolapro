@@ -16,7 +16,7 @@ import {
   verifyInventory,
   type RoomInventoryActionState,
 } from "@/features/room-inventory/server/actions";
-import { Boxes, ChevronDown, ChevronRight, DoorOpen, ShieldCheck, TriangleAlert, Undo2, UserRound, X } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, DoorOpen, Settings2, ShieldCheck, TriangleAlert, Undo2, UserRound, X } from "lucide-react";
 import type {
   RoomCustodianSource,
   RoomInventoryItem,
@@ -366,7 +366,7 @@ export function RoomInventoryWorkspace({
               </div>
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 <Button type="button" onClick={() => setVerifyOpen((open) => !open)}>{verifyOpen ? "Close verification" : "Verify inventory"}</Button>
-                {canAssign ? <Button type="button" variant="neutral" onClick={() => setResponsibilityOpen((open) => !open)}>{responsibilityOpen ? "Close responsibility" : "Manage responsibility"}</Button> : null}
+                {canAssign ? <Button type="button" variant="neutral" onClick={() => setResponsibilityOpen((open) => !open)}>{responsibilityOpen ? <X className="size-4" aria-hidden="true" /> : <Settings2 className="size-4" aria-hidden="true" />}{responsibilityOpen ? "Close responsibility" : "Manage responsibility"}</Button> : null}
                 {room.lastVerified ? (
                   <>
                     <OfficialDocumentActions

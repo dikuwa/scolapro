@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, type ButtonHTMLAttributes } from "react";
-import type { LucideIcon } from "lucide-react";
+import { Pencil, Settings2, type LucideIcon } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ export interface RecordActionButtonProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   label: string;
   icon?: LucideIcon;
+  actionKind?: "edit" | "manage";
   variant?: ButtonProps["variant"];
   compact?: boolean;
   iconOnly?: boolean;
@@ -27,7 +28,8 @@ export const RecordActionButton = forwardRef<HTMLButtonElement, RecordActionButt
   function RecordActionButton(
     {
       label,
-      icon: Icon,
+      icon,
+      actionKind,
       variant = "neutral",
       compact = true,
       iconOnly = false,
@@ -40,6 +42,7 @@ export const RecordActionButton = forwardRef<HTMLButtonElement, RecordActionButt
     },
     ref,
   ) {
+    const ResolvedIcon = icon ?? (actionKind === "edit" ? Pencil : actionKind === "manage" ? Settings2 : undefined);
     return (
       <Button
         ref={ref}
@@ -57,7 +60,7 @@ export const RecordActionButton = forwardRef<HTMLButtonElement, RecordActionButt
         )}
         {...props}
       >
-        {Icon ? <Icon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
+        {ResolvedIcon ? <ResolvedIcon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
         <span className={iconOnly ? "sr-only" : undefined}>{label}</span>
       </Button>
     );
