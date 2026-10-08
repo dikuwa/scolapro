@@ -1,9 +1,9 @@
 \set ON_ERROR_STOP on
 BEGIN;
 INSERT INTO public.subjects(tenant_id,school_id,subject_code,display_name) VALUES ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','QA-1178-M','QA Mathematics'),('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','QA-1178-S','QA Science');
-INSERT INTO public.staff_members(id,tenant_id,first_name,last_name,employee_number) VALUES ('70000000-0000-4000-8000-000000001178','11111111-1111-4111-8111-111111111111','Test','HOD','QA-1178-HOD');
-INSERT INTO public.staff_school_assignments(id,tenant_id,school_id,staff_member_id,effective_from,created_by_user_id) VALUES ('70000000-0000-4000-8000-000000001179','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','70000000-0000-4000-8000-000000001178','2026-01-01','70000000-0000-4000-8000-000000000001');
-INSERT INTO public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from) VALUES ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','70000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000001178','hod','2026-01-01');
+INSERT INTO public.staff_members(id,tenant_id,first_name,last_name,employee_number) VALUES ('70000000-0000-4000-8000-000000001178','11111111-1111-4111-8111-111111111111','Test','HOD','QA-1178-HOD'),('70000000-0000-4000-8000-000000001180','11111111-1111-4111-8111-111111111111','Second','HOD','QA-1178-HOD-2');
+INSERT INTO public.staff_school_assignments(id,tenant_id,school_id,staff_member_id,effective_from,created_by_user_id) VALUES ('70000000-0000-4000-8000-000000001179','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','70000000-0000-4000-8000-000000001178','2026-01-01','70000000-0000-4000-8000-000000000001'),('70000000-0000-4000-8000-000000001181','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','70000000-0000-4000-8000-000000001180','2026-01-01','70000000-0000-4000-8000-000000000001');
+INSERT INTO public.school_memberships(tenant_id,school_id,user_id,staff_member_id,role_key,active_from) VALUES ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','70000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000001178','hod','2026-01-01'),('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','70000000-0000-4000-8000-000000000001','70000000-0000-4000-8000-000000001180','hod','2026-02-01');
 SELECT set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000001',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
 SET LOCAL ROLE authenticated;
@@ -14,6 +14,11 @@ DO $$ DECLARE v_id uuid; v_appointment uuid; BEGIN
  SELECT public.appoint_hod_portfolio(v_id,'70000000-0000-4000-8000-000000001179','2026-10-08') INTO v_appointment;
  IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id=v_appointment)<>2 THEN RAISE EXCEPTION 'Expected two responsibility rows'; END IF;
  RAISE NOTICE 'APPOINTMENT assigned two subject scopes';
+ PERFORM public.appoint_hod_portfolio(v_id,'70000000-0000-4000-8000-000000001181','2026-10-20');
+ IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id=v_appointment AND effective_to='2026-10-19')<>2 THEN RAISE EXCEPTION 'Old authority not ended'; END IF;
+ IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id<>(v_appointment) AND effective_from='2026-10-20')<>2 THEN RAISE EXCEPTION 'Successor HOD missing'; END IF;
+ IF (SELECT count(*) FROM public.hod_portfolio_appointments WHERE portfolio_id=v_id AND effective_to='2026-10-19')<>1 THEN RAISE EXCEPTION 'Appointment history not preserved'; END IF;
+ RAISE NOTICE 'REASSIGNMENT closed prior scope and preserved history';
 END $$;
 RESET ROLE;
 UPDATE public.school_memberships SET active_to='2026-10-07' WHERE user_id='70000000-0000-4000-8000-000000000001' AND role_key='school_admin' AND school_id='22222222-2222-4222-8222-222222222222';
