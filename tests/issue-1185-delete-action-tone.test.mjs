@@ -16,3 +16,11 @@ test('Calendar uses unfilled Delete entry but filled confirmed destructive submi
   assert.match(calendar, /confirmDeleteDate === item\.date/);
   assert.match(calendar, /setConfirmDeleteDate\(null\)/);
 });
+
+const conduct = readFileSync(new URL('../src/features/conduct/policy-settings.tsx', import.meta.url), 'utf8');
+
+test('conduct policy Delete entries remain unfilled until explicit confirmation', () => {
+  assert.match(conduct, /variant="danger-ghost" size="sm" onClick=\{\(\) => setConfirmDelete\(\{ kind: "group"/);
+  assert.match(conduct, /variant="danger-ghost" size="sm" onClick=\{\(\) => setConfirmDelete\(\{ kind: "item"/);
+  assert.match(conduct, /variant="danger">Delete if unused<\/Button>/);
+});
