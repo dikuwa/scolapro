@@ -1,9 +1,9 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { LoaderCircle, Plus, TriangleAlert, X } from "lucide-react";
+import { LoaderCircle, Plus, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { CardActionToggle } from "@/components/ui/card-action-toggle";
 import { Picker } from "@/components/ui/picker";
 import type { RegisterClass } from "@/features/academics/class-management";
 import { saveGrade, saveRegisterClass, type AcademicStructureState } from "@/features/academics/server/actions";
@@ -67,27 +67,23 @@ export function AcademicStructureForms({
   return (
     <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
       <section className="flex min-h-[10rem] flex-col rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="scolapro-section-title">Add or update grade</h2>
           <p className="scolapro-section-description">
             Grades belong to this school and academic year. Use short, stable uppercase codes such as G8, G9 or G10.
           </p>
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button
-            type="button"
-            variant="soft"
-            size="sm"
-            aria-expanded={openPanel === "grade"}
-            onClick={() => setOpenPanel((current) => current === "grade" ? null : "grade")}
-          >
-            {openPanel === "grade" ? <X className="size-3.5" aria-hidden="true" /> : <Plus className="size-3.5" aria-hidden="true" />}
-            {openPanel === "grade" ? "Close" : "Add / update grade"}
-          </Button>
+        <CardActionToggle
+          action="add"
+          open={openPanel === "grade"}
+          controls="academic-grade-form"
+          onClick={() => setOpenPanel((current) => current === "grade" ? null : "grade")}
+        />
         </div>
 
         {openPanel === "grade" ? (
-          <form action={gradeAction} className="mt-4 space-y-4 border-t border-border-subtle pt-4" noValidate>
+          <form id="academic-grade-form" action={gradeAction} className="mt-4 space-y-4 border-t border-border-subtle pt-4" noValidate>
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="academicYear" value={academicYear} />
             <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
@@ -115,27 +111,23 @@ export function AcademicStructureForms({
       </section>
 
       <section className="flex min-h-[10rem] flex-col rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="scolapro-section-title">Add register class</h2>
           <p className="scolapro-section-description">
             Register classes belong to one configured grade and are reused by enrolment, attendance and class-teacher workflows.
           </p>
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button
-            type="button"
-            variant="soft"
-            size="sm"
-            aria-expanded={openPanel === "class"}
-            onClick={() => setOpenPanel((current) => current === "class" ? null : "class")}
-          >
-            {openPanel === "class" ? <X className="size-3.5" aria-hidden="true" /> : <Plus className="size-3.5" aria-hidden="true" />}
-            {openPanel === "class" ? "Close" : "Add register class"}
-          </Button>
+        <CardActionToggle
+          action="add"
+          open={openPanel === "class"}
+          controls="academic-class-form"
+          onClick={() => setOpenPanel((current) => current === "class" ? null : "class")}
+        />
         </div>
 
         {openPanel === "class" ? (
-          <form action={classAction} className="mt-4 space-y-4 border-t border-border-subtle pt-4" noValidate>
+          <form id="academic-class-form" action={classAction} className="mt-4 space-y-4 border-t border-border-subtle pt-4" noValidate>
             <input type="hidden" name="schoolId" value={schoolId} />
             <input type="hidden" name="academicYear" value={academicYear} />
 
