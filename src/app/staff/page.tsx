@@ -156,8 +156,14 @@ async function StaffDirectoryData({
                         <BadgeCheck className="size-3.5 shrink-0" aria-hidden="true" />
                         <span className="truncate">{humanRole(primaryPlacement)}</span>
                       </span>
+                      {row.operationalHodDesignation ? (
+                        <span className="ml-1 inline-flex items-center rounded-[var(--radius-xs)] bg-[color:var(--accent-indigo-soft)] px-2 py-1 text-[0.68rem] font-medium text-[color:var(--accent-indigo)]">
+                          {row.operationalHodDesignation.effectiveFrom <= today ? "HOD" : "HOD scheduled"}
+                        </span>
+                      ) : null}
                       <p className="mt-1 text-[0.68rem] tabular-nums text-muted-foreground">
                         From {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${row.activeFrom}T12:00:00`))}
+                        {row.operationalHodDesignation ? ` · HOD from ${row.operationalHodDesignation.effectiveFrom}` : ""}
                       </p>
                       {row.defaultRoomName ? <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{row.defaultRoomName}</p> : null}
                     </div>
