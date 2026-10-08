@@ -11,22 +11,22 @@ import { RoomManagement } from "@/features/timetable/room-management";
 import { TimetableCycleSettings } from "@/features/timetable/timetable-cycle-settings";
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
 import { getUserContext } from "@/lib/auth/get-user-context";
+import { hasAnySchoolRole, schoolLeadershipRoles } from "@/lib/auth/school-capabilities";
 import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 export default async function SchoolSetupPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/school/setup");
 
-  const leadershipRoles = new Set(["school_admin", "principal", "deputy_principal"]);
   const currentSchoolId =
     context.currentSchoolMembership?.schoolId ??
-    context.memberships.find((item) => leadershipRoles.has(item.roleKey))?.schoolId ??
+    context.memberships.find((item) => schoolLeadershipRoles.has(item.roleKey))?.schoolId ??
     null;
   if (!currentSchoolId) redirect("/");
 
   const schoolMemberships = context.memberships.filter((item) => item.schoolId === currentSchoolId);
-  const membership = schoolMemberships.find((item) => leadershipRoles.has(item.roleKey));
-  if (!membership) redirect("/");
+  const membership = schoolMemberships.find((item) => schoolLeadershipRoles.has(item.roleKey));
+  if (!membership || !hasAnySchoolRole(schoolMemberships, currentSchoolId, schoolLeadershipRoles)) redirect("/");
 
   const schoolRoleKeys = new Set(schoolMemberships.map((item) => item.roleKey));
   const canManageAcademicStructure = schoolRoleKeys.has("school_admin");

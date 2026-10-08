@@ -4,6 +4,7 @@ import test from "node:test";
 
 const setupPage = readFileSync("src/app/school/setup/page.tsx", "utf8");
 const hodActions = readFileSync("src/features/academics/server/hod-scope-actions.ts", "utf8");
+const capabilities = readFileSync("src/lib/auth/school-capabilities.ts", "utf8");
 
 test("Academic setup aggregates roles for the current school instead of trusting membership order", () => {
   assert.match(setupPage, /context\.currentSchoolMembership\?\.schoolId/);
@@ -20,9 +21,8 @@ test("School Admin capability restores full academic structure controls independ
 });
 
 test("HOD portfolio server authorization matches governed database leadership roles", () => {
-  assert.match(hodActions, /item\.roleKey === "school_admin"/);
-  assert.match(hodActions, /item\.roleKey === "principal"/);
-  assert.match(hodActions, /item\.roleKey === "deputy_principal"/);
+  assert.match(capabilities, /"school_admin", "principal", "deputy_principal"/);
+  assert.match(hodActions, /hasAnySchoolRole\(context\.memberships, schoolId, schoolLeadershipRoles\)/);
 });
 
 test("HOD portfolio exposes actionable governed validation feedback", () => {
