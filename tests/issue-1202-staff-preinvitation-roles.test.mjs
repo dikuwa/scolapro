@@ -19,8 +19,9 @@ test("verified invitation acceptance activates effective roles with identity che
   assert.match(migration,/after update of status on public.school_invitations/);
   assert.match(migration,/new.accepted_user_id is null/);
   assert.match(migration,/Accepted staff identity mismatch/);
-  assert.match(migration,/effective_from<=current_date/);
+  assert.match(migration,/greatest\(current_date,v_plan.effective_from\)/);
   assert.match(migration,/effective_to is null or effective_to>=current_date/);
+  assert.match(migration,/revoked_at is null/);
   assert.match(migration,/insert into public.school_memberships/);
   assert.match(migration,/linked_at=now\(\)/);
 });
