@@ -34,7 +34,8 @@ test("official absence counts absent only; late, excused, unknown and present ar
 test("NO_TEACHING days contribute zero possible attendances and zero absent learner-days", () => {
   // Denominator window and week cells are filtered to teaching dates.
   assert.match(summary, /const teachingDates = dates\.filter\(isTeachingDate\)/);
-  assert.match(summary, /impactByDate\.get\(day\) !== "NO_TEACHING" && !learnerCalendarRestriction/);
+  assert.match(summary, /governedDays\?\.decisionFor\(day\)\.eligible/);
+  assert.match(summary, /!learnerCalendarRestriction/);
   assert.match(summary, /week\.dates\.filter/);
 });
 
@@ -111,7 +112,7 @@ test("official view is wired into the attendance workspace behind existing roles
   assert.match(page, /requestedView === "official" \? "official"/);
   // #706 wires the selected mode (week|term) into the summary call; "week" remains
   // the default when no mode is requested (see `mode: "week" | "term"` above).
-  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, mode, date, requestedTerm \?\? null\)/);
+  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, summaryMode, date, requestedTerm \?\? null\)/);
 });
 
 test("official summary UI follows the ScolaPro design system", () => {
