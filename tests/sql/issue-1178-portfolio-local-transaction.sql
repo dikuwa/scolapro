@@ -14,6 +14,14 @@ DO $$ DECLARE v_id uuid; v_appointment uuid; BEGIN
  SELECT public.appoint_hod_portfolio(v_id,'70000000-0000-4000-8000-000000001179','2026-10-08') INTO v_appointment;
  IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id=v_appointment)<>2 THEN RAISE EXCEPTION 'Expected two responsibility rows'; END IF;
  RAISE NOTICE 'APPOINTMENT assigned two subject scopes';
+ -- A date earlier than the active appointment must not replace or shorten it.
+ BEGIN
+  PERFORM public.appoint_hod_portfolio(v_id,'70000000-0000-4000-8000-000000001181','2026-10-07');
+  RAISE EXCEPTION 'Backdated replacement was accepted';
+ EXCEPTION WHEN invalid_parameter_value THEN
+  RAISE NOTICE 'BACKDATED_REASSIGNMENT_DENIED';
+ END;
+ IF (SELECT count(*) FROM public.hod_portfolio_appointments WHERE portfolio_id=v_id)<>1 THEN RAISE EXCEPTION 'Backdated call inserted appointment'; END IF;
  PERFORM public.appoint_hod_portfolio(v_id,'70000000-0000-4000-8000-000000001181','2026-10-20');
  IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id=v_appointment AND effective_to='2026-10-19')<>2 THEN RAISE EXCEPTION 'Old authority not ended'; END IF;
  IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id<>(v_appointment) AND effective_from='2026-10-20')<>2 THEN RAISE EXCEPTION 'Successor HOD missing'; END IF;
