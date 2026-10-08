@@ -31,3 +31,11 @@ test("canonical record actions render a trailing, rotating chevron", () => {
   assert.match(action, /ChevronDown/);
   assert.match(action, /expanded && "rotate-180"/);
 });
+
+test("dense HOD manual-scope forms use progressive disclosure", () => {
+  const hod = read("src/features/academics/hod-scope-configuration.tsx");
+  assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
+  assert.match(hod, /<details className=/);
+  assert.match(hod, /group-open:rotate-180/);
+  assert.match(hod, /Current responsibility history/);
+});
