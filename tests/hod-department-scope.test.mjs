@@ -12,6 +12,7 @@ const portfolioMigration = await read(
 );
 const query = await read("src/features/academics/server/hod-scope.ts");
 const actions = await read("src/features/academics/server/hod-scope-actions.ts");
+const capabilities = await read("src/lib/auth/school-capabilities.ts");
 const panel = await read("src/features/academics/hod-scope-configuration.tsx");
 const setup = await read("src/app/school/setup/page.tsx");
 const planning = await read(
@@ -31,8 +32,9 @@ test("HOD scope configuration keeps subject responsibilities as the single autho
 });
 
 test("configuration is separate from HOD operational authority", () => {
-  assert.match(actions, /school_admin/);
-  assert.match(actions, /principal/);
+  assert.match(capabilities, /school_admin/);
+  assert.match(capabilities, /principal/);
+  assert.match(actions, /hasAnySchoolRole\(context\.memberships, schoolId, schoolLeadershipRoles\)/);
   assert.doesNotMatch(actions, /roleKey === "hod"/);
   assert.match(actions, /context\.platformMemberships\.length/);
   assert.match(migration, /user_current_school_matches/);

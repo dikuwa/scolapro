@@ -4,6 +4,7 @@ import test from "node:test";
 
 const navigation = readFileSync("src/components/shell/navigation.tsx", "utf8");
 const setupPage = readFileSync("src/app/school/setup/page.tsx", "utf8");
+const capabilities = readFileSync("src/lib/auth/school-capabilities.ts", "utf8");
 const structure = readFileSync("src/features/academics/server/structure.ts", "utf8");
 const classManagement = readFileSync("src/features/academics/class-management.tsx", "utf8");
 const actions = readFileSync("src/features/academics/server/actions.ts", "utf8");
@@ -20,7 +21,8 @@ test("all school leadership roles retain Academic setup and Responsibilities rou
 });
 
 test("Academic setup is reachable by school admin, principal and deputy principal", () => {
-  assert.match(setupPage, /\["school_admin", "principal", "deputy_principal"\]/);
+  assert.match(capabilities, /\["school_admin", "principal", "deputy_principal"\]/);
+  assert.match(setupPage, /hasAnySchoolRole\(schoolMemberships, currentSchoolId, schoolLeadershipRoles\)/);
   assert.match(setupPage, /canManageAcademicStructure = schoolRoleKeys\.has\("school_admin"\)/);
 });
 

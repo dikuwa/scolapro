@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
+import { hasAnySchoolRole, schoolLeadershipRoles } from "@/lib/auth/school-capabilities";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type HodScopeActionState = {
@@ -36,12 +37,7 @@ const endSchema = z.object({
 async function canConfigureSchool(schoolId: string) {
   const context = await getUserContext();
   if (!context.user || context.platformMemberships.length) return null;
-  const membership = context.memberships.find(
-    (item) =>
-      item.schoolId === schoolId &&
-      (item.roleKey === "school_admin" || item.roleKey === "principal" || item.roleKey === "deputy_principal"),
-  );
-  return membership ? context : null;
+  return hasAnySchoolRole(context.memberships, schoolId, schoolLeadershipRoles) ? context : null;
 }
 
 function saved(message: string): HodScopeActionState {
@@ -71,7 +67,7 @@ export async function saveHodSubjectPortfolio(
   }
 
   const context = await canConfigureSchool(schoolId);
-  if (!context?.user) return { message: "You cannot configure HOD scope for this school." };
+  if (!context?.user) return { message: "Assigning HOD portfolios requires an active School Admin, Principal or Deputy Principal role in this school. HOD authority alone covers existing assigned subjects." };
 
   const db = await createSupabaseServerClient();
   const { error } = await db.rpc("save_hod_subject_portfolio", {
@@ -129,7 +125,7 @@ export async function createHodSubjectResponsibility(
   }
 
   const context = await canConfigureSchool(schoolId);
-  if (!context?.user) return { message: "You cannot configure HOD scope for this school." };
+  if (!context?.user) return { message: "Assigning HOD portfolios requires an active School Admin, Principal or Deputy Principal role in this school. HOD authority alone covers existing assigned subjects." };
 
   const db = await createSupabaseServerClient();
   const [subjectResult, assignmentResult] = await Promise.all([
@@ -209,7 +205,7 @@ export async function endHodSubjectResponsibility(
   if (!parsed.success) return { message: "Choose a valid end date." };
 
   const context = await canConfigureSchool(parsed.data.schoolId);
-  if (!context?.user) return { message: "You cannot configure HOD scope for this school." };
+  if (!context?.user) return { message: "Assigning HOD portfolios requires an active School Admin, Principal or Deputy Principal role in this school. HOD authority alone covers existing assigned subjects." };
 
   const db = await createSupabaseServerClient();
   const { data: responsibility, error: readError } = await db
