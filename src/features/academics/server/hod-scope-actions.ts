@@ -230,3 +230,24 @@ export async function endHodSubjectResponsibility(
     ? { message: "The HOD responsibility could not be ended." }
     : saved("HOD responsibility ended. Historical provenance is retained.");
 }
+
+const unassignedPortfolioSchema = z.object({
+  schoolId: z.string().uuid(), label: z.string().trim().min(1).max(120), subjectIds: z.array(z.string().uuid()).min(1).max(100),
+});
+export async function createUnassignedHodPortfolio(_previous: HodScopeActionState, form: FormData): Promise<HodScopeActionState> {
+  const parsed = unassignedPortfolioSchema.safeParse({ schoolId: form.get("schoolId"), label: form.get("label"), subjectIds: form.getAll("subjectIds") });
+  if (!parsed.success) return { message: "Enter a portfolio name and select at least one subject." };
+  if (!(await canConfigureSchool(parsed.data.schoolId))) return { message: "Only current school leadership can create portfolios." };
+  const db = await createSupabaseServerClient();
+  const { error } = await db.rpc("create_unassigned_hod_portfolio", { p_school_id: parsed.data.schoolId, p_label: parsed.data.label, p_subject_ids: [...new Set(parsed.data.subjectIds)] });
+  return error ? { message: error.code === "23505" ? "A portfolio with this name already exists." : `Portfolio could not be created: ${error.message}` } : saved("Portfolio created. Assign an HOD when ready; no HOD authority is granted yet.");
+}
+const appointPortfolioSchema = z.object({ schoolId: z.string().uuid(), portfolioId: z.string().uuid(), assignmentId: z.string().uuid(), effectiveFrom: z.string().date() });
+export async function appointHodPortfolio(_previous: HodScopeActionState, form: FormData): Promise<HodScopeActionState> {
+  const parsed = appointPortfolioSchema.safeParse({ schoolId: form.get("schoolId"), portfolioId: form.get("portfolioId"), assignmentId: form.get("assignmentId"), effectiveFrom: form.get("effectiveFrom") });
+  if (!parsed.success) return { message: "Choose a portfolio, eligible HOD and effective date." };
+  if (!(await canConfigureSchool(parsed.data.schoolId))) return { message: "Only current school leadership can appoint HODs." };
+  const db = await createSupabaseServerClient();
+  const { error } = await db.rpc("appoint_hod_portfolio", { p_portfolio_id: parsed.data.portfolioId, p_assignment_id: parsed.data.assignmentId, p_effective_from: parsed.data.effectiveFrom });
+  return error ? { message: error.code === "42501" ? "You cannot appoint an HOD for this school." : `Appointment could not be saved: ${error.message}` } : saved("HOD appointed with effective-dated responsibility history.");
+}

@@ -43,7 +43,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
   const db = await createSupabaseServerClient();
   const today = windhoekToday();
 
-  const [subjectsResult, responsibilitiesResult, assignmentsResult, membershipsResult] = await Promise.all([
+  const [subjectsResult, responsibilitiesResult, assignmentsResult, portfoliosResult, appointmentsResult, membershipsResult] = await Promise.all([
     db
       .from("subjects")
       .select("id,subject_code,display_name")
@@ -58,6 +58,8 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .from("staff_school_assignments")
       .select("id,staff_member_id,effective_from,effective_to")
       .eq("school_id", schoolId),
+    db.from("hod_subject_portfolios").select("id,label,subject_ids,created_at").eq("school_id", schoolId).order("created_at", { ascending: false }),
+    db.from("hod_portfolio_appointments").select("id,portfolio_id,staff_assignment_id,effective_from,effective_to").eq("school_id", schoolId).order("effective_from", { ascending: false }),
     db
       .from("school_memberships")
       .select("staff_member_id,role_key,active_from,active_to")
@@ -69,7 +71,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
     subjectsResult.error ||
     responsibilitiesResult.error ||
     assignmentsResult.error ||
-    membershipsResult.error
+    membershipsResult.error || portfoliosResult.error || appointmentsResult.error
   ) {
     throw new Error("Unable to load HOD responsibility configuration.");
   }
@@ -157,5 +159,12 @@ export async function getHodScopeConfiguration(schoolId: string) {
     name: subject.display_name,
   }));
 
-  return { subjects, heads, responsibilities, today };
+  const portfolios = (portfoliosResult.data ?? []).map((portfolio) => ({
+    id: portfolio.id, label: portfolio.label, subjectIds: portfolio.subject_ids as string[],
+    appointments: (appointmentsResult.data ?? []).filter((a) => a.portfolio_id === portfolio.id).map((a) => ({
+      id: a.id, effectiveFrom: a.effective_from, effectiveTo: a.effective_to,
+      headName: staffById.get(assignments.find((item) => item.id === a.staff_assignment_id)?.staff_member_id ?? "")?.name ?? "Historical HOD",
+    })),
+  }));
+  return { subjects, heads, responsibilities, portfolios, today };
 }

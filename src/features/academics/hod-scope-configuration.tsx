@@ -7,6 +7,8 @@ import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
+  createUnassignedHodPortfolio,
+  appointHodPortfolio,
   endHodSubjectResponsibility,
   saveHodSubjectPortfolio,
   type HodScopeActionState,
@@ -46,13 +48,22 @@ export function HodScopeConfiguration({
   heads,
   responsibilities,
   today,
+  portfolios,
 }: {
   schoolId: string;
   subjects: HodScopeSubject[];
   heads: HodScopeHeadOption[];
   responsibilities: HodScopeResponsibility[];
   today: string;
+  portfolios: { id: string; label: string; subjectIds: string[]; appointments: { id: string; headName: string; effectiveFrom: string; effectiveTo: string | null }[] }[];
 }) {
+  const [portfolioLabel, setPortfolioLabel] = useState("");
+  const [portfolioId, setPortfolioId] = useState("");
+  const [portfolioHeadId, setPortfolioHeadId] = useState("");
+  const [portfolioDate, setPortfolioDate] = useState(today);
+  const [portfolioState, portfolioAction, portfolioPending] = useActionState(createUnassignedHodPortfolio, emptyState);
+  const [appointmentState, appointmentAction, appointmentPending] = useActionState(appointHodPortfolio, emptyState);
+  const [portfolioSubjectIds, setPortfolioSubjectIds] = useState<string[]>([]);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [assignmentId, setAssignmentId] = useState("");
   const [departmentLabel, setDepartmentLabel] = useState("");
@@ -134,6 +145,37 @@ export function HodScopeConfiguration({
         </div>
       </div>
 
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <form action={portfolioAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
+          <h3 className="text-sm font-semibold">Create unassigned portfolio</h3>
+          <p className="text-xs text-muted-foreground">Create a subject portfolio now; assign an HOD later. An unassigned portfolio grants no review authority.</p>
+          <ActionMessage state={portfolioState} />
+          <input type="hidden" name="schoolId" value={schoolId} />
+          <label className="block text-xs font-medium">Portfolio name
+            <input name="label" required maxLength={120} value={portfolioLabel} onChange={(e) => setPortfolioLabel(e.target.value)} placeholder="Mathematics & Science" className="scolapro-control-surface mt-1 min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm" />
+          </label>
+          <SearchableSelect label="Portfolio subjects" options={subjectOptions} placeholder="Select subjects" searchPlaceholder="Search subjects" multiple value="" selectedValues={portfolioSubjectIds} onToggle={(id) => setPortfolioSubjectIds((v) => v.includes(id) ? v.filter((x) => x !== id) : [...v,id])} />
+          {portfolioSubjectIds.map((id) => <input key={id} type="hidden" name="subjectIds" value={id} />)}
+          <Button type="submit" disabled={portfolioPending || !portfolioLabel.trim() || !portfolioSubjectIds.length} loading={portfolioPending}>Create portfolio without HOD</Button>
+        </form>
+        <form action={appointmentAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
+          <h3 className="text-sm font-semibold">Assign HOD later</h3>
+          <ActionMessage state={appointmentState} />
+          <input type="hidden" name="schoolId" value={schoolId} />
+          <Picker label="Portfolio" name="portfolioId" value={portfolioId} onChange={setPortfolioId} options={portfolios.map((p) => ({value:p.id,label:p.label}))} placeholder="Choose portfolio" />
+          <Picker label="Eligible HOD" name="assignmentId" value={portfolioHeadId} onChange={setPortfolioHeadId} options={headOptions} placeholder="Choose HOD" />
+          <DateField label="Effective from" name="effectiveFrom" value={portfolioDate} onChange={setPortfolioDate} />
+          <Button type="submit" disabled={appointmentPending || !portfolioId || !portfolioHeadId || !portfolioDate} loading={appointmentPending}>Appoint HOD</Button>
+        </form>
+      </div>
+      {portfolios.length ? <div className="mt-4 space-y-2">{portfolios.map((portfolio) => {
+        const active = portfolio.appointments.find((a) => a.effectiveFrom <= today && (!a.effectiveTo || a.effectiveTo >= today));
+        return <div key={portfolio.id} className="rounded-[var(--radius-sm)] border border-border-subtle p-3 text-sm">
+          <p className="font-semibold">{portfolio.label} · {active ? active.headName : "Unassigned"}</p>
+          <p className="text-xs text-muted-foreground">{portfolio.subjectIds.map((id) => subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
+          {portfolio.appointments.map((a) => <p key={a.id} className="text-xs text-muted-foreground">{a.headName} · {a.effectiveFrom} → {a.effectiveTo ?? "open"}</p>)}
+        </div>;
+      })}</div> : null}
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.75fr)]">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Current responsibility history</h3>

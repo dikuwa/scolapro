@@ -107,6 +107,7 @@ export default async function SchoolSetupPage() {
               subjects={hodScope.subjects}
               heads={hodScope.heads}
               responsibilities={hodScope.responsibilities}
+              portfolios={hodScope.portfolios}
               today={hodScope.today}
             />
           }
