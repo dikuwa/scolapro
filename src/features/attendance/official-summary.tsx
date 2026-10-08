@@ -357,10 +357,16 @@ function Split({ value }: { value: { boys: number; girls: number; total: number 
 }
 
 function WeekTable({ summary }: { summary: OfficialAttendanceSummary }) {
-  const weekId = summary.lastTeachingDate ? mondayFor(summary.lastTeachingDate) : null;
-  const schoolSplit = summary.classRows.reduce(
+  // Five predictable school-week columns, even for a partially reported week.
+  const monday = mondayFor(summary.scopeEnd);
+  const days = Array.from({ length: 5 }, (_, offset) => {
+    const current = new Date(`${monday}T12:00:00`);
+    current.setDate(current.getDate() + offset);
+    return { date: current.toISOString().slice(0, 10), label: ["M", "T", "W", "T", "F"][offset] };
+  });
+  const schoolSplit = (date: string) => summary.classRows.reduce(
     (total, row) => {
-      const split = weekId ? row.weekly.find((week) => week.weekId === weekId)?.absences : null;
+      const split = row.daily.find((item) => item.date === date)?.absences;
       total.boys += split?.boys ?? 0;
       total.girls += split?.girls ?? 0;
       total.total += split?.total ?? 0;
@@ -368,38 +374,46 @@ function WeekTable({ summary }: { summary: OfficialAttendanceSummary }) {
     },
     { boys: 0, girls: 0, total: 0 },
   );
+  const totalFor = (daily: { date: string; absences: { boys: number; girls: number; total: number } }[]) =>
+    daily.reduce((total, day) => ({
+      boys: total.boys + day.absences.boys,
+      girls: total.girls + day.absences.girls,
+      total: total.total + day.absences.total,
+    }), { boys: 0, girls: 0, total: 0 });
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[19rem] text-left">
+      <table className="w-full min-w-[44rem] text-left">
         <thead>
           <tr className="border-b border-border-subtle text-[0.68rem] font-semibold uppercase tracking-wide text-muted-foreground">
             <th scope="col" className="px-4 py-2.5 font-semibold sm:px-5">Register class</th>
+            {days.map((day) => (
+              <th key={day.date} scope="col" className="px-2 py-2.5 text-right font-semibold" title={day.date}>
+                <span aria-label={new Intl.DateTimeFormat("en-NA", { weekday: "long" }).format(new Date(`${day.date}T12:00:00`))}>{day.label}</span>
+              </th>
+            ))}
             <th scope="col" className="px-3 py-2.5 text-right font-semibold sm:px-5">Total absent · Boys / Girls</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-subtle">
-          {summary.classRows.map((row) => {
-            const cell = weekId ? row.weekly.find((week) => week.weekId === weekId)?.absences : null;
-            return (
-              <tr key={row.classId} className="text-sm">
-                <th scope="row" className="max-w-56 truncate px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{conciseClassLabel(row.className)}</span></th>
-                <td className="px-3 py-3 text-right sm:px-5"><Split value={cell ?? { boys: 0, girls: 0, total: 0 }} /></td>
-              </tr>
-            );
-          })}
-          {summary.gradeRows.map((row) => {
-            const cell = weekId ? row.weekly.find((week) => week.weekId === weekId)?.absences : null;
-            return (
-              <tr key={row.gradeId ?? "ungraded"} className="bg-surface-muted/35 text-sm">
-                <th scope="row" className="px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{row.gradeName} (grade total)</span></th>
-                <td className="px-3 py-3 text-right sm:px-5"><Split value={cell ?? { boys: 0, girls: 0, total: 0 }} /></td>
-              </tr>
-            );
-          })}
+          {summary.classRows.map((row) => (
+            <tr key={row.classId} className="text-sm">
+              <th scope="row" className="max-w-56 truncate px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{conciseClassLabel(row.className)}</span></th>
+              {days.map((day) => <td key={day.date} className="px-2 py-3 text-right"><Split value={row.daily.find((item) => item.date === day.date)?.absences ?? { boys: 0, girls: 0, total: 0 }} /></td>)}
+              <td className="px-3 py-3 text-right sm:px-5"><Split value={totalFor(row.daily)} /></td>
+            </tr>
+          ))}
+          {summary.gradeRows.map((row) => (
+            <tr key={row.gradeId ?? "ungraded"} className="bg-surface-muted/35 text-sm">
+              <th scope="row" className="px-4 py-3 font-medium sm:px-5"><span className="scolapro-record-title">{row.gradeName} (grade total)</span></th>
+              {days.map((day) => <td key={day.date} className="px-2 py-3 text-right"><Split value={row.daily.find((item) => item.date === day.date)?.absences ?? { boys: 0, girls: 0, total: 0 }} /></td>)}
+              <td className="px-3 py-3 text-right sm:px-5"><Split value={totalFor(row.daily)} /></td>
+            </tr>
+          ))}
           <tr className="bg-surface-muted/55 text-sm">
             <th scope="row" className="px-4 py-3 font-semibold sm:px-5"><span className="scolapro-record-title">School total</span></th>
-            <td className="px-3 py-3 text-right sm:px-5"><Split value={schoolSplit} /></td>
+            {days.map((day) => <td key={day.date} className="px-2 py-3 text-right"><Split value={schoolSplit(day.date)} /></td>)}
+            <td className="px-3 py-3 text-right sm:px-5"><Split value={totalFor(days.map((day) => ({ date: day.date, absences: schoolSplit(day.date) })))} /></td>
           </tr>
         </tbody>
       </table>
