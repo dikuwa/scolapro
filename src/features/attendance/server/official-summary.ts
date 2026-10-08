@@ -196,7 +196,8 @@ export async function getOfficialAttendanceSummary(
         term, terms,
       };
     }
-    // Keep the governed future opening date. A future term has no reportable\n    // learner-days yet; never manufacture a day before opening.\n    scopeStart = fallbackStart;
+    // A future term has no reportable days before learner opening.
+    scopeStart = fallbackStart;
   }
 
   const scopeFromDate: string = scopeStart; // narrowed non-null by the fallback above
