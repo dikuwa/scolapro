@@ -1,48 +1,41 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const core = read("src/features/academics/academic-setup-core.tsx");
-const action = read("src/components/ui/record-action-button.tsx");
-const staff = read("src/features/staff/staff-access-manager.tsx");
+const toggle = read("src/components/ui/card-action-toggle.tsx");
+const cycle = read("src/features/timetable/timetable-cycle-settings.tsx");
+const page = read("src/app/school/setup/page.tsx");
+const hod = read("src/features/academics/hod-scope-configuration.tsx");
 
-test("Academic Setup expansion follows the full-width Staff Directory inline-panel pattern", () => {
-  assert.match(core, /summary:\s*ReactNode/);
-  assert.match(core, /data-academic-setup-row=\{panel\}/);
-  assert.match(core, /className="grid min-w-0 gap-3"/);
-  assert.doesNotMatch(core, /open && "xl:grid-cols/);
-  assert.match(core, /data-academic-setup-panel=\{panel\}/);
-  assert.match(staff, /col-span-full/);
-});
-
-test("timetable, calendar and HOD editors have stable linked disclosure IDs", () => {
-  for (const id of ["workflow", "anchor", "hod"]) {
-    assert.match(core, new RegExp(`panelId="academic-setup-panel-${id}"`));
-    assert.match(core, new RegExp(`panel="${id}"`));
+test("Academic Setup keeps summary and edit surface in the same card", () => {
+  assert.match(core, /function CoreSetupCard/);
+  assert.doesNotMatch(core, /function CoreSetupRow/);
+  assert.match(core, /<CardActionToggle open=\{active\}/);
+  assert.match(core, /id=\{panelId\}/);
+  assert.match(core, /\{editor\}/);
+  assert.match(core, /\{children\}/);
+  for (const name of ["workflow", "anchor", "hod"]) {
+    assert.match(core, new RegExp(`panelId="academic-setup-panel-${name}"`));
   }
-  assert.match(core, /aria-controls=\{panelId\}/);
-  assert.match(core, /disclosure/);
-  assert.match(action, /aria-expanded=\{expanded\}/);
 });
-
-test("canonical record actions render a trailing, rotating chevron", () => {
-  assert.match(action, /disclosure\?: boolean/);
-  assert.match(action, /ChevronDown/);
-  assert.match(action, /expanded && "rotate-180"/);
+test("shared toggle is compact, accessible, and uses soft brand/danger tokens", () => {
+  assert.match(toggle, /aria-expanded=\{open\}/);
+  assert.match(toggle, /aria-controls=\{controls\}/);
+  assert.match(toggle, /open \? X/);
+  assert.match(toggle, /bg-brand-soft/);
+  assert.match(toggle, /var\(--danger\)/);
+  assert.match(toggle, /"Close"/);
+  assert.doesNotMatch(core, /Close timetable settings/);
 });
-
-test("dense HOD manual-scope forms use progressive disclosure", () => {
-  const hod = read("src/features/academics/hod-scope-configuration.tsx");
-  assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
-  assert.match(hod, /<details className=/);
-  assert.match(hod, /group-open:rotate-180/);
+test("workflow and anchor editors are independent without duplicate headings", () => {
+  assert.match(cycle, /section\?: "both" \| "workflow" \| "anchor"/);
+  assert.match(page, /section="workflow"/);
+  assert.match(page, /section="anchor"/);
+  assert.match(core, /editor=\{anchorEditor\}/);
+});
+test("HOD portfolio listing precedes editing forms", () => {
+  assert.ok(hod.indexOf("{portfolios.length ?") < hod.indexOf('<form action={portfolioAction}'));
   assert.match(hod, /Current responsibility history/);
-});
-
-test("expanded academic setup is not mistaken for a saved active configuration", () => {
-  assert.match(core, /\bEditing\b/);
-  assert.doesNotMatch(core, />\s*Active\s*</);
-  assert.match(core, /aria-controls=\{panelId\}/);
-  assert.match(core, /expanded=\{active\}/);
+  assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
 });
