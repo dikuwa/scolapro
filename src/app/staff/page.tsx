@@ -162,7 +162,7 @@ async function StaffDirectoryData({
                       {row.defaultRoomName ? <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{row.defaultRoomName}</p> : null}
                     </div>
 
-                    <StaffDirectoryRowControls schoolId={schoolId} row={row} candidates={directory.rows} />
+                    <StaffDirectoryRowControls schoolId={schoolId} row={row} candidates={directory.rows} operationalHodReady={directory.operationalHodReady} />
                   </article>
                 );
               })}
