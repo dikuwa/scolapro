@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useMemo, useState } from "react";
+import Link from "next/link";
 import { Network, Plus, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -344,7 +345,7 @@ export function HodScopeConfiguration({
 
       {!heads.length ? (
         <p className="mt-4 rounded-[var(--radius-sm)] bg-warning-soft/60 px-3 py-2 text-xs text-[color:var(--warning)]">
-          No current HOD placement is available. Assign the HOD role and an effective staff placement first.
+          No current HOD placement is available. <Link href="/staff" className="font-semibold underline underline-offset-2">Open Staff Directory → Assign HOD</Link> on an existing staff record; no login invitation is needed.
         </p>
       ) : null}
     </section>
