@@ -21,6 +21,7 @@ export function ConfigurationCard({
   summary,
   editor,
   action = "edit",
+  disabled = false,
   className,
 }: {
   icon: LucideIcon;
@@ -33,6 +34,7 @@ export function ConfigurationCard({
   summary: ReactNode;
   editor: ReactNode;
   action?: "edit" | "add";
+  disabled?: boolean;
   className?: string;
 }) {
   return (
@@ -51,7 +53,7 @@ export function ConfigurationCard({
             {description ? <p className="scolapro-section-description !mt-1">{description}</p> : null}
           </div>
         </div>
-        <CardActionToggle open={open} controls={panelId} action={action} onClick={onToggle} />
+        <CardActionToggle open={open} controls={panelId} action={action} disabled={disabled} onClick={onToggle} />
       </div>
       <div className="mt-4 border-t border-border-subtle pt-3">{summary}</div>
       {open ? (
