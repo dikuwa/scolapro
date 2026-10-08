@@ -32,7 +32,7 @@ alter table public.hod_subject_portfolios enable row level security;
 alter table public.hod_portfolio_appointments enable row level security;
 create policy "school staff view HOD portfolios" on public.hod_subject_portfolios for select to authenticated using (app_private.has_school_access(school_id));
 create policy "school staff view HOD appointments" on public.hod_portfolio_appointments for select to authenticated using (app_private.has_school_access(school_id));
--- All writes go through guarded invoker RPCs; no client table writes permitted.
+-- All writes go through explicitly authorized SECURITY DEFINER RPCs; no direct client table writes permitted.
 revoke insert,update,delete on public.hod_subject_portfolios from anon,authenticated;
 revoke insert,update,delete on public.hod_portfolio_appointments from anon,authenticated;
 create or replace function public.create_unassigned_hod_portfolio(p_school_id uuid,p_label text,p_subject_ids uuid[])
@@ -83,9 +83,6 @@ begin
 end;$$;
 -- RPCs use fixed-search-path SECURITY DEFINER to access private authorization helpers.
 -- Explicit auth.uid / current-school leadership and target validity checks protect every write.
--- Privileged RPCs own writes. Direct Data API writes must remain unavailable.
-revoke insert,update,delete on public.hod_subject_portfolios from authenticated;
-revoke insert,update,delete on public.hod_portfolio_appointments from authenticated;
 create policy "leaders create portfolios" on public.hod_subject_portfolios for insert to authenticated
 with check(created_by_user_id=auth.uid() and app_private.user_current_school_matches(auth.uid(),school_id)
  and app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal'])
