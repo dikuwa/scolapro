@@ -12,12 +12,14 @@ export function AttendanceViewTabs({
   requestedClass,
   weekDate,
   sort = "asc",
+  sexFilter = "all",
 }: {
   view: "day" | "week" | "register" | "official" | "absences";
   date: string;
   requestedClass?: string;
   weekDate: string;
   sort?: AttendanceSortDirection;
+  sexFilter?: "all" | "male" | "female";
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -29,6 +31,7 @@ export function AttendanceViewTabs({
     params.set("date", nextView === "week" || nextView === "official" ? weekDate : date);
     if (requestedClass) params.set("class", requestedClass);
     if (sort === "desc") params.set("sort", "desc");
+    if (sexFilter !== "all") params.set("sex", sexFilter);
     startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 

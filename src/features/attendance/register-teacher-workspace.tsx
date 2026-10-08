@@ -2,10 +2,11 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarRange, ChevronLeft, ChevronRight, FileText, UsersRound } from "lucide-react";
+import { CalendarRange, FileText, UsersRound } from "lucide-react";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
+import { WeekPicker } from "@/components/ui/week-picker";
 import type { AttendanceClassOption } from "@/features/attendance/server/register";
 import type { RegisterTeacherTermOption } from "@/features/attendance/server/register-teacher-document";
 
@@ -69,6 +70,7 @@ export function RegisterTeacherWorkspace({
   const selectedToWeek = toWeek && weekOptions.some((item) => item.value === toWeek)
     ? toWeek
     : selectedFromWeek;
+  const selectedWeekIndex = weekOptions.findIndex((item) => item.value === selectedFromWeek);
 
   function navigate(next: { classId?: string; mode?: "week" | "range" | "term"; termId?: string | null; date?: string; fromWeek?: string | null; toWeek?: string | null }) {
     const params = new URLSearchParams();
@@ -101,10 +103,9 @@ export function RegisterTeacherWorkspace({
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(10rem,1fr)_minmax(10rem,.8fr)_minmax(10rem,1fr)_minmax(12rem,1.25fr)_auto] xl:items-end">
             <Picker
-              label="Register class"
+              label="Class"
               name="register-teacher-class"
               value={selectedClassId ?? ""}
               onChange={(classId) => navigate({ classId })}
@@ -112,7 +113,7 @@ export function RegisterTeacherWorkspace({
               options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))}
             />
             <Picker
-              label="Document period"
+              label="Period"
               name="register-teacher-mode"
               value={mode}
               onChange={(value) => navigate({ mode: value === "term" ? "term" : value === "range" ? "range" : "week" })}
@@ -132,39 +133,34 @@ export function RegisterTeacherWorkspace({
               options={terms.map((term) => ({ value: term.id, label: term.displayName, helper: term.startsOn && term.endsOn ? `${term.startsOn} – ${term.endsOn}` : `Term ${term.termNumber} · Calendar dates required` }))}
             />
             {mode !== "term" ? (
-              <Picker
-                label={mode === "range" ? "From Week" : "Week"}
-                name="register-teacher-from-week"
-                value={selectedFromWeek ?? ""}
-                onChange={(value) => {
-                  const adjustedTo = mode === "range" && selectedToWeek && selectedToWeek < value ? value : selectedToWeek;
-                  navigate({ fromWeek: value, toWeek: adjustedTo, date: addDays(adjustedTo ?? value, 4) });
-                }}
-                placeholder="Choose week"
-                options={weekOptions}
-                disabled={!selectedTerm?.startsOn || !selectedTerm.endsOn}
-              />
+              <div className={mode === "range" ? "grid gap-2 sm:col-span-2 sm:grid-cols-2 xl:col-span-1" : ""}>
+                <Picker
+                  label={mode === "range" ? "From Week" : "Week"}
+                  name="register-teacher-from-week"
+                  value={selectedFromWeek ?? ""}
+                  onChange={(value) => {
+                    const adjustedTo = mode === "range" && selectedToWeek && selectedToWeek < value ? value : selectedToWeek;
+                    navigate({ fromWeek: value, toWeek: adjustedTo, date: addDays(adjustedTo ?? value, 4) });
+                  }}
+                  placeholder="Choose week"
+                  options={weekOptions}
+                  disabled={!selectedTerm?.startsOn || !selectedTerm.endsOn}
+                />
+                {mode === "range" ? (
+                  <Picker
+                    label="To Week"
+                    name="register-teacher-to-week"
+                    value={selectedToWeek ?? ""}
+                    onChange={(value) => navigate({ toWeek: value, date: addDays(value, 4) })}
+                    placeholder="Choose final week"
+                    options={weekOptions.filter((item) => !selectedFromWeek || item.value >= selectedFromWeek)}
+                    disabled={!selectedFromWeek}
+                  />
+                ) : null}
+              </div>
             ) : null}
-            {mode === "range" ? (
-              <Picker
-                label="To Week"
-                name="register-teacher-to-week"
-                value={selectedToWeek ?? ""}
-                onChange={(value) => navigate({ toWeek: value, date: addDays(value, 4) })}
-                placeholder="Choose final week"
-                options={weekOptions.filter((item) => !selectedFromWeek || item.value >= selectedFromWeek)}
-                disabled={!selectedFromWeek}
-              />
-            ) : null}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {mode === "week" ? <button type="button" disabled={pending || !selectedFromWeek || weekOptions[0]?.value === selectedFromWeek} onClick={() => { const value = addDays(selectedFromWeek!, -7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} aria-label="Previous register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronLeft className="size-4" /></button> : null}
-            <div className="min-w-[9.5rem] rounded-[var(--radius-xs)] bg-surface-muted px-3 py-2 text-center">
-              <p className="text-[0.62rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">Selected period</p>
-              <p className="mt-0.5 text-xs font-semibold text-foreground">{periodLabel}</p>
-            </div>
-            {mode === "week" ? <button type="button" disabled={pending || !selectedFromWeek || weekOptions.at(-1)?.value === selectedFromWeek} onClick={() => { const value = addDays(selectedFromWeek!, 7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} aria-label="Next register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronRight className="size-4" /></button> : null}
-            {pending ? <Spinner className="size-4 text-brand" /> : null}
+            <div className={`flex min-w-0 flex-col gap-1.5 sm:col-span-2 sm:flex-row sm:items-end sm:justify-end xl:col-span-1 ${mode === "term" ? "xl:col-start-4 xl:col-span-2" : ""}`}>
+              {mode === "week" ? <div className="min-w-0 flex-1"><p className="text-xs font-medium text-muted-foreground">Navigate</p><WeekPicker className="mt-1.5" valueLabel={periodLabel} onPrevious={() => { const value = weekOptions[selectedWeekIndex - 1]?.value; if (value) navigate({ fromWeek: value, date: addDays(value, 4) }); }} onNext={() => { const value = weekOptions[selectedWeekIndex + 1]?.value; if (value) navigate({ fromWeek: value, date: addDays(value, 4) }); }} previousLabel="Previous register week" nextLabel="Next register week" pending={pending} previousDisabled={selectedWeekIndex <= 0} nextDisabled={selectedWeekIndex < 0 || selectedWeekIndex >= weekOptions.length - 1} /></div> : <div className="min-w-0 flex-1"><p className="text-xs font-medium text-muted-foreground">Selected period</p><div className="mt-1.5 flex min-h-10 items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs font-semibold shadow-[var(--shadow-xs)]"><CalendarRange className="mr-2 size-4 shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{periodLabel}</span>{pending ? <Spinner className="ml-2 size-4 shrink-0 text-brand" /> : null}</div></div>}
             <OfficialDocumentActions
               previewHref={previewHref}
               previewTitle={`${selectedClass?.name ?? "Register"} · ${title}`}
@@ -174,24 +170,6 @@ export function RegisterTeacherWorkspace({
               disabled={!selectedClassId || pending}
             />
           </div>
-        </div>
-      </section>
-
-      <section className="grid gap-px overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-border-subtle sm:grid-cols-3">
-        <div className="bg-surface p-4 sm:p-5">
-          <p className="text-xs font-medium text-muted-foreground">Friday submission readiness</p>
-          <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-foreground">{weeklySubmittedDays}/{weeklyExpectedDays}</p>
-          <p className="mt-1 text-[0.7rem] text-muted-foreground">Teaching-day registers confirmed for the selected week.</p>
-        </div>
-        <div className="bg-surface p-4 sm:p-5">
-          <p className="text-xs font-medium text-muted-foreground">Selected document</p>
-          <p className="mt-1.5 text-sm font-semibold text-brand-strong">{selectedClass?.name ?? "No register class"} · {title}</p>
-          <p className="mt-1 text-[0.7rem] text-muted-foreground">Boys and Girls print as separate physical-register sections.</p>
-        </div>
-        <div className="bg-surface p-4 sm:p-5">
-          <p className="text-xs font-medium text-muted-foreground">Balance rule</p>
-          <p className="mt-1.5 text-sm font-semibold text-foreground">Attendance + absence = possible</p>
-          <p className="mt-1 text-[0.7rem] text-muted-foreground">Possible attendance follows governed school days and enrolment dates.</p>
         </div>
       </section>
 
@@ -205,22 +183,12 @@ export function RegisterTeacherWorkspace({
             </div>
           </div>
         </div>
-        <div className="grid gap-px bg-border-subtle sm:grid-cols-3">
-          <div className="bg-surface p-4 sm:p-5">
-            <p className="text-xs font-medium text-muted-foreground">Present mark</p>
-            <p className="mt-2 font-sans text-3xl font-medium italic text-foreground">I</p>
-            <p className="mt-1 text-[0.7rem] text-muted-foreground">Sans-serif italic — no serifs.</p>
-          </div>
-          <div className="bg-surface p-4 sm:p-5">
-            <p className="text-xs font-medium text-muted-foreground">Absent mark</p>
-            <p className="mt-2 font-sans text-3xl font-medium italic text-[color:var(--danger)]">a</p>
-            <p className="mt-1 text-[0.7rem] text-muted-foreground">An absence changes only that learner/day cell.</p>
-          </div>
-          <div className="bg-surface p-4 sm:p-5">
-            <p className="text-xs font-medium text-muted-foreground">Automatic balancing</p>
-            <div className="mt-2 flex items-center gap-2"><CalendarRange className="size-5 text-brand" aria-hidden="true" /><UsersRound className="size-5 text-brand" aria-hidden="true" /></div>
-            <p className="mt-2 text-[0.7rem] leading-5 text-muted-foreground">Non-teaching days and learner enrolment boundaries are excluded automatically from possible attendance.</p>
-          </div>
+        <div className="flex flex-col gap-3 bg-surface px-4 py-4 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:px-5">
+          <div className="flex items-center gap-2"><span className="font-medium text-muted-foreground">Readiness</span><strong className="text-foreground">{weeklySubmittedDays}/{weeklyExpectedDays} days</strong></div>
+          <span className="hidden h-4 w-px bg-border-subtle sm:block" aria-hidden="true" />
+          <div className="flex items-center gap-2"><span className="font-medium text-muted-foreground">Marks</span><strong className="font-sans text-base font-medium italic text-foreground">I</strong><span>present</span><strong className="font-sans text-base font-medium italic text-[color:var(--danger)]">a</strong><span>absent</span></div>
+          <span className="hidden h-4 w-px bg-border-subtle sm:block" aria-hidden="true" />
+          <div className="flex min-w-0 items-center gap-2"><CalendarRange className="size-4 shrink-0 text-brand" aria-hidden="true" /><UsersRound className="size-4 shrink-0 text-brand" aria-hidden="true" /><span className="text-muted-foreground">Attendance + absence = possible; governed days and enrolment dates are applied automatically.</span></div>
         </div>
       </section>
     </div>
