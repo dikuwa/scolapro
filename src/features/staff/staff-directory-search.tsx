@@ -15,7 +15,6 @@ export function StaffDirectorySearch({ initialQuery }: { initialQuery: string })
   const [pending, startTransition] = useTransition();
   const latestQuery = useRef(query);
   const lastNavigatedQuery = useRef(initialQuery);
-  latestQuery.current = query;
 
   useEffect(() => {
     const normalized = query.trim().replace(/\s+/g, " ");
@@ -40,7 +39,7 @@ export function StaffDirectorySearch({ initialQuery }: { initialQuery: string })
         <input
           type="search"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => { latestQuery.current = event.target.value; setQuery(event.target.value); }}
           placeholder="Type a name, surname or employee number…"
           autoComplete="off"
           aria-label="Search school staff as you type"
