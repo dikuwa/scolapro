@@ -4,6 +4,7 @@ import test from "node:test";
 
 const summary = readFileSync(new URL("../src/features/attendance/official-summary.tsx", import.meta.url), "utf8");
 const register = readFileSync(new URL("../src/features/attendance/server/render-register-teacher-html.ts", import.meta.url), "utf8");
+const server = readFileSync(new URL("../src/features/attendance/server/official-summary.ts", import.meta.url), "utf8");
 
 test("weekly uses the term summary's compact total and sex breakdown", () => {
   assert.match(summary, /function Split\(/);
@@ -39,4 +40,12 @@ test("register panels retain school context, names, boys girls and totals", () =
   assert.match(register, /learnerIdentityCells\(section, index\)/);
   assert.match(register, /totalsRow\("Total number of possible attendances"/);
   assert.match(register, /@page \{ size:A3 landscape; margin:8mm; \}/);
+});
+
+test("term class splits sum all authoritative class-date buckets through weeks", () => {
+  assert.match(server, /for \(const split of classWeekly\.get\(item\.id\)\?\.values\(\) \?\? \[\]\)/);
+  assert.match(server, /total\.boys \+= split\.boys/);
+  assert.match(server, /total\.girls \+= split\.girls/);
+  assert.match(server, /total\.total \+= split\.total/);
+  assert.doesNotMatch(server, /absentByClassDate\.get\(item\.id\)/);
 });
