@@ -99,3 +99,9 @@ test("historical term summary stops at its official term closing date", () => {
   assert.match(server, /rangeDates\(scopeFromDate, scopeEndDate\)/);
   assert.match(server, /scopeEnd: scopeEndDate/);
 });
+
+test("future terms remain empty rather than borrowing an earlier attendance date", () => {
+  assert.match(server, /scopeStart = fallbackStart;/);
+  assert.match(server, /scopeFromDate <= scopeEndDate \? rangeDates\(scopeFromDate, scopeEndDate\) : \[\]/);
+  assert.doesNotMatch(server, /scopeStart = fallbackStart > date \? date : fallbackStart/);
+});
