@@ -4,11 +4,10 @@ import type { LucideIcon } from "lucide-react";
 import { CalendarDays, CalendarRange, Network } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { RecordActionButton } from "@/components/ui/record-action-button";
+import { CardActionToggle } from "@/components/ui/card-action-toggle";
 import { cn } from "@/lib/utils";
 
 type ActivePanel = "workflow" | "anchor" | "hod" | null;
-type ActionKind = "edit" | "manage";
 
 function SummaryMetric({
   label,
@@ -31,106 +30,49 @@ function CoreSetupCard({
   title,
   description,
   active,
-  actionKind,
-  actionLabel,
-  closeLabel,
   onToggle,
   panelId,
   children,
+  editor,
 }: {
   icon: LucideIcon;
   tone: string;
   title: string;
   description: string;
   active: boolean;
-  actionKind: ActionKind;
-  actionLabel: string;
-  closeLabel: string;
   onToggle: () => void;
   panelId: string;
   children: ReactNode;
+  editor: ReactNode;
 }) {
   return (
     <article
       className={cn(
-        "flex min-h-[11.5rem] flex-col rounded-[var(--radius-md)] border bg-surface-elevated p-4 shadow-[var(--shadow-xs)] transition",
+        "rounded-[var(--radius-md)] border bg-surface-elevated p-4 shadow-[var(--shadow-xs)] transition",
         active
           ? "border-[color:var(--brand)]/45 ring-4 ring-[color:var(--brand-soft)]/70"
           : "border-border-subtle",
       )}
     >
-      <div className={cn("grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)] md:items-start")}>
+      <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span className={cn(tone, "grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]")}>
             <Icon className="size-4" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-              {active ? (
-                <span className="rounded-[var(--radius-xs)] bg-brand-soft px-2 py-0.5 text-[0.62rem] font-semibold text-brand-strong">
-                  Editing
-                </span>
-              ) : null}
-            </div>
+            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
             <p className="scolapro-section-description !mt-1">{description}</p>
           </div>
         </div>
-        <div
-          className={cn(
-            "grid gap-4 border-t border-border-subtle pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0",
-          )}
-        >
-          {children}
-        </div>
+        <CardActionToggle open={active} controls={panelId} onClick={onToggle} />
       </div>
-
-      <div className="mt-auto flex justify-end pt-4">
-        <RecordActionButton
-          label={active ? closeLabel : actionLabel}
-          actionKind={actionKind}
-          disclosure
-          aria-controls={panelId}
-          variant="soft"
-          compact={false}
-          expanded={active}
-          onClick={onToggle}
-          className="min-h-9 px-3 text-xs"
-        />
-      </div>
-    </article>
-  );
-}
-
-/**
- * Canonical balanced expansion: the summary stays full width and its editor
- * occupies the next full-width row. Never strand a short summary beside a
- * tall configuration form.
- */
-function CoreSetupRow({
-  summary,
-  editor,
-  open,
-  panel,
-}: {
-  summary: ReactNode;
-  editor: ReactNode;
-  open: boolean;
-  panel: "workflow" | "anchor" | "hod";
-}) {
-  return (
-    <div className="grid min-w-0 gap-3" data-academic-setup-row={panel}>
-      {summary}
-      {open ? (
-        <div
-          id={`academic-setup-panel-${panel}`}
-          className="min-w-0 [&>section]:mt-0"
-          data-academic-setup-panel={panel}
-        >
+      <div className="mt-4 border-t border-border-subtle pt-3">{children}</div>
+      {active ? (
+        <div id={panelId} className="mt-4 border-t border-border-subtle pt-4 [&>section]:mt-0 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none" data-academic-setup-panel={panelId}>
           {editor}
         </div>
       ) : null}
-    </div>
+    </article>
   );
 }
 
@@ -142,6 +84,7 @@ export function AcademicSetupCore({
   rotating,
   hodScopeCount,
   timetableEditor,
+  anchorEditor,
   hodEditor,
 }: {
   timetableModeLabel: string;
@@ -151,6 +94,7 @@ export function AcademicSetupCore({
   rotating: boolean;
   hodScopeCount: number;
   timetableEditor: ReactNode;
+  anchorEditor: ReactNode;
   hodEditor: ReactNode;
 }) {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
@@ -169,37 +113,23 @@ export function AcademicSetupCore({
       </div>
 
       <div className="mt-4 space-y-3">
-        <CoreSetupRow
-          open={activePanel === "workflow"}
-          panel="workflow"
-          editor={timetableEditor}
-          summary={
-            <CoreSetupCard
+        <CoreSetupCard
               icon={CalendarRange}
               tone="scolapro-tone-sky"
               title="Timetable workflow"
               description="Choose whether this school uses weekday names or a numbered rotating timetable cycle."
               active={activePanel === "workflow"}
-              actionKind="edit"
-              actionLabel="Edit timetable settings"
-              closeLabel="Close timetable settings"
               panelId="academic-setup-panel-workflow"
+              editor={timetableEditor}
               onToggle={() => toggle("workflow")}
             >
               <div className="grid grid-cols-2 gap-4">
                 <SummaryMetric label="Day system" value={timetableModeLabel} />
                 <SummaryMetric label="Cycle length" value={`${cycleLength} day${cycleLength === 1 ? "" : "s"}`} />
               </div>
-            </CoreSetupCard>
-          }
-        />
+        </CoreSetupCard>
 
-        <CoreSetupRow
-          open={activePanel === "anchor"}
-          panel="anchor"
-          editor={timetableEditor}
-          summary={
-            <CoreSetupCard
+        <CoreSetupCard
               icon={CalendarDays}
               tone="scolapro-tone-mint"
               title="Calendar anchor"
@@ -209,44 +139,31 @@ export function AcademicSetupCore({
                   : "Weekday timetables use real weekday labels and do not require a rotating-cycle anchor."
               }
               active={activePanel === "anchor"}
-              actionKind="edit"
-              actionLabel="Edit calendar anchor"
-              closeLabel="Close calendar settings"
               panelId="academic-setup-panel-anchor"
+              editor={anchorEditor}
               onToggle={() => toggle("anchor")}
             >
               <div className="grid grid-cols-2 gap-4">
                 <SummaryMetric label="Known school date" value={rotating ? (anchorDate ?? "Not configured") : "Not required"} />
                 <SummaryMetric label="Cycle day" value={rotating && anchorDay ? `Day ${anchorDay}` : rotating ? "Not configured" : "Weekday"} />
               </div>
-            </CoreSetupCard>
-          }
-        />
+        </CoreSetupCard>
 
-        <CoreSetupRow
-          open={activePanel === "hod"}
-          panel="hod"
-          editor={hodEditor}
-          summary={
-            <CoreSetupCard
+        <CoreSetupCard
               icon={Network}
               tone="scolapro-tone-brand"
               title="HOD teaching scope"
               description="Assign explicit subject responsibilities to HODs."
               active={activePanel === "hod"}
-              actionKind="manage"
-              actionLabel="Manage HOD responsibilities"
-              closeLabel="Close HOD responsibilities"
               panelId="academic-setup-panel-hod"
+              editor={hodEditor}
               onToggle={() => toggle("hod")}
             >
               <SummaryMetric
                 label="Configured"
                 value={`${hodScopeCount} HOD scope${hodScopeCount === 1 ? "" : "s"}`}
               />
-            </CoreSetupCard>
-          }
-        />
+        </CoreSetupCard>
       </div>
     </section>
   );
