@@ -30,3 +30,12 @@ test("school admin may preassign roles without providing email", () => {
   assert.match(ui,/Preassign role/);
   assert.match(ui,/Role remains inactive until/);
 });
+
+test("planned roles are displayed and revocable before account creation", () => {
+  const directory = read("src/features/staff/server/directory.ts");
+  assert.match(migration, /create or replace function public.list_staff_planned_roles/);
+  assert.match(directory, /plannedRoles: row.staff_id/);
+  assert.match(ui, /row.plannedRoles.map/);
+  assert.match(ui, /endPlannedStaffSchoolRole/);
+  assert.match(actions, /export async function endPlannedStaffSchoolRole/);
+});
