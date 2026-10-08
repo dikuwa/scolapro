@@ -2,11 +2,12 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, ImagePlus, LoaderCircle, Save, School, Trash2 } from "lucide-react";
+import { FileText, ImagePlus, LoaderCircle, Save, School, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import {
   saveReportCardSchoolSettings,
   saveReportCardSubjectSetting,
@@ -160,14 +161,23 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   return (
     <section className="mt-5 space-y-5">
       <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${documentOpen ? "border-b border-border-subtle pb-4" : ""}`}>
+        <div className={documentOpen ? "border-b border-border-subtle pb-4" : ""}>
           <div className="flex items-start gap-3">
             <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span>
-            <div><h2 className="scolapro-section-title">Report card & document identity</h2><p className="scolapro-section-description">These values belong to {schoolName}. They are frozen into each generated report so historical certified cards do not change when settings are edited later.</p></div>
+            <div className="min-w-0"><h2 className="scolapro-section-title">Report card & document identity</h2><p className="scolapro-section-description">These values belong to {schoolName}. They are frozen into each generated report so historical certified cards do not change when settings are edited later.</p></div>
           </div>
-          <button type="button" aria-expanded={documentOpen} onClick={() => setDocumentOpen((current) => !current)} className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
-            {documentOpen ? "Close" : "Edit document settings"}
-          </button>
+          <div className="mt-4 flex justify-end">
+            <RecordActionButton
+              label={documentOpen ? "Close" : "Edit document settings"}
+              icon={documentOpen ? X : undefined}
+              actionKind={documentOpen ? undefined : "edit"}
+              variant="soft"
+              compact={false}
+              expanded={documentOpen}
+              onClick={() => setDocumentOpen((current) => !current)}
+              className="min-h-9 px-3 text-xs"
+            />
+          </div>
         </div>
         {documentOpen ? <form action={action} className="mt-5 space-y-5" noValidate>
           <input type="hidden" name="schoolId" value={schoolId} />
@@ -226,14 +236,23 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
       </div>
 
       <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${subjectsOpen ? "border-b border-border-subtle pb-4" : ""}`}>
+        <div className={subjectsOpen ? "border-b border-border-subtle pb-4" : ""}>
           <div className="flex items-start gap-3">
             <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><School className="size-4" aria-hidden="true" /></span>
-            <div><h2 className="scolapro-section-title">Subject report rules</h2><p className="scolapro-section-description">Set each subject&apos;s minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark.</p></div>
+            <div className="min-w-0"><h2 className="scolapro-section-title">Subject report rules</h2><p className="scolapro-section-description">Set each subject&apos;s minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark.</p></div>
           </div>
-          <button type="button" aria-expanded={subjectsOpen} onClick={() => setSubjectsOpen((current) => !current)} className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
-            {subjectsOpen ? "Close" : "Manage subject rules"}
-          </button>
+          <div className="mt-4 flex justify-end">
+            <RecordActionButton
+              label={subjectsOpen ? "Close" : "Manage subject rules"}
+              icon={subjectsOpen ? X : undefined}
+              actionKind={subjectsOpen ? undefined : "manage"}
+              variant="soft"
+              compact={false}
+              expanded={subjectsOpen}
+              onClick={() => setSubjectsOpen((current) => !current)}
+              className="min-h-9 px-3 text-xs"
+            />
+          </div>
         </div>
         {subjectsOpen ? (settings.subjects.length ? (
           <div className="mt-2">

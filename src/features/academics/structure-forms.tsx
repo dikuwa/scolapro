@@ -65,20 +65,19 @@ export function AcademicStructureForms({
   }, [classState]);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-2 xl:items-start">
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="scolapro-section-title">Add or update grade</h2>
-            <p className="scolapro-section-description">
-              Grades belong to this school and academic year. Use short, stable uppercase codes such as G8, G9 or G10.
-            </p>
-          </div>
+    <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+      <section className="flex min-h-[10rem] flex-col rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="min-w-0 flex-1">
+          <h2 className="scolapro-section-title">Add or update grade</h2>
+          <p className="scolapro-section-description">
+            Grades belong to this school and academic year. Use short, stable uppercase codes such as G8, G9 or G10.
+          </p>
+        </div>
+        <div className="mt-4 flex justify-end">
           <Button
             type="button"
             variant="soft"
             size="sm"
-            className="shrink-0"
             aria-expanded={openPanel === "grade"}
             onClick={() => setOpenPanel((current) => current === "grade" ? null : "grade")}
           >
@@ -115,19 +114,18 @@ export function AcademicStructureForms({
         ) : null}
       </section>
 
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h2 className="scolapro-section-title">Add register class</h2>
-            <p className="scolapro-section-description">
-              Register classes belong to one configured grade and are reused by enrolment, attendance and class-teacher workflows.
-            </p>
-          </div>
+      <section className="flex min-h-[10rem] flex-col rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="min-w-0 flex-1">
+          <h2 className="scolapro-section-title">Add register class</h2>
+          <p className="scolapro-section-description">
+            Register classes belong to one configured grade and are reused by enrolment, attendance and class-teacher workflows.
+          </p>
+        </div>
+        <div className="mt-4 flex justify-end">
           <Button
             type="button"
             variant="soft"
             size="sm"
-            className="shrink-0"
             aria-expanded={openPanel === "class"}
             onClick={() => setOpenPanel((current) => current === "class" ? null : "class")}
           >

@@ -122,7 +122,7 @@ export default async function SchoolSetupPage() {
           </div>
         ) : null}
 
-        <div className={`mt-5 grid gap-5 ${canManageAcademicStructure ? "xl:grid-cols-2" : ""} xl:items-start`}>
+        <div className={`mt-5 grid gap-5 ${canManageAcademicStructure ? "lg:grid-cols-2" : ""} lg:items-start`}>
           <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
             <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4">
               <div>

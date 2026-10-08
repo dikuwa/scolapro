@@ -1,10 +1,12 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { recordPayment, savePaymentSettings, searchFinanceLearners, type FinanceActionState } from "@/features/finance/server/actions";
 import type { FinanceLearner, FinancePayment, SchoolPaymentSettings } from "@/features/finance/server/queries";
 
@@ -28,14 +30,21 @@ export function PaymentSettingsForm({ schoolId, settings }: { schoolId: string; 
 
   return (
     <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="scolapro-section-title">Banking & payment details</h2>
-          <p className="scolapro-section-description">Payer-safe instructions only. Never enter banking passwords, PINs or online-banking credentials.</p>
-        </div>
-        <Button type="button" variant="soft" size="sm" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
-          {open ? "Close" : "Edit banking details"}
-        </Button>
+      <div>
+        <h2 className="scolapro-section-title">Banking & payment details</h2>
+        <p className="scolapro-section-description">Payer-safe instructions only. Never enter banking passwords, PINs or online-banking credentials.</p>
+      </div>
+      <div className="mt-4 flex justify-end">
+        <RecordActionButton
+          label={open ? "Close" : "Edit banking details"}
+          icon={open ? X : undefined}
+          actionKind={open ? undefined : "edit"}
+          variant="soft"
+          compact={false}
+          expanded={open}
+          onClick={() => setOpen((current) => !current)}
+          className="min-h-9 px-3 text-xs"
+        />
       </div>
       {open ? (
         <form action={action} className="mt-4 border-t border-border-subtle pt-4">

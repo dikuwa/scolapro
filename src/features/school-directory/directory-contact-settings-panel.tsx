@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { LoaderCircle, Save } from "lucide-react";
+import { ContactRound, LoaderCircle, Save, X } from "lucide-react";
 import { toast } from "sonner";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { saveSchoolDirectoryContact, type SchoolDirectorySettingsState } from "@/features/school-directory/server/settings-actions";
 
 const initialState: SchoolDirectorySettingsState = {};
@@ -26,22 +27,26 @@ export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPu
 
   return (
     <div className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className={`flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ${open ? "border-b border-border-subtle pb-4" : ""}`}>
+      <div className={open ? "border-b border-border-subtle pb-4" : ""}>
         <div className="flex items-start gap-3">
-          <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Save className="size-4" aria-hidden="true" /></span>
-          <div>
+          <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><ContactRound className="size-4" aria-hidden="true" /></span>
+          <div className="min-w-0">
             <h2 className="scolapro-section-title">School Directory contact</h2>
             <p className="scolapro-section-description">Public directory fields shown to authenticated ScolaPro schools. Telephone, fax, school email and addresses keep their existing canonical fields above.</p>
           </div>
         </div>
-        <button
-          type="button"
-          aria-expanded={open}
-          onClick={() => setOpen((current) => !current)}
-          className="scolapro-cta inline-flex min-h-9 shrink-0 items-center justify-center bg-brand-soft px-3 text-xs font-semibold text-brand-strong"
-        >
-          {open ? "Close" : "Edit contact"}
-        </button>
+        <div className="mt-4 flex justify-end">
+          <RecordActionButton
+            label={open ? "Close" : "Edit contact"}
+            icon={open ? X : undefined}
+            actionKind={open ? undefined : "edit"}
+            variant="soft"
+            compact={false}
+            expanded={open}
+            onClick={() => setOpen((current) => !current)}
+            className="min-h-9 px-3 text-xs"
+          />
+        </div>
       </div>
       <form action={action} className={open ? "mt-5 grid gap-4 md:grid-cols-2" : "hidden"} noValidate aria-hidden={!open}>
         <input type="hidden" name="schoolId" value={schoolId} />
