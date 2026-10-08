@@ -33,6 +33,7 @@ function CoreSetupCard({
   panelId,
   children,
   editor,
+  disabled = false,
 }: {
   icon: LucideIcon;
   tone: string;
@@ -43,6 +44,7 @@ function CoreSetupCard({
   panelId: string;
   children: ReactNode;
   editor: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <ConfigurationCard
@@ -55,6 +57,7 @@ function CoreSetupCard({
       panelId={panelId}
       summary={children}
       editor={editor}
+      disabled={disabled}
     />
   );
 }
@@ -126,6 +129,7 @@ export function AcademicSetupCore({
               active={activePanel === "anchor"}
               panelId="academic-setup-panel-anchor"
               editor={anchorEditor}
+              disabled={!rotating}
               onToggle={() => toggle("anchor")}
             >
               <div className="grid grid-cols-2 gap-4">
