@@ -100,10 +100,10 @@ test("register term totals are a permanent three-column calendar-governed block"
   assert.match(renderer, />Days<\/th>/);
   assert.match(model, /termTeachingDayCount/);
   assert.match(model, /p_from: termStart, p_to: termEnd/);
-  assert.match(model, /termDays: termTeachingDayCount/);
+  assert.match(model, /termDays: termPossible/);
   assert.match(model, /termAttendanceTotal/);
   assert.match(model, /termAbsenceTotal/);
-  assert.match(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);
+  assert.match(model, /termPossibleTotal: learners\.reduce\(\(sum, learner\) => sum \+ learner\.termDays, 0\)/);
 });
 
 test("all absentee summary values and learner term absences render red", () => {
@@ -133,11 +133,31 @@ test("register non-teaching columns display governed calendar reasons", () => {
   assert.match(renderer, /writing-mode:vertical-rl/);
 });
 
-test("register operational columns stay compact while identity columns absorb width", () => {
-  assert.match(renderer, /table-layout:auto/);
-  assert.match(renderer, /min-width:max-content/);
-  assert.match(renderer, /\.day \{ width:1%; min-width:22px/);
-  assert.match(renderer, /\.mark \{ width:1%; min-width:22px/);
-  assert.match(renderer, /\.term-actual,\.term-absent,\.term-days \{ width:1%;/);
-  assert.doesNotMatch(renderer, /table-layout:fixed/);
+test("register attendance columns remain compact within fixed paper geometry", () => {
+  assert.match(renderer, /table-layout:fixed/);
+  assert.match(renderer, /min-width:0; border-collapse:collapse/);
+  assert.match(renderer, /const dayWidth = attendanceColumns \? 42 \/ attendanceColumns : 42/);
+  assert.match(renderer, /<colgroup>\$\{columns\}<\/colgroup>/);
+  assert.match(renderer, /\.identity\.surname \{ overflow-wrap:anywhere/);
+  assert.match(renderer, /\.identity\.given \{ overflow-wrap:anywhere/);
+  assert.match(renderer, /\.register-section \{ margin-top:18px; break-after:page; overflow:visible/);
+  assert.doesNotMatch(renderer, /min-width:max-content/);
+});
+
+test("printed term balance respects each learner's actual enrolment window", () => {
+  assert.match(model, /let termPossible = 0/);
+  assert.match(model, /if \(!isActiveOn\(String\(item\.enrolled_from\)/);
+  assert.match(model, /termPossible \+= 1/);
+  assert.match(model, /const termAttended = termPossible - termAbsent/);
+  assert.match(model, /termDays: termPossible/);
+  assert.match(model, /termPossibleTotal: learners\.reduce\(\(sum, learner\) => sum \+ learner\.termDays, 0\)/);
+  assert.doesNotMatch(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);
+});
+
+test("printed registers use official learner term boundaries rather than teacher boundaries", () => {
+  assert.match(model, /list_academic_term_calendar_summary/);
+  assert.match(model, /item\.academic_term_id === term\.id/);
+  assert.match(model, /const termStart = learnerTerm\?\.learner_starts_on \?\? term\?\.startsOn/);
+  assert.match(model, /const termEnd = learnerTerm\?\.learner_ends_on \?\? term\?\.endsOn/);
+  assert.match(model, /impactByDate\.get\(date\) !== "NO_TEACHING"/);
 });

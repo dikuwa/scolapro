@@ -33,7 +33,8 @@ test("official absence counts absent only; late, excused, unknown and present ar
 
 test("NO_TEACHING days contribute zero possible attendances and zero absent learner-days", () => {
   // Denominator window and week cells are filtered to teaching dates.
-  assert.match(summary, /dates\.filter\(\(day\) => impactByDate\.get\(day\) !== "NO_TEACHING"\)/);
+  assert.match(summary, /const teachingDates = dates\.filter\(isTeachingDate\)/);
+  assert.match(summary, /impactByDate\.get\(day\) !== "NO_TEACHING" && !learnerCalendarRestriction/);
   assert.match(summary, /week\.dates\.filter/);
 });
 
@@ -99,7 +100,8 @@ test("term view provides week 1..N with B/G/Total by class and grade plus weekly
   assert.match(summary, /weekly: \{ weekId: string; weekLabel: string; absences: OfficialSexSplit \}\[\]/);
   assert.match(summary, /OfficialSummaryGradeRow/);
   assert.match(summary, /OfficialSexSplit = \{ boys: number; girls: number; total: number \}/);
-  assert.match(summary, /weekLabel: `Week \$\{weeks\.length \+ 1\}`/);
+  assert.match(summary, /weekLabel: `Week \$\{termWeekNumber\}`/);
+  assert.match(summary, /openingMonday = mondayFor\(term\?\.startsOn \?\? scopeFromDate\)/);
   assert.match(component, /Term summary/);
   assert.match(component, /weekLabel/);
 });
