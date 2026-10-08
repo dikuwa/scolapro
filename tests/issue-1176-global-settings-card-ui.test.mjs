@@ -36,18 +36,18 @@ test("core academic setup keeps one full-width summary per workflow with editor 
   assert.match(academicCore, /className="mt-4 space-y-3"/);
   assert.match(academicCore, /function CoreSetupRow/);
   assert.match(academicCore, /className="grid min-w-0 gap-3"/);
-  assert.doesNotMatch(academicCore, /xl:grid-cols-\\[minmax\\(20rem,0\\.8fr\\)_minmax\\(0,1\\.2fr\\)\\]/);
+  assert.doesNotMatch(academicCore, /xl:grid-cols-\[minmax\(20rem,0\.8fr\)_minmax\(0,1\.2fr\)\]/);
   assert.match(academicCore, /title="Timetable workflow"/);
   assert.match(academicCore, /title="Calendar anchor"/);
   assert.match(academicCore, /title="HOD teaching scope"/);
   assert.match(academicCore, /actionKind="edit"/);
   assert.match(academicCore, /actionKind="manage"/);
-  assert.match(academicCore, /md:grid-cols-\\[minmax\\(0,1fr\\)_minmax\\(15rem,0\\.72fr\\)\\]/);
+  assert.match(academicCore, /md:grid-cols-\[minmax\(0,1fr\)_minmax\(15rem,0\.72fr\)\]/);
   assert.match(academicCore, /border-t border-border-subtle pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0/);
-  assert.match(academicCore, /className="min-w-0 \\[&>section\\]:mt-0"/);
-  assert.match(academicCore, /aria-controls=\\{panelId\\}/);
+  assert.match(academicCore, /className="min-w-0 \[&>section\]:mt-0"/);
+  assert.match(academicCore, /aria-controls=\{panelId\}/);
   assert.match(academicCore, /disclosure/);
-  assert.match(academicCore, />\\s*Active\\s*</);
+  assert.match(academicCore, />\s*Active\s*</);
   assert.doesNotMatch(academicCore, /lg:grid-cols-3/);
 });
 
