@@ -59,10 +59,12 @@ export function StaffDirectoryRowControls({
   schoolId,
   row,
   candidates,
+  operationalHodReady,
 }: {
   schoolId: string;
   row: StaffDirectoryRow;
   candidates: StaffDirectoryRow[];
+  operationalHodReady: boolean;
 }) {
   const router = useRouter();
   const [panel, setPanel] = useState<StaffRowPanel>(null);
@@ -390,6 +392,12 @@ export function StaffDirectoryRowControls({
               This permits later subject-portfolio appointment; login access and HOD review permissions remain separate.
             </p>
           </div>
+          {!operationalHodReady ? (
+            <p role="status" className="mb-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]">
+              HOD placement changes are unavailable until the operational HOD database migration is deployed.
+              Existing staff and login records remain accessible.
+            </p>
+          ) : null}
           {row.operationalHodDesignation ? (
             <form action={hodEndAction} className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.7fr)_auto] sm:items-end">
               <input type="hidden" name="schoolId" value={schoolId} />
@@ -399,7 +407,7 @@ export function StaffDirectoryRowControls({
                 <p className="mt-1 text-muted-foreground">Effective from {row.operationalHodDesignation.effectiveFrom}. Ending this designation also closes its open portfolio authority on the selected date.</p>
               </div>
               <DateField label="Effective to" name="effectiveTo" value={hodDate} onChange={setHodDate} />
-              <Button type="submit" variant="neutral" size="sm" disabled={hodEndPending || hodDate < row.operationalHodDesignation.effectiveFrom} loading={hodEndPending}>
+              <Button type="submit" variant="neutral" size="sm" disabled={!operationalHodReady || hodEndPending || hodDate < row.operationalHodDesignation.effectiveFrom} loading={hodEndPending}>
                 End HOD placement
               </Button>
             </form>
@@ -409,7 +417,7 @@ export function StaffDirectoryRowControls({
               <input type="hidden" name="staffMemberId" value={row.staffId} />
               <p className="text-muted-foreground">No operational HOD designation. The staff member keeps their existing placement and login status.</p>
               <DateField label="Effective from" name="effectiveFrom" value={hodDate} onChange={setHodDate} />
-              <Button type="submit" size="sm" disabled={hodPending || !hodDate} loading={hodPending}>
+              <Button type="submit" size="sm" disabled={!operationalHodReady || hodPending || !hodDate} loading={hodPending}>
                 <Network className="size-3.5" aria-hidden="true" /> Assign HOD placement
               </Button>
             </form>
