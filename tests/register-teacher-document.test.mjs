@@ -100,7 +100,7 @@ test("register term totals are a permanent three-column calendar-governed block"
   assert.match(renderer, />Days<\/th>/);
   assert.match(model, /termTeachingDayCount/);
   assert.match(model, /p_from: termStart, p_to: termEnd/);
-  assert.match(model, /termDays: termTeachingDayCount/);
+  assert.match(model, /termDays: termPossible/);
   assert.match(model, /termAttendanceTotal/);
   assert.match(model, /termAbsenceTotal/);
   assert.match(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);
