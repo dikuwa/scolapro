@@ -11,10 +11,10 @@ const hod = read("src/features/academics/hod-scope-configuration.tsx");
 test("Academic Setup keeps summary and edit surface in the same card", () => {
   assert.match(core, /function CoreSetupCard/);
   assert.doesNotMatch(core, /function CoreSetupRow/);
-  assert.match(core, /<CardActionToggle open=\{active\}/);
-  assert.match(core, /id=\{panelId\}/);
-  assert.match(core, /\{editor\}/);
-  assert.match(core, /\{children\}/);
+  assert.match(core, /<ConfigurationCard/);
+  assert.match(core, /panelId=\{panelId\}/);
+  assert.match(core, /editor=\{editor\}/);
+  assert.match(core, /summary=\{children\}/);
   for (const name of ["workflow", "anchor", "hod"]) {
     assert.match(core, new RegExp(`panelId="academic-setup-panel-${name}"`));
   }
