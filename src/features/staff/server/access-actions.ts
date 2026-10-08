@@ -104,6 +104,46 @@ export async function addStaffRole(
   return { success: true, message: "School role added." };
 }
 
+
+// Pre-invitation role intentions are staff-scoped records, not Auth permissions.
+export async function planStaffSchoolRole(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  const parsed = roleFormSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    staffMemberId: formData.get("staffMemberId"),
+    roleKey: formData.get("roleKey"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("plan_staff_school_role", {
+    p_school_id: parsed.data.schoolId,
+    p_staff_member_id: parsed.data.staffMemberId,
+    p_role_key: parsed.data.roleKey,
+    p_effective_from: String(formData.get("effectiveFrom") || new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date())),
+  });
+  if (error) return { message: error.message || "Could not preassign this staff role." };
+  revalidatePath("/staff");
+  return { success: true, message: "Role preassigned. Login access remains inactive until verified activation." };
+}
+
+export async function endPlannedStaffSchoolRole(formData: FormData): Promise<StaffAccessState> {
+  const schoolId = z.string().uuid().safeParse(formData.get("schoolId"));
+  const roleId = z.string().uuid().safeParse(formData.get("plannedRoleId"));
+  if (!schoolId.success || !roleId.success) return { message: "Invalid planned role." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("end_planned_staff_school_role", {
+    p_school_id: schoolId.data,
+    p_planned_role_id: roleId.data,
+  });
+  if (error) return { message: error.message || "Could not end the planned role." };
+  revalidatePath("/staff");
+  return { success: true, message: "Planned role ended; audit history retained." };
+}
+
 // Operational placement is intentionally separate from invitation/login membership.
 const operationalHodSchema = z.object({
   schoolId: z.string().uuid(),
