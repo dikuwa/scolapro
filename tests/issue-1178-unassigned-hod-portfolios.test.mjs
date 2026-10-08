@@ -24,6 +24,7 @@ test('HOD-only cannot self-appoint; school leaders retain the boundary',()=>{
  assert.match(migration,/has_school_role\(v_port.school_id,array\['school_admin','principal','deputy_principal'\]\)/);
  assert.match(actions,/canConfigureSchool\(parsed.data.schoolId\)/);
  assert.match(migration,/Effective HOD placement required/);
+ assert.match(migration,/security definer set search_path=pg_catalog,public,app_private/);
 });
 test('Academic setup offers create-now assign-later with displayed history',()=>{
  assert.match(ui,/Create unassigned portfolio/);

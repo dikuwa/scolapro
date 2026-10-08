@@ -36,7 +36,7 @@ create policy "school staff view HOD appointments" on public.hod_portfolio_appoi
 revoke insert,update,delete on public.hod_subject_portfolios from anon,authenticated;
 revoke insert,update,delete on public.hod_portfolio_appointments from anon,authenticated;
 create or replace function public.create_unassigned_hod_portfolio(p_school_id uuid,p_label text,p_subject_ids uuid[])
-returns uuid language plpgsql security invoker set search_path=pg_catalog,public,app_private as $$
+returns uuid language plpgsql security definer set search_path=pg_catalog,public,app_private as $$
 declare v_id uuid; v_tenant uuid; v_unique_count integer;
 begin
  if auth.uid() is null or not app_private.user_current_school_matches(auth.uid(),p_school_id)
@@ -54,7 +54,7 @@ begin
  return v_id;
 end;$$;
 create or replace function public.appoint_hod_portfolio(p_portfolio_id uuid,p_assignment_id uuid,p_effective_from date)
-returns uuid language plpgsql security invoker set search_path=pg_catalog,public,app_private as $$
+returns uuid language plpgsql security definer set search_path=pg_catalog,public,app_private as $$
 declare v_port public.hod_subject_portfolios%rowtype; v_assignment public.staff_school_assignments%rowtype; v_id uuid; v_prev record;
 begin
  select * into v_port from public.hod_subject_portfolios where id=p_portfolio_id for update;
@@ -81,7 +81,8 @@ begin
  select v_port.tenant_id,v_port.school_id,sid,p_assignment_id,v_port.label,p_effective_from,auth.uid(),v_id from unnest(v_port.subject_ids) sid;
  return v_id;
 end;$$;
--- RPC invoker executes under RLS; allow only bounded operations in functions.
+-- RPCs use fixed-search-path SECURITY DEFINER to access private authorization helpers.
+-- Explicit auth.uid / current-school leadership and target validity checks protect every write.
 grant insert on public.hod_subject_portfolios to authenticated;
 grant insert,update on public.hod_portfolio_appointments to authenticated;
 create policy "leaders create portfolios" on public.hod_subject_portfolios for insert to authenticated
