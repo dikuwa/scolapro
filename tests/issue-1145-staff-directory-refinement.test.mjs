@@ -34,7 +34,7 @@ test("staff without accounts get a complete invite summary before the form opens
 });
 
 test("identity management shares the unified full-width row tray", () => {
-  assert.match(page, /<StaffDirectoryRowControls schoolId=\{schoolId\} row=\{row\} candidates=\{directory\.rows\} \/>/);
+  assert.match(page, /<StaffDirectoryRowControls schoolId=\{schoolId\} row=\{row\} candidates=\{directory\.rows\} operationalHodReady=\{directory\.operationalHodReady\} \/>/);
   assert.match(access, /panel === "identity"/);
   assert.match(access, /Identity management/);
   assert.match(access, /lg:col-start-2 lg:col-end-5/);
