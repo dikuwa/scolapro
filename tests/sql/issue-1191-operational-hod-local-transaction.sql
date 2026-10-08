@@ -1,6 +1,13 @@
 \set ON_ERROR_STOP on
 -- Run against an isolated, seeded Supabase db ONLY. Everything rolls back.
 BEGIN;
+-- The seeded school exists, but no Auth user or administrator is seeded.
+-- This actor fixture is isolated to the rollback-only transaction.
+INSERT INTO auth.users(id,email,aud,role,created_at,updated_at)
+VALUES ('70000000-0000-4000-8000-000000000001','qa1191-admin@example.test','authenticated','authenticated',now(),now());
+INSERT INTO public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+VALUES ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+'70000000-0000-4000-8000-000000000001','school_admin','2026-01-01');
 INSERT INTO public.subjects(tenant_id,school_id,subject_code,display_name)
 VALUES ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','QA-1191-M','QA no-login Mathematics');
 INSERT INTO public.staff_members(id,tenant_id,first_name,last_name,employee_number)
