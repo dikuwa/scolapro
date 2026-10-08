@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CompactActionButton, CompactActionLink } from "@/components/ui/compact-action";
 import { ImportDropField, ImportStageButton } from "@/features/imports/import-drop-field";
+import { ImportDiscardConfirmation } from "@/features/imports/import-discard-confirmation";
 import { commitAcademicStructureImport, stageAcademicStructureCsv } from "@/features/imports/server/academic-actions";
-import { archiveImportBatch, commitLearnerImport, commitStaffImport, discardImportBatch, markLearnerImportReady, skipMatchedImportRow, stageLearnerCsv, stageStaffCsv } from "@/features/imports/server/actions";
+import { archiveImportBatch, commitLearnerImport, commitStaffImport, markLearnerImportReady, skipMatchedImportRow, stageLearnerCsv, stageStaffCsv } from "@/features/imports/server/actions";
 import { commitGuardianImport, confirmMatchedGuardianImportRow, stageGuardianCsv } from "@/features/imports/server/guardian-actions";
 import { getImportWorkspace } from "@/features/imports/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -76,7 +77,7 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
               <span className="text-xs text-muted-foreground"><span className="lg:hidden">Imported on: </span>{item.committed_at ? new Intl.DateTimeFormat("en-GB", {timeZone:"Africa/Windhoek",dateStyle:"medium"}).format(new Date(item.committed_at)) : "—"}</span>
               <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                 <CompactActionLink href={detailHref} tone={statusTone} >Review</CompactActionLink>
-                {!archived && canCancel ? <form action={discardImportBatch}><input type="hidden" name="batchId" value={item.id} /><CompactActionButton type="submit" tone="danger">Cancel</CompactActionButton></form> : null}
+                {!archived && canCancel ? <ImportDiscardConfirmation batchId={item.id} fileName={item.source_file_name} /> : null}
                 {!archived && terminal ? <form action={archiveImportBatch}><input type="hidden" name="batchId" value={item.id} /><CompactActionButton type="submit" tone="warning">Archive</CompactActionButton></form> : null}
               </div>
             </div>;
@@ -87,7 +88,7 @@ export default async function SchoolImportsPage({ searchParams }: { searchParams
           <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <div><h2 className="scolapro-section-title">Review · {batch.source_file_name}</h2><p className="scolapro-section-description capitalize">{batch.import_type.replaceAll("_", " ")} · {batch.total_rows} rows · {batch.valid_rows} resolved · {batch.warning_rows} warnings · {batch.error_rows} errors{unresolvedRows ? ` · ${unresolvedRows} require review` : ""}</p></div>
             <div className="flex flex-wrap gap-2">
-              {!(["completed", "committing", "cancelled", "failed"] as string[]).includes(batch.status) ? <form action={discardImportBatch}><input type="hidden" name="batchId" value={batch.id} /><button className={`${interactiveButton} inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-danger-soft px-3 text-xs font-semibold text-[color:var(--danger)] hover:bg-[color:var(--danger)] hover:text-white`}><Trash2 className="size-3.5" />Discard and start over</button></form> : null}
+              {!(["completed", "committing", "cancelled", "failed"] as string[]).includes(batch.status) ? <ImportDiscardConfirmation batchId={batch.id} fileName={batch.source_file_name} label="Discard and start over" /> : null}
               {batch.status === "review" && unresolvedRows === 0 ? <form action={markLearnerImportReady}><input type="hidden" name="batchId" value={batch.id} /><button className={`${interactiveButton} min-h-9 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong hover:bg-brand hover:text-white`}>Mark ready</button></form> : null}
               {batch.status === "ready" ? <form action={commitAction}><input type="hidden" name="batchId" value={batch.id} /><button className={`${interactiveButton} min-h-9 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white hover:brightness-95`}>Commit {commitLabel}</button></form> : null}
               {!batch.archived_at && ["completed", "cancelled", "failed"].includes(batch.status) ? <form action={archiveImportBatch}><input type="hidden" name="batchId" value={batch.id} /><button className={`${interactiveButton} min-h-9 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-muted-foreground hover:bg-foreground hover:text-background`}>Archive from recent list</button></form> : null}
