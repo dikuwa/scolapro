@@ -18,21 +18,59 @@ export function RegisterTeacherWorkspace({
   weeklyExpectedDays,
   terms,
   selectedTermId,
+  fromWeek,
+  toWeek,
 }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   date: string;
-  mode: "week" | "term";
+  mode: "week" | "range" | "term";
   weeklySubmittedDays: number;
   weeklyExpectedDays: number;
   terms: RegisterTeacherTermOption[];
   selectedTermId: string | null;
+  fromWeek: string | null;
+  toWeek: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const selectedClass = classes.find((item) => item.id === selectedClassId) ?? null;
+  const selectedTerm = terms.find((item) => item.id === selectedTermId) ?? null;
 
-  function navigate(next: { classId?: string; mode?: "week" | "term"; termId?: string | null; date?: string }) {
+  function mondayFor(value: string) {
+    const current = new Date(`${value}T12:00:00`);
+    const day = current.getDay();
+    current.setDate(current.getDate() + (day === 0 ? -6 : 1 - day));
+    return current.toISOString().slice(0, 10);
+  }
+
+  function addDays(value: string, days: number) {
+    const current = new Date(`${value}T12:00:00`);
+    current.setDate(current.getDate() + days);
+    return current.toISOString().slice(0, 10);
+  }
+
+  const weekOptions = (() => {
+    if (!selectedTerm?.startsOn || !selectedTerm.endsOn) return [];
+    const options: { value: string; label: string; helper: string }[] = [];
+    const first = mondayFor(selectedTerm.startsOn);
+    const last = mondayFor(selectedTerm.endsOn);
+    for (let value = first, index = 1; value <= last; value = addDays(value, 7), index += 1) {
+      const visibleStart = value < selectedTerm.startsOn ? selectedTerm.startsOn : value;
+      const friday = addDays(value, 4);
+      const visibleEnd = friday > selectedTerm.endsOn ? selectedTerm.endsOn : friday;
+      options.push({ value, label: `Week ${index}`, helper: `${visibleStart} – ${visibleEnd}` });
+    }
+    return options;
+  })();
+  const selectedFromWeek = fromWeek && weekOptions.some((item) => item.value === fromWeek)
+    ? fromWeek
+    : weekOptions.find((item) => item.value === mondayFor(date))?.value ?? weekOptions[0]?.value ?? null;
+  const selectedToWeek = toWeek && weekOptions.some((item) => item.value === toWeek)
+    ? toWeek
+    : selectedFromWeek;
+
+  function navigate(next: { classId?: string; mode?: "week" | "range" | "term"; termId?: string | null; date?: string; fromWeek?: string | null; toWeek?: string | null }) {
     const params = new URLSearchParams();
     params.set("view", "register");
     params.set("date", next.date ?? date);
@@ -40,20 +78,25 @@ export function RegisterTeacherWorkspace({
     if (next.classId ?? selectedClassId) params.set("class", next.classId ?? selectedClassId ?? "");
     const termId = next.termId === undefined ? selectedTermId : next.termId;
     if (termId) params.set("term", termId);
+    const nextFrom = next.fromWeek === undefined ? selectedFromWeek : next.fromWeek;
+    const nextTo = next.toWeek === undefined ? selectedToWeek : next.toWeek;
+    if (nextFrom && (next.mode ?? mode) !== "term") params.set("fromWeek", nextFrom);
+    if (nextTo && (next.mode ?? mode) === "range") params.set("toWeek", nextTo);
     startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 
   const previewHref = selectedClassId
-    ? `/api/attendance/register-teacher?class=${encodeURIComponent(selectedClassId)}&date=${encodeURIComponent(date)}&mode=${mode}${selectedTermId ? `&term=${encodeURIComponent(selectedTermId)}` : ""}`
+    ? `/api/attendance/register-teacher?class=${encodeURIComponent(selectedClassId)}&date=${encodeURIComponent(date)}&mode=${mode}${selectedTermId ? `&term=${encodeURIComponent(selectedTermId)}` : ""}${selectedFromWeek && mode !== "term" ? `&fromWeek=${encodeURIComponent(selectedFromWeek)}` : ""}${selectedToWeek && mode === "range" ? `&toWeek=${encodeURIComponent(selectedToWeek)}` : ""}`
     : undefined;
-  const title = mode === "term" ? "Term Register" : "Weekly Register";
-  const weekEnding = (() => {
-    const value = new Date(`${date}T12:00:00`);
-    const day = value.getDay();
-    const offsetToFriday = day === 0 ? -2 : 5 - day;
-    value.setDate(value.getDate() + offsetToFriday);
-    return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "short", year: "numeric" }).format(value);
-  })();
+  const title = mode === "term" ? "Full Term Register" : mode === "range" ? "Week Range Register" : "Specific Week Register";
+  const formatDate = (value: string) => new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+  const periodLabel = mode === "term"
+    ? selectedTerm?.displayName ?? "Select a term"
+    : mode === "range" && selectedFromWeek && selectedToWeek
+      ? `${formatDate(selectedFromWeek)} – ${formatDate(addDays(selectedToWeek, 4))}`
+      : selectedFromWeek
+        ? `Week ending ${formatDate(addDays(selectedFromWeek, 4))}`
+        : "Select a week";
 
   return (
     <div className="space-y-5">
@@ -72,31 +115,55 @@ export function RegisterTeacherWorkspace({
               label="Document period"
               name="register-teacher-mode"
               value={mode}
-              onChange={(value) => navigate({ mode: value === "term" ? "term" : "week" })}
-              placeholder="Weekly register"
+              onChange={(value) => navigate({ mode: value === "term" ? "term" : value === "range" ? "range" : "week" })}
+              placeholder="Specific week"
               options={[
-                { value: "week", label: "Weekly register", helper: "Friday submission / balancing copy" },
-                { value: "term", label: "Term register", helper: "Full selected-term balancing ledger" },
+                { value: "week", label: "Specific week", helper: "One governed learner week" },
+                { value: "range", label: "Week range", helper: "An inclusive From Week to To Week range" },
+                { value: "term", label: "Full term", helper: "Opening week through the applicable as-at date" },
               ]}
             />
-            {mode === "term" ? (
+            <Picker
+              label="Academic term"
+              name="register-teacher-term"
+              value={selectedTermId ?? ""}
+              onChange={(value) => navigate({ termId: value || null, fromWeek: null, toWeek: null })}
+              placeholder="Choose term"
+              options={terms.map((term) => ({ value: term.id, label: term.displayName, helper: term.startsOn && term.endsOn ? `${term.startsOn} – ${term.endsOn}` : `Term ${term.termNumber} · Calendar dates required` }))}
+            />
+            {mode !== "term" ? (
               <Picker
-                label="Academic term"
-                name="register-teacher-term"
-                value={selectedTermId ?? ""}
-                onChange={(value) => navigate({ termId: value || null })}
-                placeholder="Choose term"
-                options={terms.map((term) => ({ value: term.id, label: term.displayName, helper: term.startsOn && term.endsOn ? `${term.startsOn} – ${term.endsOn}` : `Term ${term.termNumber}` }))}
+                label={mode === "range" ? "From Week" : "Week"}
+                name="register-teacher-from-week"
+                value={selectedFromWeek ?? ""}
+                onChange={(value) => {
+                  const adjustedTo = mode === "range" && selectedToWeek && selectedToWeek < value ? value : selectedToWeek;
+                  navigate({ fromWeek: value, toWeek: adjustedTo, date: addDays(adjustedTo ?? value, 4) });
+                }}
+                placeholder="Choose week"
+                options={weekOptions}
+                disabled={!selectedTerm?.startsOn || !selectedTerm.endsOn}
+              />
+            ) : null}
+            {mode === "range" ? (
+              <Picker
+                label="To Week"
+                name="register-teacher-to-week"
+                value={selectedToWeek ?? ""}
+                onChange={(value) => navigate({ toWeek: value, date: addDays(value, 4) })}
+                placeholder="Choose final week"
+                options={weekOptions.filter((item) => !selectedFromWeek || item.value >= selectedFromWeek)}
+                disabled={!selectedFromWeek}
               />
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" disabled={pending} onClick={() => { const current = new Date(`${date}T12:00:00`); current.setDate(current.getDate() - 7); navigate({ date: current.toISOString().slice(0, 10) }); }} aria-label="Previous register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronLeft className="size-4" /></button>
+            {mode === "week" ? <button type="button" disabled={pending || !selectedFromWeek || weekOptions[0]?.value === selectedFromWeek} onClick={() => { const value = addDays(selectedFromWeek!, -7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} aria-label="Previous register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronLeft className="size-4" /></button> : null}
             <div className="min-w-[9.5rem] rounded-[var(--radius-xs)] bg-surface-muted px-3 py-2 text-center">
-              <p className="text-[0.62rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">Week ending</p>
-              <p className="mt-0.5 text-xs font-semibold text-foreground">{weekEnding}</p>
+              <p className="text-[0.62rem] font-medium uppercase tracking-[0.08em] text-muted-foreground">Selected period</p>
+              <p className="mt-0.5 text-xs font-semibold text-foreground">{periodLabel}</p>
             </div>
-            <button type="button" disabled={pending} onClick={() => { const current = new Date(`${date}T12:00:00`); current.setDate(current.getDate() + 7); navigate({ date: current.toISOString().slice(0, 10) }); }} aria-label="Next register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronRight className="size-4" /></button>
+            {mode === "week" ? <button type="button" disabled={pending || !selectedFromWeek || weekOptions.at(-1)?.value === selectedFromWeek} onClick={() => { const value = addDays(selectedFromWeek!, 7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} aria-label="Next register week" className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-surface-muted text-muted-foreground hover:text-foreground disabled:opacity-50"><ChevronRight className="size-4" /></button> : null}
             {pending ? <Spinner className="size-4 text-brand" /> : null}
             <OfficialDocumentActions
               previewHref={previewHref}

@@ -28,6 +28,7 @@ export type OfficialSummarySchoolTotals = {
   absentLearnerDays: number;
   percentAbsence: number | null;
   weekly: { weekId: string; weekLabel: string; possibleAttendances: number; absentLearnerDays: number; percentAbsence: number | null }[];
+  daily: { date: string; possibleAttendances: number; absentLearnerDays: number; percentAbsence: number | null }[];
 };
 
 export type OfficialSummaryReadiness = {
@@ -151,7 +152,7 @@ export async function getOfficialAttendanceSummary(
     supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: schoolId, p_from: scopeStart ?? `${academicYear}-01-01`, p_to: date }),
     supabase.rpc("list_academic_term_calendar_summary", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
-  if (classResult.error || termsResult.error || impactResult.error) throw new Error("Unable to load the official attendance summary.");
+  if (classResult.error || termsResult.error || impactResult.error || learnerCalendarResult.error) throw new Error("Unable to load the official attendance summary.");
 
   const classes: OfficialSummaryClass[] = (classResult.data ?? []).map((item: Record<string, unknown>) => ({
     id: String(item.id),
@@ -160,14 +161,20 @@ export async function getOfficialAttendanceSummary(
     grade: relation(item.grades as { display_name: string }[] | { display_name: string } | null)?.display_name ?? "Grade",
   }));
 
-  const terms: OfficialSummaryTerm[] = (termsResult.data ?? []).map((item: Record<string, unknown>) => ({
-    id: String(item.id),
-    displayName: String(item.display_name),
-    termNumber: Number(item.term_number),
-    startsOn: (item.starts_on as string | null) ?? null,
-    endsOn: (item.ends_on as string | null) ?? null,
-    status: String(item.status),
-  }));
+  const learnerCalendarByTerm = new Map(
+    ((learnerCalendarResult.data ?? []) as Array<LearnerTermWindow & { academic_term_id: string }>).map((item) => [String(item.academic_term_id), item] as const),
+  );
+  const terms: OfficialSummaryTerm[] = (termsResult.data ?? []).map((item: Record<string, unknown>) => {
+    const learnerWindow = learnerCalendarByTerm.get(String(item.id));
+    return {
+      id: String(item.id),
+      displayName: String(item.display_name),
+      termNumber: Number(item.term_number),
+      startsOn: learnerWindow?.learner_starts_on ?? null,
+      endsOn: learnerWindow?.learner_ends_on ?? null,
+      status: String(item.status),
+    };
+  });
 
   const impactByDate = new Map<string, string>();
   for (const row of (impactResult.data ?? []) as { target_date: string; teaching_impact: string }[]) {
@@ -191,7 +198,7 @@ export async function getOfficialAttendanceSummary(
       return {
         mode, scopeStart: date, scopeEnd: date, lastTeachingDate: null, dates: [], teachingDates: [], nonTeachingDates: [], nonTeachingReasons: {},
         weeks: [], classes, classRows: [], gradeRows: [],
-        schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [] },
+        schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [], daily: [] },
         readiness: { complete: false, expectedRegisters: 0, submittedRegisters: 0, incomplete: [] },
         term, terms,
       };
@@ -246,7 +253,7 @@ export async function getOfficialAttendanceSummary(
   const empty = {
     mode, scopeStart: scopeFromDate, scopeEnd: scopeEndDate, lastTeachingDate, dates, teachingDates, nonTeachingDates, nonTeachingReasons: {} as Record<string, string>,
     weeks, classes, classRows: [] as OfficialSummaryClassRow[], gradeRows: [] as OfficialSummaryGradeRow[],
-    schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [] as OfficialSummarySchoolTotals["weekly"] },
+    schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [] as OfficialSummarySchoolTotals["weekly"], daily: [] as OfficialSummarySchoolTotals["daily"] },
     readiness: { complete: false, expectedRegisters: 0, submittedRegisters: 0, incomplete: [] as OfficialSummaryReadiness["incomplete"] },
     term, terms,
   };
@@ -412,6 +419,11 @@ export async function getOfficialAttendanceSummary(
       const absent = weekDates.reduce((total, day) => total + (absentByDate.get(day) ?? 0), 0);
       return { weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, possibleAttendances: possible, absentLearnerDays: absent, percentAbsence: percent(absent, possible) };
     });
+  const dailyTotals = dates.map((day) => {
+    const possible = possibleByDate.get(day) ?? 0;
+    const absent = absentByDate.get(day) ?? 0;
+    return { date: day, possibleAttendances: possible, absentLearnerDays: absent, percentAbsence: percent(absent, possible) };
+  });
 
   // Register-readiness: expected register submissions are every register
   // class for every expected teaching day up to the last expected school day.
@@ -440,7 +452,7 @@ export async function getOfficialAttendanceSummary(
     classes,
     classRows,
     gradeRows,
-    schoolTotals: { possibleAttendances, absentLearnerDays, percentAbsence: percent(absentLearnerDays, possibleAttendances), weekly: weeklyTotals },
+    schoolTotals: { possibleAttendances, absentLearnerDays, percentAbsence: percent(absentLearnerDays, possibleAttendances), weekly: weeklyTotals, daily: dailyTotals },
     readiness: { complete: submittedRegisters === expectedRegisters, expectedRegisters, submittedRegisters, incomplete },
     term,
     terms,

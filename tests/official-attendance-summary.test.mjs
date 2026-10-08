@@ -111,7 +111,7 @@ test("official view is wired into the attendance workspace behind existing roles
   assert.match(page, /requestedView === "official" \? "official"/);
   // #706 wires the selected mode (week|term) into the summary call; "week" remains
   // the default when no mode is requested (see `mode: "week" | "term"` above).
-  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, mode, date, requestedTerm \?\? null\)/);
+  assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, summaryMode, date, requestedTerm \?\? null\)/);
 });
 
 test("official summary UI follows the ScolaPro design system", () => {

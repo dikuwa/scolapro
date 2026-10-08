@@ -18,10 +18,10 @@ const scheduleXlsx = readFileSync("src/features/reporting/server/render-academic
 test("register week navigation displays the active week-ending date between chevrons", () => {
   assert.match(registerWorkspace, /Previous register week/);
   assert.match(registerWorkspace, /Week ending/);
-  assert.match(registerWorkspace, /\{weekEnding\}/);
+  assert.match(registerWorkspace, /\{periodLabel\}/);
   assert.match(registerWorkspace, /Next register week/);
-  assert.match(registerWorkspace, /current\.setDate\(current\.getDate\(\) - 7\)/);
-  assert.match(registerWorkspace, /current\.setDate\(current\.getDate\(\) \+ 7\)/);
+  assert.match(registerWorkspace, /addDays\(selectedFromWeek!, -7\)/);
+  assert.match(registerWorkspace, /addDays\(selectedFromWeek!, 7\)/);
 });
 
 test("weekly register term totals balance against full governed term days", () => {

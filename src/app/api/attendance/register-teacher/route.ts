@@ -25,8 +25,11 @@ export async function GET(request: Request) {
   const classId = url.searchParams.get("class")?.trim() ?? "";
   const date = safeDate(url.searchParams.get("date"));
   const academicYear = Number(url.searchParams.get("year") ?? date.slice(0, 4));
-  const mode = url.searchParams.get("mode") === "term" ? "term" : "week";
+  const requestedMode = url.searchParams.get("mode");
+  const mode = requestedMode === "term" ? "term" : requestedMode === "range" ? "range" : "week";
   const termId = url.searchParams.get("term") || null;
+  const fromWeek = url.searchParams.get("fromWeek") || null;
+  const toWeek = url.searchParams.get("toWeek") || null;
 
   if (!classId) return Response.json({ error: "Register class is required." }, { status: 400 });
   if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 2200) {
@@ -42,6 +45,8 @@ export async function GET(request: Request) {
         mode,
         selectedDate: date,
         requestedTermId: termId,
+        fromWeek,
+        toWeek,
       }),
       getLiveSchoolDocumentProfile(membership.schoolId),
     ]);
@@ -66,6 +71,12 @@ export async function GET(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     console.error("register teacher document failed", { message });
+    if (/calendar is not ready/i.test(message)) {
+      return Response.json({ error: message }, { status: 422, headers: { "Cache-Control": "no-store" } });
+    }
+    if (/week|range/i.test(message)) {
+      return Response.json({ error: message }, { status: 400, headers: { "Cache-Control": "no-store" } });
+    }
     return Response.json({ error: "Unable to generate the register teacher document." }, { status: 500, headers: { "Cache-Control": "no-store" } });
   }
 }
