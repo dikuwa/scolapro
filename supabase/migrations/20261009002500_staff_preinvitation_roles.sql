@@ -12,12 +12,14 @@ create table if not exists public.staff_planned_school_roles (
   created_at timestamptz not null default now(),
   linked_user_id uuid references auth.users(id),
   linked_at timestamptz,
+  revoked_at timestamptz,
+  revoked_by_user_id uuid references auth.users(id),
   constraint staff_planned_dates_valid check (effective_to is null or effective_to >= effective_from)
 );
 create index if not exists staff_planned_roles_staff_idx
   on public.staff_planned_school_roles(school_id,staff_member_id,role_key,effective_from);
 create unique index if not exists staff_planned_roles_open_unique
-  on public.staff_planned_school_roles(school_id,staff_member_id,role_key) where effective_to is null;
+  on public.staff_planned_school_roles(school_id,staff_member_id,role_key) where effective_to is null and revoked_at is null;
 alter table public.staff_planned_school_roles enable row level security;
 -- Defense in depth: no direct table read/write, even if a future grant is added.
 create policy staff_planned_school_roles_deny_direct on public.staff_planned_school_roles
@@ -56,6 +58,7 @@ begin
   if exists (
     select 1 from public.staff_planned_school_roles
     where school_id=p_school_id and staff_member_id=p_staff_member_id and role_key=p_role_key
+      and revoked_at is null
       and daterange(effective_from,coalesce(effective_to,'infinity'::date),'[]')
           && daterange(p_effective_from,'infinity'::date,'[]')
   ) then raise exception 'Planned role interval overlaps an existing assignment'; end if;
@@ -82,11 +85,12 @@ begin
     where id=p_planned_role_id and school_id=p_school_id for update;
   if not found then raise exception 'Planned role not found'; end if;
   if v_role.linked_at is not null then raise exception 'Already activated; manage account role instead'; end if;
-  if p_effective_to is null or p_effective_to<v_role.effective_from then
-    raise exception 'End date predates effective start'; end if;
-  if v_role.effective_to is not null and p_effective_to>v_role.effective_to then
-    raise exception 'Cannot extend ended role'; end if;
-  update public.staff_planned_school_roles set effective_to=p_effective_to where id=v_role.id;
+  if v_role.revoked_at is not null then raise exception 'Planned role already revoked'; end if;
+  if p_effective_to is null then raise exception 'End date is required'; end if;
+  update public.staff_planned_school_roles
+  set effective_to=case when p_effective_to>=effective_from then p_effective_to else effective_to end,
+      revoked_at=now(), revoked_by_user_id=auth.uid()
+  where id=v_role.id;
   insert into public.audit_events
     (tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
   values (v_role.tenant_id,p_school_id,auth.uid(),'staff.planned_role_ended',
@@ -113,7 +117,7 @@ begin
   for v_plan in
     select * from public.staff_planned_school_roles
     where school_id=new.school_id and tenant_id=new.tenant_id
-      and staff_member_id=new.staff_member_id and linked_at is null
+      and staff_member_id=new.staff_member_id and linked_at is null and revoked_at is null
       and (effective_to is null or effective_to>=current_date)
     order by effective_from,id for update
   loop
@@ -146,7 +150,7 @@ revoke all on function app_private.activate_planned_roles_on_staff_invitation() 
 -- Guarded list read for Staff Directory; raw table remains inaccessible.
 create or replace function public.list_staff_planned_roles(
  p_school_id uuid, p_staff_ids uuid[]
-) returns table(id uuid, staff_member_id uuid, role_key text, effective_from date, effective_to date)
+) returns table(id uuid, staff_member_id uuid, role_key text, effective_from date, effective_to date, revoked_at timestamptz)
 language plpgsql stable security definer
 set search_path=pg_catalog,public,app_private as $$
 begin
@@ -154,7 +158,7 @@ begin
    raise exception 'School administrator permission required';
  end if;
  return query
- select r.id,r.staff_member_id,r.role_key,r.effective_from,r.effective_to
+ select r.id,r.staff_member_id,r.role_key,r.effective_from,r.effective_to,r.revoked_at
  from public.staff_planned_school_roles r
  where r.school_id=p_school_id and r.staff_member_id=any(p_staff_ids)
  order by r.staff_member_id,r.role_key,r.effective_from;
