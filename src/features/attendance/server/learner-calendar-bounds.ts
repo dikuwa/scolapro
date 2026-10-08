@@ -9,7 +9,10 @@ export type LearnerTermWindow = {
 
 export function learnerCalendarRestriction(date: string, terms: LearnerTermWindow[]): string | null {
   const configured = terms.filter((row) => row.learner_starts_on && row.learner_ends_on);
-  if (!configured.length) return null; // Legacy/unconfigured calendar: preserve existing resolver.
+  // A partially configured year cannot safely prove that a date falls
+  // outside learner terms. Defer to the existing per-day calendar resolver
+  // until *every* term has authoritative learner opening and closing dates.
+  if (!configured.length || configured.length !== terms.length) return null;
   if (configured.some((row) => row.learner_starts_on! <= date && date <= row.learner_ends_on!)) return null;
   const opening = configured.map((row) => row.learner_starts_on!).sort()[0];
   const closing = configured.map((row) => row.learner_ends_on!).sort().at(-1)!;
