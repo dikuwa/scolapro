@@ -133,11 +133,13 @@ test("register non-teaching columns display governed calendar reasons", () => {
   assert.match(renderer, /writing-mode:vertical-rl/);
 });
 
-test("register operational columns stay compact while identity columns absorb width", () => {
-  assert.match(renderer, /table-layout:auto/);
-  assert.match(renderer, /min-width:max-content/);
-  assert.match(renderer, /\.day \{ width:1%; min-width:22px/);
-  assert.match(renderer, /\.mark \{ width:1%; min-width:22px/);
-  assert.match(renderer, /\.term-actual,\.term-absent,\.term-days \{ width:1%;/);
-  assert.doesNotMatch(renderer, /table-layout:fixed/);
+test("register attendance columns remain compact within fixed paper geometry", () => {
+  assert.match(renderer, /table-layout:fixed/);
+  assert.match(renderer, /min-width:0; border-collapse:collapse/);
+  assert.match(renderer, /const dayWidth = attendanceColumns \? 42 \/ attendanceColumns : 42/);
+  assert.match(renderer, /<colgroup>\$\{columns\}<\/colgroup>/);
+  assert.match(renderer, /\.identity\.surname \{ overflow-wrap:anywhere/);
+  assert.match(renderer, /\.identity\.given \{ overflow-wrap:anywhere/);
+  assert.match(renderer, /\.register-section \{ margin-top:18px; break-after:page; overflow:visible/);
+  assert.doesNotMatch(renderer, /min-width:max-content/);
 });
