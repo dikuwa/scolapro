@@ -16,7 +16,8 @@ const reportSettings = read("src/features/reporting/report-card-settings-panel.t
 const finance = read("src/features/finance/finance-workspace.tsx");
 const calendar = read("src/features/calendar/operational-calendar-manager.tsx");
 const roomInventory = read("src/features/room-inventory/room-inventory-workspace.tsx");
-const sportsHouses = read("src/features/sports-houses/sports-houses-workspace.tsx");\nconst lessonPreparation = read("src/features/academics/lesson-preparation-workspace.tsx");
+const sportsHouses = read("src/features/sports-houses/sports-houses-workspace.tsx");
+const lessonPreparation = read("src/features/academics/lesson-preparation-workspace.tsx");
 
 test("global section descriptions stay readable and shared CTAs never wrap labels", () => {
   assert.match(globals, /\.scolapro-section-description \{[^}]*max-width: 64ch/);
