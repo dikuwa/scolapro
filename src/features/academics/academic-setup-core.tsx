@@ -69,7 +69,7 @@ function CoreSetupCard({
               <h3 className="text-sm font-semibold text-foreground">{title}</h3>
               {active ? (
                 <span className="rounded-[var(--radius-xs)] bg-brand-soft px-2 py-0.5 text-[0.62rem] font-semibold text-brand-strong">
-                  Active
+                  Editing
                 </span>
               ) : null}
             </div>
