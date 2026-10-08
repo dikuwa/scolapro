@@ -33,7 +33,8 @@ test("official absence counts absent only; late, excused, unknown and present ar
 
 test("NO_TEACHING days contribute zero possible attendances and zero absent learner-days", () => {
   // Denominator window and week cells are filtered to teaching dates.
-  assert.match(summary, /dates\.filter\(\(day\) => impactByDate\.get\(day\) !== "NO_TEACHING"\)/);
+  assert.match(summary, /const teachingDates = dates\.filter\(isTeachingDate\)/);
+  assert.match(summary, /impactByDate\.get\(day\) !== "NO_TEACHING" && !learnerCalendarRestriction/);
   assert.match(summary, /week\.dates\.filter/);
 });
 
