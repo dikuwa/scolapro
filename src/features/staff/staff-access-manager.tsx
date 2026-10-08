@@ -183,8 +183,8 @@ export function StaffDirectoryRowControls({
             <div className="flex flex-wrap items-center gap-1.5">
               {row.plannedRoles.map((plan) => (
                 <span key={plan.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] text-brand-strong">
-                  {roleLabel(plan.roleKey)} · {plan.effectiveTo ? "Ended" : "Planned"}
-                  {!plan.effectiveTo ? (
+                  {roleLabel(plan.roleKey)} · {plan.revokedAt ? "Revoked" : plan.effectiveTo ? "Ended" : "Planned"}
+                  {!plan.revokedAt ? (
                     <form action={async (data: FormData) => {
                       const result = await endPlannedStaffSchoolRole(data);
                       if (result.message) (result.success ? toast.success : toast.error)(result.message);
