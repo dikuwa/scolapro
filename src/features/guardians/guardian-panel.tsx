@@ -87,6 +87,7 @@ export function GuardianPanel({ learnerId, guardians, reusableGuardians = [] }: 
 function GuardianRow({ learnerId, guardian, expanded, editing, onToggleDetails, onToggleEdit, onClose }: { learnerId: string; guardian: LearnerGuardian; expanded: boolean; editing: boolean; onToggleDetails: () => void; onToggleEdit: () => void; onClose: () => void }) {
   const [state, action, pending] = useActionState(saveGuardianContactDetails, initialState);
   const [endState, endAction, endPending] = useActionState(endGuardianRelationship, initialState);
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   useEffect(() => {
     if (!state.message) return;
@@ -119,7 +120,7 @@ function GuardianRow({ learnerId, guardian, expanded, editing, onToggleDetails, 
       </button>
       <div className="flex shrink-0 gap-1">
         {editing ? <button type="button" onClick={onToggleEdit} aria-expanded={editing} aria-label={`Close contact details editor for ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-brand-soft hover:text-brand-strong"><X className="size-3.5" /></button> : <RecordActionButton icon={Pencil} label={`Edit contact details for ${guardian.name}`} iconOnly onClick={onToggleEdit} expanded={editing} />}
-        <form action={endAction}><input type="hidden" name="relationshipId" value={guardian.relationshipId} /><input type="hidden" name="learnerId" value={learnerId} /><button type="submit" disabled={endPending} aria-busy={endPending || undefined} aria-label={`End relationship with ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-danger-soft hover:text-[color:var(--danger)] disabled:pointer-events-none disabled:opacity-55"><Trash2 className="size-3.5" /></button></form>
+        {confirmEnd ? <form action={endAction} className="flex flex-wrap items-center gap-1.5"><input type="hidden" name="relationshipId" value={guardian.relationshipId} /><input type="hidden" name="learnerId" value={learnerId} /><span className="text-xs text-muted-foreground">End relationship with {guardian.name}?</span><button type="submit" disabled={endPending} aria-busy={endPending || undefined} className="min-h-8 rounded-[var(--radius-xs)] bg-[color:var(--danger)] px-2.5 text-xs font-semibold text-white disabled:opacity-55">{endPending ? "Ending…" : "Yes, end"}</button><button type="button" disabled={endPending} onClick={() => setConfirmEnd(false)} className="min-h-8 rounded-[var(--radius-xs)] px-2.5 text-xs text-muted-foreground hover:bg-surface-muted">Cancel</button></form> : <button type="button" onClick={() => setConfirmEnd(true)} aria-label={`End relationship with ${guardian.name}`} className="grid size-8 place-items-center rounded-[var(--radius-xs)] bg-transparent text-[color:var(--danger)] transition hover:bg-danger-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)]"><Trash2 className="size-3.5" /></button>}
       </div>
     </div>
 
