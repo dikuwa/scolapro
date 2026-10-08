@@ -255,7 +255,7 @@ export function ConductPolicySettings({
                       <ActionForm action={moveConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Move up" move="up" variant="ghost" />
                       <ActionForm action={moveConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Move down" move="down" variant="ghost" />
                       {group.active ? <ActionForm action={archiveConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Archive group" /> : <ActionForm action={restoreConductGroup} schoolId={schoolId} field="groupId" id={group.id} label="Restore group" />}
-                      {!group.active ? <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete({ kind: "group", id: group.id, name: group.display_name })}>Delete if unused</Button> : null}
+                      {!group.active ? <Button type="button" variant="danger-ghost" size="sm" onClick={() => setConfirmDelete({ kind: "group", id: group.id, name: group.display_name })}>Delete if unused</Button> : null}
                       {group.active ? <Button type="button" variant="soft" size="sm" onClick={() => setEditingItem({ group })}><Plus className="size-3.5" />Add item</Button> : null}
                     </div>
 
@@ -271,7 +271,7 @@ export function ConductPolicySettings({
                             <ActionForm action={moveConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="↑" move="up" variant="ghost" />
                             <ActionForm action={moveConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="↓" move="down" variant="ghost" />
                             {item.active ? <ActionForm action={archiveConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="Archive" variant="ghost" /> : <ActionForm action={restoreConductPolicyItem} schoolId={schoolId} field="categoryId" id={item.id} label="Restore" variant="ghost" />}
-                            {!item.active ? <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmDelete({ kind: "item", id: item.id, name: item.display_name })}>Delete if unused</Button> : null}
+                            {!item.active ? <Button type="button" variant="danger-ghost" size="sm" onClick={() => setConfirmDelete({ kind: "item", id: item.id, name: item.display_name })}>Delete if unused</Button> : null}
                           </div>
                         </div>
                       )) : <p className="py-4 text-sm text-muted-foreground">No conduct items in this group yet.</p>}
@@ -304,7 +304,7 @@ export function ConductPolicySettings({
             <ConductForm action={confirmDelete.kind === "group" ? deleteConductGroup : deleteConductPolicyItem} onSaved={() => setConfirmDelete(null)}>
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name={confirmDelete.kind === "group" ? "groupId" : "categoryId"} value={confirmDelete.id} />
-              <div className="flex justify-end gap-2"><Button type="button" variant="neutral" onClick={() => setConfirmDelete(null)}>Cancel</Button><Button type="submit">Delete if unused</Button></div>
+              <div className="flex justify-end gap-2"><Button type="button" variant="neutral" onClick={() => setConfirmDelete(null)}>Cancel</Button><Button type="submit" variant="danger">Delete if unused</Button></div>
             </ConductForm>
           </div>
         </ConductDialog>
