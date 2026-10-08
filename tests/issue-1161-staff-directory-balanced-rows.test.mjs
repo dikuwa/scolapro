@@ -25,7 +25,7 @@ test("closed linked-account rows cap role preview at two labels plus an overflow
 });
 
 test("access and identity panels use one mutually exclusive row state and full-width tray", () => {
-  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| null/);
+  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| "hod-placement" \| null/);
   assert.match(access, /setPanel\(\(current\) => current === next \? null : next\)/);
   assert.match(access, /panel === "access"/);
   assert.match(access, /panel === "identity"/);
