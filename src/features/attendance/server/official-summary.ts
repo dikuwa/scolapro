@@ -19,6 +19,7 @@ export type OfficialSummaryGradeRow = {
   gradeName: string;
   absences: OfficialSexSplit;
   weekly: { weekId: string; weekLabel: string; absences: OfficialSexSplit }[];
+  daily: { date: string; absences: OfficialSexSplit }[];
 };
 
 export type OfficialSummarySchoolTotals = {
