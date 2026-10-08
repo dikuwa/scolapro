@@ -19,6 +19,9 @@ create index if not exists staff_planned_roles_staff_idx
 create unique index if not exists staff_planned_roles_open_unique
   on public.staff_planned_school_roles(school_id,staff_member_id,role_key) where effective_to is null;
 alter table public.staff_planned_school_roles enable row level security;
+-- Defense in depth: no direct table read/write, even if a future grant is added.
+create policy staff_planned_school_roles_deny_direct on public.staff_planned_school_roles
+  for all to authenticated using (false) with check (false);
 revoke all on public.staff_planned_school_roles from anon,authenticated;
 
 create or replace function public.plan_staff_school_role(
