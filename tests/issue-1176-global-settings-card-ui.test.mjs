@@ -36,8 +36,8 @@ test("core academic setup keeps summary and editor within one bounded card", () 
   assert.match(academicCore, /function CoreSetupCard/);
   assert.doesNotMatch(academicCore, /function CoreSetupRow/);
   assert.match(academicCore, /<ConfigurationCard/);
-  assert.match(academicCore, /id=\{panelId\}/);
-  assert.match(academicCore, /\{editor\}/);
+  assert.match(academicCore, /panelId=\{panelId\}/);
+  assert.match(academicCore, /editor=\{editor\}/);
   assert.match(academicCore, /title="Timetable workflow"/);
   assert.match(academicCore, /title="Calendar anchor"/);
   assert.match(academicCore, /title="HOD teaching scope"/);
