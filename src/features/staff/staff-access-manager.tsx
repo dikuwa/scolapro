@@ -24,6 +24,7 @@ import { RecordActionButton } from "@/components/ui/record-action-button";
 import {
   addStaffRole,
   planStaffSchoolRole,
+  endPlannedStaffSchoolRole,
   designateStaffOperationalHod,
   endStaffOperationalHod,
   correctStaffDetails,
@@ -178,6 +179,26 @@ export function StaffDirectoryRowControls({
             )}
           </div>
 
+          {!row.hasAccount && row.plannedRoles.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {row.plannedRoles.map((plan) => (
+                <span key={plan.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] text-brand-strong">
+                  {roleLabel(plan.roleKey)} · {plan.effectiveTo ? "Ended" : "Planned"}
+                  {!plan.effectiveTo ? (
+                    <form action={async (data: FormData) => {
+                      const result = await endPlannedStaffSchoolRole(data);
+                      if (result.message) (result.success ? toast.success : toast.error)(result.message);
+                      if (result.success) router.refresh();
+                    }}>
+                      <input type="hidden" name="schoolId" value={schoolId} />
+                      <input type="hidden" name="plannedRoleId" value={plan.id} />
+                      <button type="submit" aria-label={`End planned ${roleLabel(plan.roleKey)} role`} className="ml-1 text-brand-strong hover:text-[color:var(--danger)]"><X className="size-3" /></button>
+                    </form>
+                  ) : null}
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             {row.hasAccount ? (
               <Button
