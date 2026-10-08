@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertTriangle, BookOpenCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Download, HeartHandshake, Link2, RotateCcw, SkipForward, TableProperties, Trash2, Upload, UsersRound } from "lucide-react";
+import { AlertTriangle, BookOpenCheck, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Download, HeartHandshake, Link2, RotateCcw, SkipForward, TableProperties, Upload, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { CompactActionButton, CompactActionLink } from "@/components/ui/compact-action";
