@@ -12,7 +12,7 @@ const hod=read("src/features/academics/server/hod-scope.ts");
 test("uninvited HOD designation is independent of login memberships",()=>{
  assert.match(migration,/create table public.staff_operational_hod_designations/);
  assert.match(migration,/staff_assignment_id uuid not null/);
- assert.doesNotMatch(migration.slice(0,migration.indexOf("create function public.designate_staff_operational_hod")),/user_id uuid not null references auth.users\(id\)(?!.*created_by)/);
+ assert.doesNotMatch(migration,/\n\s+user_id uuid not null references auth.users\(id\)/);
  assert.doesNotMatch(migration,/insert into public.school_memberships/i);
  assert.match(migration,/school_memberships\.user_id remains NOT NULL/);
  assert.match(actions,/designate_staff_operational_hod/);
