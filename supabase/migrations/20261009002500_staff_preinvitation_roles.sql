@@ -139,3 +139,22 @@ grant execute on function public.plan_staff_school_role(uuid,uuid,text,date) to 
 revoke all on function public.end_planned_staff_school_role(uuid,uuid,date) from public,anon;
 grant execute on function public.end_planned_staff_school_role(uuid,uuid,date) to authenticated;
 revoke all on function app_private.activate_planned_roles_on_staff_invitation() from public,anon,authenticated;
+
+-- Guarded list read for Staff Directory; raw table remains inaccessible.
+create or replace function public.list_staff_planned_roles(
+ p_school_id uuid, p_staff_ids uuid[]
+) returns table(id uuid, staff_member_id uuid, role_key text, effective_from date, effective_to date)
+language plpgsql stable security definer
+set search_path=pg_catalog,public,app_private as $$
+begin
+ if auth.uid() is null or not public.has_school_role(p_school_id,array['school_admin']) then
+   raise exception 'School administrator permission required';
+ end if;
+ return query
+ select r.id,r.staff_member_id,r.role_key,r.effective_from,r.effective_to
+ from public.staff_planned_school_roles r
+ where r.school_id=p_school_id and r.staff_member_id=any(p_staff_ids)
+ order by r.staff_member_id,r.role_key,r.effective_from;
+end;$$;
+revoke all on function public.list_staff_planned_roles(uuid,uuid[]) from public,anon;
+grant execute on function public.list_staff_planned_roles(uuid,uuid[]) to authenticated;
