@@ -70,11 +70,18 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .eq("school_id", schoolId),
   ]);
 
+  // Before a preview migration is applied, expose the existing HOD setup
+  // without operational-only designations. Do not ignore authorization or
+  // unrelated database errors.
+  const operationalTableMissing = operationalDesignationsResult.error &&
+    (operationalDesignationsResult.error.code === "42P01" ||
+      operationalDesignationsResult.error.code === "PGRST205");
+
   if (
     subjectsResult.error ||
     responsibilitiesResult.error ||
     assignmentsResult.error ||
-    membershipsResult.error || portfoliosResult.error || appointmentsResult.error || operationalDesignationsResult.error
+    membershipsResult.error || portfoliosResult.error || appointmentsResult.error || (operationalDesignationsResult.error && !operationalTableMissing)
   ) {
     throw new Error("Unable to load HOD responsibility configuration.");
   }
