@@ -268,7 +268,7 @@ export function TeachingImpactManager({
                             </Button>
                           </>
                         ) : (
-                          <Button type="button" size="sm" variant="danger" onClick={() => setConfirmDeleteDate(item.date)}>
+                          <Button type="button" size="sm" variant="danger-ghost" onClick={() => setConfirmDeleteDate(item.date)}>
                             <Trash2 className="size-3.5" />
                             Delete
                           </Button>
