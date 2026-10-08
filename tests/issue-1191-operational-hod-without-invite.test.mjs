@@ -70,3 +70,9 @@ test("Staff search updates list on partial input with debounce and no submit but
  assert.match(search,/scroll: false/);
  assert.match(search,/encodeURIComponent\(normalized\)/);
 });
+
+test("Academic Setup tolerates only an unapplied operational-designation migration",()=>{
+ assert.match(hod,/operationalTableMissing/);
+ assert.match(hod,/PGRST205/);
+ assert.match(hod,/operationalDesignationsResult\.error && !operationalTableMissing/);
+});
