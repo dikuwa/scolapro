@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { learnerCalendarRestriction, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
 
 export type OfficialSexSplit = { boys: number; girls: number; total: number };
 
@@ -142,12 +143,13 @@ export async function getOfficialAttendanceSummary(
 
   // Wave 1: classes, term calendar (term mode) and the per-date teaching
   // impact for the whole range resolve together before any register data loads.
-  const [classResult, termsResult, impactResult] = await Promise.all([
+  const [classResult, termsResult, impactResult, learnerCalendarResult] = await Promise.all([
     supabase.from("register_classes").select("id,display_name,grade_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     mode === "term"
       ? supabase.from("academic_terms").select("id,term_number,display_name,starts_on,ends_on,status,academic_years!inner(school_id,year)").eq("academic_years.school_id", schoolId).eq("academic_years.year", academicYear).order("term_number")
       : Promise.resolve({ data: [], error: null as unknown }),
     supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: schoolId, p_from: scopeStart ?? `${academicYear}-01-01`, p_to: date }),
+    supabase.rpc("list_academic_term_calendar_summary", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
   if (classResult.error || termsResult.error || impactResult.error) throw new Error("Unable to load the official attendance summary.");
 
@@ -199,8 +201,14 @@ export async function getOfficialAttendanceSummary(
 
   const scopeFromDate: string = scopeStart; // narrowed non-null by the fallback above
   const dates = rangeDates(scopeFromDate, date);
-  const teachingDates = dates.filter((day) => impactByDate.get(day) !== "NO_TEACHING");
-  const nonTeachingDates = dates.filter((day) => impactByDate.get(day) === "NO_TEACHING");
+  // Day-by-day and summary figures follow the same learner opening/closing
+  // boundaries, not the separate teacher reporting calendar.
+  const learnerWindows = learnerCalendarResult.error
+    ? [] : (learnerCalendarResult.data ?? []) as LearnerTermWindow[];
+  const isTeachingDate = (day: string) =>
+    impactByDate.get(day) !== "NO_TEACHING" && !learnerCalendarRestriction(day, learnerWindows);
+  const teachingDates = dates.filter(isTeachingDate);
+  const nonTeachingDates = dates.filter((day) => !isTeachingDate(day));
   // Last expected school day of the reporting period drives both the
   // denominator window and the "as at" identity of the summary.
   const lastTeachingDate = teachingDates.length ? teachingDates[teachingDates.length - 1] : null;
@@ -225,7 +233,7 @@ export async function getOfficialAttendanceSummary(
     week.dates.push(day);
   }
   for (const week of weeks) {
-    const teaching = week.dates.filter((day) => impactByDate.get(day) !== "NO_TEACHING");
+    const teaching = week.dates.filter(isTeachingDate);
     week.lastDate = teaching.length ? teaching[teaching.length - 1] : null;
     week.weekEndingReportedOn = week.lastDate;
   }
@@ -395,7 +403,7 @@ export async function getOfficialAttendanceSummary(
   const weeklyTotals = weeks
     .filter((week) => week.lastDate)
     .map((week) => {
-      const weekDates = week.dates.filter((day) => impactByDate.get(day) !== "NO_TEACHING");
+      const weekDates = week.dates.filter(isTeachingDate);
       const possible = weekDates.reduce((total, day) => total + (possibleByDate.get(day) ?? 0), 0);
       const absent = weekDates.reduce((total, day) => total + (absentByDate.get(day) ?? 0), 0);
       return { weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, possibleAttendances: possible, absentLearnerDays: absent, percentAbsence: percent(absent, possible) };
