@@ -36,7 +36,11 @@ declare
   v_school public.schools%rowtype;
   v_id uuid;
 begin
-  if auth.uid() is null or not public.has_school_role(p_school_id,array['school_admin']) then
+  if auth.uid() is null or not exists (
+    select 1 from public.school_memberships m
+    where m.school_id=p_school_id and m.user_id=auth.uid() and m.role_key='school_admin'
+      and m.active_from<=current_date and (m.active_to is null or m.active_to>=current_date)
+  ) then
     raise exception 'School administrator permission required';
   end if;
   if p_effective_from is null or p_role_key not in
@@ -79,7 +83,11 @@ create or replace function public.end_planned_staff_school_role(
 set search_path=pg_catalog,public,app_private as $$
 declare v_role public.staff_planned_school_roles%rowtype;
 begin
-  if auth.uid() is null or not public.has_school_role(p_school_id,array['school_admin']) then
+  if auth.uid() is null or not exists (
+    select 1 from public.school_memberships m
+    where m.school_id=p_school_id and m.user_id=auth.uid() and m.role_key='school_admin'
+      and m.active_from<=current_date and (m.active_to is null or m.active_to>=current_date)
+  ) then
     raise exception 'School administrator permission required'; end if;
   select * into v_role from public.staff_planned_school_roles
     where id=p_planned_role_id and school_id=p_school_id for update;
@@ -154,7 +162,11 @@ create or replace function public.list_staff_planned_roles(
 language plpgsql stable security definer
 set search_path=pg_catalog,public,app_private as $$
 begin
- if auth.uid() is null or not public.has_school_role(p_school_id,array['school_admin']) then
+ if auth.uid() is null or not exists (
+    select 1 from public.school_memberships m
+    where m.school_id=p_school_id and m.user_id=auth.uid() and m.role_key='school_admin'
+      and m.active_from<=current_date and (m.active_to is null or m.active_to>=current_date)
+  ) then
    raise exception 'School administrator permission required';
  end if;
  return query
