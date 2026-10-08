@@ -76,3 +76,12 @@ test("Academic Setup tolerates only an unapplied operational-designation migrati
  assert.match(hod,/PGRST205/);
  assert.match(hod,/operationalDesignationsResult\.error && !operationalTableMissing/);
 });
+
+test("pre-migration preview disables HOD writes with explicit readiness feedback",()=>{
+ const page=read("src/app/staff/page.tsx");
+ assert.match(directory,/operationalHodReady: !designationTableMissing/);
+ assert.match(page,/operationalHodReady=\{directory.operationalHodReady\}/);
+ assert.match(ui,/!operationalHodReady \|\| hodPending/);
+ assert.match(ui,/!operationalHodReady \|\| hodEndPending/);
+ assert.match(ui,/HOD placement changes are unavailable until/);
+});
