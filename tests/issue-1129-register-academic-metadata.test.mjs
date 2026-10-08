@@ -26,8 +26,8 @@ test("register week navigation displays the active week-ending date between chev
 
 test("weekly register term totals balance against full governed term days", () => {
   assert.match(registerModel, /termTeachingDayCount/);
-  assert.match(registerModel, /Math\.max\(0, termTeachingDayCount - termAbsent\)/);
-  assert.match(registerModel, /termDays: termTeachingDayCount/);
+  assert.match(registerModel, /const termAttended = termPossible - termAbsent/);
+  assert.match(registerModel, /termDays: termPossible/);
   assert.match(registerRenderer, /section\.termAttendanceTotal \+ section\.termAbsenceTotal/);
   assert.match(registerRenderer, /section\.termPossibleTotal/);
 });
