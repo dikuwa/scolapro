@@ -16,7 +16,7 @@ const reportSettings = read("src/features/reporting/report-card-settings-panel.t
 const finance = read("src/features/finance/finance-workspace.tsx");
 const calendar = read("src/features/calendar/operational-calendar-manager.tsx");
 const roomInventory = read("src/features/room-inventory/room-inventory-workspace.tsx");
-const sportsHouses = read("src/features/sports-houses/sports-houses-workspace.tsx");
+const sportsHouses = read("src/features/sports-houses/sports-houses-workspace.tsx");\nconst lessonPreparation = read("src/features/academics/lesson-preparation-workspace.tsx");
 
 test("global section descriptions stay readable and shared CTAs never wrap labels", () => {
   assert.match(globals, /\.scolapro-section-description \{[^}]*max-width: 64ch/);
@@ -69,4 +69,11 @@ test("other equivalent edit and manage surfaces use recognizable icons", () => {
   assert.match(calendar, /<Pencil className="size-3\.5"/);
   assert.match(roomInventory, /<Settings2 className="size-4"/);
   assert.ok((sportsHouses.match(/<Settings2 className="size-4"/g) ?? []).length >= 2);
+});
+
+
+test("long shared CTA labels stay single-line without forcing dense forms into narrow columns", () => {
+  assert.match(lessonPreparation, /xl:grid-cols-\[repeat\(3,minmax\(0,1fr\)\)_auto\]/);
+  assert.match(lessonPreparation, /md:col-span-2 xl:col-span-1/);
+  assert.doesNotMatch(lessonPreparation, /md:grid-cols-2 lg:grid-cols-4/);
 });
