@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { learnerCalendarRestriction, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
+import { resolveGovernedSchoolDays } from "@/features/attendance/server/governed-school-day";
 
 export type OfficialSexSplit = { boys: number; girls: number; total: number };
 
@@ -176,11 +177,6 @@ export async function getOfficialAttendanceSummary(
     };
   });
 
-  const impactByDate = new Map<string, string>();
-  for (const row of (impactResult.data ?? []) as { target_date: string; teaching_impact: string }[]) {
-    impactByDate.set(String(row.target_date).slice(0, 10), String(row.teaching_impact));
-  }
-
   // Term mode scopes to one academic term; fall back to the latest term that
   // has started by the requested date, or the first term, when none is chosen.
   let term: OfficialSummaryTerm | null = null;
@@ -212,12 +208,19 @@ export async function getOfficialAttendanceSummary(
   // "as at" date must never import learner-days from the following term.
   const scopeEndDate = mode === "term" && term?.endsOn && term.endsOn < date ? term.endsOn : date;
   const dates = scopeFromDate <= scopeEndDate ? rangeDates(scopeFromDate, scopeEndDate) : [];
+  const governedDays = dates.length
+    ? resolveGovernedSchoolDays({
+        start: scopeFromDate,
+        end: scopeEndDate,
+        rows: (impactResult.data ?? []) as Array<{ target_date: unknown; teaching_impact: unknown }>,
+      })
+    : null;
   // Day-by-day and summary figures follow the same learner opening/closing
   // boundaries, not the separate teacher reporting calendar.
   const learnerWindows = learnerCalendarResult.error
     ? [] : (learnerCalendarResult.data ?? []) as LearnerTermWindow[];
   const isTeachingDate = (day: string) =>
-    impactByDate.get(day) !== "NO_TEACHING" && !learnerCalendarRestriction(day, learnerWindows);
+    Boolean(governedDays?.decisionFor(day).eligible) && !learnerCalendarRestriction(day, learnerWindows);
   const teachingDates = dates.filter(isTeachingDate);
   const nonTeachingDates = dates.filter((day) => !isTeachingDate(day));
   // Last expected school day of the reporting period drives both the

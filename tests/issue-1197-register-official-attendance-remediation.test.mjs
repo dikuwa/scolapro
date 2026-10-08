@@ -7,6 +7,7 @@ const renderer = readFileSync("src/features/attendance/server/render-register-te
 const workspace = readFileSync("src/features/attendance/register-teacher-workspace.tsx", "utf8");
 const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "utf8");
 const summaryModel = readFileSync("src/features/attendance/server/official-summary.ts", "utf8");
+const schoolDays = readFileSync("src/features/attendance/server/governed-school-day.ts", "utf8");
 const summaryPdf = readFileSync("src/features/documents/server/render-official-attendance-summary-pdf.ts", "utf8");
 
 test("register mode labels and governed week-range controls are explicit", () => {
@@ -50,7 +51,8 @@ test("governed closures occupy the attendance body and do not clutter date heade
 
 test("term totals remain learner-specific and use the governed as-at boundary", () => {
   assert.match(model, /termActualEnd = input\.selectedDate < termEnd \? input\.selectedDate : termEnd/);
-  assert.match(model, /isActiveOn\(String\(item\.enrolled_from\)/);
+  assert.match(model, /calculateLearnerRegisterBalance/);
+  assert.match(schoolDays, /input\.enrolledFrom <= date/);
   assert.match(model, /termAttendanceTotal: learners\.reduce/);
   assert.match(model, /termPossibleTotal: learners\.reduce/);
 });
@@ -63,6 +65,7 @@ test("official weekly and term PDFs use compact columns and A3 horizontal panels
   assert.match(summaryPdf, /TERM_WEEKS_PER_PANEL = 8/);
   assert.match(summaryPdf, /drawOfficialDocumentPdfHeader/);
   assert.match(summaryModel, /const dailyTotals = dates\.map/);
+  assert.match(summaryModel, /resolveGovernedSchoolDays/);
 });
 
 test("attendance balance examples preserve enrolment-effective denominators", () => {

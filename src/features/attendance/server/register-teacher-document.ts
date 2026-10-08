@@ -2,10 +2,15 @@ import "server-only";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mondayFor } from "@/features/attendance/server/week";
+import {
+  calculateLearnerRegisterBalance,
+  resolveGovernedSchoolDays,
+  type RegisterAttendanceMark,
+} from "@/features/attendance/server/governed-school-day";
 
 export type RegisterTeacherMode = "week" | "range" | "term";
 export type RegisterTeacherSex = "male" | "female";
-export type RegisterTeacherMark = "I" | "a" | "";
+export type RegisterTeacherMark = RegisterAttendanceMark;
 
 export type RegisterTeacherDay = {
   date: string;
@@ -118,10 +123,6 @@ function compactDay(date: string) {
 function validSex(value: string | null | undefined): RegisterTeacherSex | null {
   const normalized = value?.toLowerCase();
   return normalized === "male" || normalized === "female" ? normalized : null;
-}
-
-function isActiveOn(enrolledFrom: string, enrolledTo: string | null, date: string) {
-  return enrolledFrom <= date && (!enrolledTo || enrolledTo >= date);
 }
 
 export async function getRegisterTeacherDocument(input: {
@@ -258,18 +259,16 @@ export async function getRegisterTeacherDocument(input: {
     throw new Error("Unable to load register-teacher attendance evidence.");
   }
 
-  const impactByDate = new Map<string, string>();
-  for (const row of (impactRows ?? []) as { target_date: string; teaching_impact: string }[]) {
-    impactByDate.set(String(row.target_date).slice(0, 10), String(row.teaching_impact));
-  }
+  const governedDays = resolveGovernedSchoolDays({
+    start: termStart,
+    end: termEnd,
+    rows: (impactRows ?? []) as Array<{ target_date: unknown; teaching_impact: unknown }>,
+  });
   // Preserve the normal Monday-Friday grid, exclude ordinary weekends, and
   // include an explicitly opened replacement weekend day. Scope boundaries
   // are clipped to the learner term before this list is built, so out-of-term
   // labels/columns can never leak into the printed register.
-  const dates = rangeDates(scopeStart, scopeEnd).filter((date) => {
-    const day = new Date(`${date}T12:00:00`).getDay();
-    return (day >= 1 && day <= 5) || impactByDate.get(date) !== "NO_TEACHING";
-  });
+  const dates = governedDays.displayedDates(scopeStart, scopeEnd);
   const reasonByDate = new Map<string, string>();
   const calendarClosures = ((calendarEventRows ?? []) as Array<{
     event_scope: string;
@@ -291,16 +290,16 @@ export async function getRegisterTeacherDocument(input: {
     reasonByDate.set(date, row.reason?.trim() || "School calendar adjustment");
   }
 
-  const termDates = rangeDates(termStart, termEnd);
-  const termActualDates = rangeDates(termStart, termActualEnd).filter((date) => impactByDate.get(date) !== "NO_TEACHING");
-  const termTeachingDayCount = termDates.filter((date) => impactByDate.get(date) !== "NO_TEACHING").length;
+  const termActualDates = governedDays.eligibleDates(termStart, termActualEnd);
+  const termTeachingDayCount = governedDays.eligibleDates(termStart, termEnd).length;
 
   const dayModels: RegisterTeacherDay[] = dates.map((date) => {
+    const decision = governedDays.decisionFor(date);
     return {
       date,
       weekday: compactWeekday(date),
       dayNumber: compactDay(date),
-      teaching: impactByDate.get(date) !== "NO_TEACHING",
+      teaching: decision.eligible,
       reason: reasonByDate.get(date) ?? null,
       weekId: mondayFor(date),
       weekEnding: fridayFor(date),
@@ -329,40 +328,13 @@ export async function getRegisterTeacherDocument(input: {
     for (const item of enrolments ?? []) {
       const learner = relation(item.learners);
       if (!learner || validSex(learner.sex) !== sex) continue;
-      const marks: Record<string, RegisterTeacherMark> = {};
-      const reasonedAbsenceDates: Record<string, boolean> = {};
-      let attended = 0;
-      let absent = 0;
-      let possible = 0;
-      for (const day of dayModels) {
-        const active = day.teaching && isActiveOn(String(item.enrolled_from).slice(0, 10), item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null, day.date);
-        if (!active) {
-          marks[day.date] = "";
-          continue;
-        }
-        possible += 1;
-        const current = currentByKey.get(`${item.id}:${day.date}`);
-        if (current?.status === "absent") {
-          marks[day.date] = "a";
-          reasonedAbsenceDates[day.date] = Boolean(current.reasonId || current.note?.trim());
-          absent += 1;
-        } else {
-          marks[day.date] = "I";
-          attended += 1;
-        }
-      }
-      // Term balance is specific to each learner's actual enrolment window.
-      // A learner joining late or leaving early cannot count as present or
-      // absent on days they were not enrolled.
-      let termAbsent = 0;
-      let termPossible = 0;
-      for (const date of termActualDates) {
-        if (!isActiveOn(String(item.enrolled_from).slice(0, 10), item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null, date)) continue;
-        termPossible += 1;
-        const current = currentByKey.get(`${item.id}:${date}`);
-        if (current?.status === "absent") termAbsent += 1;
-      }
-      const termAttended = termPossible - termAbsent;
+      const balance = calculateLearnerRegisterBalance({
+        scopeDays: dayModels.map((day) => ({ date: day.date, eligible: day.teaching })),
+        termEligibleDates: termActualDates,
+        enrolledFrom: String(item.enrolled_from).slice(0, 10),
+        enrolledTo: item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null,
+        evidenceForDate: (date) => currentByKey.get(`${item.id}:${date}`),
+      });
 
       learners.push({
         enrolmentId: String(item.id),
@@ -374,14 +346,14 @@ export async function getRegisterTeacherDocument(input: {
         sex,
         enrolledFrom: String(item.enrolled_from).slice(0, 10),
         enrolledTo: item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null,
-        marks,
-        reasonedAbsenceDates,
-        attended,
-        absent,
-        possible,
-        termAttended,
-        termAbsent,
-        termDays: termPossible,
+        marks: balance.marks,
+        reasonedAbsenceDates: balance.reasonedAbsenceDates,
+        attended: balance.attended,
+        absent: balance.absent,
+        possible: balance.possible,
+        termAttended: balance.termAttended,
+        termAbsent: balance.termAbsent,
+        termDays: balance.termDays,
       });
     }
 

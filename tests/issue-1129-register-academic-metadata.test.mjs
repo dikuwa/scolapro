@@ -4,6 +4,7 @@ import test from "node:test";
 
 const registerWorkspace = readFileSync("src/features/attendance/register-teacher-workspace.tsx", "utf8");
 const registerModel = readFileSync("src/features/attendance/server/register-teacher-document.ts", "utf8");
+const schoolDays = readFileSync("src/features/attendance/server/governed-school-day.ts", "utf8");
 const registerRenderer = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
 const analysisModel = readFileSync("src/features/academics/server/academic-analysis.ts", "utf8");
 const analysisPrint = readFileSync("src/app/academics/analysis/print/page.tsx", "utf8");
@@ -26,8 +27,8 @@ test("register week navigation displays the active week-ending date between chev
 
 test("weekly register term totals balance against full governed term days", () => {
   assert.match(registerModel, /termTeachingDayCount/);
-  assert.match(registerModel, /const termAttended = termPossible - termAbsent/);
-  assert.match(registerModel, /termDays: termPossible/);
+  assert.match(schoolDays, /const termAttended = termDays - termAbsent/);
+  assert.match(registerModel, /termDays: balance\.termDays/);
   assert.match(registerRenderer, /section\.termAttendanceTotal \+ section\.termAbsenceTotal/);
   assert.match(registerRenderer, /section\.termPossibleTotal/);
 });
