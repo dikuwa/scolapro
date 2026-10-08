@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, X } from "lucide-react";
+import { Pencil, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function CardActionToggle({
@@ -16,7 +16,7 @@ export function CardActionToggle({
   action?: "edit" | "add";
   disabled?: boolean;
 }) {
-  const Icon = open ? X : action === "add" ? Plus : Pencil;
+  const Icon = open ? X : Pencil;
   return (
     <button
       type="button"
