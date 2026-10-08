@@ -21,6 +21,11 @@ create table public.hod_portfolio_appointments (
  check(effective_to is null or effective_to >= effective_from),
  unique(portfolio_id,effective_from)
 );
+-- Track exactly which appointment generated each authority row; never touch legacy/manual rows.
+alter table public.subject_department_responsibilities
+ add column portfolio_appointment_id uuid references public.hod_portfolio_appointments(id) on delete restrict;
+create index on public.subject_department_responsibilities(portfolio_appointment_id)
+ where portfolio_appointment_id is not null;
 create index on public.hod_subject_portfolios(school_id);
 create index on public.hod_portfolio_appointments(portfolio_id,effective_from desc);
 alter table public.hod_subject_portfolios enable row level security;
@@ -68,13 +73,12 @@ begin
   if v_prev.effective_from>=p_effective_from then raise exception 'Appointment date must follow existing appointment' using errcode='22023'; end if;
   update public.hod_portfolio_appointments set effective_to=p_effective_from-1 where id=v_prev.id;
   update public.subject_department_responsibilities set effective_to=p_effective_from-1
-   where school_id=v_port.school_id and department_head_staff_assignment_id=v_prev.staff_assignment_id
-    and subject_id=any(v_port.subject_ids) and effective_from=v_prev.effective_from and effective_to is null;
+   where portfolio_appointment_id=v_prev.id and effective_to is null;
  end loop;
  insert into public.hod_portfolio_appointments(portfolio_id,school_id,staff_assignment_id,effective_from,created_by_user_id)
  values(v_port.id,v_port.school_id,p_assignment_id,p_effective_from,auth.uid()) returning id into v_id;
- insert into public.subject_department_responsibilities(tenant_id,school_id,subject_id,department_head_staff_assignment_id,department_label,effective_from,created_by_user_id)
- select v_port.tenant_id,v_port.school_id,sid,p_assignment_id,v_port.label,p_effective_from,auth.uid() from unnest(v_port.subject_ids) sid;
+ insert into public.subject_department_responsibilities(tenant_id,school_id,subject_id,department_head_staff_assignment_id,department_label,effective_from,created_by_user_id,portfolio_appointment_id)
+ select v_port.tenant_id,v_port.school_id,sid,p_assignment_id,v_port.label,p_effective_from,auth.uid(),v_id from unnest(v_port.subject_ids) sid;
  return v_id;
 end;$$;
 -- RPC invoker executes under RLS; allow only bounded operations in functions.
@@ -116,3 +120,16 @@ end;$$;
 create trigger guard_hod_portfolio_appointment_history before update on public.hod_portfolio_appointments
 for each row execute function app_private.guard_hod_portfolio_appointment_history();
 revoke all on function app_private.guard_hod_portfolio_appointment_history() from public,anon,authenticated;
+
+-- A separate immutable-provenance guard prevents re-binding an authorization row to a different appointment.
+create function app_private.guard_hod_portfolio_responsibility_link()
+returns trigger language plpgsql set search_path=pg_catalog,public as $$
+begin
+ if new.portfolio_appointment_id is distinct from old.portfolio_appointment_id then
+  raise exception 'Portfolio responsibility provenance cannot change' using errcode='23514';
+ end if;
+ return new;
+end;$$;
+create trigger guard_hod_portfolio_responsibility_link before update on public.subject_department_responsibilities
+for each row execute function app_private.guard_hod_portfolio_responsibility_link();
+revoke all on function app_private.guard_hod_portfolio_responsibility_link() from public,anon,authenticated;

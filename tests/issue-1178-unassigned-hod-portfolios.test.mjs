@@ -16,6 +16,8 @@ test('appointments are independent effective dated records and populate existing
  assert.match(migration,/create table public.hod_portfolio_appointments/);
  assert.match(migration,/insert into public.subject_department_responsibilities/);
  assert.match(migration,/update public.subject_department_responsibilities set effective_to=/);
+ assert.match(migration,/where portfolio_appointment_id=v_prev.id and effective_to is null/);
+ assert.match(migration,/guard_hod_portfolio_responsibility_link/);
  assert.match(migration,/guard_hod_portfolio_appointment_history/);
 });
 test('HOD-only cannot self-appoint; school leaders retain the boundary',()=>{
