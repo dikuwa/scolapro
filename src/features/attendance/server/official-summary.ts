@@ -11,6 +11,7 @@ export type OfficialSummaryClassRow = {
   gradeName: string;
   absences: OfficialSexSplit;
   weekly: { weekId: string; weekLabel: string; absences: OfficialSexSplit }[];
+  daily: { date: string; absences: OfficialSexSplit }[];
 };
 
 export type OfficialSummaryGradeRow = {
@@ -333,7 +334,8 @@ export async function getOfficialAttendanceSummary(
     const weekly = weeks
       .filter((week) => week.lastDate)
       .map((week) => ({ weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, absences: classWeekly.get(item.id)?.get(week.weekId) ?? emptySplit() }));
-    return { classId: item.id, className: item.name, gradeId: item.gradeId, gradeName: item.grade, absences: total, weekly };
+    const daily = dates.filter((day) => mondayFor(day) === mondayFor(date)).map((day) => ({ date: day, absences: absentByClassDate.get(`${item.id}:${day}`) ?? emptySplit() }));
+    return { classId: item.id, className: item.name, gradeId: item.gradeId, gradeName: item.grade, absences: total, weekly, daily };
   });
 
   const gradeTotals = new Map<string, { gradeId: string | null; gradeName: string; absences: OfficialSexSplit; weeks: Map<string, OfficialSexSplit> }>();
@@ -354,7 +356,20 @@ export async function getOfficialAttendanceSummary(
   }
   const gradeRows: OfficialSummaryGradeRow[] = [...gradeTotals.values()]
     .sort((left, right) => collator.compare(left.gradeName, right.gradeName))
-    .map((entry) => ({ gradeId: entry.gradeId, gradeName: entry.gradeName, absences: entry.absences, weekly: weeks.filter((week) => week.lastDate).map((week) => ({ weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, absences: entry.weeks.get(week.weekId) ?? emptySplit() })) }));
+    .map((entry) => ({
+      gradeId: entry.gradeId, gradeName: entry.gradeName, absences: entry.absences,
+      weekly: weeks.filter((week) => week.lastDate).map((week) => ({ weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, absences: entry.weeks.get(week.weekId) ?? emptySplit() })),
+      daily: dates.filter((day) => mondayFor(day) === mondayFor(date)).map((day) => {
+        const result = emptySplit();
+        for (const row of classRows.filter((item) => (item.gradeId ?? "ungraded") === (entry.gradeId ?? "ungraded"))) {
+          const split = row.daily.find((item) => item.date === day)?.absences;
+          result.boys += split?.boys ?? 0;
+          result.girls += split?.girls ?? 0;
+          result.total += split?.total ?? 0;
+        }
+        return { date: day, absences: result };
+      }),
+    }));
 
   // Per-date totals let weekly aggregates stay linear in dates.
   const possibleByDate = new Map<string, number>();
