@@ -19,6 +19,9 @@ DO $$ DECLARE v_id uuid; v_appointment uuid; BEGIN
  IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id<>(v_appointment) AND effective_from='2026-10-20')<>2 THEN RAISE EXCEPTION 'Successor HOD missing'; END IF;
  IF (SELECT count(*) FROM public.hod_portfolio_appointments WHERE portfolio_id=v_id AND effective_to='2026-10-19')<>1 THEN RAISE EXCEPTION 'Appointment history not preserved'; END IF;
  RAISE NOTICE 'REASSIGNMENT closed prior scope and preserved history';
+ IF (SELECT count(*) FROM public.subject_department_responsibilities WHERE portfolio_appointment_id=v_appointment AND effective_to IS NULL)<>0 THEN RAISE EXCEPTION 'Prior HOD retained authority'; END IF;
+ IF (SELECT count(*) FROM public.hod_portfolio_appointments WHERE portfolio_id=v_id)<>2 THEN RAISE EXCEPTION 'Missing historical appointment'; END IF;
+ RAISE NOTICE 'PRIOR_HOD_AUTHORITY_ENDED';
 END $$;
 RESET ROLE;
 UPDATE public.school_memberships SET active_to='2026-10-07' WHERE user_id='70000000-0000-4000-8000-000000000001' AND role_key='school_admin' AND school_id='22222222-2222-4222-8222-222222222222';
