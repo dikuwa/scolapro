@@ -62,11 +62,13 @@ export function StaffDirectoryRowControls({
   row,
   candidates,
   operationalHodReady,
+  canPlanRoles = false,
 }: {
   schoolId: string;
   row: StaffDirectoryRow;
   candidates: StaffDirectoryRow[];
   operationalHodReady: boolean;
+  canPlanRoles?: boolean;
 }) {
   const router = useRouter();
   const [panel, setPanel] = useState<StaffRowPanel>(null);
@@ -240,7 +242,7 @@ export function StaffDirectoryRowControls({
                 <ChevronDown className={`size-3.5 transition-transform ${panel === "access" ? "rotate-180" : ""}`} aria-hidden="true" />
               </Button>
             )}
-            {!row.hasAccount ? (
+            {!row.hasAccount && canPlanRoles ? (
               <Button type="button" variant="neutral" size="sm" onClick={() => togglePanel("access")}
                 aria-expanded={panel === "access"}
                 className="min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem]">
@@ -356,7 +358,7 @@ export function StaffDirectoryRowControls({
                 <h3 className="text-sm font-semibold text-foreground">Invite to ScolaPro</h3>
                 <p className="mt-0.5 text-[0.68rem] text-muted-foreground">Create login access without changing the staff placement.</p>
               </div>
-              <form action={planAction} className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-sm)] bg-surface p-3">
+              {canPlanRoles ? <form action={planAction} className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-sm)] bg-surface p-3">
                 <input type="hidden" name="schoolId" value={schoolId} />
                 <input type="hidden" name="staffMemberId" value={row.staffId} />
                 <input type="hidden" name="roleKey" value={roleKey} />
@@ -366,7 +368,7 @@ export function StaffDirectoryRowControls({
                   <Plus className="size-3.5" aria-hidden="true" /> Preassign role
                 </Button>
                 <p className="basis-full text-[0.68rem] text-muted-foreground">Role remains inactive until the staff member accepts verified login access.</p>
-              </form>
+              </form> : null}
               <form action={inviteAction} className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.75fr)_auto] lg:items-end">
                 <input type="hidden" name="schoolId" value={schoolId} />
                 <input type="hidden" name="staffMemberId" value={row.staffId} />
