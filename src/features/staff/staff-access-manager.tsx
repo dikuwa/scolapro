@@ -158,41 +158,21 @@ export function StaffDirectoryRowControls({
   return (
     <>
       <div className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted/35 px-3 py-2.5 md:col-start-2 md:col-end-4 lg:col-start-4 lg:col-end-5">
-        <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="min-w-0">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-[0.68rem]">
             {row.hasAccount ? (
               <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--success)]">
-                    <ShieldCheck className="size-3.5" aria-hidden="true" /> Account linked
-                  </span>
-                  <span className="text-[0.68rem] font-medium text-muted-foreground">
-                    {visibleRoles.length} active {visibleRoles.length === 1 ? "role" : "roles"}
-                  </span>
-                </div>
-                <p className="mt-1.5 truncate text-[0.7rem] text-muted-foreground">
-                  {rolePreview.length ? rolePreview.join(" · ") : "No active ScolaPro roles"}
-                  {hiddenRoleCount ? ` · +${hiddenRoleCount}` : ""}
-                </p>
+                <span className="rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 font-medium text-[color:var(--success)]">Account linked</span>
+                <span className="text-muted-foreground">{visibleRoles.length} active {visibleRoles.length === 1 ? "role" : "roles"}{rolePreview.length ? ` · ${rolePreview.join(" · ")}` : ""}{hiddenRoleCount ? ` · +${hiddenRoleCount}` : ""}</span>
               </>
             ) : row.pendingInvitationId ? (
-              <>
-                <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--warning)]">
-                  <UserPlus className="size-3.5" aria-hidden="true" /> Invitation pending
-                </span>
-                <p className="mt-1.5 text-[0.7rem] text-muted-foreground">Awaiting account activation.</p>
-              </>
+              <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 font-medium text-[color:var(--warning)]">Invitation pending</span>
             ) : (
-              <>
-                <p className="text-[0.72rem] font-semibold text-foreground">No login account</p>
-                <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground">
-                  Placement exists; ScolaPro access has not been created.
-                </p>
-              </>
+              <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 font-medium text-muted-foreground">No login account</span>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className="flex flex-wrap items-center gap-2">
             {row.hasAccount ? (
               <Button
                 type="button"
