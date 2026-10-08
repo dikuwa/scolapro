@@ -47,7 +47,7 @@ test("core academic setup keeps one full-width summary per workflow with editor 
   assert.match(academicCore, /className="min-w-0 \[&>section\]:mt-0"/);
   assert.match(academicCore, /aria-controls=\{panelId\}/);
   assert.match(academicCore, /disclosure/);
-  assert.match(academicCore, />\s*Active\s*</);
+  assert.match(academicCore, />\s*Editing\s*</);
   assert.doesNotMatch(academicCore, /lg:grid-cols-3/);
 });
 
