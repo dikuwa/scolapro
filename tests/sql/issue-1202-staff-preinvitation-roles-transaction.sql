@@ -28,7 +28,7 @@ DO $$ DECLARE a uuid; b uuid; BEGIN
     RAISE NOTICE 'OVERLAPPING_ROLE_DENIED';
   END;
   PERFORM public.end_planned_staff_school_role('22222222-2222-4222-8222-222222222222',b,'2026-10-09');
-  IF (SELECT effective_to FROM public.staff_planned_school_roles WHERE id=b)<>date '2026-10-09' THEN
+  IF (SELECT effective_to FROM public.list_staff_planned_roles('22222222-2222-4222-8222-222222222222',array['70000000-0000-4000-8000-000000001202']::uuid[]) WHERE id=b)<>date '2026-10-09' THEN
     RAISE EXCEPTION 'Planned role end failed'; END IF;
   RAISE NOTICE 'PLANNED_ROLE_END_AUDITED';
 END $$;
