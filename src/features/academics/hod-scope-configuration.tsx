@@ -49,12 +49,14 @@ export function HodScopeConfiguration({
   responsibilities,
   today,
   portfolios,
+  embedded = false,
 }: {
   schoolId: string;
   subjects: HodScopeSubject[];
   heads: HodScopeHeadOption[];
   responsibilities: HodScopeResponsibility[];
   today: string;
+  embedded?: boolean;
   portfolios: { id: string; label: string; subjectIds: string[]; appointments: { id: string; headName: string; effectiveFrom: string; effectiveTo: string | null }[] }[];
 }) {
   const [portfolioLabel, setPortfolioLabel] = useState("");
@@ -118,9 +120,9 @@ export function HodScopeConfiguration({
   return (
     <section
       id="hod-scope"
-      className="mt-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"
+      className={embedded ? "" : "mt-5 rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5"}
     >
-      <div className="flex items-start gap-3">
+      {!embedded ? <div className="flex items-start gap-3">
         <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
           <Network className="size-4" aria-hidden="true" />
         </span>
@@ -130,7 +132,7 @@ export function HodScopeConfiguration({
             Create subject portfolios, appoint an HOD when ready, and keep effective-dated responsibility history.
           </p>
         </div>
-      </div>
+      </div> : null}
 
       <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-xs leading-5 text-muted-foreground">
         <div className="flex items-start gap-2">
@@ -142,14 +144,6 @@ export function HodScopeConfiguration({
         </div>
       </div>
 
-      {portfolios.length ? <div className="mt-4 space-y-2">{portfolios.map((portfolio) => {
-        const active = portfolio.appointments.find((a) => a.effectiveFrom <= today && (!a.effectiveTo || a.effectiveTo >= today));
-        return <div key={portfolio.id} className="rounded-[var(--radius-sm)] border border-border-subtle p-3 text-sm">
-          <p className="font-semibold">{portfolio.label} · {active ? active.headName : "Unassigned"}</p>
-          <p className="text-xs text-muted-foreground">{portfolio.subjectIds.map((id) => subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
-          {portfolio.appointments.map((a) => <p key={a.id} className="text-xs text-muted-foreground">{a.headName} · {a.effectiveFrom} → {a.effectiveTo ?? "open"}</p>)}
-        </div>;
-      })}</div> : null}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <form action={portfolioAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
           <h3 className="text-sm font-semibold">Create unassigned portfolio</h3>
