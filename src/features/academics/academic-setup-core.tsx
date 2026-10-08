@@ -1,7 +1,7 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, CalendarRange, Network, X } from "lucide-react";
+import { CalendarDays, CalendarRange, Network } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { RecordActionButton } from "@/components/ui/record-action-button";
@@ -35,6 +35,7 @@ function CoreSetupCard({
   actionLabel,
   closeLabel,
   onToggle,
+  panelId,
   children,
 }: {
   icon: LucideIcon;
@@ -46,6 +47,7 @@ function CoreSetupCard({
   actionLabel: string;
   closeLabel: string;
   onToggle: () => void;
+  panelId: string;
   children: ReactNode;
 }) {
   return (
@@ -57,7 +59,7 @@ function CoreSetupCard({
           : "border-border-subtle",
       )}
     >
-      <div className={cn("grid gap-4", !active && "md:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)] md:items-start")}>
+      <div className={cn("grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)] md:items-start")}>
         <div className="flex min-w-0 items-start gap-3">
           <span className={cn(tone, "grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]")}>
             <Icon className="size-4" aria-hidden="true" />
@@ -76,8 +78,7 @@ function CoreSetupCard({
         </div>
         <div
           className={cn(
-            "grid gap-4 border-t border-border-subtle pt-4",
-            !active && "md:border-l md:border-t-0 md:pl-4 md:pt-0",
+            "grid gap-4 border-t border-border-subtle pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0",
           )}
         >
           {children}
@@ -87,8 +88,9 @@ function CoreSetupCard({
       <div className="mt-auto flex justify-end pt-4">
         <RecordActionButton
           label={active ? closeLabel : actionLabel}
-          icon={active ? X : undefined}
-          actionKind={active ? undefined : actionKind}
+          actionKind={actionKind}
+          disclosure
+          aria-controls={panelId}
           variant="soft"
           compact={false}
           expanded={active}
@@ -100,6 +102,11 @@ function CoreSetupCard({
   );
 }
 
+/**
+ * Canonical balanced expansion: the summary stays full width and its editor
+ * occupies the next full-width row. Never strand a short summary beside a
+ * tall configuration form.
+ */
 function CoreSetupRow({
   summary,
   editor,
@@ -109,18 +116,14 @@ function CoreSetupRow({
   summary: ReactNode;
   editor: ReactNode;
   open: boolean;
-  panel: "timetable" | "hod";
+  panel: "workflow" | "anchor" | "hod";
 }) {
   return (
-    <div
-      className={cn(
-        "grid gap-3",
-        open && "xl:grid-cols-[minmax(20rem,0.8fr)_minmax(0,1.2fr)] xl:items-start",
-      )}
-    >
+    <div className="grid min-w-0 gap-3" data-academic-setup-row={panel}>
       {summary}
       {open ? (
         <div
+          id={`academic-setup-panel-${panel}`}
           className="min-w-0 [&>section]:mt-0"
           data-academic-setup-panel={panel}
         >
@@ -168,7 +171,7 @@ export function AcademicSetupCore({
       <div className="mt-4 space-y-3">
         <CoreSetupRow
           open={activePanel === "workflow"}
-          panel="timetable"
+          panel="workflow"
           editor={timetableEditor}
           summary={
             <CoreSetupCard
@@ -180,6 +183,7 @@ export function AcademicSetupCore({
               actionKind="edit"
               actionLabel="Edit timetable settings"
               closeLabel="Close timetable settings"
+              panelId="academic-setup-panel-workflow"
               onToggle={() => toggle("workflow")}
             >
               <div className="grid grid-cols-2 gap-4">
@@ -192,7 +196,7 @@ export function AcademicSetupCore({
 
         <CoreSetupRow
           open={activePanel === "anchor"}
-          panel="timetable"
+          panel="anchor"
           editor={timetableEditor}
           summary={
             <CoreSetupCard
@@ -208,6 +212,7 @@ export function AcademicSetupCore({
               actionKind="edit"
               actionLabel="Edit calendar anchor"
               closeLabel="Close calendar settings"
+              panelId="academic-setup-panel-anchor"
               onToggle={() => toggle("anchor")}
             >
               <div className="grid grid-cols-2 gap-4">
@@ -232,6 +237,7 @@ export function AcademicSetupCore({
               actionKind="manage"
               actionLabel="Manage HOD responsibilities"
               closeLabel="Close HOD responsibilities"
+              panelId="academic-setup-panel-hod"
               onToggle={() => toggle("hod")}
             >
               <SummaryMetric
