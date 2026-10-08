@@ -104,7 +104,15 @@ export function OfficialSummary({
   const readiness = summary.readiness;
   const incompletePreview = readiness.incomplete.slice(0, 4);
   const remaining = readiness.incomplete.length - incompletePreview.length;
-  const lastReportedOn = summary.lastTeachingDate ? longDateFormatter.format(new Date(`${summary.lastTeachingDate}T12:00:00`)) : "—";
+  // Always show the selected week in the navigator. The last *teaching* date
+  // may be absent (holidays/closures or an unconfigured calendar), but that
+  // must not make the period selector look empty on first entry.
+  const displayedWeekDate = summary.lastTeachingDate ?? (() => {
+    const value = new Date(`${mondayFor(date)}T12:00:00`);
+    value.setDate(value.getDate() + 4);
+    return value.toISOString().slice(0, 10);
+  })();
+  const lastReportedOn = longDateFormatter.format(new Date(`${displayedWeekDate}T12:00:00`));
 
   return (
     <div className="space-y-5">
