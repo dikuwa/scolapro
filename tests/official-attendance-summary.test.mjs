@@ -99,7 +99,8 @@ test("term view provides week 1..N with B/G/Total by class and grade plus weekly
   assert.match(summary, /weekly: \{ weekId: string; weekLabel: string; absences: OfficialSexSplit \}\[\]/);
   assert.match(summary, /OfficialSummaryGradeRow/);
   assert.match(summary, /OfficialSexSplit = \{ boys: number; girls: number; total: number \}/);
-  assert.match(summary, /weekLabel: `Week \$\{weeks\.length \+ 1\}`/);
+  assert.match(summary, /weekLabel: `Week \$\{termWeekNumber\}`/);
+  assert.match(summary, /openingMonday = mondayFor\(term\?\.startsOn \?\? scopeFromDate\)/);
   assert.match(component, /Term summary/);
   assert.match(component, /weekLabel/);
 });
