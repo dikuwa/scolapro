@@ -39,5 +39,14 @@ DO $$ DECLARE v_designation uuid; v_port uuid; v_appointment uuid; BEGIN
  OR (select effective_to from public.hod_portfolio_appointments where id=v_appointment)<>date '2026-10-20' THEN
   RAISE EXCEPTION 'HOD authority not closed on designation end'; END IF;
  RAISE NOTICE 'AUTHORITY_ENDED_HISTORY_RETAINED';
+ -- A completed designation cannot be reused to grant a new appointment.
+ BEGIN
+  PERFORM public.appoint_hod_portfolio(v_port,'70000000-0000-4000-8000-000000001192','2026-10-21');
+  RAISE EXCEPTION 'Ended operational HOD was reappointed';
+ EXCEPTION WHEN invalid_parameter_value THEN
+  RAISE NOTICE 'ENDED_DESIGNATION_CANNOT_REAPPOINT';
+ END;
+ IF (SELECT count(*) FROM public.hod_portfolio_appointments WHERE portfolio_id=v_port) <> 1 THEN
+  RAISE EXCEPTION 'Denied reappointment mutated appointment history'; END IF;
 END $$;
 ROLLBACK;
