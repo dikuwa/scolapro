@@ -99,6 +99,7 @@ export default async function SchoolSetupPage() {
                   <div key={portfolio.id} className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2">
                     <p className="text-xs font-semibold text-foreground">{portfolio.label} · {appointment?.headName ?? "Unassigned"}</p>
                     <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{portfolio.subjectIds.map((id) => hodScope.subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
+                    {portfolio.appointments.map((item) => <p key={item.id} className="mt-0.5 text-[0.68rem] text-muted-foreground">{item.headName} · {item.effectiveFrom} → {item.effectiveTo ?? "open"}</p>)}
                   </div>
                 );
               }) : <p className="text-xs text-muted-foreground">No subject portfolios configured yet.</p>}
