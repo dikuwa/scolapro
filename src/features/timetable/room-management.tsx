@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { Building2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { CardActionToggle } from "@/components/ui/card-action-toggle";
 import { Picker } from "@/components/ui/picker";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import { Spinner } from "@/components/ui/spinner";
@@ -36,18 +36,19 @@ export function RoomManagement({ schoolId, rooms }: { schoolId: string; rooms: S
   return (
     <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="border-b border-border-subtle pb-4">
-        <div className="flex items-start gap-2">
+        <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-2">
           <span className="scolapro-tone-sky grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Building2 className="size-4" /></span>
           <div className="min-w-0"><h2 className="scolapro-section-title">Rooms & blocks</h2><p className="scolapro-section-description !mt-0">Optional timetable locations. Define rooms once, then reuse them when scheduling lessons.</p></div>
         </div>
-        <div className="mt-4 flex justify-end">
-          <Button type="button" variant="soft" size="sm" onClick={() => { setEditing(null); setStatus("active"); setOpen(true); }}>
-            <Plus className="size-3.5" aria-hidden="true" /> Add room
-          </Button>
-        </div>
+        <CardActionToggle action="add" open={open} controls="room-management-editor" onClick={() => {
+          if (open) { setOpen(false); setEditing(null); }
+          else { setEditing(null); setStatus("active"); setOpen(true); }
+        }} />
+      </div>
       </div>
 
-      {open ? <form action={action} className="mt-4 grid gap-3 rounded-[var(--radius-md)] bg-surface-muted/55 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+      {open ? <form id="room-management-editor" action={action} className="mt-4 grid gap-3 rounded-[var(--radius-md)] bg-surface-muted/55 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
         <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="roomId" value={editing?.id ?? ""} />
         <div><label className="text-xs font-medium" htmlFor="room-code">Room code</label><input key={`${editing?.id ?? "new"}-code`} id="room-code" name="code" defaultValue={editing?.code ?? ""} placeholder="B12" className={`${inputClass} uppercase`} /></div>
         <div><label className="text-xs font-medium" htmlFor="room-name">Display name</label><input key={`${editing?.id ?? "new"}-name`} id="room-name" name="name" defaultValue={editing?.name ?? ""} placeholder="Science Lab 1" className={inputClass} /></div>
