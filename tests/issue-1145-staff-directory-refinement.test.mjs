@@ -18,7 +18,7 @@ test("staff rows show one placement label instead of duplicating every account r
 });
 
 test("linked accounts keep role controls behind one controlled row panel", () => {
-  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| null/);
+  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| "hod-placement" \| null/);
   assert.match(access, /const \[panel, setPanel\] = useState<StaffRowPanel>\(null\)/);
   assert.match(access, /Manage access/);
   assert.doesNotMatch(access, /Close access/);
