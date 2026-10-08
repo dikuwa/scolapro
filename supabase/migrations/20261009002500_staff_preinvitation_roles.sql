@@ -114,18 +114,18 @@ begin
     select * from public.staff_planned_school_roles
     where school_id=new.school_id and tenant_id=new.tenant_id
       and staff_member_id=new.staff_member_id and linked_at is null
-      and effective_from<=current_date and (effective_to is null or effective_to>=current_date)
+      and (effective_to is null or effective_to>=current_date)
     order by effective_from,id for update
   loop
     if not exists (
       select 1 from public.school_memberships
       where school_id=new.school_id and staff_member_id=new.staff_member_id
         and user_id=new.accepted_user_id and role_key=v_plan.role_key
-        and active_from<=current_date and (active_to is null or active_to>=current_date)
+        and active_from<=greatest(current_date,v_plan.effective_from) and (active_to is null or active_to>=greatest(current_date,v_plan.effective_from))
     ) then
       insert into public.school_memberships
         (tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
-      values (new.tenant_id,new.school_id,new.accepted_user_id,new.staff_member_id,v_plan.role_key,current_date);
+      values (new.tenant_id,new.school_id,new.accepted_user_id,new.staff_member_id,v_plan.role_key,greatest(current_date,v_plan.effective_from));
     end if;
     update public.staff_planned_school_roles
       set linked_user_id=new.accepted_user_id, linked_at=now() where id=v_plan.id;
