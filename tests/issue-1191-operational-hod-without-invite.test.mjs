@@ -93,3 +93,11 @@ test("live staff search guards against stale debounced navigation",()=>{
  assert.match(search,/latestQuery\.current\.trim\(\)/);
  assert.match(search,/normalized === initialQuery/);
 });
+
+test("staff access summary stays compact and HOD form aligns fields beneath its summary", () => {
+  const ui = read("src/features/staff/staff-access-manager.tsx");
+  assert.match(ui, /No login account<\/span>/);
+  assert.match(ui, /flex min-w-0 flex-col gap-2/);
+  assert.match(ui, /min-w-\[12rem\] flex-1 sm:max-w-xs/);
+  assert.doesNotMatch(ui, /sm:grid-cols-\[minmax\(0,1fr\)_minmax\(12rem,0\.7fr\)_auto\]/);
+});
