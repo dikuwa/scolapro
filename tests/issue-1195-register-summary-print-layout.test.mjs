@@ -10,8 +10,8 @@ test("weekly uses the term summary's compact total and sex breakdown", () => {
   assert.match(summary, /function Split\(/);
   assert.match(summary, /\{value\.boys\}B \/ \{value\.girls\}G/);
   const weekly = summary.split("function WeekTable(")[1].split("function TermTable(")[0];
-  assert.match(weekly, /<Split value=\{cell \?\?/);
-  assert.match(weekly, /<Split value=\{schoolSplit\}/);
+  assert.match(weekly, /<Split value=\{row\.daily\.find/);
+  assert.match(weekly, /<Split value=\{schoolSplit\(day\.date\)\}/);
   assert.match(weekly, /summary\.classRows\.reduce/);
   assert.match(weekly, /total\.boys \+=/);
   assert.match(weekly, /total\.girls \+=/);
@@ -56,4 +56,15 @@ test("weekly summary selector displays the selected week before any teaching day
   assert.match(summary, /value\.setDate\(value\.getDate\(\) \+ 4\)/);
   assert.match(summary, /longDateFormatter\.format\(new Date\(/);
   assert.doesNotMatch(summary, /const lastReportedOn = summary\.lastTeachingDate \? .* : "—"/);
+});
+
+test("weekly summary displays all five weekdays while term retains weekly columns", () => {
+  const weekly = summary.split("function WeekTable(")[1].split("function TermTable(")[0];
+  const term = summary.split("function TermTable(")[1];
+  assert.match(weekly, /\["M", "T", "W", "T", "F"\]/);
+  assert.match(weekly, /length: 5/);
+  assert.match(weekly, /row\.daily\.find/);
+  assert.match(weekly, /schoolSplit\(day\.date\)/);
+  assert.match(term, /week\.weekLabel/);
+  assert.match(server, /absentByClassDate\.get\(\`\$\{item\.id\}:\$\{day\}\`\)/);
 });
