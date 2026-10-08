@@ -73,6 +73,7 @@ export function AcademicStructureForms({
           <p className="scolapro-section-description">
             Grades belong to this school and academic year. Use short, stable uppercase codes such as G8, G9 or G10.
           </p>
+          <p className="mt-2 text-xs font-medium text-foreground">{grades.length} grade{grades.length === 1 ? "" : "s"} configured</p>
         </div>
         <CardActionToggle
           action="add"
@@ -117,6 +118,7 @@ export function AcademicStructureForms({
           <p className="scolapro-section-description">
             Register classes belong to one configured grade and are reused by enrolment, attendance and class-teacher workflows.
           </p>
+          <p className="mt-2 text-xs font-medium text-foreground">{classes.length} register class{classes.length === 1 ? "" : "es"} configured</p>
         </div>
         <CardActionToggle
           action="add"
