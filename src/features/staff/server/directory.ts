@@ -16,7 +16,7 @@ export type StaffDirectoryRow = {
   pendingInvitationStatus: string | null;
   activeRoles: { id: string; roleKey: string; activeFrom: string; activeTo: string | null }[];
   operationalHodDesignation: { id: string; effectiveFrom: string } | null;
-  plannedRoles: { id: string; roleKey: string; effectiveFrom: string; effectiveTo: string | null }[];
+  plannedRoles: { id: string; roleKey: string; effectiveFrom: string; effectiveTo: string | null; revokedAt: string | null }[];
 };
 
 export type StaffDirectoryResult = {
@@ -110,10 +110,10 @@ export async function getSchoolStaffDirectory(
   if (plannedRoleResult.error && !planningMigrationPending) {
     throw new Error("Unable to read staff role planning.");
   }
-  const plannedByStaff = new Map<string, { id: string; roleKey: string; effectiveFrom: string; effectiveTo: string | null }[]>();
+  const plannedByStaff = new Map<string, { id: string; roleKey: string; effectiveFrom: string; effectiveTo: string | null; revokedAt: string | null }[]>();
   for (const plan of plannedRoleResult.data ?? []) {
     const existing = plannedByStaff.get(plan.staff_member_id) ?? [];
-    existing.push({ id: plan.id, roleKey: plan.role_key, effectiveFrom: plan.effective_from, effectiveTo: plan.effective_to });
+    existing.push({ id: plan.id, roleKey: plan.role_key, effectiveFrom: plan.effective_from, effectiveTo: plan.effective_to, revokedAt: plan.revoked_at });
     plannedByStaff.set(plan.staff_member_id, existing);
   }
 
