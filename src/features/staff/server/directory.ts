@@ -81,7 +81,16 @@ export async function getSchoolStaffDirectory(
       .is("effective_to", null),
   ]);
 
-  if (directoryResult.error || summaryResult.error || designationResult.error) throw new Error("Unable to load school staff directory.");
+  // A preview may run before its additive database migration is applied.
+  // Keep the existing staff directory readable, while HOD designation writes
+  // remain unavailable until the migration is deployed. Never mask other errors.
+  const designationTableMissing = designationResult.error &&
+    (designationResult.error.code === "42P01" ||
+      designationResult.error.code === "PGRST205" ||
+      designationResult.error.code === "PGRST116" && /schema cache/i.test(designationResult.error.message));
+  if (directoryResult.error || summaryResult.error || (designationResult.error && !designationTableMissing)) {
+    throw new Error("Unable to load school staff directory.");
+  }
   const openHodDesignationByStaff = new Map(
     (designationResult.data ?? []).map((designation) => [
       designation.staff_member_id,
