@@ -93,6 +93,18 @@ export default async function SchoolSetupPage() {
           hodScopeCount={activeHodScopeCount}
           timetableEditor={
             <TimetableCycleSettings
+              section="workflow"
+              schoolId={membership.schoolId}
+              academicYear={academicYear}
+              initialMode={structure.timetableCycleMode}
+              initialLength={structure.timetableCycleLength}
+              initialAnchorDate={structure.timetableCycleAnchorDate}
+              initialAnchorDay={structure.timetableCycleAnchorDay}
+            />
+          }
+          anchorEditor={
+            <TimetableCycleSettings
+              section="anchor"
               schoolId={membership.schoolId}
               academicYear={academicYear}
               initialMode={structure.timetableCycleMode}
