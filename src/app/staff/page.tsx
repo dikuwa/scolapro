@@ -82,7 +82,7 @@ async function StaffDirectoryData({
   today: string;
   canAddStaff: boolean;
 }) {
-  const directory = await getSchoolStaffDirectory(schoolId, { query, page: requestedPage, pageSize: 50, onDate: today });
+  const directory = await getSchoolStaffDirectory(schoolId, { query, page: requestedPage, pageSize: 50, onDate: today, includePlannedRoles: canAddStaff });
   const firstShown = directory.filteredCount ? (directory.page - 1) * directory.pageSize + 1 : 0;
   const lastShown = Math.min(directory.page * directory.pageSize, directory.filteredCount);
 
@@ -162,7 +162,7 @@ async function StaffDirectoryData({
                       {row.defaultRoomName ? <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{row.defaultRoomName}</p> : null}
                     </div>
 
-                    <StaffDirectoryRowControls schoolId={schoolId} row={row} candidates={directory.rows} operationalHodReady={directory.operationalHodReady} />
+                    <StaffDirectoryRowControls schoolId={schoolId} row={row} candidates={directory.rows} operationalHodReady={directory.operationalHodReady} canPlanRoles={canAddStaff} />
                   </article>
                 );
               })}
