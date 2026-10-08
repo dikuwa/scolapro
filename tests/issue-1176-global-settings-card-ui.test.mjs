@@ -35,7 +35,7 @@ test("shared record actions own edit and manage icon semantics", () => {
 test("core academic setup keeps summary and editor within one bounded card", () => {
   assert.match(academicCore, /function CoreSetupCard/);
   assert.doesNotMatch(academicCore, /function CoreSetupRow/);
-  assert.match(academicCore, /<CardActionToggle/);
+  assert.match(academicCore, /<ConfigurationCard/);
   assert.match(academicCore, /id=\{panelId\}/);
   assert.match(academicCore, /\{editor\}/);
   assert.match(academicCore, /title="Timetable workflow"/);
