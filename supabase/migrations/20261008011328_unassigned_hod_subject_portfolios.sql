@@ -83,8 +83,9 @@ begin
 end;$$;
 -- RPCs use fixed-search-path SECURITY DEFINER to access private authorization helpers.
 -- Explicit auth.uid / current-school leadership and target validity checks protect every write.
-grant insert on public.hod_subject_portfolios to authenticated;
-grant insert,update on public.hod_portfolio_appointments to authenticated;
+-- Privileged RPCs own writes. Direct Data API writes must remain unavailable.
+revoke insert,update,delete on public.hod_subject_portfolios from authenticated;
+revoke insert,update,delete on public.hod_portfolio_appointments from authenticated;
 create policy "leaders create portfolios" on public.hod_subject_portfolios for insert to authenticated
 with check(created_by_user_id=auth.uid() and app_private.user_current_school_matches(auth.uid(),school_id)
  and app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal'])
