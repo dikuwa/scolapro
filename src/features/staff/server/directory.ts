@@ -16,6 +16,7 @@ export type StaffDirectoryRow = {
   pendingInvitationStatus: string | null;
   activeRoles: { id: string; roleKey: string; activeFrom: string; activeTo: string | null }[];
   operationalHodDesignation: { id: string; effectiveFrom: string } | null;
+  plannedRoles: { id: string; roleKey: string; effectiveFrom: string; effectiveTo: string | null }[];
 };
 
 export type StaffDirectoryResult = {
@@ -100,6 +101,22 @@ export async function getSchoolStaffDirectory(
   );
 
   const directoryRows = (directoryResult.data ?? []) as StaffDirectoryRpcRow[];
+  const plannedRoleResult = await supabase.rpc("list_staff_planned_roles", {
+    p_school_id: schoolId,
+    p_staff_ids: directoryRows.map((row) => row.staff_id).filter((id): id is string => Boolean(id)),
+  });
+  const planningMigrationPending = plannedRoleResult.error &&
+    (plannedRoleResult.error.code === "PGRST202" || plannedRoleResult.error.code === "42883");
+  if (plannedRoleResult.error && !planningMigrationPending) {
+    throw new Error("Unable to read staff role planning.");
+  }
+  const plannedByStaff = new Map<string, { id: string; roleKey: string; effectiveFrom: string; effectiveTo: string | null }[]>();
+  for (const plan of plannedRoleResult.data ?? []) {
+    const existing = plannedByStaff.get(plan.staff_member_id) ?? [];
+    existing.push({ id: plan.id, roleKey: plan.role_key, effectiveFrom: plan.effective_from, effectiveTo: plan.effective_to });
+    plannedByStaff.set(plan.staff_member_id, existing);
+  }
+
   const summary = ((summaryResult.data ?? [])[0] ?? null) as StaffSummaryRpcRow | null;
   const filteredCount = directoryRows.length ? Number(directoryRows[0].total_count) : 0;
 
@@ -120,6 +137,7 @@ export async function getSchoolStaffDirectory(
       pendingInvitationStatus: row.pending_invitation_status,
       activeRoles: row.active_roles ?? [],
       operationalHodDesignation: row.staff_id ? (openHodDesignationByStaff.get(row.staff_id) ?? null) : null,
+      plannedRoles: row.staff_id ? (plannedByStaff.get(row.staff_id) ?? []) : [],
     })),
     totalStaff: Number(summary?.total_staff ?? 0),
     activeStaff: Number(summary?.active_staff ?? 0),
