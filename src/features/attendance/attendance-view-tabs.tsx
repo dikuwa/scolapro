@@ -47,10 +47,11 @@ export function AttendanceViewTabs({
           key={item}
           type="button"
           disabled={pending}
+          aria-current={view === item ? "page" : undefined}
           onClick={() => navigate(item)}
-          className={`inline-flex min-h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-xs font-medium transition sm:flex-none sm:px-3 ${view === item ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}
+          className={`inline-flex min-h-8 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] px-2 text-xs font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]/35 sm:flex-none sm:px-3 ${view === item ? "bg-brand-soft text-brand-strong shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}
         >
-          {pending && item !== view ? <Spinner className="size-3.5 text-brand" /> : <TabIcon className="hidden size-3.5 sm:block" aria-hidden="true" />}
+          {pending && item !== view ? <Spinner className="size-3.5 text-brand" /> : <TabIcon className="size-3.5 shrink-0" aria-hidden="true" />}
           {label}
         </button>
       ))}

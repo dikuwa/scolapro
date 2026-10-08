@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { AppShell } from "@/components/shell/app-shell";
 import { renderOfficialDocumentVerificationQrSvg } from "@/features/documents/server/official-document-verification";
-import { AttendanceSortControl } from "@/features/attendance/attendance-sort-control";
 import { AttendanceViewTabs } from "@/features/attendance/attendance-view-tabs";
 import { AbsenceOverview } from "@/features/attendance/absence-overview";
 import { DailyRegister } from "@/features/attendance/daily-register";
@@ -204,7 +203,7 @@ return (
   <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
       <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} />
+      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} sort={sort} />
   </section>
 );
 }
@@ -228,10 +227,7 @@ function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; 
   return (
     <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
       <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first capture, Monday–Friday entry, a printable Register Teacher balancing copy, official weekly/term summaries, or all absences for a day.</p></div>
-      <div className="flex flex-wrap items-center gap-2">
-        {view !== "absences" ? <AttendanceSortControl sort={sort} /> : null}
-        <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} />
-      </div>
+      <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} />
     </div>
   );
 }
