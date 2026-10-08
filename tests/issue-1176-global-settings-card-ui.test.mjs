@@ -20,7 +20,8 @@ const sportsHouses = read("src/features/sports-houses/sports-houses-workspace.ts
 
 test("global section descriptions stay readable and shared CTAs never wrap labels", () => {
   assert.match(globals, /\.scolapro-section-description \{[^}]*max-width: 64ch/);
-  assert.match(globals, /\.scolapro-cta \{[^}]*white-space: nowrap/);
+  assert.match(globals, /button\.scolapro-cta,[\s\S]*\.scolapro-cta\.inline-flex \{[\s\S]*white-space: nowrap/);
+  assert.doesNotMatch(globals, /\.scolapro-cta \{[^}]*white-space: nowrap/);
   assert.match(button, /whitespace-nowrap/);
 });
 
