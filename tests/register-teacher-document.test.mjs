@@ -103,7 +103,7 @@ test("register term totals are a permanent three-column calendar-governed block"
   assert.match(model, /termDays: termPossible/);
   assert.match(model, /termAttendanceTotal/);
   assert.match(model, /termAbsenceTotal/);
-  assert.match(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);
+  assert.match(model, /termPossibleTotal: learners\.reduce\(\(sum, learner\) => sum \+ learner\.termDays, 0\)/);
 });
 
 test("all absentee summary values and learner term absences render red", () => {
