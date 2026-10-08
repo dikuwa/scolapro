@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, LockKeyhole, Pencil, Plus, ShieldCheck, UsersRound } from "lucide-react";
+import { ChevronDown, ChevronRight, LockKeyhole, Pencil, Plus, Settings2, ShieldCheck, UsersRound, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -512,7 +512,7 @@ export function SportsHousesWorkspace({
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div><h2 className="scolapro-section-title">Learner allocation</h2><p className="scolapro-section-description">{learnerAssignedCount} assigned · {learnerUnassignedCount} unassigned in {academicYear}.</p></div>
-          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setLearnerAllocationOpen((open) => !open)}>{learnerAllocationOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}{learnerAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
+          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setLearnerAllocationOpen((open) => !open)}>{learnerAllocationOpen ? <X className="size-4" aria-hidden="true" /> : <Settings2 className="size-4" aria-hidden="true" />}{learnerAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <Picker label="House" placeholder="All houses" value={learnerHouseFilter} onChange={setLearnerHouseFilter} options={[{ value: "all", label: "All houses" },{ value: "unassigned", label: "Unassigned" },...activeHouses.map((house) => ({ value: house.id, label: house.name }))]} />
@@ -541,7 +541,7 @@ export function SportsHousesWorkspace({
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div><h2 className="scolapro-section-title">Staff allocation & house leaders</h2><p className="scolapro-section-description">{staffAssignedCount} assigned · {staffUnassignedCount} unassigned · {leaders.length} house {leaders.length === 1 ? "leader" : "leaders"} in {academicYear}.</p></div>
-          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setStaffAllocationOpen((open) => !open)}>{staffAllocationOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}{staffAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
+          {canManage ? <Button type="button" variant="neutral" size="sm" onClick={() => setStaffAllocationOpen((open) => !open)}>{staffAllocationOpen ? <X className="size-4" aria-hidden="true" /> : <Settings2 className="size-4" aria-hidden="true" />}{staffAllocationOpen ? "Close allocation" : "Manage allocation"}</Button> : <span className="text-xs font-medium text-muted-foreground">Read-only</span>}
         </div>
         <div className="max-w-xs"><Picker label="Staff house" placeholder="All houses" value={staffHouseFilter} onChange={setStaffHouseFilter} options={[{ value: "all", label: "All houses" },{ value: "unassigned", label: "Unassigned" },...activeHouses.map((house) => ({ value: house.id, label: house.name }))]} /></div>
         <p className="mt-2 text-xs text-muted-foreground">{filteredStaff.length} of {staff.length} staff shown.</p>

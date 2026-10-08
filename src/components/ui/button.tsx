@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
  * button class strings on surfaces touched by UI-consistency work.
  */
 export const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 rounded-[var(--radius-sm)] font-semibold transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:pointer-events-none disabled:opacity-55",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-sm)] font-semibold transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:pointer-events-none disabled:opacity-55",
   {
     variants: {
       variant: {

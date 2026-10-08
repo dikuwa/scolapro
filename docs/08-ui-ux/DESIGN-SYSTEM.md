@@ -216,7 +216,18 @@ Rules:
 - icon-only buttons require accessible labels/tooltips where needed;
 - directional CTA arrows use the shared ScolaPro CTA treatment rather than one-off icon styling;
 - the default external/forward CTA icon is `ArrowUpRight`, with the shared subtle outward hover/focus motion;
-- use a straight right arrow only when the semantic meaning is explicitly horizontal navigation, and opt into the shared right-arrow motion token rather than custom transforms.
+- use a straight right arrow only when the semantic meaning is explicitly horizontal navigation, and opt into the shared right-arrow motion token rather than custom transforms;
+- action labels stay on one line; adjust the surrounding layout before allowing a CTA to wrap;
+- edit actions use the shared pencil semantic; manage/configure actions use the shared management/settings semantic unless a more specific established icon already exists;
+- use `RecordActionButton` / shared `Button` behavior instead of inventing one-off edit/manage controls.
+
+### Settings & progressive-disclosure cards
+- keep summary descriptions to a readable line length rather than stretching prose across a wide card;
+- place the summary action at the bottom-right when the card contains substantial descriptive or status content;
+- where several configuration summaries each reveal editors, keep each summary in its own row so the opened editor remains visually owned by that summary;
+- on wide screens the opened editor may sit directly to the right of its summary card; below that breakpoint it stacks immediately beneath the same card;
+- highlight the active summary card and keep one editor active at a time when the settings are mutually exclusive;
+- balanced two-column summary cards are preferred for sibling setup tasks where width permits, but the action must never be squeezed into a second text line.
 
 ## 9. Forms
 
