@@ -175,9 +175,19 @@ export async function getRegisterTeacherDocument(input: {
     if (staff) registerTeacherName = `${staff.first_name ?? ""} ${staff.last_name ?? ""}`.trim() || "Not assigned";
   }
 
+  // The official register uses learner opening/closing, never the broader
+  // teacher planning dates. Preserve legacy bounds where unconfigured.
+  const { data: learnerCalendar, error: learnerCalendarError } = await supabase.rpc(
+    "list_academic_term_calendar_summary",
+    { p_school_id: input.schoolId, p_academic_year: input.academicYear },
+  );
+  const learnerTerm = !learnerCalendarError && term
+    ? ((learnerCalendar ?? []) as Array<{ academic_term_id: string; learner_starts_on: string | null; learner_ends_on: string | null }>)
+        .find((item) => item.academic_term_id === term.id)
+    : null;
   const weekDates = schoolWeekDates(input.selectedDate);
-  const termStart = term?.startsOn ?? `${input.academicYear}-01-01`;
-  const termEnd = term?.endsOn ?? input.selectedDate;
+  const termStart = learnerTerm?.learner_starts_on ?? term?.startsOn ?? `${input.academicYear}-01-01`;
+  const termEnd = learnerTerm?.learner_ends_on ?? term?.endsOn ?? input.selectedDate;
   const termActualEnd = input.selectedDate < termEnd ? input.selectedDate : termEnd;
   const scopeStart = input.mode === "week" ? weekDates[0] : termStart;
   const scopeEnd = input.mode === "week" ? weekDates[4] : termActualEnd;
