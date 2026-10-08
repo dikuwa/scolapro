@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { Building2, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Picker } from "@/components/ui/picker";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import { Spinner } from "@/components/ui/spinner";
@@ -34,9 +35,16 @@ export function RoomManagement({ schoolId, rooms }: { schoolId: string; rooms: S
 
   return (
     <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex items-start gap-2"><span className="scolapro-tone-sky grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Building2 className="size-4" /></span><div><h2 className="scolapro-section-title">Rooms & blocks</h2><p className="scolapro-section-description !mt-0">Optional timetable locations. Define rooms once, then reuse them when scheduling lessons.</p></div></div>
-        <button type="button" onClick={() => { setEditing(null); setStatus("active"); setOpen(true); }} className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong"><Plus className="size-3.5" />Add room</button>
+      <div className="border-b border-border-subtle pb-4">
+        <div className="flex items-start gap-2">
+          <span className="scolapro-tone-sky grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Building2 className="size-4" /></span>
+          <div className="min-w-0"><h2 className="scolapro-section-title">Rooms & blocks</h2><p className="scolapro-section-description !mt-0">Optional timetable locations. Define rooms once, then reuse them when scheduling lessons.</p></div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="soft" size="sm" onClick={() => { setEditing(null); setStatus("active"); setOpen(true); }}>
+            <Plus className="size-3.5" aria-hidden="true" /> Add room
+          </Button>
+        </div>
       </div>
 
       {open ? <form action={action} className="mt-4 grid gap-3 rounded-[var(--radius-md)] bg-surface-muted/55 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">

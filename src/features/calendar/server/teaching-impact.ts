@@ -67,7 +67,7 @@ export async function getTeachingImpactWorkspace(schoolId: string, academicYear:
   const [overrideResult, scheduleResult, eventResult, gradeResult, classResult, groupResult] = await Promise.all([
     supabase
       .from("school_day_overrides")
-      .select("id,school_date,teaching_impact,reason,source,baseline_source,baseline_is_school_day,bell_schedule_id,timetable_bell_schedules(display_name)")
+      .select("id,school_date,teaching_impact,reason,source,baseline_source,baseline_is_school_day,bell_schedule_id,timetable_bell_schedules!school_day_overrides_bell_schedule_id_fkey(display_name)")
       .eq("school_id", schoolId)
       .gte("school_date", `${academicYear}-01-01`)
       .lte("school_date", `${academicYear}-12-31`)

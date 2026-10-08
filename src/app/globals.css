@@ -237,7 +237,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .scolapro-page-title { font-weight: 600; letter-spacing: -0.035em; color: var(--foreground); }
 .scolapro-section-title { font-size: 1rem; line-height: 1.35; font-weight: 650; letter-spacing: -0.018em; color: var(--foreground); }
-.scolapro-section-description { margin-top: 0.25rem; font-size: 0.75rem; line-height: 1.5rem; color: var(--muted-foreground); }
+.scolapro-section-description { margin-top: 0.25rem; max-width: 64ch; font-size: 0.75rem; line-height: 1.5rem; color: var(--muted-foreground); text-wrap: pretty; }
 .scolapro-record-title { font-size: 0.8125rem; font-weight: 550; color: var(--foreground); }
 .scolapro-stat-value { color: currentColor; font-weight: 650; letter-spacing: -0.04em; }
 .scolapro-control-surface {
@@ -257,6 +257,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
   transition: color var(--motion-base) var(--ease-standard), background-color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), box-shadow var(--motion-base) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
 }
 .scolapro-cta-icon { transition: transform var(--motion-base) var(--ease-standard); transform-origin: center; }
+button.scolapro-cta,
+.scolapro-cta.inline-flex {
+  white-space: nowrap;
+}
 .scolapro-cta:hover .scolapro-cta-icon,
 .scolapro-cta:focus-visible .scolapro-cta-icon { transform: translate(0.16rem, -0.12rem) scale(1.08); }
 .scolapro-cta[data-arrow="right"]:hover .scolapro-cta-icon,

@@ -89,7 +89,7 @@ export function TimetableCurrentMaintenance({ workspace }: { workspace: Timetabl
               <p className="text-xs font-semibold">Cancel recurring slot</p>
               <p className="mt-1 text-[0.66rem] leading-relaxed text-muted-foreground">Use this only when the live timetable entry itself is wrong. The slot is marked cancelled rather than deleted, so historical references remain intact.</p>
               {!confirmCancel ? (
-                <button type="button" disabled={!selectedSlot} onClick={() => setConfirmCancel(true)} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-xs)] border border-[color:var(--danger)]/25 bg-[color:var(--danger-soft)] px-3 text-xs font-semibold text-[color:var(--danger)] transition hover:border-[color:var(--danger)]/40 disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="size-3.5" aria-hidden="true" />Cancel slot</button>
+                <button type="button" disabled={!selectedSlot} onClick={() => setConfirmCancel(true)} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-xs)] bg-transparent px-3 text-xs font-semibold text-[color:var(--danger)] transition hover:bg-danger-soft focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--brand-soft)] disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="size-3.5" aria-hidden="true" />Cancel slot</button>
               ) : (
                 <div className="mt-3 rounded-[var(--radius-xs)] bg-[color:var(--danger-soft)] p-2.5">
                   <p className="text-[0.68rem] font-medium text-[color:var(--danger)]">Remove this lesson from the active recurring timetable?</p>
