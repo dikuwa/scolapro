@@ -83,6 +83,7 @@ export function AcademicSetupCore({
   anchorDay,
   rotating,
   hodScopeCount,
+  hodOverview,
   timetableEditor,
   anchorEditor,
   hodEditor,
@@ -93,6 +94,7 @@ export function AcademicSetupCore({
   anchorDay: number | null;
   rotating: boolean;
   hodScopeCount: number;
+  hodOverview: ReactNode;
   timetableEditor: ReactNode;
   anchorEditor: ReactNode;
   hodEditor: ReactNode;
@@ -163,6 +165,7 @@ export function AcademicSetupCore({
                 label="Configured"
                 value={`${hodScopeCount} HOD scope${hodScopeCount === 1 ? "" : "s"}`}
               />
+              {hodOverview}
         </CoreSetupCard>
       </div>
     </section>
