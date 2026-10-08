@@ -41,3 +41,10 @@ test("HOD portfolio listing precedes editing forms", () => {
   assert.match(hod, /Current responsibility history/);
   assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
 });
+
+test("calendar anchor edit is unavailable for a weekday-only timetable", () => {
+  const card = read("src/components/ui/configuration-card.tsx");
+  assert.match(core, /disabled=\{!rotating\}/);
+  assert.match(card, /disabled=\{disabled\}/);
+  assert.match(toggle, /disabled=\{disabled\}/);
+});
