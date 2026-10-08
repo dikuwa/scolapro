@@ -1,28 +1,36 @@
-# Balanced inline expansion — default dense-page pattern
+# Global summary-first configuration cards — ScolaPro UI standard
 
-**Status:** Adopted for expandable setup and row-management surfaces. Reference: Staff Directory identity management and `AcademicSetupCore`. Issue #1192.
+**Owner:** Control Room. **Initial implementation:** issue #1192, PR #1193. **Related staff/HOD authority:** issue #1191, PR #1194.
 
-## Default behavior
+## Canonical components
 
-- The closed state is a **full-width, compact summary**: icon, title, short description, key metrics, one contextual action.
-- On open, keep the summary **full width** and render the editor **directly below it**, spanning the row. Never leave an empty summary column beside a long form.
-- Within the expanded editor, use responsive interior grids (`grid gap-4 lg:grid-cols-2`) only when both sides contain meaningful content; use full width for history/empty states.
-- Heavy or infrequent secondary operations belong in a **collapsed Advanced section**; the primary user workflow remains visible.
-- Actions that toggle panels use `RecordActionButton disclosure` with the chevron on the **right**; chevron points down when closed and up when expanded. Connect trigger and panel through `aria-expanded` and `aria-controls`, with stable panel IDs.
-- A row may have one open editor at a time. Preserve values and make closed states fast to scan.
-- Use the ScolaPro design system: borders, radius, spacing, tints, focus rings, `Picker`, `SearchableSelect`, and `DateField`. No browser-native select controls.
-- At narrow widths, stack content naturally without horizontal overflow, giant empty areas, or long full-width help paragraphs. Keep descriptions to one or two concise sentences. Use plain explanatory text only for authorization/safety details that affect decisions.
+- `src/components/ui/configuration-card.tsx` — `ConfigurationCard`: title, icon, existing-data summary, and a conditional editor *inside the same article*. The summary remains visible during editing.
+- `src/components/ui/card-action-toggle.tsx` — `CardActionToggle`: compact top-right brand-tinted pencil **Edit** (or plus **Add**), changing to muted-danger X **Close** without a solid-danger fill. Implements `aria-expanded` and `aria-controls`.
+- Continue using `RecordActionButton` for individual record-level pencil/manage actions; it is not the standard header configuration disclosure.
 
-## Where it applies
+## Layout contract
 
-Staff Directory identity/HOD placement, Academic Setup timetable/calendar/HOD, expandable settings, governance, room and school management cards, and similarly dense list/details pages. **Do not** mechanically apply it to dashboards, static reports, or inherently side-by-side comparisons.
+1. **Configured/current data first**: meaningful records, status, dates, portfolio/room/grade details before any editable form. Empty states clearly say what is missing.
+2. **One configuration, one card**: title and concise description top-left, Edit/Add/Close top-right, configured summary beneath, conditional editor beneath *inside the same boundary*. No detached panels, duplicate headings, or parallel blank columns.
+3. Toggle actions use exactly `Edit`, `Add`, `Close`, and matching brand/danger design tokens. Destructive operations retain separate, specifically labelled confirmation workflows.
+4. Save/submit/Cancel buttons remain where users complete work; do **not** blindly shorten these actions or hide active attendance, marks, registers, timetable grids or search controls.
+5. Use ScolaPro `Picker`, `DateField`, `SearchableSelect`, responsive grids, proper focus, permission and error states. No inline browser-native selects or new authorization bypasses.
+6. Use one editor open at a time when cards represent alternatives, as in Academic Setup. Keep historical provenance visible, including effective-dated HOD appointments.
 
-## Review checklist
+## First migration coverage
 
-1. Open and closed screenshots at 375px, 768px, 1440px in light and dark themes.
-2. Expanded content fills available width and never leaves an empty parallel summary column.
-3. Keyboard activation, focus appearance, accessible expanded state and chevron direction work.
-4. No forms or existing authorization controls disappear on collapse; infrequent actions remain discoverable.
-5. Reuse existing actions and backend guards; UI restructuring must not change security semantics.
+- Academic Setup: timetable workflow and calendar anchor split into separate in-card editors; HOD summary is visible before its edit forms.
+- Grade and register-class creation: compact top-right Add/Close.
+- Rooms & blocks: top-right Add/Close and preserved room record edit/delete actions.
 
-Migrate remaining comparable pages in separately scoped issues/PRs with exact-head CI and browser QA. Do not assume this single PR retroactively changes all pages.
+## Site-wide adoption
+
+Search all routes and nested components for `Close ... settings`, `Edit ... settings`, long card-footers with only a disclosure button, summary/editor duplication, and forms rendered before the existing record. Migrate *applicable* surfaces in batches under this standard. Audit Staff, Timetables, Academic Setup, Registers, Conduct, Curriculum, Documents, Teaching Files, Inventory, School Settings, and hidden pages. Do not represent unchecked routes as migrated.
+
+## Verification requirements
+
+- UI regression + lint + typecheck + build for exact HEAD.
+- Database gates for any changed migration or permission logic.
+- Responsive signed-in light/dark screenshots (375px, 768px, 1440px), focus states, close/reopen, save/error states, and no clipping/overflow.
+- Control Room review for exceptions, including role-specific screens and effective-dated records.
+- Merge/deploy only after acceptance gates. Never assume a successful preview or CI equals manual browser acceptance.
