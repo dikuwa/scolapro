@@ -46,7 +46,7 @@ test("core academic setup keeps summary and editor within one bounded card", () 
 test("academic structure cards remain balanced in two columns with actions anchored to the right", () => {
   assert.match(academicForms, /lg:grid-cols-2 lg:items-start/);
   assert.match(academicForms, /min-h-\[10rem\] flex-col/);
-  assert.ok((academicForms.match(/mt-4 flex justify-end/g) ?? []).length >= 2);
+  assert.ok((academicForms.match(/<CardActionToggle/g) ?? []).length >= 2);
   assert.match(academicPage, /canManageAcademicStructure \? "xl:grid-cols-2"/);
 });
 
