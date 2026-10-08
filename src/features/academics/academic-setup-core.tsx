@@ -4,8 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { CalendarDays, CalendarRange, Network } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { CardActionToggle } from "@/components/ui/card-action-toggle";
-import { cn } from "@/lib/utils";
+import { ConfigurationCard } from "@/components/ui/configuration-card";
 
 type ActivePanel = "workflow" | "anchor" | "hod" | null;
 
@@ -46,33 +45,17 @@ function CoreSetupCard({
   editor: ReactNode;
 }) {
   return (
-    <article
-      className={cn(
-        "rounded-[var(--radius-md)] border bg-surface-elevated p-4 shadow-[var(--shadow-xs)] transition",
-        active
-          ? "border-[color:var(--brand)]/45 ring-4 ring-[color:var(--brand-soft)]/70"
-          : "border-border-subtle",
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className={cn(tone, "grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]")}>
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-            <p className="scolapro-section-description !mt-1">{description}</p>
-          </div>
-        </div>
-        <CardActionToggle open={active} controls={panelId} onClick={onToggle} />
-      </div>
-      <div className="mt-4 border-t border-border-subtle pt-3">{children}</div>
-      {active ? (
-        <div id={panelId} className="mt-4 border-t border-border-subtle pt-4 [&>section]:mt-0 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none" data-academic-setup-panel={panelId}>
-          {editor}
-        </div>
-      ) : null}
-    </article>
+    <ConfigurationCard
+      icon={Icon}
+      tone={tone}
+      title={title}
+      description={description}
+      open={active}
+      onToggle={onToggle}
+      panelId={panelId}
+      summary={children}
+      editor={editor}
+    />
   );
 }
 
