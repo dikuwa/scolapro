@@ -142,6 +142,14 @@ export function HodScopeConfiguration({
         </div>
       </div>
 
+      {portfolios.length ? <div className="mt-4 space-y-2">{portfolios.map((portfolio) => {
+        const active = portfolio.appointments.find((a) => a.effectiveFrom <= today && (!a.effectiveTo || a.effectiveTo >= today));
+        return <div key={portfolio.id} className="rounded-[var(--radius-sm)] border border-border-subtle p-3 text-sm">
+          <p className="font-semibold">{portfolio.label} · {active ? active.headName : "Unassigned"}</p>
+          <p className="text-xs text-muted-foreground">{portfolio.subjectIds.map((id) => subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
+          {portfolio.appointments.map((a) => <p key={a.id} className="text-xs text-muted-foreground">{a.headName} · {a.effectiveFrom} → {a.effectiveTo ?? "open"}</p>)}
+        </div>;
+      })}</div> : null}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <form action={portfolioAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
           <h3 className="text-sm font-semibold">Create unassigned portfolio</h3>
@@ -165,14 +173,6 @@ export function HodScopeConfiguration({
           <Button type="submit" disabled={appointmentPending || !portfolioId || !portfolioHeadId || !portfolioDate} loading={appointmentPending}>Appoint HOD</Button>
         </form>
       </div>
-      {portfolios.length ? <div className="mt-4 space-y-2">{portfolios.map((portfolio) => {
-        const active = portfolio.appointments.find((a) => a.effectiveFrom <= today && (!a.effectiveTo || a.effectiveTo >= today));
-        return <div key={portfolio.id} className="rounded-[var(--radius-sm)] border border-border-subtle p-3 text-sm">
-          <p className="font-semibold">{portfolio.label} · {active ? active.headName : "Unassigned"}</p>
-          <p className="text-xs text-muted-foreground">{portfolio.subjectIds.map((id) => subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
-          {portfolio.appointments.map((a) => <p key={a.id} className="text-xs text-muted-foreground">{a.headName} · {a.effectiveFrom} → {a.effectiveTo ?? "open"}</p>)}
-        </div>;
-      })}</div> : null}
       <div className="mt-5 space-y-4">
         <div>
           <h3 className="text-sm font-semibold text-foreground">Current responsibility history</h3>
