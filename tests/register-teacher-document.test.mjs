@@ -143,3 +143,13 @@ test("register attendance columns remain compact within fixed paper geometry", (
   assert.match(renderer, /\.register-section \{ margin-top:18px; break-after:page; overflow:visible/);
   assert.doesNotMatch(renderer, /min-width:max-content/);
 });
+
+test("printed term balance respects each learner's actual enrolment window", () => {
+  assert.match(model, /let termPossible = 0/);
+  assert.match(model, /if \(!isActiveOn\(String\(item\.enrolled_from\)/);
+  assert.match(model, /termPossible \+= 1/);
+  assert.match(model, /const termAttended = termPossible - termAbsent/);
+  assert.match(model, /termDays: termPossible/);
+  assert.match(model, /termPossibleTotal: learners\.reduce\(\(sum, learner\) => sum \+ learner\.termDays, 0\)/);
+  assert.doesNotMatch(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);
+});
