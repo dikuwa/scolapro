@@ -231,13 +231,18 @@ export function StaffDirectoryRowControls({
                 <ChevronDown className={`size-3.5 transition-transform ${panel === "access" ? "rotate-180" : ""}`} aria-hidden="true" />
               </Button>
             )}
-            <RecordActionButton
-              icon={Network}
-              label={row.operationalHodDesignation ? "HOD placement" : "Assign HOD"}
-              expanded={panel === "hod-placement"}
-              disclosure
+            <Button
+              type="button"
+              variant="neutral"
+              size="sm"
+              aria-expanded={panel === "hod-placement"}
               onClick={() => togglePanel("hod-placement")}
-            />
+              className="min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem]"
+            >
+              <Network className="size-3.5" aria-hidden="true" />
+              {row.operationalHodDesignation ? "HOD placement" : "Assign HOD"}
+              <ChevronDown className={`size-3.5 transition-transform ${panel === "hod-placement" ? "rotate-180" : ""}`} aria-hidden="true" />
+            </Button>
             <RecordActionButton
               icon={Pencil}
               label="Manage identity"
