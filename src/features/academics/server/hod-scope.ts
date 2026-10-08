@@ -43,7 +43,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
   const db = await createSupabaseServerClient();
   const today = windhoekToday();
 
-  const [subjectsResult, responsibilitiesResult, assignmentsResult, portfoliosResult, appointmentsResult, membershipsResult] = await Promise.all([
+  const [subjectsResult, responsibilitiesResult, assignmentsResult, portfoliosResult, appointmentsResult, membershipsResult, operationalDesignationsResult] = await Promise.all([
     db
       .from("subjects")
       .select("id,subject_code,display_name")
@@ -65,13 +65,16 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .select("staff_member_id,role_key,active_from,active_to")
       .eq("school_id", schoolId)
       .eq("role_key", "hod"),
+    db.from("staff_operational_hod_designations")
+      .select("staff_assignment_id,effective_from,effective_to")
+      .eq("school_id", schoolId),
   ]);
 
   if (
     subjectsResult.error ||
     responsibilitiesResult.error ||
     assignmentsResult.error ||
-    membershipsResult.error || portfoliosResult.error || appointmentsResult.error
+    membershipsResult.error || portfoliosResult.error || appointmentsResult.error || operationalDesignationsResult.error
   ) {
     throw new Error("Unable to load HOD responsibility configuration.");
   }
@@ -114,13 +117,19 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .map((membership) => membership.staff_member_id as string),
   );
 
+  const operationalHodAssignments = new Set(
+    (operationalDesignationsResult.data ?? [])
+      .filter((designation) => activeOn(today, designation.effective_from, designation.effective_to))
+      .map((designation) => designation.staff_assignment_id),
+  );
+
   const heads: HodScopeHeadOption[] = assignments
     .filter((assignment) => {
       const staff = staffById.get(assignment.staff_member_id);
       return (
         Boolean(staff) &&
         staff?.status === "active" &&
-        currentHodStaff.has(assignment.staff_member_id) &&
+        (currentHodStaff.has(assignment.staff_member_id) || operationalHodAssignments.has(assignment.id)) &&
         activeOn(today, assignment.effective_from, assignment.effective_to)
       );
     })
