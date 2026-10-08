@@ -137,7 +137,7 @@ export function HodScopeConfiguration({
           <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>
             Only effective-dated subject responsibilities grant HOD review and planning authority.
-            Portfolio names are school-defined labels, not official department structures.
+            Portfolio names are suggestions only, not official department structures.
           </p>
         </div>
       </div>
