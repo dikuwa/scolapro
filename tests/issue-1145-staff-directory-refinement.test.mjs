@@ -28,7 +28,7 @@ test("linked accounts keep role controls behind one controlled row panel", () =>
 
 test("staff without accounts get a complete invite summary before the form opens", () => {
   assert.match(access, /No login account/);
-  assert.match(access, /Placement exists; ScolaPro access has not been created/);
+  assert.doesNotMatch(access, /Placement exists; ScolaPro access has not been created/);
   assert.match(access, /Invite/);
   assert.match(access, /Send invite/);
 });
