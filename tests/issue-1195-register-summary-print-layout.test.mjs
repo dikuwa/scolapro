@@ -93,3 +93,9 @@ test("calendar term opening midweek and intervening closure do not shift calenda
   assert.equal(label("2026-09-02", "2026-09-14"), 3);
   assert.equal(label("2026-09-02", "2026-09-21"), 4);
 });
+
+test("historical term summary stops at its official term closing date", () => {
+  assert.match(server, /const scopeEndDate = mode === "term" && term\?\.endsOn && term\.endsOn < date \? term\.endsOn : date/);
+  assert.match(server, /rangeDates\(scopeFromDate, scopeEndDate\)/);
+  assert.match(server, /scopeEnd: scopeEndDate/);
+});
