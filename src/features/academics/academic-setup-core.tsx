@@ -74,7 +74,12 @@ function CoreSetupCard({
             <p className="scolapro-section-description !mt-1">{description}</p>
           </div>
         </div>
-        <div className="grid gap-4 border-t border-border-subtle pt-4 md:border-l md:border-t-0 md:pl-4 md:pt-0">
+        <div
+          className={cn(
+            "grid gap-4 border-t border-border-subtle pt-4",
+            !active && "md:border-l md:border-t-0 md:pl-4 md:pt-0",
+          )}
+        >
           {children}
         </div>
       </div>

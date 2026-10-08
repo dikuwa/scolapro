@@ -42,6 +42,8 @@ test("core academic setup keeps one summary row per workflow and renders the act
   assert.match(academicCore, /actionKind="edit"/);
   assert.match(academicCore, /actionKind="manage"/);
   assert.match(academicCore, /!active && "md:grid-cols-/);
+  assert.match(academicCore, /!active && "md:border-l md:border-t-0 md:pl-4 md:pt-0"/);
+  assert.doesNotMatch(academicCore, /border-t border-border-subtle pt-4 md:border-l md:border-t-0/);
   assert.match(academicCore, /className="min-w-0 \[&>section\]:mt-0"/);
   assert.doesNotMatch(academicCore, /className="rounded-\[var\(--radius-md\)\] border border-border-subtle bg-surface-elevated p-4 shadow/);
   assert.match(academicCore, />\s*Active\s*</);
