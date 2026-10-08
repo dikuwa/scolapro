@@ -30,6 +30,8 @@ test('HOD-only cannot self-appoint; school leaders retain the boundary',()=>{
 });
 test('Academic setup offers create-now assign-later with displayed history',()=>{
  assert.match(ui,/Create unassigned portfolio/);
+ assert.match(ui,/portfolioSubjectIds/);
+ assert.match(ui,/setPortfolioSubjectIds/);
  assert.match(ui,/Assign HOD later/);
  assert.match(ui,/Unassigned/);
  assert.match(ui,/portfolio.appointments.map/);

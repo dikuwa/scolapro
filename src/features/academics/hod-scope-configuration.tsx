@@ -63,6 +63,7 @@ export function HodScopeConfiguration({
   const [portfolioDate, setPortfolioDate] = useState(today);
   const [portfolioState, portfolioAction, portfolioPending] = useActionState(createUnassignedHodPortfolio, emptyState);
   const [appointmentState, appointmentAction, appointmentPending] = useActionState(appointHodPortfolio, emptyState);
+  const [portfolioSubjectIds, setPortfolioSubjectIds] = useState<string[]>([]);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [assignmentId, setAssignmentId] = useState("");
   const [departmentLabel, setDepartmentLabel] = useState("");
@@ -153,9 +154,9 @@ export function HodScopeConfiguration({
           <label className="block text-xs font-medium">Portfolio name
             <input name="label" required maxLength={120} value={portfolioLabel} onChange={(e) => setPortfolioLabel(e.target.value)} placeholder="Mathematics & Science" className="scolapro-control-surface mt-1 min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm" />
           </label>
-          <SearchableSelect label="Portfolio subjects" options={subjectOptions} placeholder="Select subjects" searchPlaceholder="Search subjects" multiple value="" selectedValues={selectedSubjectIds} onToggle={(id) => setSelectedSubjectIds((v) => v.includes(id) ? v.filter((x) => x !== id) : [...v,id])} />
-          {selectedSubjectIds.map((id) => <input key={id} type="hidden" name="subjectIds" value={id} />)}
-          <Button type="submit" disabled={portfolioPending || !portfolioLabel.trim() || !selectedSubjectIds.length} loading={portfolioPending}>Create portfolio without HOD</Button>
+          <SearchableSelect label="Portfolio subjects" options={subjectOptions} placeholder="Select subjects" searchPlaceholder="Search subjects" multiple value="" selectedValues={portfolioSubjectIds} onToggle={(id) => setPortfolioSubjectIds((v) => v.includes(id) ? v.filter((x) => x !== id) : [...v,id])} />
+          {portfolioSubjectIds.map((id) => <input key={id} type="hidden" name="subjectIds" value={id} />)}
+          <Button type="submit" disabled={portfolioPending || !portfolioLabel.trim() || !portfolioSubjectIds.length} loading={portfolioPending}>Create portfolio without HOD</Button>
         </form>
         <form action={appointmentAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
           <h3 className="text-sm font-semibold">Assign HOD later</h3>
