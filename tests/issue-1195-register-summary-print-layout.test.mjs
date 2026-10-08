@@ -49,3 +49,11 @@ test("term class splits sum all authoritative class-date buckets through weeks",
   assert.match(server, /total\.total \+= split\.total/);
   assert.doesNotMatch(server, /absentByClassDate\.get\(item\.id\)/);
 });
+
+test("weekly summary selector displays the selected week before any teaching day resolves", () => {
+  assert.match(summary, /const displayedWeekDate = summary\.lastTeachingDate \?\?/);
+  assert.match(summary, /mondayFor\(date\)/);
+  assert.match(summary, /value\.setDate\(value\.getDate\(\) \+ 4\)/);
+  assert.match(summary, /longDateFormatter\.format\(new Date\(/);
+  assert.doesNotMatch(summary, /const lastReportedOn = summary\.lastTeachingDate \? .* : "—"/);
+});
