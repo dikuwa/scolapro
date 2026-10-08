@@ -24,3 +24,11 @@ test('conduct policy Delete entries remain unfilled until explicit confirmation'
   assert.match(conduct, /variant="danger-ghost" size="sm" onClick=\{\(\) => setConfirmDelete\(\{ kind: "item"/);
   assert.match(conduct, /variant="danger">Delete if unused<\/Button>/);
 });
+
+const offline = readFileSync(new URL('../src/components/offline/offline-sync-center.tsx', import.meta.url), 'utf8');
+
+test('offline queue Discard entry is transparent until confirmation', () => {
+  assert.match(offline, /setConfirmingId\(record\.id\)/);
+  assert.match(offline, /bg-transparent px-2\.5 text-\[0\.68rem\] font-semibold text-\[color:var\(--danger\)\]/);
+  assert.match(offline, /confirmingId === record\.id/);
+});
