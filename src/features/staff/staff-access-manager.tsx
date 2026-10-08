@@ -379,27 +379,31 @@ export function StaffDirectoryRowControls({
             </p>
           ) : null}
           {row.operationalHodDesignation ? (
-            <form action={hodEndAction} className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.7fr)_auto] sm:items-end">
+            <form action={hodEndAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3">
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name="designationId" value={row.operationalHodDesignation.id} />
               <div>
                 <p className="font-semibold text-foreground">Operational HOD assigned</p>
                 <p className="mt-1 text-muted-foreground">Effective from {row.operationalHodDesignation.effectiveFrom}. Ending this designation also closes its open portfolio authority on the selected date.</p>
               </div>
-              <DateField label="Effective to" name="effectiveTo" value={hodDate} onChange={setHodDate} />
+              <div className="flex flex-wrap items-end justify-end gap-3">
+                <div className="min-w-[12rem] flex-1 sm:max-w-xs"><DateField label="Effective to" name="effectiveTo" value={hodDate} onChange={setHodDate} /></div>
               <Button type="submit" variant="neutral" size="sm" disabled={!operationalHodReady || hodEndPending || hodDate < row.operationalHodDesignation.effectiveFrom} loading={hodEndPending}>
                 End HOD placement
               </Button>
+              </div>
             </form>
           ) : (
-            <form action={hodAction} className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.7fr)_auto] sm:items-end">
+            <form action={hodAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3">
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name="staffMemberId" value={row.staffId} />
               <p className="text-muted-foreground">No operational HOD designation. The staff member keeps their existing placement and login status.</p>
-              <DateField label="Effective from" name="effectiveFrom" value={hodDate} onChange={setHodDate} />
+              <div className="flex flex-wrap items-end justify-end gap-3">
+                <div className="min-w-[12rem] flex-1 sm:max-w-xs"><DateField label="Effective from" name="effectiveFrom" value={hodDate} onChange={setHodDate} /></div>
               <Button type="submit" size="sm" disabled={!operationalHodReady || hodPending || !hodDate} loading={hodPending}>
                 <Network className="size-3.5" aria-hidden="true" /> Assign HOD placement
               </Button>
+              </div>
             </form>
           )}
         </div>
