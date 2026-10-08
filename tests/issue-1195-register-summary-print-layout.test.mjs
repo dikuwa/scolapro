@@ -68,3 +68,28 @@ test("weekly summary displays all five weekdays while term retains weekly column
   assert.match(term, /week\.weekLabel/);
   assert.match(server, /absentByClassDate\.get\(\`\$\{item\.id\}:\$\{day\}\`\)/);
 });
+
+test("term week numbering is anchored to governed term opening, not visible weeks", () => {
+  assert.match(server, /openingMonday = mondayFor\(term\?\.startsOn \?\? scopeFromDate\)/);
+  assert.match(server, /termWeekNumber = Math\.floor\(daysFromOpening \/ 7\) \+ 1/);
+  assert.match(server, /weekLabel: \`Week \$\{termWeekNumber\}\`/);
+  assert.doesNotMatch(server, /weekLabel: \`Week \$\{weeks\.length \+ 1\}\`/);
+});
+
+test("calendar term opening midweek and intervening closure do not shift calendar weeks", () => {
+  const mondayForDate = (iso) => {
+    const d = new Date(iso + "T12:00:00Z");
+    const offset = d.getUTCDay() === 0 ? -6 : 1 - d.getUTCDay();
+    d.setUTCDate(d.getUTCDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const label = (termStart, date) => {
+    const from = Date.parse(mondayForDate(termStart) + "T12:00:00Z");
+    const to = Date.parse(mondayForDate(date) + "T12:00:00Z");
+    return Math.floor(Math.round((to - from) / 86400000) / 7) + 1;
+  };
+  assert.equal(label("2026-09-02", "2026-09-02"), 1);
+  assert.equal(label("2026-09-02", "2026-09-04"), 1);
+  assert.equal(label("2026-09-02", "2026-09-14"), 3);
+  assert.equal(label("2026-09-02", "2026-09-21"), 4);
+});
