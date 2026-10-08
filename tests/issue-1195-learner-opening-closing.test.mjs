@@ -32,3 +32,8 @@ test("weekly and term numerator denominator exclude learner calendar closures", 
   assert.match(summary, /const teaching = week.dates.filter\(isTeachingDate\)/);
   assert.match(summary, /const weekDates = week.dates.filter\(isTeachingDate\)/);
 });
+
+test("a partially configured learner year does not falsely close an unconfigured term", () => {
+  assert.match(source, /configured\.length !== terms\.length/);
+  assert.match(source, /return null;\/\/|return null;/);
+});
