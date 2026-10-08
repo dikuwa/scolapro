@@ -153,3 +153,11 @@ test("printed term balance respects each learner's actual enrolment window", () 
   assert.match(model, /termPossibleTotal: learners\.reduce\(\(sum, learner\) => sum \+ learner\.termDays, 0\)/);
   assert.doesNotMatch(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);
 });
+
+test("printed registers use official learner term boundaries rather than teacher boundaries", () => {
+  assert.match(model, /list_academic_term_calendar_summary/);
+  assert.match(model, /item\.academic_term_id === term\.id/);
+  assert.match(model, /const termStart = learnerTerm\?\.learner_starts_on \?\? term\?\.startsOn/);
+  assert.match(model, /const termEnd = learnerTerm\?\.learner_ends_on \?\? term\?\.endsOn/);
+  assert.match(model, /impactByDate\.get\(date\) !== "NO_TEACHING"/);
+});
