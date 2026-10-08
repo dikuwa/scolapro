@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { learnerCalendarRestriction, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
 
 export type OfficialSexSplit = { boys: number; girls: number; total: number };
 
@@ -11,6 +12,7 @@ export type OfficialSummaryClassRow = {
   gradeName: string;
   absences: OfficialSexSplit;
   weekly: { weekId: string; weekLabel: string; absences: OfficialSexSplit }[];
+  daily: { date: string; absences: OfficialSexSplit }[];
 };
 
 export type OfficialSummaryGradeRow = {
@@ -18,6 +20,7 @@ export type OfficialSummaryGradeRow = {
   gradeName: string;
   absences: OfficialSexSplit;
   weekly: { weekId: string; weekLabel: string; absences: OfficialSexSplit }[];
+  daily: { date: string; absences: OfficialSexSplit }[];
 };
 
 export type OfficialSummarySchoolTotals = {
@@ -140,12 +143,13 @@ export async function getOfficialAttendanceSummary(
 
   // Wave 1: classes, term calendar (term mode) and the per-date teaching
   // impact for the whole range resolve together before any register data loads.
-  const [classResult, termsResult, impactResult] = await Promise.all([
+  const [classResult, termsResult, impactResult, learnerCalendarResult] = await Promise.all([
     supabase.from("register_classes").select("id,display_name,grade_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     mode === "term"
       ? supabase.from("academic_terms").select("id,term_number,display_name,starts_on,ends_on,status,academic_years!inner(school_id,year)").eq("academic_years.school_id", schoolId).eq("academic_years.year", academicYear).order("term_number")
       : Promise.resolve({ data: [], error: null as unknown }),
     supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: schoolId, p_from: scopeStart ?? `${academicYear}-01-01`, p_to: date }),
+    supabase.rpc("list_academic_term_calendar_summary", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
   if (classResult.error || termsResult.error || impactResult.error) throw new Error("Unable to load the official attendance summary.");
 
@@ -192,13 +196,23 @@ export async function getOfficialAttendanceSummary(
         term, terms,
       };
     }
-    scopeStart = fallbackStart > date ? date : fallbackStart;
+    // A future term has no reportable days before learner opening.
+    scopeStart = fallbackStart;
   }
 
   const scopeFromDate: string = scopeStart; // narrowed non-null by the fallback above
-  const dates = rangeDates(scopeFromDate, date);
-  const teachingDates = dates.filter((day) => impactByDate.get(day) !== "NO_TEACHING");
-  const nonTeachingDates = dates.filter((day) => impactByDate.get(day) === "NO_TEACHING");
+  // A historical term must stop on its official closing date. The selected
+  // "as at" date must never import learner-days from the following term.
+  const scopeEndDate = mode === "term" && term?.endsOn && term.endsOn < date ? term.endsOn : date;
+  const dates = scopeFromDate <= scopeEndDate ? rangeDates(scopeFromDate, scopeEndDate) : [];
+  // Day-by-day and summary figures follow the same learner opening/closing
+  // boundaries, not the separate teacher reporting calendar.
+  const learnerWindows = learnerCalendarResult.error
+    ? [] : (learnerCalendarResult.data ?? []) as LearnerTermWindow[];
+  const isTeachingDate = (day: string) =>
+    impactByDate.get(day) !== "NO_TEACHING" && !learnerCalendarRestriction(day, learnerWindows);
+  const teachingDates = dates.filter(isTeachingDate);
+  const nonTeachingDates = dates.filter((day) => !isTeachingDate(day));
   // Last expected school day of the reporting period drives both the
   // denominator window and the "as at" identity of the summary.
   const lastTeachingDate = teachingDates.length ? teachingDates[teachingDates.length - 1] : null;
@@ -211,20 +225,26 @@ export async function getOfficialAttendanceSummary(
     const weekId = mondayFor(day);
     if (!weekIdByDate.has(weekId)) {
       weekIdByDate.set(weekId, weekId);
-      weeks.push({ weekId, weekLabel: `Week ${weeks.length + 1}`, weekStart: weekId, weekEnd: addDays(weekId, 4), weekEndingReportedOn: null, dates: [], lastDate: null });
+      // Week numbering is anchored to the official selected term's opening
+      // week, not the current reporting window or number of teaching days.
+      // A partial first week is Week 1; holidays do not renumber weeks.
+      const openingMonday = mondayFor(term?.startsOn ?? scopeFromDate);
+      const daysFromOpening = Math.round((Date.parse(`${weekId}T12:00:00Z`) - Date.parse(`${openingMonday}T12:00:00Z`)) / 86400000);
+      const termWeekNumber = Math.floor(daysFromOpening / 7) + 1;
+      weeks.push({ weekId, weekLabel: `Week ${termWeekNumber}`, weekStart: weekId, weekEnd: addDays(weekId, 4), weekEndingReportedOn: null, dates: [], lastDate: null });
     }
     const week = weeks[weeks.length - 1];
     week.dates.push(day);
   }
   for (const week of weeks) {
-    const teaching = week.dates.filter((day) => impactByDate.get(day) !== "NO_TEACHING");
+    const teaching = week.dates.filter(isTeachingDate);
     week.lastDate = teaching.length ? teaching[teaching.length - 1] : null;
     week.weekEndingReportedOn = week.lastDate;
   }
   const weekLabelById = new Map(weeks.map((week) => [week.weekId, week.weekLabel]));
 
   const empty = {
-    mode, scopeStart: scopeFromDate, scopeEnd: date, lastTeachingDate, dates, teachingDates, nonTeachingDates, nonTeachingReasons: {} as Record<string, string>,
+    mode, scopeStart: scopeFromDate, scopeEnd: scopeEndDate, lastTeachingDate, dates, teachingDates, nonTeachingDates, nonTeachingReasons: {} as Record<string, string>,
     weeks, classes, classRows: [] as OfficialSummaryClassRow[], gradeRows: [] as OfficialSummaryGradeRow[],
     schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [] as OfficialSummarySchoolTotals["weekly"] },
     readiness: { complete: false, expectedRegisters: 0, submittedRegisters: 0, incomplete: [] as OfficialSummaryReadiness["incomplete"] },
@@ -322,11 +342,19 @@ export async function getOfficialAttendanceSummary(
   for (const item of classes) if (item.gradeId) gradeById.set(item.gradeId, item.grade);
 
   const classRows: OfficialSummaryClassRow[] = sortedClasses.map((item) => {
-    const total = absentByClassDate.get(item.id) ?? emptySplit();
+    // The source map is keyed by class + date, not class ID alone. Sum every
+    // authoritative teaching-week bucket so term and weekly figures reconcile.
+    const total = emptySplit();
+    for (const split of classWeekly.get(item.id)?.values() ?? []) {
+      total.boys += split.boys;
+      total.girls += split.girls;
+      total.total += split.total;
+    }
     const weekly = weeks
       .filter((week) => week.lastDate)
       .map((week) => ({ weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, absences: classWeekly.get(item.id)?.get(week.weekId) ?? emptySplit() }));
-    return { classId: item.id, className: item.name, gradeId: item.gradeId, gradeName: item.grade, absences: total, weekly };
+    const daily = dates.filter((day) => mondayFor(day) === mondayFor(date)).map((day) => ({ date: day, absences: absentByClassDate.get(`${item.id}:${day}`) ?? emptySplit() }));
+    return { classId: item.id, className: item.name, gradeId: item.gradeId, gradeName: item.grade, absences: total, weekly, daily };
   });
 
   const gradeTotals = new Map<string, { gradeId: string | null; gradeName: string; absences: OfficialSexSplit; weeks: Map<string, OfficialSexSplit> }>();
@@ -347,7 +375,20 @@ export async function getOfficialAttendanceSummary(
   }
   const gradeRows: OfficialSummaryGradeRow[] = [...gradeTotals.values()]
     .sort((left, right) => collator.compare(left.gradeName, right.gradeName))
-    .map((entry) => ({ gradeId: entry.gradeId, gradeName: entry.gradeName, absences: entry.absences, weekly: weeks.filter((week) => week.lastDate).map((week) => ({ weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, absences: entry.weeks.get(week.weekId) ?? emptySplit() })) }));
+    .map((entry) => ({
+      gradeId: entry.gradeId, gradeName: entry.gradeName, absences: entry.absences,
+      weekly: weeks.filter((week) => week.lastDate).map((week) => ({ weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, absences: entry.weeks.get(week.weekId) ?? emptySplit() })),
+      daily: dates.filter((day) => mondayFor(day) === mondayFor(date)).map((day) => {
+        const result = emptySplit();
+        for (const row of classRows.filter((item) => (item.gradeId ?? "ungraded") === (entry.gradeId ?? "ungraded"))) {
+          const split = row.daily.find((item) => item.date === day)?.absences;
+          result.boys += split?.boys ?? 0;
+          result.girls += split?.girls ?? 0;
+          result.total += split?.total ?? 0;
+        }
+        return { date: day, absences: result };
+      }),
+    }));
 
   // Per-date totals let weekly aggregates stay linear in dates.
   const possibleByDate = new Map<string, number>();
@@ -366,7 +407,7 @@ export async function getOfficialAttendanceSummary(
   const weeklyTotals = weeks
     .filter((week) => week.lastDate)
     .map((week) => {
-      const weekDates = week.dates.filter((day) => impactByDate.get(day) !== "NO_TEACHING");
+      const weekDates = week.dates.filter(isTeachingDate);
       const possible = weekDates.reduce((total, day) => total + (possibleByDate.get(day) ?? 0), 0);
       const absent = weekDates.reduce((total, day) => total + (absentByDate.get(day) ?? 0), 0);
       return { weekId: week.weekId, weekLabel: weekLabelById.get(week.weekId) ?? week.weekId, possibleAttendances: possible, absentLearnerDays: absent, percentAbsence: percent(absent, possible) };
@@ -389,7 +430,7 @@ export async function getOfficialAttendanceSummary(
   return {
     mode,
     scopeStart: scopeFromDate,
-    scopeEnd: date,
+    scopeEnd: scopeEndDate,
     lastTeachingDate,
     dates,
     teachingDates,

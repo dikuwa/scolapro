@@ -1,0 +1,107 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const summary = readFileSync(new URL("../src/features/attendance/official-summary.tsx", import.meta.url), "utf8");
+const register = readFileSync(new URL("../src/features/attendance/server/render-register-teacher-html.ts", import.meta.url), "utf8");
+const server = readFileSync(new URL("../src/features/attendance/server/official-summary.ts", import.meta.url), "utf8");
+
+test("weekly uses the term summary's compact total and sex breakdown", () => {
+  assert.match(summary, /function Split\(/);
+  assert.match(summary, /\{value\.boys\}B \/ \{value\.girls\}G/);
+  const weekly = summary.split("function WeekTable(")[1].split("function TermTable(")[0];
+  assert.match(weekly, /<Split value=\{row\.daily\.find/);
+  assert.match(weekly, /<Split value=\{schoolSplit\(day\.date\)\}/);
+  assert.match(weekly, /summary\.classRows\.reduce/);
+  assert.match(weekly, /total\.boys \+=/);
+  assert.match(weekly, /total\.girls \+=/);
+});
+
+test("weekly school total never manufactures per-sex values from the overall count", () => {
+  const weekly = summary.split("function WeekTable(")[1].split("function TermTable(")[0];
+  assert.doesNotMatch(weekly, /boys: 0, girls: 0, total: week\?\.absentLearnerDays/);
+});
+
+test("registers fit paper width and divide long terms into week panels", () => {
+  assert.match(register, /table-layout:fixed/);
+  assert.match(register, /min-width:0; border-collapse:collapse/);
+  assert.match(register, /<colgroup>\$\{columns\}<\/colgroup>/);
+  assert.match(register, /document\.weeks\.length > 3/);
+  assert.match(register, /document\.weeks\.slice\(i \* 3, \(i \+ 1\) \* 3\)/);
+  assert.match(register, /sectionHtml\(document, section, weeks, i \+ 1, panels\.length\)/);
+  assert.doesNotMatch(register, /min-width:max-content/);
+  assert.doesNotMatch(register, /overflow-x:auto/);
+});
+
+test("register panels retain school context, names, boys girls and totals", () => {
+  assert.match(register, /<strong>BOYS\/GIRLS:<\/strong>/);
+  assert.match(register, /<strong>REGISTER CLASS:<\/strong>/);
+  assert.match(register, /<strong>REGISTER TEACHER:<\/strong>/);
+  assert.match(register, /learnerIdentityCells\(section, index\)/);
+  assert.match(register, /totalsRow\("Total number of possible attendances"/);
+  assert.match(register, /@page \{ size:A3 landscape; margin:8mm; \}/);
+});
+
+test("term class splits sum all authoritative class-date buckets through weeks", () => {
+  assert.match(server, /for \(const split of classWeekly\.get\(item\.id\)\?\.values\(\) \?\? \[\]\)/);
+  assert.match(server, /total\.boys \+= split\.boys/);
+  assert.match(server, /total\.girls \+= split\.girls/);
+  assert.match(server, /total\.total \+= split\.total/);
+  assert.doesNotMatch(server, /absentByClassDate\.get\(item\.id\)/);
+});
+
+test("weekly summary selector displays the selected week before any teaching day resolves", () => {
+  assert.match(summary, /const displayedWeekDate = summary\.lastTeachingDate \?\?/);
+  assert.match(summary, /mondayFor\(date\)/);
+  assert.match(summary, /value\.setDate\(value\.getDate\(\) \+ 4\)/);
+  assert.match(summary, /longDateFormatter\.format\(new Date\(/);
+  assert.doesNotMatch(summary, /const lastReportedOn = summary\.lastTeachingDate \? .* : "—"/);
+});
+
+test("weekly summary displays all five weekdays while term retains weekly columns", () => {
+  const weekly = summary.split("function WeekTable(")[1].split("function TermTable(")[0];
+  const term = summary.split("function TermTable(")[1];
+  assert.match(weekly, /\["M", "T", "W", "T", "F"\]/);
+  assert.match(weekly, /length: 5/);
+  assert.match(weekly, /row\.daily\.find/);
+  assert.match(weekly, /schoolSplit\(day\.date\)/);
+  assert.match(term, /week\.weekLabel/);
+  assert.match(server, /absentByClassDate\.get\(\`\$\{item\.id\}:\$\{day\}\`\)/);
+});
+
+test("term week numbering is anchored to governed term opening, not visible weeks", () => {
+  assert.match(server, /openingMonday = mondayFor\(term\?\.startsOn \?\? scopeFromDate\)/);
+  assert.match(server, /termWeekNumber = Math\.floor\(daysFromOpening \/ 7\) \+ 1/);
+  assert.match(server, /weekLabel: \`Week \$\{termWeekNumber\}\`/);
+  assert.doesNotMatch(server, /weekLabel: \`Week \$\{weeks\.length \+ 1\}\`/);
+});
+
+test("calendar term opening midweek and intervening closure do not shift calendar weeks", () => {
+  const mondayForDate = (iso) => {
+    const d = new Date(iso + "T12:00:00Z");
+    const offset = d.getUTCDay() === 0 ? -6 : 1 - d.getUTCDay();
+    d.setUTCDate(d.getUTCDate() + offset);
+    return d.toISOString().slice(0, 10);
+  };
+  const label = (termStart, date) => {
+    const from = Date.parse(mondayForDate(termStart) + "T12:00:00Z");
+    const to = Date.parse(mondayForDate(date) + "T12:00:00Z");
+    return Math.floor(Math.round((to - from) / 86400000) / 7) + 1;
+  };
+  assert.equal(label("2026-09-02", "2026-09-02"), 1);
+  assert.equal(label("2026-09-02", "2026-09-04"), 1);
+  assert.equal(label("2026-09-02", "2026-09-14"), 3);
+  assert.equal(label("2026-09-02", "2026-09-21"), 4);
+});
+
+test("historical term summary stops at its official term closing date", () => {
+  assert.match(server, /const scopeEndDate = mode === "term" && term\?\.endsOn && term\.endsOn < date \? term\.endsOn : date/);
+  assert.match(server, /rangeDates\(scopeFromDate, scopeEndDate\)/);
+  assert.match(server, /scopeEnd: scopeEndDate/);
+});
+
+test("future terms remain empty rather than borrowing an earlier attendance date", () => {
+  assert.match(server, /scopeStart = fallbackStart;/);
+  assert.match(server, /scopeFromDate <= scopeEndDate \? rangeDates\(scopeFromDate, scopeEndDate\) : \[\]/);
+  assert.doesNotMatch(server, /scopeStart = fallbackStart > date \? date : fallbackStart/);
+});

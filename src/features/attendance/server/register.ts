@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { learnerCalendarRestriction, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
 
 export type AttendanceClassOption = {
   id: string;
@@ -54,7 +55,7 @@ export type AttendanceTeachingDay = {
  */
 export async function resolveAttendanceTeachingImpact(schoolId: string, attendanceDate: string): Promise<AttendanceTeachingDay> {
   const supabase = await createSupabaseServerClient();
-  const [impactResult, overrideResult] = await Promise.all([
+  const [impactResult, overrideResult, termResult] = await Promise.all([
     supabase.rpc("resolve_school_teaching_impact", { p_school_id: schoolId, p_target_date: attendanceDate }),
     supabase
       .from("school_day_overrides")
@@ -62,7 +63,20 @@ export async function resolveAttendanceTeachingImpact(schoolId: string, attendan
       .eq("school_id", schoolId)
       .eq("school_date", attendanceDate)
       .maybeSingle(),
+    supabase.rpc("list_academic_term_calendar_summary", {
+      p_school_id: schoolId,
+      p_academic_year: Number(attendanceDate.slice(0, 4)),
+    }),
   ]);
+  // A known learner closure wins even if the day-level resolver says NORMAL.
+  // Calendar management has separate teacher and learner boundaries.
+  if (!termResult.error) {
+    const restriction = learnerCalendarRestriction(
+      attendanceDate,
+      (termResult.data ?? []) as LearnerTermWindow[],
+    );
+    if (restriction) return { impact: "NO_TEACHING", reason: restriction };
+  }
   if (impactResult.error) return { impact: "NORMAL", reason: null };
   return {
     impact: typeof impactResult.data === "string" ? impactResult.data : "NORMAL",
