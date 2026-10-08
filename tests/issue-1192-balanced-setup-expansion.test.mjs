@@ -39,3 +39,10 @@ test("dense HOD manual-scope forms use progressive disclosure", () => {
   assert.match(hod, /group-open:rotate-180/);
   assert.match(hod, /Current responsibility history/);
 });
+
+test("expanded academic setup is not mistaken for a saved active configuration", () => {
+  assert.match(core, /\bEditing\b/);
+  assert.doesNotMatch(core, />\s*Active\s*</);
+  assert.match(core, /aria-controls=\{panelId\}/);
+  assert.match(core, /expanded=\{active\}/);
+});
