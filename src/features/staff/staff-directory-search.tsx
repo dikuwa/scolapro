@@ -19,7 +19,7 @@ export function StaffDirectorySearch({ initialQuery }: { initialQuery: string })
   }, [initialQuery]);
 
   useEffect(() => {
-    const normalized = query.trim().replace(/\\s+/g, " ");
+    const normalized = query.trim().replace(/\s+/g, " ");
     if (normalized === initialQuery) return;
     const timer = setTimeout(() => {
       startTransition(() => {
