@@ -23,6 +23,7 @@ export type StaffDirectoryResult = {
   totalStaff: number;
   activeStaff: number;
   accountCount: number;
+  operationalHodReady: boolean;
   suggestedEmployeeNumber: string;
   page: number;
   pageSize: number;
@@ -123,6 +124,7 @@ export async function getSchoolStaffDirectory(
     totalStaff: Number(summary?.total_staff ?? 0),
     activeStaff: Number(summary?.active_staff ?? 0),
     accountCount: Number(summary?.account_count ?? 0),
+    operationalHodReady: !designationTableMissing,
     suggestedEmployeeNumber: summary?.suggested_employee_number ?? "EMP-001",
     page,
     pageSize,
