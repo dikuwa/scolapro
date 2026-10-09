@@ -44,6 +44,24 @@ SELECT set_config('request.jwt.claims',
   )::text,true);
 SET LOCAL ROLE authenticated;
 
+DO $
+BEGIN
+  BEGIN
+    PERFORM public.end_staff_school_role(
+      '22222222-2222-4222-8222-222222222222',
+      (SELECT id FROM public.school_memberships
+       WHERE school_id='22222222-2222-4222-8222-222222222222'
+         AND user_id='70000000-0000-4000-8000-000000000202'
+         AND role_key='school_admin'),
+      current_date-1
+    );
+    RAISE EXCEPTION 'Last School Admin removal was permitted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Cannot remove the last active School Admin' THEN RAISE; END IF;
+  END;
+  RAISE NOTICE 'LAST_SCHOOL_ADMIN_PROTECTED';
+END $;
+
 SELECT public.plan_staff_school_role(
   '22222222-2222-4222-8222-222222222222',
   '70000000-0000-4000-8000-000000001202',
