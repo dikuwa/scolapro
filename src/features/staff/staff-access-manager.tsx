@@ -13,7 +13,6 @@ import {
   Pencil,
   Plus,
   ShieldCheck,
-  UserPlus,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
