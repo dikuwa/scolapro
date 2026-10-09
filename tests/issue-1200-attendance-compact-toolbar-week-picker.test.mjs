@@ -44,9 +44,12 @@ test("daily roster exposes one persistent A-Z toggle beside sex filters", () => 
   assert.equal((daily.match(/<AttendanceSortControl/g) ?? []).length, 1);
   assert.equal((sort.match(/<button/g) ?? []).length, 1);
   assert.match(sort, /sort === "asc" \? "desc" : "asc"/);
-  assert.match(daily, /params\.set\("sex", value\)/);
-  assert.match(daily, /params\.set\("sort", "desc"\)/);
-  assert.match(tabs, /params\.set\("sex", sexFilter\)/);
+  assert.match(daily, /persistRosterPreferences/);
+  assert.match(daily, /window\.history\.replaceState/);
+  assert.match(daily, /sort=\{sortDirection\} onChange=\{chooseSort\}/);
+  assert.match(page, /key=\{`\$\{workspace\.selectedClassId \?\? "none"\}:\$\{date\}:\$\{workspace\.currentSubmissionId \?\? "draft"\}`\}/);
+  assert.doesNotMatch(page, /currentSubmissionId \?\? "draft"\}:\$\{sort\}/);
+  assert.match(tabs, /params\.set\("sex", currentSexFilter\)/);
 });
 
 test("register toolbar remains complete and week navigation honors term bounds", () => {

@@ -4,34 +4,33 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarDays, CalendarRange, ClipboardList, ListChecks, NotebookTabs } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
-import type { AttendanceSortDirection } from "@/features/attendance/server/register";
 
 export function AttendanceViewTabs({
   view,
   date,
   requestedClass,
   weekDate,
-  sort = "asc",
-  sexFilter = "all",
 }: {
   view: "day" | "week" | "register" | "official" | "absences";
   date: string;
   requestedClass?: string;
   weekDate: string;
-  sort?: AttendanceSortDirection;
-  sexFilter?: "all" | "male" | "female";
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   function navigate(nextView: "day" | "week" | "register" | "official" | "absences") {
     if (nextView === view || pending) return;
+    const currentParams = new URLSearchParams(window.location.search);
+    const currentSort = currentParams.get("sort") === "desc" ? "desc" : "asc";
+    const currentSexParam = currentParams.get("sex");
+    const currentSexFilter = currentSexParam === "male" || currentSexParam === "female" ? currentSexParam : "all";
     const params = new URLSearchParams();
     params.set("view", nextView);
     params.set("date", nextView === "week" || nextView === "official" ? weekDate : date);
     if (requestedClass) params.set("class", requestedClass);
-    if (sort === "desc") params.set("sort", "desc");
-    if (sexFilter !== "all") params.set("sex", sexFilter);
+    if (currentSort === "desc") params.set("sort", "desc");
+    if (currentSexFilter !== "all") params.set("sex", currentSexFilter);
     startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 

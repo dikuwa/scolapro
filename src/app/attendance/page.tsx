@@ -122,7 +122,7 @@ if (view === "register") {
     : (terms.find((term) => (!term.startsOn || term.startsOn <= date) && (!term.endsOn || term.endsOn >= date))?.id ?? terms[0]?.id ?? null);
   return (
     <section className="attendance-page">
-      <AttendanceHeader date={date} requestedClass={requestedClass} view="register" sort={sort} sexFilter={sexFilter} />
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="register" />
       <RegisterTeacherWorkspace
         classes={workspace.classes}
         selectedClassId={workspace.selectedClassId}
@@ -160,7 +160,7 @@ if (view === "official") {
 
   return (
     <section className="attendance-page">
-      <AttendanceHeader date={date} requestedClass={requestedClass} view="official" sort={sort} sexFilter={sexFilter} />
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="official" />
       <OfficialSummary
         summary={summary}
         date={date}
@@ -181,7 +181,7 @@ if (view === "absences") {
   const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
   return (
     <section className="attendance-page">
-        <AttendanceHeader date={date} requestedClass={requestedClass} view="absences" sort={sort} sexFilter={sexFilter} />
+        <AttendanceHeader date={date} requestedClass={requestedClass} view="absences" />
         <p className="mb-5 text-sm leading-6 text-muted-foreground">A read-only absence view. It combines official daily-register absences, lesson absences and parent/guardian notices for {selectedClass ? `${selectedClass.grade} ${selectedClass.name}` : "your school"} — it never changes the records it reads.</p>
         <AbsenceOverview classes={workspace.classes} selectedClassId={workspace.selectedClassId} rows={workspace.rows} attendanceDate={date} />
     </section>
@@ -194,7 +194,7 @@ if (view === "week") {
   const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => day.status !== "present").length, 0);
   return (
     <section className="attendance-page">
-        <AttendanceHeader date={date} requestedClass={requestedClass} view="week" sort={sort} sexFilter={sexFilter} />
+        <AttendanceHeader date={date} requestedClass={requestedClass} view="week" />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
         <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
     </section>
@@ -206,9 +206,9 @@ const selectedClass = workspace.classes.find((item) => item.id === workspace.sel
 const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
 return (
   <section className="attendance-page">
-      <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} sexFilter={sexFilter} />
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="day" />
       <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} sort={sort} initialSexFilter={sexFilter} />
+      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} sort={sort} initialSexFilter={sexFilter} />
   </section>
 );
 }
@@ -228,11 +228,11 @@ function AttendanceLoading() {
   );
 }
 
-function AttendanceHeader({ date, requestedClass, view, sort, sexFilter }: { date: string; requestedClass?: string; view: "day" | "week" | "register" | "official" | "absences"; sort: AttendanceSortDirection; sexFilter: "all" | "male" | "female" }) {
+function AttendanceHeader({ date, requestedClass, view }: { date: string; requestedClass?: string; view: "day" | "week" | "register" | "official" | "absences" }) {
   return (
     <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
       <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first capture, Monday–Friday entry, a printable Register Teacher balancing copy, official weekly/term summaries, or all absences for a day.</p></div>
-      <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} sexFilter={sexFilter} />
+      <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} />
     </div>
   );
 }
