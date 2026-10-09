@@ -48,6 +48,20 @@ export async function signIn(_previousState: LoginState, formData: FormData): Pr
     };
   }
 
+  // A flagged account must finish password rotation before any requested deep link.
+  // The request proxy separately guards direct page navigation.
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    return { message: "Your session could not be verified. Sign in again." };
+  }
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (profileError || !profile || profile.must_change_password === true) {
+    redirect("/password-rotation");
+  }
   redirect(safeNextPath(parsed.data.next));
 }
 
