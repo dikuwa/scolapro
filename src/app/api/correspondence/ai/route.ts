@@ -29,7 +29,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: parsed.error.issues[0]?.message ?? "AI request is invalid." }, { status: 400 });
   }
 
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    return NextResponse.json({ message: "Complete account security setup before using AI drafting." }, { status: 403 });
+  }
   if (!context.user || context.platformMemberships.length) {
     return NextResponse.json({ message: "School leadership access is required." }, { status: 403 });
   }
