@@ -13,6 +13,7 @@ test("role intentions never create login access before invitation", () => {
   assert.doesNotMatch(section,/insert into public.school_memberships/);
   assert.match(section,/Self-assignment is not permitted/);
   assert.match(section,/School administrator permission required/);
+  assert.match(section,/user_can_manage_current_school_membership/);
   assert.match(section,/No effective school placement/);
 });
 
