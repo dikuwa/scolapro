@@ -13,7 +13,7 @@ test("flagged user is redirected before entering ordinary app pages", () => {
   assert.match(proxy, /\.select\("must_change_password"\)/);
   assert.match(proxy, /profileError \|\| !profile \|\| profile\.must_change_password === true/);
   assert.match(proxy, /rotationUrl\.pathname = "\/password-rotation"/);
-  assert.match(proxy, /if \(profileError\)/);
+  assert.match(proxy, /profileError \|\| !profile \|\| profile\.must_change_password === true/);
 });
 test("rotation has a dedicated authenticated page without an app shell", () => {
   assert.match(route, /supabase\.auth\.getUser\(\)/);
