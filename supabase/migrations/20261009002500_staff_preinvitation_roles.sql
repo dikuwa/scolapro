@@ -28,7 +28,8 @@ revoke all on public.staff_planned_school_roles from anon,authenticated;
 
 create or replace function public.plan_staff_school_role(
   p_school_id uuid, p_staff_member_id uuid, p_role_key text,
-  p_effective_from date default current_date
+  p_effective_from date default current_date,
+  p_effective_to date default null
 ) returns uuid language plpgsql security definer
 set search_path=pg_catalog,public,app_private as $$
 declare
@@ -43,6 +44,9 @@ begin
   if p_effective_from is null or p_role_key not in
     ('school_admin','principal','deputy_principal','hod','teacher','class_teacher','counsellor','social_worker','librarian','board_member')
   then raise exception 'Invalid planned school role'; end if;
+  if p_effective_to is not null and p_effective_to<p_effective_from then
+    raise exception 'Planned role end date cannot precede its start date';
+  end if;
   select * into v_school from public.schools where id=p_school_id and status='active';
   if not found then raise exception 'School unavailable'; end if;
   select * into v_staff from public.staff_members where id=p_staff_member_id and tenant_id=v_school.tenant_id for update;
@@ -50,8 +54,12 @@ begin
   if not exists (
     select 1 from public.staff_school_assignments
     where school_id=p_school_id and staff_member_id=p_staff_member_id
-      and effective_from<=p_effective_from and (effective_to is null or effective_to>=p_effective_from)
-  ) then raise exception 'No effective school placement'; end if;
+      and effective_from<=p_effective_from
+      and (
+        effective_to is null
+        or (p_effective_to is not null and effective_to>=p_effective_to)
+      )
+  ) then raise exception 'No effective school placement covering the planned role interval'; end if;
   if v_staff.user_id=auth.uid() then raise exception 'Self-assignment is not permitted'; end if;
   if v_staff.user_id is not null then
     raise exception 'Linked account exists; use active membership role management';
@@ -61,16 +69,18 @@ begin
     where school_id=p_school_id and staff_member_id=p_staff_member_id and role_key=p_role_key
       and revoked_at is null
       and daterange(effective_from,coalesce(effective_to,'infinity'::date),'[]')
-          && daterange(p_effective_from,'infinity'::date,'[]')
+          && daterange(p_effective_from,coalesce(p_effective_to,'infinity'::date),'[]')
   ) then raise exception 'Planned role interval overlaps an existing assignment'; end if;
   insert into public.staff_planned_school_roles
-    (tenant_id,school_id,staff_member_id,role_key,effective_from,created_by_user_id)
-  values (v_school.tenant_id,p_school_id,p_staff_member_id,p_role_key,p_effective_from,auth.uid())
+    (tenant_id,school_id,staff_member_id,role_key,effective_from,effective_to,created_by_user_id)
+  values (v_school.tenant_id,p_school_id,p_staff_member_id,p_role_key,p_effective_from,p_effective_to,auth.uid())
   returning id into v_id;
   insert into public.audit_events
     (tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
   values (v_school.tenant_id,p_school_id,auth.uid(),'staff.role_planned',
-    'staff_planned_school_role',v_id,jsonb_build_object('role_key',p_role_key,'staff_member_id',p_staff_member_id));
+    'staff_planned_school_role',v_id,jsonb_build_object(
+      'role_key',p_role_key,'staff_member_id',p_staff_member_id,
+      'effective_from',p_effective_from,'effective_to',p_effective_to));
   return v_id;
 end;$$;
 
@@ -278,8 +288,8 @@ end;$;
 revoke all on function public.end_staff_school_role(uuid,uuid,date) from public,anon;
 grant execute on function public.end_staff_school_role(uuid,uuid,date) to authenticated;
 
-revoke all on function public.plan_staff_school_role(uuid,uuid,text,date) from public,anon;
-grant execute on function public.plan_staff_school_role(uuid,uuid,text,date) to authenticated;
+revoke all on function public.plan_staff_school_role(uuid,uuid,text,date,date) from public,anon;
+grant execute on function public.plan_staff_school_role(uuid,uuid,text,date,date) to authenticated;
 revoke all on function public.end_planned_staff_school_role(uuid,uuid,date) from public,anon;
 grant execute on function public.end_planned_staff_school_role(uuid,uuid,date) to authenticated;
 revoke all on function app_private.activate_planned_roles_on_staff_invitation() from public,anon,authenticated;
