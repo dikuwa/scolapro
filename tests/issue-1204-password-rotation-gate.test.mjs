@@ -37,7 +37,7 @@ test("sign-in redirects flagged or unresolved profiles to rotation before any de
 
 test("server-side role context rejects users who must rotate passwords", () => {
   const context = read("src/lib/auth/get-user-context.ts");
-  assert.match(context, /rpcRow\?\.profile\?\.must_change_password === true/);
+  assert.match(context, /rpcRow\.profile\.must_change_password !== false/);
   assert.match(context, /Password rotation required before accessing school authority/);
 });
 
@@ -227,6 +227,6 @@ test("report processing and learner transfer exports fail closed during password
 
 test("shared server authority resolver also fails closed for missing profiles", () => {
   const resolver = read("src/lib/auth/get-user-context.ts");
-  assert.match(resolver, /!rpcRow\?\.profile \|\| rpcRow\.profile\.must_change_password === true/);
+  assert.match(resolver, /!rpcRow\?\.profile \|\| rpcRow\.profile\.must_change_password !== false/);
   assert.match(resolver, /throw new Error\("Password rotation required before accessing school authority\."\)/);
 });
