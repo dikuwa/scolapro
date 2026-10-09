@@ -28,7 +28,12 @@ async function storedLogoBytes(storagePath: string, signedUrl: string): Promise<
 }
 
 export async function GET(request: Request) {
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    return Response.json({ error: "Complete account security setup and verify school access." }, { status: 403 });
+  }
   if (!context.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (context.platformMemberships.length) {
     return Response.json({ error: "School-operational teaching export is not available to platform roles." }, { status: 403 });
