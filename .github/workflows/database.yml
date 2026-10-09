@@ -50,3 +50,18 @@ jobs:
         run: |
           PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
             -v ON_ERROR_STOP=1 -f tests/sql/issue-1202-staff-preinvitation-roles-transaction.sql
+
+      - name: Verify concurrent staff invitation activation (Issue 1202)
+        run: |
+          export PGPASSWORD=postgres
+          PSQL="psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1"
+          $PSQL -f tests/sql/issue-1202-staff-preinvitation-concurrency-setup.sql
+          $PSQL -f tests/sql/issue-1202-staff-preinvitation-concurrency-accept.sql > /tmp/issue1202-accept-a.log 2>&1 &
+          pid_a=$!
+          $PSQL -f tests/sql/issue-1202-staff-preinvitation-concurrency-accept.sql > /tmp/issue1202-accept-b.log 2>&1 &
+          pid_b=$!
+          wait $pid_a
+          wait $pid_b
+          cat /tmp/issue1202-accept-a.log
+          cat /tmp/issue1202-accept-b.log
+          $PSQL -f tests/sql/issue-1202-staff-preinvitation-concurrency-verify.sql
