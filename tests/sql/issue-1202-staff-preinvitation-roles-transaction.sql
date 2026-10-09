@@ -61,7 +61,7 @@ SELECT set_config('request.jwt.claims',
   )::text,true);
 SET LOCAL ROLE authenticated;
 
-DO $$
+DO $qa$
 BEGIN
   BEGIN
     PERFORM public.end_staff_school_role(
@@ -77,9 +77,9 @@ BEGIN
     IF SQLERRM <> 'Cannot remove the last active School Admin' THEN RAISE; END IF;
   END;
   RAISE NOTICE 'LAST_SCHOOL_ADMIN_PROTECTED';
-END $;
+END $qa$;
 
-DO $
+DO $qa$
 BEGIN
   BEGIN
     PERFORM public.plan_staff_school_role(
@@ -92,7 +92,7 @@ BEGIN
     IF SQLERRM <> 'Self-assignment is not permitted' THEN RAISE; END IF;
   END;
   RAISE NOTICE 'SELF_ASSIGNMENT_DENIED';
-END $;
+END $qa$;
 
 SELECT public.plan_staff_school_role(
   '22222222-2222-4222-8222-222222222222',
@@ -145,7 +145,7 @@ SELECT set_config('request.jwt.claims',
     'email','qa1202-admin@example.test'
   )::text,true);
 SET LOCAL ROLE authenticated;
-DO $
+DO $qa$
 BEGIN
   BEGIN
     PERFORM public.accept_school_invitation((SELECT token FROM qa1202_invitation_token));
@@ -154,7 +154,7 @@ BEGIN
     IF SQLERRM <> 'Invitation email does not match the signed-in account' THEN RAISE; END IF;
   END;
   RAISE NOTICE 'TOKEN_EMAIL_MISMATCH_DENIED';
-END $;
+END $qa$;
 RESET ROLE;
 
 SELECT set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000203',true);
@@ -165,7 +165,7 @@ SELECT set_config('request.jwt.claims',
     'role','authenticated',
     'email','qa1202-invitee@example.test'
   )::text,true);
-DO $
+DO $qa$
 BEGIN
   BEGIN
     UPDATE public.staff_members
@@ -178,7 +178,7 @@ BEGIN
     IF SQLERRM <> 'Staff identity is already linked to another account' THEN RAISE; END IF;
   END;
   RAISE NOTICE 'ACCOUNT_COLLISION_DENIED';
-END $;
+END $qa$;
 
 INSERT INTO public.staff_planned_school_roles(
   id,tenant_id,school_id,staff_member_id,role_key,effective_from,effective_to,created_by_user_id
@@ -191,7 +191,7 @@ INSERT INTO public.staff_planned_school_roles(
   '70000000-0000-4000-8000-000000000202'
 );
 
-DO $$
+DO $qa$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM public.school_memberships
@@ -200,7 +200,7 @@ BEGIN
     RAISE EXCEPTION 'Planning manufactured active login authority';
   END IF;
   RAISE NOTICE 'NO_LOGIN_ACCESS_BEFORE_ACCEPTANCE';
-END $$;
+END $qa$;
 
 SELECT set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000203',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
@@ -216,7 +216,7 @@ SELECT * FROM public.accept_school_invitation(:'invitation_token');
 
 RESET ROLE;
 
-DO $$
+DO $qa$
 BEGIN
   IF (SELECT user_id FROM public.staff_members
       WHERE id='70000000-0000-4000-8000-000000001202')
@@ -275,7 +275,7 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'MULTI_ROLE_EFFECTIVE_DATES_REVOKED_EXPIRED_SCHEDULED_OK';
-END $$;
+END $qa$;
 
 SELECT set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000203',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
@@ -291,7 +291,7 @@ SELECT * FROM public.accept_school_invitation(:'invitation_token');
 
 RESET ROLE;
 
-DO $$
+DO $qa$
 BEGIN
   IF (SELECT count(*) FROM public.school_memberships
       WHERE staff_member_id='70000000-0000-4000-8000-000000001202') <> 3 THEN
@@ -306,6 +306,6 @@ BEGIN
     RAISE EXCEPTION 'Replay duplicated activation audit events';
   END IF;
   RAISE NOTICE 'INVITATION_REPLAY_IDEMPOTENT';
-END $$;
+END $qa$;
 
 ROLLBACK;
