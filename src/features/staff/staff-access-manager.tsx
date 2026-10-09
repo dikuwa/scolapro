@@ -81,7 +81,9 @@ export function StaffDirectoryRowControls({
   const [correctionState, correctionAction, correctionPending] = useActionState(correctStaffDetails, initialState);
   const [reconciliationState, reconciliationAction, reconciliationPending] = useActionState(reconcileStaffIdentities, initialState);
   const [roleKey, setRoleKey] = useState<string>("teacher");
-  const [hodDate, setHodDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const [roleDate, setRoleDate] = useState(today);
+  const [hodDate, setHodDate] = useState(today);
   const [hodState, hodAction, hodPending] = useActionState(designateStaffOperationalHod, initialState);
   const [hodEndState, hodEndAction, hodEndPending] = useActionState(endStaffOperationalHod, initialState);
   const [email, setEmail] = useState("");
@@ -155,6 +157,10 @@ export function StaffDirectoryRowControls({
   }
 
   const visibleRoles = row.activeRoles.filter((item) => !hiddenRoleIds.has(item.id));
+  const eligiblePlannedRoles = row.plannedRoles.filter((plan) =>
+    !plan.revokedAt && (!plan.effectiveTo || plan.effectiveTo >= today)
+  );
+  const invitationRoleKey = eligiblePlannedRoles[0]?.roleKey ?? "";
   const rolePreview = visibleRoles.slice(0, 2).map((item) => roleLabel(item.roleKey));
   const hiddenRoleCount = Math.max(visibleRoles.length - rolePreview.length, 0);
   const duplicateOptions = candidates
@@ -181,24 +187,35 @@ export function StaffDirectoryRowControls({
             )}
           </div>
 
-          {!row.hasAccount && row.plannedRoles.length > 0 ? (
+          {row.plannedRoles.length > 0 ? (
             <div className="flex flex-wrap items-center gap-1.5">
-              {row.plannedRoles.map((plan) => (
-                <span key={plan.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] text-brand-strong">
-                  {roleLabel(plan.roleKey)} · {plan.revokedAt ? "Revoked" : plan.effectiveTo ? "Ended" : "Planned"}
-                  {!plan.revokedAt ? (
-                    <form action={async (data: FormData) => {
-                      const result = await endPlannedStaffSchoolRole(data);
-                      if (result.message) (result.success ? toast.success : toast.error)(result.message);
-                      if (result.success) router.refresh();
-                    }}>
-                      <input type="hidden" name="schoolId" value={schoolId} />
-                      <input type="hidden" name="plannedRoleId" value={plan.id} />
-                      <button type="submit" aria-label={`End planned ${roleLabel(plan.roleKey)} role`} className="ml-1 text-brand-strong hover:text-[color:var(--danger)]"><X className="size-3" /></button>
-                    </form>
-                  ) : null}
-                </span>
-              ))}
+              {row.plannedRoles.map((plan) => {
+                const status = plan.revokedAt
+                  ? "Revoked"
+                  : plan.effectiveTo && plan.effectiveTo < today
+                    ? "Ended"
+                    : plan.effectiveFrom > today
+                      ? "Scheduled"
+                      : row.hasAccount
+                        ? "Active on account"
+                        : "Planned";
+                return (
+                  <span key={plan.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] text-brand-strong">
+                    {roleLabel(plan.roleKey)} · {status}
+                    {!row.hasAccount && !plan.revokedAt && (!plan.effectiveTo || plan.effectiveTo >= today) ? (
+                      <form action={async (data: FormData) => {
+                        const result = await endPlannedStaffSchoolRole(data);
+                        if (result.message) (result.success ? toast.success : toast.error)(result.message);
+                        if (result.success) router.refresh();
+                      }}>
+                        <input type="hidden" name="schoolId" value={schoolId} />
+                        <input type="hidden" name="plannedRoleId" value={plan.id} />
+                        <button type="submit" aria-label={`End planned ${roleLabel(plan.roleKey)} role`} className="ml-1 text-brand-strong hover:text-[color:var(--danger)]"><X className="size-3" /></button>
+                      </form>
+                    ) : null}
+                  </span>
+                );
+              })}
             </div>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
@@ -364,14 +381,16 @@ export function StaffDirectoryRowControls({
                 <input type="hidden" name="roleKey" value={roleKey} />
                 <Picker ariaLabel="Preassign school role" value={roleKey} onChange={setRoleKey}
                   options={roleOptions.map(([value,label]) => ({value,label}))} placeholder="Choose role" className="min-w-44" />
+                <DateField label="Effective from" name="effectiveFrom" value={roleDate} onChange={setRoleDate} />
                 <Button type="submit" variant="neutral" size="sm" loading={planPending}>
                   <Plus className="size-3.5" aria-hidden="true" /> Preassign role
                 </Button>
-                <p className="basis-full text-[0.68rem] text-muted-foreground">Role remains inactive until the staff member accepts verified login access.</p>
+                <p className="basis-full text-[0.68rem] text-muted-foreground">Current roles activate only after verified login acceptance; future-dated roles stay inactive until their effective date.</p>
               </form> : null}
-              <form action={inviteAction} className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.75fr)_auto] lg:items-end">
+              <form action={inviteAction} className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                 <input type="hidden" name="schoolId" value={schoolId} />
                 <input type="hidden" name="staffMemberId" value={row.staffId} />
+                <input type="hidden" name="roleKey" value={invitationRoleKey} />
                 <div>
                   <label htmlFor={`staff-email-${row.staffId}`} className="block text-[0.68rem] text-muted-foreground">Login email</label>
                   <input
@@ -384,21 +403,14 @@ export function StaffDirectoryRowControls({
                     className="mt-1 min-h-9 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-2.5 text-xs outline-none focus:border-[color:var(--brand)]/50"
                   />
                 </div>
-                <div>
-                  <label className="block text-[0.68rem] text-muted-foreground">Intended role</label>
-                  <Picker
-                    ariaLabel="Intended school role"
-                    value={roleKey}
-                    onChange={setRoleKey}
-                    options={roleOptions.map(([value, label]) => ({ value, label }))}
-                    placeholder="Choose role"
-                    className="mt-1"
-                  />
-                  <input type="hidden" name="roleKey" value={roleKey} />
-                </div>
-                <Button type="submit" size="sm" loading={invitePending} disabled={!email}>
+                <Button type="submit" size="sm" loading={invitePending} disabled={!email || !invitationRoleKey}>
                   <Link2 className="size-3.5" aria-hidden="true" /> Send invite
                 </Button>
+                <p className="basis-full text-[0.68rem] text-muted-foreground">
+                  {invitationRoleKey
+                    ? `This invitation will use the ${eligiblePlannedRoles.length} current or scheduled preassigned ${eligiblePlannedRoles.length === 1 ? "role" : "roles"} above; no extra role is granted by the invitation.`
+                    : "Assign at least one current or scheduled role before creating login access."}
+                </p>
               </form>
               {inviteState.invitationToken ? (
                 <p className="mt-3 break-all rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-2 text-[0.68rem] text-[color:var(--success)]">
