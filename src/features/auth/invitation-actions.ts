@@ -53,6 +53,8 @@ export async function signUpForInvitation(
     return { message: "The account could not be created. If you already have an account, sign in instead." };
   }
 
+  if (!data.user) return { message: "Account creation could not be verified. Sign in and reopen your invitation." };
+
   if (!data.session) {
     return {
       success: true,
