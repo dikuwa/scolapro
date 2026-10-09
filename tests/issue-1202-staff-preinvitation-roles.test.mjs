@@ -15,28 +15,43 @@ test("role intentions never create login access before invitation", () => {
   assert.match(section,/School administrator permission required/);
   assert.match(section,/No effective school placement/);
 });
-test("verified invitation acceptance activates effective roles with identity checks", () => {
+
+test("verified invitation acceptance reconciles only governed planned roles", () => {
   assert.match(migration,/after update of status on public.school_invitations/);
-  assert.match(migration,/new.accepted_user_id is null/);
   assert.match(migration,/Accepted staff identity mismatch/);
-  assert.match(migration,/greatest\(current_date,v_plan.effective_from\)/);
-  assert.match(migration,/effective_to is null or effective_to>=current_date/);
+  assert.match(migration,/Accepted staff account email is not verified/);
+  assert.match(migration,/u\.email_confirmed_at is not null/);
+  assert.match(migration,/No eligible planned staff roles remain/);
+  assert.match(migration,/delete from public\.school_memberships/);
+  assert.match(migration,/v_plan\.effective_from,v_plan\.effective_to/);
   assert.match(migration,/revoked_at is null/);
-  assert.match(migration,/insert into public.school_memberships/);
-  assert.match(migration,/linked_at=now\(\)/);
+  assert.match(migration,/effective_to is null or effective_to>=current_date/);
+  assert.match(migration,/staff\.planned_role_activated/);
 });
-test("school admin may preassign roles without providing email", () => {
+
+test("school admin preassigns effective-dated roles before supplying login email", () => {
   assert.match(actions,/export async function planStaffSchoolRole/);
   assert.match(ui,/Preassign school role/);
   assert.match(ui,/Preassign role/);
-  assert.match(ui,/Role remains inactive until/);
+  assert.match(ui,/name="effectiveFrom"/);
+  assert.match(ui,/future-dated roles stay inactive until their effective date/);
 });
 
-test("planned roles are displayed and revocable before account creation", () => {
+test("staff invitation consumes preassigned roles and does not ask for a second role", () => {
+  assert.match(ui,/const eligiblePlannedRoles/);
+  assert.match(ui,/const invitationRoleKey/);
+  assert.match(ui,/name="roleKey" value=\{invitationRoleKey\}/);
+  assert.doesNotMatch(ui,/ariaLabel="Intended school role"/);
+  assert.match(ui,/no extra role is granted by the invitation/);
+  assert.match(ui,/Assign at least one current or scheduled role before creating login access/);
+});
+
+test("planned roles expose planned, scheduled, active and ended states", () => {
   const directory = read("src/features/staff/server/directory.ts");
   assert.match(migration, /create or replace function public.list_staff_planned_roles/);
   assert.match(directory, /plannedRoles: row.staff_id/);
-  assert.match(ui, /row.plannedRoles.map/);
+  assert.match(ui, /"Scheduled"/);
+  assert.match(ui, /"Active on account"/);
+  assert.match(ui, /"Ended"/);
   assert.match(ui, /endPlannedStaffSchoolRole/);
-  assert.match(actions, /export async function endPlannedStaffSchoolRole/);
 });
