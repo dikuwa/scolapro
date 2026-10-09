@@ -71,7 +71,7 @@ export async function submitWeeklyRegister(_state: WeeklyRegisterState, formData
   // calendar marks NO_TEACHING, matching the UI gate shown to staff.
   for (const day of parsed.data.days) {
     const teachingDay = await resolveAttendanceTeachingImpact(registerSchool.school_id, day.date);
-    if (teachingDay.impact === "NO_TEACHING") {
+    if (!teachingDay.eligible) {
       return { message: `${day.date} is marked as a non-teaching day in the school calendar, so attendance can't be recorded for it.` };
     }
   }

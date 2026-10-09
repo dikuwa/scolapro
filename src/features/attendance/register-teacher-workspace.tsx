@@ -161,26 +161,29 @@ export function RegisterTeacherWorkspace({
             ) : null}
             <div className={`flex min-w-0 flex-col gap-1.5 sm:col-span-2 sm:flex-row sm:items-end sm:justify-end xl:col-span-1 ${mode === "term" ? "xl:col-start-4 xl:col-span-2" : ""}`}>
               {mode === "week" ? <div className="min-w-0 flex-1"><p className="text-xs font-medium text-muted-foreground">Navigate</p><WeekPicker className="mt-1.5" valueLabel={periodLabel} onPrevious={() => { const value = addDays(selectedFromWeek!, -7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} onNext={() => { const value = addDays(selectedFromWeek!, 7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} previousLabel="Previous register week" nextLabel="Next register week" pending={pending} previousDisabled={selectedWeekIndex <= 0} nextDisabled={selectedWeekIndex < 0 || selectedWeekIndex >= weekOptions.length - 1} /></div> : <div className="min-w-0 flex-1"><p className="text-xs font-medium text-muted-foreground">Selected period</p><div className="mt-1.5 flex min-h-10 items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs font-semibold shadow-[var(--shadow-xs)]"><CalendarRange className="mr-2 size-4 shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{periodLabel}</span>{pending ? <Spinner className="ml-2 size-4 shrink-0 text-brand" /> : null}</div></div>}
-            <OfficialDocumentActions
-              previewHref={previewHref}
-              previewTitle={`${selectedClass?.name ?? "Register"} · ${title}`}
-              previewDescription="Physical-register style preview generated from live ScolaPro attendance."
-              previewLabel="Preview / Print"
-              compact
-              disabled={!selectedClassId || pending}
-            />
           </div>
         </div>
       </section>
 
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle bg-surface-muted/55 px-4 py-4 sm:px-5">
-          <div className="flex items-start gap-3">
-            <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span>
-            <div>
-              <h2 className="scolapro-section-title">Register Teacher document</h2>
-              <p className="scolapro-section-description">A digital balancing copy of the physical register. Valid school days show every active learner as present by default; only absences change the mark.</p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><FileText className="size-4" aria-hidden="true" /></span>
+              <div>
+                <h2 className="scolapro-section-title">Register Teacher document</h2>
+                <p className="scolapro-section-description">A digital balancing copy of the physical register. Valid school days show every active learner as present by default; only absences change the mark.</p>
+              </div>
             </div>
+            <OfficialDocumentActions
+              previewHref={previewHref}
+              previewDownloadHref={previewHref ? `${previewHref}&format=pdf` : undefined}
+              previewTitle={`${selectedClass?.name ?? "Register"} · ${title}`}
+              previewDescription="Physical-register style preview generated from live ScolaPro attendance."
+              previewLabel="Preview / Print"
+              compact
+              disabled={!selectedClassId || pending}
+            />
           </div>
         </div>
         <div className="flex flex-col gap-3 bg-surface px-4 py-4 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:px-5">

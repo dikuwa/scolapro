@@ -27,6 +27,27 @@ function conciseClassLabel(className: string) {
   return className.trim().replace(/^grade\s+/i, "");
 }
 
+function MetricChip({
+  label,
+  expandedLabel,
+  value,
+  tone,
+  icon: Icon,
+}: {
+  label: string;
+  expandedLabel: string;
+  value: string;
+  tone: "brand" | "amber";
+  icon: typeof UsersRound;
+}) {
+  return (
+    <div className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-[var(--radius-sm)] bg-surface-muted/65 px-3 py-2" aria-label={`${expandedLabel}: ${value}`}>
+      <span className={`${tone === "amber" ? "scolapro-tone-amber" : "scolapro-tone-brand"} grid size-7 shrink-0 place-items-center rounded-[var(--radius-xs)]`}><Icon className="size-3.5" aria-hidden="true" /></span>
+      <span className="min-w-0"><strong className="block text-sm font-semibold leading-4 text-foreground">{value}</strong><span className="block truncate text-[0.66rem] font-medium text-muted-foreground" aria-hidden="true">{label}</span></span>
+    </div>
+  );
+}
+
 function shiftWeek(date: string, direction: -1 | 1) {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + direction * 7);
@@ -150,19 +171,10 @@ export function OfficialSummary({
               </div>
             )}
           </div>
-          <div className="grid gap-px overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-border-subtle sm:grid-cols-3">
-            <div className="flex items-center justify-between gap-4 bg-surface px-4 py-3.5">
-              <div><p className="text-xs font-medium text-muted-foreground">Possible attendances</p><p className="mt-1 text-xl font-semibold tracking-[-0.04em] text-foreground">{summary.schoolTotals.possibleAttendances.toLocaleString("en")}</p></div>
-              <span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><UsersRound className="size-4" aria-hidden="true" /></span>
-            </div>
-            <div className="flex items-center justify-between gap-4 border-t border-border-subtle bg-surface px-4 py-3.5 sm:border-l sm:border-t-0">
-              <div><p className="text-xs font-medium text-muted-foreground">Absent learner-days</p><p className="mt-1 text-xl font-semibold tracking-[-0.04em] text-[color:var(--accent-amber)]">{summary.schoolTotals.absentLearnerDays.toLocaleString("en")}</p></div>
-              <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><CalendarCheck2 className="size-4" aria-hidden="true" /></span>
-            </div>
-            <div className="flex items-center justify-between gap-4 border-t border-border-subtle bg-surface px-4 py-3.5 sm:border-l sm:border-t-0">
-              <div><p className="text-xs font-medium text-muted-foreground">% absence</p><p className="mt-1 text-xl font-semibold tracking-[-0.04em] text-[color:var(--accent-indigo)]">{formatPercent(summary.schoolTotals.percentAbsence)}</p></div>
-              <span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]"><Percent className="size-4" aria-hidden="true" /></span>
-            </div>
+          <div className="grid min-w-0 gap-2 sm:grid-cols-3 lg:w-auto lg:min-w-[26rem]">
+            <MetricChip label="Possible" expandedLabel="Possible learner attendances" value={summary.schoolTotals.possibleAttendances.toLocaleString("en")} tone="brand" icon={UsersRound} />
+            <MetricChip label="Absent days" expandedLabel="Absent learner-days" value={summary.schoolTotals.absentLearnerDays.toLocaleString("en")} tone="amber" icon={CalendarCheck2} />
+            <MetricChip label="Absence %" expandedLabel="Official absence percentage" value={formatPercent(summary.schoolTotals.percentAbsence)} tone="brand" icon={Percent} />
           </div>
         </div>
         {!readiness.complete ? (
@@ -182,6 +194,20 @@ export function OfficialSummary({
           <p className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><ShieldCheck className="size-3.5 text-[color:var(--success)]" aria-hidden="true" />All expected registers are confirmed for this period.</p>
         )}
       </section>
+
+      {summary.governanceAlerts.invalidSubmissionCount > 0 ? (
+        <section className="rounded-[var(--radius-sm)] border border-border-subtle bg-danger-soft px-4 py-3 shadow-[var(--shadow-xs)]" role="status">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[color:var(--danger)]" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-semibold text-foreground">Governed attendance remediation required</p>
+              <p className="mt-0.5 text-[0.7rem] leading-5 text-muted-foreground">
+                {summary.governanceAlerts.invalidSubmissionCount} legacy register submission{summary.governanceAlerts.invalidSubmissionCount === 1 ? "" : "s"} fall on non-teaching dates ({summary.governanceAlerts.dates.map(shortDate).join(", ")}). They remain auditable but are excluded from official possible days, absences and percentages. An authorised correction must be reviewed separately.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <FinalizationPanel
         mode={mode}

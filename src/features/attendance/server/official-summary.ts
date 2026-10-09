@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { learnerCalendarRestriction, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
+import { resolveAttendanceDayDecision, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveGovernedSchoolDays } from "@/features/attendance/server/governed-school-day";
 
 export type OfficialSexSplit = { boys: number; girls: number; total: number };
@@ -75,6 +75,10 @@ export type OfficialAttendanceSummary = {
   readiness: OfficialSummaryReadiness;
   term: OfficialSummaryTerm | null;
   terms: OfficialSummaryTerm[];
+  governanceAlerts: {
+    invalidSubmissionCount: number;
+    dates: string[];
+  };
 };
 
 const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
@@ -145,15 +149,17 @@ export async function getOfficialAttendanceSummary(
 
   // Wave 1: classes, term calendar (term mode) and the per-date teaching
   // impact for the whole range resolve together before any register data loads.
-  const [classResult, termsResult, impactResult, learnerCalendarResult] = await Promise.all([
+  const policyFrom = scopeStart ?? `${academicYear}-01-01`;
+  const [classResult, termsResult, impactResult, learnerCalendarResult, overrideResult] = await Promise.all([
     supabase.from("register_classes").select("id,display_name,grade_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     mode === "term"
       ? supabase.from("academic_terms").select("id,term_number,display_name,starts_on,ends_on,status,academic_years!inner(school_id,year)").eq("academic_years.school_id", schoolId).eq("academic_years.year", academicYear).order("term_number")
       : Promise.resolve({ data: [], error: null as unknown }),
-    supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: schoolId, p_from: scopeStart ?? `${academicYear}-01-01`, p_to: date }),
+    supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: schoolId, p_from: policyFrom, p_to: date }),
     supabase.rpc("list_academic_term_calendar_summary", { p_school_id: schoolId, p_academic_year: academicYear }),
+    supabase.from("school_day_overrides").select("school_date,is_school_day,teaching_impact,reason").eq("school_id", schoolId).gte("school_date", policyFrom).lte("school_date", date),
   ]);
-  if (classResult.error || termsResult.error || impactResult.error || learnerCalendarResult.error) throw new Error("Unable to load the official attendance summary.");
+  if (classResult.error || termsResult.error || impactResult.error || learnerCalendarResult.error || overrideResult.error) throw new Error("Unable to load the official attendance summary.");
 
   const classes: OfficialSummaryClass[] = (classResult.data ?? []).map((item: Record<string, unknown>) => ({
     id: String(item.id),
@@ -196,7 +202,7 @@ export async function getOfficialAttendanceSummary(
         weeks: [], classes, classRows: [], gradeRows: [],
         schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [], daily: [] },
         readiness: { complete: false, expectedRegisters: 0, submittedRegisters: 0, incomplete: [] },
-        term, terms,
+        term, terms, governanceAlerts: { invalidSubmissionCount: 0, dates: [] },
       };
     }
     // A future term has no reportable days before learner opening.
@@ -215,12 +221,22 @@ export async function getOfficialAttendanceSummary(
         rows: (impactResult.data ?? []) as Array<{ target_date: unknown; teaching_impact: unknown }>,
       })
     : null;
-  // Day-by-day and summary figures follow the same learner opening/closing
-  // boundaries, not the separate teacher reporting calendar.
+  // Day-by-day and summary figures follow the same final policy as entry and
+  // sync: explicit overrides win, then learner term bounds, then impact.
   const learnerWindows = learnerCalendarResult.error
     ? [] : (learnerCalendarResult.data ?? []) as LearnerTermWindow[];
-  const isTeachingDate = (day: string) =>
-    Boolean(governedDays?.decisionFor(day).eligible) && !learnerCalendarRestriction(day, learnerWindows);
+  const overrideByDate = new Map(((overrideResult.data ?? []) as Array<{ school_date: string; is_school_day: boolean; teaching_impact: string | null; reason: string | null }>).map((row) => [String(row.school_date).slice(0, 10), row] as const));
+  const decisionFor = (day: string) => {
+    const override = overrideByDate.get(day);
+    return resolveAttendanceDayDecision({
+      date: day,
+      terms: learnerWindows,
+      resolvedImpact: governedDays?.decisionFor(day).impact ?? null,
+      resolverAvailable: Boolean(governedDays),
+      override: override ? { isSchoolDay: override.is_school_day, teachingImpact: override.teaching_impact, reason: override.reason } : null,
+    });
+  };
+  const isTeachingDate = (day: string) => decisionFor(day).eligible;
   const teachingDates = dates.filter(isTeachingDate);
   const nonTeachingDates = dates.filter((day) => !isTeachingDate(day));
   // Last expected school day of the reporting period drives both the
@@ -258,9 +274,9 @@ export async function getOfficialAttendanceSummary(
     weeks, classes, classRows: [] as OfficialSummaryClassRow[], gradeRows: [] as OfficialSummaryGradeRow[],
     schoolTotals: { possibleAttendances: 0, absentLearnerDays: 0, percentAbsence: null, weekly: [] as OfficialSummarySchoolTotals["weekly"], daily: [] as OfficialSummarySchoolTotals["daily"] },
     readiness: { complete: false, expectedRegisters: 0, submittedRegisters: 0, incomplete: [] as OfficialSummaryReadiness["incomplete"] },
-    term, terms,
+    term, terms, governanceAlerts: { invalidSubmissionCount: 0, dates: [] },
   };
-  if (!teachingDates.length || !classes.length) return empty;
+  if (!dates.length || !classes.length) return empty;
 
   // Wave 2: canonical register evidence for the scope. daily_register_current
   // supplies every effective-enrolment observation (present default + events);
@@ -268,14 +284,14 @@ export async function getOfficialAttendanceSummary(
   // comes from effective enrolments and the numerator only from status
   // "absent". Subject-period rows never appear here: the view is daily-register
   // only and the absence query filters observation_type = 'daily_register'.
-  const [{ data: currentRows, error: currentError }, { data: submissionRows, error: submissionError }, { data: absenceRows, error: absenceError }, { data: overrideRows, error: overrideError }] = await Promise.all([
-    supabase.from("daily_register_current").select("register_class_id,attendance_date,status,learner_id,learners!inner(sex)").eq("school_id", schoolId).in("attendance_date", teachingDates),
+  const [{ data: currentRows, error: currentError }, { data: submissionRows, error: submissionError }, { data: absenceRows, error: absenceError }] = await Promise.all([
+    supabase.from("daily_register_current").select("register_class_id,attendance_date,status,learner_id,learners!inner(sex)").eq("school_id", schoolId).in("attendance_date", dates),
     supabase
       .from("attendance_register_submissions")
       .select("id,register_class_id,attendance_date,recorded_at,created_at,register_classes!inner(school_id,academic_year)")
       .eq("school_id", schoolId)
       .eq("register_classes.academic_year", academicYear)
-      .in("attendance_date", teachingDates)
+      .in("attendance_date", dates)
       .order("recorded_at", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase
@@ -283,23 +299,28 @@ export async function getOfficialAttendanceSummary(
       .select("register_class_id,attendance_date,status,learner_id,learners!inner(sex)")
       .eq("school_id", schoolId)
       .eq("observation_type", "daily_register")
-      .in("attendance_date", teachingDates),
-    nonTeachingDates.length
-      ? supabase.from("school_day_overrides").select("school_date,reason").eq("school_id", schoolId).in("school_date", nonTeachingDates).not("reason", "is", null)
-      : Promise.resolve({ data: [], error: null as unknown }),
+      .in("attendance_date", dates),
   ]);
-  if (currentError || submissionError || absenceError || overrideError) throw new Error("Unable to load official attendance evidence.");
+  if (currentError || submissionError || absenceError) throw new Error("Unable to load official attendance evidence.");
 
   const nonTeachingReasons: Record<string, string> = {};
-  for (const row of (overrideRows ?? []) as { school_date: string; reason: string | null }[]) {
+  for (const row of (overrideResult.data ?? []) as { school_date: string; reason: string | null }[]) {
     if (row.reason) nonTeachingReasons[String(row.school_date).slice(0, 10)] = row.reason;
   }
 
   // Latest submission wins per (class, day) — replacements are supersets, so
   // readiness reflects the authoritative current register for each date.
   const submittedKeys = new Set<string>();
+  const invalidSubmissionDates = new Set<string>();
+  let invalidSubmissionCount = 0;
   for (const row of (submissionRows ?? []) as { register_class_id: string; attendance_date: string }[]) {
-    const key = `${row.register_class_id}:${String(row.attendance_date).slice(0, 10)}`;
+    const attendanceDate = String(row.attendance_date).slice(0, 10);
+    if (!isTeachingDate(attendanceDate)) {
+      invalidSubmissionCount += 1;
+      invalidSubmissionDates.add(attendanceDate);
+      continue;
+    }
+    const key = `${row.register_class_id}:${attendanceDate}`;
     if (!submittedKeys.has(key)) submittedKeys.add(key);
   }
 
@@ -310,6 +331,7 @@ export async function getOfficialAttendanceSummary(
   for (const row of (currentRows ?? []) as { register_class_id: string; attendance_date: string; status: string; learner_id: string; learners: { sex: string | null }[] | { sex: string | null } }[]) {
     if (!classById.has(String(row.register_class_id))) continue;
     const attendanceDate = String(row.attendance_date).slice(0, 10);
+    if (!isTeachingDate(attendanceDate)) continue;
     const key = `${row.register_class_id}:${attendanceDate}`;
     possibleByClassDate.set(key, (possibleByClassDate.get(key) ?? 0) + 1);
     if (isOfficialAbsence(row.status)) {
@@ -324,6 +346,7 @@ export async function getOfficialAttendanceSummary(
   for (const row of (absenceRows ?? []) as { register_class_id: string; attendance_date: string; status: string; learners: { sex: string | null }[] | { sex: string | null } }[]) {
     if (!classById.has(String(row.register_class_id)) || !isOfficialAbsence(row.status)) continue;
     const attendanceDate = String(row.attendance_date).slice(0, 10);
+    if (!isTeachingDate(attendanceDate)) continue;
     const weekId = mondayFor(attendanceDate);
     const classWeeks = absentWeekByClass.get(String(row.register_class_id)) ?? new Map<string, OfficialSexSplit>();
     const split = classWeeks.get(weekId) ?? emptySplit();
@@ -459,5 +482,6 @@ export async function getOfficialAttendanceSummary(
     readiness: { complete: submittedRegisters === expectedRegisters, expectedRegisters, submittedRegisters, incomplete },
     term,
     terms,
+    governanceAlerts: { invalidSubmissionCount, dates: [...invalidSubmissionDates].sort() },
   };
 }

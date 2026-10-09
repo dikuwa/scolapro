@@ -1,5 +1,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { learnerCalendarRestriction, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
+import {
+  resolveAttendanceDayDecision,
+  type AttendanceDayDecision,
+  type LearnerTermWindow,
+} from "@/features/attendance/server/learner-calendar-bounds";
 
 export type AttendanceClassOption = {
   id: string;
@@ -40,18 +44,13 @@ function sortLearners<T extends { name: string; admissionNumber: string | null }
   });
 }
 
-export type AttendanceTeachingDay = {
-  /** Calendar teaching-impact semantics from the shared N17 foundation. */
-  impact: string;
-  reason: string | null;
-};
+export type AttendanceTeachingDay = AttendanceDayDecision;
 
 /**
  * Resolves the shared calendar teaching-impact state for one school date.
- * Falls back to NORMAL when the resolver is unavailable so absence of an
- * override (or a drift between source migrations and the running database)
- * never crashes the register page. Capture gating only activates on an
- * explicit NO_TEACHING override.
+ * The database's is_expected_school_day predicate remains the final write
+ * authority. This read projection fails closed when it cannot verify a day,
+ * while preserving explicit exceptional openings outside normal term bounds.
  */
 export async function resolveAttendanceTeachingImpact(schoolId: string, attendanceDate: string): Promise<AttendanceTeachingDay> {
   const supabase = await createSupabaseServerClient();
@@ -59,7 +58,7 @@ export async function resolveAttendanceTeachingImpact(schoolId: string, attendan
     supabase.rpc("resolve_school_teaching_impact", { p_school_id: schoolId, p_target_date: attendanceDate }),
     supabase
       .from("school_day_overrides")
-      .select("reason")
+      .select("reason,is_school_day,teaching_impact")
       .eq("school_id", schoolId)
       .eq("school_date", attendanceDate)
       .maybeSingle(),
@@ -68,20 +67,17 @@ export async function resolveAttendanceTeachingImpact(schoolId: string, attendan
       p_academic_year: Number(attendanceDate.slice(0, 4)),
     }),
   ]);
-  // A known learner closure wins even if the day-level resolver says NORMAL.
-  // Calendar management has separate teacher and learner boundaries.
-  if (!termResult.error) {
-    const restriction = learnerCalendarRestriction(
-      attendanceDate,
-      (termResult.data ?? []) as LearnerTermWindow[],
-    );
-    if (restriction) return { impact: "NO_TEACHING", reason: restriction };
-  }
-  if (impactResult.error) return { impact: "NORMAL", reason: null };
-  return {
-    impact: typeof impactResult.data === "string" ? impactResult.data : "NORMAL",
-    reason: overrideResult.error ? null : (overrideResult.data?.reason ?? null),
-  };
+  return resolveAttendanceDayDecision({
+    date: attendanceDate,
+    terms: termResult.error ? [] : (termResult.data ?? []) as LearnerTermWindow[],
+    resolvedImpact: impactResult.error || typeof impactResult.data !== "string" ? null : impactResult.data,
+    resolverAvailable: !impactResult.error,
+    override: overrideResult.error || !overrideResult.data ? null : {
+      isSchoolDay: overrideResult.data.is_school_day,
+      teachingImpact: overrideResult.data.teaching_impact,
+      reason: overrideResult.data.reason,
+    },
+  });
 }
 
 export async function getDailyRegisterWorkspace(

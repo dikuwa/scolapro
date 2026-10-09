@@ -86,7 +86,7 @@ export async function submitDailyRegister(
   // blocked server-side so an accidental official register is never submitted
   // for a clearly non-teaching day, even if the UI gate were bypassed.
   const teachingDay = await resolveAttendanceTeachingImpact(registerSchool.school_id, parsed.data.attendanceDate);
-  if (teachingDay.impact === "NO_TEACHING") {
+  if (!teachingDay.eligible) {
     return { message: "This date is marked as a non-teaching day in the school calendar, so attendance can't be recorded." };
   }
   const { data: submissionId, error } = await supabase.rpc("submit_daily_register", {

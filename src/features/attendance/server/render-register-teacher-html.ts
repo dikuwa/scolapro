@@ -189,8 +189,6 @@ ${schoolNameFontStyle}
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#ececec; }
   body { padding:18px; }
-  .toolbar { position:sticky; top:0; z-index:10; display:flex; justify-content:flex-end; gap:8px; max-width:404mm; margin:0 auto 12px; }
-  .toolbar button { border:0; border-radius:6px; padding:9px 14px; font:600 12px Arial,sans-serif; cursor:pointer; background:#111827; color:white; }
   .sheet { width:404mm; max-width:100%; margin:0 auto; background:white; padding:16px 16px 20px; box-shadow:0 10px 28px rgba(0,0,0,.12); }
   .school-header { display:grid; grid-template-columns:82px 1fr auto; gap:14px; align-items:center; border-bottom:2px solid var(--register-red); padding-bottom:10px; margin-bottom:10px; }
   .school-header img { max-width:72px; max-height:72px; object-fit:contain; }
@@ -261,7 +259,6 @@ ${schoolNameFontStyle}
   @media print {
     html,body { background:white; }
     body { padding:0; }
-    .toolbar { display:none; }
     .sheet { width:auto; max-width:none; box-shadow:none; padding:0; }
     .register-section { margin:0; padding:0; box-shadow:none; break-before:page; break-after:page; page-break-before:always; page-break-after:always; }
     .register-section:first-child { break-before:auto; page-break-before:auto; }
@@ -270,7 +267,6 @@ ${schoolNameFontStyle}
 </style>
 </head>
 <body>
-<div class="toolbar"><button onclick="window.print()">Print / Save PDF</button></div>
 <main class="sheet">
   ${document.sections.map((section) => {
     const panels = document.weeks.length > 3

@@ -196,7 +196,7 @@ if (view === "week") {
     <section className="attendance-page">
         <AttendanceHeader date={date} requestedClass={requestedClass} view="week" />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
-        <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
+        <WeeklyRegister key={`${workspace.selectedClassId ?? "none"}:${workspace.weekStart}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} weekStart={workspace.weekStart} weekEnd={workspace.weekEnd} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
     </section>
   );
 }
