@@ -131,3 +131,16 @@ test("register teacher document API rejects unresolved authority with JSON 403",
   assert.match(route, /catch\s*\{\s*return Response\.json\(/);
   assert.match(route, /status: 403/);
 });
+
+test("official attendance, room and sports exports deny unresolved rotation authority", () => {
+  for (const path of [
+    "src/app/api/official-documents/attendance-summary/route.ts",
+    "src/app/api/official-documents/room-inventory/route.ts",
+    "src/app/api/official-documents/sports-house-roster/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /catch\s*\{\s*return Response\.json\(/);
+    assert.match(route, /status: 403/);
+  }
+});
