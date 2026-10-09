@@ -197,7 +197,13 @@ export function StaffDirectoryRowControls({
                     : plan.effectiveFrom > today
                       ? "Scheduled"
                       : row.hasAccount
-                        ? "Active on account"
+                        ? visibleRoles.some((membership) =>
+                            membership.roleKey === plan.roleKey &&
+                            membership.activeFrom <= today &&
+                            (!membership.activeTo || membership.activeTo >= today)
+                          )
+                          ? "Active on account"
+                          : "Ended"
                         : "Planned";
                 return (
                   <span key={plan.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] text-brand-strong">
