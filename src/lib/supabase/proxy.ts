@@ -45,6 +45,29 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // #1204: a temporary-credential session must rotate its password before
+  // accessing normal page routes. No service-role credentials are used here.
+  // The API/action authorization boundary requires its own follow-up checks.
+  if (isAuthenticated && !isPublicPath(pathname) && pathname !== "/password-rotation") {
+    const { data: profile, error: profileError } = await supabase
+      .from("user_profiles")
+      .select("must_change_password")
+      .eq("user_id", data!.claims!.sub)
+      .maybeSingle();
+    if (profileError) {
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      loginUrl.search = "";
+      return NextResponse.redirect(loginUrl);
+    }
+    if (profile?.must_change_password === true) {
+      const rotationUrl = request.nextUrl.clone();
+      rotationUrl.pathname = "/password-rotation";
+      rotationUrl.search = "";
+      return NextResponse.redirect(rotationUrl);
+    }
+  }
+
   if (isAuthenticated && pathname === "/login") {
     // A locally verifiable JWT can outlive its backing Auth user (for example
     // after a local stack/reset/reseed boundary). Do not bounce such a stale
