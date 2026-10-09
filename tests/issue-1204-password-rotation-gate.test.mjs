@@ -12,13 +12,13 @@ const login = read("src/features/auth/actions.ts");
 test("flagged user is redirected before entering ordinary app pages", () => {
   assert.match(proxy, /pathname !== "\/password-rotation"/);
   assert.match(proxy, /\.select\("must_change_password"\)/);
-  assert.match(proxy, /profileError \|\| !profile \|\| profile\.must_change_password === true/);
+  assert.match(proxy, /profileError \|\| !profile \|\| profile\.must_change_password !== false/);
   assert.match(proxy, /rotationUrl\.pathname = "\/password-rotation"/);
 });
 test("rotation has a dedicated authenticated page without an app shell", () => {
   assert.match(route, /supabase\.auth\.getUser\(\)/);
   assert.match(route, /if \(!user\) redirect\("\/login"\)/);
-  assert.match(route, /if \(!profile\?\.must_change_password\) redirect\("\/"\)/);
+  assert.match(route, /if \(profile\?\.must_change_password === false\) redirect\("\/"\)/);
   assert.doesNotMatch(route, /AppShell/);
   assert.match(form, /changePassword/);
   assert.match(form, /signOut/);
@@ -31,7 +31,7 @@ test("password action does not report success when profile clearance fails", () 
 });
 
 test("sign-in redirects flagged or unresolved profiles to rotation before any deep link", () => {
-  assert.match(login, /if \(profileError \|\| !profile \|\| profile\.must_change_password === true\)/);
+  assert.match(login, /if \(profileError \|\| !profile \|\| profile\.must_change_password !== false\)/);
   assert.match(login, /redirect\("\/password-rotation"\)/);
 });
 
@@ -73,7 +73,7 @@ test("offline attendance API fails closed when auth context cannot resolve", () 
 test("navigation attention API guards password-rotation-pending accounts", () => {
   const route = read("src/app/api/navigation-attention/route.ts");
   assert.match(route, /\.select\("must_change_password"\)/);
-  assert.match(route, /profileError \|\| !profile \|\| profile\.must_change_password === true/);
+  assert.match(route, /profileError \|\| !profile \|\| profile\.must_change_password !== false/);
   assert.match(route, /status: 403/);
   assert.ok(route.indexOf('select("must_change_password")') < route.indexOf("await getNavigationAttentionCounts()"));
   assert.doesNotMatch(route, /getUserContext\(\)/);
