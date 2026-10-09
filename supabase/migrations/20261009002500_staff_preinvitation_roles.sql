@@ -112,7 +112,11 @@ end;$$;
 create or replace function app_private.activate_planned_roles_on_staff_invitation()
 returns trigger language plpgsql security definer
 set search_path=pg_catalog,public,app_private as $$
-declare v_plan public.staff_planned_school_roles%rowtype;
+declare
+  v_plan public.staff_planned_school_roles%rowtype;
+  v_membership_id uuid;
+  v_has_plans boolean;
+  v_eligible_count integer;
 begin
   if new.status <> 'accepted' or old.status = 'accepted'
     or new.staff_member_id is null or new.accepted_user_id is null then
@@ -122,6 +126,44 @@ begin
     select 1 from public.staff_members
       where id=new.staff_member_id and tenant_id=new.tenant_id and user_id=new.accepted_user_id
   ) then raise exception 'Accepted staff identity mismatch'; end if;
+  if not exists (
+    select 1 from auth.users u
+    where u.id=new.accepted_user_id
+      and lower(btrim(coalesce(u.email,'')))=lower(btrim(coalesce(new.email,'')))
+      and u.email_confirmed_at is not null
+  ) then raise exception 'Accepted staff account email is not verified'; end if;
+
+  select exists (
+    select 1 from public.staff_planned_school_roles
+    where school_id=new.school_id and tenant_id=new.tenant_id
+      and staff_member_id=new.staff_member_id
+  ) into v_has_plans;
+  if not v_has_plans then
+    return new;
+  end if;
+
+  select count(*) into v_eligible_count
+  from public.staff_planned_school_roles
+  where school_id=new.school_id and tenant_id=new.tenant_id
+    and staff_member_id=new.staff_member_id
+    and linked_at is null and revoked_at is null
+    and (effective_to is null or effective_to>=current_date);
+  if v_eligible_count=0 then
+    raise exception 'No eligible planned staff roles remain';
+  end if;
+
+  -- accept_school_invitation historically inserts one bootstrap role before the
+  -- invitation status transition. Once this staff identity has governed planned
+  -- roles, remove that uncommitted bootstrap row and rebuild authority exclusively
+  -- from the plan set so a revoked/expired picker value cannot bypass planning.
+  delete from public.school_memberships
+  where school_id=new.school_id
+    and staff_member_id=new.staff_member_id
+    and user_id=new.accepted_user_id
+    and role_key=new.role_key
+    and active_from=current_date
+    and active_to is null;
+
   for v_plan in
     select * from public.staff_planned_school_roles
     where school_id=new.school_id and tenant_id=new.tenant_id
@@ -129,18 +171,44 @@ begin
       and (effective_to is null or effective_to>=current_date)
     order by effective_from,id for update
   loop
-    if not exists (
-      select 1 from public.school_memberships
-      where school_id=new.school_id and staff_member_id=new.staff_member_id
-        and user_id=new.accepted_user_id and role_key=v_plan.role_key
-        and active_from<=greatest(current_date,v_plan.effective_from) and (active_to is null or active_to>=greatest(current_date,v_plan.effective_from))
-    ) then
+    v_membership_id:=null;
+    select id into v_membership_id
+    from public.school_memberships
+    where school_id=new.school_id and staff_member_id=new.staff_member_id
+      and user_id=new.accepted_user_id and role_key=v_plan.role_key
+      and daterange(active_from,coalesce(active_to,'infinity'::date),'[]')
+          && daterange(v_plan.effective_from,coalesce(v_plan.effective_to,'infinity'::date),'[]')
+    order by active_from desc
+    limit 1
+    for update;
+
+    if v_membership_id is null then
       insert into public.school_memberships
-        (tenant_id,school_id,user_id,staff_member_id,role_key,active_from)
-      values (new.tenant_id,new.school_id,new.accepted_user_id,new.staff_member_id,v_plan.role_key,greatest(current_date,v_plan.effective_from));
+        (tenant_id,school_id,user_id,staff_member_id,role_key,active_from,active_to)
+      values (
+        new.tenant_id,new.school_id,new.accepted_user_id,new.staff_member_id,
+        v_plan.role_key,v_plan.effective_from,v_plan.effective_to
+      )
+      returning id into v_membership_id;
+    else
+      update public.school_memberships
+      set active_from=v_plan.effective_from,
+          active_to=v_plan.effective_to
+      where id=v_membership_id;
     end if;
+
     update public.staff_planned_school_roles
-      set linked_user_id=new.accepted_user_id, linked_at=now() where id=v_plan.id;
+      set linked_user_id=new.accepted_user_id, linked_at=now()
+      where id=v_plan.id;
+
+    insert into public.audit_events
+      (tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
+    values (
+      new.tenant_id,new.school_id,new.accepted_user_id,'staff.planned_role_activated',
+      'school_membership',v_membership_id,
+      jsonb_build_object('planned_role_id',v_plan.id,'role_key',v_plan.role_key,
+        'effective_from',v_plan.effective_from,'effective_to',v_plan.effective_to)
+    );
   end loop;
   return new;
 end;$$;
