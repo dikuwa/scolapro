@@ -15,24 +15,40 @@ VALUES (
   current_date-30
 );
 
-INSERT INTO public.staff_members(id,tenant_id,first_name,last_name,employee_number)
-VALUES (
-  '70000000-0000-4000-8000-000000001202',
-  '11111111-1111-4111-8111-111111111111',
-  'Future','Teacher','QA-1202'
-);
+INSERT INTO public.staff_members(id,tenant_id,user_id,first_name,last_name,employee_number)
+VALUES
+  (
+    '70000000-0000-4000-8000-000000001202',
+    '11111111-1111-4111-8111-111111111111',
+    null,'Future','Teacher','QA-1202'
+  ),
+  (
+    '70000000-0000-4000-8000-000000001204',
+    '11111111-1111-4111-8111-111111111111',
+    '70000000-0000-4000-8000-000000000202',
+    'Acting','Admin','QA-1202-ADMIN'
+  );
 
 INSERT INTO public.staff_school_assignments(
   id,tenant_id,school_id,staff_member_id,effective_from,created_by_user_id
 )
-VALUES (
-  '70000000-0000-4000-8000-000000002202',
-  '11111111-1111-4111-8111-111111111111',
-  '22222222-2222-4222-8222-222222222222',
-  '70000000-0000-4000-8000-000000001202',
-  current_date-30,
-  '70000000-0000-4000-8000-000000000202'
-);
+VALUES
+  (
+    '70000000-0000-4000-8000-000000002202',
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+    '70000000-0000-4000-8000-000000001202',
+    current_date-30,
+    '70000000-0000-4000-8000-000000000202'
+  ),
+  (
+    '70000000-0000-4000-8000-000000002204',
+    '11111111-1111-4111-8111-111111111111',
+    '22222222-2222-4222-8222-222222222222',
+    '70000000-0000-4000-8000-000000001204',
+    current_date-30,
+    '70000000-0000-4000-8000-000000000202'
+  );
 
 SELECT set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000202',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
@@ -60,7 +76,22 @@ BEGIN
     IF SQLERRM <> 'Cannot remove the last active School Admin' THEN RAISE; END IF;
   END;
   RAISE NOTICE 'LAST_SCHOOL_ADMIN_PROTECTED';
-END $$;
+END $;
+
+DO $
+BEGIN
+  BEGIN
+    PERFORM public.plan_staff_school_role(
+      '22222222-2222-4222-8222-222222222222',
+      '70000000-0000-4000-8000-000000001204',
+      'principal',current_date,null
+    );
+    RAISE EXCEPTION 'Self-assignment was permitted';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Self-assignment is not permitted' THEN RAISE; END IF;
+  END;
+  RAISE NOTICE 'SELF_ASSIGNMENT_DENIED';
+END $;
 
 SELECT public.plan_staff_school_role(
   '22222222-2222-4222-8222-222222222222',
@@ -99,6 +130,27 @@ FROM public.create_staff_access_invitation(
   'teacher'
 ) \gset
 
+RESET ROLE;
+
+SELECT set_config('request.jwt.claim.sub','70000000-0000-4000-8000-000000000202',true);
+SELECT set_config('request.jwt.claim.role','authenticated',true);
+SELECT set_config('request.jwt.claims',
+  jsonb_build_object(
+    'sub','70000000-0000-4000-8000-000000000202',
+    'role','authenticated',
+    'email','qa1202-admin@example.test'
+  )::text,true);
+SET LOCAL ROLE authenticated;
+DO $
+BEGIN
+  BEGIN
+    PERFORM public.accept_school_invitation(:'invitation_token');
+    RAISE EXCEPTION 'Mismatched email accepted invitation token';
+  EXCEPTION WHEN raise_exception THEN
+    IF SQLERRM <> 'Invitation email does not match the signed-in account' THEN RAISE; END IF;
+  END;
+  RAISE NOTICE 'TOKEN_EMAIL_MISMATCH_DENIED';
+END $;
 RESET ROLE;
 
 INSERT INTO public.staff_planned_school_roles(
