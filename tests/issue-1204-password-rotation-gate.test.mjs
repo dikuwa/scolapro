@@ -109,3 +109,18 @@ test("password rotation clearance cannot be forged by authenticated profile upda
   assert.match(actions, /await createSupabaseAdminClient\(\)\.from\("user_profiles"\)/);
   assert.ok(actions.indexOf("await supabase.auth.updateUser({ password })") < actions.indexOf("await createSupabaseAdminClient().from(\"user_profiles\")"));
 });
+
+test("all offline sync endpoints return JSON 403 when the rotation gate blocks authority", () => {
+  for (const path of [
+    "src/app/api/offline/assessment/marks/route.ts",
+    "src/app/api/offline/attendance/subject-period/route.ts",
+    "src/app/api/offline/library/route.ts",
+    "src/app/api/offline/lesson-preparation/route.ts",
+    "src/app/api/offline/teaching/coverage/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /catch\s*\{\s*return NextResponse\.json\(/);
+    assert.match(route, /status: 403/);
+  }
+});
