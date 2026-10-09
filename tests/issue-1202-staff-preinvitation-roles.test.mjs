@@ -41,7 +41,10 @@ test("school admin preassigns effective-dated roles before supplying login email
   assert.match(ui,/Preassign school role/);
   assert.match(ui,/Preassign role/);
   assert.match(ui,/name="effectiveFrom"/);
-  assert.match(ui,/future-dated roles stay inactive until their effective date/);
+  assert.match(ui,/name="effectiveTo"/);
+  assert.match(actions,/p_effective_to: parsed\.data\.effectiveTo \|\| null/);
+  assert.match(migration,/Planned role end date cannot precede its start date/);
+  assert.match(ui,/scheduled end date/);
 });
 
 test("staff invitation consumes preassigned roles and does not ask for a second role", () => {
