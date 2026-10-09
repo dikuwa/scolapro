@@ -132,7 +132,7 @@ export const getUserContext = cache(async () => {
   // This context is consumed by server actions and API handlers as well as
   // pages. Do not expose role authority to an account awaiting mandatory
   // password rotation, even on routes excluded from the request proxy.
-  if (rpcRow?.profile?.must_change_password === true) {
+  if (!rpcRow?.profile || rpcRow.profile.must_change_password === true) {
     throw new Error("Password rotation required before accessing school authority.");
   }
 
