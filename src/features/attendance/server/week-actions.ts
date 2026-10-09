@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { firstIneligibleWeeklyAttendanceDate } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -69,11 +70,12 @@ export async function submitWeeklyRegister(_state: WeeklyRegisterState, formData
 
   // Defence in depth: never persist a weekly register day that the shared
   // calendar marks NO_TEACHING, matching the UI gate shown to staff.
-  for (const day of parsed.data.days) {
-    const teachingDay = await resolveAttendanceTeachingImpact(registerSchool.school_id, day.date);
-    if (teachingDay.impact === "NO_TEACHING") {
-      return { message: `${day.date} is marked as a non-teaching day in the school calendar, so attendance can't be recorded for it.` };
-    }
+  const blockedDate = await firstIneligibleWeeklyAttendanceDate(
+    parsed.data.days.map((day) => day.date),
+    (attendanceDate) => resolveAttendanceTeachingImpact(registerSchool.school_id, attendanceDate),
+  );
+  if (blockedDate) {
+    return { message: `${blockedDate} is marked as a non-teaching day in the school calendar, so attendance can't be recorded for it.` };
   }
 
   const { data, error } = await supabase.rpc("submit_weekly_register", {

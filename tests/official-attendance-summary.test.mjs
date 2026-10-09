@@ -34,8 +34,8 @@ test("official absence counts absent only; late, excused, unknown and present ar
 test("NO_TEACHING days contribute zero possible attendances and zero absent learner-days", () => {
   // Denominator window and week cells are filtered to teaching dates.
   assert.match(summary, /const teachingDates = dates\.filter\(isTeachingDate\)/);
-  assert.match(summary, /governedDays\?\.decisionFor\(day\)\.eligible/);
-  assert.match(summary, /!learnerCalendarRestriction/);
+  assert.match(summary, /resolveAttendanceDayDecision/);
+  assert.match(summary, /const isTeachingDate = \(day: string\) => decisionFor\(day\)\.eligible/);
   assert.match(summary, /week\.dates\.filter/);
 });
 
@@ -92,8 +92,9 @@ test("official summary is school-scoped through RLS-backed queries", () => {
 
 test("read model queries stay bounded without N+1 fetches", () => {
   assert.match(summary, /Promise\.all\(\[/);
-  // Register evidence is fetched once for the whole range, not per day/class.
-  assert.match(summary, /in\("attendance_date", teachingDates\)/);
+  // Register evidence is fetched once for the whole range, including invalid
+  // legacy dates that must be flagged and then excluded in memory.
+  assert.match(summary, /in\("attendance_date", dates\)/);
   assert.doesNotMatch(summary, /supabase\.from\("(daily_register_current|attendance_events)"\)[\s\S]{0,200}for \(const day/);
 });
 

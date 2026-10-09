@@ -1,7 +1,10 @@
+import { Buffer } from "node:buffer";
 import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
+import { loadOfficialDocumentLogoBytes } from "@/features/documents/server/official-document-logo-bytes";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
 import { getRegisterTeacherDocument } from "@/features/attendance/server/register-teacher-document";
 import { renderRegisterTeacherHtml } from "@/features/attendance/server/render-register-teacher-html";
+import { renderRegisterTeacherPdf } from "@/features/attendance/server/render-register-teacher-pdf";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 export const runtime = "nodejs";
@@ -30,6 +33,7 @@ export async function GET(request: Request) {
   const termId = url.searchParams.get("term") || null;
   const fromWeek = url.searchParams.get("fromWeek") || null;
   const toWeek = url.searchParams.get("toWeek") || null;
+  const format = url.searchParams.get("format") === "pdf" ? "pdf" : "html";
 
   if (!classId) return Response.json({ error: "Register class is required." }, { status: 400 });
   if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 2200) {
@@ -55,8 +59,28 @@ export async function GET(request: Request) {
       mode: officialDocumentHeaderModeForType("register_teacher"),
       provenanceSource: "live_school_profile",
     });
-    const html = renderRegisterTeacherHtml({ header, document });
     const fileBase = `${document.className.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-${mode}-register-${document.scopeEnd}`;
+
+    if (format === "pdf") {
+      const rendered = await renderRegisterTeacherPdf({
+        header,
+        document,
+        logoBytes: await loadOfficialDocumentLogoBytes(profile.logoStoragePath, profile.logoUrl),
+      });
+      return new Response(Buffer.from(rendered.bytes), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${fileBase}.pdf"`,
+          "Cache-Control": "private, no-store, max-age=0",
+          "X-Content-Type-Options": "nosniff",
+          "Referrer-Policy": "no-referrer",
+          "X-ScolaPro-Page-Count": String(rendered.pageCount),
+        },
+      });
+    }
+
+    const html = renderRegisterTeacherHtml({ header, document });
 
     return new Response(html, {
       status: 200,

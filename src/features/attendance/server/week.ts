@@ -55,14 +55,14 @@ export async function getWeeklyRegisterWorkspace(
   sortDirection: AttendanceSortDirection = "asc",
 ) {
   const supabase = await createSupabaseServerClient();
-  const dates = schoolWeekDates(date);
-  const monday = dates[0];
-  const friday = dates[4];
+  const weekDates = schoolWeekDates(date);
+  const monday = weekDates[0];
+  const friday = weekDates[4];
 
   const [{ data: classes, error: classError }, { data: reasons, error: reasonError }, resolvedDays] = await Promise.all([
     supabase.from("register_classes").select("id,display_name,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("attendance_reasons").select("id,reason_code,display_name,sensitive").eq("audience", "learner").eq("active", true).order("sort_order"),
-    Promise.all(dates.map(async (attendanceDate) => ({ attendanceDate, ...(await resolveAttendanceTeachingImpact(schoolId, attendanceDate)) }))),
+    Promise.all(weekDates.map(async (attendanceDate) => ({ attendanceDate, ...(await resolveAttendanceTeachingImpact(schoolId, attendanceDate)) }))),
   ]);
   if (classError || reasonError) throw new Error("Unable to load the weekly attendance workspace.");
 
@@ -75,14 +75,33 @@ export async function getWeeklyRegisterWorkspace(
   // serial phase before the register data can load.
   const nonTeachingDates: string[] = [];
   const nonTeachingReasons: Record<string, string> = {};
+  const outOfTermDates: string[] = [];
   for (const day of resolvedDays) {
-    if (day.impact === "NO_TEACHING") {
+    if (day.kind === "out_of_term") {
+      outOfTermDates.push(day.attendanceDate);
+    } else if (!day.eligible) {
       nonTeachingDates.push(day.attendanceDate);
       if (day.reason) nonTeachingReasons[day.attendanceDate] = day.reason;
     }
   }
+  // Out-of-term weekdays are navigation context, not register columns. In-term
+  // holidays remain visible as locked labelled columns for official continuity.
+  const dates = weekDates.filter((attendanceDate) => !outOfTermDates.includes(attendanceDate));
 
-  if (!classId) return { classes: classOptions, reasons: reasonsList, selectedClassId: null, dates, nonTeachingDates, nonTeachingReasons, learners: [] as WeeklyLearnerRow[], submissionIds: {} as Record<string, string> };
+  const emptyWorkspace = {
+    classes: classOptions,
+    reasons: reasonsList,
+    selectedClassId: classId,
+    weekStart: monday,
+    weekEnd: friday,
+    dates,
+    nonTeachingDates,
+    nonTeachingReasons,
+    outOfTermDates,
+    learners: [] as WeeklyLearnerRow[],
+    submissionIds: {} as Record<string, string>,
+  };
+  if (!classId || !dates.length) return emptyWorkspace;
 
   const [{ data: enrolments, error: enrolmentError }, { data: currentRows, error: currentError }, { data: submissions, error: submissionError }] = await Promise.all([
     supabase.from("enrolments").select("id,admission_number,learner_id,enrolled_from,enrolled_to,learners!inner(id,first_names,surname,sex)").eq("school_id", schoolId).eq("register_class_id", classId).eq("academic_year", academicYear).lte("enrolled_from", friday).or(`enrolled_to.is.null,enrolled_to.gte.${monday}`).order("admission_number"),
@@ -117,5 +136,5 @@ export async function getWeeklyRegisterWorkspace(
 
   sortLearners(learners, sortDirection);
 
-  return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, dates, nonTeachingDates, nonTeachingReasons, learners, submissionIds };
+  return { ...emptyWorkspace, learners, submissionIds };
 }

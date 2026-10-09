@@ -11,6 +11,6 @@ test("daily attendance resolves calendar state in the first request wave", () =>
 });
 
 test("weekly attendance resolves all teaching days in the first request wave", () => {
-  assert.match(weekly, /Promise\.all\(\[[\s\S]*Promise\.all\(dates\.map/);
+  assert.match(weekly, /Promise\.all\(\[[\s\S]*Promise\.all\(weekDates\.map/);
   assert.doesNotMatch(weekly, /const resolvedDays = await Promise\.all/);
 });

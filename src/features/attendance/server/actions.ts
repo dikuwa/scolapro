@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { ineligibleDailyAttendanceDate } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
 import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -85,8 +86,11 @@ export async function submitDailyRegister(
   // Defence in depth: the calendar may mark the date NO_TEACHING. Capture is
   // blocked server-side so an accidental official register is never submitted
   // for a clearly non-teaching day, even if the UI gate were bypassed.
-  const teachingDay = await resolveAttendanceTeachingImpact(registerSchool.school_id, parsed.data.attendanceDate);
-  if (teachingDay.impact === "NO_TEACHING") {
+  const blockedDate = await ineligibleDailyAttendanceDate(
+    parsed.data.attendanceDate,
+    (attendanceDate) => resolveAttendanceTeachingImpact(registerSchool.school_id, attendanceDate),
+  );
+  if (blockedDate) {
     return { message: "This date is marked as a non-teaching day in the school calendar, so attendance can't be recorded." };
   }
   const { data: submissionId, error } = await supabase.rpc("submit_daily_register", {

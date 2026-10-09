@@ -18,10 +18,11 @@ test("only configured learner dates grant learner attendance, not teacher dates"
 
 test("daily display and server submission share authoritative bounds", () => {
   assert.match(register, /list_academic_term_calendar_summary/);
-  assert.match(register, /learnerCalendarRestriction\(/);
-  assert.match(register, /impact: "NO_TEACHING", reason: restriction/);
+  assert.match(register, /resolveAttendanceDayDecision\(/);
+  assert.match(register, /isSchoolDay: overrideResult\.data\.is_school_day/);
   assert.match(actions, /resolveAttendanceTeachingImpact\(registerSchool.school_id/);
-  assert.match(actions, /teachingDay.impact === "NO_TEACHING"/);
+  assert.match(actions, /ineligibleDailyAttendanceDate/);
+  assert.match(actions, /if \(blockedDate\)/);
 });
 
 test("weekly and term numerator denominator exclude learner calendar closures", () => {
