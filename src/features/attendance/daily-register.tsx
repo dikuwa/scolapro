@@ -2,10 +2,13 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarOff, Check, ChevronLeft, ChevronRight, Clock3, MoreHorizontal, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
+import { CalendarOff, Check, Clock3, MoreHorizontal, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
+import { PeriodStepper } from "@/components/ui/week-picker";
+import { AttendanceSortControl, type AttendanceSortDirection } from "@/features/attendance/attendance-sort-control";
+import { getDailyRegisterExceptions, getVisibleDailyRegisterRows, type DailyRegisterSexFilter } from "@/features/attendance/daily-register-view-state";
 import { submitDailyRegister, type DailyRegisterState } from "@/features/attendance/server/actions";
 import { cacheDailyRegisterSnapshot, hasQueuedEvidence, queueDailyRegister } from "@/features/attendance/offline/daily-register-queue";
 import type { OfflineScope } from "@/lib/offline/db";
@@ -13,7 +16,6 @@ import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOptio
 
 const initialState: DailyRegisterState = {};
 type AttendanceStatus = AttendanceLearnerRow["status"];
-type SexFilter = "all" | "male" | "female";
 
 const statuses = [
   { value: "present" as const, label: "Present", icon: Check },
@@ -36,7 +38,7 @@ function schoolDayShift(date: string, direction: -1 | 1) {
   return current.toISOString().slice(0, 10);
 }
 
-export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay, offlineScope }: {
+export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay, offlineScope, sort, initialSexFilter }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   attendanceDate: string;
@@ -45,13 +47,16 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   currentSubmissionId: string | null;
   teachingDay: AttendanceTeachingDay;
   offlineScope: OfflineScope;
+  sort: AttendanceSortDirection;
+  initialSexFilter: DailyRegisterSexFilter;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(submitDailyRegister, initialState);
   const [navigationPending, startNavigation] = useTransition();
   const [rows, setRows] = useState(learners);
   const [query, setQuery] = useState("");
-  const [sexFilter, setSexFilter] = useState<SexFilter>("all");
+  const [sexFilter, setSexFilter] = useState<DailyRegisterSexFilter>(initialSexFilter);
+  const [sortDirection, setSortDirection] = useState<AttendanceSortDirection>(sort);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [evidenceNames, setEvidenceNames] = useState<Record<string, string>>({});
   const [clientMutationId] = useState(() => crypto.randomUUID());
@@ -71,15 +76,8 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
     }
   }, [attendanceDate, router, selectedClassId]);
 
-  const exceptions = useMemo(() => rows.filter((row) => row.status !== "present").map((row) => ({ enrolment_id: row.enrolmentId, status: row.status as Exclude<AttendanceStatus, "present">, reason_id: row.reasonId, note: row.note })), [rows]);
-  const visibleRows = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return rows.filter((row) => {
-      const searchMatch = !needle || `${row.name} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle);
-      const sexMatch = sexFilter === "all" || (row.sex ?? "").toLowerCase() === sexFilter;
-      return searchMatch && sexMatch;
-    });
-  }, [query, rows, sexFilter]);
+  const exceptions = useMemo(() => getDailyRegisterExceptions(rows), [rows]);
+  const visibleRows = useMemo(() => getVisibleDailyRegisterRows(rows, query, sexFilter, sortDirection), [query, rows, sexFilter, sortDirection]);
 
   const presentCount = rows.filter((row) => row.status === "present").length;
   const exceptionCount = rows.length - presentCount;
@@ -139,13 +137,38 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
 
   function moveDate(direction: -1 | 1) {
     const params = new URLSearchParams();
+    params.set("view", "day");
     if (selectedClassId) params.set("class", selectedClassId);
     params.set("date", schoolDayShift(attendanceDate, direction));
+    if (sortDirection === "desc") params.set("sort", "desc");
+    if (sexFilter !== "all") params.set("sex", sexFilter);
     startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 
   function chooseClass(classId: string) {
-    startNavigation(() => router.replace(`/attendance?class=${encodeURIComponent(classId)}&date=${encodeURIComponent(attendanceDate)}`, { scroll: false }));
+    const params = new URLSearchParams({ view: "day", class: classId, date: attendanceDate });
+    if (sortDirection === "desc") params.set("sort", "desc");
+    if (sexFilter !== "all") params.set("sex", sexFilter);
+    startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
+  }
+
+  function persistRosterPreferences(nextSort: AttendanceSortDirection, nextSexFilter: DailyRegisterSexFilter) {
+    const url = new URL(window.location.href);
+    if (nextSort === "asc") url.searchParams.delete("sort");
+    else url.searchParams.set("sort", "desc");
+    if (nextSexFilter === "all") url.searchParams.delete("sex");
+    else url.searchParams.set("sex", nextSexFilter);
+    window.history.replaceState(window.history.state, "", url);
+  }
+
+  function chooseSexFilter(value: DailyRegisterSexFilter) {
+    setSexFilter(value);
+    persistRosterPreferences(sortDirection, value);
+  }
+
+  function chooseSort(value: AttendanceSortDirection) {
+    setSortDirection(value);
+    persistRosterPreferences(value, sexFilter);
   }
 
   return (
@@ -155,11 +178,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
           <Picker label="Register class" name="register-class-ui" value={selectedClassId ?? ""} onChange={chooseClass} placeholder="Choose a class" options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))} className="max-w-xl" />
           <div>
             <p className="text-xs font-medium text-muted-foreground lg:text-right">Attendance date</p>
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <button type="button" disabled={navigationPending} onClick={() => moveDate(-1)} aria-label="Previous school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button>
-              <div className="relative min-w-0 flex-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium sm:min-w-40 sm:flex-none">{navigationPending ? <span className="absolute inset-0 grid place-items-center"><Spinner className="size-4 text-brand" /></span> : null}<span className={navigationPending ? "opacity-0" : ""}>{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))}</span></div>
-              <button type="button" disabled={navigationPending} onClick={() => moveDate(1)} aria-label="Next school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button>
-            </div>
+            <PeriodStepper className="mt-1.5" valueLabel={new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))} onPrevious={() => moveDate(-1)} onNext={() => moveDate(1)} previousLabel="Previous school day" nextLabel="Next school day" pending={navigationPending} />
           </div>
         </div>
       </section>
@@ -173,7 +192,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="scolapro-control-surface flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3"><Search className="size-4 text-muted-foreground" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find learner by name or number…" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />{query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}</label>
-            <div className="grid grid-cols-3 gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">{(["all", "male", "female"] as SexFilter[]).map((value) => <button key={value} type="button" onClick={() => setSexFilter(value)} className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium ${sexFilter === value ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "male" ? "Boys" : "Girls"}</button>)}</div>
+            <div className="flex items-center gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]"><div className="grid grid-cols-3 gap-1">{(["all", "male", "female"] as DailyRegisterSexFilter[]).map((value) => <button key={value} type="button" aria-pressed={sexFilter === value} onClick={() => chooseSexFilter(value)} className={`min-h-9 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium ${sexFilter === value ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "male" ? "Boys" : "Girls"}</button>)}</div><span className="h-5 w-px bg-border-subtle" aria-hidden="true" /><AttendanceSortControl sort={sortDirection} onChange={chooseSort} /></div>
           </div>
           <p className="mt-2 text-[0.68rem] text-muted-foreground">{visibleRows.length} of {rows.length} learners shown</p>
         </div>

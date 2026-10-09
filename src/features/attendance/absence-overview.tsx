@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, FileText, GraduationCap, Search, ShieldCheck, UsersRound, X } from "lucide-react";
+import { FileText, GraduationCap, Search, ShieldCheck, UsersRound, X } from "lucide-react";
 import { Picker } from "@/components/ui/picker";
-import { Spinner } from "@/components/ui/spinner";
+import { PeriodStepper } from "@/components/ui/week-picker";
 import type { AbsenceOverviewClass, AbsenceOverviewRow } from "@/features/attendance/server/absence-overview";
 
 type SourceFilter = "all" | "daily" | "lesson" | "guardian";
@@ -99,11 +99,7 @@ export function AbsenceOverview({
           <Picker label="Register class" name="absence-class-ui" value={selectedClassId ?? ""} onChange={chooseClass} placeholder="Whole school" options={[{ value: "", label: "Whole school" }, ...classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))]} className="max-w-xl" />
           <div>
             <p className="text-xs font-medium text-muted-foreground lg:text-right">Absence date</p>
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <button type="button" disabled={navigationPending} onClick={() => moveDate(-1)} aria-label="Previous school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button>
-              <div className="relative min-w-0 flex-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium sm:min-w-40 sm:flex-none">{navigationPending ? <span className="absolute inset-0 grid place-items-center"><Spinner className="size-4 text-brand" /></span> : null}<span className={navigationPending ? "opacity-0" : ""}>{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))}</span></div>
-              <button type="button" disabled={navigationPending} onClick={() => moveDate(1)} aria-label="Next school day" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button>
-            </div>
+            <PeriodStepper className="mt-1.5" valueLabel={new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))} onPrevious={() => moveDate(-1)} onNext={() => moveDate(1)} previousLabel="Previous school day" nextLabel="Next school day" pending={navigationPending} />
           </div>
         </div>
       </section>

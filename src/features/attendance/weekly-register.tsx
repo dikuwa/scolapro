@@ -2,10 +2,11 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarOff, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock3, Paperclip, Search, ShieldCheck, X } from "lucide-react";
+import { CalendarOff, Check, ChevronDown, ChevronUp, Clock3, Paperclip, Search, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
+import { WeekPicker } from "@/components/ui/week-picker";
 import type { AttendanceClassOption, AttendanceReasonOption } from "@/features/attendance/server/register";
 import { submitWeeklyRegister, type WeeklyRegisterState } from "@/features/attendance/server/week-actions";
 import type { WeeklyCell, WeeklyLearnerRow } from "@/features/attendance/server/week";
@@ -136,7 +137,7 @@ export function WeeklyRegister({ classes, selectedClassId, dates, learners, reas
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <Picker label="Register class" name="weekly-class-ui" value={selectedClassId ?? ""} onChange={chooseClass} placeholder="Choose a class" options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))} className="max-w-xl" />
-          <div><p className="text-xs font-medium text-muted-foreground lg:text-right">School week</p><div className="mt-1.5 flex items-center gap-1.5"><button type="button" disabled={navigationPending} onClick={() => navigateWeek(-1)} aria-label="Previous week" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button><div className="relative min-w-0 flex-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium sm:min-w-48 sm:flex-none">{navigationPending ? <span className="absolute inset-0 grid place-items-center"><Spinner className="size-4 text-brand" /></span> : null}<span className={navigationPending ? "opacity-0" : ""}>{dates[0] && dates[4] ? `${new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short" }).format(new Date(`${dates[0]}T12:00:00`))} – ${new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dates[4]}T12:00:00`))}` : "School week"}</span></div><button type="button" disabled={navigationPending} onClick={() => navigateWeek(1)} aria-label="Next week" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button></div></div>
+          <div><p className="text-xs font-medium text-muted-foreground lg:text-right">School week</p><WeekPicker className="mt-1.5 sm:min-w-60" valueLabel={dates[0] && dates[4] ? `${new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short" }).format(new Date(`${dates[0]}T12:00:00`))} – ${new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${dates[4]}T12:00:00`))}` : "School week"} onPrevious={() => navigateWeek(-1)} onNext={() => navigateWeek(1)} previousLabel="Previous week" nextLabel="Next week" pending={navigationPending} /></div>
         </div>
       </section>
 

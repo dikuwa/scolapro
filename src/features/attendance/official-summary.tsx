@@ -3,10 +3,11 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AlertTriangle, ArrowUpRight, CalendarCheck2, CheckCircle2, ChevronLeft, ChevronRight, Lock, Percent, QrCode, ShieldCheck, UsersRound } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CalendarCheck2, CheckCircle2, Lock, Percent, QrCode, ShieldCheck, UsersRound } from "lucide-react";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
+import { WeekPicker } from "@/components/ui/week-picker";
 import type { OfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
 import { finalizeOfficialAttendanceSummary, type FinalizeOfficialAttendanceSummaryResult } from "@/features/attendance/server/actions";
 import type { OfficialAttendanceSummaryFinalization } from "@/features/attendance/server/finalization";
@@ -145,14 +146,7 @@ export function OfficialSummary({
             ) : (
               <div>
                 <p className="text-xs font-medium text-muted-foreground">Week ending</p>
-                <div className="mt-1.5 flex items-center gap-1.5">
-                  <button type="button" disabled={pending} onClick={() => navigate({ date: shiftWeek(date, -1) })} aria-label="Previous week" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronLeft className="size-4" /></button>
-                  <div className="relative min-w-0 flex-1 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-center text-sm font-medium sm:min-w-40 sm:flex-none">
-                    {pending ? <span className="absolute inset-0 grid place-items-center"><Spinner className="size-4 text-brand" /></span> : null}
-                    <span className={pending ? "opacity-0" : ""}>{lastReportedOn}</span>
-                  </div>
-                  <button type="button" disabled={pending} onClick={() => navigate({ date: shiftWeek(date, 1) })} aria-label="Next week" className="grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground hover:bg-brand-soft hover:text-brand-strong disabled:opacity-50"><ChevronRight className="size-4" /></button>
-                </div>
+                <WeekPicker className="mt-1.5" valueLabel={lastReportedOn} onPrevious={() => navigate({ date: shiftWeek(date, -1) })} onNext={() => navigate({ date: shiftWeek(date, 1) })} previousLabel="Previous week" nextLabel="Next week" pending={pending} />
               </div>
             )}
           </div>

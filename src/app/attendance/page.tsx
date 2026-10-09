@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { AppShell } from "@/components/shell/app-shell";
 import { renderOfficialDocumentVerificationQrSvg } from "@/features/documents/server/official-document-verification";
-import { AttendanceSortControl } from "@/features/attendance/attendance-sort-control";
 import { AttendanceViewTabs } from "@/features/attendance/attendance-view-tabs";
 import { AbsenceOverview } from "@/features/attendance/absence-overview";
 import { DailyRegister } from "@/features/attendance/daily-register";
@@ -32,7 +31,7 @@ function safeSchoolDate(value?: string) {
   return parsed.toISOString().slice(0, 10);
 }
 
-export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[] }> }) {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; sex?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/attendance");
 
@@ -46,6 +45,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedDate = Array.isArray(params.date) ? params.date[0] : params.date;
   const requestedView = Array.isArray(params.view) ? params.view[0] : params.view;
   const requestedSort = Array.isArray(params.sort) ? params.sort[0] : params.sort;
+  const requestedSex = Array.isArray(params.sex) ? params.sex[0] : params.sex;
   const requestedTerm = Array.isArray(params.term) ? params.term[0] : params.term;
   const requestedMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
   const requestedFromWeek = Array.isArray(params.fromWeek) ? params.fromWeek[0] : params.fromWeek;
@@ -53,6 +53,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const view = requestedView === "week" ? "week" : requestedView === "register" ? "register" : requestedView === "official" ? "official" : requestedView === "absences" ? "absences" : "day";
   const mode: "week" | "range" | "term" = requestedMode === "term" ? "term" : requestedMode === "range" ? "range" : "week";
   const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
+  const sexFilter: "all" | "male" | "female" = requestedSex === "male" ? "male" : requestedSex === "female" ? "female" : "all";
   const date = safeSchoolDate(requestedDate);
   const academicYear = Number(date.slice(0, 4));
 
@@ -68,6 +69,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           date={date}
           view={view}
           sort={sort}
+          sexFilter={sexFilter}
           mode={mode}
           requestedTerm={requestedTerm}
           requestedFromWeek={requestedFromWeek}
@@ -88,6 +90,7 @@ async function AttendanceWorkspaceData({
   date,
   view,
   sort,
+  sexFilter,
   mode,
   requestedTerm,
   requestedFromWeek,
@@ -102,6 +105,7 @@ async function AttendanceWorkspaceData({
   date: string;
   view: "day" | "week" | "register" | "official" | "absences";
   sort: AttendanceSortDirection;
+  sexFilter: "all" | "male" | "female";
   mode: "week" | "range" | "term";
   requestedTerm?: string;
   requestedFromWeek?: string;
@@ -118,7 +122,7 @@ if (view === "register") {
     : (terms.find((term) => (!term.startsOn || term.startsOn <= date) && (!term.endsOn || term.endsOn >= date))?.id ?? terms[0]?.id ?? null);
   return (
     <section className="attendance-page">
-      <AttendanceHeader date={date} requestedClass={requestedClass} view="register" sort={sort} />
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="register" />
       <RegisterTeacherWorkspace
         classes={workspace.classes}
         selectedClassId={workspace.selectedClassId}
@@ -156,7 +160,7 @@ if (view === "official") {
 
   return (
     <section className="attendance-page">
-      <AttendanceHeader date={date} requestedClass={requestedClass} view="official" sort={sort} />
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="official" />
       <OfficialSummary
         summary={summary}
         date={date}
@@ -177,7 +181,7 @@ if (view === "absences") {
   const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
   return (
     <section className="attendance-page">
-        <AttendanceHeader date={date} requestedClass={requestedClass} view="absences" sort={sort} />
+        <AttendanceHeader date={date} requestedClass={requestedClass} view="absences" />
         <p className="mb-5 text-sm leading-6 text-muted-foreground">A read-only absence view. It combines official daily-register absences, lesson absences and parent/guardian notices for {selectedClass ? `${selectedClass.grade} ${selectedClass.name}` : "your school"} — it never changes the records it reads.</p>
         <AbsenceOverview classes={workspace.classes} selectedClassId={workspace.selectedClassId} rows={workspace.rows} attendanceDate={date} />
     </section>
@@ -190,7 +194,7 @@ if (view === "week") {
   const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => day.status !== "present").length, 0);
   return (
     <section className="attendance-page">
-        <AttendanceHeader date={date} requestedClass={requestedClass} view="week" sort={sort} />
+        <AttendanceHeader date={date} requestedClass={requestedClass} view="week" />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
         <WeeklyRegister classes={workspace.classes} selectedClassId={workspace.selectedClassId} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} />
     </section>
@@ -202,9 +206,9 @@ const selectedClass = workspace.classes.find((item) => item.id === workspace.sel
 const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
 return (
   <section className="attendance-page">
-      <AttendanceHeader date={date} requestedClass={requestedClass} view="day" sort={sort} />
+      <AttendanceHeader date={date} requestedClass={requestedClass} view="day" />
       <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}:${sort}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} />
+      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} sort={sort} initialSexFilter={sexFilter} />
   </section>
 );
 }
@@ -224,14 +228,11 @@ function AttendanceLoading() {
   );
 }
 
-function AttendanceHeader({ date, requestedClass, view, sort }: { date: string; requestedClass?: string; view: "day" | "week" | "register" | "official" | "absences"; sort: AttendanceSortDirection }) {
+function AttendanceHeader({ date, requestedClass, view }: { date: string; requestedClass?: string; view: "day" | "week" | "register" | "official" | "absences" }) {
   return (
     <div className="mb-6 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
       <div><h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Attendance</h1><p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">Fast exception-first capture, Monday–Friday entry, a printable Register Teacher balancing copy, official weekly/term summaries, or all absences for a day.</p></div>
-      <div className="flex flex-wrap items-center gap-2">
-        {view !== "absences" ? <AttendanceSortControl sort={sort} /> : null}
-        <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} sort={sort} />
-      </div>
+      <AttendanceViewTabs view={view} date={date} requestedClass={requestedClass} weekDate={mondayFor(date)} />
     </div>
   );
 }

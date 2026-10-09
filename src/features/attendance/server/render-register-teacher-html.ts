@@ -253,11 +253,19 @@ ${schoolNameFontStyle}
   .legend .mark-sample { display:inline-grid; min-width:12px; place-items:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; }
   .legend .absence-reason-mark { top:-.34em; }
   @page { size:A3 landscape; margin:8mm; }
+  @media screen {
+    .sheet { background:transparent; padding:0; box-shadow:none; }
+    .register-section { margin:0 0 18px; padding:16px 16px 20px; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); }
+    .register-section:last-child { margin-bottom:0; }
+  }
   @media print {
     html,body { background:white; }
     body { padding:0; }
     .toolbar { display:none; }
     .sheet { width:auto; max-width:none; box-shadow:none; padding:0; }
+    .register-section { margin:0; padding:0; box-shadow:none; break-before:page; break-after:page; page-break-before:always; page-break-after:always; }
+    .register-section:first-child { break-before:auto; page-break-before:auto; }
+    .register-section:last-child { break-after:auto; page-break-after:auto; }
   }
 </style>
 </head>
