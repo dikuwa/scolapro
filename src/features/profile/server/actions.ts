@@ -113,7 +113,12 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { success: false, message: "Your password could not be changed." };
 
-  await supabase.from("user_profiles").update({ must_change_password: false, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+  const { error: profileError } = await supabase.from("user_profiles")
+    .update({ must_change_password: false, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (profileError) {
+    return { success: false, message: "Password updated, but account clearance could not be saved. Contact your administrator." };
+  }
   revalidatePath("/", "layout");
   return { success: true, message: "Password changed successfully." };
 }
