@@ -176,3 +176,15 @@ test("correspondence exports fail closed when authority resolution is denied", (
   assert.match(route, /try \{ context = await getUserContext\(\); \} catch/);
   assert.match(route, /status:403/);
 });
+
+test("report batch and teaching file URLs require password rotation clearance", () => {
+  for (const path of [
+    "src/app/api/report-card-batches/[batchId]/export/route.ts",
+    "src/app/api/teaching/files/[documentId]/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /securityProfile\.must_change_password === true/);
+    assert.match(route, /status: 403/);
+    assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("createSignedUrl("));
+  }
+});
