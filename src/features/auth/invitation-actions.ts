@@ -60,6 +60,17 @@ export async function signUpForInvitation(
     };
   }
 
+  // A signup may return an authenticated session immediately. Do not
+  // bypass first-login rotation through this automatic acceptance path.
+  const { data: signupProfile, error: signupProfileError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+  if (signupProfileError || !signupProfile || signupProfile.must_change_password) {
+    return { message: "Your account was created. Complete account security setup before accepting the invitation." };
+  }
+
   const { error: acceptError } = await supabase.rpc("accept_school_invitation", {
     p_token: parsed.data.token,
   });
