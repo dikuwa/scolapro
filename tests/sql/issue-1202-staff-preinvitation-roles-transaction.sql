@@ -65,7 +65,7 @@ END $;
 SELECT public.plan_staff_school_role(
   '22222222-2222-4222-8222-222222222222',
   '70000000-0000-4000-8000-000000001202',
-  'teacher',current_date-10
+  'teacher',current_date-10,current_date+30
 ) AS teacher_plan \gset
 
 SELECT public.plan_staff_school_role(
@@ -77,7 +77,7 @@ SELECT public.plan_staff_school_role(
 SELECT public.plan_staff_school_role(
   '22222222-2222-4222-8222-222222222222',
   '70000000-0000-4000-8000-000000001202',
-  'principal',current_date+7
+  'principal',current_date+7,current_date+60
 ) AS scheduled_plan \gset
 
 SELECT public.plan_staff_school_role(
@@ -100,10 +100,6 @@ FROM public.create_staff_access_invitation(
 ) \gset
 
 RESET ROLE;
-
-UPDATE public.staff_planned_school_roles
-SET effective_to=current_date+30
-WHERE id=:'teacher_plan'::uuid;
 
 INSERT INTO public.staff_planned_school_roles(
   id,tenant_id,school_id,staff_member_id,role_key,effective_from,effective_to,created_by_user_id
@@ -169,8 +165,9 @@ BEGIN
     WHERE staff_member_id='70000000-0000-4000-8000-000000001202'
       AND role_key='principal'
       AND active_from=current_date+7
+      AND active_to=current_date+60
   ) THEN
-    RAISE EXCEPTION 'Scheduled role did not preserve its future effective date';
+    RAISE EXCEPTION 'Scheduled role did not preserve its future effective interval';
   END IF;
 
   IF EXISTS (
