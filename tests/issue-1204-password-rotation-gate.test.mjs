@@ -34,3 +34,9 @@ test("sign-in redirects flagged or unresolved profiles to rotation before any de
   assert.match(login, /if \(profileError \|\| !profile \|\| profile\.must_change_password === true\)/);
   assert.match(login, /redirect\("\/password-rotation"\)/);
 });
+
+test("server-side role context rejects users who must rotate passwords", () => {
+  const context = read("src/lib/auth/get-user-context.ts");
+  assert.match(context, /rpcRow\?\.profile\?\.must_change_password === true/);
+  assert.match(context, /Password rotation required before accessing school authority/);
+});
