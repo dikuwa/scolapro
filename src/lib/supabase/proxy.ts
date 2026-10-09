@@ -54,13 +54,7 @@ export async function updateSession(request: NextRequest) {
       .select("must_change_password")
       .eq("user_id", data!.claims!.sub)
       .maybeSingle();
-    if (profileError) {
-      const loginUrl = request.nextUrl.clone();
-      loginUrl.pathname = "/login";
-      loginUrl.search = "";
-      return NextResponse.redirect(loginUrl);
-    }
-    if (profile?.must_change_password === true) {
+    if (profileError || !profile || profile.must_change_password === true) {
       const rotationUrl = request.nextUrl.clone();
       rotationUrl.pathname = "/password-rotation";
       rotationUrl.search = "";
