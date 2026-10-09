@@ -105,15 +105,28 @@ export async function addStaffRole(
 }
 
 
+const plannedRoleSchema = roleFormSchema.extend({
+  effectiveFrom: z.iso.date(),
+  effectiveTo: z.union([z.iso.date(), z.literal("")]).optional(),
+}).refine(
+  (value) => !value.effectiveTo || value.effectiveTo >= value.effectiveFrom,
+  { path: ["effectiveTo"], message: "Role end date cannot be before its start date." },
+);
+
 // Pre-invitation role intentions are staff-scoped records, not Auth permissions.
 export async function planStaffSchoolRole(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
-  const parsed = roleFormSchema.safeParse({
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const parsed = plannedRoleSchema.safeParse({
     schoolId: formData.get("schoolId"),
     staffMemberId: formData.get("staffMemberId"),
     roleKey: formData.get("roleKey"),
+    effectiveFrom: String(formData.get("effectiveFrom") || today),
+    effectiveTo: String(formData.get("effectiveTo") || ""),
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
   const supabase = await createSupabaseServerClient();
@@ -121,9 +134,8 @@ export async function planStaffSchoolRole(
     p_school_id: parsed.data.schoolId,
     p_staff_member_id: parsed.data.staffMemberId,
     p_role_key: parsed.data.roleKey,
-    p_effective_from: String(formData.get("effectiveFrom") || new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date())),
+    p_effective_from: parsed.data.effectiveFrom,
+    p_effective_to: parsed.data.effectiveTo || null,
   });
   if (error) return { message: error.message || "Could not preassign this staff role." };
   revalidatePath("/staff");
