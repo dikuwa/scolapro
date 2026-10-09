@@ -62,3 +62,10 @@ test("security redirects preserve refreshed Supabase session cookies", () => {
   assert.match(proxy, /redirectResponse\.cookies\.set\(name, value, options\)/);
   assert.match(proxy, /return redirectWithSession\(rotationUrl\)/);
 });
+
+test("offline attendance API fails closed when auth context cannot resolve", () => {
+  const route = read("src/app/api/offline/attendance/route.ts");
+  assert.match(route, /try \{\s*context = await getUserContext\(\)/);
+  assert.match(route, /status: 403/);
+  assert.ok(route.indexOf("context = await getUserContext()") < route.indexOf("submitDailyRegister"));
+});
