@@ -32,6 +32,17 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  // Supabase may refresh session cookies during getClaims(). Preserve those
+  // cookies on redirects, otherwise rotation/login navigation can lose the
+  // refreshed session and send the user into an authentication loop.
+  function redirectWithSession(target: URL) {
+    const redirectResponse = NextResponse.redirect(target);
+    response.cookies.getAll().forEach(({ name, value, ...options }) => {
+      redirectResponse.cookies.set(name, value, options);
+    });
+    return redirectResponse;
+  }
+
   const { data } = await supabase.auth.getClaims();
   const isAuthenticated = Boolean(data?.claims?.sub);
   const pathname = request.nextUrl.pathname;
@@ -42,7 +53,7 @@ export async function updateSession(request: NextRequest) {
     loginUrl.search = "";
     loginUrl.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
 
-    return NextResponse.redirect(loginUrl);
+    return redirectWithSession(loginUrl);
   }
 
   // #1204: a temporary-credential session must rotate its password before
@@ -58,7 +69,7 @@ export async function updateSession(request: NextRequest) {
       const rotationUrl = request.nextUrl.clone();
       rotationUrl.pathname = "/password-rotation";
       rotationUrl.search = "";
-      return NextResponse.redirect(rotationUrl);
+      return redirectWithSession(rotationUrl);
     }
   }
 
@@ -78,7 +89,7 @@ export async function updateSession(request: NextRequest) {
       appUrl.pathname = destination.startsWith("/") ? destination : "/";
       appUrl.search = "";
 
-      return NextResponse.redirect(appUrl);
+      return redirectWithSession(appUrl);
     }
 
     return response;
