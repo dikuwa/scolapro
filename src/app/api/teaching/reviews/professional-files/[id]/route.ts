@@ -10,6 +10,19 @@ export async function GET(
 ) {
   const { id } = await context.params;
   const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { data: securityProfile, error: securityError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+    return NextResponse.json({ error: "Complete account security setup before downloading documents." }, { status: 403 });
+  }
+
   const { data, error } = await supabase
     .from("teacher_professional_document_review_submissions")
     .select("document:teacher_professional_documents(storage_path,original_filename)")
