@@ -78,3 +78,10 @@ test("navigation attention API guards password-rotation-pending accounts", () =>
   assert.ok(route.indexOf('select("must_change_password")') < route.indexOf("await getNavigationAttentionCounts()"));
   assert.doesNotMatch(route, /getUserContext\(\)/);
 });
+
+test("avatar API rejects writes until mandatory rotation completes", () => {
+  const route = read("src/app/api/profile/avatar/route.ts");
+  assert.match(route, /securityProfile\.must_change_password === true/);
+  assert.match(route, /status: 403/);
+  assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("await request.formData()"));
+});
