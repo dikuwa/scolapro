@@ -48,6 +48,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Sign in again before changing your avatar." }, { status: 401 });
   }
 
+  // API routes bypass the page proxy. Require completed credential rotation
+  // before allowing avatar storage writes.
+  const { data: securityProfile, error: securityError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+    return NextResponse.json({ message: "Complete account security setup before changing your avatar." }, { status: 403 });
+  }
+
   let formData: FormData;
   try {
     formData = await request.formData();
