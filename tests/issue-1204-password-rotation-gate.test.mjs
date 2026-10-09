@@ -55,3 +55,10 @@ test("automatic signup cannot accept invitation before account security check", 
   assert.match(signup, /signupProfileError \|\| !signupProfile \|\| signupProfile\.must_change_password/);
   assert.ok(signup.indexOf("signupProfile.must_change_password") < signup.indexOf('supabase.rpc("accept_school_invitation"'));
 });
+
+test("security redirects preserve refreshed Supabase session cookies", () => {
+  assert.match(proxy, /function redirectWithSession\(target: URL\)/);
+  assert.match(proxy, /response\.cookies\.getAll\(\)\.forEach/);
+  assert.match(proxy, /redirectResponse\.cookies\.set\(name, value, options\)/);
+  assert.match(proxy, /return redirectWithSession\(rotationUrl\)/);
+});
