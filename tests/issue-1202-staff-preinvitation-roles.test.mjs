@@ -20,6 +20,7 @@ test("role intentions never create login access before invitation", () => {
 test("active role management protects the final School Admin", () => {
   assert.match(migration,/create or replace function public\.end_staff_school_role/);
   assert.match(migration,/Cannot remove the last active School Admin/);
+  assert.match(migration,/pg_advisory_xact_lock\(hashtextextended\(p_school_id::text, 1202\)\)/);
   assert.match(migration,/v_successor_date:=greatest\(current_date,p_effective_to\+1\)/);
   assert.match(migration,/staff_member_covers_school_period/);
 });
