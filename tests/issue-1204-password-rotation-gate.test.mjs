@@ -11,7 +11,7 @@ const actions = read("src/features/profile/server/actions.ts");
 test("flagged user is redirected before entering ordinary app pages", () => {
   assert.match(proxy, /pathname !== "\/password-rotation"/);
   assert.match(proxy, /\.select\("must_change_password"\)/);
-  assert.match(proxy, /profile\?\.must_change_password === true/);
+  assert.match(proxy, /profileError \|\| !profile \|\| profile\.must_change_password === true/);
   assert.match(proxy, /rotationUrl\.pathname = "\/password-rotation"/);
   assert.match(proxy, /if \(profileError\)/);
 });
