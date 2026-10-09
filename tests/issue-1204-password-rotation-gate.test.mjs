@@ -164,3 +164,15 @@ test("class-list export denies unresolved rotation authority with JSON 403", () 
   assert.match(route, /catch\s*\{\s*return Response\.json\(/);
   assert.match(route, /status: 403/);
 });
+
+test("report card signed artifact URLs cannot be issued before password rotation", () => {
+  const route = read("src/app/api/report-card-documents/[documentId]/route.ts");
+  assert.match(route, /securityProfile\.must_change_password === true/);
+  assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("createSignedUrl(document.storage_path, 90)"));
+});
+
+test("correspondence exports fail closed when authority resolution is denied", () => {
+  const route = read("src/app/api/official-documents/correspondence/[documentId]/route.ts");
+  assert.match(route, /try \{ context = await getUserContext\(\); \} catch/);
+  assert.match(route, /status:403/);
+});
