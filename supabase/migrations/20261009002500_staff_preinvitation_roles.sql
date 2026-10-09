@@ -122,6 +122,15 @@ begin
     or new.staff_member_id is null or new.accepted_user_id is null then
     return new;
   end if;
+  select exists (
+    select 1 from public.staff_planned_school_roles
+    where school_id=new.school_id and tenant_id=new.tenant_id
+      and staff_member_id=new.staff_member_id
+  ) into v_has_plans;
+  if not v_has_plans then
+    return new;
+  end if;
+
   if not exists (
     select 1 from public.staff_members
       where id=new.staff_member_id and tenant_id=new.tenant_id and user_id=new.accepted_user_id
@@ -132,15 +141,6 @@ begin
       and lower(btrim(coalesce(u.email,'')))=lower(btrim(coalesce(new.email,'')))
       and u.email_confirmed_at is not null
   ) then raise exception 'Accepted staff account email is not verified'; end if;
-
-  select exists (
-    select 1 from public.staff_planned_school_roles
-    where school_id=new.school_id and tenant_id=new.tenant_id
-      and staff_member_id=new.staff_member_id
-  ) into v_has_plans;
-  if not v_has_plans then
-    return new;
-  end if;
 
   select count(*) into v_eligible_count
   from public.staff_planned_school_roles
