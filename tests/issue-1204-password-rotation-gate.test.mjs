@@ -213,3 +213,14 @@ test("AI drafting endpoints deny mandatory password rotation with JSON 403", () 
     assert.match(route, /status: 403/);
   }
 });
+
+test("report processing and learner transfer exports fail closed during password rotation", () => {
+  for (const [path, response] of [
+    ["src/app/api/report-card-batches/process/route.ts", "NextResponse"],
+    ["src/app/api/official-documents/learner-transfer-form/[snapshotId]/route.ts", "Response"],
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.ok(route.includes(`return ${response}.json({ error: "Complete account security setup and verify school access." }, { status: 403 })`));
+  }
+});
