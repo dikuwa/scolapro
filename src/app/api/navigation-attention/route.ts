@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getNavigationAttentionCounts } from "@/features/notifications/server/navigation-attention";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getUserContext } from "@/lib/auth/get-user-context";
 
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -19,17 +18,14 @@ export async function GET() {
     );
   }
 
-  // API routes bypass the Next.js page proxy. Verify the shared authority
-  // boundary so password-rotation-pending accounts receive no school data.
-  try {
-    const context = await getUserContext();
-    if (!context.user || context.user.id !== verifiedUserId) {
-      return NextResponse.json({ counts: {} }, {
-        status: 403,
-        headers: { "cache-control": "private, no-store" },
-      });
-    }
-  } catch {
+  // Avoid the expensive school-context RPC on this high-frequency endpoint.
+  // Verify the password-rotation flag directly before reading notifications.
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", verifiedUserId)
+    .maybeSingle();
+  if (profileError || !profile || profile.must_change_password === true) {
     return NextResponse.json({ counts: {} }, {
       status: 403,
       headers: { "cache-control": "private, no-store" },
