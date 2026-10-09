@@ -100,3 +100,12 @@ test("avatar save and deletion actions fail closed before storage operations", (
     assert.ok(section.indexOf("securityProfile.must_change_password") < section.indexOf('admin.storage.from("avatars")') || name === "deleteAvatar");
   }
 });
+
+test("password rotation clearance cannot be forged by authenticated profile updates", () => {
+  const migration = read("supabase/migrations/20261009154000_password_rotation_clearance_guard.sql");
+  const actions = read("src/features/profile/server/actions.ts");
+  assert.match(migration, /before update of must_change_password on public\.user_profiles/i);
+  assert.match(migration, /auth\.role\(\).*service_role/);
+  assert.match(actions, /await createSupabaseAdminClient\(\)\.from\("user_profiles"\)/);
+  assert.ok(actions.indexOf("await supabase.auth.updateUser({ password })") < actions.indexOf("await createSupabaseAdminClient().from(\"user_profiles\")"));
+});
