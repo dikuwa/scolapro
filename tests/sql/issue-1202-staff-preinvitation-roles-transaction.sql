@@ -44,7 +44,7 @@ SELECT set_config('request.jwt.claims',
   )::text,true);
 SET LOCAL ROLE authenticated;
 
-DO $
+DO $$
 BEGIN
   BEGIN
     PERFORM public.end_staff_school_role(
@@ -60,7 +60,7 @@ BEGIN
     IF SQLERRM <> 'Cannot remove the last active School Admin' THEN RAISE; END IF;
   END;
   RAISE NOTICE 'LAST_SCHOOL_ADMIN_PROTECTED';
-END $;
+END $$;
 
 SELECT public.plan_staff_school_role(
   '22222222-2222-4222-8222-222222222222',
