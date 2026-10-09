@@ -21,6 +21,7 @@ test("active role management protects the final School Admin", () => {
   assert.match(migration,/create or replace function public\.end_staff_school_role/);
   assert.match(migration,/Cannot remove the last active School Admin/);
   assert.match(migration,/v_successor_date:=greatest\(current_date,p_effective_to\+1\)/);
+  assert.match(migration,/staff_member_covers_school_period/);
 });
 
 test("verified invitation acceptance reconciles only governed planned roles", () => {
