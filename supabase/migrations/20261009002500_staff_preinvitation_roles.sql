@@ -254,6 +254,10 @@ begin
 
   if v_membership.role_key='school_admin'
      and (v_membership.active_to is null or v_membership.active_to>=current_date) then
+    -- Serialize same-school administrator revocations before evaluating the
+    -- successor set. Without this lock, two administrators may each observe
+    -- the other and concurrently revoke both remaining memberships.
+    perform pg_advisory_xact_lock(hashtextextended(p_school_id::text, 1202));
     v_successor_date:=greatest(current_date,p_effective_to+1);
     if not exists (
       select 1 from public.school_memberships other
