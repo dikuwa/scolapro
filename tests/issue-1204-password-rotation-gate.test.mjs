@@ -144,3 +144,16 @@ test("official attendance, room and sports exports deny unresolved rotation auth
     assert.match(route, /status: 403/);
   }
 });
+
+test("admission and teaching document APIs deny unresolved password rotation", () => {
+  for (const path of [
+    "src/app/api/official-documents/admission-application/route.ts",
+    "src/app/api/official-documents/teaching-plan/route.ts",
+    "src/app/api/official-documents/teaching-pack/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /catch\s*\{\s*return Response\.json\(/);
+    assert.match(route, /status: 403/);
+  }
+});
