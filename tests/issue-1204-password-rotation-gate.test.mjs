@@ -224,3 +224,9 @@ test("report processing and learner transfer exports fail closed during password
     assert.ok(route.includes(`return ${response}.json({ error: "Complete account security setup and verify school access." }, { status: 403 })`));
   }
 });
+
+test("shared server authority resolver also fails closed for missing profiles", () => {
+  const resolver = read("src/lib/auth/get-user-context.ts");
+  assert.match(resolver, /!rpcRow\?\.profile \|\| rpcRow\.profile\.must_change_password === true/);
+  assert.match(resolver, /throw new Error\("Password rotation required before accessing school authority\."\)/);
+});
