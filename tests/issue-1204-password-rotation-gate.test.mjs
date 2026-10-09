@@ -124,3 +124,10 @@ test("all offline sync endpoints return JSON 403 when the rotation gate blocks a
     assert.match(route, /status: 403/);
   }
 });
+
+test("register teacher document API rejects unresolved authority with JSON 403", () => {
+  const route = read("src/app/api/attendance/register-teacher/route.ts");
+  assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+  assert.match(route, /catch\s*\{\s*return Response\.json\(/);
+  assert.match(route, /status: 403/);
+});
