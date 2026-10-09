@@ -5,10 +5,10 @@ import test from "node:test";
 
 const read = (path) => readFileSync(path, "utf8");
 
-test("Aug 31-Sep 4, Oct 5, term bounds, openings and learner windows execute against one policy", () => {
+test("term failures, Aug 31-Sep 4, Oct 5, openings and action gates execute against one policy", () => {
   const result = spawnSync(process.execPath, ["--experimental-strip-types", "tests/helpers/issue-1206-attendance-policy-worker.mjs"], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /policy scenarios passed/);
+  assert.match(result.stdout, /policy and action-gate scenarios passed/);
 });
 
 test("weekly entry omits out-of-term columns while preserving locked in-term holidays", () => {
@@ -30,10 +30,27 @@ test("forged writes and queued offline replay revalidate the final governed day"
   const offlineRoute = read("src/app/api/offline/attendance/route.ts");
   const migration = read("supabase/migrations/20260828013000_attendance_scope_and_school_days.sql");
   assert.match(actions, /resolveAttendanceTeachingImpact/);
-  assert.match(actions, /if \(!teachingDay\.eligible\)/);
-  assert.match(weeklyActions, /if \(!teachingDay\.eligible\)/);
+  assert.match(actions, /ineligibleDailyAttendanceDate/);
+  assert.match(actions, /parsed\.data\.attendanceDate/);
+  assert.match(weeklyActions, /firstIneligibleWeeklyAttendanceDate/);
+  assert.match(weeklyActions, /parsed\.data\.days\.map\(\(day\) => day\.date\)/);
+  assert.ok(actions.indexOf("ineligibleDailyAttendanceDate(") < actions.indexOf('supabase.rpc("submit_daily_register"'));
+  assert.ok(weeklyActions.indexOf("firstIneligibleWeeklyAttendanceDate(") < weeklyActions.indexOf('supabase.rpc("submit_weekly_register"'));
   assert.match(offlineRoute, /submitDailyRegister/);
   assert.match(migration, /if not app_private\.is_expected_school_day\(v_class\.school_id, p_attendance_date\)/);
+});
+
+test("learner term retrieval failure is distinct from a verified empty calendar", () => {
+  const policy = read("src/features/attendance/server/learner-calendar-bounds.ts");
+  const register = read("src/features/attendance/server/register.ts");
+  const summary = read("src/features/attendance/server/official-summary.ts");
+  assert.match(policy, /termCalendarVerified: boolean/);
+  assert.match(policy, /if \(!input\.termCalendarVerified\)/);
+  assert.match(policy, /Learner term boundaries could not be verified/);
+  assert.match(register, /termCalendarVerified: !termResult\.error/);
+  assert.match(summary, /learnerCalendarResult\.error/);
+  assert.match(summary, /termCalendarVerified: true/);
+  assert.doesNotMatch(summary, /learnerCalendarResult\.error\s*\?\s*\[\]/);
 });
 
 test("official sums exclude legacy invalid-day evidence and flag audited remediation", () => {

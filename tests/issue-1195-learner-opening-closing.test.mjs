@@ -21,7 +21,8 @@ test("daily display and server submission share authoritative bounds", () => {
   assert.match(register, /resolveAttendanceDayDecision\(/);
   assert.match(register, /isSchoolDay: overrideResult\.data\.is_school_day/);
   assert.match(actions, /resolveAttendanceTeachingImpact\(registerSchool.school_id/);
-  assert.match(actions, /!teachingDay\.eligible/);
+  assert.match(actions, /ineligibleDailyAttendanceDate/);
+  assert.match(actions, /if \(blockedDate\)/);
 });
 
 test("weekly and term numerator denominator exclude learner calendar closures", () => {

@@ -223,14 +223,14 @@ export async function getOfficialAttendanceSummary(
     : null;
   // Day-by-day and summary figures follow the same final policy as entry and
   // sync: explicit overrides win, then learner term bounds, then impact.
-  const learnerWindows = learnerCalendarResult.error
-    ? [] : (learnerCalendarResult.data ?? []) as LearnerTermWindow[];
+  const learnerWindows = (learnerCalendarResult.data ?? []) as LearnerTermWindow[];
   const overrideByDate = new Map(((overrideResult.data ?? []) as Array<{ school_date: string; is_school_day: boolean; teaching_impact: string | null; reason: string | null }>).map((row) => [String(row.school_date).slice(0, 10), row] as const));
   const decisionFor = (day: string) => {
     const override = overrideByDate.get(day);
     return resolveAttendanceDayDecision({
       date: day,
       terms: learnerWindows,
+      termCalendarVerified: true,
       resolvedImpact: governedDays?.decisionFor(day).impact ?? null,
       resolverAvailable: Boolean(governedDays),
       override: override ? { isSchoolDay: override.is_school_day, teachingImpact: override.teaching_impact, reason: override.reason } : null,

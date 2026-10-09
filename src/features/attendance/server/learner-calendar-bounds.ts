@@ -50,6 +50,7 @@ export function learnerCalendarRestriction(date: string, terms: LearnerTermWindo
 export function resolveAttendanceDayDecision(input: {
   date: string;
   terms: LearnerTermWindow[];
+  termCalendarVerified: boolean;
   resolvedImpact: string | null;
   override?: AttendanceDayOverride | null;
   resolverAvailable?: boolean;
@@ -74,6 +75,15 @@ export function resolveAttendanceDayDecision(input: {
     };
   }
 
+  if (!input.termCalendarVerified) {
+    return {
+      impact: "NO_TEACHING",
+      reason: "Learner term boundaries could not be verified",
+      kind: "unverified",
+      eligible: false,
+    };
+  }
+
   if (restriction) {
     return { impact: "NO_TEACHING", reason: restriction, kind: "out_of_term", eligible: false };
   }
@@ -94,4 +104,33 @@ export function resolveAttendanceDayDecision(input: {
     };
   }
   return { impact: input.resolvedImpact, reason: null, kind: "teaching", eligible: true };
+}
+
+/**
+ * Shared server-action gate. Daily and weekly capture both call this before
+ * their persistence RPC, so a forged or queued payload cannot bypass the same
+ * final governed-day decision used by the entry surfaces.
+ */
+async function firstIneligibleAttendanceDate(
+  dates: string[],
+  resolveDay: (date: string) => Promise<Pick<AttendanceDayDecision, "eligible">>,
+): Promise<string | null> {
+  for (const date of dates) {
+    if (!(await resolveDay(date)).eligible) return date;
+  }
+  return null;
+}
+
+export function ineligibleDailyAttendanceDate(
+  date: string,
+  resolveDay: (date: string) => Promise<Pick<AttendanceDayDecision, "eligible">>,
+) {
+  return firstIneligibleAttendanceDate([date], resolveDay);
+}
+
+export function firstIneligibleWeeklyAttendanceDate(
+  dates: string[],
+  resolveDay: (date: string) => Promise<Pick<AttendanceDayDecision, "eligible">>,
+) {
+  return firstIneligibleAttendanceDate(dates, resolveDay);
 }

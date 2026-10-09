@@ -70,6 +70,7 @@ export async function resolveAttendanceTeachingImpact(schoolId: string, attendan
   return resolveAttendanceDayDecision({
     date: attendanceDate,
     terms: termResult.error ? [] : (termResult.data ?? []) as LearnerTermWindow[],
+    termCalendarVerified: !termResult.error,
     resolvedImpact: impactResult.error || typeof impactResult.data !== "string" ? null : impactResult.data,
     resolverAvailable: !impactResult.error,
     override: overrideResult.error || !overrideResult.data ? null : {
