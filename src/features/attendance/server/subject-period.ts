@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
+import { formatLearnerName } from "@/lib/person-name";
 
 function one<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
@@ -111,7 +112,7 @@ export async function getSubjectPeriodRoster(slotId: string, attendanceDate: str
     slot: { id: slot.id, weekday: slot.weekday, classId: slot.register_class_id, className: classRow?.display_name ?? "Class", subjectName: subject?.display_name ?? "Subject", teacherName: staff ? `${staff.first_name ?? ""} ${staff.last_name ?? ""}`.trim() : "Teacher", periodName: period?.display_name ?? "Period", roomLabel: slot.room_label, academicYear: slot.academic_year },
     learners: enrolments.map((item) => {
       const learner = one(item.learners); const event = eventMap.get(item.id);
-      return { enrolmentId: item.id, learnerId: item.learner_id, name: learner ? `${learner.first_names} ${learner.surname}` : "Learner", admissionNumber: item.admission_number, status: event?.status ?? "present", reasonId: event?.reason_id ?? null, note: event?.note ?? null };
+      return { enrolmentId: item.id, learnerId: item.learner_id, name: formatLearnerName(learner?.first_names, learner?.surname), admissionNumber: item.admission_number, status: event?.status ?? "present", reasonId: event?.reason_id ?? null, note: event?.note ?? null };
     }),
     reasons: reasons.map((reason) => ({ id: reason.id, name: reason.display_name, sensitive: reason.sensitive })),
     currentSubmissionId,

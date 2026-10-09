@@ -3,6 +3,7 @@ import "server-only";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type AcademicAnalysisBasis = "official" | "provisional";
 export type AcademicAnalysisView = "overview" | "results" | "grades" | "learners" | "promotion_exceptions" | "trends";
@@ -450,7 +451,7 @@ export async function getAcademicAnalysisWorkspace(scope: AcademicAnalysisScope)
   if (learnerError) throw new Error("Unable to resolve Academic Analysis learners.");
   const learnerNameMap = new Map((learners ?? []).map((row) => [
     row.id,
-    [row.preferred_name || row.first_names, row.surname].filter(Boolean).join(" ").trim() || "Learner",
+    formatLearnerName(row.preferred_name || row.first_names, row.surname),
   ]));
   const enrolmentMap = new Map((enrolments ?? []).map((row) => [row.id, row]));
 

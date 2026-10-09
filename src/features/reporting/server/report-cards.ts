@@ -1,5 +1,6 @@
 import { REPORT_CARD_RENDERER_VERSION } from "@/features/reporting/server/report-card-renderer-version";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type ReportCardLearner = {
   enrolmentId: string;
@@ -136,7 +137,7 @@ export async function getReportCardWorkspace(schoolId: string, academicYear: num
     return {
       enrolmentId: item.id,
       learnerId: item.learner_id,
-      name: learner ? `${learner.first_names} ${learner.surname}` : "Learner",
+      name: formatLearnerName(learner?.first_names, learner?.surname),
       admissionNumber: item.admission_number,
       gradeId: item.grade_id,
       grade: one(item.grades)?.display_name ?? "Grade",

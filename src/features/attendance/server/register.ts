@@ -4,6 +4,7 @@ import {
   type AttendanceDayDecision,
   type LearnerTermWindow,
 } from "@/features/attendance/server/learner-calendar-bounds";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type AttendanceClassOption = {
   id: string;
@@ -35,12 +36,14 @@ function relation<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
 }
 
-function sortLearners<T extends { name: string; admissionNumber: string | null }>(learners: T[], direction: AttendanceSortDirection) {
+function sortLearners<T extends { surname: string; first_names: string; admissionNumber: string | null }>(learners: T[], direction: AttendanceSortDirection) {
   const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
   return learners.sort((left, right) => {
-    const nameOrder = collator.compare(left.name, right.name);
+    const surnameOrder = collator.compare(left.surname, right.surname);
+    const givenOrder = collator.compare(left.first_names, right.first_names);
     const fallback = collator.compare(left.admissionNumber ?? "", right.admissionNumber ?? "");
-    return direction === "desc" ? -(nameOrder || fallback) : nameOrder || fallback;
+    const order = surnameOrder || givenOrder || fallback;
+    return direction === "desc" ? -order : order;
   });
 }
 
@@ -115,13 +118,15 @@ export async function getDailyRegisterWorkspace(
   if (enrolmentError || currentError || submissionError) throw new Error("Unable to load this class register.");
 
   const currentByEnrolment = new Map((currentRows ?? []).map((row) => [row.enrolment_id, row]));
-  const learners: AttendanceLearnerRow[] = (enrolments ?? []).map((item) => {
+  const learnersSortable = (enrolments ?? []).map((item) => {
     const learner = relation(item.learners);
     const current = currentByEnrolment.get(item.id);
     return {
       enrolmentId: item.id,
       learnerId: item.learner_id,
-      name: learner ? `${learner.first_names} ${learner.surname}`.trim() : "Learner",
+      name: formatLearnerName(learner?.first_names, learner?.surname),
+      surname: learner?.surname ?? "",
+      first_names: learner?.first_names ?? "",
       admissionNumber: item.admission_number,
       sex: learner?.sex ?? null,
       status: (current?.status as AttendanceLearnerRow["status"] | undefined) ?? "present",
@@ -130,7 +135,11 @@ export async function getDailyRegisterWorkspace(
     };
   });
 
-  sortLearners(learners, sortDirection);
+  sortLearners(learnersSortable, sortDirection);
+
+  // Strip sort-only fields before returning so the public type is preserved.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const learners: AttendanceLearnerRow[] = learnersSortable.map(({ surname: _s, first_names: _f, ...row }) => row);
 
   return { classes: classOptions, reasons: reasonsList, selectedClassId: classId, teachingDay, learners, currentSubmissionId: submission?.id ?? null };
 }

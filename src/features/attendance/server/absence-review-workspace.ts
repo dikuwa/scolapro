@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type AbsenceReviewRoleContext = {
   roleKey: string;
@@ -237,7 +238,7 @@ export async function getAbsenceReviewWorkspace(
     return {
       key: `daily:${row.enrolment_id}:${row.attendance_date}`,
       learnerId: row.learner_id,
-      learnerName: `${row.first_names ?? ""} ${row.surname ?? ""}`.trim() || "Learner",
+      learnerName: formatLearnerName(row.first_names, row.surname),
       date: row.attendance_date,
       gradeId: schoolClass?.gradeId ?? null,
       gradeName: schoolClass?.gradeName ?? "Grade",
@@ -287,7 +288,7 @@ export async function getAbsenceReviewWorkspace(
     return {
       key: `subject:${row.enrolment_id}:${row.timetable_slot_id}:${row.attendance_date}`,
       learnerId: row.learner_id,
-      learnerName: `${row.first_names ?? ""} ${row.surname ?? ""}`.trim() || "Learner",
+      learnerName: formatLearnerName(row.first_names, row.surname),
       date: row.attendance_date,
       gradeId: schoolClass?.gradeId ?? null,
       gradeName: schoolClass?.gradeName ?? "Grade",

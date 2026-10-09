@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type AbsenceOverviewClass = { id: string; name: string; grade: string };
 
@@ -92,7 +93,7 @@ export async function getAbsenceOverviewWorkspace(
       key: `daily:${row.enrolment_id}:${row.register_class_id}`,
       source: "daily",
       learnerId: row.learner_id,
-      learnerName: `${row.first_names ?? ""} ${row.surname ?? ""}`.trim() || "Learner",
+      learnerName: formatLearnerName(row.first_names, row.surname),
       admissionNumber: null,
       classId: row.register_class_id,
       className: schoolClass?.name ?? null,
@@ -131,7 +132,7 @@ export async function getAbsenceOverviewWorkspace(
       key: `lesson:${row.enrolment_id}:${row.timetable_slot_id}`,
       source: "lesson",
       learnerId: row.learner_id,
-      learnerName: `${row.first_names ?? ""} ${row.surname ?? ""}`.trim() || "Learner",
+      learnerName: formatLearnerName(row.first_names, row.surname),
       admissionNumber: null,
       classId: rowClassId,
       className: schoolClass?.name ?? null,
@@ -152,7 +153,7 @@ export async function getAbsenceOverviewWorkspace(
       key: `guardian:${row.id}`,
       source: "guardian",
       learnerId: row.learner_id,
-      learnerName: learner ? `${learner.first_names} ${learner.surname}`.trim() : "Learner",
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname),
       admissionNumber: null,
       classId: null,
       className: null,

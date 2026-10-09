@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveAttendanceTeachingImpact, type AttendanceClassOption, type AttendanceReasonOption, type AttendanceSortDirection } from "@/features/attendance/server/register";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type WeeklyCell = {
   date: string;
@@ -21,12 +22,14 @@ function relation<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
 }
 
-function sortLearners<T extends { name: string; admissionNumber: string | null }>(learners: T[], direction: AttendanceSortDirection) {
+function sortLearners<T extends { surname: string; first_names: string; admissionNumber: string | null }>(learners: T[], direction: AttendanceSortDirection) {
   const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
   return learners.sort((left, right) => {
-    const nameOrder = collator.compare(left.name, right.name);
+    const surnameOrder = collator.compare(left.surname, right.surname);
+    const givenOrder = collator.compare(left.first_names, right.first_names);
     const fallback = collator.compare(left.admissionNumber ?? "", right.admissionNumber ?? "");
-    return direction === "desc" ? -(nameOrder || fallback) : nameOrder || fallback;
+    const order = surnameOrder || givenOrder || fallback;
+    return direction === "desc" ? -order : order;
   });
 }
 
@@ -114,12 +117,14 @@ export async function getWeeklyRegisterWorkspace(
   const submissionIds: Record<string, string> = {};
   for (const submission of submissions ?? []) if (!submissionIds[submission.attendance_date]) submissionIds[submission.attendance_date] = submission.id;
 
-  const learners: WeeklyLearnerRow[] = (enrolments ?? []).map((item) => {
+  const learnersSortable = (enrolments ?? []).map((item) => {
     const learner = relation(item.learners);
     return {
       enrolmentId: item.id,
       learnerId: item.learner_id,
-      name: learner ? `${learner.first_names} ${learner.surname}`.trim() : "Learner",
+      name: formatLearnerName(learner?.first_names, learner?.surname),
+      surname: learner?.surname ?? "",
+      first_names: learner?.first_names ?? "",
       admissionNumber: item.admission_number,
       sex: learner?.sex ?? null,
       days: dates.map((attendanceDate) => {
@@ -134,7 +139,11 @@ export async function getWeeklyRegisterWorkspace(
     };
   });
 
-  sortLearners(learners, sortDirection);
+  sortLearners(learnersSortable, sortDirection);
+
+  // Strip sort-only fields before returning so the public type is preserved.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const learners: WeeklyLearnerRow[] = learnersSortable.map(({ surname: _s, first_names: _f, ...row }) => row);
 
   return { ...emptyWorkspace, learners, submissionIds };
 }

@@ -28,3 +28,28 @@ export function formatPersonName(value: string | null | undefined) {
     .map(formatWord)
     .join(" ");
 }
+
+/**
+ * Canonical school-facing learner name formatter.
+ *
+ * Returns **Surname GivenNames** (e.g. "Mbuti Angel") for all school
+ * registers, class lists, reports and exported documents in accordance with
+ * ScolaPro display policy (Issue #1208).
+ *
+ * - Source identity fields are never modified.
+ * - Compound/multi-part surnames, hyphens, accents and capitalisation are
+ *   preserved through `formatPersonName`.
+ * - When only one of the two name parts is present the non-empty part is
+ *   returned without a trailing/leading space.
+ * - Falls back to `fallback` (default `"Learner"`) when both fields are empty.
+ */
+export function formatLearnerName(
+  first_names: string | null | undefined,
+  surname: string | null | undefined,
+  fallback = "Learner",
+): string {
+  const s = formatPersonName(surname);
+  const g = formatPersonName(first_names);
+  const combined = [s, g].filter(Boolean).join(" ");
+  return combined || fallback;
+}

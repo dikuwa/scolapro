@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type DetentionLifecycleFilter = "all" | "outstanding" | "overdue" | "partial" | "completed";
 
@@ -135,7 +136,7 @@ export async function getDetentionHistoryPage(
     items: rows.map((row) => ({
       id: row.id,
       learnerId: row.learner_id,
-      learnerName: `${row.first_names ?? ""} ${row.surname ?? ""}`.trim() || "Learner",
+      learnerName: formatLearnerName(row.first_names, row.surname),
       admissionNumber: row.admission_number,
       gradeName: row.grade_name,
       className: row.class_name,
