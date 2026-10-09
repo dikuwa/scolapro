@@ -59,7 +59,7 @@ export async function signIn(_previousState: LoginState, formData: FormData): Pr
     .select("must_change_password")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (profileError || !profile || profile.must_change_password === true) {
+  if (profileError || !profile || profile.must_change_password !== false) {
     redirect("/password-rotation");
   }
   redirect(safeNextPath(parsed.data.next));
