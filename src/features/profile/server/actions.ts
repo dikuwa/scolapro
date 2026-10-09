@@ -16,6 +16,15 @@ export async function saveUploadedAvatar(path: string): Promise<ProfileActionSta
     return { success: false, message: "Sign in again before changing your avatar." };
   }
 
+  const { data: securityProfile, error: securityError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+    return { success: false, message: "Complete account security setup before changing your avatar." };
+  }
+
   const match = avatarPathPattern.exec(path);
   if (!match || match[1] !== user.id) {
     console.error("Avatar save rejected invalid path", { userId: user.id });
@@ -67,6 +76,15 @@ export async function deleteAvatar(): Promise<ProfileActionState> {
   if (userError || !user) {
     if (userError) console.error("Avatar delete authorization failed", { error: userError.message });
     return { success: false, message: "Sign in again before changing your avatar." };
+  }
+
+  const { data: securityProfile, error: securityError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+    return { success: false, message: "Complete account security setup before changing your avatar." };
   }
 
   const { data: profile, error: profileError } = await supabase
