@@ -25,7 +25,7 @@ export async function GET() {
     .select("must_change_password")
     .eq("user_id", verifiedUserId)
     .maybeSingle();
-  if (profileError || !profile || profile.must_change_password === true) {
+  if (profileError || !profile || profile.must_change_password !== false) {
     return NextResponse.json({ counts: {} }, {
       status: 403,
       headers: { "cache-control": "private, no-store" },
