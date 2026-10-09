@@ -262,6 +262,12 @@ begin
         and other.role_key='school_admin'
         and other.active_from<=v_successor_date
         and (other.active_to is null or other.active_to>=v_successor_date)
+        and (
+          other.staff_member_id is null
+          or app_private.staff_member_covers_school_period(
+            other.staff_member_id,p_school_id,v_successor_date,v_successor_date
+          )
+        )
     ) then
       raise exception 'Cannot remove the last active School Admin';
     end if;
