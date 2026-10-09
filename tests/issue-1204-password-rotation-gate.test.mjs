@@ -72,8 +72,9 @@ test("offline attendance API fails closed when auth context cannot resolve", () 
 
 test("navigation attention API guards password-rotation-pending accounts", () => {
   const route = read("src/app/api/navigation-attention/route.ts");
-  assert.match(route, /const context = await getUserContext\(\)/);
-  assert.match(route, /context\.user\.id !== verifiedUserId/);
+  assert.match(route, /\.select\("must_change_password"\)/);
+  assert.match(route, /profileError \|\| !profile \|\| profile\.must_change_password === true/);
   assert.match(route, /status: 403/);
-  assert.ok(route.indexOf("await getUserContext()") < route.indexOf("await getNavigationAttentionCounts()"));
+  assert.ok(route.indexOf('select("must_change_password")') < route.indexOf("await getNavigationAttentionCounts()"));
+  assert.doesNotMatch(route, /getUserContext\(\)/);
 });
