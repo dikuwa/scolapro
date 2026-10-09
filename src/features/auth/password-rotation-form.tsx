@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { changePassword } from "@/features/profile/server/actions";
 import { signOut } from "@/features/auth/actions";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ export function PasswordRotationForm() {
     <>
       {state.success ? (
         <p role="status" className="mt-4 text-sm text-[color:var(--success)]">
-          Password updated. <a className="underline" href="/">Continue to your workspace</a>.
+          Password updated. <Link className="underline" href="/">Continue to your workspace</Link>.
         </p>
       ) : (
         <form action={action} className="mt-5 space-y-4">
