@@ -188,3 +188,17 @@ test("report batch and teaching file URLs require password rotation clearance", 
     assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("createSignedUrl("));
   }
 });
+
+test("teaching inspection and professional review downloads enforce rotation gate", () => {
+  for (const path of [
+    "src/app/api/teaching/files/inspection-pack/route.ts",
+    "src/app/api/teaching/subject-file/inspection-pack/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try \{ context = await getUserContext\(\); \}/);
+    assert.match(route, /status: 403/);
+  }
+  const review = read("src/app/api/teaching/reviews/professional-files/[id]/route.ts");
+  assert.match(review, /securityProfile\.must_change_password === true/);
+  assert.ok(review.indexOf("securityProfile.must_change_password") < review.indexOf("createSignedUrl("));
+});
