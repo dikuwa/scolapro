@@ -84,6 +84,17 @@ export async function acceptInvitation(
     redirect(`/login?next=${encodeURIComponent(`/join?token=${parsed.data.token}`)}`);
   }
 
+  // This action is callable independently of page navigation. A session
+  // awaiting mandatory rotation must not obtain new school memberships.
+  const { data: rotationProfile, error: rotationError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  if (rotationError || !rotationProfile || rotationProfile.must_change_password) {
+    redirect("/password-rotation");
+  }
+
   const { error } = await supabase.rpc("accept_school_invitation", {
     p_token: parsed.data.token,
   });
