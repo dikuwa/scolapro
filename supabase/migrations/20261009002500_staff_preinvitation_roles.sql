@@ -212,6 +212,72 @@ create trigger staff_invitation_activate_planned_roles
 after update of status on public.school_invitations
 for each row execute function app_private.activate_planned_roles_on_staff_invitation();
 
+-- Active role management remains the post-link authority surface. Protect the
+-- school from losing its final authorized School Admin while retaining immediate
+-- revocation semantics and effective-dated history from #1145.
+create or replace function public.end_staff_school_role(
+  p_school_id uuid,
+  p_membership_id uuid,
+  p_effective_to date default (current_date - 1)
+) returns boolean language plpgsql security definer
+set search_path=pg_catalog,public,app_private as $
+declare
+  v_membership public.school_memberships%rowtype;
+  v_successor_date date;
+begin
+  if auth.uid() is null
+     or not app_private.user_can_manage_current_school_membership(auth.uid(),p_school_id) then
+    raise exception 'Permission denied';
+  end if;
+
+  select * into v_membership
+  from public.school_memberships
+  where id=p_membership_id and school_id=p_school_id
+  for update;
+  if not found then raise exception 'School role not found'; end if;
+  if p_effective_to is null or p_effective_to < (v_membership.active_from - 1) then
+    raise exception 'Role end date is invalid';
+  end if;
+  if v_membership.active_to is not null and p_effective_to > v_membership.active_to then
+    raise exception 'Cannot extend a closed school role';
+  end if;
+
+  if v_membership.role_key='school_admin'
+     and (v_membership.active_to is null or v_membership.active_to>=current_date) then
+    v_successor_date:=greatest(current_date,p_effective_to+1);
+    if not exists (
+      select 1 from public.school_memberships other
+      where other.school_id=p_school_id
+        and other.id<>v_membership.id
+        and other.role_key='school_admin'
+        and other.active_from<=v_successor_date
+        and (other.active_to is null or other.active_to>=v_successor_date)
+    ) then
+      raise exception 'Cannot remove the last active School Admin';
+    end if;
+  end if;
+
+  update public.school_memberships
+  set active_to=p_effective_to
+  where id=p_membership_id;
+
+  insert into public.audit_events(
+    tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+  ) values (
+    v_membership.tenant_id,p_school_id,auth.uid(),
+    'school_membership.role_ended','school_membership',p_membership_id,
+    jsonb_build_object(
+      'staff_member_id',v_membership.staff_member_id,
+      'role_key',v_membership.role_key,
+      'effective_to',p_effective_to,
+      'revoked_on',current_date
+    )
+  );
+  return true;
+end;$;
+revoke all on function public.end_staff_school_role(uuid,uuid,date) from public,anon;
+grant execute on function public.end_staff_school_role(uuid,uuid,date) to authenticated;
+
 revoke all on function public.plan_staff_school_role(uuid,uuid,text,date) from public,anon;
 grant execute on function public.plan_staff_school_role(uuid,uuid,text,date) to authenticated;
 revoke all on function public.end_planned_staff_school_role(uuid,uuid,date) from public,anon;
