@@ -38,7 +38,9 @@ function date(value: string | null) {
 }
 
 export async function GET() {
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try { context = await getUserContext(); }
+  catch { return NextResponse.json({ message: "Complete account security setup before downloading documents." }, { status: 403 }); }
   if (!context.user || context.platformMemberships.length) {
     return NextResponse.json({ message: "Not authorized." }, { status: 403 });
   }
