@@ -230,7 +230,7 @@ create or replace function public.end_staff_school_role(
   p_membership_id uuid,
   p_effective_to date default (current_date - 1)
 ) returns boolean language plpgsql security definer
-set search_path=pg_catalog,public,app_private as $
+set search_path=pg_catalog,public,app_private as $last_admin$
 declare
   v_membership public.school_memberships%rowtype;
   v_successor_date date;
@@ -290,7 +290,7 @@ begin
     )
   );
   return true;
-end;$;
+end;$last_admin$;
 revoke all on function public.end_staff_school_role(uuid,uuid,date) from public,anon;
 grant execute on function public.end_staff_school_role(uuid,uuid,date) to authenticated;
 
