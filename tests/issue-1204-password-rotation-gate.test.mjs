@@ -7,6 +7,7 @@ const proxy = read("src/lib/supabase/proxy.ts");
 const route = read("src/app/password-rotation/page.tsx");
 const form = read("src/features/auth/password-rotation-form.tsx");
 const actions = read("src/features/profile/server/actions.ts");
+const login = read("src/features/auth/actions.ts");
 
 test("flagged user is redirected before entering ordinary app pages", () => {
   assert.match(proxy, /pathname !== "\/password-rotation"/);
@@ -27,4 +28,9 @@ test("password action does not report success when profile clearance fails", () 
   assert.match(actions, /if \(profileError\)/);
   assert.match(actions, /account clearance could not be saved/);
   assert.match(actions, /supabase\.auth\.updateUser\(\{ password \}\)/);
+});
+
+test("sign-in redirects flagged or unresolved profiles to rotation before any deep link", () => {
+  assert.match(login, /if \(profileError \|\| !profile \|\| profile\.must_change_password === true\)/);
+  assert.match(login, /redirect\("\/password-rotation"\)/);
 });
