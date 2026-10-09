@@ -40,3 +40,11 @@ test("server-side role context rejects users who must rotate passwords", () => {
   assert.match(context, /rpcRow\?\.profile\?\.must_change_password === true/);
   assert.match(context, /Password rotation required before accessing school authority/);
 });
+
+test("invitation acceptance cannot grant roles before forced password rotation", () => {
+  const invitations = read("src/features/auth/invitation-actions.ts");
+  const action = invitations.slice(invitations.indexOf("export async function acceptInvitation("));
+  assert.match(action, /rotationProfile\.must_change_password/);
+  assert.match(action, /redirect\("\/password-rotation"\)/);
+  assert.ok(action.indexOf("rotationProfile.must_change_password") < action.indexOf('supabase.rpc("accept_school_invitation"'));
+});
