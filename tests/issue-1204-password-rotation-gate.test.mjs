@@ -91,3 +91,12 @@ test("signed avatar upload action checks password rotation before creating token
   assert.match(action, /securityProfile\.must_change_password === true/);
   assert.ok(action.indexOf("securityProfile.must_change_password") < action.indexOf("createSignedUploadUrl(path)"));
 });
+
+test("avatar save and deletion actions fail closed before storage operations", () => {
+  const actions = read("src/features/profile/server/actions.ts");
+  for (const name of ["saveUploadedAvatar", "deleteAvatar"]) {
+    const section = actions.slice(actions.indexOf(`export async function ${name}(`));
+    assert.match(section, /securityProfile\.must_change_password === true/);
+    assert.ok(section.indexOf("securityProfile.must_change_password") < section.indexOf('admin.storage.from("avatars")') || name === "deleteAvatar");
+  }
+});
