@@ -133,7 +133,9 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
 
   // Only the authenticated owner may clear their own rotation requirement,
   // and only after Supabase Auth has accepted the new password.
-  const { error: profileError } = await supabase.from("user_profiles")
+  // The database refuses authenticated clients clearing this gate directly.
+  // Only the trusted server can clear it after Auth confirms the password update.
+  const { error: profileError } = await createSupabaseAdminClient().from("user_profiles")
     .update({ must_change_password: false, updated_at: new Date().toISOString() })
     .eq("user_id", user.id);
   if (profileError) {
