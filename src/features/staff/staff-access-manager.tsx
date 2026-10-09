@@ -82,6 +82,7 @@ export function StaffDirectoryRowControls({
   const [roleKey, setRoleKey] = useState<string>("teacher");
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const [roleDate, setRoleDate] = useState(today);
+  const [roleEndDate, setRoleEndDate] = useState("");
   const [hodDate, setHodDate] = useState(today);
   const [hodState, hodAction, hodPending] = useActionState(designateStaffOperationalHod, initialState);
   const [hodEndState, hodEndAction, hodEndPending] = useActionState(endStaffOperationalHod, initialState);
@@ -381,10 +382,11 @@ export function StaffDirectoryRowControls({
                 <Picker ariaLabel="Preassign school role" value={roleKey} onChange={setRoleKey}
                   options={roleOptions.map(([value,label]) => ({value,label}))} placeholder="Choose role" className="min-w-44" />
                 <DateField label="Effective from" name="effectiveFrom" value={roleDate} onChange={setRoleDate} />
+                <DateField label="Effective until (optional)" name="effectiveTo" value={roleEndDate} onChange={setRoleEndDate} min={roleDate} />
                 <Button type="submit" variant="neutral" size="sm" loading={planPending}>
                   <Plus className="size-3.5" aria-hidden="true" /> Preassign role
                 </Button>
-                <p className="basis-full text-[0.68rem] text-muted-foreground">Current roles activate only after verified login acceptance; future-dated roles stay inactive until their effective date.</p>
+                <p className="basis-full text-[0.68rem] text-muted-foreground">Set a start date and, when needed, a scheduled end date. Login authority remains inactive before the effective interval and before verified account activation.</p>
               </form> : null}
               {row.pendingInvitationId ? (
                 <div className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2.5 text-[0.68rem] leading-5 text-[color:var(--warning)]">
