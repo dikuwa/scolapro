@@ -129,6 +129,13 @@ export const getUserContext = cache(async () => {
   }
 
   const rpcRow = ((contextResult.data ?? [])[0] ?? null) as UserContextRpcRow | null;
+  // This context is consumed by server actions and API handlers as well as
+  // pages. Do not expose role authority to an account awaiting mandatory
+  // password rotation, even on routes excluded from the request proxy.
+  if (rpcRow?.profile?.must_change_password === true) {
+    throw new Error("Password rotation required before accessing school authority.");
+  }
+
   const guardianLinks: GuardianLinkContext[] = (rpcRow?.guardian_links ?? []).map((link) => ({
     linkId: link.link_id,
     tenantId: link.tenant_id,
