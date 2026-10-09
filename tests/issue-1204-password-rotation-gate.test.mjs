@@ -85,3 +85,9 @@ test("avatar API rejects writes until mandatory rotation completes", () => {
   assert.match(route, /status: 403/);
   assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("await request.formData()"));
 });
+
+test("signed avatar upload action checks password rotation before creating token", () => {
+  const action = read("src/features/profile/server/avatar-upload.ts");
+  assert.match(action, /securityProfile\.must_change_password === true/);
+  assert.ok(action.indexOf("securityProfile.must_change_password") < action.indexOf("createSignedUploadUrl(path)"));
+});
