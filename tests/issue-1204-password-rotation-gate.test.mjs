@@ -202,3 +202,14 @@ test("teaching inspection and professional review downloads enforce rotation gat
   assert.match(review, /securityProfile\.must_change_password === true/);
   assert.ok(review.indexOf("securityProfile.must_change_password") < review.indexOf("createSignedUrl("));
 });
+
+test("AI drafting endpoints deny mandatory password rotation with JSON 403", () => {
+  for (const path of [
+    "src/app/api/teaching/lesson-preparation/ai/route.ts",
+    "src/app/api/correspondence/ai/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /status: 403/);
+  }
+});
