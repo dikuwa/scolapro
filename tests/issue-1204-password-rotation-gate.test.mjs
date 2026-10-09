@@ -69,3 +69,11 @@ test("offline attendance API fails closed when auth context cannot resolve", () 
   assert.match(route, /status: 403/);
   assert.ok(route.indexOf("context = await getUserContext()") < route.indexOf("await submitDailyRegister("));
 });
+
+test("navigation attention API guards password-rotation-pending accounts", () => {
+  const route = read("src/app/api/navigation-attention/route.ts");
+  assert.match(route, /const context = await getUserContext\(\)/);
+  assert.match(route, /context\.user\.id !== verifiedUserId/);
+  assert.match(route, /status: 403/);
+  assert.ok(route.indexOf("await getUserContext()") < route.indexOf("await getNavigationAttentionCounts()"));
+});
