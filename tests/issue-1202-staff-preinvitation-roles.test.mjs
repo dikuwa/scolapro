@@ -64,6 +64,9 @@ test("planned roles expose planned, scheduled, active and ended states", () => {
   assert.match(directory, /plannedRoles: row.staff_id/);
   assert.match(ui, /"Scheduled"/);
   assert.match(ui, /"Active on account"/);
+  assert.match(ui, /visibleRoles\.some\(\(membership\) =>/);
+  assert.match(ui, /membership\.activeFrom <= today/);
+  assert.match(ui, /membership\.activeTo >= today/);
   assert.match(ui, /"Ended"/);
   assert.match(ui, /endPlannedStaffSchoolRole/);
 });
