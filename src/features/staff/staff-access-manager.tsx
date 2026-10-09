@@ -190,7 +190,7 @@ export function StaffDirectoryRowControls({
             <div className="flex flex-wrap items-center gap-1.5">
               {row.plannedRoles.map((plan) => {
                 const status = plan.revokedAt
-                  ? "Revoked"
+                  ? "Ended"
                   : plan.effectiveTo && plan.effectiveTo < today
                     ? "Ended"
                     : plan.effectiveFrom > today
@@ -386,31 +386,37 @@ export function StaffDirectoryRowControls({
                 </Button>
                 <p className="basis-full text-[0.68rem] text-muted-foreground">Current roles activate only after verified login acceptance; future-dated roles stay inactive until their effective date.</p>
               </form> : null}
-              <form action={inviteAction} className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-                <input type="hidden" name="schoolId" value={schoolId} />
-                <input type="hidden" name="staffMemberId" value={row.staffId} />
-                <input type="hidden" name="roleKey" value={invitationRoleKey} />
-                <div>
-                  <label htmlFor={`staff-email-${row.staffId}`} className="block text-[0.68rem] text-muted-foreground">Login email</label>
-                  <input
-                    id={`staff-email-${row.staffId}`}
-                    name="email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="real email address"
-                    className="mt-1 min-h-9 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-2.5 text-xs outline-none focus:border-[color:var(--brand)]/50"
-                  />
+              {row.pendingInvitationId ? (
+                <div className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2.5 text-[0.68rem] leading-5 text-[color:var(--warning)]">
+                  A login invitation is already pending. Any role changes above are reconciled when that verified invitation is accepted; use Resend in the row if a fresh link is needed.
                 </div>
-                <Button type="submit" size="sm" loading={invitePending} disabled={!email || !invitationRoleKey}>
-                  <Link2 className="size-3.5" aria-hidden="true" /> Send invite
-                </Button>
-                <p className="basis-full text-[0.68rem] text-muted-foreground">
-                  {invitationRoleKey
-                    ? `This invitation will use the ${eligiblePlannedRoles.length} current or scheduled preassigned ${eligiblePlannedRoles.length === 1 ? "role" : "roles"} above; no extra role is granted by the invitation.`
-                    : "Assign at least one current or scheduled role before creating login access."}
-                </p>
-              </form>
+              ) : (
+                <form action={inviteAction} className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <input type="hidden" name="schoolId" value={schoolId} />
+                  <input type="hidden" name="staffMemberId" value={row.staffId} />
+                  <input type="hidden" name="roleKey" value={invitationRoleKey} />
+                  <div>
+                    <label htmlFor={`staff-email-${row.staffId}`} className="block text-[0.68rem] text-muted-foreground">Login email</label>
+                    <input
+                      id={`staff-email-${row.staffId}`}
+                      name="email"
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="real email address"
+                      className="mt-1 min-h-9 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-2.5 text-xs outline-none focus:border-[color:var(--brand)]/50"
+                    />
+                  </div>
+                  <Button type="submit" size="sm" loading={invitePending} disabled={!email || !invitationRoleKey}>
+                    <Link2 className="size-3.5" aria-hidden="true" /> Send invite
+                  </Button>
+                  <p className="basis-full text-[0.68rem] text-muted-foreground">
+                    {invitationRoleKey
+                      ? `This invitation will use the ${eligiblePlannedRoles.length} current or scheduled preassigned ${eligiblePlannedRoles.length === 1 ? "role" : "roles"} above; no extra role is granted by the invitation.`
+                      : "Assign at least one current or scheduled role before creating login access."}
+                  </p>
+                </form>
+              )}
               {inviteState.invitationToken ? (
                 <p className="mt-3 break-all rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-2 text-[0.68rem] text-[color:var(--success)]">
                   Secure join link ready: <span className="font-mono">{`/join?token=${inviteState.invitationToken}`}</span>
