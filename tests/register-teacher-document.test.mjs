@@ -9,6 +9,8 @@ const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "
 const workspace = readFileSync("src/features/attendance/register-teacher-workspace.tsx", "utf8");
 const tabs = readFileSync("src/features/attendance/attendance-view-tabs.tsx", "utf8");
 const header = readFileSync("src/features/documents/server/official-document-header.ts", "utf8");
+const registerLayout = readFileSync("src/features/attendance/server/register-teacher-layout.ts", "utf8");
+const headerHtml = readFileSync("src/features/documents/server/official-document-html-header.ts", "utf8");
 
 test("register teacher derives present by default and only absence changes I to a", () => {
   assert.match(schoolDays, /status === "absent"/);
@@ -36,9 +38,10 @@ test("register teacher supports specific-week, week-range and full-term ledgers"
   assert.match(model, /learnerTerm\?\.learner_starts_on/);
   assert.match(model, /learnerTerm\?\.learner_ends_on/);
   assert.match(renderer, /Week Ending Friday/);
-  assert.match(renderer, /TERM REGISTER/);
-  assert.match(renderer, /WEEK RANGE REGISTER/);
-  assert.match(renderer, /WEEKLY REGISTER/);
+  assert.match(renderer, /registerTeacherDocumentContext\(document\)/);
+  assert.match(registerLayout, /TERM REGISTER/);
+  assert.match(registerLayout, /WEEK RANGE REGISTER/);
+  assert.match(registerLayout, /WEEKLY REGISTER/);
 });
 
 test("register teacher splits boys and girls and carries physical identity columns", () => {
@@ -119,10 +122,11 @@ test("all absentee summary values and learner term absences render red", () => {
 
 
 test("register school name inherits the governed school document font", () => {
-  assert.match(renderer, /renderOfficialDocumentSchoolNameFontStyle/);
-  assert.match(renderer, /officialDocumentSchoolNameClass/);
-  assert.match(renderer, /schoolNameFontStyle/);
-  assert.match(renderer, /school-name\.old-english/);
+  assert.match(renderer, /renderOfficialDocumentHtmlHeader\(header, undefined, \{ context \}\)/);
+  assert.match(headerHtml, /renderOfficialDocumentSchoolNameFontStyle/);
+  assert.match(headerHtml, /officialDocumentSchoolNameClass/);
+  assert.match(headerHtml, /schoolNameFont === "old_english"/);
+  assert.match(headerHtml, /school-name\.old-english/);
   assert.doesNotMatch(renderer, /Namib High School.*font|old_english.*Namib High/i);
 });
 
@@ -143,7 +147,12 @@ test("register non-teaching columns display governed calendar reasons inside the
 test("register attendance columns remain compact within fixed paper geometry", () => {
   assert.match(renderer, /table-layout:fixed/);
   assert.match(renderer, /min-width:0; border-collapse:collapse/);
-  assert.match(renderer, /const dayWidth = attendanceColumns \? 42 \/ attendanceColumns : 42/);
+  // Column geometry now comes from the shared layout contract consumed by both
+  // the HTML and PDF renderers (rendered parity is asserted separately).
+  assert.match(renderer, /registerTeacherColumnPlan\(weeks\)/);
+  assert.match(renderer, /plan\.dayFraction/);
+  assert.match(registerLayout, /export function registerTeacherColumnPlan/);
+  assert.match(registerLayout, /dayFraction/);
   assert.match(renderer, /<colgroup>\$\{columns\}<\/colgroup>/);
   assert.match(renderer, /\.identity\.surname \{ overflow-wrap:anywhere/);
   assert.match(renderer, /\.identity\.given \{ overflow-wrap:anywhere/);

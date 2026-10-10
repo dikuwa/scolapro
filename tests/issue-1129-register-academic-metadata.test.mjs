@@ -6,6 +6,7 @@ const registerWorkspace = readFileSync("src/features/attendance/register-teacher
 const registerModel = readFileSync("src/features/attendance/server/register-teacher-document.ts", "utf8");
 const schoolDays = readFileSync("src/features/attendance/server/governed-school-day.ts", "utf8");
 const registerRenderer = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
+const registerLayout = readFileSync("src/features/attendance/server/register-teacher-layout.ts", "utf8");
 const analysisModel = readFileSync("src/features/academics/server/academic-analysis.ts", "utf8");
 const analysisPrint = readFileSync("src/app/academics/analysis/print/page.tsx", "utf8");
 const analysisPdf = readFileSync("src/features/academics/server/render-academic-analysis-pdf.ts", "utf8");
@@ -29,8 +30,9 @@ test("weekly register term totals balance against full governed term days", () =
   assert.match(registerModel, /termTeachingDayCount/);
   assert.match(schoolDays, /const termAttended = termDays - termAbsent/);
   assert.match(registerModel, /termDays: balance\.termDays/);
-  assert.match(registerRenderer, /section\.termAttendanceTotal \+ section\.termAbsenceTotal/);
-  assert.match(registerRenderer, /section\.termPossibleTotal/);
+  assert.match(registerRenderer, /registerTeacherBalance\(section\)/);
+  assert.match(registerLayout, /section\.termAttendanceTotal \+ section\.termAbsenceTotal/);
+  assert.match(registerLayout, /section\.termPossibleTotal/);
 });
 
 test("register bottom totals are strongly separated, bold and colour coded", () => {

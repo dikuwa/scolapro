@@ -4,6 +4,7 @@ import test from "node:test";
 
 const summary = readFileSync(new URL("../src/features/attendance/official-summary.tsx", import.meta.url), "utf8");
 const register = readFileSync(new URL("../src/features/attendance/server/render-register-teacher-html.ts", import.meta.url), "utf8");
+const registerLayout = readFileSync(new URL("../src/features/attendance/server/register-teacher-layout.ts", import.meta.url), "utf8");
 const server = readFileSync(new URL("../src/features/attendance/server/official-summary.ts", import.meta.url), "utf8");
 
 test("weekly uses the term summary's compact total and sex breakdown", () => {
@@ -26,10 +27,10 @@ test("registers fit paper width and divide long terms into week panels", () => {
   assert.match(register, /table-layout:fixed/);
   assert.match(register, /min-width:0; border-collapse:collapse/);
   assert.match(register, /<colgroup>\$\{columns\}<\/colgroup>/);
-  assert.match(register, /document\.weeks\.length > 3/);
-  assert.match(register, /document\.weeks\.slice\(i \* 3, \(i \+ 1\) \* 3\)/);
   assert.match(register, /sectionHtml\(/);
-  assert.match(register, /pageJobs\.map/);
+  assert.match(register, /registerTeacherPageJobs\(document\)\.map/);
+  assert.match(registerLayout, /weeksPerPanel: 3/);
+  assert.match(registerLayout, /index \* REGISTER_TEACHER_LAYOUT\.weeksPerPanel/);
   assert.doesNotMatch(register, /min-width:max-content/);
   assert.doesNotMatch(register, /overflow-x:auto/);
 });

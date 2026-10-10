@@ -1,6 +1,6 @@
 import "server-only";
 
-import { PDFDocument, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import {
   createOfficialDocumentPdfResources,
@@ -8,10 +8,22 @@ import {
   fitOfficialDocumentPdfText,
 } from "@/features/documents/server/official-document-pdf-header";
 import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWeek } from "@/features/attendance/server/register-teacher-document";
+import {
+  REGISTER_TEACHER_LAYOUT,
+  formatRegisterTeacherDate,
+  registerTeacherBalance,
+  registerTeacherColumnPlan,
+  registerTeacherDocumentContext,
+  registerTeacherGovernanceAlert,
+  registerTeacherPageJobs,
+  registerTeacherTermValue,
+  registerTeacherValuesFor,
+  type RegisterTeacherSummaryKind,
+} from "@/features/attendance/server/register-teacher-layout";
 
-const PAGE_WIDTH = 1190.55;
-const PAGE_HEIGHT = 841.89;
-const MARGIN = 32;
+const PAGE_WIDTH = REGISTER_TEACHER_LAYOUT.pageWidth;
+const PAGE_HEIGHT = REGISTER_TEACHER_LAYOUT.pageHeight;
+const MARGIN = REGISTER_TEACHER_LAYOUT.margin;
 const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 const LINE = rgb(0.25, 0.25, 0.25);
 const INK = rgb(0.08, 0.08, 0.08);
@@ -22,10 +34,9 @@ const GREY = rgb(0.92, 0.92, 0.92);
 const PURPLE_SOFT = rgb(0.95, 0.93, 0.98);
 const GREEN_SOFT = rgb(0.93, 0.96, 0.84);
 const ROW_HEIGHT = 13;
-const LEARNERS_PER_PAGE = 40;
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+  return formatRegisterTeacherDate(value);
 }
 
 function drawCell(page: PDFPage, font: PDFFont, value: string, x: number, top: number, width: number, height: number, options?: { fill?: ReturnType<typeof rgb>; color?: ReturnType<typeof rgb>; align?: "left" | "center"; size?: number; borderWidth?: number }) {
@@ -38,15 +49,11 @@ function drawCell(page: PDFPage, font: PDFFont, value: string, x: number, top: n
   page.drawText(rendered, { x: tx, y: top - height + Math.max(2.5, (height - size) / 2), size, font, color: options?.color ?? INK });
 }
 
-function valuesFor(section: RegisterTeacherSection, week: RegisterTeacherWeek, kind: "attendance" | "absence" | "possible") {
-  const byDate = kind === "attendance" ? section.attendanceByDate : kind === "absence" ? section.absenceByDate : section.possibleByDate;
-  return week.dates.map((day) => day.teaching ? byDate[day.date] ?? 0 : null);
-}
-
 function drawPage(input: {
   page: PDFPage;
   header: OfficialDocumentHeaderModel;
   resources: Awaited<ReturnType<typeof createOfficialDocumentPdfResources>>;
+  checkFont: PDFFont;
   document: RegisterTeacherDocument;
   section: RegisterTeacherSection;
   weeks: RegisterTeacherWeek[];
@@ -54,17 +61,12 @@ function drawPage(input: {
   pageNumber: number;
   pageCount: number;
 }) {
-  const { page, header, resources, document, section, weeks, learners } = input;
-  const title = document.mode === "week" ? "WEEKLY REGISTER" : document.mode === "range" ? "WEEK RANGE REGISTER" : "TERM REGISTER";
+  const { page, header, resources, checkFont, document, section, weeks, learners } = input;
+  const context = registerTeacherDocumentContext(document);
   let y = drawOfficialDocumentPdfHeader(page, header, resources, PAGE_HEIGHT - MARGIN, {
     documentX: MARGIN,
     documentWidth: CONTENT_WIDTH,
-    context: {
-      title,
-      primaryContext: `${document.gradeName} · ${document.className} · ${document.academicYear}`,
-      secondaryContext: document.termName,
-      summary: `${formatDate(document.scopeStart)} - ${formatDate(document.scopeEnd)}`,
-    },
+    context,
   });
 
   const meta = [
@@ -76,14 +78,21 @@ function drawPage(input: {
   meta.forEach((value, index) => drawCell(page, resources.bold, value, MARGIN + index * metaWidth, y, metaWidth, 18, { align: "left", fill: RED_SOFT, color: RED, size: 5.8 }));
   y -= 22;
 
-  const identityWidths = [50, 24, 112, 112, 52];
-  const attendanceColumns = weeks.reduce((count, week) => count + week.dates.length + 1, 0);
-  const termWidths = [42, 42, 42];
+  page.drawText("I = Present   a = Absent   a", { x: MARGIN, y: y - 5, size: 5.4, font: resources.regular, color: MUTED });
+  page.drawText("✓", { x: MARGIN + 76, y: y - 3, size: 4.2, font: checkFont, color: RED });
+  page.drawText(" = Absent with reason   Grey = non-teaching / inactive", { x: MARGIN + 82, y: y - 5, size: 5.4, font: resources.regular, color: MUTED });
+  y -= 11;
+
+  // Column geometry comes from the shared layout contract so the drawn PDF grid
+  // matches the HTML/print preview exactly.
+  const plan = registerTeacherColumnPlan(weeks);
+  const identityWidths = plan.identityWidths;
+  const attendanceColumns = plan.attendanceColumns;
+  const termWidths = plan.termWidths;
   const identityTotal = identityWidths.reduce((sum, width) => sum + width, 0);
-  const termTotal = termWidths.reduce((sum, width) => sum + width, 0);
-  const dayWidth = (CONTENT_WIDTH - identityTotal - termTotal) / Math.max(1, attendanceColumns);
+  const dayWidth = plan.dayWidth;
   const widths = [...identityWidths, ...Array.from({ length: attendanceColumns }, () => dayWidth), ...termWidths];
-  const labels = ["ADMIN NO.", "NO.", "SURNAME", "GIVEN NAMES", "DATE OF BIRTH"];
+  const labels = REGISTER_TEACHER_LAYOUT.identityColumns.map((column) => column.header);
   let x = MARGIN;
   labels.forEach((label, index) => { drawCell(page, resources.bold, label, x, y, widths[index], 22, { fill: RED_SOFT, color: RED, size: 5 }); x += widths[index]; });
   for (const week of weeks) {
@@ -97,7 +106,7 @@ function drawPage(input: {
     drawCell(page, resources.bold, "WEEK", x, y, dayWidth, 22, { fill: RED_SOFT, color: RED, size: 4.8 });
     x += dayWidth;
   }
-  ["ATTEND.", "ABSENT", "DAYS"].forEach((label, index) => { drawCell(page, resources.bold, label, x, y, termWidths[index], 22, { fill: index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT, color: index === 1 ? RED : INK, size: 5 }); x += termWidths[index]; });
+  REGISTER_TEACHER_LAYOUT.termColumns.map((column) => column.header).forEach((label, index) => { drawCell(page, resources.bold, label, x, y, termWidths[index], 22, { fill: index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT, color: index === 1 ? RED : INK, size: 5 }); x += termWidths[index]; });
   y -= 22;
 
   learners.forEach((learner, index) => {
@@ -112,6 +121,9 @@ function drawPage(input: {
         if (mark === "I") weekPresent += 1;
         if (mark === "a") weekAbsent += 1;
         drawCell(page, resources.bold, mark, x, y, dayWidth, ROW_HEIGHT, { fill: day.teaching ? undefined : GREY, color: mark === "a" ? RED : INK, size: 7 });
+        if (mark === "a" && learner.reasonedAbsenceDates[day.date]) {
+          page.drawText("✓", { x: x + dayWidth - 5, y: y - 5, size: 3.8, font: checkFont, color: RED });
+        }
         x += dayWidth;
       }
       drawCell(page, resources.bold, `${weekPresent}/${weekPresent + weekAbsent}`, x, y, dayWidth, ROW_HEIGHT, { fill: RED_SOFT, size: 5.2 });
@@ -126,7 +138,7 @@ function drawPage(input: {
     y -= 28;
   }
 
-  const summaryRows: Array<{ label: string; kind: "attendance" | "absence" | "possible"; fill: ReturnType<typeof rgb>; color: ReturnType<typeof rgb> }> = [
+  const summaryRows: Array<{ label: string; kind: RegisterTeacherSummaryKind; fill: ReturnType<typeof rgb>; color: ReturnType<typeof rgb> }> = [
     { label: "Total number of attendances", kind: "attendance", fill: PURPLE_SOFT, color: INK },
     { label: "Total number of absentees", kind: "absence", fill: RED_SOFT, color: RED },
     { label: "Total number of possible attendances", kind: "possible", fill: GREEN_SOFT, color: INK },
@@ -136,18 +148,30 @@ function drawPage(input: {
     drawCell(page, resources.bold, row.label, x, y, identityTotal, ROW_HEIGHT, { align: "left", fill: row.fill, color: row.color, size: 5.4 });
     x += identityTotal;
     for (const week of weeks) {
-      const values = valuesFor(section, week, row.kind);
+      const values = registerTeacherValuesFor(section, week, row.kind);
       values.forEach((value, index) => { drawCell(page, resources.bold, value === null ? "" : String(value), x, y, dayWidth, ROW_HEIGHT, { fill: week.dates[index].teaching ? row.fill : GREY, color: row.color, size: 5.2 }); x += dayWidth; });
       drawCell(page, resources.bold, String(values.reduce<number>((sum, value) => sum + (value ?? 0), 0)), x, y, dayWidth, ROW_HEIGHT, { fill: row.fill, color: row.color, size: 5.2 });
       x += dayWidth;
     }
-    const termValues = row.kind === "attendance" ? [section.termAttendanceTotal, 0, 0] : row.kind === "absence" ? [0, section.termAbsenceTotal, 0] : [0, 0, section.termPossibleTotal];
+    const termValue = registerTeacherTermValue(section, row.kind);
+    const termValues = row.kind === "attendance" ? [termValue, 0, 0] : row.kind === "absence" ? [0, termValue, 0] : [0, 0, termValue];
     termValues.forEach((value, termIndex) => { drawCell(page, resources.bold, value ? String(value) : "", x, y, termWidths[termIndex], ROW_HEIGHT, { fill: termIndex === 0 ? PURPLE_SOFT : termIndex === 1 ? RED_SOFT : GREEN_SOFT, color: termIndex === 1 ? RED : INK, size: 5.2 }); x += termWidths[termIndex]; });
     y -= ROW_HEIGHT;
   }
 
-  const balance = `${section.termAttendanceTotal + section.termAbsenceTotal} / ${section.termPossibleTotal}`;
-  page.drawText(`Balance: ${balance}`, { x: PAGE_WIDTH - MARGIN - resources.bold.widthOfTextAtSize(`Balance: ${balance}`, 6), y: Math.max(20, y - 10), size: 6, font: resources.bold, color: RED });
+  const balance = registerTeacherBalance(section);
+  const balanceLabel = `Attendance ${balance.attendance}   Absence ${balance.absence}   Possible ${balance.possible}   Balance: ${balance.accounted} / ${balance.possible} ${balance.balanced ? "OK" : "!"}`;
+  page.drawText(balanceLabel, { x: PAGE_WIDTH - MARGIN - resources.bold.widthOfTextAtSize(balanceLabel, 6), y: Math.max(20, y - 10), size: 6, font: resources.bold, color: RED });
+  const governanceAlert = registerTeacherGovernanceAlert(document);
+  if (governanceAlert) {
+    page.drawText(fitOfficialDocumentPdfText(resources.bold, `Governance flag: ${governanceAlert}`, 5.2, CONTENT_WIDTH), {
+      x: MARGIN,
+      y: Math.max(20, y - 10),
+      size: 5.2,
+      font: resources.bold,
+      color: RED,
+    });
+  }
 }
 
 export async function renderRegisterTeacherPdf(input: { header: OfficialDocumentHeaderModel; document: RegisterTeacherDocument; logoBytes?: Uint8Array | null }) {
@@ -158,26 +182,21 @@ export async function renderRegisterTeacherPdf(input: { header: OfficialDocument
   pdf.setCreationDate(new Date(0));
   pdf.setModificationDate(new Date(0));
   const resources = await createOfficialDocumentPdfResources(pdf, input.header, input.logoBytes);
+  const checkFont = await pdf.embedFont(StandardFonts.ZapfDingbats);
 
-  for (const section of input.document.sections) {
-    const weekPanels = input.document.weeks.length > 3
-      ? Array.from({ length: Math.ceil(input.document.weeks.length / 3) }, (_, index) => input.document.weeks.slice(index * 3, (index + 1) * 3))
-      : [input.document.weeks];
-    const learnerChunks = section.learners.length
-      ? Array.from({ length: Math.ceil(section.learners.length / LEARNERS_PER_PAGE) }, (_, index) => section.learners.slice(index * LEARNERS_PER_PAGE, (index + 1) * LEARNERS_PER_PAGE))
-      : [[]];
-    const jobs = weekPanels.flatMap((weeks) => learnerChunks.map((learners) => ({ weeks, learners })));
-    jobs.forEach((job, index) => drawPage({
+  for (const job of registerTeacherPageJobs(input.document)) {
+    drawPage({
       page: pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]),
       header: input.header,
       resources,
+      checkFont,
       document: input.document,
-      section,
+      section: job.section,
       weeks: job.weeks,
       learners: job.learners,
-      pageNumber: index + 1,
-      pageCount: jobs.length,
-    }));
+      pageNumber: job.pageNumber,
+      pageCount: job.pageCount,
+    });
   }
 
   const bytes = await pdf.save({ useObjectStreams: false, addDefaultPage: false, objectsPerTick: 50 });

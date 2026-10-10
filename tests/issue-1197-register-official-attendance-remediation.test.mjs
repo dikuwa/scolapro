@@ -4,6 +4,7 @@ import test from "node:test";
 
 const model = readFileSync("src/features/attendance/server/register-teacher-document.ts", "utf8");
 const renderer = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
+const registerLayout = readFileSync("src/features/attendance/server/register-teacher-layout.ts", "utf8");
 const workspace = readFileSync("src/features/attendance/register-teacher-workspace.tsx", "utf8");
 const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "utf8");
 const summaryModel = readFileSync("src/features/attendance/server/official-summary.ts", "utf8");
@@ -33,10 +34,10 @@ test("missing learner calendar dates fail with a meaningful readiness response",
 test("every register page repeats the full official header and legend", () => {
   assert.match(renderer, /const repeatedHeader =/);
   assert.match(renderer, /\$\{repeatedHeader\}/);
-  assert.match(renderer, /learnersPerPage = 40/);
-  assert.match(renderer, /pageJobs = panels\.flatMap/);
-  assert.match(renderer, /pageJobs\.map/);
-  assert.match(renderer, /class="school-header"/);
+  assert.match(renderer, /renderOfficialDocumentHtmlHeader\(header, undefined, \{ context \}\)/);
+  assert.match(registerLayout, /learnersPerPage: 40/);
+  assert.match(registerLayout, /export function registerTeacherPageJobs/);
+  assert.match(renderer, /registerTeacherPageJobs\(document\)/);
   assert.match(renderer, /class="legend"/);
 });
 
