@@ -121,9 +121,9 @@ test("HTML column grid is derived from the shared layout contract", () => {
 });
 
 test("rendered HTML and PDF match the committed golden fingerprint", async () => {
-  const { description: _description, ...golden } = JSON.parse(
-    readFileSync("tests/fixtures/issue-1215-register-golden.json", "utf8"),
-  );
+  // The committed golden captures the stable structural fingerprint of the
+  // shared layout contract (page count, A3 geometry, repeated chrome, column grid).
+  const golden = JSON.parse(readFileSync("tests/fixtures/issue-1215-register-golden.json", "utf8"));
 
   const document = buildRangeDocument();
   const html = htmlRenderer.renderRegisterTeacherHtml({ header: HEADER_FIXTURE, document });
