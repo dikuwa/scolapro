@@ -1,0 +1,523 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
+const proxy = read("src/lib/supabase/proxy.ts");
+const route = read("src/app/password-rotation/page.tsx");
+const form = read("src/features/auth/password-rotation-form.tsx");
+const actions = read("src/features/profile/server/actions.ts");
+const login = read("src/features/auth/actions.ts");
+
+test("flagged user is redirected before entering ordinary app pages", () => {
+  assert.match(proxy, /pathname !== "\/password-rotation"/);
+  assert.match(proxy, /\.select\("must_change_password"\)/);
+  assert.match(proxy, /profileError \|\| !profile \|\| profile\.must_change_password !== false/);
+  assert.match(proxy, /rotationUrl\.pathname = "\/password-rotation"/);
+});
+test("rotation has a dedicated authenticated page without an app shell", () => {
+  assert.match(route, /supabase\.auth\.getUser\(\)/);
+  assert.match(route, /if \(!user\) redirect\("\/login"\)/);
+  assert.match(route, /if \(profile\?\.must_change_password === false\) redirect\("\/"\)/);
+  assert.doesNotMatch(route, /AppShell/);
+  assert.match(form, /changePassword/);
+  assert.match(form, /signOut/);
+  assert.match(form, /autocomplete/i);
+});
+test("password action does not report success when audited clearance fails", () => {
+  assert.match(actions, /if \(clearanceError \|\| cleared !== true\)/);
+  assert.match(actions, /account clearance could not be saved/);
+  assert.match(actions, /supabase\.auth\.updateUser\(\{ password \}\)/);
+  assert.match(actions, /complete_password_rotation_clearance/);
+});
+
+test("sign-in redirects flagged or unresolved profiles to rotation before any deep link", () => {
+  assert.match(login, /if \(profileError \|\| !profile \|\| profile\.must_change_password !== false\)/);
+  assert.match(login, /redirect\("\/password-rotation"\)/);
+});
+
+test("server-side role context rejects users who must rotate passwords", () => {
+  const context = read("src/lib/auth/get-user-context.ts");
+  assert.match(context, /rpcRow\.profile\.must_change_password !== false/);
+  assert.match(context, /Password rotation required before accessing school authority/);
+});
+
+test("invitation acceptance cannot grant roles before forced password rotation", () => {
+  const invitations = read("src/features/auth/invitation-actions.ts");
+  const action = invitations.slice(invitations.indexOf("export async function acceptInvitation("));
+  assert.match(action, /rotationProfile\.must_change_password !== false/);
+  assert.match(action, /redirect\("\/password-rotation"\)/);
+  assert.ok(action.indexOf("rotationProfile.must_change_password") < action.indexOf('supabase.rpc("accept_school_invitation"'));
+});
+
+test("automatic signup cannot accept invitation before account security check", () => {
+  const invitations = read("src/features/auth/invitation-actions.ts");
+  const signup = invitations.slice(invitations.indexOf("export async function signUpForInvitation("), invitations.indexOf("export async function acceptInvitation("));
+  assert.match(signup, /signupProfileError \|\| !signupProfile \|\| signupProfile\.must_change_password !== false/);
+  assert.ok(signup.indexOf("signupProfile.must_change_password") < signup.indexOf('supabase.rpc("accept_school_invitation"'));
+});
+
+test("security redirects preserve refreshed Supabase session cookies", () => {
+  assert.match(proxy, /function redirectWithSession\(target: URL\)/);
+  assert.match(proxy, /response\.cookies\.getAll\(\)\.forEach/);
+  assert.match(proxy, /redirectResponse\.cookies\.set\(name, value, options\)/);
+  assert.match(proxy, /return redirectWithSession\(rotationUrl\)/);
+});
+
+test("offline attendance API fails closed when auth context cannot resolve", () => {
+  const route = read("src/app/api/offline/attendance/route.ts");
+  assert.match(route, /try \{\s*context = await getUserContext\(\)/);
+  assert.match(route, /status: 403/);
+  assert.ok(route.indexOf("context = await getUserContext()") < route.indexOf("await submitDailyRegister("));
+});
+
+test("navigation attention API guards password-rotation-pending accounts", () => {
+  const route = read("src/app/api/navigation-attention/route.ts");
+  assert.match(route, /\.select\("must_change_password"\)/);
+  assert.match(route, /profileError \|\| !profile \|\| profile\.must_change_password !== false/);
+  assert.match(route, /status: 403/);
+  assert.ok(route.indexOf('select("must_change_password")') < route.indexOf("await getNavigationAttentionCounts()"));
+  assert.doesNotMatch(route, /getUserContext\(\)/);
+});
+
+test("avatar API rejects writes until mandatory rotation completes", () => {
+  const route = read("src/app/api/profile/avatar/route.ts");
+  assert.match(route, /securityProfile\.must_change_password !== false/);
+  assert.match(route, /status: 403/);
+  assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("await request.formData()"));
+});
+
+test("signed avatar upload action checks password rotation before creating token", () => {
+  const action = read("src/features/profile/server/avatar-upload.ts");
+  assert.match(action, /securityProfile\.must_change_password !== false/);
+  assert.ok(action.indexOf("securityProfile.must_change_password") < action.indexOf("createSignedUploadUrl(path)"));
+});
+
+test("avatar save and deletion actions fail closed before storage operations", () => {
+  const actions = read("src/features/profile/server/actions.ts");
+  for (const name of ["saveUploadedAvatar", "deleteAvatar"]) {
+    const section = actions.slice(actions.indexOf(`export async function ${name}(`));
+    assert.match(section, /securityProfile\.must_change_password !== false/);
+    assert.ok(section.indexOf("securityProfile.must_change_password") < section.indexOf('admin.storage.from("avatars")') || name === "deleteAvatar");
+  }
+});
+
+test("password rotation clearance cannot be forged by authenticated profile updates", () => {
+  const migration = read("supabase/migrations/20261009154000_password_rotation_clearance_guard.sql");
+  const completion = read("supabase/migrations/20261010134500_password_rotation_completion_audit.sql");
+  const actions = read("src/features/profile/server/actions.ts");
+  assert.match(migration, /before update of must_change_password on public\.user_profiles/i);
+  assert.match(migration, /auth\.role\(\).*service_role/);
+  assert.match(completion, /coalesce\(auth\.role\(\), ''\) <> 'service_role'/);
+  assert.match(actions, /complete_password_rotation_clearance/);
+  assert.ok(actions.indexOf("await supabase.auth.updateUser({ password })") < actions.indexOf('"complete_password_rotation_clearance"'));
+});
+
+test("all offline sync endpoints return JSON 403 when the rotation gate blocks authority", () => {
+  for (const path of [
+    "src/app/api/offline/assessment/marks/route.ts",
+    "src/app/api/offline/attendance/subject-period/route.ts",
+    "src/app/api/offline/library/route.ts",
+    "src/app/api/offline/lesson-preparation/route.ts",
+    "src/app/api/offline/teaching/coverage/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /catch\s*\{\s*return NextResponse\.json\(/);
+    assert.match(route, /status: 403/);
+  }
+});
+
+test("register teacher document API rejects unresolved authority with JSON 403", () => {
+  const route = read("src/app/api/attendance/register-teacher/route.ts");
+  assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+  assert.match(route, /catch\s*\{\s*return Response\.json\(/);
+  assert.match(route, /status: 403/);
+});
+
+test("official attendance, room and sports exports deny unresolved rotation authority", () => {
+  for (const path of [
+    "src/app/api/official-documents/attendance-summary/route.ts",
+    "src/app/api/official-documents/room-inventory/route.ts",
+    "src/app/api/official-documents/sports-house-roster/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /catch\s*\{\s*return Response\.json\(/);
+    assert.match(route, /status: 403/);
+  }
+});
+
+test("admission and teaching document APIs deny unresolved password rotation", () => {
+  for (const path of [
+    "src/app/api/official-documents/admission-application/route.ts",
+    "src/app/api/official-documents/teaching-plan/route.ts",
+    "src/app/api/official-documents/teaching-pack/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /catch\s*\{\s*return Response\.json\(/);
+    assert.match(route, /status: 403/);
+  }
+});
+
+test("class-list export denies unresolved rotation authority with JSON 403", () => {
+  const route = read("src/app/api/official-documents/class-list/route.ts");
+  assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+  assert.match(route, /catch\s*\{\s*return Response\.json\(/);
+  assert.match(route, /status: 403/);
+});
+
+test("report card signed artifact URLs cannot be issued before password rotation", () => {
+  const route = read("src/app/api/report-card-documents/[documentId]/route.ts");
+  assert.match(route, /securityProfile\.must_change_password !== false/);
+  assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("createSignedUrl(document.storage_path, 90)"));
+});
+
+test("correspondence exports fail closed when authority resolution is denied", () => {
+  const route = read("src/app/api/official-documents/correspondence/[documentId]/route.ts");
+  assert.match(route, /try \{ context = await getUserContext\(\); \} catch/);
+  assert.match(route, /status:403/);
+});
+
+test("report batch and teaching file URLs require password rotation clearance", () => {
+  for (const path of [
+    "src/app/api/report-card-batches/[batchId]/export/route.ts",
+    "src/app/api/teaching/files/[documentId]/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /securityProfile\.must_change_password !== false/);
+    assert.match(route, /status: 403/);
+    assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("createSignedUrl("));
+  }
+});
+
+test("teaching inspection and professional review downloads enforce rotation gate", () => {
+  for (const path of [
+    "src/app/api/teaching/files/inspection-pack/route.ts",
+    "src/app/api/teaching/subject-file/inspection-pack/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try \{ context = await getUserContext\(\); \}/);
+    assert.match(route, /status: 403/);
+  }
+  const review = read("src/app/api/teaching/reviews/professional-files/[id]/route.ts");
+  assert.match(review, /securityProfile\.must_change_password !== false/);
+  assert.ok(review.indexOf("securityProfile.must_change_password") < review.indexOf("createSignedUrl("));
+});
+
+test("AI drafting endpoints deny mandatory password rotation with JSON 403", () => {
+  for (const path of [
+    "src/app/api/teaching/lesson-preparation/ai/route.ts",
+    "src/app/api/correspondence/ai/route.ts",
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.match(route, /status: 403/);
+  }
+});
+
+test("report processing and learner transfer exports fail closed during password rotation", () => {
+  for (const [path, response] of [
+    ["src/app/api/report-card-batches/process/route.ts", "NextResponse"],
+    ["src/app/api/official-documents/learner-transfer-form/[snapshotId]/route.ts", "Response"],
+  ]) {
+    const route = read(path);
+    assert.match(route, /try\s*\{\s*context = await getUserContext\(\);/);
+    assert.ok(route.includes(`return ${response}.json({ error: "Complete account security setup and verify school access." }, { status: 403 })`));
+  }
+});
+
+test("shared server authority resolver also fails closed for missing profiles", () => {
+  const resolver = read("src/lib/auth/get-user-context.ts");
+  assert.match(resolver, /!rpcRow\?\.profile \|\| rpcRow\.profile\.must_change_password !== false/);
+  assert.match(resolver, /throw new Error\("Password rotation required before accessing school authority\."\)/);
+});
+
+test("password rotation enforces bounded nonblank credentials on server and client", () => {
+  const action = read("src/features/profile/server/actions.ts");
+  const form = read("src/features/auth/password-rotation-form.tsx");
+  assert.match(action, /password\.length < 8 \|\| password\.length > 128 \|\| !password\.trim\(\)/);
+  assert.equal((form.match(/maxLength=\{128\}/g) ?? []).length, 2);
+});
+
+test("password change verifies a resolvable security profile before changing credentials", () => {
+  const action = read("src/features/profile/server/actions.ts");
+  const section = action.slice(action.indexOf("export async function changePassword("));
+  assert.match(section, /rotationError \|\| !rotationProfile/);
+  assert.ok(section.indexOf("rotationError || !rotationProfile") < section.indexOf("await supabase.auth.updateUser({ password })"));
+  assert.ok(section.indexOf("await supabase.auth.updateUser({ password })") < section.indexOf('"complete_password_rotation_clearance"'));
+});
+
+test("ordinary password changes do not invoke service-role profile clearance", () => {
+  const actions = read("src/features/profile/server/actions.ts");
+  const section = actions.slice(actions.indexOf("export async function changePassword("));
+  assert.match(section, /if \(rotationProfile\.must_change_password === false\)/);
+  assert.ok(section.indexOf("if (rotationProfile.must_change_password === false)") < section.indexOf('"complete_password_rotation_clearance"'));
+});
+
+test("rotation clearance requires successful audited service completion", () => {
+  const action = read("src/features/profile/server/actions.ts");
+  const section = action.slice(action.indexOf("export async function changePassword("));
+  assert.match(section, /data: cleared, error: clearanceError/);
+  assert.match(section, /clearanceError \|\| cleared !== true/);
+  assert.match(section, /complete_password_rotation_clearance/);
+});
+
+test("staff identity and access actions independently enforce rotation clearance", () => {
+  const source = read("src/features/staff/server/access-actions.ts");
+  assert.match(source, /async function requireStaffAccessSecurityClearance\(\)/);
+  assert.match(source, /const context = await getUserContext\(\)/);
+  for (const name of [
+    "inviteExistingStaff",
+    "resendExistingStaffInvitation",
+    "addStaffRole",
+    "endStaffRole",
+    "sendStaffPasswordReset",
+    "sendStaffVerification",
+  ]) {
+    const start = source.indexOf(`export async function ${name}(`);
+    assert.ok(start >= 0, name);
+    const section = source.slice(start, source.indexOf("export async function ", start + 10) > start ? source.indexOf("export async function ", start + 10) : undefined);
+    assert.match(section, /await requireStaffAccessSecurityClearance\(\)/, name);
+  }
+});
+
+test("staff corrections and reconciliation require rotation clearance", () => {
+  const source = read("src/features/staff/server/access-actions.ts");
+  for (const name of ["correctStaffDetails", "reconcileStaffIdentities"]) {
+    const start = source.indexOf(`export async function ${name}(`);
+    assert.ok(start >= 0);
+    const section = source.slice(start, start + 420);
+    assert.match(section, /await requireStaffAccessSecurityClearance\(\)/);
+  }
+});
+
+test("staff creation fails closed when shared authority is unavailable", () => {
+  const actions = read("src/features/staff/server/actions.ts");
+  const section = actions.slice(actions.indexOf("export async function createSingleStaff("));
+  assert.match(section, /try\s*\{\s*context = await getUserContext\(\);/);
+  assert.match(section, /catch\s*\{\s*return \{ message: "Complete account security setup before creating staff\." \};/);
+  assert.ok(section.indexOf("await getUserContext()") < section.indexOf('supabase.rpc("create_or_assign_school_staff"'));
+});
+
+test("temporary password generation is cryptographic and server-only, without exposed issuance", () => {
+  const helper = read("src/features/staff/server/temporary-password.ts");
+  assert.match(helper, /import "server-only"/);
+  assert.match(helper, /randomBytes\(32\)\.toString\("base64url"\)/);
+  assert.doesNotMatch(helper, /"use server"|export async function|createSupabaseAdminClient|console\./);
+});
+
+test("development branch inherits quota-saving Vercel deployment policy", () => {
+  const config = JSON.parse(read("vercel.json"));
+  assert.equal(config.git.deploymentEnabled.main, true);
+  assert.equal(config.git.deploymentEnabled["*"], false);
+  assert.equal(config.crons[0].path, "/api/internal/report-card-render");
+});
+
+test("temporary staff passwords remain inaccessible to client-side access actions", () => {
+  const access = read("src/features/staff/server/access-actions.ts");
+  assert.doesNotMatch(access, /generateStaffTemporaryPassword|temporary-password/);
+  assert.doesNotMatch(access, /auth\.admin\.createUser|auth\.admin\.updateUserById/);
+});
+
+test("credential audit fingerprint uses keyed HMAC, never raw password storage", () => {
+  const helper = read("src/features/staff/server/temporary-password.ts");
+  assert.match(helper, /createHmac\("sha256", secret\)/);
+  assert.match(helper, /secret\.length < 32/);
+  assert.doesNotMatch(helper, /console\.(log|info|debug)/);
+});
+
+test("privileged staff Auth lookups enforce school placement before revealing linked account", () => {
+  const actions = read("src/features/staff/server/access-actions.ts");
+  const start = actions.indexOf("async function linkedAuthEmail(");
+  const end = actions.indexOf("export async function sendStaffPasswordReset(", start);
+  const section = actions.slice(start, end);
+  assert.match(section, /\.from\("staff_school_assignments"\)/);
+  assert.match(section, /\.eq\("school_id", schoolId\)/);
+  assert.match(section, /\.eq\("staff_member_id", staffMemberId\)/);
+  assert.ok(section.indexOf('.from("staff_school_assignments")') < section.indexOf('.from("staff_members")'));
+  assert.ok(section.indexOf('.from("staff_school_assignments")') < section.indexOf("admin.auth.admin.getUserById"));
+});
+
+test("password reset lookup excludes historical and future school placements", () => {
+  const actions = read("src/features/staff/server/access-actions.ts");
+  const section = actions.slice(actions.indexOf("async function linkedAuthEmail("), actions.indexOf("export async function sendStaffPasswordReset("));
+  assert.match(section, /\.lte\("effective_from",/);
+  assert.match(section, /effective_to\.is\.null,effective_to\.gte\./);
+  assert.ok(section.indexOf('.lte("effective_from"') < section.indexOf("admin.auth.admin.getUserById"));
+});
+
+test("direct invitation acceptance RPC cannot bypass mandatory rotation", () => {
+  const migration = read("supabase/migrations/20261010110000_invitation_rotation_acceptance_guard.sql");
+  assert.match(migration, /before update of status on public\.school_invitations/);
+  assert.match(migration, /new\.status = 'accepted'/);
+  assert.match(migration, /auth\.role\(\).*'authenticated'/);
+  assert.match(migration, /up\.must_change_password is false/);
+  assert.match(migration, /revoke all on function public\.prevent_invitation_acceptance_before_rotation/);
+});
+
+test("temporary credential issuance preflight fails closed for wrong school or inactive placements", () => {
+  const source = read("src/features/staff/server/temporary-credential-authorization.ts");
+  assert.match(source, /import "server-only"/);
+  assert.match(source, /await getUserContext\(\)/);
+  assert.match(source, /item\.schoolId === schoolId && item\.roleKey === "school_admin"/);
+  assert.match(source, /\.from\("staff_school_assignments"\)/);
+  assert.match(source, /\.eq\("school_id", schoolId\)/);
+  assert.match(source, /\.lte\("effective_from", schoolDate\)/);
+  assert.match(source, /effective_to\.is\.null,effective_to\.gte/);
+  assert.doesNotMatch(source, /auth\.admin\.|"use server"|generateStaffTemporaryPassword/);
+});
+
+test("temporary credential preflight validates both identifiers before school queries", () => {
+  const source = read("src/features/staff/server/temporary-credential-authorization.ts");
+  assert.match(source, /z\.string\(\)\.uuid\(\)\.safeParse\(schoolId\)/);
+  assert.match(source, /z\.string\(\)\.uuid\(\)\.safeParse\(staffMemberId\)/);
+  assert.ok(source.indexOf("safeParse(schoolId)") < source.indexOf("await getUserContext()"));
+});
+
+
+test("managed credential issuer stays server-only and reauthorizes before provider mutation", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  assert.match(source, /import "server-only"/);
+  assert.doesNotMatch(source, /"use server"/);
+  assert.match(source, /await authorizeStaffCredentialPreflight\(schoolId, staffMemberId\)/);
+  assert.match(source, /reserve_staff_credential_issuance/);
+  assert.match(source, /admin\.auth\.admin\.updateUserById/);
+  assert.ok(source.indexOf("authorizeStaffCredentialPreflight") < source.indexOf('reserve_staff_credential_issuance'));
+  assert.ok(source.indexOf('reserve_staff_credential_issuance') < source.indexOf("generateStaffTemporaryPassword()"));
+  assert.ok(source.indexOf("generateStaffTemporaryPassword()") < source.indexOf("admin.auth.admin.updateUserById"));
+  assert.doesNotMatch(source, /console\.(log|info|debug|warn|error)/);
+});
+
+test("managed credential issuer arms rotation gate before changing provider password", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  const arm = source.indexOf("must_change_password: true");
+  const authUpdate = source.indexOf("admin.auth.admin.updateUserById");
+  const finalize = source.indexOf('"finalize_staff_credential_issuance"', authUpdate);
+  assert.ok(arm >= 0 && authUpdate > arm);
+  assert.ok(finalize > authUpdate);
+  assert.match(source, /password_rotation_expires_at: expiresAt/);
+  assert.match(source, /SCOLAPRO_CREDENTIAL_AUDIT_SECRET/);
+});
+
+test("managed credential plaintext is returned only after completed audit finalization", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  const finalizedCheck = source.indexOf("finalizeError || finalized !== true");
+  const plaintextReturn = source.indexOf("return { success: true, password, expiresAt }");
+  assert.ok(finalizedCheck >= 0 && plaintextReturn > finalizedCheck);
+  assert.match(source, /Never return an unaudited credential/);
+});
+
+test("password rotation rejects expired managed temporary credentials", () => {
+  const source = read("src/features/profile/server/actions.ts");
+  const section = source.slice(source.indexOf("export async function changePassword("));
+  assert.match(section, /password_rotation_expires_at/);
+  assert.match(section, /new Date\(rotationProfile\.password_rotation_expires_at\)\.getTime\(\) <= Date\.now\(\)/);
+  assert.ok(section.indexOf("password_rotation_expires_at") < section.indexOf("await supabase.auth.updateUser({ password })"));
+  assert.match(section, /complete_password_rotation_clearance/);
+});
+
+test("credential reservation database gate covers linked target, self and protected admin", () => {
+  const migration = read("supabase/migrations/20261010123000_staff_credential_atomic_reservation.sql");
+  assert.match(migration, /v_target_user_id is null/);
+  assert.match(migration, /v_target_user_id = p_actor_user_id/);
+  assert.match(migration, /m\.role_key='school_admin'/);
+  assert.match(migration, /target_user_id, actor_user_id/);
+});
+
+test("credential finalization records bounded expiry without plaintext", () => {
+  const migration = read("supabase/migrations/20261010124500_staff_credential_issuance_finalization.sql");
+  assert.match(migration, /p_credential_expires_at timestamptz/);
+  assert.match(migration, /interval '2 hours'/);
+  assert.match(migration, /credential_fingerprint=p_credential_fingerprint/);
+  assert.match(migration, /credential_expires_at=p_credential_expires_at/);
+  assert.doesNotMatch(migration, /p_password|temporary_password|credential_password/i);
+});
+
+
+test("sign-in rejects expired managed temporary credentials before app navigation", () => {
+  const source = read("src/features/auth/actions.ts");
+  const section = source.slice(source.indexOf("export async function signIn("), source.indexOf("export async function signOut("));
+  assert.match(section, /must_change_password,password_rotation_expires_at/);
+  assert.match(section, /new Date\(profile\.password_rotation_expires_at\)\.getTime\(\) <= Date\.now\(\)/);
+  assert.match(section, /await supabase\.auth\.signOut\(\)/);
+  assert.ok(section.indexOf("password_rotation_expires_at") < section.indexOf('redirect("/password-rotation")'));
+});
+
+
+test("temporary credential server action exposes only the governed one-time issuer", () => {
+  const source = read("src/features/staff/server/temporary-credential-actions.ts");
+  assert.match(source, /^"use server";/);
+  assert.match(source, /z\.string\(\)\.uuid\(\)/);
+  assert.match(source, /await issueStaffTemporaryCredential\(/);
+  assert.match(source, /temporaryPassword: result\.password/);
+  assert.match(source, /cannot be shown again/);
+  assert.doesNotMatch(source, /createSupabaseAdminClient|auth\.admin|generateStaffTemporaryPassword|console\./);
+});
+
+
+test("credential reservation blocks concurrent provider-password races", () => {
+  const migration = read("supabase/migrations/20261010123000_staff_credential_atomic_reservation.sql");
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.match(migration, /a\.outcome='reserved'/);
+  assert.match(migration, /already in progress for this staff account/);
+  assert.ok(migration.indexOf("pg_advisory_xact_lock") < migration.indexOf("already in progress for this staff account"));
+});
+
+
+test("password rotation completion audit contains no credential material", () => {
+  const migration = read("supabase/migrations/20261010134500_password_rotation_completion_audit.sql");
+  assert.match(migration, /auth\.password_rotation_completed/);
+  assert.match(migration, /credential_material_recorded', false/);
+  assert.match(migration, /managed_temporary_credential_cleared', true/);
+  assert.doesNotMatch(migration, /p_password|temporary_password|credential_password/i);
+});
+
+
+test("browser credential action normalizes issuance failures against enumeration", () => {
+  const source = read("src/features/staff/server/temporary-credential-actions.ts");
+  assert.match(source, /Temporary credential could not be issued for this staff account/);
+  assert.doesNotMatch(source, /return \{ message: result\.message \}/);
+  assert.doesNotMatch(source, /linked account|school administrator permission|required|protected administrator/i);
+});
+
+
+test("managed credential issuer requires a confirmed provider email identity", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  const lookup = source.indexOf("admin.auth.admin.getUserById");
+  const mutate = source.indexOf("admin.auth.admin.updateUserById");
+  assert.ok(lookup >= 0 && mutate > lookup);
+  assert.match(source, /targetAuthUser\.email/);
+  assert.match(source, /targetAuthUser\.email_confirmed_at/);
+  assert.match(source, /activation-link path owned by #1202/);
+});
+
+
+test("school-managed credential reservation rejects shared account identities", () => {
+  const migration = read("supabase/migrations/20261010123000_staff_credential_atomic_reservation.sql");
+  assert.match(migration, /m\.school_id<>p_school_id/);
+  assert.match(migration, /Cross-school accounts cannot use managed school credentials/);
+  assert.match(migration, /guardian_user_links/);
+  assert.match(migration, /Guardian-linked accounts cannot use managed school credentials/);
+  assert.ok(
+    migration.indexOf("Protected administrator credentials cannot be issued here") <
+      migration.indexOf("Cross-school accounts cannot use managed school credentials"),
+  );
+});
+
+
+test("staff directory exposes an explicitly confirmed one-time credential control", () => {
+  const directory = read("src/features/staff/staff-access-manager.tsx");
+  const control = read("src/features/staff/staff-temporary-credential-control.tsx");
+  const action = read("src/features/staff/server/temporary-credential-actions.ts");
+  assert.match(directory, /row\.staffId && <StaffTemporaryCredentialControl/);
+  assert.match(control, /setConfirming\(true\)/);
+  assert.match(control, /Confirm issuance/);
+  assert.match(control, /issueStaffTemporaryCredentialAction\(formData\)/);
+  assert.match(control, /setCredential\(null\)/);
+  assert.match(control, /navigator\.clipboard\.writeText/);
+  assert.doesNotMatch(control, /localStorage|sessionStorage|console\.(log|info)|sendMail/);
+  assert.match(action, /await issueStaffTemporaryCredential\(/);
+  assert.doesNotMatch(action, /auth\.admin\.|createSupabaseAdminClient/);
+});

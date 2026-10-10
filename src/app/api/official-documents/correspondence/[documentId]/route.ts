@@ -13,7 +13,9 @@ function safeName(value:string){return value.trim().replace(/[^a-zA-Z0-9_-]+/g,"
 async function logoBytes(header:OfficialDocumentHeaderModel){if(!header.logoStoragePath)return null;const db=await createSupabaseServerClient();const {data,error}=await db.storage.from("school-document-assets").download(header.logoStoragePath);if(error||!data)return null;return new Uint8Array(await data.arrayBuffer());}
 
 export async function GET(request:Request,{params}:{params:Promise<{documentId:string}>}){
-  const context=await getUserContext();if(!context.user)return Response.json({error:"Unauthorized"},{status:401});
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try { context = await getUserContext(); } catch { return Response.json({error:"Account security setup or school access required"},{status:403}); }
+  if(!context.user)return Response.json({error:"Unauthorized"},{status:401});
   const membership=context.memberships.find((item)=>roles.has(item.roleKey));if(!membership||context.platformMemberships.length>0)return Response.json({error:"Forbidden"},{status:403});
   const {documentId}=await params;const document=await getCorrespondenceDocument(documentId);if(!document||document.schoolId!==membership.schoolId)return Response.json({error:"Not found"},{status:404});
   const header=document.status==="finalized"?document.headerSnapshot:await getLiveSchoolDocumentHeader(document.schoolId,officialDocumentHeaderModeForType("external_correspondence"));if(!header)return Response.json({error:"Finalized header snapshot is unavailable"},{status:409});

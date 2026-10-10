@@ -14,6 +14,15 @@ export async function GET(_request: Request, context: RouteContext) {
   const { data: auth } = await userClient.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { data: securityProfile, error: securityError } = await userClient
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
+    return NextResponse.json({ error: "Complete account security setup before downloading documents." }, { status: 403 });
+  }
+
   // RLS on report_card_batches is the authorization boundary: only report-management
   // roles for the batch school (or platform administration) can resolve this row.
   // A ready historical export remains durable, but this active endpoint only serves a

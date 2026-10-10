@@ -11,7 +11,12 @@ export const maxDuration = 60;
 const managerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 
 export async function POST() {
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    return NextResponse.json({ error: "Complete account security setup and verify school access." }, { status: 403 });
+  }
   if (!context.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!context.memberships.some((membership) => managerRoles.has(membership.roleKey))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });

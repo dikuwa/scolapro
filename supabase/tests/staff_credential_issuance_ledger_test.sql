@@ -1,0 +1,14 @@
+begin;
+select plan(10);
+select has_table('public','staff_credential_issuance_attempts','credential issuance ledger exists');
+select has_column('public','staff_credential_issuance_attempts','target_user_id','ledger records the linked Auth target');
+select has_column('public','staff_credential_issuance_attempts','credential_expires_at','ledger records temporary credential expiry');
+select has_column('public','staff_credential_issuance_attempts','finalized_at','ledger records terminal transition time');
+select ok((select relrowsecurity from pg_class where oid='public.staff_credential_issuance_attempts'::regclass),'ledger RLS is enabled');
+select ok(not has_table_privilege('authenticated','public.staff_credential_issuance_attempts','INSERT'),'authenticated cannot insert issuance attempts');
+select ok(not has_table_privilege('authenticated','public.staff_credential_issuance_attempts','SELECT'),'authenticated cannot read issuance attempts');
+select ok(not has_table_privilege('anon','public.staff_credential_issuance_attempts','INSERT'),'anonymous cannot insert issuance attempts');
+select ok(not exists(select 1 from pg_policies where schemaname='public' and tablename='staff_credential_issuance_attempts' and ('anon'=any(roles) or 'public'=any(roles))), 'ledger exposes no anonymous/public RLS policy');
+select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='staff_credential_issuance_attempts' and 'service_role'=any(roles) and policyname='staff_credential_issuance_service_only'), 'ledger policy surface is service-role only');
+select * from finish();
+rollback;
