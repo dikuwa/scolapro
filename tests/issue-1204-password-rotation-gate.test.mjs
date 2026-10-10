@@ -353,3 +353,15 @@ test("direct invitation acceptance RPC cannot bypass mandatory rotation", () => 
   assert.match(migration, /up\.must_change_password is false/);
   assert.match(migration, /revoke all on function public\.prevent_invitation_acceptance_before_rotation/);
 });
+
+test("temporary credential issuance preflight fails closed for wrong school or inactive placements", () => {
+  const source = read("src/features/staff/server/temporary-credential-authorization.ts");
+  assert.match(source, /import "server-only"/);
+  assert.match(source, /await getUserContext\(\)/);
+  assert.match(source, /item\.schoolId === schoolId && item\.roleKey === "school_admin"/);
+  assert.match(source, /\.from\("staff_school_assignments"\)/);
+  assert.match(source, /\.eq\("school_id", schoolId\)/);
+  assert.match(source, /\.lte\("effective_from", schoolDate\)/);
+  assert.match(source, /effective_to\.is\.null,effective_to\.gte/);
+  assert.doesNotMatch(source, /auth\.admin\.|"use server"|generateStaffTemporaryPassword/);
+});
