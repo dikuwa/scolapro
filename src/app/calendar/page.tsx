@@ -73,6 +73,13 @@ export default async function CalendarPage() {
           </div>
         </div>
 
+        {!calendar.academicYear ? (
+          <div role="status" className="mt-5 rounded-[var(--radius-sm)] border border-[color:var(--warning)]/25 bg-warning-soft px-4 py-3">
+            <p className="text-sm font-semibold text-[color:var(--warning)]">Academic year dates are not configured</p>
+            <p className="mt-1 text-xs text-muted-foreground">Configure the academic-year foundation before relying on calendar-dependent attendance and timetables.</p>
+          </div>
+        ) : null}
+
         <div className="mt-5">
           <OperationalCalendarManager
             schoolId={membership.schoolId}
