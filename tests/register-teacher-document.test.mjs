@@ -147,7 +147,12 @@ test("register non-teaching columns display governed calendar reasons inside the
 test("register attendance columns remain compact within fixed paper geometry", () => {
   assert.match(renderer, /table-layout:fixed/);
   assert.match(renderer, /min-width:0; border-collapse:collapse/);
-  assert.match(renderer, /const dayWidth = attendanceColumns \? 42 \/ attendanceColumns : 42/);
+  // Column geometry now comes from the shared layout contract consumed by both
+  // the HTML and PDF renderers (rendered parity is asserted separately).
+  assert.match(renderer, /registerTeacherColumnPlan\(weeks\)/);
+  assert.match(renderer, /plan\.dayFraction/);
+  assert.match(registerLayout, /export function registerTeacherColumnPlan/);
+  assert.match(registerLayout, /dayFraction/);
   assert.match(renderer, /<colgroup>\$\{columns\}<\/colgroup>/);
   assert.match(renderer, /\.identity\.surname \{ overflow-wrap:anywhere/);
   assert.match(renderer, /\.identity\.given \{ overflow-wrap:anywhere/);

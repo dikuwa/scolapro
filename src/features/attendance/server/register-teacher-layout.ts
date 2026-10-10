@@ -4,13 +4,86 @@ import type {
   RegisterTeacherWeek,
 } from "@/features/attendance/server/register-teacher-document";
 
+/**
+ * Single authoritative register-teacher layout contract.
+ *
+ * Why two renderers instead of one HTML -> PDF pipeline:
+ * ScolaPro renders documents in Vercel serverless Node functions. Those runtimes
+ * have no headless Chromium/Playwright binary and no fragile remote print
+ * service is permitted, so a "render the print-ready HTML to PDF" path is not
+ * available. PDF generation therefore uses the pure-JS `pdf-lib` renderer.
+ *
+ * Because the two renderers are physically different, everything that can
+ * diverge is centralised here and consumed by both:
+ *  - page geometry (A3 landscape points), margin, learners-per-page, weeks-per-panel;
+ *  - complete column grid (`identityColumns`/`termColumns` + `registerTeacherColumnPlan`);
+ *  - column headers and the attendance legend entries;
+ *  - document context/title/summary (`registerTeacherDocumentContext`);
+ *  - pagination (`registerTeacherPageJobs`) and totals helpers.
+ * The HTML renderer converts the shared point widths to table-column percentages
+ * against `REGISTER_TEACHER_CONTENT_WIDTH`; the PDF renderer draws the same
+ * widths directly. Rendered-output tests assert the two stay in step.
+ */
+
+export type RegisterTeacherColumnAlign = "left" | "center";
+export type RegisterTeacherColumnTone = "plain" | "purple" | "red" | "green";
+
 export const REGISTER_TEACHER_LAYOUT = Object.freeze({
   pageWidth: 1190.55,
   pageHeight: 841.89,
   margin: 32,
   learnersPerPage: 40,
   weeksPerPanel: 3,
+  // Complete column geometry in PDF points. HTML converts these to table-column
+  // percentages against the same content width, so both renderers draw the same
+  // column grid. Widths are physical points, not independently chosen CSS.
+  identityColumns: Object.freeze([
+    Object.freeze({ key: "admissionNumber", header: "ADMIN NO.", className: "admin", width: 50, align: "center" as RegisterTeacherColumnAlign }),
+    Object.freeze({ key: "number", header: "NO.", className: "no", width: 24, align: "center" as RegisterTeacherColumnAlign }),
+    Object.freeze({ key: "surname", header: "SURNAME", className: "surname", width: 112, align: "left" as RegisterTeacherColumnAlign }),
+    Object.freeze({ key: "givenNames", header: "GIVEN NAMES", className: "given", width: 112, align: "left" as RegisterTeacherColumnAlign }),
+    Object.freeze({ key: "dateOfBirth", header: "DATE OF BIRTH", className: "dob", width: 52, align: "center" as RegisterTeacherColumnAlign }),
+  ]),
+  termColumns: Object.freeze([
+    Object.freeze({ key: "attended", header: "ATTEND.", className: "term-actual", width: 42, tone: "purple" as RegisterTeacherColumnTone }),
+    Object.freeze({ key: "absent", header: "ABSENT", className: "term-absent", width: 42, tone: "red" as RegisterTeacherColumnTone }),
+    Object.freeze({ key: "days", header: "DAYS", className: "term-days", width: 42, tone: "green" as RegisterTeacherColumnTone }),
+  ]),
+  legend: Object.freeze([
+    Object.freeze({ mark: "I", label: "Present", reasoned: false }),
+    Object.freeze({ mark: "a", label: "Absent", reasoned: false }),
+    Object.freeze({ mark: "a", label: "Absent with reason", reasoned: true }),
+    Object.freeze({ mark: null, label: "Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area", reasoned: false }),
+  ]),
 });
+
+export const REGISTER_TEACHER_CONTENT_WIDTH = REGISTER_TEACHER_LAYOUT.pageWidth - REGISTER_TEACHER_LAYOUT.margin * 2;
+
+/**
+ * Shared column plan consumed by both the HTML and PDF renderers. Day columns
+ * absorb the width left after the fixed identity and term columns. Returning
+ * both point widths (PDF) and fractions (HTML) keeps the physical grid
+ * identical without duplicating geometry rules per renderer.
+ */
+export function registerTeacherColumnPlan(weeks: readonly RegisterTeacherWeek[]) {
+  const attendanceColumns = weeks.reduce((count, week) => count + week.dates.length + 1, 0);
+  const identityWidths = REGISTER_TEACHER_LAYOUT.identityColumns.map((column) => column.width);
+  const termWidths = REGISTER_TEACHER_LAYOUT.termColumns.map((column) => column.width);
+  const identityWidth = identityWidths.reduce((sum, width) => sum + width, 0);
+  const termWidth = termWidths.reduce((sum, width) => sum + width, 0);
+  const dayWidth = (REGISTER_TEACHER_CONTENT_WIDTH - identityWidth - termWidth) / Math.max(1, attendanceColumns);
+  const toFraction = (width: number) => width / REGISTER_TEACHER_CONTENT_WIDTH;
+  return {
+    contentWidth: REGISTER_TEACHER_CONTENT_WIDTH,
+    attendanceColumns,
+    dayWidth,
+    identityWidths,
+    termWidths,
+    identityFractions: identityWidths.map(toFraction),
+    dayFraction: toFraction(dayWidth),
+    termFractions: termWidths.map(toFraction),
+  };
+}
 
 export type RegisterTeacherSummaryKind = "attendance" | "absence" | "possible";
 

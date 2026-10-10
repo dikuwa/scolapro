@@ -10,6 +10,7 @@ import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWe
 import {
   formatRegisterTeacherDate,
   registerTeacherBalance,
+  registerTeacherColumnPlan,
   registerTeacherDocumentContext,
   registerTeacherGovernanceAlert,
   registerTeacherPageJobs,
@@ -99,14 +100,14 @@ function totalsRow(label: string, section: RegisterTeacherSection, weeks: Regist
 function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacherSection, weeks: RegisterTeacherWeek[], page: number, pages: number, repeatedHeader: string) {
   // Wide term registers are split into print-sized week panels. Repeat the learner
   // identities and official totals rather than clipping dates or shrinking marks.
-  const attendanceColumns = weeks.reduce((count, week) => count + week.dates.length + 1, 0);
-  const dayWidth = attendanceColumns ? 42 / attendanceColumns : 42;
+  // Column geometry comes from the shared layout contract so HTML and PDF cannot
+  // drift into different grids.
+  const plan = registerTeacherColumnPlan(weeks);
+  const pct = (fraction: number) => `${(fraction * 100).toFixed(3)}%`;
   const columns = [
-    '<col style="width:6%">', '<col style="width:3%">',
-    '<col style="width:13%">', '<col style="width:13%">',
-    '<col style="width:8%">',
-    ...Array.from({ length: attendanceColumns }, () => `<col style="width:${dayWidth.toFixed(3)}%">`),
-    '<col style="width:5%">', '<col style="width:5%">', '<col style="width:5%">',
+    ...plan.identityFractions.map((fraction) => `<col style="width:${pct(fraction)}">`),
+    ...Array.from({ length: plan.attendanceColumns }, () => `<col style="width:${pct(plan.dayFraction)}">`),
+    ...plan.termFractions.map((fraction) => `<col style="width:${pct(fraction)}">`),
   ].join("");
   const weekHeaders = weeks.map((week) => `<th class="week-heading" colspan="${week.dates.length + 1}"><span class="week-heading-label">Week Ending Friday</span><strong class="week-heading-date">${escapeHtml(formatDate(week.weekEnding))}</strong></th>`).join("");
   const dayHeaders = weeks.map(weeklyColumns).join("");

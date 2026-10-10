@@ -12,6 +12,7 @@ import {
   REGISTER_TEACHER_LAYOUT,
   formatRegisterTeacherDate,
   registerTeacherBalance,
+  registerTeacherColumnPlan,
   registerTeacherDocumentContext,
   registerTeacherGovernanceAlert,
   registerTeacherPageJobs,
@@ -78,18 +79,20 @@ function drawPage(input: {
   y -= 22;
 
   page.drawText("I = Present   a = Absent   a", { x: MARGIN, y: y - 5, size: 5.4, font: resources.regular, color: MUTED });
-  page.drawText("4", { x: MARGIN + 76, y: y - 3, size: 4.2, font: checkFont, color: RED });
+  page.drawText("✓", { x: MARGIN + 76, y: y - 3, size: 4.2, font: checkFont, color: RED });
   page.drawText(" = Absent with reason   Grey = non-teaching / inactive", { x: MARGIN + 82, y: y - 5, size: 5.4, font: resources.regular, color: MUTED });
   y -= 11;
 
-  const identityWidths = [50, 24, 112, 112, 52];
-  const attendanceColumns = weeks.reduce((count, week) => count + week.dates.length + 1, 0);
-  const termWidths = [42, 42, 42];
+  // Column geometry comes from the shared layout contract so the drawn PDF grid
+  // matches the HTML/print preview exactly.
+  const plan = registerTeacherColumnPlan(weeks);
+  const identityWidths = plan.identityWidths;
+  const attendanceColumns = plan.attendanceColumns;
+  const termWidths = plan.termWidths;
   const identityTotal = identityWidths.reduce((sum, width) => sum + width, 0);
-  const termTotal = termWidths.reduce((sum, width) => sum + width, 0);
-  const dayWidth = (CONTENT_WIDTH - identityTotal - termTotal) / Math.max(1, attendanceColumns);
+  const dayWidth = plan.dayWidth;
   const widths = [...identityWidths, ...Array.from({ length: attendanceColumns }, () => dayWidth), ...termWidths];
-  const labels = ["ADMIN NO.", "NO.", "SURNAME", "GIVEN NAMES", "DATE OF BIRTH"];
+  const labels = REGISTER_TEACHER_LAYOUT.identityColumns.map((column) => column.header);
   let x = MARGIN;
   labels.forEach((label, index) => { drawCell(page, resources.bold, label, x, y, widths[index], 22, { fill: RED_SOFT, color: RED, size: 5 }); x += widths[index]; });
   for (const week of weeks) {
@@ -103,7 +106,7 @@ function drawPage(input: {
     drawCell(page, resources.bold, "WEEK", x, y, dayWidth, 22, { fill: RED_SOFT, color: RED, size: 4.8 });
     x += dayWidth;
   }
-  ["ATTEND.", "ABSENT", "DAYS"].forEach((label, index) => { drawCell(page, resources.bold, label, x, y, termWidths[index], 22, { fill: index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT, color: index === 1 ? RED : INK, size: 5 }); x += termWidths[index]; });
+  REGISTER_TEACHER_LAYOUT.termColumns.map((column) => column.header).forEach((label, index) => { drawCell(page, resources.bold, label, x, y, termWidths[index], 22, { fill: index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT, color: index === 1 ? RED : INK, size: 5 }); x += termWidths[index]; });
   y -= 22;
 
   learners.forEach((learner, index) => {
@@ -119,7 +122,7 @@ function drawPage(input: {
         if (mark === "a") weekAbsent += 1;
         drawCell(page, resources.bold, mark, x, y, dayWidth, ROW_HEIGHT, { fill: day.teaching ? undefined : GREY, color: mark === "a" ? RED : INK, size: 7 });
         if (mark === "a" && learner.reasonedAbsenceDates[day.date]) {
-          page.drawText("4", { x: x + dayWidth - 5, y: y - 5, size: 3.8, font: checkFont, color: RED });
+          page.drawText("✓", { x: x + dayWidth - 5, y: y - 5, size: 3.8, font: checkFont, color: RED });
         }
         x += dayWidth;
       }
