@@ -431,3 +431,13 @@ test("credential finalization records bounded expiry without plaintext", () => {
   assert.match(migration, /credential_expires_at=p_credential_expires_at/);
   assert.doesNotMatch(migration, /p_password|temporary_password|credential_password/i);
 });
+
+
+test("sign-in rejects expired managed temporary credentials before app navigation", () => {
+  const source = read("src/features/auth/actions.ts");
+  const section = source.slice(source.indexOf("export async function signIn("), source.indexOf("export async function signOut("));
+  assert.match(section, /must_change_password,password_rotation_expires_at/);
+  assert.match(section, /new Date\(profile\.password_rotation_expires_at\)\.getTime\(\) <= Date\.now\(\)/);
+  assert.match(section, /await supabase\.auth\.signOut\(\)/);
+  assert.ok(section.indexOf("password_rotation_expires_at") < section.indexOf('redirect("/password-rotation")'));
+});
