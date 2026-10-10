@@ -64,7 +64,7 @@ export async function prepareAvatarUpload(contentType: string): Promise<AvatarUp
     .select("must_change_password")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
     return { success: false, message: "Complete account security setup before uploading an avatar." };
   }
 
