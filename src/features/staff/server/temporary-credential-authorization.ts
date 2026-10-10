@@ -4,12 +4,18 @@ import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+type AllowedCredentialPreflight = {
+  allowed: true;
+  staffMemberId: string;
+  actorUserId: string;
+};
+
 // Internal preflight only: this does not create/update Auth users or issue credentials.
-// Revalidate authorization again within the atomic database issuance transaction.
+// Revalidate authorization again within the atomic database issuance reservation.
 export async function authorizeStaffCredentialPreflight(
   schoolId: string,
   staffMemberId: string,
-): Promise<{ allowed: true; staffMemberId: string } | { allowed: false }> {
+): Promise<AllowedCredentialPreflight | { allowed: false }> {
   // Reject malformed identifiers before any privileged lookup.
   if (!z.string().uuid().safeParse(schoolId).success ||
       !z.string().uuid().safeParse(staffMemberId).success) return { allowed: false };
@@ -33,7 +39,7 @@ export async function authorizeStaffCredentialPreflight(
       .limit(1)
       .maybeSingle();
     if (error || data?.staff_member_id !== staffMemberId) return { allowed: false };
-    return { allowed: true, staffMemberId };
+    return { allowed: true, staffMemberId, actorUserId: context.user.id };
   } catch {
     return { allowed: false };
   }
