@@ -21,7 +21,9 @@ const docs = read("docs/06-workflows/OPERATIONAL-CALENDAR.md");
 
 test("calendar workspace separates official day metadata from operational events", () => {
   assert.match(calendarPage, /OperationalCalendarManager/);
-  assert.match(manager, /Official school calendar/);
+  assert.match(manager, /Academic terms & official calendar/);
+  assert.match(manager, /visibleEvents\.map/);
+  assert.match(manager, /View all/);
   assert.match(manager, /School & department events/);
   assert.match(manager, /Resolved \/ published learner days/);
   assert.match(manager, /Learner school-day effect/);
