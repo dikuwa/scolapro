@@ -1,6 +1,6 @@
 begin;
 
-select plan(4);
+select plan(5);
 
 select ok(
   exists (
@@ -32,6 +32,19 @@ select ok(
 select ok(
   not has_function_privilege('authenticated', 'public.prevent_untrusted_password_rotation_clearance()', 'EXECUTE'),
   'authenticated role cannot execute clearance guard directly'
+);
+
+select ok(
+  (select pg_get_functiondef(p.oid) from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'prevent_untrusted_password_rotation_clearance')
+  like '%old.must_change_password IS DISTINCT FROM false%'
+  or
+  (select pg_get_functiondef(p.oid) from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'prevent_untrusted_password_rotation_clearance')
+  like '%old.must_change_password is distinct from false%',
+  'null and true uncleared rotation flags cannot be cleared by a client'
 );
 
 select * from finish();
