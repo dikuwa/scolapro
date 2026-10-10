@@ -99,9 +99,9 @@ test("calendar governed-year fallback is Namibia-local and calendar layout stays
   const pageSource = fs.readFileSync(path.join(root, "src/app/calendar/page.tsx"), "utf8");
   assert.match(serverSource, /getNamibiaCalendarYear\(\)/);
   assert.doesNotMatch(serverSource, /new Date\(\)\.getFullYear\(\)/);
-  assert.match(pageSource, /sm:grid-cols-3/);
   const operationalSource = fs.readFileSync(path.join(root, "src/features/calendar/operational-calendar-manager.tsx"), "utf8");
   assert.match(pageSource, /sm:grid-cols-3/);
   assert.match(operationalSource, /mt-4 space-y-2\.5/);
   assert.match(operationalSource, /activeTermId === term\.academicTermId/);
+  assert.match(pageSource, /Academic year dates are not configured/);
 });
