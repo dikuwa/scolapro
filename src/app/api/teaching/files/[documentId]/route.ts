@@ -20,7 +20,7 @@ export async function GET(
     .select("must_change_password")
     .eq("user_id", verifiedUser.id)
     .maybeSingle();
-  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
     return NextResponse.json({ error: "Complete account security setup before downloading documents." }, { status: 403 });
   }
 
