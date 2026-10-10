@@ -365,3 +365,10 @@ test("temporary credential issuance preflight fails closed for wrong school or i
   assert.match(source, /effective_to\.is\.null,effective_to\.gte/);
   assert.doesNotMatch(source, /auth\.admin\.|"use server"|generateStaffTemporaryPassword/);
 });
+
+test("temporary credential preflight validates both identifiers before school queries", () => {
+  const source = read("src/features/staff/server/temporary-credential-authorization.ts");
+  assert.match(source, /z\.string\(\)\.uuid\(\)\.safeParse\(schoolId\)/);
+  assert.match(source, /z\.string\(\)\.uuid\(\)\.safeParse\(staffMemberId\)/);
+  assert.ok(source.indexOf("safeParse(schoolId)") < source.indexOf("await getUserContext()"));
+});
