@@ -1,15 +1,29 @@
 import "server-only";
 
-import { officialDocumentSchoolNameClass, renderOfficialDocumentSchoolNameFontStyle } from "@/features/documents/server/official-document-html-header";
+import {
+  OFFICIAL_DOCUMENT_HTML_HEADER_RULE,
+  OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE,
+} from "@/features/documents/server/official-document-chrome";
+import { renderOfficialDocumentHtmlHeader } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWeek } from "@/features/attendance/server/register-teacher-document";
+import {
+  formatRegisterTeacherDate,
+  registerTeacherBalance,
+  registerTeacherDocumentContext,
+  registerTeacherGovernanceAlert,
+  registerTeacherPageJobs,
+  registerTeacherTermValue,
+  registerTeacherValuesFor,
+  type RegisterTeacherSummaryKind,
+} from "@/features/attendance/server/register-teacher-layout";
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char));
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+  return formatRegisterTeacherDate(value);
 }
 
 
@@ -59,21 +73,21 @@ function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: Re
   return marks + `<td class="week-total value">${weekPossible - weekAbsent}</td>`;
 }
 
-function totalsRow(label: string, section: RegisterTeacherSection, weeks: RegisterTeacherWeek[], kind: "attendance" | "absence" | "possible") {
+function totalsRow(label: string, section: RegisterTeacherSection, weeks: RegisterTeacherWeek[], kind: RegisterTeacherSummaryKind) {
   const cells = weeks.map((week) => {
-    const values = week.dates.map((day) => {
-      if (!day.teaching) return '<td class="summary-value non-teaching"></td>';
-      const value = kind === "attendance" ? section.attendanceByDate[day.date] : kind === "absence" ? section.absenceByDate[day.date] : section.possibleByDate[day.date];
-      return `<td class="summary-value ${kind === "absence" ? "absence-value" : ""}">${value ?? 0}</td>`;
-    }).join("");
-    const weekTotal = week.dates.reduce((sum, day) => sum + (kind === "attendance" ? section.attendanceByDate[day.date] : kind === "absence" ? section.absenceByDate[day.date] : section.possibleByDate[day.date]), 0);
+    const sourceValues = registerTeacherValuesFor(section, week, kind);
+    const values = sourceValues.map((value) => value === null
+      ? '<td class="summary-value non-teaching"></td>'
+      : `<td class="summary-value ${kind === "absence" ? "absence-value" : ""}">${value}</td>`).join("");
+    const weekTotal = sourceValues.reduce<number>((sum, value) => sum + (value ?? 0), 0);
     return values + `<td class="summary-value week-total ${kind === "absence" ? "absence-value" : ""}">${weekTotal}</td>`;
   }).join("");
+  const termValue = registerTeacherTermValue(section, kind);
   const termCells = kind === "attendance"
-    ? `<td class="term-actual">${section.termAttendanceTotal}</td><td class="term-absent"></td><td class="term-days"></td>`
+    ? `<td class="term-actual">${termValue}</td><td class="term-absent"></td><td class="term-days"></td>`
     : kind === "absence"
-      ? `<td class="term-actual"></td><td class="term-absent absence-value">${section.termAbsenceTotal}</td><td class="term-days"></td>`
-      : `<td class="term-actual"></td><td class="term-absent"></td><td class="term-days">${section.termPossibleTotal}</td>`;
+      ? `<td class="term-actual"></td><td class="term-absent absence-value">${termValue}</td><td class="term-days"></td>`
+      : `<td class="term-actual"></td><td class="term-absent"></td><td class="term-days">${termValue}</td>`;
   const rowClass = kind === "attendance"
     ? "attendance-summary-row"
     : kind === "absence"
@@ -101,8 +115,10 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
     return `<tr>${learnerIdentityCells(section, index)}${weeks.map((week) => weeklyMarks(section, index, week)).join("")}<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td></tr>`;
   }).join("");
 
+  const balance = registerTeacherBalance(section);
+  const governanceAlert = registerTeacherGovernanceAlert(document);
   return `
-    <section class="register-section" aria-label="${escapeHtml(section.label)} register page ${page} of ${pages}">
+    <section class="report register-section" aria-label="${escapeHtml(section.label)} register page ${page} of ${pages}">
       ${repeatedHeader}
       <div class="register-meta">
         <div><strong>BOYS/GIRLS:</strong> ${section.label}</div>
@@ -139,11 +155,12 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
           ${totalsRow("Total number of possible attendances", section, weeks, "possible")}
         </tbody>
       </table>
+      ${governanceAlert ? `<div class="governance-alert">Governance flag: ${escapeHtml(governanceAlert)}</div>` : ""}
       <div class="balance-strip">
-        <div class="balance-item"><span>Attendance</span><strong>${section.termAttendanceTotal}</strong></div>
-        <div class="balance-item"><span>Absence</span><strong>${section.termAbsenceTotal}</strong></div>
-        <div class="balance-item"><span>Possible</span><strong>${section.termPossibleTotal}</strong></div>
-        <div class="balance-item balance-result"><span>Balance:</span><strong>${section.termAttendanceTotal + section.termAbsenceTotal} / ${section.termPossibleTotal} ${section.termAttendanceTotal + section.termAbsenceTotal === section.termPossibleTotal ? "✓" : "!"}</strong></div>
+        <div class="balance-item"><span>Attendance</span><strong>${balance.attendance}</strong></div>
+        <div class="balance-item"><span>Absence</span><strong>${balance.absence}</strong></div>
+        <div class="balance-item"><span>Possible</span><strong>${balance.possible}</strong></div>
+        <div class="balance-item balance-result"><span>Balance:</span><strong>${balance.accounted} / ${balance.possible} ${balance.balanced ? "✓" : "!"}</strong></div>
       </div>
     </section>
   `;
@@ -154,28 +171,10 @@ export function renderRegisterTeacherHtml(input: {
   document: RegisterTeacherDocument;
 }) {
   const { header, document } = input;
-  const title = document.mode === "week" ? "WEEKLY REGISTER" : document.mode === "range" ? "WEEK RANGE REGISTER" : "TERM REGISTER";
-  const subtitle = document.mode === "week"
-    ? `Week ending ${formatDate(document.scopeEnd)}`
-    : document.mode === "range"
-      ? `${formatDate(document.scopeStart)} – ${formatDate(document.scopeEnd)}`
-    : `${document.termName} · ${formatDate(document.scopeStart)} – ${formatDate(document.scopeEnd)}`;
-  const schoolNameClass = officialDocumentSchoolNameClass(header);
-  const schoolNameFontStyle = renderOfficialDocumentSchoolNameFontStyle(header);
-  const learnersPerPage = 40;
+  const context = registerTeacherDocumentContext(document);
+  const title = context.title;
   const repeatedHeader = `
-    <header class="school-header">
-      <div>${header.logoUrl ? `<img src="${escapeHtml(header.logoUrl)}" alt="" />` : ""}</div>
-      <div>
-        <div class="${schoolNameClass}">${escapeHtml(header.schoolName)}</div>
-        <div class="school-contact">${header.contactLines.map((line) => escapeHtml(line.text)).join(" · ")}${header.postalLines.length ? `<br>${header.postalLines.map(escapeHtml).join(" · ")}` : ""}</div>
-      </div>
-      <div class="doc-title">
-        <h1>${title}</h1>
-        <p><strong>${escapeHtml(document.gradeName)} · ${escapeHtml(document.className)} · ${document.academicYear}</strong></p>
-        <p>${escapeHtml(subtitle)}</p>
-      </div>
-    </header>
+    ${renderOfficialDocumentHtmlHeader(header, undefined, { context })}
     <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span>Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area</span></div>`;
 
   return `<!doctype html>
@@ -183,21 +182,14 @@ export function renderRegisterTeacherHtml(input: {
 <head>
 <meta charset="utf-8" />
 <title>${escapeHtml(document.className)} ${title}</title>
-${schoolNameFontStyle}
 <style>
   :root { --register-red:#a31218; --register-red-soft:#fff1f2; --ink:#151515; --grid:#3a3a3a; }
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#ececec; }
   body { padding:18px; }
   .sheet { width:404mm; max-width:100%; margin:0 auto; background:white; padding:16px 16px 20px; box-shadow:0 10px 28px rgba(0,0,0,.12); }
-  .school-header { display:grid; grid-template-columns:82px 1fr auto; gap:14px; align-items:center; border-bottom:2px solid var(--register-red); padding-bottom:10px; margin-bottom:10px; }
-  .school-header img { max-width:72px; max-height:72px; object-fit:contain; }
-  .school-name { font-size:22px; font-weight:800; letter-spacing:.02em; text-transform:uppercase; }
-  .school-name.old-english { font-weight:700; letter-spacing:0; text-transform:none; }
-  .school-contact { font-size:10px; line-height:1.45; color:#444; }
-  .doc-title { text-align:right; }
-  .doc-title h1 { margin:0; font-size:17px; color:var(--register-red); letter-spacing:.08em; }
-  .doc-title p { margin:5px 0 0; font-size:10px; }
+  ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
+  ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
   .register-section { margin-top:0; break-after:page; overflow:visible; }
   .register-section:last-child { break-after:auto; }
   .register-meta { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1px; background:var(--register-red); border:1px solid var(--register-red); margin-bottom:4px; }
@@ -245,6 +237,7 @@ ${schoolNameFontStyle}
   .balance-item span { font-weight:700; text-transform:uppercase; letter-spacing:.02em; }
   .balance-item strong { font-size:8.4px; }
   .balance-result { min-width:116px; justify-content:center; background:#fff1f2; }
+  .governance-alert { padding:4px 6px; border:1px solid var(--register-red); border-top:0; background:#fff1f2; color:var(--register-red); font-size:7px; font-weight:700; }
   .empty { padding:18px; color:#777; font-size:9px; }
   .legend { margin:8px 0 2px; display:flex; align-items:center; flex-wrap:wrap; gap:5px 14px; min-height:20px; padding:2px 1px; font-size:8px; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:3px; min-height:16px; white-space:nowrap; }
@@ -268,23 +261,14 @@ ${schoolNameFontStyle}
 </head>
 <body>
 <main class="sheet">
-  ${document.sections.map((section) => {
-    const panels = document.weeks.length > 3
-      ? Array.from({ length: Math.ceil(document.weeks.length / 3) }, (_, i) => document.weeks.slice(i * 3, (i + 1) * 3))
-      : [document.weeks];
-    const learnerChunks = section.learners.length
-      ? Array.from({ length: Math.ceil(section.learners.length / learnersPerPage) }, (_, i) => section.learners.slice(i * learnersPerPage, (i + 1) * learnersPerPage))
-      : [[]];
-    const pageJobs = panels.flatMap((weeks) => learnerChunks.map((learners) => ({ weeks, learners })));
-    return pageJobs.map((job, i) => sectionHtml(
+  ${registerTeacherPageJobs(document).map((job) => sectionHtml(
       document,
-      { ...section, learners: job.learners },
+      { ...job.section, learners: job.learners },
       job.weeks,
-      i + 1,
-      pageJobs.length,
+      job.pageNumber,
+      job.pageCount,
       repeatedHeader,
-    )).join("");
-  }).join("")}
+    )).join("")}
 </main>
 </body>
 </html>`;

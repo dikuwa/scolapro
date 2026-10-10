@@ -7,6 +7,7 @@ import {
   resolveGovernedSchoolDays,
   type RegisterAttendanceMark,
 } from "@/features/attendance/server/governed-school-day";
+import { assertRegisterTeacherDocumentTotals } from "@/features/attendance/server/register-teacher-layout";
 
 export type RegisterTeacherMode = "week" | "range" | "term";
 export type RegisterTeacherSex = "male" | "female";
@@ -84,6 +85,10 @@ export type RegisterTeacherDocument = {
   scopeEnd: string;
   selectedDate: string;
   teachingDayCount: number;
+  governanceAlerts: {
+    invalidSubmissionCount: number;
+    invalidSubmissionDates: string[];
+  };
   weeks: RegisterTeacherWeek[];
   sections: RegisterTeacherSection[];
 };
@@ -221,6 +226,7 @@ export async function getRegisterTeacherDocument(input: {
     { data: currentRows, error: currentError },
     { data: overrideRows, error: overrideError },
     { data: calendarEventRows, error: calendarEventError },
+    { data: submissionRows, error: submissionError },
   ] = await Promise.all([
     supabase.rpc("resolve_school_teaching_impact_range", { p_school_id: input.schoolId, p_from: termStart, p_to: termEnd }),
     supabase
@@ -254,8 +260,17 @@ export async function getRegisterTeacherDocument(input: {
       .lte("starts_on", termEnd)
       .gte("ends_on", termStart)
       .or(`event_scope.eq.national,school_id.eq.${input.schoolId}`),
+    supabase
+      .from("attendance_register_submissions")
+      .select("id,attendance_date,recorded_at,created_at")
+      .eq("school_id", input.schoolId)
+      .eq("register_class_id", input.classId)
+      .gte("attendance_date", termStart)
+      .lte("attendance_date", queryEnd)
+      .order("recorded_at", { ascending: false })
+      .order("created_at", { ascending: false }),
   ]);
-  if (impactError || enrolmentError || currentError || overrideError || calendarEventError) {
+  if (impactError || enrolmentError || currentError || overrideError || calendarEventError || submissionError) {
     throw new Error("Unable to load register-teacher attendance evidence.");
   }
 
@@ -316,11 +331,23 @@ export async function getRegisterTeacherDocument(input: {
 
   const currentByKey = new Map<string, { status: string; reasonId: string | null; note: string | null }>();
   for (const row of (currentRows ?? []) as { enrolment_id: string; attendance_date: string; status: string; reason_id: string | null; note: string | null }[]) {
-    currentByKey.set(`${row.enrolment_id}:${String(row.attendance_date).slice(0, 10)}`, {
+    const attendanceDate = String(row.attendance_date).slice(0, 10);
+    if (!governedDays.decisionFor(attendanceDate).eligible) {
+      continue;
+    }
+    currentByKey.set(`${row.enrolment_id}:${attendanceDate}`, {
       status: String(row.status),
       reasonId: row.reason_id ? String(row.reason_id) : null,
       note: row.note ? String(row.note) : null,
     });
+  }
+  const invalidSubmissionDates = new Set<string>();
+  let invalidSubmissionCount = 0;
+  for (const row of (submissionRows ?? []) as Array<{ attendance_date: string }>) {
+    const attendanceDate = String(row.attendance_date).slice(0, 10);
+    if (governedDays.decisionFor(attendanceDate).eligible) continue;
+    invalidSubmissionCount += 1;
+    invalidSubmissionDates.add(attendanceDate);
   }
 
   const sections: RegisterTeacherSection[] = (["male", "female"] as RegisterTeacherSex[]).map((sex) => {
@@ -384,7 +411,7 @@ export async function getRegisterTeacherDocument(input: {
     };
   });
 
-  return {
+  const document: RegisterTeacherDocument = {
     mode: input.mode,
     academicYear: input.academicYear,
     classId: String(classRow.id),
@@ -397,9 +424,15 @@ export async function getRegisterTeacherDocument(input: {
     scopeEnd,
     selectedDate: input.selectedDate,
     teachingDayCount: termTeachingDayCount,
+    governanceAlerts: {
+      invalidSubmissionCount,
+      invalidSubmissionDates: [...invalidSubmissionDates].sort(),
+    },
     weeks,
     sections,
   };
+  assertRegisterTeacherDocumentTotals(document);
+  return document;
 }
 
 
