@@ -5,6 +5,8 @@ import { useActionState, useCallback, useEffect, useMemo, useState } from "react
 import {
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   FileScan,
   Pencil,
   School,
@@ -320,7 +322,7 @@ function TermCalendarProfileEditor({
         </div>
       ) : null}
 
-      {term.sourceLabel ? (
+      {open && term.sourceLabel ? (
         <p className="mt-2 text-[0.68rem] leading-5 text-muted-foreground">
           Source: {term.sourceLabel}
           {term.sourceReference ? ` · ${term.sourceReference}` : ""}
@@ -332,7 +334,8 @@ function TermCalendarProfileEditor({
           <div className="mt-3">
             <Button type="button" size="sm" variant={open ? "neutral" : "soft"} onClick={onToggle} aria-expanded={open}>
               {open ? <X className="size-3.5" aria-hidden="true" /> : <Pencil className="size-3.5" aria-hidden="true" />}
-              {open ? "Close " + term.termName : "Edit " + term.termName}
+              {open ? "Close details" : "View / edit"}
+              {open ? <ChevronUp className="size-3.5" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
             </Button>
           </div>
           {open ? (
@@ -447,6 +450,7 @@ export function OperationalCalendarManager({
 }) {
   const [state, action, pending] = useActionState(saveOperationalCalendarEvent, initialState);
   const [showAdd, setShowAdd] = useState(false);
+  const [showAllEvents, setShowAllEvents] = useState(false);
   const [activeTermId, setActiveTermId] = useState<string | null>(null);
   const closeTermEditor = useCallback(() => setActiveTermId(null), []);
   const availableScopes = useMemo(
@@ -471,6 +475,12 @@ export function OperationalCalendarManager({
   const [targetStaffMemberId, setTargetStaffMemberId] = useState("");
   const [learnerDayEffect, setLearnerDayEffect] = useState("UNCHANGED");
   const [bellScheduleId, setBellScheduleId] = useState("");
+
+  const orderedEvents = useMemo(
+    () => [...events].sort((a, b) => a.startsOn.localeCompare(b.startsOn) || a.title.localeCompare(b.title)),
+    [events],
+  );
+  const visibleEvents = showAllEvents ? orderedEvents : orderedEvents.slice(0, 5);
 
   const officialTotal = terms.reduce((sum, term) => sum + (term.officialLearnerDayCount ?? 0), 0);
   const resolvedTotal = terms.reduce((sum, term) => sum + term.calculatedLearnerDayCount, 0);
@@ -503,10 +513,9 @@ export function OperationalCalendarManager({
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="scolapro-section-title">Official school calendar</h2>
+            <h2 className="scolapro-section-title">Academic terms & official calendar</h2>
             <p className="scolapro-section-description">
-              Learner opening and closing dates are the operational boundaries for registers, curriculum pacing and timetable capacity.
-              Teacher dates are administrative. Published school-day totals remain validation targets; resolved learner days drive attendance.
+              Term boundaries govern attendance and timetable scheduling. Expand a term to review details or edit its dates.
             </p>
           </div>
           <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-right">
@@ -517,7 +526,7 @@ export function OperationalCalendarManager({
             </p>
           </div>
         </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <div className="mt-4 space-y-2.5">
           {terms.map((term) => (
             <TermCalendarProfileEditor
               key={term.academicTermId}
@@ -565,7 +574,7 @@ export function OperationalCalendarManager({
 
         {events.length ? (
           <div className="mt-3 divide-y divide-border-subtle">
-            {events.map((event) => (
+            {visibleEvents.map((event) => (
               <article
                 key={event.id}
                 className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(10rem,0.8fr)_auto] sm:items-start"
@@ -610,6 +619,15 @@ export function OperationalCalendarManager({
             No school or department operational events are configured for {year}.
           </div>
         )}
+
+        {orderedEvents.length > 5 ? (
+          <div className="mt-2 flex justify-center border-t border-border-subtle pt-3">
+            <Button type="button" size="sm" variant="neutral" aria-expanded={showAllEvents} onClick={() => setShowAllEvents((value) => !value)}>
+              {showAllEvents ? <ChevronUp className="size-3.5" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
+              {showAllEvents ? "Show fewer events" : `View all ${orderedEvents.length} events`}
+            </Button>
+          </div>
+        ) : null}
 
         {showAdd ? (
           <form action={action} className="mt-5 grid gap-4 border-t border-border-subtle pt-5 lg:grid-cols-2">
@@ -775,7 +793,7 @@ export function OperationalCalendarManager({
         ) : null}
       </section>
 
-      <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
+      <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted p-4 sm:p-5">
         <div className="flex items-start gap-2.5">
           <span className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-success-soft text-[color:var(--success)]">
             <CheckCircle2 className="size-4" />
