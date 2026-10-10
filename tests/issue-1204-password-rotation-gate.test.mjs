@@ -24,10 +24,11 @@ test("rotation has a dedicated authenticated page without an app shell", () => {
   assert.match(form, /signOut/);
   assert.match(form, /autocomplete/i);
 });
-test("password action does not report success when profile clearance fails", () => {
-  assert.match(actions, /if \(profileError \|\| clearedProfile\?\.user_id !== user.id\)/);
+test("password action does not report success when audited clearance fails", () => {
+  assert.match(actions, /if \(clearanceError \|\| cleared !== true\)/);
   assert.match(actions, /account clearance could not be saved/);
   assert.match(actions, /supabase\.auth\.updateUser\(\{ password \}\)/);
+  assert.match(actions, /complete_password_rotation_clearance/);
 });
 
 test("sign-in redirects flagged or unresolved profiles to rotation before any deep link", () => {
@@ -414,7 +415,7 @@ test("password rotation rejects expired managed temporary credentials", () => {
   assert.match(section, /password_rotation_expires_at/);
   assert.match(section, /new Date\(rotationProfile\.password_rotation_expires_at\)\.getTime\(\) <= Date\.now\(\)/);
   assert.ok(section.indexOf("password_rotation_expires_at") < section.indexOf("await supabase.auth.updateUser({ password })"));
-  assert.match(section, /password_rotation_expires_at: null/);
+  assert.match(section, /complete_password_rotation_clearance/);
 });
 
 test("credential reservation database gate covers linked target, self and protected admin", () => {
