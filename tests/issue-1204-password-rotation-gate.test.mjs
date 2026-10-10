@@ -372,3 +372,62 @@ test("temporary credential preflight validates both identifiers before school qu
   assert.match(source, /z\.string\(\)\.uuid\(\)\.safeParse\(staffMemberId\)/);
   assert.ok(source.indexOf("safeParse(schoolId)") < source.indexOf("await getUserContext()"));
 });
+
+
+test("managed credential issuer stays server-only and reauthorizes before provider mutation", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  assert.match(source, /import "server-only"/);
+  assert.doesNotMatch(source, /"use server"/);
+  assert.match(source, /await authorizeStaffCredentialPreflight\(schoolId, staffMemberId\)/);
+  assert.match(source, /reserve_staff_credential_issuance/);
+  assert.match(source, /admin\.auth\.admin\.updateUserById/);
+  assert.ok(source.indexOf("authorizeStaffCredentialPreflight") < source.indexOf('reserve_staff_credential_issuance'));
+  assert.ok(source.indexOf('reserve_staff_credential_issuance') < source.indexOf("generateStaffTemporaryPassword()"));
+  assert.ok(source.indexOf("generateStaffTemporaryPassword()") < source.indexOf("admin.auth.admin.updateUserById"));
+  assert.doesNotMatch(source, /console\.(log|info|debug|warn|error)/);
+});
+
+test("managed credential issuer arms rotation gate before changing provider password", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  const arm = source.indexOf("must_change_password: true");
+  const authUpdate = source.indexOf("admin.auth.admin.updateUserById");
+  const finalize = source.indexOf('"finalize_staff_credential_issuance"', authUpdate);
+  assert.ok(arm >= 0 && authUpdate > arm);
+  assert.ok(finalize > authUpdate);
+  assert.match(source, /password_rotation_expires_at: expiresAt/);
+  assert.match(source, /SCOLAPRO_CREDENTIAL_AUDIT_SECRET/);
+});
+
+test("managed credential plaintext is returned only after completed audit finalization", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  const finalizedCheck = source.indexOf("finalizeError || finalized !== true");
+  const plaintextReturn = source.indexOf("return { success: true, password, expiresAt }");
+  assert.ok(finalizedCheck >= 0 && plaintextReturn > finalizedCheck);
+  assert.match(source, /Never return an unaudited credential/);
+});
+
+test("password rotation rejects expired managed temporary credentials", () => {
+  const source = read("src/features/profile/server/actions.ts");
+  const section = source.slice(source.indexOf("export async function changePassword("));
+  assert.match(section, /password_rotation_expires_at/);
+  assert.match(section, /new Date\(rotationProfile\.password_rotation_expires_at\)\.getTime\(\) <= Date\.now\(\)/);
+  assert.ok(section.indexOf("password_rotation_expires_at") < section.indexOf("await supabase.auth.updateUser({ password })"));
+  assert.match(section, /password_rotation_expires_at: null/);
+});
+
+test("credential reservation database gate covers linked target, self and protected admin", () => {
+  const migration = read("supabase/migrations/20261010123000_staff_credential_atomic_reservation.sql");
+  assert.match(migration, /v_target_user_id is null/);
+  assert.match(migration, /v_target_user_id = p_actor_user_id/);
+  assert.match(migration, /m\.role_key='school_admin'/);
+  assert.match(migration, /target_user_id, actor_user_id/);
+});
+
+test("credential finalization records bounded expiry without plaintext", () => {
+  const migration = read("supabase/migrations/20261010124500_staff_credential_issuance_finalization.sql");
+  assert.match(migration, /p_credential_expires_at timestamptz/);
+  assert.match(migration, /interval '2 hours'/);
+  assert.match(migration, /credential_fingerprint=p_credential_fingerprint/);
+  assert.match(migration, /credential_expires_at=p_credential_expires_at/);
+  assert.doesNotMatch(migration, /password\s*=|plaintext/i);
+});
