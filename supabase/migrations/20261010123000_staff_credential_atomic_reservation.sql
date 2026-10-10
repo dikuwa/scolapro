@@ -62,6 +62,21 @@ begin
     raise exception 'School administrator permission required' using errcode='42501';
   end if;
 
+  -- The advisory lock above serializes concurrent reservation attempts. Refuse
+  -- a second live reservation so two browser actions cannot race provider
+  -- password updates and both return different "successful" credentials.
+  if exists (
+    select 1
+    from public.staff_credential_issuance_attempts a
+    where a.school_id=p_school_id
+      and a.staff_member_id=p_staff_member_id
+      and a.outcome='reserved'
+      and a.attempted_at>now()-interval '15 minutes'
+  ) then
+    raise exception 'Credential issuance is already in progress for this staff account'
+      using errcode='55000';
+  end if;
+
   -- A school administrator may not use this workflow to take over another
   -- active school-administrator account. Protected admin recovery remains a
   -- separate Control Room/provider recovery path.
