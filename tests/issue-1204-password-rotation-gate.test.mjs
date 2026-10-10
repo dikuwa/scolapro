@@ -311,3 +311,9 @@ test("development branch inherits quota-saving Vercel deployment policy", () => 
   assert.equal(config.git.deploymentEnabled["*"], false);
   assert.equal(config.crons[0].path, "/api/internal/report-card-render");
 });
+
+test("temporary staff passwords remain inaccessible to client-side access actions", () => {
+  const access = read("src/features/staff/server/access-actions.ts");
+  assert.doesNotMatch(access, /generateStaffTemporaryPassword|temporary-password/);
+  assert.doesNotMatch(access, /auth\.admin\.createUser|auth\.admin\.updateUserById/);
+});
