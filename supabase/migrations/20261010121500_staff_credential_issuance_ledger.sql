@@ -32,7 +32,10 @@ create index if not exists staff_credential_attempts_target_time_idx
   on public.staff_credential_issuance_attempts(target_user_id,attempted_at desc);
 
 alter table public.staff_credential_issuance_attempts enable row level security;
--- Intentionally define no anon/authenticated RLS policy. RLS therefore fails
--- closed, while direct relation privileges are also revoked. Service-role-only
--- governed RPCs bypass RLS for reservation/finalization.
+-- Keep the public-schema security baseline (every table owns a policy) without
+-- exposing any client policy. Service role is the only policy role and also
+-- remains the trusted boundary for the governed reservation/finalization RPCs.
+create policy staff_credential_issuance_service_only
+  on public.staff_credential_issuance_attempts
+  for all to service_role using (true) with check (true);
 revoke all on table public.staff_credential_issuance_attempts from public, anon, authenticated;
