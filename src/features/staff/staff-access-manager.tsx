@@ -31,6 +31,7 @@ import {
   type StaffAccessState,
 } from "@/features/staff/server/access-actions";
 import type { StaffDirectoryRow } from "@/features/staff/server/directory";
+import { StaffTemporaryCredentialControl } from "@/features/staff/staff-temporary-credential-control";
 
 const initialState: StaffAccessState = {};
 const roleOptions = [
@@ -304,6 +305,7 @@ export function StaffDirectoryRowControls({
                     </Button>
                   </form>
                 </div>
+                {row.staffId && <StaffTemporaryCredentialControl schoolId={schoolId} staffMemberId={row.staffId} />}
               </div>
             </div>
           ) : (
