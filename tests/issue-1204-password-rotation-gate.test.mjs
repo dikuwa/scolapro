@@ -472,3 +472,11 @@ test("password rotation completion audit contains no credential material", () =>
   assert.match(migration, /managed_temporary_credential_cleared', true/);
   assert.doesNotMatch(migration, /p_password|temporary_password|credential_password/i);
 });
+
+
+test("browser credential action normalizes issuance failures against enumeration", () => {
+  const source = read("src/features/staff/server/temporary-credential-actions.ts");
+  assert.match(source, /Temporary credential could not be issued for this staff account/);
+  assert.doesNotMatch(source, /return \{ message: result\.message \}/);
+  assert.doesNotMatch(source, /linked account|school administrator permission|required|protected administrator/i);
+});
