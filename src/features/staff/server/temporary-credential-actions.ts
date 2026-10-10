@@ -35,7 +35,9 @@ export async function issueStaffTemporaryCredentialAction(
     parsed.data.schoolId,
     parsed.data.staffMemberId,
   );
-  if (!result.success) return { message: result.message };
+  if (!result.success) {
+    return { message: "Temporary credential could not be issued for this staff account." };
+  }
 
   // The plaintext secret is returned exactly once by this action response.
   // There is no readback endpoint or database copy.
