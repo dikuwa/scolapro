@@ -297,3 +297,10 @@ test("staff creation fails closed when shared authority is unavailable", () => {
   assert.match(section, /catch\s*\{\s*return \{ message: "Complete account security setup before creating staff\." \};/);
   assert.ok(section.indexOf("await getUserContext()") < section.indexOf('supabase.rpc("create_or_assign_school_staff"'));
 });
+
+test("temporary password generation is cryptographic and server-only, without exposed issuance", () => {
+  const helper = read("src/features/staff/server/temporary-password.ts");
+  assert.match(helper, /import "server-only"/);
+  assert.match(helper, /randomBytes\(32\)\.toString\("base64url"\)/);
+  assert.doesNotMatch(helper, /"use server"|export async function|createSupabaseAdminClient|console\./);
+});
