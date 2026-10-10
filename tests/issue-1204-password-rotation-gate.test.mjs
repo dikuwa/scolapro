@@ -279,3 +279,13 @@ test("staff identity and access actions independently enforce rotation clearance
     assert.match(section, /await requireStaffAccessSecurityClearance\(\)/, name);
   }
 });
+
+test("staff corrections and reconciliation require rotation clearance", () => {
+  const source = read("src/features/staff/server/access-actions.ts");
+  for (const name of ["correctStaffDetails", "reconcileStaffIdentities"]) {
+    const start = source.indexOf(`export async function ${name}(`);
+    assert.ok(start >= 0);
+    const section = source.slice(start, start + 420);
+    assert.match(section, /await requireStaffAccessSecurityClearance\(\)/);
+  }
+});
