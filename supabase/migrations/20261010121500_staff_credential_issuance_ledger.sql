@@ -17,6 +17,10 @@ create index if not exists staff_credential_attempts_scope_time_idx
 create index if not exists staff_credential_attempts_actor_time_idx
   on public.staff_credential_issuance_attempts(actor_user_id,attempted_at desc);
 alter table public.staff_credential_issuance_attempts enable row level security;
--- Deliberately provide no client RLS policies or public RPC. A separately
--- reviewed privileged transactional reservation routine is required later.
+-- Explicit deny policy satisfies the public schema policy baseline without
+-- granting any client access. Service role bypasses RLS for governed RPCs.
+create policy staff_credential_issuance_client_deny
+  on public.staff_credential_issuance_attempts
+  for all to anon, authenticated using (false) with check (false);
+-- A separately reviewed privileged server issuance workflow is required.
 revoke all on table public.staff_credential_issuance_attempts from public, anon, authenticated;
