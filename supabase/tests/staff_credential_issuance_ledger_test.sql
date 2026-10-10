@@ -1,6 +1,9 @@
 begin;
-select plan(6);
+select plan(9);
 select has_table('public','staff_credential_issuance_attempts','credential issuance ledger exists');
+select has_column('public','staff_credential_issuance_attempts','target_user_id','ledger records the linked Auth target');
+select has_column('public','staff_credential_issuance_attempts','credential_expires_at','ledger records temporary credential expiry');
+select has_column('public','staff_credential_issuance_attempts','finalized_at','ledger records terminal transition time');
 select ok((select relrowsecurity from pg_class where oid='public.staff_credential_issuance_attempts'::regclass),'ledger RLS is enabled');
 select ok(not has_table_privilege('authenticated','public.staff_credential_issuance_attempts','INSERT'),'authenticated cannot insert issuance attempts');
 select ok(not has_table_privilege('authenticated','public.staff_credential_issuance_attempts','SELECT'),'authenticated cannot read issuance attempts');
