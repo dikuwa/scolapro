@@ -25,7 +25,7 @@ test("rotation has a dedicated authenticated page without an app shell", () => {
   assert.match(form, /autocomplete/i);
 });
 test("password action does not report success when profile clearance fails", () => {
-  assert.match(actions, /if \(profileError\)/);
+  assert.match(actions, /if \(profileError \|\| clearedProfile\?\.user_id !== user.id\)/);
   assert.match(actions, /account clearance could not be saved/);
   assert.match(actions, /supabase\.auth\.updateUser\(\{ password \}\)/);
 });
@@ -251,4 +251,12 @@ test("ordinary password changes do not invoke service-role profile clearance", (
   const section = actions.slice(actions.indexOf("export async function changePassword("));
   assert.match(section, /if \(rotationProfile\.must_change_password === false\)/);
   assert.ok(section.indexOf("if (rotationProfile.must_change_password === false)") < section.indexOf('await createSupabaseAdminClient().from("user_profiles")'));
+});
+
+test("rotation clearance verifies that the authenticated profile row was updated", () => {
+  const action = read("src/features/profile/server/actions.ts");
+  const section = action.slice(action.indexOf("export async function changePassword("));
+  assert.match(section, /data: clearedProfile, error: profileError/);
+  assert.match(section, /clearedProfile\?\.user_id !== user.id/);
+  assert.ok(section.indexOf('.select("user_id")') < section.indexOf("clearedProfile?.user_id !== user.id"));
 });
