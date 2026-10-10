@@ -133,7 +133,7 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
   // requirement for an absent or unresolved profile.
   const { data: rotationProfile, error: rotationError } = await supabase
     .from("user_profiles")
-    .select("must_change_password")
+    .select("must_change_password,password_rotation_expires_at")
     .eq("user_id", user.id)
     .maybeSingle();
   if (rotationError || !rotationProfile) {
