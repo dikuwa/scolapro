@@ -128,6 +128,18 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: "Sign in again before changing your password." };
 
+  // Recheck the authenticated security profile immediately before the mutation.
+  // The normal profile password form must not be able to clear a rotation
+  // requirement for an absent or unresolved profile.
+  const { data: rotationProfile, error: rotationError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (rotationError || !rotationProfile) {
+    return { success: false, message: "Your account security profile could not be verified." };
+  }
+
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { success: false, message: "Your password could not be changed." };
 
