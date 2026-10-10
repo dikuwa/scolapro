@@ -152,6 +152,19 @@ async function linkedAuthEmail(schoolId: string, staffMemberId: string) {
   const supabase = await createSupabaseServerClient();
   const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
   const admin = createSupabaseAdminClient();
+  // Admin-client reads bypass RLS. Verify the staff identity is assigned to
+  // the requested school before resolving a linked Auth account, even when a
+  // school administrator supplies a valid identity from another school.
+  const { data: assignment, error: assignmentError } = await admin
+    .from("staff_school_assignments")
+    .select("staff_member_id")
+    .eq("school_id", schoolId)
+    .eq("staff_member_id", staffMemberId)
+    .limit(1)
+    .maybeSingle();
+  if (assignmentError || assignment?.staff_member_id !== staffMemberId) {
+    throw new Error("Staff member is not assigned to this school.");
+  }
   const { data: staff, error } = await admin
     .from("staff_members")
     .select("user_id")
