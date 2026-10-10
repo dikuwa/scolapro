@@ -8,7 +8,7 @@ begin;
 --      register class and, where the allocation is grouped, inside that group.
 -- Subject-period *authority* itself (placement + allocation + leadership) is owned
 -- by the pre-existing actor-integrity helpers and is not re-tested here.
-select plan(8);
+select plan(7);
 
 -- Today's ISO weekday may be Saturday/Sunday in CI, so make the fixture school
 -- explicitly seven-day capable rather than relying on the Monday-Friday default.
