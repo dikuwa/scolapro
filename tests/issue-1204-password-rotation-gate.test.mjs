@@ -230,3 +230,10 @@ test("shared server authority resolver also fails closed for missing profiles", 
   assert.match(resolver, /!rpcRow\?\.profile \|\| rpcRow\.profile\.must_change_password !== false/);
   assert.match(resolver, /throw new Error\("Password rotation required before accessing school authority\."\)/);
 });
+
+test("password rotation enforces bounded nonblank credentials on server and client", () => {
+  const action = read("src/features/profile/server/actions.ts");
+  const form = read("src/features/auth/password-rotation-form.tsx");
+  assert.match(action, /password\.length < 8 \|\| password\.length > 128 \|\| !password\.trim\(\)/);
+  assert.equal((form.match(/maxLength=\{128\}/g) ?? []).length, 2);
+});
