@@ -441,3 +441,14 @@ test("sign-in rejects expired managed temporary credentials before app navigatio
   assert.match(section, /await supabase\.auth\.signOut\(\)/);
   assert.ok(section.indexOf("password_rotation_expires_at") < section.indexOf('redirect("/password-rotation")'));
 });
+
+
+test("temporary credential server action exposes only the governed one-time issuer", () => {
+  const source = read("src/features/staff/server/temporary-credential-actions.ts");
+  assert.match(source, /^"use server";/);
+  assert.match(source, /z\.string\(\)\.uuid\(\)/);
+  assert.match(source, /await issueStaffTemporaryCredential\(/);
+  assert.match(source, /temporaryPassword: result\.password/);
+  assert.match(source, /cannot be shown again/);
+  assert.doesNotMatch(source, /createSupabaseAdminClient|auth\.admin|generateStaffTemporaryPassword|console\./);
+});
