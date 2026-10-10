@@ -16,7 +16,13 @@ const renderer = readFileSync("src/features/attendance/server/render-register-te
 test("the unified period stepper is one accessible continuous control", () => {
   assert.match(picker, /export function WeekPicker/);
   assert.match(picker, /grid-cols-\[2\.5rem_minmax\(0,1fr\)_2\.5rem\]/);
-  assert.match(picker, /overflow-hidden/);
+  // The stepper is now the positioning context for its calendar popover, so the
+  // outer overflow is intentionally visible; the continuous-control shell is
+  // preserved by the rounded inner edges.
+  assert.match(picker, /relative grid/);
+  assert.match(picker, /rounded-l-\[var\(--radius-sm\)\]/);
+  assert.match(picker, /rounded-r-\[var\(--radius-sm\)\]/);
+  assert.match(picker, /CalendarPanel/);
   assert.match(picker, /aria-label=\{previousLabel\}/);
   assert.match(picker, /aria-label=\{nextLabel\}/);
   assert.match(picker, /previousDisabled/);

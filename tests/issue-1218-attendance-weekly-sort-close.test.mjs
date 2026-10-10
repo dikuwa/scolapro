@@ -112,7 +112,10 @@ test("weekly sort survives week and class navigation and the initial URL", () =>
   const page = read("src/app/attendance/page.tsx");
   const control = read("src/features/attendance/attendance-sort-control.tsx");
 
-  assert.equal((register.match(/params\.set\("sort", "desc"\)/g) ?? []).length, 2);
+  // Week and class navigation now build their URL through the shared navigation
+  // helper, which carries the chosen order (sort=desc) and sex filter.
+  assert.ok((register.match(/buildAttendanceNavigationHref\(\{/g) ?? []).length >= 3);
+  assert.match(register, /sort: sortDirection/);
   assert.match(register, /if \(next === "asc"\) url\.searchParams\.delete\("sort"\)/);
   assert.match(register, /url\.searchParams\.set\("sort", "desc"\)/);
   assert.match(page, /initialSort=\{sort\}/);

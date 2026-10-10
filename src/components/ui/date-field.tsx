@@ -48,7 +48,23 @@ function clampMonth(date: Date, min?: string, max?: string) {
   return date;
 }
 
-function CalendarPanel({ value, min, max, onSelect, onClose }: { value: string; min?: string; max?: string; onSelect: (value: string) => void; onClose: () => void }) {
+export type CalendarDateStatus = {
+  label: string;
+  tone: "warning" | "muted";
+};
+
+export type CalendarPanelProps = {
+  value: string;
+  min?: string;
+  max?: string;
+  rangeStart?: string;
+  rangeEnd?: string;
+  getDateStatus?: (value: string) => CalendarDateStatus | null;
+  onSelect: (value: string) => void;
+  onClose: () => void;
+};
+
+export function CalendarPanel({ value, min, max, rangeStart, rangeEnd, getDateStatus, onSelect, onClose }: CalendarPanelProps) {
   const selected = parseIso(value);
   const today = new Date();
   const initial = selected ?? clampMonth(new Date(today.getFullYear(), today.getMonth(), 1, 12), min, max);
@@ -100,7 +116,12 @@ function CalendarPanel({ value, min, max, onSelect, onClose }: { value: string; 
             const disabled = !inRange(date);
             const isSelected = iso === value;
             const isToday = iso === toIso(today);
-            return <button key={iso} type="button" disabled={disabled} onClick={() => { onSelect(iso); onClose(); }} className={cn("grid size-9 place-items-center rounded-[var(--radius-xs)] text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand", outsideMonth && "text-muted-foreground/45", !disabled && "hover:bg-surface-muted hover:text-foreground", isToday && !isSelected && "font-semibold text-brand-strong ring-1 ring-inset ring-brand/30", isSelected && "bg-brand font-semibold text-white shadow-[var(--shadow-xs)] hover:bg-brand", disabled && "cursor-not-allowed opacity-25")}>{date.getDate()}</button>;
+            const inHighlightedRange = Boolean(rangeStart && rangeEnd && iso >= rangeStart && iso <= rangeEnd);
+            const status = getDateStatus?.(iso) ?? null;
+            const ariaLabel = status
+              ? `${new Intl.DateTimeFormat("en-NA", { dateStyle: "full", timeZone: "Africa/Windhoek" }).format(new Date(`${iso}T12:00:00+02:00`))}. ${status.label}`
+              : undefined;
+            return <button key={iso} type="button" disabled={disabled} onClick={() => { onSelect(iso); onClose(); }} aria-label={ariaLabel} className={cn("relative grid size-9 place-items-center rounded-[var(--radius-xs)] text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand", outsideMonth && "text-muted-foreground/45", !disabled && "hover:bg-surface-muted hover:text-foreground", inHighlightedRange && !isSelected && "bg-brand-soft font-semibold text-brand-strong", status?.tone === "warning" && !isSelected && "bg-warning-soft text-[color:var(--warning)] ring-1 ring-inset ring-[color:var(--warning)]/20", status?.tone === "muted" && !isSelected && "bg-surface-muted text-muted-foreground", isToday && !isSelected && "font-semibold text-brand-strong ring-1 ring-inset ring-brand/30", isSelected && "bg-brand font-semibold text-white shadow-[var(--shadow-xs)] hover:bg-brand", disabled && "cursor-not-allowed opacity-25")}>{date.getDate()}</button>;
           })}</div>
         </>
       )}
