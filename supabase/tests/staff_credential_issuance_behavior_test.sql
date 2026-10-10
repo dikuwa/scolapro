@@ -143,12 +143,12 @@ select is(
 );
 
 select throws_ok(
-  $select public.finalize_staff_credential_issuance(
+  $sql$select public.finalize_staff_credential_issuance(
     gen_random_uuid(),
     'completed',
     repeat('b',64),
     now()+interval '3 hours'
-  )$,
+  )$sql$,
   '22023',
   'Completed credential issuance requires bounded non-secret metadata',
   'credential expiry cannot exceed the bounded issuance window'
@@ -178,11 +178,11 @@ select is(
 );
 
 select throws_ok(
-  $select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000002',
     'a3000000-0000-4000-8000-000000000001'
-  )$,
+  )$sql$,
   '42900',
   'Credential issuance rate limit exceeded',
   'fourth staff issuance within 24 hours is rate limited'
