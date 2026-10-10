@@ -154,10 +154,12 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
   // and only after Supabase Auth has accepted the new password.
   // The database refuses authenticated clients clearing this gate directly.
   // Only the trusted server can clear it after Auth confirms the password update.
-  const { error: profileError } = await createSupabaseAdminClient().from("user_profiles")
+  const { data: clearedProfile, error: profileError } = await createSupabaseAdminClient().from("user_profiles")
     .update({ must_change_password: false, updated_at: new Date().toISOString() })
-    .eq("user_id", user.id);
-  if (profileError) {
+    .eq("user_id", user.id)
+    .select("user_id")
+    .maybeSingle();
+  if (profileError || clearedProfile?.user_id !== user.id) {
     return { success: false, message: "Password updated, but account clearance could not be saved. Contact your administrator." };
   }
   revalidatePath("/", "layout");
