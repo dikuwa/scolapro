@@ -81,14 +81,14 @@ test("navigation attention API guards password-rotation-pending accounts", () =>
 
 test("avatar API rejects writes until mandatory rotation completes", () => {
   const route = read("src/app/api/profile/avatar/route.ts");
-  assert.match(route, /securityProfile\.must_change_password === true/);
+  assert.match(route, /securityProfile\.must_change_password !== false/);
   assert.match(route, /status: 403/);
   assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("await request.formData()"));
 });
 
 test("signed avatar upload action checks password rotation before creating token", () => {
   const action = read("src/features/profile/server/avatar-upload.ts");
-  assert.match(action, /securityProfile\.must_change_password === true/);
+  assert.match(action, /securityProfile\.must_change_password !== false/);
   assert.ok(action.indexOf("securityProfile.must_change_password") < action.indexOf("createSignedUploadUrl(path)"));
 });
 
@@ -96,7 +96,7 @@ test("avatar save and deletion actions fail closed before storage operations", (
   const actions = read("src/features/profile/server/actions.ts");
   for (const name of ["saveUploadedAvatar", "deleteAvatar"]) {
     const section = actions.slice(actions.indexOf(`export async function ${name}(`));
-    assert.match(section, /securityProfile\.must_change_password === true/);
+    assert.match(section, /securityProfile\.must_change_password !== false/);
     assert.ok(section.indexOf("securityProfile.must_change_password") < section.indexOf('admin.storage.from("avatars")') || name === "deleteAvatar");
   }
 });
@@ -167,7 +167,7 @@ test("class-list export denies unresolved rotation authority with JSON 403", () 
 
 test("report card signed artifact URLs cannot be issued before password rotation", () => {
   const route = read("src/app/api/report-card-documents/[documentId]/route.ts");
-  assert.match(route, /securityProfile\.must_change_password === true/);
+  assert.match(route, /securityProfile\.must_change_password !== false/);
   assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("createSignedUrl(document.storage_path, 90)"));
 });
 
@@ -183,7 +183,7 @@ test("report batch and teaching file URLs require password rotation clearance", 
     "src/app/api/teaching/files/[documentId]/route.ts",
   ]) {
     const route = read(path);
-    assert.match(route, /securityProfile\.must_change_password === true/);
+    assert.match(route, /securityProfile\.must_change_password !== false/);
     assert.match(route, /status: 403/);
     assert.ok(route.indexOf("securityProfile.must_change_password") < route.indexOf("createSignedUrl("));
   }
@@ -199,7 +199,7 @@ test("teaching inspection and professional review downloads enforce rotation gat
     assert.match(route, /status: 403/);
   }
   const review = read("src/app/api/teaching/reviews/professional-files/[id]/route.ts");
-  assert.match(review, /securityProfile\.must_change_password === true/);
+  assert.match(review, /securityProfile\.must_change_password !== false/);
   assert.ok(review.indexOf("securityProfile.must_change_password") < review.indexOf("createSignedUrl("));
 });
 
