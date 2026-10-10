@@ -8,11 +8,6 @@ import { getOperationalCalendarWorkspace } from "@/features/calendar/server/oper
 import { getTeachingImpactWorkspace } from "@/features/calendar/server/teaching-impact";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
-function dateLabel(value: string | null) {
-  if (!value) return "Not configured";
-  return new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${value}T12:00:00`));
-}
-
 export default async function CalendarPage() {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/calendar");
@@ -47,7 +42,7 @@ export default async function CalendarPage() {
     <AppShell>
       <section>
         <div className="mb-6">
-          <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Calendar</h1>
+          <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">School Calendar</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
             Learner opening/closing dates are the operational school calendar for {membership.schoolName}; teacher dates remain administrative.
             School activities and HOD/department deadlines are informational by default, while approved calendar adjustments change learner attendance and timetable resolution.
@@ -77,39 +72,6 @@ export default async function CalendarPage() {
             <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span>
           </div>
         </div>
-
-        <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-          <div className="border-b border-border-subtle pb-4">
-            <h2 className="scolapro-section-title">Academic calendar structure</h2>
-            <p className="scolapro-section-description">
-              Canonical learner term boundaries are the shared source for attendance, registers, curriculum pacing, teaching plans, assessments, reporting and timetable capacity.
-            </p>
-          </div>
-          {calendar.academicYear ? (
-            <div className="mt-4 space-y-3">
-              <div className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-3">
-                <div><p className="text-xs text-muted-foreground">Learner year starts</p><p className="mt-1 scolapro-record-title">{dateLabel(calendar.academicYear.startsOn)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Learner year ends</p><p className="mt-1 scolapro-record-title">{dateLabel(calendar.academicYear.endsOn)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Status</p><p className="mt-1 scolapro-record-title capitalize">{calendar.academicYear.status}</p></div>
-              </div>
-              <div className="divide-y divide-border-subtle">
-                {calendar.terms.map((term) => (
-                  <div key={term.id} className="grid gap-2 py-3 sm:grid-cols-[8rem_1fr_1fr_auto] sm:items-center">
-                    <p className="scolapro-record-title">{term.name}</p>
-                    <p className="text-xs text-muted-foreground">{dateLabel(term.startsOn)}</p>
-                    <p className="text-xs text-muted-foreground">{dateLabel(term.endsOn)}</p>
-                    <span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs capitalize text-muted-foreground">{term.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-[var(--radius-sm)] bg-warning-soft px-4 py-5">
-              <p className="text-sm font-medium text-[color:var(--warning)]">Academic year dates are not configured yet</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">Configure the academic-year foundation before adding operational calendar events.</p>
-            </div>
-          )}
-        </section>
 
         <div className="mt-5">
           <OperationalCalendarManager
