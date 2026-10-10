@@ -64,7 +64,7 @@ export function AbsenceOverview({
     const needle = query.trim().toLowerCase();
     return rows.filter((row) => {
       const sourceMatch = sourceFilter === "all" || row.source === sourceFilter;
-      const searchMatch = !needle || row.learnerName.toLowerCase().includes(needle) || (row.subjectName ?? "").toLowerCase().includes(needle);
+      const searchMatch = !needle || row.learnerName.toLowerCase().includes(needle) || row.learnerNameAlternate.toLowerCase().includes(needle) || (row.subjectName ?? "").toLowerCase().includes(needle);
       return sourceMatch && searchMatch;
     });
   }, [query, rows, sourceFilter]);

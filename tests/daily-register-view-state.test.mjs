@@ -3,10 +3,13 @@ import test from "node:test";
 
 import { getDailyRegisterExceptions, getVisibleDailyRegisterRows } from "../src/features/attendance/daily-register-view-state.ts";
 
-const learner = (enrolmentId, name, sex) => ({
+// Learner factory — names now follow Surname GivenNames policy (#1208).
+// nameAlternate carries the GivenNames Surname order for both-order search.
+const learner = (enrolmentId, name, nameAlternate, sex) => ({
   enrolmentId,
   learnerId: `learner-${enrolmentId}`,
   name,
+  nameAlternate,
   admissionNumber: enrolmentId,
   sex,
   status: "present",
@@ -16,9 +19,9 @@ const learner = (enrolmentId, name, sex) => ({
 
 test("sort and sex filters preserve unsaved attendance edits through submission", () => {
   let draftRows = [
-    learner("003", "Zelda Ndeitunga", "female"),
-    learner("001", "Andreas Amutenya", "male"),
-    learner("002", "Maria Hamukoto", "female"),
+    learner("003", "Ndeitunga Zelda",  "Zelda Ndeitunga",  "female"),
+    learner("001", "Amutenya Andreas", "Andreas Amutenya", "male"),
+    learner("002", "Hamukoto Maria",   "Maria Hamukoto",   "female"),
   ];
 
   draftRows = draftRows.map((row) => row.enrolmentId === "001"
@@ -30,7 +33,7 @@ test("sort and sex filters preserve unsaved attendance edits through submission"
 
   assert.deepEqual(
     getVisibleDailyRegisterRows(draftRows, "", "all", "desc").map((row) => row.name),
-    ["Zelda Ndeitunga", "Maria Hamukoto", "Andreas Amutenya"],
+    ["Ndeitunga Zelda", "Hamukoto Maria", "Amutenya Andreas"],
   );
   assert.deepEqual(
     getVisibleDailyRegisterRows(draftRows, "", "female", "desc").map((row) => [row.enrolmentId, row.status, row.reasonId]),

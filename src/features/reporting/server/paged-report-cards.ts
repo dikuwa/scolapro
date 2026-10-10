@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type ReportCardStatusFilter = "all" | "not_generated" | "generated" | "certified" | "published";
 export type ReportCardScopeType = "school" | "grade" | "class";
@@ -65,7 +66,7 @@ function mapStatusRow(row: ReportCardStatusRpcRow, remark = ""): ReportCardStatu
   return {
     enrolmentId: row.enrolment_id,
     learnerId: row.learner_id,
-    name: `${row.first_names} ${row.surname}`.trim(),
+    name: formatLearnerName(row.first_names, row.surname),
     admissionNumber: row.admission_number,
     gradeId: row.grade_id,
     grade: row.grade_name,

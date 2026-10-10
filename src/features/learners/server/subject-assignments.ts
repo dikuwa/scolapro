@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { SchoolMembershipContext } from "@/lib/auth/get-user-context";
-import { formatPersonName } from "@/lib/person-name";
+import { formatLearnerName } from "@/lib/person-name";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type {
   LearnerSubjectWorkspaceData,
@@ -101,7 +101,7 @@ export async function getLearnerSubjectWorkspace(
   const registerClass = one(enrolment.register_classes as NamedRelation);
   return {
     learnerId,
-    learnerName: formatPersonName(`${learner?.first_names ?? ""} ${learner?.surname ?? ""}`),
+    learnerName: formatLearnerName(learner?.first_names, learner?.surname),
     enrolmentId: enrolment.id,
     academicYear: enrolment.academic_year,
     gradeLabel: grade?.display_name ?? "Unassigned grade",

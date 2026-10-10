@@ -1,6 +1,7 @@
 import "server-only";
 
 import { buildSchoolDocumentProfile } from "@/features/documents/server/school-document-profile";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -248,7 +249,7 @@ export function buildReportCardTemplateModel(input: ReportCardRenderInput): Repo
     schoolDocumentProfile: snapshot.school_document_profile,
   });
 
-  const learnerName = [learner.first_names, learner.surname].map(text).filter(Boolean).join(" ");
+  const learnerName = formatLearnerName(text(learner.first_names), text(learner.surname));
   const terms = termsFromSnapshot(snapshot);
   const currentTermNumber = number(currentTerm.number) ?? terms.at(-1)?.number ?? 1;
   const currentTermName = text(currentTerm.name) || terms.find((term) => term.number === currentTermNumber)?.name || `Term ${currentTermNumber}`;

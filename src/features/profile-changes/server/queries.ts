@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type ProfileChangeRequestRow = {
   id: string;
@@ -33,7 +34,7 @@ export async function getSchoolProfileChangeRequests(schoolId: string): Promise<
     : { data: [], error: null };
   if (learnerError) throw new Error("Unable to load learners for data correction requests.");
 
-  const names = new Map((learners ?? []).map((learner) => [learner.id, `${learner.first_names} ${learner.surname}`.trim()]));
+  const names = new Map((learners ?? []).map((learner) => [learner.id, formatLearnerName(learner.first_names, learner.surname)]));
   return (requests ?? []).map((row) => ({
     id: row.id,
     learnerId: row.learner_id,

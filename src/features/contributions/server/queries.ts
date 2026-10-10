@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type ContributionCampaign = {
   id: string;
@@ -119,7 +120,7 @@ export async function getContributionWorkspace(schoolId: string, academicYear: n
       contributions.push({
         id: row.id,
         learnerId: row.learner_id,
-        learnerName: learner ? `${learner.first_names} ${learner.surname}` : "Unknown",
+        learnerName: formatLearnerName(learner?.first_names, learner?.surname),
         admissionNumber: null,
         grade: "",
         registerClass: "",

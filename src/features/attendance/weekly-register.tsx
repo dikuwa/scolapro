@@ -98,7 +98,10 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
   const filteredRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return rows.filter((row) => {
-      const searchMatch = !needle || `${row.name} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle);
+      const searchMatch = !needle || (
+        `${row.name} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle) ||
+        `${row.nameAlternate} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle)
+      );
       const sexMatch = sexFilter === "all" || (row.sex ?? "").toLowerCase() === sexFilter;
       return searchMatch && sexMatch;
     });

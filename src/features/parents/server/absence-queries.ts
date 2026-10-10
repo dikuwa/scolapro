@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type AbsenceNoticeSummary = {
   id: string;
@@ -45,7 +46,7 @@ export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]>
     return {
       id: row.id,
       learnerId: row.learner_id,
-      learnerName: learner ? `${learner.first_names} ${learner.surname}` : "Unknown",
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname),
       absenceFrom: row.absence_from,
       absenceTo: row.absence_to,
       reasonCategory: row.reason_category,
@@ -81,7 +82,7 @@ export async function getSchoolAbsenceNotices(schoolId: string): Promise<Absence
     return {
       id: row.id,
       learnerId: row.learner_id,
-      learnerName: learner ? `${learner.first_names} ${learner.surname}` : "Unknown",
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname),
       absenceFrom: row.absence_from,
       absenceTo: row.absence_to,
       reasonCategory: row.reason_category,

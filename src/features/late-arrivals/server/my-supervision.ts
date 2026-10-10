@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type MyDetentionSupervisionItem = {
   obligationId: string;
@@ -113,7 +114,7 @@ export async function getMyDetentionSupervision(input: {
       obligationId: row.obligation_id,
       schoolId: row.school_id,
       learnerId: row.learner_id,
-      learnerName: `${row.learner_first_names} ${row.learner_surname}`.trim(),
+      learnerName: formatLearnerName(row.learner_first_names, row.learner_surname),
       academicYear: row.academic_year,
       triggeredOn: row.triggered_on,
       originalDueOn: row.original_due_on,

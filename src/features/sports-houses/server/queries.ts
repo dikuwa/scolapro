@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
 
 export type SportsHouse = {
@@ -206,7 +207,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
 
   const learners: SportsLearner[] = ((learnerRosterResult.data ?? []) as LearnerRosterRow[]).map((row) => ({
     id: row.learner_id,
-    name: `${row.first_names} ${row.surname}`.trim() || "Learner",
+    name: formatLearnerName(row.first_names, row.surname),
     admissionNumber: row.admission_number,
     houseId: row.house_id,
     houseName: row.house_name,

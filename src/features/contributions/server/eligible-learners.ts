@@ -1,5 +1,6 @@
 import { listLearnersForSchool, type LearnerListItem } from "@/features/learners/server/queries";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export async function listContributionEligibleLearners(
   schoolId: string,
@@ -44,7 +45,7 @@ export async function listContributionEligibleLearners(
     const registerClass = Array.isArray(row.register_classes) ? row.register_classes[0] : row.register_classes;
     return {
       id: learner.id,
-      name: `${learner.first_names} ${learner.surname}`.trim(),
+      name: formatLearnerName(learner.first_names, learner.surname),
       preferredName: learner.preferred_name,
       admissionNumber: row.admission_number,
       grade: grade?.display_name ?? "Unassigned",
