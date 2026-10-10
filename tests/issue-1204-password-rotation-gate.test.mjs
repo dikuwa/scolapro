@@ -336,3 +336,11 @@ test("privileged staff Auth lookups enforce school placement before revealing li
   assert.ok(section.indexOf('.from("staff_school_assignments")') < section.indexOf('.from("staff_members")'));
   assert.ok(section.indexOf('.from("staff_school_assignments")') < section.indexOf("admin.auth.admin.getUserById"));
 });
+
+test("password reset lookup excludes historical and future school placements", () => {
+  const actions = read("src/features/staff/server/access-actions.ts");
+  const section = actions.slice(actions.indexOf("async function linkedAuthEmail("), actions.indexOf("export async function sendStaffPasswordReset("));
+  assert.match(section, /\.lte\("effective_from",/);
+  assert.match(section, /effective_to\.is\.null,effective_to\.gte\./);
+  assert.ok(section.indexOf('.lte("effective_from"') < section.indexOf("admin.auth.admin.getUserById"));
+});
