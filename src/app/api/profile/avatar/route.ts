@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     .select("must_change_password")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
     return NextResponse.json({ message: "Complete account security setup before changing your avatar." }, { status: 403 });
   }
 
