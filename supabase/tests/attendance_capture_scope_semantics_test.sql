@@ -4,11 +4,17 @@ begin;
 --   1. Official class-register capture is bound to the assigned register teacher,
 --      with governed school-leadership / Platform Admin correction retained and
 --      HOD review explicitly NOT granting capture authority.
---   2. A subject-period observation can only target a learner inside the allocated
+--   2. Register-class authority is effective-dated: an expired membership is denied
+--      even for the assigned register teacher.
+--   3. Subject-period authority is owned by the pre-existing actor-integrity helper
+--      (effective-dated allocation + current staff placement); a non-allocated
+--      teacher cannot reach the subject RPC directly.
+--   4. A subject-period observation can only target a learner inside the allocated
 --      register class and, where the allocation is grouped, inside that group.
--- Subject-period *authority* itself (placement + allocation + leadership) is owned
--- by the pre-existing actor-integrity helpers and is not re-tested here.
-select plan(7);
+--   5. Direct table writes to attendance_events remain closed to authenticated
+--      callers (no INSERT/UPDATE/DELETE privilege); the group-scope trigger is the
+--      row-level backstop.
+select plan(16);
 
 -- Today's ISO weekday may be Saturday/Sunday in CI, so make the fixture school
 -- explicitly seven-day capable rather than relying on the Monday-Friday default.
@@ -20,7 +26,8 @@ insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('12140000-0000-4000-8000-000000000001','1214-register@example.test','authenticated','authenticated',now(),now()),
   ('12140000-0000-4000-8000-000000000002','1214-subject@example.test','authenticated','authenticated',now(),now()),
   ('12140000-0000-4000-8000-000000000003','1214-hod@example.test','authenticated','authenticated',now(),now()),
-  ('12140000-0000-4000-8000-000000000004','1214-admin@example.test','authenticated','authenticated',now(),now());
+  ('12140000-0000-4000-8000-000000000004','1214-admin@example.test','authenticated','authenticated',now(),now()),
+  ('12140000-0000-4000-8000-000000000005','1214-platform@example.test','authenticated','authenticated',now(),now());
 
 insert into public.staff_members(id,tenant_id,user_id,employee_number,first_name,last_name,status) values
   ('12141000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','12140000-0000-4000-8000-000000000001','ISS1214-R','Register','Teacher','active'),
@@ -37,6 +44,9 @@ insert into public.school_memberships(tenant_id,school_id,user_id,staff_member_i
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','12140000-0000-4000-8000-000000000002','12141000-0000-4000-8000-000000000002','teacher',current_date-30),
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','12140000-0000-4000-8000-000000000003','12141000-0000-4000-8000-000000000003','hod',current_date-30),
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','12140000-0000-4000-8000-000000000004',null,'school_admin',current_date-30);
+
+insert into public.platform_memberships(user_id,role_key,active_from) values
+  ('12140000-0000-4000-8000-000000000005','platform_admin',current_date-30);
 
 update public.register_classes
 set register_teacher_staff_id='12141000-0000-4000-8000-000000000001'
@@ -65,6 +75,95 @@ select is(app_private.can_record_register_class('40000000-0000-4000-8000-0000000
 
 select set_config('request.jwt.claim.sub','12140000-0000-4000-8000-000000000004',true);
 select ok(app_private.can_record_register_class('40000000-0000-4000-8000-00000000001a'),'school admin retains governed register correction authority');
+
+select set_config('request.jwt.claim.sub','12140000-0000-4000-8000-000000000005',true);
+select ok(app_private.can_record_register_class('40000000-0000-4000-8000-00000000001a'),'platform admin retains governed register correction authority');
+
+-- Effective-dated register authority: an expired membership is denied.
+set local session_replication_role = replica;
+update public.school_memberships set active_to=current_date-1
+where school_id='22222222-2222-4222-8222-222222222222'
+  and user_id='12140000-0000-4000-8000-000000000001';
+set local session_replication_role = origin;
+select set_config('request.jwt.claim.sub','12140000-0000-4000-8000-000000000001',true);
+select throws_ok(
+  $$select app_private.can_record_register_class('40000000-0000-4000-8000-00000000001a')$$,
+  'Permission denied',
+  'expired register-teacher membership is denied register capture'
+);
+set local session_replication_role = replica;
+update public.school_memberships set active_to=null
+where school_id='22222222-2222-4222-8222-222222222222'
+  and user_id='12140000-0000-4000-8000-000000000001';
+set local session_replication_role = origin;
+select ok(app_private.can_record_register_class('40000000-0000-4000-8000-00000000001a'),'restored register-teacher membership regains capture');
+
+-- --- Subject-period authority (actor integrity, effective-dated) ------------
+select set_config('request.jwt.claim.sub','12140000-0000-4000-8000-000000000002',true);
+select ok(
+  app_private.can_record_subject_attendance('12147000-0000-4000-8000-000000000001',current_date),
+  'allocated subject teacher can record the active period'
+);
+
+set local session_replication_role = replica;
+update public.teacher_allocations set active_to=current_date-1
+where id='12145000-0000-4000-8000-000000000001';
+set local session_replication_role = origin;
+select is(
+  app_private.can_record_subject_attendance('12147000-0000-4000-8000-000000000001',current_date),
+  false,
+  'expired subject allocation is denied capture'
+);
+
+set local session_replication_role = replica;
+update public.teacher_allocations set active_to=null
+where id='12145000-0000-4000-8000-000000000001';
+update public.staff_school_assignments set effective_to=current_date-1
+where staff_member_id='12141000-0000-4000-8000-000000000002'
+  and school_id='22222222-2222-4222-8222-222222222222';
+update public.school_memberships set active_to=current_date-1
+where user_id='12140000-0000-4000-8000-000000000002'
+  and school_id='22222222-2222-4222-8222-222222222222';
+set local session_replication_role = origin;
+select is(
+  app_private.can_record_subject_attendance('12147000-0000-4000-8000-000000000001',current_date),
+  false,
+  'withdrawn staff placement is denied subject capture'
+);
+
+set local session_replication_role = replica;
+update public.staff_school_assignments set effective_to=null
+where staff_member_id='12141000-0000-4000-8000-000000000002'
+  and school_id='22222222-2222-4222-8222-222222222222';
+update public.school_memberships set active_to=null
+where user_id='12140000-0000-4000-8000-000000000002'
+  and school_id='22222222-2222-4222-8222-222222222222';
+set local session_replication_role = origin;
+
+-- A non-allocated teacher cannot reach the subject RPC directly.
+select set_config('request.jwt.claim.sub','12140000-0000-4000-8000-000000000001',true);
+select throws_ok(
+  $$select public.submit_subject_period_attendance('12147000-0000-4000-8000-000000000001',current_date)$$,
+  'Permission denied',
+  'direct subject-period RPC by a non-allocated teacher is denied'
+);
+
+-- --- Direct-write closure ---------------------------------------------------
+select ok(
+  not has_table_privilege('authenticated','public.attendance_events','INSERT')
+  and not has_table_privilege('authenticated','public.attendance_events','UPDATE')
+  and not has_table_privilege('authenticated','public.attendance_events','DELETE'),
+  'authenticated callers cannot write attendance_events directly'
+);
+select ok(
+  exists (
+    select 1 from pg_trigger
+    where tgrelid='public.attendance_events'::regclass
+      and tgname='zz_subject_attendance_group_scope_trg'
+      and not tgisinternal
+  ),
+  'subject group-scope trigger remains attached to attendance_events'
+);
 
 -- --- Subject-period per-learner group scope --------------------------------
 select is(
