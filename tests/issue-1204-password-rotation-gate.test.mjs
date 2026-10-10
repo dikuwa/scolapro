@@ -505,3 +505,19 @@ test("school-managed credential reservation rejects shared account identities", 
       migration.indexOf("Cross-school accounts cannot use managed school credentials"),
   );
 });
+
+
+test("staff directory exposes an explicitly confirmed one-time credential control", () => {
+  const directory = read("src/features/staff/staff-access-manager.tsx");
+  const control = read("src/features/staff/staff-temporary-credential-control.tsx");
+  const action = read("src/features/staff/server/temporary-credential-actions.ts");
+  assert.match(directory, /row\.staffId && <StaffTemporaryCredentialControl/);
+  assert.match(control, /setConfirming\(true\)/);
+  assert.match(control, /Confirm issuance/);
+  assert.match(control, /issueStaffTemporaryCredentialAction\(formData\)/);
+  assert.match(control, /setCredential\(null\)/);
+  assert.match(control, /navigator\.clipboard\.writeText/);
+  assert.doesNotMatch(control, /localStorage|sessionStorage|console\.(log|info)|sendMail/);
+  assert.match(action, /await issueStaffTemporaryCredential\(/);
+  assert.doesNotMatch(action, /auth\.admin\.|createSupabaseAdminClient/);
+});
