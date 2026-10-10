@@ -37,7 +37,7 @@ insert into public.school_memberships (
   tenant_id,school_id,user_id,staff_member_id,role_key,active_from
 ) values
   ('a1000000-0000-4000-8000-000000000001','a2000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000001','a4000000-0000-4000-8000-000000000001','school_admin','2026-01-01'),
-  ('a1000000-0000-4000-8000-000000000001','a2000000-0000-4000-8000-000000000001','a3000000-0000-4000-8000-000000000003','a4000000-0000-4000-8000-000000000003','school_admin','2026-01-01');
+  ('a1000000-0000-4000-8000-000000000001','a2000000-0000-4000-8000-000000000002','a3000000-0000-4000-8000-000000000003','a4000000-0000-4000-8000-000000000003','school_admin','2026-01-01');
 
 select set_config('request.jwt.claim.role','service_role',true);
 
@@ -105,7 +105,7 @@ select throws_ok(
   )$$,
   '42501',
   'Protected administrator credentials cannot be issued here',
-  'active school-admin targets are protected'
+  'school-admin targets are protected even when their admin authority belongs to another school'
 );
 
 select throws_ok(
