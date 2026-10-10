@@ -207,6 +207,7 @@ export async function correctStaffDetails(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = correctionSchema.safeParse({
     schoolId: formData.get("schoolId"),
     staffMemberId: formData.get("staffMemberId"),
@@ -245,6 +246,7 @@ export async function reconcileStaffIdentities(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = reconciliationSchema.safeParse({
     schoolId: formData.get("schoolId"),
     canonicalStaffMemberId: formData.get("canonicalStaffMemberId"),
