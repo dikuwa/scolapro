@@ -15,7 +15,7 @@ export function generateStaffTemporaryPassword(): string {
 export function fingerprintStaffTemporaryPassword(
   password: string,
   secret: string,
-): Promise<string> {
+): string {
   if (secret.length < 32) throw new Error("Credential audit secret is not configured securely.");
   return createHmac("sha256", secret).update(password).digest("hex");
 }
