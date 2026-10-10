@@ -15,7 +15,10 @@ export function getVisibleDailyRegisterRows(
   return rows
     .map((row, originalIndex) => ({ row, originalIndex }))
     .filter(({ row }) => {
-      const searchMatch = !needle || `${row.name} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle);
+      const searchMatch = !needle || (
+        `${row.name} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle) ||
+        `${row.nameAlternate} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle)
+      );
       const sexMatch = sexFilter === "all" || (row.sex ?? "").toLowerCase() === sexFilter;
       return searchMatch && sexMatch;
     })

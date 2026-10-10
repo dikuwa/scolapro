@@ -15,7 +15,7 @@ import {
 } from "@/features/learners/class-list-types";
 import type { SchoolMembershipContext } from "@/lib/auth/get-user-context";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
-import { formatPersonName } from "@/lib/person-name";
+import { formatLearnerName, formatPersonName } from "@/lib/person-name";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const guardianRoles = new Set(["school_admin", "principal", "deputy_principal", "class_teacher", "hod", "counsellor"]);
@@ -424,7 +424,7 @@ export async function getClassListWorkspace(input: {
     const registerClass = one(item.register_classes);
     return {
       learnerId: item.learner_id,
-      learnerName: formatPersonName(`${learner?.first_names ?? ""} ${learner?.surname ?? ""}`),
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname),
       admissionNumber: item.admission_number,
       sex: learner?.sex ?? null,
       registerClass: registerClass?.display_name ?? "Unassigned",

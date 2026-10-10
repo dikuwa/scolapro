@@ -1,5 +1,6 @@
 import { getNamibiaDateKey } from "@/lib/namibia-date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type LearnerListItem = {
   id: string;
@@ -76,7 +77,7 @@ export async function listLearnersForSchool(schoolId: string, academicYear: numb
     const registerClass = Array.isArray(row.register_classes) ? row.register_classes[0] : row.register_classes;
     return {
       id: learner.id,
-      name: `${learner.first_names} ${learner.surname}`.trim(),
+      name: formatLearnerName(learner.first_names, learner.surname),
       preferredName: learner.preferred_name,
       admissionNumber: row.admission_number,
       grade: grade?.display_name ?? "Unassigned",
@@ -134,7 +135,7 @@ export async function listLearnerDirectoryPage(
   return {
     learners: rows.map((row) => ({
       id: row.learner_id,
-      name: `${row.first_names} ${row.surname}`.trim(),
+      name: formatLearnerName(row.first_names, row.surname),
       preferredName: row.preferred_name,
       admissionNumber: row.admission_number,
       grade: row.grade_name,
@@ -184,7 +185,7 @@ export async function getLearnerOverview(learnerId: string, schoolId: string): P
   return {
     id: learner.id,
     enrolmentId: data.id,
-    name: `${learner.first_names} ${learner.surname}`.trim(),
+    name: formatLearnerName(learner.first_names, learner.surname),
     preferredName: learner.preferred_name,
     firstNames: learner.first_names,
     surname: learner.surname,

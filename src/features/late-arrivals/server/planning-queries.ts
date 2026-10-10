@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type DetentionPlanningStaff = {
   id: string;
@@ -151,7 +152,7 @@ export async function getDetentionPlanning(schoolId: string, today: string) {
     return {
       obligationId: item.id,
       learnerId: item.learner_id,
-      learnerName: learner ? `${learner.first_names} ${learner.surname}` : "Learner",
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname),
       registerClass: enrolment?.register_class_id ? classMap.get(enrolment.register_class_id) ?? "Unassigned class" : "Unassigned class",
       dueOn: item.due_on,
       status: item.status,

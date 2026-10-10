@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName, formatPersonName } from "@/lib/person-name";
 
 export type AbsenceOverviewClass = { id: string; name: string; grade: string };
 
@@ -8,6 +9,8 @@ export type AbsenceOverviewRow = {
   source: "daily" | "lesson" | "guardian";
   learnerId: string;
   learnerName: string;
+  /** Given-first alternate for client-side both-order search. */
+  learnerNameAlternate: string;
   admissionNumber: string | null;
   /** Register class for school signals; null for guardian notices. */
   classId: string | null;
@@ -92,7 +95,8 @@ export async function getAbsenceOverviewWorkspace(
       key: `daily:${row.enrolment_id}:${row.register_class_id}`,
       source: "daily",
       learnerId: row.learner_id,
-      learnerName: `${row.first_names ?? ""} ${row.surname ?? ""}`.trim() || "Learner",
+      learnerName: formatLearnerName(row.first_names, row.surname),
+      learnerNameAlternate: [formatPersonName(row.first_names), formatPersonName(row.surname)].filter(Boolean).join(" "),
       admissionNumber: null,
       classId: row.register_class_id,
       className: schoolClass?.name ?? null,
@@ -131,7 +135,8 @@ export async function getAbsenceOverviewWorkspace(
       key: `lesson:${row.enrolment_id}:${row.timetable_slot_id}`,
       source: "lesson",
       learnerId: row.learner_id,
-      learnerName: `${row.first_names ?? ""} ${row.surname ?? ""}`.trim() || "Learner",
+      learnerName: formatLearnerName(row.first_names, row.surname),
+      learnerNameAlternate: [formatPersonName(row.first_names), formatPersonName(row.surname)].filter(Boolean).join(" "),
       admissionNumber: null,
       classId: rowClassId,
       className: schoolClass?.name ?? null,
@@ -152,7 +157,8 @@ export async function getAbsenceOverviewWorkspace(
       key: `guardian:${row.id}`,
       source: "guardian",
       learnerId: row.learner_id,
-      learnerName: learner ? `${learner.first_names} ${learner.surname}`.trim() : "Learner",
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname),
+      learnerNameAlternate: [formatPersonName(learner?.first_names), formatPersonName(learner?.surname)].filter(Boolean).join(" "),
       admissionNumber: null,
       classId: null,
       className: null,

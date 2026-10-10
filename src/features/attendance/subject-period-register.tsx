@@ -35,7 +35,7 @@ export function SubjectPeriodRegister({ roster, attendanceDate, offlineScope }: 
     else toast.error(state.message);
   }, [state]);
 
-  const visible = useMemo(() => { const n=query.trim().toLowerCase(); return rows.filter((row)=>!n||`${row.name} ${row.admissionNumber??""}`.toLowerCase().includes(n)); },[query,rows]);
+  const visible = useMemo(() => { const n=query.trim().toLowerCase(); return rows.filter((row)=>!n||`${row.name} ${row.admissionNumber??""}`.toLowerCase().includes(n)||`${row.nameAlternate} ${row.admissionNumber??""}`.toLowerCase().includes(n)); },[query,rows]);
   const exceptions = useMemo(() => rows.filter((row)=>row.status!=="present").map((row)=>({ enrolment_id:row.enrolmentId,status:row.status as "absent"|"late"|"excused"|"unknown",reason_id:row.reasonId,note:row.note })),[rows]);
   function update(id:string, changes:Partial<(typeof rows)[number]>) { setRows((current)=>current.map((row)=>row.enrolmentId===id?{...row,...changes}:row)); }
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { formatLearnerName } from "@/lib/person-name";
 
 export type LibraryTitle = {
   id: string;
@@ -196,7 +197,7 @@ export async function getLibraryWorkspace(schoolId: string, today: string, view:
   const learners: LibraryLearner[] = [];
   for (const row of (learnersResult.data ?? []) as LearnerRow[]) {
     if (learnerMap.has(row.learner_id)) continue;
-    const name = `${row.first_names} ${row.surname}`.trim();
+    const name = formatLearnerName(row.first_names, row.surname);
     const grade = row.grade_id ? gradeMap.get(row.grade_id) : null;
     const registerClass = row.register_class_id ? classMap.get(row.register_class_id) : null;
     const item: LibraryLearner = {
