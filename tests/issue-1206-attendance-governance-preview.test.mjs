@@ -75,8 +75,8 @@ test("register action lives in the document heading and shared preview controls 
   assert.match(actions, /event\.key === "Escape"/);
   assert.match(actions, /event\.key !== "Tab"/);
   assert.match(actions, /returnFocusRef\.current\?\.focus\(\)/);
-  assert.match(close, /variant = "soft"/);
-  assert.match(actions, /<CloseAction variant="danger"/);
+  assert.match(close, /variant = "danger-soft"/);
+  assert.match(actions, /<CloseAction variant="danger-soft"/);
 });
 
 test("register PDF is real A3 landscape output with separate sex sections", () => {

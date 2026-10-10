@@ -26,6 +26,14 @@ export const buttonVariants = cva(
         ghost: "bg-transparent text-muted-foreground hover:bg-surface-muted hover:text-foreground",
         success: "bg-success-soft text-[color:var(--success)] hover:bg-[color:var(--success)] hover:text-white",
         danger: "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)] hover:text-white",
+        /**
+         * Light red-tinted dismiss/close treatment. Keeps a quiet
+         * `--danger-soft` surface and a low-opacity danger hover instead of the
+         * saturated red fill used by `danger`, which stays reserved for
+         * destructive commits. Theme-aware through the shared danger tokens.
+         */
+        "danger-soft":
+          "bg-[color:var(--danger-soft)] text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15 hover:text-[color:var(--danger)]",
         "danger-ghost": "bg-transparent text-[color:var(--danger)] hover:bg-danger-soft hover:text-[color:var(--danger)]",
       },
       size: {

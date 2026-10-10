@@ -7,12 +7,12 @@ const closeAction = readFileSync("src/components/ui/close-action.tsx", "utf8");
 const responsibilities = readFileSync("src/features/responsibilities/responsibilities-workspace.tsx", "utf8");
 const register = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
 
-test("shared close action preserves the soft default and permits contextual variants", () => {
-  assert.match(closeAction, /variant = "soft"/);
+test("shared close action defaults to the light dismiss treatment and permits contextual variants", () => {
+  assert.match(closeAction, /variant = "danger-soft"/);
   assert.match(closeAction, /variant=\{variant\}/);
   assert.match(closeAction, /<X className="size-3\.5"/);
   assert.match(actions, /<CloseAction/);
-  assert.match(actions, /<CloseAction variant="danger"/);
+  assert.match(actions, /<CloseAction variant="danger-soft"/);
   assert.match(actions, /Close document preview/);
   assert.match(responsibilities, /<CloseAction/);
   assert.doesNotMatch(actions, /bg-\[color:var\(--danger\)\]/);

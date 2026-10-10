@@ -159,7 +159,7 @@ export function OfficialDocumentActions({
                     <a href={previewDownloadHref} download className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><Download className="size-3.5" aria-hidden="true" />Download PDF</a>
                   </>
                 ) : null}
-                <CloseAction variant="danger" onClick={() => setPreviewOpen(false)} ariaLabel="Close document preview" />
+                <CloseAction variant="danger-soft" onClick={() => setPreviewOpen(false)} ariaLabel="Close document preview" />
               </div>
             </div>
             <iframe
