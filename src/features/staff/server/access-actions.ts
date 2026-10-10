@@ -160,6 +160,8 @@ async function linkedAuthEmail(schoolId: string, staffMemberId: string) {
     .select("staff_member_id")
     .eq("school_id", schoolId)
     .eq("staff_member_id", staffMemberId)
+    .lte("effective_from", new Date().toISOString().slice(0, 10))
+    .or(`effective_to.is.null,effective_to.gte.${new Date().toISOString().slice(0, 10)}`)
     .limit(1)
     .maybeSingle();
   if (assignmentError || assignment?.staff_member_id !== staffMemberId) {
