@@ -9,8 +9,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { PeriodStepper } from "@/components/ui/week-picker";
 import { AttendanceSortControl, type AttendanceSortDirection } from "@/features/attendance/attendance-sort-control";
 import { dailyAttendanceViewIdentity } from "@/features/attendance/attendance-date-integrity";
+import { buildAttendanceNavigationHref, formatAttendanceDate, schoolDayShift } from "@/features/attendance/attendance-navigation";
 import { getDailyRegisterExceptions, getVisibleDailyRegisterRows, type DailyRegisterSexFilter } from "@/features/attendance/daily-register-view-state";
 import { submitDailyRegister, type DailyRegisterState } from "@/features/attendance/server/actions";
+import type { AttendanceCalendarNavigation } from "@/features/attendance/server/calendar-navigation";
 import { cacheDailyRegisterSnapshot, hasQueuedEvidence, queueDailyRegister } from "@/features/attendance/offline/daily-register-queue";
 import type { OfflineScope } from "@/lib/offline/db";
 import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOption, AttendanceTeachingDay } from "@/features/attendance/server/register";
@@ -30,13 +32,7 @@ function statusClass(status: AttendanceStatus, active: boolean) {
   return "bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/25";
 }
 
-function schoolDayShift(date: string, direction: -1 | 1) {
-  const current = new Date(`${date}T12:00:00`);
-  do current.setDate(current.getDate() + direction); while (current.getDay() === 0 || current.getDay() === 6);
-  return current.toISOString().slice(0, 10);
-}
-
-export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay, offlineScope, sort, initialSexFilter }: {
+export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay, calendarNavigation, offlineScope, sort, initialSexFilter }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   attendanceDate: string;
@@ -44,6 +40,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   reasons: AttendanceReasonOption[];
   currentSubmissionId: string | null;
   teachingDay: AttendanceTeachingDay;
+  calendarNavigation: AttendanceCalendarNavigation;
   offlineScope: OfflineScope;
   sort: AttendanceSortDirection;
   initialSexFilter: DailyRegisterSexFilter;
@@ -88,6 +85,17 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const presentCount = rows.filter((row) => isOfficiallyPresent(row.status)).length;
   const exceptionCount = rows.filter((row) => isOfficiallyAbsent(row.status)).length;
   const focusedRow = focusedId ? rows.find((row) => row.enrolmentId === focusedId) ?? null : null;
+  const hasUnsavedChanges = useMemo(() => {
+    if (Object.values(evidenceNames).some(Boolean) || rows.length !== learners.length) return true;
+    const initialById = new Map(learners.map((row) => [row.enrolmentId, row] as const));
+    return rows.some((row) => {
+      const initial = initialById.get(row.enrolmentId);
+      return !initial
+        || row.status !== initial.status
+        || row.reasonId !== initial.reasonId
+        || row.note !== initial.note;
+    });
+  }, [evidenceNames, learners, rows]);
 
   useEffect(() => {
     if (!selectedClassId) return;
@@ -152,23 +160,46 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
     updateRow(row.enrolmentId, { status, reasonId: status === "present" ? null : row.reasonId, note: status === "present" ? null : row.note });
   }
 
-  function moveDate(direction: -1 | 1) {
+  function startRegisterNavigation(href: string) {
     setFocusedId(null);
-    const params = new URLSearchParams();
-    params.set("view", "day");
-    if (selectedClassId) params.set("class", selectedClassId);
-    params.set("date", schoolDayShift(attendanceDate, direction));
-    if (sortDirection === "desc") params.set("sort", "desc");
-    if (sexFilter !== "all") params.set("sex", sexFilter);
-    startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
+    startNavigation(() => router.replace(href, { scroll: false }));
+  }
+
+  function requestRegisterNavigation(href: string) {
+    if (!hasUnsavedChanges) {
+      startRegisterNavigation(href);
+      return;
+    }
+    toast.warning("Unsaved attendance changes", {
+      description: "Save this register, or discard the draft to continue navigating.",
+      action: { label: "Discard and continue", onClick: () => startRegisterNavigation(href) },
+    });
+  }
+
+  function navigateToDate(date: string) {
+    if (date === attendanceDate || navigationPending) return;
+    requestRegisterNavigation(buildAttendanceNavigationHref({
+      view: "day",
+      classId: selectedClassId,
+      date,
+      sort: sortDirection,
+      sex: sexFilter,
+    }));
+  }
+
+  function moveDate(direction: -1 | 1) {
+    navigateToDate(schoolDayShift(attendanceDate, direction));
   }
 
   function chooseClass(classId: string) {
-    setFocusedId(null);
-    const params = new URLSearchParams({ view: "day", class: classId, date: attendanceDate });
-    if (sortDirection === "desc") params.set("sort", "desc");
-    if (sexFilter !== "all") params.set("sex", sexFilter);
-    startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
+    if (classId === selectedClassId || navigationPending) return;
+    requestRegisterNavigation(buildAttendanceNavigationHref({
+      view: "day",
+      classId,
+      date: attendanceDate,
+      sort: sortDirection,
+      sex: sexFilter,
+    }));
   }
 
   function persistRosterPreferences(nextSort: AttendanceSortDirection, nextSexFilter: DailyRegisterSexFilter) {
@@ -197,7 +228,30 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
           <Picker label="Register class" name="register-class-ui" value={selectedClassId ?? ""} onChange={chooseClass} placeholder="Choose a class" options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))} className="max-w-xl" />
           <div>
             <p className="text-xs font-medium text-muted-foreground lg:text-right">Attendance date</p>
-            <PeriodStepper className="mt-1.5" valueLabel={new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))} onPrevious={() => moveDate(-1)} onNext={() => moveDate(1)} previousLabel="Previous school day" nextLabel="Next school day" pending={navigationPending} />
+            <PeriodStepper
+              className="mt-1.5"
+              valueLabel={formatAttendanceDate(attendanceDate, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+              onPrevious={() => moveDate(-1)}
+              onNext={() => moveDate(1)}
+              previousLabel="Previous school day"
+              nextLabel="Next school day"
+              pending={navigationPending}
+              calendar={{
+                value: attendanceDate,
+                onChange: navigateToDate,
+                label: "Choose attendance date",
+                min: calendarNavigation.minDate,
+                max: calendarNavigation.maxDate,
+                getDateStatus: (date) => {
+                  const day = calendarNavigation.dayStates[date];
+                  if (!day || day.kind === "teaching") return null;
+                  return {
+                    label: day.reason ?? (day.kind === "out_of_term" ? "Outside learner term" : "Attendance unavailable"),
+                    tone: day.kind === "out_of_term" ? "muted" : "warning",
+                  };
+                },
+              }}
+            />
           </div>
         </div>
       </section>
