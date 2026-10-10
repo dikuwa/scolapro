@@ -39,3 +39,4 @@ create policy staff_credential_issuance_service_only
   on public.staff_credential_issuance_attempts
   for all to service_role using (true) with check (true);
 revoke all on table public.staff_credential_issuance_attempts from public, anon, authenticated;
+grant select on table public.staff_credential_issuance_attempts to service_role;
