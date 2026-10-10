@@ -155,13 +155,14 @@ async function linkedAuthEmail(schoolId: string, staffMemberId: string) {
   // Admin-client reads bypass RLS. Verify the staff identity is assigned to
   // the requested school before resolving a linked Auth account, even when a
   // school administrator supplies a valid identity from another school.
+  const schoolDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const { data: assignment, error: assignmentError } = await admin
     .from("staff_school_assignments")
     .select("staff_member_id")
     .eq("school_id", schoolId)
     .eq("staff_member_id", staffMemberId)
-    .lte("effective_from", new Date().toISOString().slice(0, 10))
-    .or(`effective_to.is.null,effective_to.gte.${new Date().toISOString().slice(0, 10)}`)
+    .lte("effective_from", schoolDate)
+    .or(`effective_to.is.null,effective_to.gte.${schoolDate}`)
     .limit(1)
     .maybeSingle();
   if (assignmentError || assignment?.staff_member_id !== staffMemberId) {
