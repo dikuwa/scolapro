@@ -5,6 +5,7 @@ import { z } from "zod";
 import { weeklySubmissionPeriodError } from "@/features/attendance/attendance-date-integrity";
 import { firstIneligibleWeeklyAttendanceDate } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
+import { canCaptureRegisterClass } from "@/features/attendance/server/capture-scope";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -65,10 +66,12 @@ export async function submitWeeklyRegister(_state: WeeklyRegisterState, formData
   });
   if (periodError) return { message: periodError };
 
+  if (parsed.data.days.some((day) => day.exceptions.some((item) => item.status !== "absent"))) {
+    return { message: "Official class attendance records Present or Absent only. Refresh and try again." };
+  }
+
   const context = await getUserContext();
-  const allowed = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
-  const canRecord = context.platformMemberships.some((item) => item.roleKey === "platform_admin") || context.memberships.some((item) => allowed.has(item.roleKey));
-  if (!context.user || !canRecord) return { message: "You do not have permission to record attendance." };
+  if (!context.user) return { message: "You do not have permission to record attendance." };
 
   for (const day of parsed.data.days) {
     for (const exception of day.exceptions) {
@@ -83,10 +86,36 @@ export async function submitWeeklyRegister(_state: WeeklyRegisterState, formData
 
   const { data: registerSchool } = await supabase
     .from("register_classes")
-    .select("school_id")
+    .select("school_id,register_teacher_staff_id")
     .eq("id", parsed.data.registerClassId)
     .maybeSingle();
   if (!registerSchool) return { message: "The register class could not be found. Refresh and try again." };
+  if (!canCaptureRegisterClass({
+    memberships: context.memberships,
+    platformRoles: context.platformMemberships.map((item) => item.roleKey),
+  }, {
+    schoolId: registerSchool.school_id,
+    registerTeacherStaffId: registerSchool.register_teacher_staff_id,
+  })) {
+    return { message: "You are not assigned to capture this register class." };
+  }
+
+  const exceptionIds = [...new Set(parsed.data.days.flatMap((day) => day.exceptions.map((item) => item.enrolment_id)))];
+  if (exceptionIds.length) {
+    const earliestDate = parsed.data.days[0].date;
+    const latestDate = parsed.data.days[parsed.data.days.length - 1].date;
+    const { data: scopedEnrolments, error: scopeError } = await supabase
+      .from("enrolments")
+      .select("id")
+      .eq("school_id", registerSchool.school_id)
+      .eq("register_class_id", parsed.data.registerClassId)
+      .lte("enrolled_from", latestDate)
+      .or(`enrolled_to.is.null,enrolled_to.gte.${earliestDate}`)
+      .in("id", exceptionIds);
+    if (scopeError || new Set((scopedEnrolments ?? []).map((item) => item.id)).size !== exceptionIds.length) {
+      return { message: "One or more attendance entries are outside this register class." };
+    }
+  }
 
   // Defence in depth: never persist a weekly register day that the shared
   // calendar marks NO_TEACHING, matching the UI gate shown to staff.

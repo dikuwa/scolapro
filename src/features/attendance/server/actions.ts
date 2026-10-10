@@ -6,6 +6,7 @@ import { dailySubmissionViewError } from "@/features/attendance/attendance-date-
 import { ineligibleDailyAttendanceDate } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
 import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
+import { canCaptureRegisterClass } from "@/features/attendance/server/capture-scope";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -68,12 +69,12 @@ export async function submitDailyRegister(
   const viewError = dailySubmissionViewError(parsed.data);
   if (viewError) return { message: viewError };
 
-  const context = await getUserContext();
-  const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
-  const canRecord = context.platformMemberships.some((item) => item.roleKey === "platform_admin")
-    || context.memberships.some((item) => allowedRoles.has(item.roleKey));
+  if (parsed.data.source === "online" && parsed.data.exceptions.some((item) => item.status !== "absent")) {
+    return { message: "Official class attendance records Present or Absent only. Refresh and try again." };
+  }
 
-  if (!context.user || !canRecord) return { message: "You do not have permission to record attendance." };
+  const context = await getUserContext();
+  if (!context.user) return { message: "You do not have permission to record attendance." };
 
   for (const exception of parsed.data.exceptions) {
     const evidence = formData.get(`evidence-${exception.enrolment_id}`);
@@ -86,10 +87,35 @@ export async function submitDailyRegister(
 
   const { data: registerSchool } = await supabase
     .from("register_classes")
-    .select("school_id")
+    .select("school_id,register_teacher_staff_id")
     .eq("id", parsed.data.registerClassId)
     .maybeSingle();
   if (!registerSchool) return { message: "The register class could not be found. Refresh and try again." };
+  const actor = {
+    memberships: context.memberships,
+    platformRoles: context.platformMemberships.map((item) => item.roleKey),
+  };
+  if (!canCaptureRegisterClass(actor, {
+    schoolId: registerSchool.school_id,
+    registerTeacherStaffId: registerSchool.register_teacher_staff_id,
+  })) {
+    return { message: "You are not assigned to capture this register class." };
+  }
+
+  if (parsed.data.exceptions.length) {
+    const exceptionIds = parsed.data.exceptions.map((item) => item.enrolment_id);
+    const { data: scopedEnrolments, error: scopeError } = await supabase
+      .from("enrolments")
+      .select("id")
+      .eq("school_id", registerSchool.school_id)
+      .eq("register_class_id", parsed.data.registerClassId)
+      .lte("enrolled_from", parsed.data.attendanceDate)
+      .or(`enrolled_to.is.null,enrolled_to.gte.${parsed.data.attendanceDate}`)
+      .in("id", exceptionIds);
+    if (scopeError || new Set((scopedEnrolments ?? []).map((item) => item.id)).size !== new Set(exceptionIds).size) {
+      return { message: "One or more attendance entries are outside this register class." };
+    }
+  }
 
   // Defence in depth: the calendar may mark the date NO_TEACHING. Capture is
   // blocked server-side so an accidental official register is never submitted
