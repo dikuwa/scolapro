@@ -69,7 +69,7 @@ test("matching school settings cards use shared edit and manage action semantics
 });
 
 test("other equivalent edit and manage surfaces use recognizable icons", () => {
-  assert.match(calendar, /<Pencil className="size-3\.5"/);
+  assert.match(calendar, /<RecordActionButton icon=\{Pencil\}/);
   assert.match(roomInventory, /<Settings2 className="size-4"/);
   assert.ok((sportsHouses.match(/<Settings2 className="size-4"/g) ?? []).length >= 2);
 });

@@ -19,6 +19,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { formFieldControlOffsetClass, formFieldLabelClass } from "@/components/ui/form-field-layout";
 import { Picker } from "@/components/ui/picker";
+import { RecordActionButton } from "@/components/ui/record-action-button";
 import { TimeField } from "@/components/ui/time-field";
 import {
   saveOperationalCalendarEvent,
@@ -210,6 +211,7 @@ function discrepancyCausesForTerm(
 
 function TermCalendarProfileEditor({
   term,
+  currentDate,
   canManage,
   open,
   onToggle,
@@ -218,6 +220,7 @@ function TermCalendarProfileEditor({
   learnerEvents,
 }: {
   term: TermCalendarSummary;
+  currentDate: string;
   canManage: boolean;
   open: boolean;
   onToggle: () => void;
@@ -243,43 +246,67 @@ function TermCalendarProfileEditor({
   const matches = hasOfficial && term.officialLearnerDayCount === term.calculatedLearnerDayCount;
   const discrepancyRows = discrepancyCausesForTerm(term, dayExceptions, learnerEvents);
   const reviewHref = discrepancyRows[0]?.href ?? "#calendar-adjustments";
+  const phase = !term.learnerStartsOn || !term.learnerEndsOn
+    ? "Needs dates"
+    : currentDate < term.learnerStartsOn
+      ? "Upcoming"
+      : currentDate > term.learnerEndsOn
+        ? "Closed"
+        : "Active";
+  const active = phase === "Active";
 
   return (
     <article
       className={[
-        "rounded-[var(--radius-sm)] border bg-surface p-3.5 transition",
+        "overflow-hidden rounded-[var(--radius-sm)] border bg-surface transition",
         open
-          ? "border-[color:var(--brand)]/45 ring-2 ring-[color:var(--brand-soft)] shadow-[var(--shadow-sm)]"
+          ? "border-[color:var(--brand)]/55 ring-2 ring-[color:var(--brand-soft)] shadow-[var(--shadow-sm)]"
           : "border-border-subtle",
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">{term.termName}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Learners {formatDate(term.learnerStartsOn)} – {formatDate(term.learnerEndsOn)}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Teachers {formatDate(term.teacherStartsOn)} – {formatDate(term.teacherEndsOn)}
-          </p>
+      <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className={[
+            "grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)] text-sm font-semibold",
+            active ? "bg-brand text-primary-foreground" : "bg-surface-muted text-muted-foreground",
+          ].join(" ")}>T{term.termNumber}</span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="scolapro-record-title">{term.termName}</h3>
+              <span className={[
+                "rounded-[var(--radius-xs)] px-1.5 py-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.04em]",
+                active ? "bg-success-soft text-[color:var(--success)]" : "bg-surface-muted text-muted-foreground",
+              ].join(" ")}>{phase}</span>
+              <span className={[
+                "rounded-[var(--radius-xs)] px-1.5 py-0.5 text-[0.65rem] font-semibold tabular-nums",
+                !hasOfficial ? "bg-surface-muted text-muted-foreground" : matches ? "bg-success-soft text-[color:var(--success)]" : "bg-warning-soft text-[color:var(--warning)]",
+              ].join(" ")}>
+                {term.calculatedLearnerDayCount}{hasOfficial ? ` / ${term.officialLearnerDayCount}` : ""} days
+                {hasOfficial && !matches ? ` (${Math.abs(term.calculatedLearnerDayCount - (term.officialLearnerDayCount ?? 0))} difference)` : ""}
+              </span>
+            </div>
+            <div className="mt-1 flex flex-col gap-1 text-[0.72rem] text-muted-foreground md:flex-row md:items-center md:gap-4">
+              <p><strong className="font-medium text-foreground">Learners:</strong> {formatDate(term.learnerStartsOn)} – {formatDate(term.learnerEndsOn)}</p>
+              <span className="hidden text-border md:inline">•</span>
+              <p><strong className="font-medium text-foreground">Teachers:</strong> {formatDate(term.teacherStartsOn)} – {formatDate(term.teacherEndsOn)}</p>
+            </div>
+          </div>
         </div>
-        <span
-          className={[
-            "rounded-[var(--radius-xs)] px-2 py-1 text-[0.68rem] font-semibold",
-            !hasOfficial
-              ? "bg-surface-muted text-muted-foreground"
-              : matches
-                ? "bg-success-soft text-[color:var(--success)]"
-                : "bg-warning-soft text-[color:var(--warning)]",
-          ].join(" ")}
-        >
-          {term.calculatedLearnerDayCount}
-          {hasOfficial ? ` / ${term.officialLearnerDayCount}` : ""} days
-        </span>
+        <div className="flex shrink-0 items-center justify-between gap-3 sm:justify-end">
+          {term.sourceLabel ? <p className="hidden max-w-64 truncate text-right text-[0.68rem] text-muted-foreground lg:block">{term.sourceLabel}</p> : null}
+          {canManage ? (
+            open ? (
+              <RecordActionButton icon={X} label={`Close ${term.termName}`} onClick={onToggle} expanded />
+            ) : (
+              <RecordActionButton icon={Pencil} label={`Edit ${term.termName}`} actionKind="edit" onClick={onToggle} expanded={false} />
+            )
+          ) : null}
+        </div>
       </div>
 
+      {open ? <div className="border-t border-border-subtle px-4 py-4 sm:px-5">
       {hasOfficial && !matches ? (
-        <div className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]">
+        <div className="rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2.5 text-xs text-[color:var(--warning)]">
           <div className="flex items-start gap-2">
             <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
             <div className="min-w-0">
@@ -322,24 +349,8 @@ function TermCalendarProfileEditor({
         </div>
       ) : null}
 
-      {open && term.sourceLabel ? (
-        <p className="mt-2 text-[0.68rem] leading-5 text-muted-foreground">
-          Source: {term.sourceLabel}
-          {term.sourceReference ? ` · ${term.sourceReference}` : ""}
-        </p>
-      ) : null}
-
       {canManage ? (
-        <>
-          <div className="mt-3">
-            <Button type="button" size="sm" variant={open ? "neutral" : "soft"} onClick={onToggle} aria-expanded={open}>
-              {open ? <X className="size-3.5" aria-hidden="true" /> : <Pencil className="size-3.5" aria-hidden="true" />}
-              {open ? "Close details" : "View / edit"}
-              {open ? <ChevronUp className="size-3.5" aria-hidden="true" /> : <ChevronDown className="size-3.5" aria-hidden="true" />}
-            </Button>
-          </div>
-          {open ? (
-            <form action={action} className="mt-3 grid gap-3 sm:grid-cols-2">
+            <form action={action} className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <input type="hidden" name="academicTermId" value={term.academicTermId} />
               <DateField
                 label="Learner opening"
@@ -394,7 +405,7 @@ function TermCalendarProfileEditor({
                   placeholder="Official calendar / circular"
                 />
               </div>
-              <div className="sm:col-span-2">
+              <div className="xl:col-span-1">
                 <label htmlFor={`source-ref-${term.academicTermId}`} className={formFieldLabelClass}>
                   Source reference (optional)
                 </label>
@@ -407,18 +418,18 @@ function TermCalendarProfileEditor({
                   placeholder="Document title, circular number or retained-source reference"
                 />
               </div>
-              <div className="sm:col-span-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-[0.7rem] leading-5 text-muted-foreground">
+              <div className="sm:col-span-2 xl:col-span-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-[0.7rem] leading-5 text-muted-foreground">
                 <strong className="text-foreground">Learner dates are operational.</strong> Attendance, register availability, curriculum pacing and normal teaching capacity follow learner opening and closing. Teacher dates remain administrative metadata for staff duty/leave records.
               </div>
-              <div className="sm:col-span-2">
+              <div className="flex justify-end gap-2 sm:col-span-2 xl:col-span-4">
+                <Button type="button" size="sm" variant="neutral" onClick={onClose}>Cancel</Button>
                 <Button type="submit" size="sm" loading={pending}>
                   Save term calendar
                 </Button>
               </div>
             </form>
-          ) : null}
-        </>
       ) : null}
+      </div> : null}
     </article>
   );
 }
@@ -426,6 +437,7 @@ function TermCalendarProfileEditor({
 export function OperationalCalendarManager({
   schoolId,
   year,
+  currentDate,
   terms,
   events,
   departments,
@@ -438,6 +450,7 @@ export function OperationalCalendarManager({
 }: {
   schoolId: string;
   year: number;
+  currentDate: string;
   terms: TermCalendarSummary[];
   events: OperationalCalendarEvent[];
   dayExceptions: TeachingImpactRow[];
@@ -510,27 +523,27 @@ export function OperationalCalendarManager({
 
   return (
     <div className="space-y-5">
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <section>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h2 className="scolapro-section-title">Academic terms & official calendar</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="scolapro-section-title">Academic terms & official calendar</h2>
+              <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.65rem] font-semibold text-muted-foreground">{terms.length} terms</span>
+            </div>
             <p className="scolapro-section-description">
-              Term boundaries govern attendance and timetable scheduling. Expand a term to review details or edit its dates.
+              Canonical term boundaries feed attendance registers, curriculum pacing, assessments and timetable capacity.
             </p>
           </div>
-          <div className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-right">
-            <p className="text-[0.65rem] font-medium text-muted-foreground">Resolved / published learner days</p>
-            <p className="mt-1 text-lg font-semibold tabular-nums">
-              {resolvedTotal}
-              {officialTotal ? ` / ${officialTotal}` : ""}
-            </p>
-          </div>
+          <p className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2 text-[0.68rem] text-muted-foreground">
+            Resolved / published learner days: <strong className="text-foreground">{resolvedTotal}{officialTotal ? ` / ${officialTotal}` : ""}</strong>
+          </p>
         </div>
         <div className="mt-4 space-y-2.5">
           {terms.map((term) => (
             <TermCalendarProfileEditor
               key={term.academicTermId}
               term={term}
+              currentDate={currentDate}
               canManage={canManageSchool}
               open={activeTermId === term.academicTermId}
               onToggle={() => setActiveTermId((current) => current === term.academicTermId ? null : term.academicTermId)}
@@ -542,7 +555,7 @@ export function OperationalCalendarManager({
         </div>
       </section>
 
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <section>
         <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-2.5">
             <span className="scolapro-tone-brand grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]">
