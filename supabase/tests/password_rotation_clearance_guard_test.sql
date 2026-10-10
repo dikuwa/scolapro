@@ -1,6 +1,22 @@
 begin;
 
-select plan(5);
+select plan(8);
+
+select has_column(
+  'public',
+  'user_profiles',
+  'password_rotation_expires_at',
+  'managed temporary credential expiry is stored on the security profile'
+);
+
+select ok(
+  exists (
+    select 1 from pg_constraint
+    where conname='user_profiles_password_rotation_expiry_state_check'
+      and conrelid='public.user_profiles'::regclass
+  ),
+  'temporary credential expiry requires a non-cleared rotation state'
+);
 
 select ok(
   exists (
@@ -38,13 +54,16 @@ select ok(
   (select pg_get_functiondef(p.oid) from pg_proc p
    join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'prevent_untrusted_password_rotation_clearance')
-  like '%old.must_change_password IS DISTINCT FROM false%'
-  or
+  ilike '%old.must_change_password is distinct from false%',
+  'null and true uncleared rotation flags cannot be cleared by a client'
+);
+
+select ok(
   (select pg_get_functiondef(p.oid) from pg_proc p
    join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public' and p.proname = 'prevent_untrusted_password_rotation_clearance')
-  like '%old.must_change_password is distinct from false%',
-  'null and true uncleared rotation flags cannot be cleared by a client'
+  ilike '%password_rotation_expires_at is distinct from old.password_rotation_expires_at%',
+  'authenticated clients cannot move or remove managed credential expiry'
 );
 
 select * from finish();
