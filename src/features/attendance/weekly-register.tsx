@@ -7,6 +7,12 @@ import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { WeekPicker } from "@/components/ui/week-picker";
+import {
+  buildWeeklyAttendancePayload,
+  weeklyAttendanceViewIdentity,
+  weeklyCellForDate,
+  weeklyRowsMatchDates,
+} from "@/features/attendance/attendance-date-integrity";
 import type { AttendanceClassOption, AttendanceReasonOption } from "@/features/attendance/server/register";
 import { submitWeeklyRegister, type WeeklyRegisterState } from "@/features/attendance/server/week-actions";
 import type { WeeklyCell, WeeklyLearnerRow } from "@/features/attendance/server/week";
@@ -37,6 +43,10 @@ function presentation(status: WeeklyStatus) {
   return { classes: "bg-success-soft text-[color:var(--success)]", icon: Check, label: "Present" };
 }
 
+function mutationIdsFor(dates: readonly string[]) {
+  return Object.fromEntries(dates.map((date) => [date, crypto.randomUUID()]));
+}
+
 export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, dates, learners, reasons, submissionIds, nonTeachingDates, nonTeachingReasons }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
@@ -52,13 +62,25 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
   const router = useRouter();
   const [state, action, pending] = useActionState(submitWeeklyRegister, initialState);
   const [navigationPending, startNavigation] = useTransition();
-  const [rows, setRows] = useState(learners);
+  const viewIdentity = weeklyAttendanceViewIdentity({ registerClassId: selectedClassId, weekStart, weekEnd, dates });
+  const [draft, setDraft] = useState(() => ({
+    viewIdentity,
+    rows: learners,
+    mutationIds: mutationIdsFor(dates),
+  }));
   const [activeKey, setActiveKey] = useState("");
   const [expandedMobileLearnerId, setExpandedMobileLearnerId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [sexFilter, setSexFilter] = useState<SexFilter>("all");
   const [evidenceNames, setEvidenceNames] = useState<Record<string, string>>({});
-  const [mutationIds] = useState(() => Object.fromEntries(dates.map((date) => [date, crypto.randomUUID()])));
+  if (draft.viewIdentity !== viewIdentity) {
+    setDraft({ viewIdentity, rows: learners, mutationIds: mutationIdsFor(dates) });
+    setActiveKey("");
+    setExpandedMobileLearnerId(null);
+    setEvidenceNames({});
+  }
+  const draftMatchesView = draft.viewIdentity === viewIdentity && weeklyRowsMatchDates(draft.rows, dates);
+  const rows = draftMatchesView ? draft.rows : learners;
 
   useEffect(() => {
     if (!state.message) return;
@@ -86,7 +108,7 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
   }, [query, rows, sexFilter]);
 
   let active: { row: WeeklyLearnerRow; cell: WeeklyCell } | null = null;
-  if (activeKey) {
+  if (activeKey && draftMatchesView && !navigationPending) {
     for (const row of rows) {
       const cell = row.days.find((day) => keyFor(row.enrolmentId, day.date) === activeKey);
       if (cell) { active = { row, cell }; break; }
@@ -95,17 +117,31 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
 
   // Non-teaching days are excluded from the payload entirely so a confirmation
   // never submits a register column for a date the calendar marks NO_TEACHING.
-  const payload = dates.filter((date) => !isNonTeaching(date)).map((date) => ({ date, client_mutation_id: mutationIds[date], replaces_submission_id: submissionIds[date] ?? null, exceptions: rows.flatMap((row) => {
-    const cell = row.days.find((day) => day.date === date);
-    return cell && cell.status !== "present" ? [{ enrolment_id: row.enrolmentId, status: cell.status, reason_id: cell.reasonId, note: cell.note }] : [];
-  }) }));
+  const payload = draftMatchesView
+    ? buildWeeklyAttendancePayload({
+        dates,
+        rows,
+        nonTeachingDates,
+        mutationIds: draft.mutationIds,
+        submissionIds,
+      })
+    : null;
+  const payloadDays = payload ?? [];
+  const integrityReady = draftMatchesView && payload !== null;
 
   function updateCell(enrolmentId: string, date: string, changes: Partial<WeeklyCell>) {
-    setRows((current) => current.map((row) => row.enrolmentId === enrolmentId ? { ...row, days: row.days.map((day) => day.date === date ? { ...day, ...changes } : day) } : row));
+    if (!integrityReady || navigationPending || !dates.includes(date)) return;
+    setDraft((current) => current.viewIdentity !== viewIdentity ? current : {
+      ...current,
+      rows: current.rows.map((row) => row.enrolmentId === enrolmentId
+        ? { ...row, days: row.days.map((day) => day.date === date ? { ...day, ...changes } : day) }
+        : row),
+    });
   }
 
-  function activateCell(row: WeeklyLearnerRow, cell: WeeklyCell) {
-    setActiveKey(keyFor(row.enrolmentId, cell.date));
+  function activateCell(row: WeeklyLearnerRow, date: string) {
+    if (!integrityReady || navigationPending || isNonTeaching(date) || !weeklyCellForDate(row, date)) return;
+    setActiveKey(keyFor(row.enrolmentId, date));
   }
 
   function isNonTeaching(date: string) {
@@ -126,12 +162,42 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
   }
 
   function navigateWeek(direction: -1 | 1) {
+    setActiveKey("");
+    setExpandedMobileLearnerId(null);
     const classParam = selectedClassId ? `&class=${encodeURIComponent(selectedClassId)}` : "";
     startNavigation(() => router.replace(`/attendance?view=week&date=${shiftWeek(weekStart, direction)}${classParam}`, { scroll: false }));
   }
 
   function chooseClass(classId: string) {
+    setActiveKey("");
+    setExpandedMobileLearnerId(null);
     startNavigation(() => router.replace(`/attendance?view=week&class=${encodeURIComponent(classId)}&date=${weekStart}`, { scroll: false }));
+  }
+
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (integrityReady && !navigationPending) return;
+    event.preventDefault();
+    toast.error("The attendance week changed before this register could be saved. Refresh and try again.");
+  }
+
+  function renderMobileCell(row: WeeklyLearnerRow, date: string) {
+    const cell = weeklyCellForDate(row, date);
+    if (!cell) return <span key={date} className="flex min-h-12 items-center justify-center rounded-[var(--radius-xs)] bg-danger-soft text-[color:var(--danger)]" aria-label={`${row.name}, ${date}, unavailable`}>—</span>;
+    const style = presentation(cell.status);
+    const Icon = style.icon;
+    return isNonTeaching(date)
+      ? <span key={date} title={nonTeachingReason(date)} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] bg-surface text-muted-foreground/50"><span className="text-[0.62rem] font-medium">{new Intl.DateTimeFormat("en-NA", { weekday: "narrow" }).format(new Date(`${date}T12:00:00`))}</span><CalendarOff className="size-4" strokeWidth={2} /></span>
+      : <button key={date} type="button" disabled={!integrityReady || navigationPending} onClick={() => activateCell(row, date)} aria-label={`${row.name}, ${date}, ${style.label}`} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] disabled:cursor-not-allowed disabled:opacity-60 ${style.classes}`}><span className="text-[0.62rem] font-medium opacity-75">{new Intl.DateTimeFormat("en-NA", { weekday: "narrow" }).format(new Date(`${date}T12:00:00`))}</span><Icon className="size-4" strokeWidth={2.4} /></button>;
+  }
+
+  function renderDesktopCell(row: WeeklyLearnerRow, date: string) {
+    const cell = weeklyCellForDate(row, date);
+    if (!cell) return <span key={date} className="mx-auto grid size-9 place-items-center rounded-[var(--radius-xs)] bg-danger-soft text-[color:var(--danger)]" aria-label={`${row.name}, ${date}, unavailable`}>—</span>;
+    const style = presentation(cell.status);
+    const Icon = style.icon;
+    return isNonTeaching(date)
+      ? <span key={date} title={nonTeachingReason(date)} className="mx-auto grid size-9 place-items-center rounded-[var(--radius-xs)] bg-surface text-muted-foreground/40" aria-hidden="true"><CalendarOff className="size-4" strokeWidth={2} /></span>
+      : <button key={date} type="button" disabled={!integrityReady || navigationPending} onClick={() => activateCell(row, date)} className={`mx-auto grid size-9 place-items-center rounded-[var(--radius-xs)] transition hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 ${style.classes}`} data-tooltip={`${style.label} · click to edit`} aria-label={`${row.name}, ${date}, ${style.label}`}><Icon className="size-4" strokeWidth={2.4} /></button>;
   }
 
   return (
@@ -143,8 +209,12 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
         </div>
       </section>
 
-      <form action={action} className="relative">
-        <input type="hidden" name="registerClassId" value={selectedClassId ?? ""} /><input type="hidden" name="days" value={JSON.stringify(payload)} />
+      <form action={action} onSubmit={handleSubmit} className="relative">
+        <input type="hidden" name="registerClassId" value={selectedClassId ?? ""} />
+        <input type="hidden" name="viewRegisterClassId" value={selectedClassId ?? ""} />
+        <input type="hidden" name="weekStart" value={weekStart} />
+        <input type="hidden" name="weekEnd" value={weekEnd} />
+        <input type="hidden" name="days" value={JSON.stringify(payloadDays)} />
         <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
           <div className="border-b border-border-subtle bg-surface-muted/55 px-4 py-4 sm:px-5">
             <div><h2 className="scolapro-section-title">Weekly register</h2><p className="scolapro-section-description">Everyone starts present. On phones, open a learner to show Monday–Friday. Tap any day to review or change that learner’s status.{nonTeachingDates.length ? <span className="mt-1.5 block text-[color:var(--warning)]"><CalendarOff className="mr-1 inline size-3.5 align-[-2px]" aria-hidden="true" />{nonTeachingDates.length === 1 ? "One day this week is" : `${nonTeachingDates.length} days this week are`} marked non-teaching and can&apos;t be edited.</span> : null}</p></div>
@@ -153,11 +223,11 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
           </div>
 
           {!dates.length ? <div className="px-5 py-12 text-center"><span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><CalendarOff className="size-5" aria-hidden="true" /></span><p className="mt-3 text-sm font-semibold">No teaching days this week</p><p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">This week falls outside the governed learner term. Attendance cannot be entered or confirmed, but week navigation remains available.</p></div> : !selectedClassId || !learners.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No learners available for this register</p></div> : <>
-            <div className="max-h-[min(62vh,42rem)] divide-y divide-border-subtle overflow-y-auto overscroll-contain md:hidden">{filteredRows.map((row) => { const expanded = expandedMobileLearnerId === row.enrolmentId; return <div key={row.enrolmentId} className="px-4 py-2.5"><button type="button" onClick={() => setExpandedMobileLearnerId(expanded ? null : row.enrolmentId)} aria-expanded={expanded} className="flex min-h-11 w-full items-center justify-between gap-3 text-left"><span className="flex min-w-0 items-baseline gap-2"><span className="scolapro-record-title min-w-0 truncate">{row.name}</span><span className="shrink-0 text-[0.68rem] font-normal text-muted-foreground">{row.admissionNumber ?? "No admission number"}</span></span>{expanded ? <ChevronUp className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground" />}</button>{expanded ? <div className="mt-2 grid grid-cols-5 gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted p-2">{row.days.map((cell) => { const style = presentation(cell.status); const Icon = style.icon; return isNonTeaching(cell.date) ? <span key={cell.date} title={nonTeachingReason(cell.date)} className="flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] bg-surface text-muted-foreground/50"><span className="text-[0.62rem] font-medium">{new Intl.DateTimeFormat("en-NA", { weekday: "narrow" }).format(new Date(`${cell.date}T12:00:00`))}</span><CalendarOff className="size-4" strokeWidth={2} /></span> : <button key={cell.date} type="button" onClick={() => activateCell(row, cell)} aria-label={`${row.name}, ${cell.date}, ${style.label}`} className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] ${style.classes}`}><span className="text-[0.62rem] font-medium opacity-75">{new Intl.DateTimeFormat("en-NA", { weekday: "narrow" }).format(new Date(`${cell.date}T12:00:00`))}</span><Icon className="size-4" strokeWidth={2.4} /></button>; })}</div> : null}</div>; })}</div>
+            <div className="max-h-[min(62vh,42rem)] divide-y divide-border-subtle overflow-y-auto overscroll-contain md:hidden">{filteredRows.map((row) => { const expanded = expandedMobileLearnerId === row.enrolmentId; return <div key={row.enrolmentId} className="px-4 py-2.5"><button type="button" disabled={navigationPending} onClick={() => setExpandedMobileLearnerId(expanded ? null : row.enrolmentId)} aria-expanded={expanded} className="flex min-h-11 w-full items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-60"><span className="flex min-w-0 items-baseline gap-2"><span className="scolapro-record-title min-w-0 truncate">{row.name}</span><span className="shrink-0 text-[0.68rem] font-normal text-muted-foreground">{row.admissionNumber ?? "No admission number"}</span></span>{expanded ? <ChevronUp className="size-4 shrink-0 text-muted-foreground" /> : <ChevronDown className="size-4 shrink-0 text-muted-foreground" />}</button>{expanded ? <div className="mt-2 grid grid-cols-5 gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted p-2">{dates.map((date) => renderMobileCell(row, date))}</div> : null}</div>; })}</div>
 
-            <div className="hidden max-h-[min(62vh,42rem)] overflow-auto overscroll-contain border-b border-border-subtle md:block"><div className="min-w-[46rem]"><div className="sticky top-0 z-10 grid border-b border-border-subtle bg-surface-muted px-3 py-2 text-[0.68rem] font-medium text-muted-foreground" style={{ gridTemplateColumns: `minmax(12rem,1.2fr) repeat(${dates.length},minmax(5.4rem,.55fr))` }}><span>Learner</span>{dates.map((date) => isNonTeaching(date) ? <span key={date} title={nonTeachingReason(date)} className="flex items-center justify-center gap-1 text-center text-[color:var(--warning)]"><CalendarOff className="size-3" aria-hidden="true" />{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric" }).format(new Date(`${date}T12:00:00`))}</span> : <span key={date} className="text-center">{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric" }).format(new Date(`${date}T12:00:00`))}</span>)}</div><div className="divide-y divide-border-subtle">{filteredRows.map((row) => <div key={row.enrolmentId} className="grid items-center px-3 py-2.5" style={{ gridTemplateColumns: `minmax(12rem,1.2fr) repeat(${dates.length},minmax(5.4rem,.55fr))` }}><div className="min-w-0 pr-3"><span className="flex min-w-0 items-baseline gap-2"><span className="scolapro-record-title min-w-0 truncate">{row.name}</span><span className="shrink-0 text-[0.68rem] font-normal text-muted-foreground">{row.admissionNumber ?? "No admission number"}</span></span></div>{row.days.map((cell) => { const style = presentation(cell.status); const Icon = style.icon; return isNonTeaching(cell.date) ? <span key={cell.date} title={nonTeachingReason(cell.date)} className="mx-auto grid size-9 place-items-center rounded-[var(--radius-xs)] bg-surface text-muted-foreground/40" aria-hidden="true"><CalendarOff className="size-4" strokeWidth={2} /></span> : <button key={cell.date} type="button" onClick={() => activateCell(row, cell)} className={`mx-auto grid size-9 place-items-center rounded-[var(--radius-xs)] transition hover:scale-105 ${style.classes}`} data-tooltip={`${style.label} · click to edit`} aria-label={`${row.name}, ${cell.date}, ${style.label}`}><Icon className="size-4" strokeWidth={2.4} /></button>; })}</div>)}</div></div></div>
+            <div className="hidden max-h-[min(62vh,42rem)] overflow-auto overscroll-contain border-b border-border-subtle md:block"><div className="min-w-[46rem]"><div className="sticky top-0 z-10 grid border-b border-border-subtle bg-surface-muted px-3 py-2 text-[0.68rem] font-medium text-muted-foreground" style={{ gridTemplateColumns: `minmax(12rem,1.2fr) repeat(${dates.length},minmax(5.4rem,.55fr))` }}><span>Learner</span>{dates.map((date) => isNonTeaching(date) ? <span key={date} title={nonTeachingReason(date)} className="flex items-center justify-center gap-1 text-center text-[color:var(--warning)]"><CalendarOff className="size-3" aria-hidden="true" />{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric" }).format(new Date(`${date}T12:00:00`))}</span> : <span key={date} className="text-center">{new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric" }).format(new Date(`${date}T12:00:00`))}</span>)}</div><div className="divide-y divide-border-subtle">{filteredRows.map((row) => <div key={row.enrolmentId} className="grid items-center px-3 py-2.5" style={{ gridTemplateColumns: `minmax(12rem,1.2fr) repeat(${dates.length},minmax(5.4rem,.55fr))` }}><div className="min-w-0 pr-3"><span className="flex min-w-0 items-baseline gap-2"><span className="scolapro-record-title min-w-0 truncate">{row.name}</span><span className="shrink-0 text-[0.68rem] font-normal text-muted-foreground">{row.admissionNumber ?? "No admission number"}</span></span></div>{dates.map((date) => renderDesktopCell(row, date))}</div>)}</div></div></div>
 
-            <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"><p className="text-[0.7rem] text-muted-foreground">One confirmation creates separate auditable daily records for Monday–Friday.</p><button type="submit" disabled={pending || payload.length === 0} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : payload.length === 0 ? "No capture days this week" : "Confirm week"}</button></div>
+            <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"><p className="text-[0.7rem] text-muted-foreground">One confirmation creates separate auditable daily records for Monday–Friday.</p><button type="submit" disabled={pending || navigationPending || !integrityReady || payloadDays.length === 0} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : payloadDays.length === 0 ? "No capture days this week" : "Confirm week"}</button></div>
           </>}
         </section>
 

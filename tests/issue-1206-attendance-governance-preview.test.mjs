@@ -14,13 +14,14 @@ test("term failures, Aug 31-Sep 4, Oct 5, openings and action gates execute agai
 test("weekly entry omits out-of-term columns while preserving locked in-term holidays", () => {
   const server = read("src/features/attendance/server/week.ts");
   const client = read("src/features/attendance/weekly-register.tsx");
+  const integrity = read("src/features/attendance/attendance-date-integrity.ts");
   const page = read("src/app/attendance/page.tsx");
   assert.match(server, /day\.kind === "out_of_term"/);
   assert.match(server, /weekDates\.filter\(\(attendanceDate\) => !outOfTermDates\.includes/);
   assert.match(server, /else if \(!day\.eligible\)/);
   assert.match(client, /No teaching days this week/);
   assert.match(client, /Attendance cannot be entered or confirmed/);
-  assert.match(client, /dates\.filter\(\(date\) => !isNonTeaching\(date\)\)/);
+  assert.match(integrity, /\.filter\(\(date\) => !blockedDates\.has\(date\)\)/);
   assert.match(page, /key=\{`\$\{workspace\.selectedClassId/);
 });
 

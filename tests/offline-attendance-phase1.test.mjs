@@ -46,7 +46,7 @@ test("context changes and logout clear scoped offline data", () => {
 test("attendance offline retry preserves the existing idempotency key and source provenance", () => {
   assert.match(queue, /clientMutationId/);
   assert.match(route, /formData\.set\("clientMutationId"/);
-  assert.match(route, /formData\.set\("source", "offline"\)/);
+  assert.match(route, /formData\.set\("source", "offline_sync"\)/);
   assert.match(action, /p_client_mutation_id: parsed\.data\.clientMutationId/);
   assert.match(action, /p_source: parsed\.data\.source/);
 });
