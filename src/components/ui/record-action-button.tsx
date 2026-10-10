@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef, type ButtonHTMLAttributes } from "react";
-import { Pencil, Settings2, type LucideIcon } from "lucide-react";
+import { ChevronDown, Pencil, Settings2, type LucideIcon } from "lucide-react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,7 @@ export interface RecordActionButtonProps
   iconOnly?: boolean;
   loading?: boolean;
   expanded?: boolean;
+  disclosure?: boolean;
 }
 
 /**
@@ -35,6 +36,7 @@ export const RecordActionButton = forwardRef<HTMLButtonElement, RecordActionButt
       iconOnly = false,
       loading = false,
       expanded,
+      disclosure = false,
       className,
       type = "button",
       "aria-label": ariaLabel,
@@ -62,6 +64,9 @@ export const RecordActionButton = forwardRef<HTMLButtonElement, RecordActionButt
       >
         {ResolvedIcon ? <ResolvedIcon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
         <span className={iconOnly ? "sr-only" : undefined}>{label}</span>
+        {disclosure && !iconOnly ? (
+          <ChevronDown className={cn("ml-1 size-3.5 shrink-0 transition-transform", expanded && "rotate-180")} aria-hidden="true" />
+        ) : null}
       </Button>
     );
   },

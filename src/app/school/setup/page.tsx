@@ -91,8 +91,42 @@ export default async function SchoolSetupPage() {
           anchorDay={structure.timetableCycleAnchorDay}
           rotating={structure.timetableCycleMode === "rotating"}
           hodScopeCount={activeHodScopeCount}
+          hodOverview={
+            <div className="mt-3 space-y-2">
+              {hodScope.portfolios.length ? hodScope.portfolios.map((portfolio) => {
+                const appointment = portfolio.appointments.find((item) => item.effectiveFrom <= hodScope.today && (!item.effectiveTo || item.effectiveTo >= hodScope.today));
+                return (
+                  <div key={portfolio.id} className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2">
+                    <p className="text-xs font-semibold text-foreground">{portfolio.label} · {appointment?.headName ?? "Unassigned"}</p>
+                    <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{portfolio.subjectIds.map((id) => hodScope.subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
+                    {portfolio.appointments.map((item) => <p key={item.id} className="mt-0.5 text-[0.68rem] text-muted-foreground">{item.headName} · {item.effectiveFrom} → {item.effectiveTo ?? "open"}</p>)}
+                  </div>
+                );
+              }) : <p className="text-xs text-muted-foreground">No subject portfolios configured yet.</p>}
+              {activeHodScopeCount > 0 ? (
+                <div className="max-h-44 space-y-1 overflow-y-auto border-t border-border-subtle pt-2">
+                  <p className="text-[0.68rem] font-semibold text-foreground">Current subject responsibilities</p>
+                  {hodScope.responsibilities.filter((item) => item.effectiveFrom <= hodScope.today && (!item.effectiveTo || item.effectiveTo >= hodScope.today)).map((item) => (
+                    <p key={item.id} className="text-[0.68rem] text-muted-foreground">{item.subjectName} · {item.headName}</p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          }
           timetableEditor={
             <TimetableCycleSettings
+              section="workflow"
+              schoolId={membership.schoolId}
+              academicYear={academicYear}
+              initialMode={structure.timetableCycleMode}
+              initialLength={structure.timetableCycleLength}
+              initialAnchorDate={structure.timetableCycleAnchorDate}
+              initialAnchorDay={structure.timetableCycleAnchorDay}
+            />
+          }
+          anchorEditor={
+            <TimetableCycleSettings
+              section="anchor"
               schoolId={membership.schoolId}
               academicYear={academicYear}
               initialMode={structure.timetableCycleMode}
@@ -103,6 +137,7 @@ export default async function SchoolSetupPage() {
           }
           hodEditor={
             <HodScopeConfiguration
+              embedded
               schoolId={membership.schoolId}
               subjects={hodScope.subjects}
               heads={hodScope.heads}
