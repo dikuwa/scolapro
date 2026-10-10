@@ -143,6 +143,13 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { success: false, message: "Your password could not be changed." };
 
+  // A normal voluntary password change should not gain service-role write access
+  // to the rotation flag. Clear only when the account was actually gated.
+  if (rotationProfile.must_change_password === false) {
+    revalidatePath("/", "layout");
+    return { success: true, message: "Password changed successfully." };
+  }
+
   // Only the authenticated owner may clear their own rotation requirement,
   // and only after Supabase Auth has accepted the new password.
   // The database refuses authenticated clients clearing this gate directly.
