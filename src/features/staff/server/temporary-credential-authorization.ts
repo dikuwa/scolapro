@@ -1,5 +1,6 @@
 import "server-only";
 
+import { z } from "zod";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -9,6 +10,9 @@ export async function authorizeStaffCredentialPreflight(
   schoolId: string,
   staffMemberId: string,
 ): Promise<{ allowed: true; staffMemberId: string } | { allowed: false }> {
+  // Reject malformed identifiers before any privileged lookup.
+  if (!z.string().uuid().safeParse(schoolId).success ||
+      !z.string().uuid().safeParse(staffMemberId).success) return { allowed: false };
   try {
     const context = await getUserContext();
     if (!context.user || !context.memberships.some(
