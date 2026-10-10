@@ -21,7 +21,7 @@ export async function GET(_request: Request, context: RouteContext) {
     .select("must_change_password")
     .eq("user_id", auth.user.id)
     .maybeSingle();
-  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
     return NextResponse.json({ error: "Complete account security setup before accessing reports" }, { status: 403 });
   }
 
