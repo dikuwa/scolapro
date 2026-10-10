@@ -492,3 +492,16 @@ test("managed credential issuer requires a confirmed provider email identity", (
   assert.match(source, /targetAuthUser\.email_confirmed_at/);
   assert.match(source, /activation-link path owned by #1202/);
 });
+
+
+test("school-managed credential reservation rejects shared account identities", () => {
+  const migration = read("supabase/migrations/20261010123000_staff_credential_atomic_reservation.sql");
+  assert.match(migration, /m\.school_id<>p_school_id/);
+  assert.match(migration, /Cross-school accounts cannot use managed school credentials/);
+  assert.match(migration, /guardian_user_links/);
+  assert.match(migration, /Guardian-linked accounts cannot use managed school credentials/);
+  assert.ok(
+    migration.indexOf("Protected administrator credentials cannot be issued here") <
+      migration.indexOf("Cross-school accounts cannot use managed school credentials"),
+  );
+});
