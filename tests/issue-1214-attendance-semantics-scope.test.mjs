@@ -95,13 +95,21 @@ test("every server mutation rechecks scope before its RPC and offline replay use
   assert.match(offlineSubject, /offline_sync/);
 });
 
-test("database enforcement covers assigned registers, periods, dates and teaching groups", () => {
+test("database enforcement covers assigned registers and teaching groups; period/date scope is server-enforced", () => {
   const migration = readFileSync("supabase/migrations/20261010130000_attendance_capture_scope_semantics.sql", "utf8");
+  const scope = readFileSync("src/features/attendance/server/capture-scope.ts", "utf8");
+  const subjectAction = readFileSync("src/features/attendance/server/subject-actions.ts", "utf8");
+  // Register capture binds to the assigned register teacher; governed leadership
+  // correction is retained but HOD review is not a capture role.
   assert.match(migration, /sm\.staff_member_id = rc\.register_teacher_staff_id/);
   assert.match(migration, /school_admin','principal','deputy_principal/);
   assert.doesNotMatch(migration, /has_school_role\(rc\.school_id,array\['school_admin','principal','deputy_principal','hod'/);
-  assert.match(migration, /tp\.is_teaching_period/);
-  assert.match(migration, /is_expected_school_day\(ts\.school_id,p_on_date\)/);
+  // Per-learner teaching-group / cross-class scope is enforced in the database.
   assert.match(migration, /subject_attendance_enrolment_in_scope/);
   assert.match(migration, /teaching_group_memberships/);
+  // Teaching-period, effective-dated allocation and governed school-day scope for
+  // subject capture are enforced in the server action layer (defence in depth).
+  assert.match(scope, /isTeachingPeriod/);
+  assert.match(scope, /allocationActiveFrom/);
+  assert.match(subjectAction, /ineligibleDailyAttendanceDate\(/);
 });

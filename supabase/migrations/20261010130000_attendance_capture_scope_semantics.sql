@@ -50,106 +50,15 @@ grant execute on function app_private.can_record_register_class(uuid) to authent
 comment on function app_private.can_record_register_class(uuid) is
 'Official class-register capture: current register teacher only for HOD/teacher/class_teacher, with governed school leadership and Platform Admin correction authority.';
 
-create or replace function app_private.user_can_record_subject_attendance(
-  p_user_id uuid,
-  p_timetable_slot_id uuid,
-  p_on_date date
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = pg_catalog, public, app_private
-as $$
-  select p_user_id is not null
-    and not exists (
-      select 1 from public.platform_memberships support
-      where support.user_id=p_user_id and support.role_key='platform_support'
-        and support.active_from<=current_date
-        and (support.active_to is null or support.active_to>=current_date)
-    )
-    and exists (
-      select 1
-      from public.timetable_slots ts
-      join public.timetable_periods tp
-        on tp.id=ts.period_id and tp.school_id=ts.school_id
-       and tp.academic_year=ts.academic_year and tp.is_teaching_period
-      join public.teacher_allocations ta
-        on ta.id=ts.teacher_allocation_id and ta.school_id=ts.school_id
-       and ta.academic_year=ts.academic_year and ta.register_class_id=ts.register_class_id
-      join public.staff_members assigned_staff on assigned_staff.id=ta.staff_member_id
-      where ts.id=p_timetable_slot_id
-        and ts.status='active'
-        and ta.active_from<=p_on_date
-        and (ta.active_to is null or ta.active_to>=p_on_date)
-        and app_private.is_expected_school_day(ts.school_id,p_on_date)
-        and (
-          exists (
-            select 1 from public.platform_memberships pm
-            where pm.user_id=p_user_id and pm.role_key='platform_admin'
-              and pm.active_from<=current_date
-              and (pm.active_to is null or pm.active_to>=current_date)
-          )
-          or (
-            ts.school_id=(
-              select current_sm.school_id
-              from public.school_memberships current_sm
-              where current_sm.user_id=p_user_id
-                and current_sm.active_from<=current_date
-                and (current_sm.active_to is null or current_sm.active_to>=current_date)
-              order by current_sm.active_from desc,current_sm.id asc
-              limit 1
-            )
-            and (
-              exists (
-                select 1 from public.school_memberships leader
-                where leader.school_id=ts.school_id and leader.user_id=p_user_id
-                  and leader.role_key in ('school_admin','principal','deputy_principal')
-                  and leader.active_from<=current_date
-                  and (leader.active_to is null or leader.active_to>=current_date)
-              )
-              or (
-                assigned_staff.user_id=p_user_id
-                and assigned_staff.status='active'
-                and app_private.staff_member_has_school_assignment(assigned_staff.id,ts.school_id,p_on_date)
-                and exists (
-                  select 1 from public.school_memberships teacher_role
-                  where teacher_role.school_id=ts.school_id and teacher_role.user_id=p_user_id
-                    and teacher_role.staff_member_id=assigned_staff.id
-                    and teacher_role.role_key in ('hod','teacher','class_teacher')
-                    and teacher_role.active_from<=current_date
-                    and (teacher_role.active_to is null or teacher_role.active_to>=current_date)
-                )
-              )
-            )
-          )
-        )
-    );
-$$;
-
-revoke all on function app_private.user_can_record_subject_attendance(uuid,uuid,date)
-from public,anon,authenticated;
-
-create or replace function app_private.can_record_subject_attendance(
-  p_timetable_slot_id uuid,
-  p_on_date date default current_date
-)
-returns boolean
-language sql
-stable
-security definer
-set search_path = pg_catalog, public, app_private
-as $$
-  select app_private.user_can_record_subject_attendance(
-    (select auth.uid()),p_timetable_slot_id,p_on_date
-  );
-$$;
-
-revoke all on function app_private.can_record_subject_attendance(uuid,date)
-from public,anon,authenticated;
-
-comment on function app_private.user_can_record_subject_attendance(uuid,uuid,date) is
-'Subject-period authority for the exact active teaching allocation, teaching period, current school and governed day; HOD is not a school-wide correction role.';
+-- Subject-period *authority* (the active allocated teacher with effective school
+-- placement, school leadership, or Platform Admin) is intentionally NOT
+-- overridden here: it remains owned by the established actor-integrity helpers in
+-- 20260906050000_attendance_actor_integrity.sql and
+-- 20260828133000_subject_period_attendance.sql. The stricter subject capture rules
+-- required by #1214 (exact teaching period, effective-dated allocation, HOD review
+-- does not imply capture authority, governed school day) are enforced in the
+-- server action layer via src/features/attendance/server/capture-scope.ts and the
+-- governed-day resolver. This migration only adds database-row defence in depth.
 
 create or replace function app_private.subject_attendance_enrolment_in_scope(
   p_timetable_slot_id uuid,
