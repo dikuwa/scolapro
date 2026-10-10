@@ -121,7 +121,7 @@ export async function deleteAvatar(): Promise<ProfileActionState> {
 export async function changePassword(_state: ProfileActionState, formData: FormData): Promise<ProfileActionState> {
   const password = String(formData.get("password") ?? "");
   const confirmation = String(formData.get("confirmation") ?? "");
-  if (password.length < 8) return { success: false, message: "Use at least 8 characters for your new password." };
+  if (password.length < 8 || password.length > 128 || !password.trim()) return { success: false, message: "Use a nonblank password between 8 and 128 characters." };
   if (password !== confirmation) return { success: false, message: "The password confirmation does not match." };
 
   const supabase = await createSupabaseServerClient();
