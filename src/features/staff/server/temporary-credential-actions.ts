@@ -15,12 +15,11 @@ const issueSchema = z.object({
   staffMemberId: z.string().uuid(),
 });
 
-// Browser-callable boundary for a future Staff Directory control.
+// Browser-callable boundary for the explicit Staff Directory control.
 // Authorization, linked-account validation, rate limits, protected-account
 // checks, provider mutation and audit finalization remain inside the governed
 // issuer. No plaintext credential is accepted as input or persisted here.
 export async function issueStaffTemporaryCredentialAction(
-  _previous: StaffTemporaryCredentialState,
   formData: FormData,
 ): Promise<StaffTemporaryCredentialState> {
   const parsed = issueSchema.safeParse({
