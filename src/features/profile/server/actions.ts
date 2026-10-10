@@ -18,7 +18,7 @@ export async function saveUploadedAvatar(path: string): Promise<ProfileActionSta
 
   const { data: securityProfile, error: securityError } = await supabase
     .from("user_profiles")
-    .select("must_change_password,password_rotation_expires_at")
+    .select("must_change_password")
     .eq("user_id", user.id)
     .maybeSingle();
   if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
