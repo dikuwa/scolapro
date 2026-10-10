@@ -237,3 +237,11 @@ test("password rotation enforces bounded nonblank credentials on server and clie
   assert.match(action, /password\.length < 8 \|\| password\.length > 128 \|\| !password\.trim\(\)/);
   assert.equal((form.match(/maxLength=\{128\}/g) ?? []).length, 2);
 });
+
+test("password change verifies a resolvable security profile before changing credentials", () => {
+  const action = read("src/features/profile/server/actions.ts");
+  const section = action.slice(action.indexOf("export async function changePassword("));
+  assert.match(section, /rotationError \|\| !rotationProfile/);
+  assert.ok(section.indexOf("rotationError || !rotationProfile") < section.indexOf("await supabase.auth.updateUser({ password })"));
+  assert.ok(section.indexOf("await supabase.auth.updateUser({ password })") < section.indexOf('await createSupabaseAdminClient().from("user_profiles")'));
+});
