@@ -47,11 +47,15 @@ select ok(
 select ok(
   (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
    where n.nspname='public' and p.proname='complete_password_rotation_clearance')
-  not ilike '%password%value%'
+  not ilike '%p_password%'
   and
   (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
    where n.nspname='public' and p.proname='complete_password_rotation_clearance')
-  not ilike '%credential_password%',
+  not ilike '%credential_password%'
+  and
+  (select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+   where n.nspname='public' and p.proname='complete_password_rotation_clearance')
+  not ilike '%new_password%',
   'completion audit contains no password material'
 );
 
