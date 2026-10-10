@@ -317,3 +317,10 @@ test("temporary staff passwords remain inaccessible to client-side access action
   assert.doesNotMatch(access, /generateStaffTemporaryPassword|temporary-password/);
   assert.doesNotMatch(access, /auth\.admin\.createUser|auth\.admin\.updateUserById/);
 });
+
+test("credential audit fingerprint uses keyed HMAC, never raw password storage", () => {
+  const helper = read("src/features/staff/server/temporary-password.ts");
+  assert.match(helper, /createHmac\("sha256", secret\)/);
+  assert.match(helper, /secret\.length < 32/);
+  assert.doesNotMatch(helper, /console\.(log|info|debug)/);
+});
