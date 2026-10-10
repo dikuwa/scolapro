@@ -83,11 +83,24 @@ begin
   if exists (
     select 1
     from public.school_memberships m
-    where m.school_id=p_school_id
-      and m.user_id=v_target_user_id
+    where m.user_id=v_target_user_id
       and m.role_key='school_admin'
       and m.active_from<=v_school_date
       and (m.active_to is null or m.active_to>=v_school_date)
+  )
+  or exists (
+    select 1
+    from public.platform_memberships pm
+    where pm.user_id=v_target_user_id
+      and pm.active_from<=v_school_date
+      and (pm.active_to is null or pm.active_to>=v_school_date)
+  )
+  or exists (
+    select 1
+    from public.education_network_memberships nm
+    where nm.user_id=v_target_user_id
+      and nm.active_from<=v_school_date
+      and (nm.active_to is null or nm.active_to>=v_school_date)
   ) then
     raise exception 'Protected administrator credentials cannot be issued here' using errcode='42501';
   end if;
