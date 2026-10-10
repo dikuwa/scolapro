@@ -6,8 +6,8 @@ language plpgsql
 set search_path = public, pg_temp
 as $$
 begin
-  if old.must_change_password is true
-     and new.must_change_password is distinct from old.must_change_password
+  if old.must_change_password is distinct from false
+     and new.must_change_password is false
      and coalesce(auth.role(), '') <> 'service_role' then
     raise exception 'Password rotation clearance requires service authority'
       using errcode = '42501';
