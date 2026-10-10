@@ -55,6 +55,33 @@ test("subject capture requires the exact active teaching period allocation", () 
   assert.equal(canCaptureSubjectPeriod(assignedActor, scope, "2027-01-01"), false);
 });
 
+test("negative authorization: platform support, empty assignment, expired and inactive scope are denied", () => {
+  const platformSupport = {
+    memberships: [{ schoolId: "school-a", roleKey: "class_teacher", staffMemberId: "staff-a" }],
+    platformRoles: ["platform_support"],
+  };
+  const platformAdmin = { memberships: [], platformRoles: ["platform_admin"] };
+
+  // Platform support never captures; Platform Admin retains governed correction.
+  assert.equal(canCaptureRegisterClass(platformSupport, { schoolId: "school-a", registerTeacherStaffId: "staff-a" }), false);
+  assert.equal(canCaptureRegisterClass(platformAdmin, { schoolId: "school-a", registerTeacherStaffId: "staff-z" }), true);
+  // An unassigned register class cannot be captured by an ordinary teacher.
+  assert.equal(canCaptureRegisterClass(assignedActor, { schoolId: "school-a", registerTeacherStaffId: null }), false);
+
+  const subjectScope = {
+    schoolId: "school-a",
+    allocatedStaffMemberId: "staff-a",
+    allocationActiveFrom: "2026-01-01",
+    allocationActiveTo: "2026-12-31",
+    slotStatus: "active",
+    isTeachingPeriod: true,
+  };
+  assert.equal(canCaptureSubjectPeriod(platformSupport, subjectScope, "2026-06-01"), false);
+  assert.equal(canCaptureSubjectPeriod(platformAdmin, subjectScope, "2026-06-01"), true);
+  assert.equal(canCaptureSubjectPeriod(assignedActor, subjectScope, "2025-12-31"), false, "before allocation start");
+  assert.equal(canCaptureSubjectPeriod(assignedActor, { ...subjectScope, slotStatus: "inactive" }, "2026-06-01"), false);
+});
+
 test("new official class capture exposes Present and Absent while lesson history keeps operational statuses", () => {
   const daily = readFileSync("src/features/attendance/daily-register.tsx", "utf8");
   const weekly = readFileSync("src/features/attendance/weekly-register.tsx", "utf8");
@@ -112,4 +139,12 @@ test("database enforcement covers assigned registers and teaching groups; period
   assert.match(scope, /isTeachingPeriod/);
   assert.match(scope, /allocationActiveFrom/);
   assert.match(subjectAction, /ineligibleDailyAttendanceDate\(/);
+  // Database defence in depth: effective-dated membership, current school
+  // placement, least-privilege grants and the group-scope trigger.
+  assert.match(migration, /sm\.active_from <= current_date/);
+  assert.match(migration, /sm\.active_to is null or sm\.active_to >= current_date/);
+  assert.match(migration, /attendance_staff_has_current_placement\(sm\.staff_member_id,rc\.school_id\)/);
+  assert.match(migration, /revoke all on function app_private\.can_record_register_class\(uuid\) from public,anon/);
+  assert.match(migration, /zz_subject_attendance_group_scope_trg/);
+  assert.match(migration, /before insert or update of[\s\S]*attendance_date,observation_type,timetable_slot_id/);
 });
