@@ -10,6 +10,12 @@ begin;
 -- by the pre-existing actor-integrity helpers and is not re-tested here.
 select plan(8);
 
+-- Today's ISO weekday may be Saturday/Sunday in CI, so make the fixture school
+-- explicitly seven-day capable rather than relying on the Monday-Friday default.
+update public.schools
+set timetable_cycle_mode='weekday', timetable_cycle_length=7
+where id='22222222-2222-4222-8222-222222222222';
+
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('12140000-0000-4000-8000-000000000001','1214-register@example.test','authenticated','authenticated',now(),now()),
   ('12140000-0000-4000-8000-000000000002','1214-subject@example.test','authenticated','authenticated',now(),now()),
