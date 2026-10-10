@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(13);
 
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
@@ -140,6 +140,52 @@ select is(
   ),
   true,
   'failed reissue finalizes without retaining credential metadata'
+);
+
+select throws_ok(
+  $select public.finalize_staff_credential_issuance(
+    gen_random_uuid(),
+    'completed',
+    repeat('b',64),
+    now()+interval '3 hours'
+  )$,
+  '22023',
+  'Completed credential issuance requires bounded non-secret metadata',
+  'credential expiry cannot exceed the bounded issuance window'
+);
+
+create temporary table _credential_attempt_3 as
+select public.reserve_staff_credential_issuance(
+  'a2000000-0000-4000-8000-000000000001',
+  'a4000000-0000-4000-8000-000000000002',
+  'a3000000-0000-4000-8000-000000000001'
+) as id;
+
+select ok(
+  (select id is not null from _credential_attempt_3),
+  'third issuance within 24 hours reaches the configured limit'
+);
+
+select is(
+  public.finalize_staff_credential_issuance(
+    (select id from _credential_attempt_3),
+    'failed',
+    null,
+    null
+  ),
+  true,
+  'third issuance finalizes before rate-limit verification'
+);
+
+select throws_ok(
+  $select public.reserve_staff_credential_issuance(
+    'a2000000-0000-4000-8000-000000000001',
+    'a4000000-0000-4000-8000-000000000002',
+    'a3000000-0000-4000-8000-000000000001'
+  )$,
+  '42900',
+  'Credential issuance rate limit exceeded',
+  'fourth staff issuance within 24 hours is rate limited'
 );
 
 select * from finish();
