@@ -17,9 +17,11 @@ create table if not exists public.staff_credential_issuance_attempts (
   ),
   credential_expires_at timestamptz,
   constraint staff_credential_issuance_terminal_metadata_check check (
+    (outcome = 'reserved' and credential_fingerprint is null and credential_expires_at is null and finalized_at is null)
+    or
     (outcome = 'completed' and credential_fingerprint is not null and credential_expires_at is not null and finalized_at is not null)
     or
-    (outcome <> 'completed' and credential_fingerprint is null and credential_expires_at is null)
+    (outcome in ('failed','cancelled') and credential_fingerprint is null and credential_expires_at is null and finalized_at is not null)
   )
 );
 create index if not exists staff_credential_attempts_scope_time_idx
