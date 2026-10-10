@@ -1,5 +1,5 @@
 begin;
-select plan(17);
+select plan(20);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('ac100000-0000-4000-8000-000000000001','attendance-current-admin@example.test','authenticated','authenticated',now(),now()),
@@ -87,6 +87,34 @@ select lives_ok(
 );
 
 select lives_ok(
+  $$select public.submit_daily_register(
+    '40000000-0000-4000-8000-00000000001a',current_date,'[]'::jsonb,'offline compatibility',
+    'ac170000-0000-4000-8000-000000000002',null,'offline_sync'
+  )$$,
+  'the existing offline-sync source remains compatible with the upgraded daily-register RPC'
+);
+
+select is(
+  (select source from public.attendance_register_submissions
+   where school_id='22222222-2222-4222-8222-222222222222'
+     and client_mutation_id='ac170000-0000-4000-8000-000000000002'),
+  'offline_sync',
+  'offline replay retains its persisted source provenance'
+);
+
+select is(
+  (select count(*)::integer from public.audit_events
+   where event_type='attendance.register.submitted'
+     and entity_id=(
+       select id from public.attendance_register_submissions
+       where school_id='22222222-2222-4222-8222-222222222222'
+         and client_mutation_id='ac170000-0000-4000-8000-000000000002'
+     )),
+  1,
+  'the upgraded RPC retains the authoritative attendance submission audit event'
+);
+
+select lives_ok(
   $$do $retry$
   begin
     perform public.submit_daily_register(
@@ -114,7 +142,7 @@ select throws_ok(
 select is(
   (select count(*)::integer from public.attendance_register_submissions
    where school_id='22222222-2222-4222-8222-222222222222' and attendance_date=current_date),
-  3,
+  4,
   'current-school register read exposes authorized submissions without duplicating an idempotent retry'
 );
 

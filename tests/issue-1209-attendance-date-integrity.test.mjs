@@ -19,7 +19,8 @@ const cells = (dates) => dates.map((date) => ({ date, status: "present", reasonI
 const row = (dates) => ({
   enrolmentId: "10000000-0000-4000-8000-000000000001",
   learnerId: "20000000-0000-4000-8000-000000000001",
-  name: "Test Learner",
+  name: "Learner Test",
+  nameAlternate: "Test Learner",
   admissionNumber: "TEST-001",
   sex: "female",
   days: cells(dates),
@@ -91,11 +92,12 @@ test("daily navigation and class switches invalidate the prior draft identity", 
 
 test("daily sorting and filtering preserve the same unsaved exception objects", () => {
   const rows = [
-    { enrolmentId: "2", learnerId: "l2", name: "Zelda Test", admissionNumber: "2", sex: "female", status: "present", reasonId: null, note: null },
-    { enrolmentId: "1", learnerId: "l1", name: "Andreas Test", admissionNumber: "1", sex: "male", status: "absent", reasonId: "reason-sick", note: "Unsaved" },
+    { enrolmentId: "2", learnerId: "l2", name: "Test Zelda", nameAlternate: "Zelda Test", admissionNumber: "2", sex: "female", status: "present", reasonId: null, note: null },
+    { enrolmentId: "1", learnerId: "l1", name: "Test Andreas", nameAlternate: "Andreas Test", admissionNumber: "1", sex: "male", status: "absent", reasonId: "reason-sick", note: "Unsaved" },
   ];
   const filtered = getVisibleDailyRegisterRows(rows, "andreas", "male", "desc");
   assert.equal(filtered[0], rows[1]);
+  assert.equal(filtered[0].name, "Test Andreas");
   assert.deepEqual(getDailyRegisterExceptions(rows), [{ enrolment_id: "1", status: "absent", reason_id: "reason-sick", note: "Unsaved" }]);
 });
 
@@ -109,6 +111,7 @@ test("client, server, offline and database boundaries enforce the date identity 
 
   assert.match(weekly, /dates\.map\(\(date\) => renderDesktopCell\(row, date\)\)/);
   assert.doesNotMatch(weekly, /row\.days\.map\(\(cell\)/);
+  assert.match(weekly, /row\.nameAlternate/);
   assert.ok(weeklyAction.indexOf("weeklySubmissionPeriodError(") < weeklyAction.indexOf('supabase.rpc("submit_weekly_register"'));
   assert.match(daily, /draftMatchesView/);
   assert.ok(dailyAction.indexOf("dailySubmissionViewError(") < dailyAction.indexOf('supabase.rpc("submit_daily_register"'));
