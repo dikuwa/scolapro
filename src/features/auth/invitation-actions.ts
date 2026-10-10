@@ -69,7 +69,7 @@ export async function signUpForInvitation(
     .select("must_change_password")
     .eq("user_id", data.user.id)
     .maybeSingle();
-  if (signupProfileError || !signupProfile || signupProfile.must_change_password) {
+  if (signupProfileError || !signupProfile || signupProfile.must_change_password !== false) {
     return { message: "Your account was created. Complete account security setup before accepting the invitation." };
   }
 
@@ -104,7 +104,7 @@ export async function acceptInvitation(
     .select("must_change_password")
     .eq("user_id", userData.user.id)
     .maybeSingle();
-  if (rotationError || !rotationProfile || rotationProfile.must_change_password) {
+  if (rotationError || !rotationProfile || rotationProfile.must_change_password !== false) {
     redirect("/password-rotation");
   }
 
