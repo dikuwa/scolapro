@@ -21,7 +21,7 @@ export async function saveUploadedAvatar(path: string): Promise<ProfileActionSta
     .select("must_change_password")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
     return { success: false, message: "Complete account security setup before changing your avatar." };
   }
 
@@ -83,7 +83,7 @@ export async function deleteAvatar(): Promise<ProfileActionState> {
     .select("must_change_password")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (securityError || !securityProfile || securityProfile.must_change_password === true) {
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
     return { success: false, message: "Complete account security setup before changing your avatar." };
   }
 
