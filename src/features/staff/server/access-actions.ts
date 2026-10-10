@@ -104,6 +104,62 @@ export async function addStaffRole(
   return { success: true, message: "School role added." };
 }
 
+// Operational placement is intentionally separate from invitation/login membership.
+const operationalHodSchema = z.object({
+  schoolId: z.string().uuid(),
+  staffMemberId: z.string().uuid(),
+  effectiveFrom: z.iso.date(),
+});
+
+export async function designateStaffOperationalHod(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  const parsed = operationalHodSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    staffMemberId: formData.get("staffMemberId"),
+    effectiveFrom: formData.get("effectiveFrom"),
+  });
+  if (!parsed.success) return { message: "Choose an effective date for an existing staff placement." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("designate_staff_operational_hod", {
+    p_school_id: parsed.data.schoolId,
+    p_staff_member_id: parsed.data.staffMemberId,
+    p_effective_from: parsed.data.effectiveFrom,
+  });
+  if (error) return { message: error.message || "The HOD placement could not be assigned." };
+  revalidatePath("/staff");
+  revalidatePath("/school/setup");
+  return { success: true, message: "Staff HOD placement assigned. A login invitation is not required." };
+}
+
+const endOperationalHodSchema = z.object({
+  schoolId: z.string().uuid(),
+  designationId: z.string().uuid(),
+  effectiveTo: z.iso.date(),
+});
+export async function endStaffOperationalHod(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  const parsed = endOperationalHodSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    designationId: formData.get("designationId"),
+    effectiveTo: formData.get("effectiveTo"),
+  });
+  if (!parsed.success) return { message: "Choose a valid end date for the HOD placement." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("end_staff_operational_hod", {
+    p_school_id: parsed.data.schoolId,
+    p_designation_id: parsed.data.designationId,
+    p_effective_to: parsed.data.effectiveTo,
+  });
+  if (error) return { message: error.message || "The HOD placement could not be ended." };
+  revalidatePath("/staff");
+  revalidatePath("/school/setup");
+  return { success: true, message: "HOD placement ended; its history and appointment provenance remain recorded." };
+}
+
 const endRoleSchema = z.object({
   schoolId: z.string().uuid(),
   membershipId: z.string().uuid(),

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   GitMerge,
   KeyRound,
+  Network,
   Link2,
   LoaderCircle,
   MailCheck,
@@ -17,10 +18,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import {
   addStaffRole,
+  designateStaffOperationalHod,
+  endStaffOperationalHod,
   correctStaffDetails,
   endStaffRole,
   inviteExistingStaff,
@@ -41,7 +45,7 @@ const roleOptions = [
   ["librarian", "Librarian"], ["board_member", "School board member"],
 ] as const;
 
-type StaffRowPanel = "access" | "identity" | null;
+type StaffRowPanel = "access" | "identity" | "hod-placement" | null;
 
 function roleLabel(value: string) {
   return roleOptions.find(([key]) => key === value)?.[1] ?? value.replaceAll("_", " ");
@@ -55,10 +59,12 @@ export function StaffDirectoryRowControls({
   schoolId,
   row,
   candidates,
+  operationalHodReady,
 }: {
   schoolId: string;
   row: StaffDirectoryRow;
   candidates: StaffDirectoryRow[];
+  operationalHodReady: boolean;
 }) {
   const router = useRouter();
   const [panel, setPanel] = useState<StaffRowPanel>(null);
@@ -70,6 +76,9 @@ export function StaffDirectoryRowControls({
   const [correctionState, correctionAction, correctionPending] = useActionState(correctStaffDetails, initialState);
   const [reconciliationState, reconciliationAction, reconciliationPending] = useActionState(reconcileStaffIdentities, initialState);
   const [roleKey, setRoleKey] = useState<string>("teacher");
+  const [hodDate, setHodDate] = useState(() => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()));
+  const [hodState, hodAction, hodPending] = useActionState(designateStaffOperationalHod, initialState);
+  const [hodEndState, hodEndAction, hodEndPending] = useActionState(endStaffOperationalHod, initialState);
   const [email, setEmail] = useState("");
   const [duplicateId, setDuplicateId] = useState("");
   const [endingRoleId, setEndingRoleId] = useState<string | null>(null);
@@ -100,6 +109,15 @@ export function StaffDirectoryRowControls({
     if (reconciliationState.message) (reconciliationState.success ? toast.success : toast.error)(reconciliationState.message);
     if (reconciliationState.success) router.refresh();
   }, [reconciliationState, router]);
+
+  useEffect(() => {
+    if (hodState.message) (hodState.success ? toast.success : toast.error)(hodState.message);
+    if (hodState.success) router.refresh();
+  }, [hodState, router]);
+  useEffect(() => {
+    if (hodEndState.message) (hodEndState.success ? toast.success : toast.error)(hodEndState.message);
+    if (hodEndState.success) router.refresh();
+  }, [hodEndState, router]);
 
   function togglePanel(next: Exclude<StaffRowPanel, null>) {
     setPanel((current) => current === next ? null : next);
@@ -140,41 +158,21 @@ export function StaffDirectoryRowControls({
   return (
     <>
       <div className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted/35 px-3 py-2.5 md:col-start-2 md:col-end-4 lg:col-start-4 lg:col-end-5">
-        <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="min-w-0">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-[0.68rem]">
             {row.hasAccount ? (
               <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--success)]">
-                    <ShieldCheck className="size-3.5" aria-hidden="true" /> Account linked
-                  </span>
-                  <span className="text-[0.68rem] font-medium text-muted-foreground">
-                    {visibleRoles.length} active {visibleRoles.length === 1 ? "role" : "roles"}
-                  </span>
-                </div>
-                <p className="mt-1.5 truncate text-[0.7rem] text-muted-foreground">
-                  {rolePreview.length ? rolePreview.join(" · ") : "No active ScolaPro roles"}
-                  {hiddenRoleCount ? ` · +${hiddenRoleCount}` : ""}
-                </p>
+                <span className="rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 font-medium text-[color:var(--success)]">Account linked</span>
+                <span className="text-muted-foreground">{visibleRoles.length} active {visibleRoles.length === 1 ? "role" : "roles"}{rolePreview.length ? ` · ${rolePreview.join(" · ")}` : ""}{hiddenRoleCount ? ` · +${hiddenRoleCount}` : ""}</span>
               </>
             ) : row.pendingInvitationId ? (
-              <>
-                <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--warning)]">
-                  <UserPlus className="size-3.5" aria-hidden="true" /> Invitation pending
-                </span>
-                <p className="mt-1.5 text-[0.7rem] text-muted-foreground">Awaiting account activation.</p>
-              </>
+              <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 font-medium text-[color:var(--warning)]">Invitation pending</span>
             ) : (
-              <>
-                <p className="text-[0.72rem] font-semibold text-foreground">No login account</p>
-                <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground">
-                  Placement exists; ScolaPro access has not been created.
-                </p>
-              </>
+              <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 font-medium text-muted-foreground">No login account</span>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className="flex flex-wrap items-center gap-2">
             {row.hasAccount ? (
               <Button
                 type="button"
@@ -215,6 +213,18 @@ export function StaffDirectoryRowControls({
                 <ChevronDown className={`size-3.5 transition-transform ${panel === "access" ? "rotate-180" : ""}`} aria-hidden="true" />
               </Button>
             )}
+            <Button
+              type="button"
+              variant="neutral"
+              size="sm"
+              aria-expanded={panel === "hod-placement"}
+              onClick={() => togglePanel("hod-placement")}
+              className="min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem]"
+            >
+              <Network className="size-3.5" aria-hidden="true" />
+              {row.operationalHodDesignation ? "HOD placement" : "Assign HOD"}
+              <ChevronDown className={`size-3.5 transition-transform ${panel === "hod-placement" ? "rotate-180" : ""}`} aria-hidden="true" />
+            </Button>
             <RecordActionButton
               icon={Pencil}
               label="Manage identity"
@@ -349,6 +359,52 @@ export function StaffDirectoryRowControls({
                 </p>
               ) : null}
             </div>
+          )}
+        </div>
+      ) : null}
+
+      {panel === "hod-placement" ? (
+        <div className={panelClassName()} data-staff-operational-hod>
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-foreground">HOD staff placement</h3>
+            <p className="mt-1 text-[0.72rem] leading-5 text-muted-foreground">
+              Designate an existing staff member as HOD without creating a ScolaPro account or sending an invitation.
+              This permits later subject-portfolio appointment; login access and HOD review permissions remain separate.
+            </p>
+          </div>
+          {!operationalHodReady ? (
+            <p role="status" className="mb-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]">
+              HOD placement changes are unavailable until the operational HOD database migration is deployed.
+              Existing staff and login records remain accessible.
+            </p>
+          ) : null}
+          {row.operationalHodDesignation ? (
+            <form action={hodEndAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="designationId" value={row.operationalHodDesignation.id} />
+              <div>
+                <p className="font-semibold text-foreground">Operational HOD assigned</p>
+                <p className="mt-1 text-muted-foreground">Effective from {row.operationalHodDesignation.effectiveFrom}. Ending this designation also closes its open portfolio authority on the selected date.</p>
+              </div>
+              <div className="flex flex-wrap items-end justify-end gap-3">
+                <div className="min-w-[12rem] flex-1 sm:max-w-xs"><DateField label="Effective to" name="effectiveTo" value={hodDate} onChange={setHodDate} /></div>
+              <Button type="submit" variant="neutral" size="sm" disabled={!operationalHodReady || hodEndPending || hodDate < row.operationalHodDesignation.effectiveFrom} loading={hodEndPending}>
+                End HOD placement
+              </Button>
+              </div>
+            </form>
+          ) : (
+            <form action={hodAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="staffMemberId" value={row.staffId} />
+              <p className="text-muted-foreground">No operational HOD designation. The staff member keeps their existing placement and login status.</p>
+              <div className="flex flex-wrap items-end justify-end gap-3">
+                <div className="min-w-[12rem] flex-1 sm:max-w-xs"><DateField label="Effective from" name="effectiveFrom" value={hodDate} onChange={setHodDate} /></div>
+              <Button type="submit" size="sm" disabled={!operationalHodReady || hodPending || !hodDate} loading={hodPending}>
+                <Network className="size-3.5" aria-hidden="true" /> Assign HOD placement
+              </Button>
+              </div>
+            </form>
           )}
         </div>
       ) : null}

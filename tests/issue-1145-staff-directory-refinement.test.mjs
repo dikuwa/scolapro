@@ -18,7 +18,7 @@ test("staff rows show one placement label instead of duplicating every account r
 });
 
 test("linked accounts keep role controls behind one controlled row panel", () => {
-  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| null/);
+  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| "hod-placement" \| null/);
   assert.match(access, /const \[panel, setPanel\] = useState<StaffRowPanel>\(null\)/);
   assert.match(access, /Manage access/);
   assert.doesNotMatch(access, /Close access/);
@@ -28,13 +28,13 @@ test("linked accounts keep role controls behind one controlled row panel", () =>
 
 test("staff without accounts get a complete invite summary before the form opens", () => {
   assert.match(access, /No login account/);
-  assert.match(access, /Placement exists; ScolaPro access has not been created/);
+  assert.doesNotMatch(access, /Placement exists; ScolaPro access has not been created/);
   assert.match(access, /Invite/);
   assert.match(access, /Send invite/);
 });
 
 test("identity management shares the unified full-width row tray", () => {
-  assert.match(page, /<StaffDirectoryRowControls schoolId=\{schoolId\} row=\{row\} candidates=\{directory\.rows\} \/>/);
+  assert.match(page, /<StaffDirectoryRowControls schoolId=\{schoolId\} row=\{row\} candidates=\{directory\.rows\} operationalHodReady=\{directory\.operationalHodReady\} \/>/);
   assert.match(access, /panel === "identity"/);
   assert.match(access, /Identity management/);
   assert.match(access, /lg:col-start-2 lg:col-end-5/);

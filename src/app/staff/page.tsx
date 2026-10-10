@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { BadgeCheck, ChevronLeft, ChevronRight, Search, UserRoundCheck, UsersRound } from "lucide-react";
+import { BadgeCheck, ChevronLeft, ChevronRight, UserRoundCheck, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { SingleStaffForm } from "@/features/staff/single-staff-form";
 import { StaffDirectoryRowControls } from "@/features/staff/staff-access-manager";
+import { StaffDirectorySearch } from "@/features/staff/staff-directory-search";
 import { getSchoolStaffDirectory } from "@/features/staff/server/directory";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
@@ -108,14 +109,7 @@ async function StaffDirectoryData({
             <h2 className="scolapro-section-title">School staff</h2>
             <p className="scolapro-section-description">Placement describes who works at the school; account roles describe what an invited user may do in ScolaPro.</p>
           </div>
-          <form action="/staff" method="get" className="flex w-full max-w-md gap-2">
-            <label className="scolapro-control-surface flex min-h-10 min-w-0 flex-1 items-center gap-2 rounded-[var(--radius-sm)] px-3">
-              <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <input name="q" defaultValue={query} placeholder="Search name, employee no. or role…" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70" />
-            </label>
-            <button className="min-h-10 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white" type="submit">Search</button>
-            {query ? <Link href="/staff" className="inline-flex min-h-10 items-center rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-medium text-muted-foreground hover:text-foreground">Clear</Link> : null}
-          </form>
+          <StaffDirectorySearch initialQuery={query} />
         </div>
 
         {directory.rows.length ? (
@@ -156,13 +150,19 @@ async function StaffDirectoryData({
                         <BadgeCheck className="size-3.5 shrink-0" aria-hidden="true" />
                         <span className="truncate">{humanRole(primaryPlacement)}</span>
                       </span>
+                      {row.operationalHodDesignation ? (
+                        <span className="ml-1 inline-flex items-center rounded-[var(--radius-xs)] bg-[color:var(--accent-indigo-soft)] px-2 py-1 text-[0.68rem] font-medium text-[color:var(--accent-indigo)]">
+                          {row.operationalHodDesignation.effectiveFrom <= today ? "HOD" : "HOD scheduled"}
+                        </span>
+                      ) : null}
                       <p className="mt-1 text-[0.68rem] tabular-nums text-muted-foreground">
                         From {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${row.activeFrom}T12:00:00`))}
+                        {row.operationalHodDesignation ? ` · HOD from ${row.operationalHodDesignation.effectiveFrom}` : ""}
                       </p>
                       {row.defaultRoomName ? <p className="mt-0.5 truncate text-[0.68rem] text-muted-foreground">{row.defaultRoomName}</p> : null}
                     </div>
 
-                    <StaffDirectoryRowControls schoolId={schoolId} row={row} candidates={directory.rows} />
+                    <StaffDirectoryRowControls schoolId={schoolId} row={row} candidates={directory.rows} operationalHodReady={directory.operationalHodReady} />
                   </article>
                 );
               })}

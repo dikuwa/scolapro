@@ -63,7 +63,7 @@ select throws_ok(
   $$select public.record_conduct_policy_item_group(
     'd3200000-0000-4000-8000-000000000001',
     (select id from public.conduct_policy_categories where school_id='d3200000-0000-4000-8000-000000000001' and code='REC_GEN_05'),
-    'recognition',current_date+1,null,
+    'recognition',((now() at time zone 'Africa/Windhoek')::date + 1),null,
     array['d3300000-0000-4000-8000-000000000001']::uuid[]
   )$$,
   'Check event date and text',

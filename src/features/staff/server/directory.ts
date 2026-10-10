@@ -15,6 +15,7 @@ export type StaffDirectoryRow = {
   pendingInvitationId: string | null;
   pendingInvitationStatus: string | null;
   activeRoles: { id: string; roleKey: string; activeFrom: string; activeTo: string | null }[];
+  operationalHodDesignation: { id: string; effectiveFrom: string } | null;
 };
 
 export type StaffDirectoryResult = {
@@ -22,6 +23,7 @@ export type StaffDirectoryResult = {
   totalStaff: number;
   activeStaff: number;
   accountCount: number;
+  operationalHodReady: boolean;
   suggestedEmployeeNumber: string;
   page: number;
   pageSize: number;
@@ -63,7 +65,7 @@ export async function getSchoolStaffDirectory(
   const pageSize = Math.min(Math.max(options.pageSize ?? 50, 1), 100);
   const onDate = options.onDate ?? new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
-  const [directoryResult, summaryResult] = await Promise.all([
+  const [directoryResult, summaryResult, designationResult] = await Promise.all([
     supabase.rpc("list_staff_access_directory_page", {
       p_school_id: schoolId,
       p_query: options.query?.trim() || null,
@@ -74,9 +76,28 @@ export async function getSchoolStaffDirectory(
       p_school_id: schoolId,
       p_on_date: onDate,
     }),
+    supabase.from("staff_operational_hod_designations")
+      .select("id,staff_member_id,effective_from")
+      .eq("school_id", schoolId)
+      .is("effective_to", null),
   ]);
 
-  if (directoryResult.error || summaryResult.error) throw new Error("Unable to load school staff directory.");
+  // A preview may run before its additive database migration is applied.
+  // Keep the existing staff directory readable, while HOD designation writes
+  // remain unavailable until the migration is deployed. Never mask other errors.
+  const designationTableMissing = designationResult.error &&
+    (designationResult.error.code === "42P01" ||
+      designationResult.error.code === "PGRST205" ||
+      designationResult.error.code === "PGRST116" && /schema cache/i.test(designationResult.error.message));
+  if (directoryResult.error || summaryResult.error || (designationResult.error && !designationTableMissing)) {
+    throw new Error("Unable to load school staff directory.");
+  }
+  const openHodDesignationByStaff = new Map(
+    (designationResult.data ?? []).map((designation) => [
+      designation.staff_member_id,
+      { id: designation.id, effectiveFrom: designation.effective_from },
+    ]),
+  );
 
   const directoryRows = (directoryResult.data ?? []) as StaffDirectoryRpcRow[];
   const summary = ((summaryResult.data ?? [])[0] ?? null) as StaffSummaryRpcRow | null;
@@ -98,10 +119,12 @@ export async function getSchoolStaffDirectory(
       pendingInvitationId: row.pending_invitation_id,
       pendingInvitationStatus: row.pending_invitation_status,
       activeRoles: row.active_roles ?? [],
+      operationalHodDesignation: row.staff_id ? (openHodDesignationByStaff.get(row.staff_id) ?? null) : null,
     })),
     totalStaff: Number(summary?.total_staff ?? 0),
     activeStaff: Number(summary?.active_staff ?? 0),
     accountCount: Number(summary?.account_count ?? 0),
+    operationalHodReady: !designationTableMissing,
     suggestedEmployeeNumber: summary?.suggested_employee_number ?? "EMP-001",
     page,
     pageSize,
