@@ -289,3 +289,11 @@ test("staff corrections and reconciliation require rotation clearance", () => {
     assert.match(section, /await requireStaffAccessSecurityClearance\(\)/);
   }
 });
+
+test("staff creation fails closed when shared authority is unavailable", () => {
+  const actions = read("src/features/staff/server/actions.ts");
+  const section = actions.slice(actions.indexOf("export async function createSingleStaff("));
+  assert.match(section, /try\s*\{\s*context = await getUserContext\(\);/);
+  assert.match(section, /catch\s*\{\s*return \{ message: "Complete account security setup before creating staff\." \};/);
+  assert.ok(section.indexOf("await getUserContext()") < section.indexOf('supabase.rpc("create_or_assign_school_staff"'));
+});
