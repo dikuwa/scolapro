@@ -80,11 +80,11 @@ select ok(
 );
 
 select throws_ok(
-  $$sql$select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000002',
     'a3000000-0000-4000-8000-000000000001'
-  )$$,
+  )$sql$,
   '55000',
   'Credential issuance is already in progress for this staff account',
   'concurrent live issuance is blocked'
@@ -102,33 +102,33 @@ select is(
 );
 
 select throws_ok(
-  $$sql$select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000002',
     'a4000000-0000-4000-8000-000000000002',
     'a3000000-0000-4000-8000-000000000001'
-  )$$,
+  )$sql$,
   '42501',
   'Staff is not actively placed at this school',
   'cross-school issuance is denied'
 );
 
 select throws_ok(
-  $$sql$select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000001',
     'a3000000-0000-4000-8000-000000000001'
-  )$$,
+  )$sql$,
   '42501',
   'Administrators cannot issue temporary credentials to themselves',
   'self issuance is denied'
 );
 
 select throws_ok(
-  $$sql$select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000003',
     'a3000000-0000-4000-8000-000000000001'
-  )$$,
+  )$sql$,
   '42501',
   'Protected administrator credentials cannot be issued here',
   'school-admin targets are protected even when their admin authority belongs to another school'
@@ -226,7 +226,7 @@ select is(
 );
 
 select throws_ok(
-  $sql$sql$select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000002',
     'a3000000-0000-4000-8000-000000000001'
