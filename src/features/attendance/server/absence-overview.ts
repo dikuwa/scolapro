@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { formatLearnerName } from "@/lib/person-name";
+import { formatLearnerName, formatPersonName } from "@/lib/person-name";
 
 export type AbsenceOverviewClass = { id: string; name: string; grade: string };
 
@@ -9,6 +9,8 @@ export type AbsenceOverviewRow = {
   source: "daily" | "lesson" | "guardian";
   learnerId: string;
   learnerName: string;
+  /** Given-first alternate for client-side both-order search. */
+  learnerNameAlternate: string;
   admissionNumber: string | null;
   /** Register class for school signals; null for guardian notices. */
   classId: string | null;
@@ -94,6 +96,7 @@ export async function getAbsenceOverviewWorkspace(
       source: "daily",
       learnerId: row.learner_id,
       learnerName: formatLearnerName(row.first_names, row.surname),
+      learnerNameAlternate: [formatPersonName(row.first_names), formatPersonName(row.surname)].filter(Boolean).join(" "),
       admissionNumber: null,
       classId: row.register_class_id,
       className: schoolClass?.name ?? null,
@@ -133,6 +136,7 @@ export async function getAbsenceOverviewWorkspace(
       source: "lesson",
       learnerId: row.learner_id,
       learnerName: formatLearnerName(row.first_names, row.surname),
+      learnerNameAlternate: [formatPersonName(row.first_names), formatPersonName(row.surname)].filter(Boolean).join(" "),
       admissionNumber: null,
       classId: rowClassId,
       className: schoolClass?.name ?? null,
@@ -154,6 +158,7 @@ export async function getAbsenceOverviewWorkspace(
       source: "guardian",
       learnerId: row.learner_id,
       learnerName: formatLearnerName(learner?.first_names, learner?.surname),
+      learnerNameAlternate: [formatPersonName(learner?.first_names), formatPersonName(learner?.surname)].filter(Boolean).join(" "),
       admissionNumber: null,
       classId: null,
       className: null,

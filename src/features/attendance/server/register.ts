@@ -4,7 +4,7 @@ import {
   type AttendanceDayDecision,
   type LearnerTermWindow,
 } from "@/features/attendance/server/learner-calendar-bounds";
-import { formatLearnerName } from "@/lib/person-name";
+import { formatLearnerName, formatPersonName } from "@/lib/person-name";
 
 export type AttendanceClassOption = {
   id: string;
@@ -22,7 +22,14 @@ export type AttendanceReasonOption = {
 export type AttendanceLearnerRow = {
   enrolmentId: string;
   learnerId: string;
+  /** Display name: Surname GivenNames (e.g. "Mbuti Angel"). */
   name: string;
+  /**
+   * Alternate search token: GivenNames Surname order (e.g. "Angel Mbuti").
+   * Kept with the row so client-side filters can match either order without
+   * exposing additional identity fields on the wire.
+   */
+  nameAlternate: string;
   admissionNumber: string | null;
   sex: string | null;
   status: "present" | "absent" | "late" | "excused" | "unknown";
@@ -121,10 +128,13 @@ export async function getDailyRegisterWorkspace(
   const learnersSortable = (enrolments ?? []).map((item) => {
     const learner = relation(item.learners);
     const current = currentByEnrolment.get(item.id);
+    const givenNorm = formatPersonName(learner?.first_names);
+    const surnameNorm = formatPersonName(learner?.surname);
     return {
       enrolmentId: item.id,
       learnerId: item.learner_id,
-      name: formatLearnerName(learner?.first_names, learner?.surname),
+      name: [surnameNorm, givenNorm].filter(Boolean).join(" ") || "Learner",
+      nameAlternate: [givenNorm, surnameNorm].filter(Boolean).join(" "),
       surname: learner?.surname ?? "",
       first_names: learner?.first_names ?? "",
       admissionNumber: item.admission_number,
