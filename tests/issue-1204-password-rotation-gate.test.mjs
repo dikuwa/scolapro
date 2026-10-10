@@ -260,3 +260,22 @@ test("rotation clearance verifies that the authenticated profile row was updated
   assert.match(section, /clearedProfile\?\.user_id !== user.id/);
   assert.ok(section.indexOf('.select("user_id")') < section.indexOf("clearedProfile?.user_id !== user.id"));
 });
+
+test("staff identity and access actions independently enforce rotation clearance", () => {
+  const source = read("src/features/staff/server/access-actions.ts");
+  assert.match(source, /async function requireStaffAccessSecurityClearance\(\)/);
+  assert.match(source, /const context = await getUserContext\(\)/);
+  for (const name of [
+    "inviteExistingStaff",
+    "resendExistingStaffInvitation",
+    "addStaffRole",
+    "endStaffRole",
+    "sendStaffPasswordReset",
+    "sendStaffVerification",
+  ]) {
+    const start = source.indexOf(`export async function ${name}(`);
+    assert.ok(start >= 0, name);
+    const section = source.slice(start, source.indexOf("export async function ", start + 10) > start ? source.indexOf("export async function ", start + 10) : undefined);
+    assert.match(section, /await requireStaffAccessSecurityClearance\(\)/, name);
+  }
+});
