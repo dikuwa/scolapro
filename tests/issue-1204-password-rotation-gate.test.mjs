@@ -324,3 +324,15 @@ test("credential audit fingerprint uses keyed HMAC, never raw password storage",
   assert.match(helper, /secret\.length < 32/);
   assert.doesNotMatch(helper, /console\.(log|info|debug)/);
 });
+
+test("privileged staff Auth lookups enforce school placement before revealing linked account", () => {
+  const actions = read("src/features/staff/server/access-actions.ts");
+  const start = actions.indexOf("async function linkedAuthEmail(");
+  const end = actions.indexOf("export async function sendStaffPasswordReset(", start);
+  const section = actions.slice(start, end);
+  assert.match(section, /\.from\("staff_school_assignments"\)/);
+  assert.match(section, /\.eq\("school_id", schoolId\)/);
+  assert.match(section, /\.eq\("staff_member_id", staffMemberId\)/);
+  assert.ok(section.indexOf('.from("staff_school_assignments")') < section.indexOf('.from("staff_members")'));
+  assert.ok(section.indexOf('.from("staff_school_assignments")') < section.indexOf("admin.auth.admin.getUserById"));
+});
