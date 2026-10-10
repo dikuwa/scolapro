@@ -11,7 +11,9 @@ const payloadSchema = z.object({
   }),
   payload: z.object({
     registerClassId: z.string().uuid(),
+    viewRegisterClassId: z.string().uuid().optional(),
     attendanceDate: z.string().date(),
+    viewAttendanceDate: z.string().date().optional(),
     clientMutationId: z.string().uuid(),
     replacesSubmissionId: z.string().uuid().nullable(),
     exceptions: z.array(z.object({
@@ -41,11 +43,13 @@ export async function POST(request: Request) {
 
   const formData = new FormData();
   formData.set("registerClassId", parsed.data.payload.registerClassId);
+  formData.set("viewRegisterClassId", parsed.data.payload.viewRegisterClassId ?? parsed.data.payload.registerClassId);
   formData.set("attendanceDate", parsed.data.payload.attendanceDate);
+  formData.set("viewAttendanceDate", parsed.data.payload.viewAttendanceDate ?? parsed.data.payload.attendanceDate);
   formData.set("clientMutationId", parsed.data.payload.clientMutationId);
   formData.set("replacesSubmissionId", parsed.data.payload.replacesSubmissionId ?? "");
   formData.set("exceptions", JSON.stringify(parsed.data.payload.exceptions));
-  formData.set("source", "offline");
+  formData.set("source", "offline_sync");
 
   const result = await submitDailyRegister({}, formData);
   if (!result.success) return NextResponse.json(result, { status: 409 });

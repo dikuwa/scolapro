@@ -8,6 +8,7 @@ import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { PeriodStepper } from "@/components/ui/week-picker";
 import { AttendanceSortControl, type AttendanceSortDirection } from "@/features/attendance/attendance-sort-control";
+import { dailyAttendanceViewIdentity } from "@/features/attendance/attendance-date-integrity";
 import { getDailyRegisterExceptions, getVisibleDailyRegisterRows, type DailyRegisterSexFilter } from "@/features/attendance/daily-register-view-state";
 import { submitDailyRegister, type DailyRegisterState } from "@/features/attendance/server/actions";
 import { cacheDailyRegisterSnapshot, hasQueuedEvidence, queueDailyRegister } from "@/features/attendance/offline/daily-register-queue";
@@ -53,13 +54,21 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const router = useRouter();
   const [state, action, pending] = useActionState(submitDailyRegister, initialState);
   const [navigationPending, startNavigation] = useTransition();
-  const [rows, setRows] = useState(learners);
+  const viewIdentity = dailyAttendanceViewIdentity({ registerClassId: selectedClassId, attendanceDate, submissionId: currentSubmissionId });
+  const [draft, setDraft] = useState(() => ({ viewIdentity, rows: learners, clientMutationId: crypto.randomUUID() }));
   const [query, setQuery] = useState("");
   const [sexFilter, setSexFilter] = useState<DailyRegisterSexFilter>(initialSexFilter);
   const [sortDirection, setSortDirection] = useState<AttendanceSortDirection>(sort);
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [evidenceNames, setEvidenceNames] = useState<Record<string, string>>({});
-  const [clientMutationId] = useState(() => crypto.randomUUID());
+  if (draft.viewIdentity !== viewIdentity) {
+    setDraft({ viewIdentity, rows: learners, clientMutationId: crypto.randomUUID() });
+    setFocusedId(null);
+    setEvidenceNames({});
+  }
+  const draftMatchesView = draft.viewIdentity === viewIdentity;
+  const rows = draftMatchesView ? draft.rows : learners;
+  const clientMutationId = draftMatchesView ? draft.clientMutationId : "";
 
   useEffect(() => {
     if (!state.message) return;
@@ -104,6 +113,11 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   }, [attendanceDate, classes, currentSubmissionId, offlineScope, reasons, rows, selectedClassId, teachingDay]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (!draftMatchesView || navigationPending || !clientMutationId) {
+      event.preventDefault();
+      toast.error("The attendance date or class changed before this register could be saved. Refresh and try again.");
+      return;
+    }
     if (typeof navigator === "undefined" || navigator.onLine) return;
 
     event.preventDefault();
@@ -116,7 +130,9 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
     try {
       await queueDailyRegister(offlineScope, {
         registerClassId: selectedClassId!,
+        viewRegisterClassId: selectedClassId!,
         attendanceDate,
+        viewAttendanceDate: attendanceDate,
         clientMutationId,
         replacesSubmissionId: currentSubmissionId,
         exceptions,
@@ -128,7 +144,11 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   }
 
   function updateRow(enrolmentId: string, changes: Partial<AttendanceLearnerRow>) {
-    setRows((current) => current.map((row) => row.enrolmentId === enrolmentId ? { ...row, ...changes } : row));
+    if (!draftMatchesView || navigationPending) return;
+    setDraft((current) => current.viewIdentity !== viewIdentity ? current : {
+      ...current,
+      rows: current.rows.map((row) => row.enrolmentId === enrolmentId ? { ...row, ...changes } : row),
+    });
   }
 
   function setStatus(row: AttendanceLearnerRow, status: AttendanceStatus) {
@@ -136,6 +156,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   }
 
   function moveDate(direction: -1 | 1) {
+    setFocusedId(null);
     const params = new URLSearchParams();
     params.set("view", "day");
     if (selectedClassId) params.set("class", selectedClassId);
@@ -146,6 +167,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   }
 
   function chooseClass(classId: string) {
+    setFocusedId(null);
     const params = new URLSearchParams({ view: "day", class: classId, date: attendanceDate });
     if (sortDirection === "desc") params.set("sort", "desc");
     if (sexFilter !== "all") params.set("sex", sexFilter);
@@ -200,7 +222,9 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
         {!selectedClassId || !classes.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No register classes configured</p></div> : !rows.length ? <div className="py-10 text-center"><p className="text-sm font-medium">No learners in this class</p></div> : (
           <form action={action} onSubmit={handleSubmit}>
             <input type="hidden" name="registerClassId" value={selectedClassId} />
+            <input type="hidden" name="viewRegisterClassId" value={selectedClassId} />
             <input type="hidden" name="attendanceDate" value={attendanceDate} />
+            <input type="hidden" name="viewAttendanceDate" value={attendanceDate} />
             <input type="hidden" name="clientMutationId" value={clientMutationId} />
             <input type="hidden" name="replacesSubmissionId" value={currentSubmissionId ?? ""} />
             <input type="hidden" name="exceptions" value={JSON.stringify(exceptions)} />
@@ -233,7 +257,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
               </div>
             </div> : null}
 
-            <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"><p className="text-[0.7rem] text-muted-foreground">{currentSubmissionId ? "Saving creates a new auditable revision." : "Confirm attendance for this class and date."}</p><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Save className="size-4" />}{pending ? "Saving…" : currentSubmissionId ? "Save revision" : "Confirm register"}</button></div>
+            <div className="flex flex-col gap-2 border-t border-border-subtle bg-surface px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5"><p className="text-[0.7rem] text-muted-foreground">{currentSubmissionId ? "Saving creates a new auditable revision." : "Confirm attendance for this class and date."}</p><button type="submit" disabled={pending || navigationPending || !draftMatchesView || !clientMutationId} className="scolapro-cta inline-flex min-h-10 items-center justify-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Save className="size-4" />}{pending ? "Saving…" : currentSubmissionId ? "Save revision" : "Confirm register"}</button></div>
           </form>
         )}
       </section>

@@ -1,5 +1,5 @@
 begin;
-select plan(15);
+select plan(17);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('ac100000-0000-4000-8000-000000000001','attendance-current-admin@example.test','authenticated','authenticated',now(),now()),
@@ -22,6 +22,7 @@ insert into public.school_day_overrides(
   tenant_id,school_id,school_date,is_school_day,reason,source
 ) values
   ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',current_date,true,'attendance current-scope test fixture','school'),
+  ('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',current_date+1,true,'attendance date-integrity test fixture','school'),
   ('11111111-1111-4111-8111-111111111111','ac110000-0000-4000-8000-000000000001',current_date,true,'attendance current-scope test fixture','school')
 on conflict (school_id,school_date) do update
 set is_school_day=excluded.is_school_day,
@@ -85,11 +86,36 @@ select lives_ok(
   'current-school attendance administrator can submit the current daily register'
 );
 
+select lives_ok(
+  $$do $retry$
+  begin
+    perform public.submit_daily_register(
+      '40000000-0000-4000-8000-00000000001a',current_date,'[]'::jsonb,'idempotent attendance',
+      'ac170000-0000-4000-8000-000000000001',null,'online'
+    );
+    perform public.submit_daily_register(
+      '40000000-0000-4000-8000-00000000001a',current_date,'[]'::jsonb,'idempotent attendance retry',
+      'ac170000-0000-4000-8000-000000000001',null,'online'
+    );
+  end
+  $retry$;$$,
+  'an attendance mutation identity can be retried for its original class and date'
+);
+
+select throws_ok(
+  $$select public.submit_daily_register(
+    '40000000-0000-4000-8000-00000000001a',current_date+1,'[]'::jsonb,'stale attendance replay',
+    'ac170000-0000-4000-8000-000000000001',null,'online'
+  )$$,
+  'Attendance mutation identity does not match the register class and date',
+  'an attendance mutation identity cannot be replayed onto a different date'
+);
+
 select is(
   (select count(*)::integer from public.attendance_register_submissions
    where school_id='22222222-2222-4222-8222-222222222222' and attendance_date=current_date),
-  2,
-  'current-school register read exposes authorized current-school submissions'
+  3,
+  'current-school register read exposes authorized submissions without duplicating an idempotent retry'
 );
 
 -- Current register submission must reject an enrolment whose effective period ended.

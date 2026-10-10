@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { dailySubmissionViewError } from "@/features/attendance/attendance-date-integrity";
 import { ineligibleDailyAttendanceDate } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
 import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
@@ -19,10 +20,12 @@ const exceptionSchema = z.object({
 
 const registerSchema = z.object({
   registerClassId: z.string().uuid(),
+  viewRegisterClassId: z.string().uuid(),
   attendanceDate: z.string().date(),
+  viewAttendanceDate: z.string().date(),
   clientMutationId: z.string().uuid(),
   replacesSubmissionId: z.string().uuid().nullable().optional(),
-  source: z.enum(["online", "offline"]).default("online"),
+  source: z.enum(["online", "offline_sync"]).default("online"),
   exceptions: z.array(exceptionSchema),
 });
 
@@ -51,7 +54,9 @@ export async function submitDailyRegister(
 
   const parsed = registerSchema.safeParse({
     registerClassId: formData.get("registerClassId"),
+    viewRegisterClassId: formData.get("viewRegisterClassId"),
     attendanceDate: formData.get("attendanceDate"),
+    viewAttendanceDate: formData.get("viewAttendanceDate"),
     clientMutationId: formData.get("clientMutationId"),
     replacesSubmissionId: formData.get("replacesSubmissionId") || null,
     source: formData.get("source") || "online",
@@ -59,6 +64,9 @@ export async function submitDailyRegister(
   });
 
   if (!parsed.success) return { message: "Review the attendance entries and try again." };
+
+  const viewError = dailySubmissionViewError(parsed.data);
+  if (viewError) return { message: viewError };
 
   const context = await getUserContext();
   const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
@@ -107,13 +115,20 @@ export async function submitDailyRegister(
 
   const { data: submission } = await supabase
     .from("attendance_register_submissions")
-    .select("id,tenant_id,school_id")
+    .select("id,tenant_id,school_id,register_class_id,attendance_date")
     .eq("id", submissionId)
     .single();
 
+  if (
+    !submission
+    || submission.register_class_id !== parsed.data.registerClassId
+    || submission.attendance_date !== parsed.data.attendanceDate
+  ) {
+    return { message: "The saved attendance date could not be verified. Do not resubmit; ask an administrator to review the attendance audit." };
+  }
+
   let evidenceFailures = 0;
-  if (submission) {
-    for (const exception of parsed.data.exceptions) {
+  for (const exception of parsed.data.exceptions) {
       const evidence = formData.get(`evidence-${exception.enrolment_id}`);
       if (!(evidence instanceof File) || evidence.size === 0) continue;
 
@@ -146,7 +161,6 @@ export async function submitDailyRegister(
         evidenceFailures += 1;
         await supabase.storage.from("attendance-evidence").remove([path]);
       }
-    }
   }
 
   // Absence reviews read the same authoritative daily register records, so the

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { weeklySubmissionPeriodError } from "@/features/attendance/attendance-date-integrity";
 import { firstIneligibleWeeklyAttendanceDate } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveAttendanceTeachingImpact } from "@/features/attendance/server/register";
 import { getUserContext } from "@/lib/auth/get-user-context";
@@ -23,6 +24,9 @@ const daySchema = z.object({
 
 const weeklySchema = z.object({
   registerClassId: z.string().uuid(),
+  viewRegisterClassId: z.string().uuid(),
+  weekStart: z.string().date(),
+  weekEnd: z.string().date(),
   days: z.array(daySchema).min(1).max(5),
 });
 
@@ -42,8 +46,24 @@ export async function submitWeeklyRegister(_state: WeeklyRegisterState, formData
     return { message: "The weekly attendance changes could not be read." };
   }
 
-  const parsed = weeklySchema.safeParse({ registerClassId: formData.get("registerClassId"), days: parsedDays });
+  const parsed = weeklySchema.safeParse({
+    registerClassId: formData.get("registerClassId"),
+    viewRegisterClassId: formData.get("viewRegisterClassId"),
+    weekStart: formData.get("weekStart"),
+    weekEnd: formData.get("weekEnd"),
+    days: parsedDays,
+  });
   if (!parsed.success) return { message: "Review the weekly register and try again." };
+
+  if (parsed.data.registerClassId !== parsed.data.viewRegisterClassId) {
+    return { message: "The register class changed before this week was saved. Refresh and try again." };
+  }
+  const periodError = weeklySubmissionPeriodError({
+    weekStart: parsed.data.weekStart,
+    weekEnd: parsed.data.weekEnd,
+    dates: parsed.data.days.map((day) => day.date),
+  });
+  if (periodError) return { message: periodError };
 
   const context = await getUserContext();
   const allowed = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
@@ -87,13 +107,29 @@ export async function submitWeeklyRegister(_state: WeeklyRegisterState, formData
   if (error) return { message: "The weekly register could not be saved. Confirm the class and school days, then try again." };
 
   const submissions = Array.isArray(data) ? data as Array<{ date?: string; submission_id?: string }> : [];
+  const requestedDates = parsed.data.days.map((day) => day.date);
+  const persistedDates = submissions.map((item) => String(item.date));
+  if (
+    submissions.length !== requestedDates.length
+    || new Set(persistedDates).size !== persistedDates.length
+    || requestedDates.some((date) => !persistedDates.includes(date))
+    || submissions.some((item) => !item.submission_id)
+  ) {
+    return { message: "The saved attendance dates could not be verified. Do not resubmit; ask an administrator to review the attendance audit." };
+  }
   const submissionByDate = new Map(submissions.map((item) => [String(item.date), item.submission_id]));
   let evidenceFailures = 0;
 
   for (const day of parsed.data.days) {
     const submissionId = submissionByDate.get(day.date);
     if (!submissionId) continue;
-    const { data: submission } = await supabase.from("attendance_register_submissions").select("id,tenant_id,school_id").eq("id", submissionId).maybeSingle();
+    const { data: submission } = await supabase
+      .from("attendance_register_submissions")
+      .select("id,tenant_id,school_id")
+      .eq("id", submissionId)
+      .eq("register_class_id", parsed.data.registerClassId)
+      .eq("attendance_date", day.date)
+      .maybeSingle();
     if (!submission) continue;
 
     for (const exception of day.exceptions) {

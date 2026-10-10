@@ -81,7 +81,9 @@ export function OfflineAttendanceWorkspace() {
     try {
       await queueDailyRegister(scope, {
         registerClassId: selected.payload.registerClassId,
+        viewRegisterClassId: selected.payload.registerClassId,
         attendanceDate: selected.payload.attendanceDate,
+        viewAttendanceDate: selected.payload.attendanceDate,
         clientMutationId: crypto.randomUUID(),
         replacesSubmissionId: selected.payload.currentSubmissionId,
         exceptions,

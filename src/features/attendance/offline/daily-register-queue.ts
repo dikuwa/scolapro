@@ -16,7 +16,9 @@ export const DAILY_ATTENDANCE_SNAPSHOT = "attendance.daily-register.snapshot";
 
 export type OfflineDailyRegisterPayload = {
   registerClassId: string;
+  viewRegisterClassId?: string;
   attendanceDate: string;
+  viewAttendanceDate?: string;
   clientMutationId: string;
   replacesSubmissionId: string | null;
   exceptions: Array<{
