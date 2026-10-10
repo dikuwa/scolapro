@@ -452,3 +452,12 @@ test("temporary credential server action exposes only the governed one-time issu
   assert.match(source, /cannot be shown again/);
   assert.doesNotMatch(source, /createSupabaseAdminClient|auth\.admin|generateStaffTemporaryPassword|console\./);
 });
+
+
+test("credential reservation blocks concurrent provider-password races", () => {
+  const migration = read("supabase/migrations/20261010123000_staff_credential_atomic_reservation.sql");
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.match(migration, /a\.outcome='reserved'/);
+  assert.match(migration, /already in progress for this staff account/);
+  assert.ok(migration.indexOf("pg_advisory_xact_lock") < migration.indexOf("already in progress for this staff account"));
+});
