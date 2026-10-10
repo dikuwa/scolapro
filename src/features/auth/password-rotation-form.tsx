@@ -18,12 +18,12 @@ export function PasswordRotationForm() {
         <form action={action} className="mt-5 space-y-4">
           <label className="block text-sm font-medium">
             New password
-            <input name="password" type="password" autoComplete="new-password" minLength={8} required
+            <input name="password" type="password" autoComplete="new-password" minLength={8} maxLength={128} required
               className="mt-1 block w-full rounded-[var(--radius-sm)] border border-border-subtle bg-background p-3" />
           </label>
           <label className="block text-sm font-medium">
             Confirm new password
-            <input name="confirmation" type="password" autoComplete="new-password" minLength={8} required
+            <input name="confirmation" type="password" autoComplete="new-password" minLength={8} maxLength={128} required
               className="mt-1 block w-full rounded-[var(--radius-sm)] border border-border-subtle bg-background p-3" />
           </label>
           {state.message ? <p role="alert" className="text-sm text-muted-foreground">{state.message}</p> : null}
