@@ -158,20 +158,14 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
     return { success: true, message: "Password changed successfully." };
   }
 
-  // Only the authenticated owner may clear their own rotation requirement,
-  // and only after Supabase Auth has accepted the new password.
-  // The database refuses authenticated clients clearing this gate directly.
-  // Only the trusted server can clear it after Auth confirms the password update.
-  const { data: clearedProfile, error: profileError } = await createSupabaseAdminClient().from("user_profiles")
-    .update({
-      must_change_password: false,
-      password_rotation_expires_at: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("user_id", user.id)
-    .select("user_id")
-    .maybeSingle();
-  if (profileError || clearedProfile?.user_id !== user.id) {
+  // Only the trusted server may clear the rotation requirement, and only
+  // after Supabase Auth has accepted the new password. The service-only RPC
+  // clears the profile gate and writes a non-secret audit event atomically.
+  const { data: cleared, error: clearanceError } = await createSupabaseAdminClient().rpc(
+    "complete_password_rotation_clearance",
+    { p_user_id: user.id },
+  );
+  if (clearanceError || cleared !== true) {
     return { success: false, message: "Password updated, but account clearance could not be saved. Contact your administrator." };
   }
   revalidatePath("/", "layout");
