@@ -304,3 +304,10 @@ test("temporary password generation is cryptographic and server-only, without ex
   assert.match(helper, /randomBytes\(32\)\.toString\("base64url"\)/);
   assert.doesNotMatch(helper, /"use server"|export async function|createSupabaseAdminClient|console\./);
 });
+
+test("development branch inherits quota-saving Vercel deployment policy", () => {
+  const config = JSON.parse(read("vercel.json"));
+  assert.equal(config.git.deploymentEnabled.main, true);
+  assert.equal(config.git.deploymentEnabled["*"], false);
+  assert.equal(config.crons[0].path, "/api/internal/report-card-render");
+});
