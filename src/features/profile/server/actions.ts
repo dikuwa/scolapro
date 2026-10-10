@@ -18,7 +18,7 @@ export async function saveUploadedAvatar(path: string): Promise<ProfileActionSta
 
   const { data: securityProfile, error: securityError } = await supabase
     .from("user_profiles")
-    .select("must_change_password")
+    .select("must_change_password,password_rotation_expires_at")
     .eq("user_id", user.id)
     .maybeSingle();
   if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
@@ -140,6 +140,14 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
     return { success: false, message: "Your account security profile could not be verified." };
   }
 
+  if (
+    rotationProfile.must_change_password !== false &&
+    rotationProfile.password_rotation_expires_at &&
+    new Date(rotationProfile.password_rotation_expires_at).getTime() <= Date.now()
+  ) {
+    return { success: false, message: "This temporary password has expired. Ask your school administrator to issue a new one." };
+  }
+
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { success: false, message: "Your password could not be changed." };
 
@@ -155,7 +163,11 @@ export async function changePassword(_state: ProfileActionState, formData: FormD
   // The database refuses authenticated clients clearing this gate directly.
   // Only the trusted server can clear it after Auth confirms the password update.
   const { data: clearedProfile, error: profileError } = await createSupabaseAdminClient().from("user_profiles")
-    .update({ must_change_password: false, updated_at: new Date().toISOString() })
+    .update({
+      must_change_password: false,
+      password_rotation_expires_at: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq("user_id", user.id)
     .select("user_id")
     .maybeSingle();
