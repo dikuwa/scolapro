@@ -103,11 +103,13 @@ test("avatar save and deletion actions fail closed before storage operations", (
 
 test("password rotation clearance cannot be forged by authenticated profile updates", () => {
   const migration = read("supabase/migrations/20261009154000_password_rotation_clearance_guard.sql");
+  const completion = read("supabase/migrations/20261010134500_password_rotation_completion_audit.sql");
   const actions = read("src/features/profile/server/actions.ts");
   assert.match(migration, /before update of must_change_password on public\.user_profiles/i);
   assert.match(migration, /auth\.role\(\).*service_role/);
-  assert.match(actions, /await createSupabaseAdminClient\(\)\.from\("user_profiles"\)/);
-  assert.ok(actions.indexOf("await supabase.auth.updateUser({ password })") < actions.indexOf("await createSupabaseAdminClient().from(\"user_profiles\")"));
+  assert.match(completion, /coalesce\(auth\.role\(\), ''\) <> 'service_role'/);
+  assert.match(actions, /complete_password_rotation_clearance/);
+  assert.ok(actions.indexOf("await supabase.auth.updateUser({ password })") < actions.indexOf('"complete_password_rotation_clearance"'));
 });
 
 test("all offline sync endpoints return JSON 403 when the rotation gate blocks authority", () => {
@@ -243,22 +245,22 @@ test("password change verifies a resolvable security profile before changing cre
   const section = action.slice(action.indexOf("export async function changePassword("));
   assert.match(section, /rotationError \|\| !rotationProfile/);
   assert.ok(section.indexOf("rotationError || !rotationProfile") < section.indexOf("await supabase.auth.updateUser({ password })"));
-  assert.ok(section.indexOf("await supabase.auth.updateUser({ password })") < section.indexOf('await createSupabaseAdminClient().from("user_profiles")'));
+  assert.ok(section.indexOf("await supabase.auth.updateUser({ password })") < section.indexOf('"complete_password_rotation_clearance"'));
 });
 
 test("ordinary password changes do not invoke service-role profile clearance", () => {
   const actions = read("src/features/profile/server/actions.ts");
   const section = actions.slice(actions.indexOf("export async function changePassword("));
   assert.match(section, /if \(rotationProfile\.must_change_password === false\)/);
-  assert.ok(section.indexOf("if (rotationProfile.must_change_password === false)") < section.indexOf('await createSupabaseAdminClient().from("user_profiles")'));
+  assert.ok(section.indexOf("if (rotationProfile.must_change_password === false)") < section.indexOf('"complete_password_rotation_clearance"'));
 });
 
-test("rotation clearance verifies that the authenticated profile row was updated", () => {
+test("rotation clearance requires successful audited service completion", () => {
   const action = read("src/features/profile/server/actions.ts");
   const section = action.slice(action.indexOf("export async function changePassword("));
-  assert.match(section, /data: clearedProfile, error: profileError/);
-  assert.match(section, /clearedProfile\?\.user_id !== user.id/);
-  assert.ok(section.indexOf('.select("user_id")') < section.indexOf("clearedProfile?.user_id !== user.id"));
+  assert.match(section, /data: cleared, error: clearanceError/);
+  assert.match(section, /clearanceError \|\| cleared !== true/);
+  assert.match(section, /complete_password_rotation_clearance/);
 });
 
 test("staff identity and access actions independently enforce rotation clearance", () => {
@@ -460,4 +462,13 @@ test("credential reservation blocks concurrent provider-password races", () => {
   assert.match(migration, /a\.outcome='reserved'/);
   assert.match(migration, /already in progress for this staff account/);
   assert.ok(migration.indexOf("pg_advisory_xact_lock") < migration.indexOf("already in progress for this staff account"));
+});
+
+
+test("password rotation completion audit contains no credential material", () => {
+  const migration = read("supabase/migrations/20261010134500_password_rotation_completion_audit.sql");
+  assert.match(migration, /auth\.password_rotation_completed/);
+  assert.match(migration, /credential_material_recorded', false/);
+  assert.match(migration, /managed_temporary_credential_cleared', true/);
+  assert.doesNotMatch(migration, /p_password|temporary_password|credential_password/i);
 });
