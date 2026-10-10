@@ -16,6 +16,7 @@ import { getOfficialAttendanceSummary } from "@/features/attendance/server/offic
 import { getRegisterTeacherTermOptions } from "@/features/attendance/server/register-teacher-document";
 import { getOfficialAttendanceSummaryFinalization } from "@/features/attendance/server/finalization";
 import { getWeeklyRegisterWorkspace, mondayFor } from "@/features/attendance/server/week";
+import { isOfficiallyAbsent } from "@/features/attendance/server/official-semantics";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import "./attendance-mobile.css";
 
@@ -192,7 +193,7 @@ if (view === "absences") {
 if (view === "week") {
   const workspace = await getWeeklyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort);
   const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
-  const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => day.status !== "present").length, 0);
+  const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => isOfficiallyAbsent(day.status)).length, 0);
   return (
     <section className="attendance-page">
         <AttendanceHeader date={date} requestedClass={requestedClass} view="week" />
@@ -204,7 +205,7 @@ if (view === "week") {
 
 const workspace = await getDailyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, date, sort);
 const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
-const exceptionCount = workspace.learners.filter((item) => item.status !== "present").length;
+const exceptionCount = workspace.learners.filter((item) => isOfficiallyAbsent(item.status)).length;
 return (
   <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="day" />

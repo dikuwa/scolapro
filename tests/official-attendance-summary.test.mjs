@@ -7,6 +7,7 @@ const migration = readFileSync("supabase/migrations/20260924120000_official_atte
 const component = readFileSync("src/features/attendance/official-summary.tsx", "utf8");
 const page = readFileSync("src/app/attendance/page.tsx", "utf8");
 const tabs = readFileSync("src/features/attendance/attendance-view-tabs.tsx", "utf8");
+const semantics = readFileSync("src/features/attendance/server/official-semantics.ts", "utf8");
 
 test("official summary derives absence only from canonical daily-register sources", () => {
   // Numerator/denominator come from daily_register_current (effective
@@ -24,11 +25,12 @@ test("official % absence implements absent learner-days over possible learner at
   assert.match(summary, /part \/ whole\) \* 100/);
 });
 
-test("official absence counts absent only; late, excused, unknown and present are excluded", () => {
-  assert.match(summary, /status === "absent"/);
-  assert.match(summary, /Present\/Late\/Excused are not absence/);
-  // No alternative absence classification creeps in.
-  assert.doesNotMatch(summary, /status === "late"|status === "excused"/);
+test("official absence counts absent and justified full-day absence; late, unknown and present are excluded", () => {
+  assert.match(summary, /isOfficiallyAbsent/);
+  assert.match(semantics, /status === "absent" \|\| status === "excused"\) return "absent"/);
+  assert.match(semantics, /status === "present" \|\| status === "late"\) return "present"/);
+  // A justified full-day absence is never silently promoted to present.
+  assert.doesNotMatch(semantics, /"excused"\) return "present"/);
 });
 
 test("NO_TEACHING days contribute zero possible attendances and zero absent learner-days", () => {
