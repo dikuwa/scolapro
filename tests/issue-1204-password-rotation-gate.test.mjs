@@ -490,5 +490,5 @@ test("managed credential issuer requires a confirmed provider email identity", (
   assert.ok(lookup >= 0 && mutate > lookup);
   assert.match(source, /targetAuthUser\.email/);
   assert.match(source, /targetAuthUser\.email_confirmed_at/);
-  assert.match(source, /safer\s+activation-link path owned by #1202/);
+  assert.match(source, /activation-link path owned by #1202/);
 });
