@@ -80,7 +80,7 @@ select ok(
 );
 
 select throws_ok(
-  $$select public.reserve_staff_credential_issuance(
+  $$sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000002',
     'a3000000-0000-4000-8000-000000000001'
@@ -102,7 +102,7 @@ select is(
 );
 
 select throws_ok(
-  $$select public.reserve_staff_credential_issuance(
+  $$sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000002',
     'a4000000-0000-4000-8000-000000000002',
     'a3000000-0000-4000-8000-000000000001'
@@ -113,7 +113,7 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$select public.reserve_staff_credential_issuance(
+  $$sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000001',
     'a3000000-0000-4000-8000-000000000001'
@@ -124,7 +124,7 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$select public.reserve_staff_credential_issuance(
+  $$sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000003',
     'a3000000-0000-4000-8000-000000000001'
@@ -135,33 +135,33 @@ select throws_ok(
 );
 
 select throws_ok(
-  $select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000004',
     'a3000000-0000-4000-8000-000000000001'
-  )$,
+  )$sql$,
   '42501',
   'Staff account must be linked before credential issuance',
   'unlinked staff identities cannot enter the password path'
 );
 
 select throws_ok(
-  $select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000005',
     'a3000000-0000-4000-8000-000000000001'
-  )$,
+  )$sql$,
   '42501',
   'Cross-school accounts cannot use managed school credentials',
   'ordinary multi-school staff identities cannot have their global password reset by one school'
 );
 
 select throws_ok(
-  $select public.reserve_staff_credential_issuance(
+  $sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000006',
     'a3000000-0000-4000-8000-000000000001'
-  )$,
+  )$sql$,
   '42501',
   'Guardian-linked accounts cannot use managed school credentials',
   'guardian-linked identities stay outside school-managed password takeover'
@@ -226,7 +226,7 @@ select is(
 );
 
 select throws_ok(
-  $sql$select public.reserve_staff_credential_issuance(
+  $sql$sql$select public.reserve_staff_credential_issuance(
     'a2000000-0000-4000-8000-000000000001',
     'a4000000-0000-4000-8000-000000000002',
     'a3000000-0000-4000-8000-000000000001'
