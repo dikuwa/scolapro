@@ -481,3 +481,14 @@ test("browser credential action normalizes issuance failures against enumeration
   assert.doesNotMatch(source, /return \{ message: result\.message \}/);
   assert.doesNotMatch(source, /linked account|school administrator permission|required|protected administrator/i);
 });
+
+
+test("managed credential issuer requires a confirmed provider email identity", () => {
+  const source = read("src/features/staff/server/temporary-credential-issuance.ts");
+  const lookup = source.indexOf("admin.auth.admin.getUserById");
+  const mutate = source.indexOf("admin.auth.admin.updateUserById");
+  assert.ok(lookup >= 0 && mutate > lookup);
+  assert.match(source, /targetAuthUser\.email/);
+  assert.match(source, /targetAuthUser\.email_confirmed_at/);
+  assert.match(source, /safer\s+activation-link path owned by #1202/);
+});
