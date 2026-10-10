@@ -94,6 +94,22 @@ export async function issueStaffTemporaryCredential(
       return { success: false, message: "Temporary credential issuance is not configured." };
     }
 
+    // Managed passwords are only for an already-linked, provider-recognized
+    // email identity. Unverified/unconfirmed accounts stay on the safer
+    // activation-link path owned by #1202.
+    const { data: targetAuthData, error: targetAuthError } =
+      await admin.auth.admin.getUserById(reserved.target_user_id);
+    const targetAuthUser = targetAuthData?.user ?? null;
+    if (
+      targetAuthError ||
+      !targetAuthUser ||
+      !targetAuthUser.email ||
+      !targetAuthUser.email_confirmed_at
+    ) {
+      await finalizeFailedAttempt(attemptId);
+      return { success: false, message: "The staff account is not eligible for managed credentials." };
+    }
+
     const { data: securityProfile, error: profileReadError } = await admin
       .from("user_profiles")
       .select("user_id,must_change_password,password_rotation_expires_at")
