@@ -5,6 +5,6 @@ select ok((select relrowsecurity from pg_class where oid='public.staff_credentia
 select ok(not has_table_privilege('authenticated','public.staff_credential_issuance_attempts','INSERT'),'authenticated cannot insert issuance attempts');
 select ok(not has_table_privilege('authenticated','public.staff_credential_issuance_attempts','SELECT'),'authenticated cannot read issuance attempts');
 select ok(not has_table_privilege('anon','public.staff_credential_issuance_attempts','INSERT'),'anonymous cannot insert issuance attempts');
-select ok(exists(select 1 from pg_policies where schemaname='public' and tablename='staff_credential_issuance_attempts' and policyname='staff_credential_issuance_client_deny'), 'explicit client deny-all RLS policy is installed');
+select ok(not exists(select 1 from pg_policies where schemaname='public' and tablename='staff_credential_issuance_attempts' and ('anon'=any(roles) or 'public'=any(roles))), 'ledger exposes no anonymous/public RLS policy');
 select * from finish();
 rollback;
