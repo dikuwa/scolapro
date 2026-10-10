@@ -245,3 +245,10 @@ test("password change verifies a resolvable security profile before changing cre
   assert.ok(section.indexOf("rotationError || !rotationProfile") < section.indexOf("await supabase.auth.updateUser({ password })"));
   assert.ok(section.indexOf("await supabase.auth.updateUser({ password })") < section.indexOf('await createSupabaseAdminClient().from("user_profiles")'));
 });
+
+test("ordinary password changes do not invoke service-role profile clearance", () => {
+  const actions = read("src/features/profile/server/actions.ts");
+  const section = actions.slice(actions.indexOf("export async function changePassword("));
+  assert.match(section, /if \(rotationProfile\.must_change_password === false\)/);
+  assert.ok(section.indexOf("if (rotationProfile.must_change_password === false)") < section.indexOf('await createSupabaseAdminClient().from("user_profiles")'));
+});
