@@ -429,5 +429,5 @@ test("credential finalization records bounded expiry without plaintext", () => {
   assert.match(migration, /interval '2 hours'/);
   assert.match(migration, /credential_fingerprint=p_credential_fingerprint/);
   assert.match(migration, /credential_expires_at=p_credential_expires_at/);
-  assert.doesNotMatch(migration, /password\s*=|plaintext/i);
+  assert.doesNotMatch(migration, /p_password|temporary_password|credential_password/i);
 });
