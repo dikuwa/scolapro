@@ -70,16 +70,16 @@ insert into auth.users (
   now(),now(),now()
 );
 
-insert into public.user_profiles (
-  user_id, display_name, must_change_password, password_rotation_expires_at
-) values (
-  'b3000000-0000-4000-8000-000000000001',
-  'Rotation Audit',
-  true,
-  now()+interval '1 hour'
-);
-
 select set_config('request.jwt.claim.role','service_role',true);
+
+-- Auth provisioning creates the profile row. Arm the test profile through the
+-- same trusted role that owns managed credential state.
+update public.user_profiles
+set display_name='Rotation Audit',
+    must_change_password=true,
+    password_rotation_expires_at=now()+interval '1 hour',
+    updated_at=now()
+where user_id='b3000000-0000-4000-8000-000000000001';
 
 select is(
   public.complete_password_rotation_clearance('b3000000-0000-4000-8000-000000000001'),
