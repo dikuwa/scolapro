@@ -97,11 +97,14 @@ test("calendar page resolves the governed school academic year instead of wall-c
 test("calendar governed-year fallback is Namibia-local and calendar layout stays responsive", () => {
   const serverSource = fs.readFileSync(path.join(root, "src/features/calendar/server/calendar.ts"), "utf8");
   const pageSource = fs.readFileSync(path.join(root, "src/app/calendar/page.tsx"), "utf8");
+  const managerSource = fs.readFileSync(path.join(root, "src/features/calendar/operational-calendar-manager.tsx"), "utf8");
   assert.match(serverSource, /getNamibiaCalendarYear\(\)/);
   assert.doesNotMatch(serverSource, /new Date\(\)\.getFullYear\(\)/);
-  const operationalSource = fs.readFileSync(path.join(root, "src/features/calendar/operational-calendar-manager.tsx"), "utf8");
-  assert.match(pageSource, /sm:grid-cols-3/);
-  assert.match(operationalSource, /mt-4 space-y-2\.5/);
-  assert.match(operationalSource, /activeTermId === term\.academicTermId/);
+  assert.match(pageSource, /grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5/);
+  assert.match(pageSource, /col-span-2[^\n]*lg:col-span-1/);
+  assert.match(managerSource, /sm:flex-row sm:items-center sm:justify-between/);
+  assert.match(managerSource, /sm:grid-cols-2 xl:grid-cols-4/);
+  assert.match(managerSource, /mt-4 space-y-2\.5/);
+  assert.match(managerSource, /activeTermId === term\.academicTermId/);
   assert.match(pageSource, /Academic year dates are not configured/);
 });
