@@ -90,7 +90,9 @@ test("new official class capture exposes Present and Absent while lesson history
   const dailyRow = readFileSync("src/features/attendance/server/register.ts", "utf8");
   const weeklyRow = readFileSync("src/features/attendance/server/week.ts", "utf8");
   const dailyStatuses = daily.slice(daily.indexOf("const statuses ="), daily.indexOf("function statusClass"));
-  const weeklyStatuses = weekly.slice(weekly.indexOf("const weeklyStatuses ="), weekly.indexOf("function shiftWeek"));
+  // Extract the array literal directly so the assertion survives unrelated
+  // helper refactors (e.g. #1217 removing the local shiftWeek helper).
+  const weeklyStatuses = weekly.match(/const weeklyStatuses = \[([\s\S]*?)\];/)?.[1] ?? "";
   const offlineStatuses = offline.slice(offline.indexOf("const statuses"), offline.indexOf("export function OfflineAttendanceWorkspace"));
   assert.match(dailyStatuses, /present/);
   assert.match(dailyStatuses, /absent/);
