@@ -56,9 +56,18 @@ export async function signIn(_previousState: LoginState, formData: FormData): Pr
   }
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
-    .select("must_change_password")
+    .select("must_change_password,password_rotation_expires_at")
     .eq("user_id", user.id)
     .maybeSingle();
+  if (
+    !profileError &&
+    profile?.must_change_password !== false &&
+    profile?.password_rotation_expires_at &&
+    new Date(profile.password_rotation_expires_at).getTime() <= Date.now()
+  ) {
+    await supabase.auth.signOut();
+    return { message: "This temporary sign-in credential has expired. Ask your school administrator to issue a new one." };
+  }
   if (profileError || !profile || profile.must_change_password !== false) {
     redirect("/password-rotation");
   }
