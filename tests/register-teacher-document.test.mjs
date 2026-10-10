@@ -7,6 +7,7 @@ const schoolDays = readFileSync("src/features/attendance/server/governed-school-
 const renderer = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
 const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "utf8");
 const workspace = readFileSync("src/features/attendance/register-teacher-workspace.tsx", "utf8");
+const panel = readFileSync("src/features/attendance/inline-register-document-panel.tsx", "utf8");
 const tabs = readFileSync("src/features/attendance/attendance-view-tabs.tsx", "utf8");
 const header = readFileSync("src/features/documents/server/official-document-header.ts", "utf8");
 const registerLayout = readFileSync("src/features/attendance/server/register-teacher-layout.ts", "utf8");
@@ -74,8 +75,9 @@ test("register teacher is an internal school document with in-app preview", () =
   assert.match(header, /register_teacher/);
   assert.match(route, /officialDocumentHeaderModeForType\("register_teacher"\)/);
   assert.match(route, /renderRegisterTeacherHtml/);
-  assert.match(workspace, /OfficialDocumentActions/);
-  assert.match(workspace, /Preview \/ Print/);
+  assert.match(workspace, /<InlineRegisterDocumentPanel/);
+  assert.match(panel, /OfficialDocumentActions/);
+  assert.match(panel, /Preview \/ Print/);
   assert.match(tabs, /value: "register"/);
 });
 

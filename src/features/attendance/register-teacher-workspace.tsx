@@ -1,16 +1,17 @@
 "use client";
 
-import { useTransition } from "react";
+import { useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CalendarRange, FileText, UsersRound } from "lucide-react";
-import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { WeekPicker } from "@/components/ui/week-picker";
 import type { AttendanceClassOption } from "@/features/attendance/server/register";
 import type { RegisterTeacherTermOption } from "@/features/attendance/server/register-teacher-document";
+import { InlineRegisterDocumentPanel } from "@/features/attendance/inline-register-document-panel";
 
 export function RegisterTeacherWorkspace({
+  schoolId,
   classes,
   selectedClassId,
   date,
@@ -22,6 +23,7 @@ export function RegisterTeacherWorkspace({
   fromWeek,
   toWeek,
 }: {
+  schoolId: string;
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   date: string;
@@ -87,9 +89,6 @@ export function RegisterTeacherWorkspace({
     startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 
-  const previewHref = selectedClassId
-    ? `/api/attendance/register-teacher?class=${encodeURIComponent(selectedClassId)}&date=${encodeURIComponent(date)}&mode=${mode}${selectedTermId ? `&term=${encodeURIComponent(selectedTermId)}` : ""}${selectedFromWeek && mode !== "term" ? `&fromWeek=${encodeURIComponent(selectedFromWeek)}` : ""}${selectedToWeek && mode === "range" ? `&toWeek=${encodeURIComponent(selectedToWeek)}` : ""}`
-    : undefined;
   const title = mode === "term" ? "Full Term Register" : mode === "range" ? "Week Range Register" : "Specific Week Register";
   const formatDate = (value: string) => new Intl.DateTimeFormat("en-NA", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
   const periodLabel = mode === "term"
@@ -99,6 +98,18 @@ export function RegisterTeacherWorkspace({
       : selectedFromWeek
         ? `Week ending ${formatDate(addDays(selectedFromWeek, 4))}`
         : "Select a week";
+  const documentSelection = useMemo(() => {
+    if (!selectedClassId || !selectedTermId || (mode !== "term" && !selectedFromWeek) || (mode === "range" && !selectedToWeek)) return null;
+    return {
+      schoolId,
+      classId: selectedClassId,
+      date,
+      mode,
+      termId: selectedTermId,
+      fromWeek: selectedFromWeek,
+      toWeek: selectedToWeek,
+    };
+  }, [date, mode, schoolId, selectedClassId, selectedFromWeek, selectedTermId, selectedToWeek]);
 
   return (
     <div className="space-y-5">
@@ -175,15 +186,6 @@ export function RegisterTeacherWorkspace({
                 <p className="scolapro-section-description">A digital balancing copy of the physical register. Valid school days show every active learner as present by default; only absences change the mark.</p>
               </div>
             </div>
-            <OfficialDocumentActions
-              previewHref={previewHref}
-              previewDownloadHref={previewHref ? `${previewHref}&format=pdf` : undefined}
-              previewTitle={`${selectedClass?.name ?? "Register"} · ${title}`}
-              previewDescription="Physical-register style preview generated from live ScolaPro attendance."
-              previewLabel="Preview / Print"
-              compact
-              disabled={!selectedClassId || pending}
-            />
           </div>
         </div>
         <div className="flex flex-col gap-3 bg-surface px-4 py-4 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:px-5">
@@ -193,6 +195,10 @@ export function RegisterTeacherWorkspace({
           <span className="hidden h-4 w-px bg-border-subtle sm:block" aria-hidden="true" />
           <div className="flex min-w-0 items-center gap-2"><CalendarRange className="size-4 shrink-0 text-brand" aria-hidden="true" /><UsersRound className="size-4 shrink-0 text-brand" aria-hidden="true" /><span className="text-muted-foreground">Attendance + absence = possible; governed days and enrolment dates are applied automatically.</span></div>
         </div>
+        <InlineRegisterDocumentPanel
+          selection={documentSelection}
+          title={`${selectedClass?.name ?? "Register"} · ${title}`}
+        />
       </section>
     </div>
   );

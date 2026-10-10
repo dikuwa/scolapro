@@ -58,7 +58,7 @@ test("register toolbar remains complete and week navigation honors term bounds",
   assert.match(register, /label="Academic term"/);
   assert.match(register, /label=\{mode === "range" \? "From Week" : "Week"\}/);
   assert.match(register, /label="To Week"/);
-  assert.match(register, /Preview \/ Print/);
+  assert.match(register, /<InlineRegisterDocumentPanel/);
   assert.match(register, /previousDisabled=\{selectedWeekIndex <= 0\}/);
   assert.match(register, /nextDisabled=\{selectedWeekIndex < 0 \|\| selectedWeekIndex >= weekOptions\.length - 1\}/);
 });
