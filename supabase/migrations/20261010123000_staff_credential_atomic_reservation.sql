@@ -105,6 +105,29 @@ begin
     raise exception 'Protected administrator credentials cannot be issued here' using errcode='42501';
   end if;
 
+  -- A provider password is account-global. A school administrator must never
+  -- reset an identity that currently carries access to another school or a
+  -- guardian/parent portal. Those identities require provider/Control Room
+  -- recovery so School A cannot silently take over School B or family access.
+  if exists (
+    select 1
+    from public.school_memberships m
+    where m.user_id=v_target_user_id
+      and m.school_id<>p_school_id
+      and m.active_from<=v_school_date
+      and (m.active_to is null or m.active_to>=v_school_date)
+  ) then
+    raise exception 'Cross-school accounts cannot use managed school credentials' using errcode='42501';
+  end if;
+
+  if exists (
+    select 1
+    from public.guardian_user_links gul
+    where gul.user_id=v_target_user_id
+  ) then
+    raise exception 'Guardian-linked accounts cannot use managed school credentials' using errcode='42501';
+  end if;
+
   if (select count(*)
       from public.staff_credential_issuance_attempts a
       where a.school_id=p_school_id
