@@ -344,3 +344,12 @@ test("password reset lookup excludes historical and future school placements", (
   assert.match(section, /effective_to\.is\.null,effective_to\.gte\./);
   assert.ok(section.indexOf('.lte("effective_from"') < section.indexOf("admin.auth.admin.getUserById"));
 });
+
+test("direct invitation acceptance RPC cannot bypass mandatory rotation", () => {
+  const migration = read("supabase/migrations/20261010110000_invitation_rotation_acceptance_guard.sql");
+  assert.match(migration, /before update of status on public\.school_invitations/);
+  assert.match(migration, /new\.status = 'accepted'/);
+  assert.match(migration, /auth\.role\(\).*'authenticated'/);
+  assert.match(migration, /up\.must_change_password is false/);
+  assert.match(migration, /revoke all on function public\.prevent_invitation_acceptance_before_rotation/);
+});
