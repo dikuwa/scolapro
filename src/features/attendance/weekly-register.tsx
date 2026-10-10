@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { WeekPicker } from "@/components/ui/week-picker";
+import { AttendanceSortControl, type AttendanceSortDirection } from "@/features/attendance/attendance-sort-control";
+import { sortRegisterRowsBySurname } from "@/features/attendance/daily-register-view-state";
 import {
   buildWeeklyAttendancePayload,
   weeklyAttendanceViewIdentity,
@@ -47,7 +49,7 @@ function mutationIdsFor(dates: readonly string[]) {
   return Object.fromEntries(dates.map((date) => [date, crypto.randomUUID()]));
 }
 
-export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, dates, learners, reasons, submissionIds, nonTeachingDates, nonTeachingReasons }: {
+export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, dates, learners, reasons, submissionIds, nonTeachingDates, nonTeachingReasons, initialSort = "asc" }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   weekStart: string;
@@ -58,6 +60,7 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
   submissionIds: Record<string, string>;
   nonTeachingDates: string[];
   nonTeachingReasons: Record<string, string>;
+  initialSort?: AttendanceSortDirection;
 }) {
   const router = useRouter();
   const [state, action, pending] = useActionState(submitWeeklyRegister, initialState);
@@ -72,6 +75,7 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
   const [expandedMobileLearnerId, setExpandedMobileLearnerId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [sexFilter, setSexFilter] = useState<SexFilter>("all");
+  const [sortDirection, setSortDirection] = useState<AttendanceSortDirection>(initialSort);
   const [evidenceNames, setEvidenceNames] = useState<Record<string, string>>({});
   if (draft.viewIdentity !== viewIdentity) {
     setDraft({ viewIdentity, rows: learners, mutationIds: mutationIdsFor(dates) });
@@ -95,9 +99,11 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
     router.prefetch(`/attendance?view=week&class=${encodeURIComponent(selectedClassId)}&date=${shiftWeek(weekStart, 1)}`);
   }, [router, selectedClassId, weekStart]);
 
+  // Sorting is a pure view projection over the draft rows, so A–Z / Z–A never
+  // discards unsaved attendance edits or reorders the submit payload.
   const filteredRows = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return rows.filter((row) => {
+    const visible = rows.filter((row) => {
       const searchMatch = !needle || (
         `${row.name} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle) ||
         `${row.nameAlternate} ${row.admissionNumber ?? ""}`.toLowerCase().includes(needle)
@@ -105,7 +111,8 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
       const sexMatch = sexFilter === "all" || (row.sex ?? "").toLowerCase() === sexFilter;
       return searchMatch && sexMatch;
     });
-  }, [query, rows, sexFilter]);
+    return sortRegisterRowsBySurname(visible, sortDirection);
+  }, [query, rows, sexFilter, sortDirection]);
 
   let active: { row: WeeklyLearnerRow; cell: WeeklyCell } | null = null;
   if (activeKey && draftMatchesView && !navigationPending) {
@@ -161,17 +168,32 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
     });
   }
 
+  // Week and class navigation keep the learner order the user chose, mirroring
+  // the daily register so the roster never re-sorts underneath them.
   function navigateWeek(direction: -1 | 1) {
     setActiveKey("");
     setExpandedMobileLearnerId(null);
-    const classParam = selectedClassId ? `&class=${encodeURIComponent(selectedClassId)}` : "";
-    startNavigation(() => router.replace(`/attendance?view=week&date=${shiftWeek(weekStart, direction)}${classParam}`, { scroll: false }));
+    const params = new URLSearchParams({ view: "week", date: shiftWeek(weekStart, direction) });
+    if (selectedClassId) params.set("class", selectedClassId);
+    if (sortDirection === "desc") params.set("sort", "desc");
+    startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 
   function chooseClass(classId: string) {
     setActiveKey("");
     setExpandedMobileLearnerId(null);
-    startNavigation(() => router.replace(`/attendance?view=week&class=${encodeURIComponent(classId)}&date=${weekStart}`, { scroll: false }));
+    const params = new URLSearchParams({ view: "week", class: classId, date: weekStart });
+    if (sortDirection === "desc") params.set("sort", "desc");
+    startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
+  }
+
+  function chooseSort(next: AttendanceSortDirection) {
+    setSortDirection(next);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (next === "asc") url.searchParams.delete("sort");
+    else url.searchParams.set("sort", "desc");
+    window.history.replaceState(window.history.state, "", url);
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -218,7 +240,7 @@ export function WeeklyRegister({ classes, selectedClassId, weekStart, weekEnd, d
         <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
           <div className="border-b border-border-subtle bg-surface-muted/55 px-4 py-4 sm:px-5">
             <div><h2 className="scolapro-section-title">Weekly register</h2><p className="scolapro-section-description">Everyone starts present. On phones, open a learner to show Monday–Friday. Tap any day to review or change that learner’s status.{nonTeachingDates.length ? <span className="mt-1.5 block text-[color:var(--warning)]"><CalendarOff className="mr-1 inline size-3.5 align-[-2px]" aria-hidden="true" />{nonTeachingDates.length === 1 ? "One day this week is" : `${nonTeachingDates.length} days this week are`} marked non-teaching and can&apos;t be edited.</span> : null}</p></div>
-            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><label className="scolapro-control-surface flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3"><Search className="size-4 text-muted-foreground" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find learner by name or number…" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />{query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}</label><div className="grid grid-cols-3 gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">{(["all", "male", "female"] as SexFilter[]).map((value) => <button key={value} type="button" onClick={() => setSexFilter(value)} className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium ${sexFilter === value ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "male" ? "Boys" : "Girls"}</button>)}</div></div>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><label className="scolapro-control-surface flex min-h-10 w-full max-w-md items-center gap-2 rounded-[var(--radius-sm)] px-3"><Search className="size-4 text-muted-foreground" aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find learner by name or number…" className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />{query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear search" className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}</label><div className="flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]"><div className="grid grid-cols-3 gap-1">{(["all", "male", "female"] as SexFilter[]).map((value) => <button key={value} type="button" aria-pressed={sexFilter === value} onClick={() => setSexFilter(value)} className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium ${sexFilter === value ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>{value === "all" ? "All" : value === "male" ? "Boys" : "Girls"}</button>)}</div><span className="h-5 w-px bg-border-subtle" aria-hidden="true" /><AttendanceSortControl sort={sortDirection} onChange={chooseSort} /></div></div>
             <p className="mt-2 text-[0.68rem] text-muted-foreground">{filteredRows.length} of {rows.length} learners shown</p>
           </div>
 
