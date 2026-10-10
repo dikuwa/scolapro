@@ -1,10 +1,13 @@
 begin;
-select plan(6);
+select plan(9);
 select has_function('public','reserve_staff_credential_issuance',array['uuid','uuid','uuid'],'reservation function exists');
 select ok(not has_function_privilege('authenticated','public.reserve_staff_credential_issuance(uuid,uuid,uuid)','EXECUTE'),'authenticated cannot reserve');
 select ok(not has_function_privilege('anon','public.reserve_staff_credential_issuance(uuid,uuid,uuid)','EXECUTE'),'anonymous cannot reserve');
 select ok(has_function_privilege('service_role','public.reserve_staff_credential_issuance(uuid,uuid,uuid)','EXECUTE'),'service role can reserve');
 select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='reserve_staff_credential_issuance') ilike '%pg_advisory_xact_lock%','reservation serializes concurrent attempts');
 select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='reserve_staff_credential_issuance') ilike '%rate limit exceeded%','reservation enforces rate limits');
+select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='reserve_staff_credential_issuance') ilike '%staff account must be linked%','reservation refuses unlinked staff identities');
+select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='reserve_staff_credential_issuance') ilike '%cannot issue temporary credentials to themselves%','reservation prevents self issuance');
+select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='reserve_staff_credential_issuance') ilike '%protected administrator credentials%','reservation protects active school administrators');
 select * from finish();
 rollback;
