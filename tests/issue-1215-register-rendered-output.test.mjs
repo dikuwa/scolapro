@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   HEADER_FIXTURE,
@@ -117,6 +118,44 @@ test("HTML column grid is derived from the shared layout contract", () => {
     + plan.dayFraction * plan.attendanceColumns
     + plan.termFractions.reduce((sum, value) => sum + value, 0);
   assert.ok(Math.abs(totalFraction - 1) < 1e-9, "shared column plan must fill the full content width");
+});
+
+test("rendered HTML and PDF match the committed golden fingerprint", async () => {
+  const { description: _description, ...golden } = JSON.parse(
+    readFileSync("tests/fixtures/issue-1215-register-golden.json", "utf8"),
+  );
+
+  const document = buildRangeDocument();
+  const html = htmlRenderer.renderRegisterTeacherHtml({ header: HEADER_FIXTURE, document });
+  const pdf = await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document });
+  const { PDFDocument } = await import("pdf-lib");
+  const parsed = await PDFDocument.load(pdf.bytes);
+
+  const firstPanelWeeks = layout.registerTeacherPageJobs(document)[0].weeks;
+  const plan = layout.registerTeacherColumnPlan(firstPanelWeeks);
+  const pct = (fraction) => `${(fraction * 100).toFixed(3)}%`;
+
+  const actual = {
+    pageCount: layout.registerTeacherPageJobs(document).length,
+    pdfPageCount: parsed.getPageCount(),
+    pageWidth: Number(parsed.getPage(0).getSize().width.toFixed(3)),
+    pageHeight: Number(parsed.getPage(0).getSize().height.toFixed(3)),
+    landscape: parsed.getPage(0).getSize().width > parsed.getPage(0).getSize().height,
+    htmlSectionCount: (html.match(/register page \d+ of \d+/g) ?? []).length,
+    headerCount: (html.match(/class="school-header/g) ?? []).length,
+    legendCount: (html.match(/class="legend"/g) ?? []).length,
+    boysSection: /BOYS\/GIRLS:<\/strong> BOYS/.test(html),
+    girlsSection: /BOYS\/GIRLS:<\/strong> GIRLS/.test(html),
+    reasonedAbsenceMarker: /absence-reason-mark/.test(html),
+    identityColumns: plan.identityFractions.length,
+    attendanceColumns: plan.attendanceColumns,
+    termColumns: plan.termFractions.length,
+    firstIdentityWidth: pct(plan.identityFractions[0]),
+    dayWidth: pct(plan.dayFraction),
+    lastTermWidth: pct(plan.termFractions[2]),
+  };
+
+  assert.deepEqual(actual, golden);
 });
 
 test("reasoned absences render to PDF without throwing (ZapfDingbats regression)", async () => {

@@ -1,0 +1,20 @@
+{
+  "description": "Structural golden fingerprint for the #1215 Register Teacher document. Rendered from tests/issue-1215-register-rendered-output.test.mjs (buildRangeDocument). Regenerate only when the shared layout contract intentionally changes.",
+  "pageCount": 4,
+  "pdfPageCount": 4,
+  "pageWidth": 1190.55,
+  "pageHeight": 841.89,
+  "landscape": true,
+  "htmlSectionCount": 4,
+  "headerCount": 4,
+  "legendCount": 4,
+  "boysSection": true,
+  "girlsSection": true,
+  "reasonedAbsenceMarker": true,
+  "identityColumns": 5,
+  "attendanceColumns": 18,
+  "termColumns": 3,
+  "firstIdentityWidth": "4.438%",
+  "dayWidth": "3.208%",
+  "lastTermWidth": "3.728%"
+}
