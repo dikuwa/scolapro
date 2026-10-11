@@ -5,6 +5,9 @@ import {
   type LearnerTermWindow,
 } from "@/features/attendance/server/learner-calendar-bounds";
 import { formatLearnerName, formatPersonName } from "@/lib/person-name";
+import { getUserContext } from "@/lib/auth/get-user-context";
+import { canCaptureRegisterClass } from "@/features/attendance/server/capture-scope";
+import { officialCaptureStatusOf, type OfficialAttendanceStatus } from "@/features/attendance/server/official-semantics";
 
 export type AttendanceClassOption = {
   id: string;
@@ -32,7 +35,12 @@ export type AttendanceLearnerRow = {
   nameAlternate: string;
   admissionNumber: string | null;
   sex: string | null;
-  status: "present" | "absent" | "late" | "excused" | "unknown";
+  /**
+   * Official daily-register vocabulary. Operational late/excused history is
+   * projected onto Present/Absent by `officialCaptureStatusOf` before it
+   * reaches the register, so no official row can carry an operational status.
+   */
+  status: OfficialAttendanceStatus;
   reasonId: string | null;
   note: string | null;
 };
@@ -99,15 +107,22 @@ export async function getDailyRegisterWorkspace(
   sortDirection: AttendanceSortDirection = "asc",
 ) {
   const supabase = await createSupabaseServerClient();
+  const context = await getUserContext();
+  const actor = {
+    memberships: context.memberships,
+    platformRoles: context.platformMemberships.map((item) => item.roleKey),
+  };
 
   const [{ data: classes, error: classError }, { data: reasons, error: reasonError }, teachingDay] = await Promise.all([
-    supabase.from("register_classes").select("id,display_name,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
+    supabase.from("register_classes").select("id,display_name,register_teacher_staff_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("attendance_reasons").select("id,reason_code,display_name,sensitive").eq("audience", "learner").eq("active", true).order("sort_order"),
     resolveAttendanceTeachingImpact(schoolId, attendanceDate),
   ]);
   if (classError || reasonError) throw new Error("Unable to load the attendance workspace.");
 
-  const classOptions: AttendanceClassOption[] = (classes ?? []).map((item) => ({ id: item.id, name: item.display_name, grade: relation(item.grades)?.display_name ?? "Grade" }));
+  const classOptions: AttendanceClassOption[] = (classes ?? [])
+    .filter((item) => canCaptureRegisterClass(actor, { schoolId, registerTeacherStaffId: item.register_teacher_staff_id }))
+    .map((item) => ({ id: item.id, name: item.display_name, grade: relation(item.grades)?.display_name ?? "Grade" }));
   const reasonsList: AttendanceReasonOption[] = (reasons ?? []).map((item) => ({ id: item.id, code: item.reason_code, name: item.display_name, sensitive: item.sensitive }));
   const classId = selectedClassId && classOptions.some((item) => item.id === selectedClassId) ? selectedClassId : classOptions[0]?.id ?? null;
 
@@ -139,7 +154,7 @@ export async function getDailyRegisterWorkspace(
       first_names: learner?.first_names ?? "",
       admissionNumber: item.admission_number,
       sex: learner?.sex ?? null,
-      status: (current?.status as AttendanceLearnerRow["status"] | undefined) ?? "present",
+      status: officialCaptureStatusOf(current?.status) ?? "present",
       reasonId: current?.reason_id ?? null,
       note: current?.note ?? null,
     };

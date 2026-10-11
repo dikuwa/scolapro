@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveAttendanceDayDecision, type LearnerTermWindow } from "@/features/attendance/server/learner-calendar-bounds";
 import { resolveGovernedSchoolDays } from "@/features/attendance/server/governed-school-day";
+import { isOfficiallyAbsent } from "@/features/attendance/server/official-semantics";
 
 export type OfficialSexSplit = { boys: number; girls: number; total: number };
 
@@ -119,11 +120,6 @@ function addSex(split: OfficialSexSplit, sex: string | null) {
   split.total += 1;
   if (sex === "male") split.boys += 1;
   else if (sex === "female") split.girls += 1;
-}
-
-/** Official absence = daily-register status "absent". Present/Late/Excused are not absence. */
-function isOfficialAbsence(status: string | null | undefined) {
-  return status === "absent";
 }
 
 function percent(part: number, whole: number) {
@@ -334,7 +330,7 @@ export async function getOfficialAttendanceSummary(
     if (!isTeachingDate(attendanceDate)) continue;
     const key = `${row.register_class_id}:${attendanceDate}`;
     possibleByClassDate.set(key, (possibleByClassDate.get(key) ?? 0) + 1);
-    if (isOfficialAbsence(row.status)) {
+    if (isOfficiallyAbsent(row.status)) {
       const split = absentByClassDate.get(key) ?? emptySplit();
       addSex(split, relation(row.learners)?.sex ?? null);
       absentByClassDate.set(key, split);
@@ -344,7 +340,7 @@ export async function getOfficialAttendanceSummary(
   // Absent learner-days by sex, keyed by class/date and week.
   const absentWeekByClass = new Map<string, Map<string, OfficialSexSplit>>();
   for (const row of (absenceRows ?? []) as { register_class_id: string; attendance_date: string; status: string; learners: { sex: string | null }[] | { sex: string | null } }[]) {
-    if (!classById.has(String(row.register_class_id)) || !isOfficialAbsence(row.status)) continue;
+    if (!classById.has(String(row.register_class_id)) || !isOfficiallyAbsent(row.status)) continue;
     const attendanceDate = String(row.attendance_date).slice(0, 10);
     if (!isTeachingDate(attendanceDate)) continue;
     const weekId = mondayFor(attendanceDate);

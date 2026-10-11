@@ -1,6 +1,8 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
 import { formatLearnerName, formatPersonName } from "@/lib/person-name";
+import { getUserContext } from "@/lib/auth/get-user-context";
+import { canCaptureSubjectPeriod } from "@/features/attendance/server/capture-scope";
 
 function one<T>(value: T[] | T | null | undefined): T | null {
   return (Array.isArray(value) ? value[0] : value) ?? null;
@@ -35,13 +37,29 @@ export async function resolveSubjectPeriodAttendanceDate(slotId: string, referen
 export async function getSubjectPeriodRoster(slotId: string, attendanceDate: string): Promise<SubjectPeriodRoster | null> {
   const supabase = await createSupabaseServerClient();
   const { data: slot, error } = await supabase.from("timetable_slots")
-    .select("id,school_id,weekday,register_class_id,room_label,academic_year,register_classes(display_name),timetable_periods(display_name),teacher_allocations(staff_member_id,active_from,active_to,staff_members(first_name,last_name,status),subject_offerings(subjects(display_name)))")
+    .select("id,school_id,weekday,register_class_id,room_label,academic_year,status,teacher_allocation_id,register_classes(display_name),timetable_periods(display_name,is_teaching_period),teacher_allocations(staff_member_id,active_from,active_to,school_id,academic_year,register_class_id,staff_members(first_name,last_name,status),subject_offerings(subjects(display_name)))")
     .eq("id", slotId).eq("status", "active").maybeSingle();
   if (error || !slot) return null;
 
   const classRow = one(slot.register_classes);
   const allocation = one(slot.teacher_allocations);
   if (!allocation || allocation.active_from > attendanceDate || (allocation.active_to && allocation.active_to < attendanceDate)) return null;
+  const period = one(slot.timetable_periods);
+  const context = await getUserContext();
+  const structurallyValid = allocation.school_id === slot.school_id
+    && allocation.academic_year === slot.academic_year
+    && allocation.register_class_id === slot.register_class_id;
+  if (!structurallyValid || !period || !canCaptureSubjectPeriod({
+    memberships: context.memberships,
+    platformRoles: context.platformMemberships.map((item) => item.roleKey),
+  }, {
+    schoolId: slot.school_id,
+    allocatedStaffMemberId: allocation.staff_member_id,
+    allocationActiveFrom: allocation.active_from,
+    allocationActiveTo: allocation.active_to,
+    slotStatus: slot.status,
+    isTeachingPeriod: period.is_teaching_period,
+  }, attendanceDate)) return null;
 
   const staff = one(allocation.staff_members);
   const today = getNamibiaDateKey();
@@ -67,9 +85,7 @@ export async function getSubjectPeriodRoster(slotId: string, attendanceDate: str
 
   const offering = one(allocation.subject_offerings);
   const subject = offering ? one(offering.subjects) : null;
-  const period = one(slot.timetable_periods);
-
-  const [enrolmentsResult, reasonsResult, submissionsResult] = await Promise.all([
+  const [enrolmentsResult, reasonsResult, submissionsResult, groupAllocationsResult] = await Promise.all([
     supabase.from("enrolments")
       .select("id,learner_id,admission_number,learners(first_names,surname)")
       .eq("school_id", slot.school_id)
@@ -90,12 +106,28 @@ export async function getSubjectPeriodRoster(slotId: string, attendanceDate: str
       .eq("attendance_date", attendanceDate)
       .order("recorded_at", { ascending: false })
       .limit(1),
+    supabase.from("teaching_group_allocations")
+      .select("teaching_group_id")
+      .eq("teacher_allocation_id", slot.teacher_allocation_id)
+      .lte("effective_from", attendanceDate)
+      .or(`effective_to.is.null,effective_to.gte.${attendanceDate}`),
   ]);
-  if (enrolmentsResult.error || reasonsResult.error || submissionsResult.error) {
+  if (enrolmentsResult.error || reasonsResult.error || submissionsResult.error || groupAllocationsResult.error) {
     throw new Error("Unable to load subject-period attendance roster.");
   }
 
-  const enrolments = enrolmentsResult.data ?? [];
+  let enrolments = enrolmentsResult.data ?? [];
+  const groupIds = [...new Set((groupAllocationsResult.data ?? []).map((item) => item.teaching_group_id))];
+  if (groupIds.length) {
+    const { data: groupMembers, error: groupMembersError } = await supabase.from("teaching_group_memberships")
+      .select("enrolment_id")
+      .in("teaching_group_id", groupIds)
+      .lte("effective_from", attendanceDate)
+      .or(`effective_to.is.null,effective_to.gte.${attendanceDate}`);
+    if (groupMembersError) throw new Error("Unable to load the assigned teaching group.");
+    const memberIds = new Set((groupMembers ?? []).map((item) => item.enrolment_id));
+    enrolments = enrolments.filter((item) => memberIds.has(item.id));
+  }
   const reasons = reasonsResult.data ?? [];
   const currentSubmissionId = submissionsResult.data?.[0]?.id ?? null;
   let eventMap = new Map<string, { status: "absent" | "late" | "excused" | "unknown"; reason_id: string | null; note: string | null }>();
