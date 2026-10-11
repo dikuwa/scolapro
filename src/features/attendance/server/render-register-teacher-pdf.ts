@@ -116,11 +116,9 @@ function drawPage(input: {
   // matches the HTML/print preview exactly.
   const plan = registerTeacherColumnPlan(weeks);
   const identityWidths = plan.identityWidths;
-  const attendanceColumns = plan.attendanceColumns;
   const termWidths = plan.termWidths;
   const identityTotal = identityWidths.reduce((sum, width) => sum + width, 0);
   const dayWidth = plan.dayWidth;
-  const widths = [...identityWidths, ...Array.from({ length: attendanceColumns }, () => dayWidth), ...termWidths];
   // Two-tier page heading mirrors the HTML table: identity cells span both
   // bands, each weekly group has a week-ending heading above daily dates,
   // and the right-hand total-per-term group spans its three metric columns.
