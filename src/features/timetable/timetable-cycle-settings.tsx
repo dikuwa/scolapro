@@ -25,6 +25,7 @@ export function TimetableCycleSettings({
   initialLength,
   initialAnchorDate,
   initialAnchorDay,
+  section = "both",
 }: {
   schoolId: string;
   academicYear: number;
@@ -32,6 +33,7 @@ export function TimetableCycleSettings({
   initialLength: number;
   initialAnchorDate: string | null;
   initialAnchorDay: number | null;
+  section?: "both" | "workflow" | "anchor";
 }) {
   const [state, action, pending] = useActionState(saveTimetableCycleSettings, initialState);
   const [anchorState, anchorAction, anchorPending] = useActionState(saveTimetableCycleAnchor, initialState);
@@ -67,16 +69,16 @@ export function TimetableCycleSettings({
   };
 
   return (
-    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex items-start gap-2.5">
+    <section className={section === "both" ? "rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5" : ""}>
+      {section === "both" ? <div className="flex items-start gap-2.5">
         <span className="scolapro-tone-sky grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarRange className="size-4" aria-hidden="true" /></span>
         <div>
           <h2 className="scolapro-section-title">Timetable workflow</h2>
           <p className="scolapro-section-description !mt-0 max-w-2xl">Choose whether this school runs on normal weekday names or a numbered rotating timetable cycle. Existing schools stay Monday-Friday unless changed here.</p>
         </div>
-      </div>
+      </div> : null}
 
-      <form action={action} className="mt-4 grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.35fr)_auto]">
+      {section !== "anchor" ? <form action={action} className="mt-4 grid items-start gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(10rem,0.35fr)_auto]">
         <input type="hidden" name="schoolId" value={schoolId} />
         <Picker
           label="Day system"
@@ -112,23 +114,23 @@ export function TimetableCycleSettings({
             {pending ? "Saving…" : "Save workflow"}
           </button>
         </FormActionSlot>
-      </form>
+      </form> : null}
 
-      <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-[0.68rem] leading-relaxed text-muted-foreground">
+      {section !== "anchor" ? <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2.5 text-[0.68rem] leading-relaxed text-muted-foreground">
         {mode === "rotating"
           ? `This timetable uses Day 1 through Day ${length}. Set one real school date below as the cycle anchor; closures and holidays will then be skipped when resolving later dates.`
           : `This timetable uses real weekday labels from Monday through ${["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"][length - 1]}.`}
-      </div>
+      </div> : null}
 
-      {mode === "rotating" ? (
+      {(section === "anchor" ? initialMode === "rotating" : section === "both" && mode === "rotating") ? (
         <div className="mt-5 border-t border-border-subtle pt-5">
-          <div className="flex items-start gap-2.5">
+          {section === "both" ? <div className="flex items-start gap-2.5">
             <span className="scolapro-tone-mint grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarDays className="size-4" aria-hidden="true" /></span>
             <div>
               <h3 className="text-sm font-semibold text-foreground">Calendar anchor</h3>
               <p className="mt-0.5 max-w-2xl text-xs leading-5 text-muted-foreground">For {academicYear}, choose a known school date and the rotating day printed on the timetable for that date. ScolaPro uses this anchor plus school-day overrides to resolve other calendar dates.</p>
             </div>
-          </div>
+          </div> : null}
 
           <form action={anchorAction} className="mt-4 grid items-start gap-4 sm:grid-cols-[minmax(12rem,0.65fr)_minmax(9rem,0.35fr)_auto]">
             <input type="hidden" name="schoolId" value={schoolId} />

@@ -6,6 +6,7 @@ const migration=read('supabase/migrations/20261008011328_unassigned_hod_subject_
 const actions=read('src/features/academics/server/hod-scope-actions.ts');
 const query=read('src/features/academics/server/hod-scope.ts');
 const ui=read('src/features/academics/hod-scope-configuration.tsx');
+const setup=read('src/app/school/setup/page.tsx');
 test('unassigned portfolio stores subject scope without HOD grant',()=>{
  assert.match(migration,/create table public.hod_subject_portfolios/);
  assert.match(migration,/subject_ids uuid\[\] not null/);
@@ -33,8 +34,8 @@ test('Academic setup offers create-now assign-later with displayed history',()=>
  assert.match(ui,/portfolioSubjectIds/);
  assert.match(ui,/setPortfolioSubjectIds/);
  assert.match(ui,/Assign HOD later/);
- assert.match(ui,/Unassigned/);
- assert.match(ui,/portfolio.appointments.map/);
+ assert.match(setup,/Unassigned/);
+ assert.match(setup,/portfolio.appointments.map/);
  assert.match(query,/hod_portfolio_appointments/);
  assert.match(actions,/appoint_hod_portfolio/);
 });

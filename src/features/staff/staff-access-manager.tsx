@@ -6,21 +6,26 @@ import {
   ChevronDown,
   GitMerge,
   KeyRound,
+  Network,
   Link2,
   LoaderCircle,
   MailCheck,
   Pencil,
   Plus,
   ShieldCheck,
-  UserPlus,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import {
   addStaffRole,
+  planStaffSchoolRole,
+  endPlannedStaffSchoolRole,
+  designateStaffOperationalHod,
+  endStaffOperationalHod,
   correctStaffDetails,
   endStaffRole,
   inviteExistingStaff,
@@ -41,7 +46,7 @@ const roleOptions = [
   ["librarian", "Librarian"], ["board_member", "School board member"],
 ] as const;
 
-type StaffRowPanel = "access" | "identity" | null;
+type StaffRowPanel = "access" | "identity" | "hod-placement" | null;
 
 function roleLabel(value: string) {
   return roleOptions.find(([key]) => key === value)?.[1] ?? value.replaceAll("_", " ");
@@ -55,21 +60,32 @@ export function StaffDirectoryRowControls({
   schoolId,
   row,
   candidates,
+  operationalHodReady,
+  canPlanRoles = false,
 }: {
   schoolId: string;
   row: StaffDirectoryRow;
   candidates: StaffDirectoryRow[];
+  operationalHodReady: boolean;
+  canPlanRoles?: boolean;
 }) {
   const router = useRouter();
   const [panel, setPanel] = useState<StaffRowPanel>(null);
   const [inviteState, inviteAction, invitePending] = useActionState(inviteExistingStaff, initialState);
   const [resendState, resendAction, resendPending] = useActionState(resendExistingStaffInvitation, initialState);
   const [roleState, roleAction, rolePending] = useActionState(addStaffRole, initialState);
+  const [planState, planAction, planPending] = useActionState(planStaffSchoolRole, initialState);
   const [verificationState, verificationAction, verificationPending] = useActionState(sendStaffVerification, initialState);
   const [resetState, resetAction, resetPending] = useActionState(sendStaffPasswordReset, initialState);
   const [correctionState, correctionAction, correctionPending] = useActionState(correctStaffDetails, initialState);
   const [reconciliationState, reconciliationAction, reconciliationPending] = useActionState(reconcileStaffIdentities, initialState);
   const [roleKey, setRoleKey] = useState<string>("teacher");
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const [roleDate, setRoleDate] = useState(today);
+  const [roleEndDate, setRoleEndDate] = useState("");
+  const [hodDate, setHodDate] = useState(today);
+  const [hodState, hodAction, hodPending] = useActionState(designateStaffOperationalHod, initialState);
+  const [hodEndState, hodEndAction, hodEndPending] = useActionState(endStaffOperationalHod, initialState);
   const [email, setEmail] = useState("");
   const [duplicateId, setDuplicateId] = useState("");
   const [endingRoleId, setEndingRoleId] = useState<string | null>(null);
@@ -82,6 +98,10 @@ export function StaffDirectoryRowControls({
   useEffect(() => {
     if (resendState.message) (resendState.success ? toast.success : toast.error)(resendState.message);
   }, [resendState]);
+  useEffect(() => {
+    if (planState.message) (planState.success ? toast.success : toast.error)(planState.message);
+    if (planState.success) router.refresh();
+  }, [planState, router]);
   useEffect(() => {
     if (roleState.message) (roleState.success ? toast.success : toast.error)(roleState.message);
     if (roleState.success) router.refresh();
@@ -100,6 +120,15 @@ export function StaffDirectoryRowControls({
     if (reconciliationState.message) (reconciliationState.success ? toast.success : toast.error)(reconciliationState.message);
     if (reconciliationState.success) router.refresh();
   }, [reconciliationState, router]);
+
+  useEffect(() => {
+    if (hodState.message) (hodState.success ? toast.success : toast.error)(hodState.message);
+    if (hodState.success) router.refresh();
+  }, [hodState, router]);
+  useEffect(() => {
+    if (hodEndState.message) (hodEndState.success ? toast.success : toast.error)(hodEndState.message);
+    if (hodEndState.success) router.refresh();
+  }, [hodEndState, router]);
 
   function togglePanel(next: Exclude<StaffRowPanel, null>) {
     setPanel((current) => current === next ? null : next);
@@ -128,6 +157,10 @@ export function StaffDirectoryRowControls({
   }
 
   const visibleRoles = row.activeRoles.filter((item) => !hiddenRoleIds.has(item.id));
+  const eligiblePlannedRoles = row.plannedRoles.filter((plan) =>
+    !plan.revokedAt && (!plan.effectiveTo || plan.effectiveTo >= today)
+  );
+  const invitationRoleKey = eligiblePlannedRoles[0]?.roleKey ?? "";
   const rolePreview = visibleRoles.slice(0, 2).map((item) => roleLabel(item.roleKey));
   const hiddenRoleCount = Math.max(visibleRoles.length - rolePreview.length, 0);
   const duplicateOptions = candidates
@@ -140,41 +173,58 @@ export function StaffDirectoryRowControls({
   return (
     <>
       <div className="min-w-0 rounded-[var(--radius-sm)] bg-surface-muted/35 px-3 py-2.5 md:col-start-2 md:col-end-4 lg:col-start-4 lg:col-end-5">
-        <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-          <div className="min-w-0">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2 text-[0.68rem]">
             {row.hasAccount ? (
               <>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--success)]">
-                    <ShieldCheck className="size-3.5" aria-hidden="true" /> Account linked
-                  </span>
-                  <span className="text-[0.68rem] font-medium text-muted-foreground">
-                    {visibleRoles.length} active {visibleRoles.length === 1 ? "role" : "roles"}
-                  </span>
-                </div>
-                <p className="mt-1.5 truncate text-[0.7rem] text-muted-foreground">
-                  {rolePreview.length ? rolePreview.join(" · ") : "No active ScolaPro roles"}
-                  {hiddenRoleCount ? ` · +${hiddenRoleCount}` : ""}
-                </p>
+                <span className="rounded-[var(--radius-xs)] bg-success-soft px-2 py-1 font-medium text-[color:var(--success)]">Account linked</span>
+                <span className="text-muted-foreground">{visibleRoles.length} active {visibleRoles.length === 1 ? "role" : "roles"}{rolePreview.length ? ` · ${rolePreview.join(" · ")}` : ""}{hiddenRoleCount ? ` · +${hiddenRoleCount}` : ""}</span>
               </>
             ) : row.pendingInvitationId ? (
-              <>
-                <span className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 text-[0.68rem] font-medium text-[color:var(--warning)]">
-                  <UserPlus className="size-3.5" aria-hidden="true" /> Invitation pending
-                </span>
-                <p className="mt-1.5 text-[0.7rem] text-muted-foreground">Awaiting account activation.</p>
-              </>
+              <span className="rounded-[var(--radius-xs)] bg-warning-soft px-2 py-1 font-medium text-[color:var(--warning)]">Invitation pending</span>
             ) : (
-              <>
-                <p className="text-[0.72rem] font-semibold text-foreground">No login account</p>
-                <p className="mt-1 text-[0.68rem] leading-4 text-muted-foreground">
-                  Placement exists; ScolaPro access has not been created.
-                </p>
-              </>
+              <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 font-medium text-muted-foreground">No login account</span>
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          {row.plannedRoles.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {row.plannedRoles.map((plan) => {
+                const status = plan.revokedAt
+                  ? "Ended"
+                  : plan.effectiveTo && plan.effectiveTo < today
+                    ? "Ended"
+                    : plan.effectiveFrom > today
+                      ? "Scheduled"
+                      : row.hasAccount
+                        ? visibleRoles.some((membership) =>
+                            membership.roleKey === plan.roleKey &&
+                            membership.activeFrom <= today &&
+                            (!membership.activeTo || membership.activeTo >= today)
+                          )
+                          ? "Active on account"
+                          : "Ended"
+                        : "Planned";
+                return (
+                  <span key={plan.id} className="inline-flex items-center gap-1 rounded-[var(--radius-xs)] bg-brand-soft px-2 py-1 text-[0.68rem] text-brand-strong">
+                    {roleLabel(plan.roleKey)} · {status}
+                    {!row.hasAccount && !plan.revokedAt && (!plan.effectiveTo || plan.effectiveTo >= today) ? (
+                      <form action={async (data: FormData) => {
+                        const result = await endPlannedStaffSchoolRole(data);
+                        if (result.message) (result.success ? toast.success : toast.error)(result.message);
+                        if (result.success) router.refresh();
+                      }}>
+                        <input type="hidden" name="schoolId" value={schoolId} />
+                        <input type="hidden" name="plannedRoleId" value={plan.id} />
+                        <button type="submit" aria-label={`End planned ${roleLabel(plan.roleKey)} role`} className="ml-1 text-brand-strong hover:text-[color:var(--danger)]"><X className="size-3" /></button>
+                      </form>
+                    ) : null}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
             {row.hasAccount ? (
               <Button
                 type="button"
@@ -215,6 +265,25 @@ export function StaffDirectoryRowControls({
                 <ChevronDown className={`size-3.5 transition-transform ${panel === "access" ? "rotate-180" : ""}`} aria-hidden="true" />
               </Button>
             )}
+            {!row.hasAccount && canPlanRoles ? (
+              <Button type="button" variant="neutral" size="sm" onClick={() => togglePanel("access")}
+                aria-expanded={panel === "access"}
+                className="min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem]">
+                <ShieldCheck className="size-3.5" aria-hidden="true" /> Assign roles
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="neutral"
+              size="sm"
+              aria-expanded={panel === "hod-placement"}
+              onClick={() => togglePanel("hod-placement")}
+              className="min-h-8 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem]"
+            >
+              <Network className="size-3.5" aria-hidden="true" />
+              {row.operationalHodDesignation ? "HOD placement" : "Assign HOD"}
+              <ChevronDown className={`size-3.5 transition-transform ${panel === "hod-placement" ? "rotate-180" : ""}`} aria-hidden="true" />
+            </Button>
             <RecordActionButton
               icon={Pencil}
               label="Manage identity"
@@ -312,43 +381,102 @@ export function StaffDirectoryRowControls({
                 <h3 className="text-sm font-semibold text-foreground">Invite to ScolaPro</h3>
                 <p className="mt-0.5 text-[0.68rem] text-muted-foreground">Create login access without changing the staff placement.</p>
               </div>
-              <form action={inviteAction} className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.75fr)_auto] lg:items-end">
+              {canPlanRoles ? <form action={planAction} className="mt-3 flex flex-wrap items-end gap-2 rounded-[var(--radius-sm)] bg-surface p-3">
                 <input type="hidden" name="schoolId" value={schoolId} />
                 <input type="hidden" name="staffMemberId" value={row.staffId} />
-                <div>
-                  <label htmlFor={`staff-email-${row.staffId}`} className="block text-[0.68rem] text-muted-foreground">Login email</label>
-                  <input
-                    id={`staff-email-${row.staffId}`}
-                    name="email"
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="real email address"
-                    className="mt-1 min-h-9 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-2.5 text-xs outline-none focus:border-[color:var(--brand)]/50"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[0.68rem] text-muted-foreground">Intended role</label>
-                  <Picker
-                    ariaLabel="Intended school role"
-                    value={roleKey}
-                    onChange={setRoleKey}
-                    options={roleOptions.map(([value, label]) => ({ value, label }))}
-                    placeholder="Choose role"
-                    className="mt-1"
-                  />
-                  <input type="hidden" name="roleKey" value={roleKey} />
-                </div>
-                <Button type="submit" size="sm" loading={invitePending} disabled={!email}>
-                  <Link2 className="size-3.5" aria-hidden="true" /> Send invite
+                <input type="hidden" name="roleKey" value={roleKey} />
+                <Picker ariaLabel="Preassign school role" value={roleKey} onChange={setRoleKey}
+                  options={roleOptions.map(([value,label]) => ({value,label}))} placeholder="Choose role" className="min-w-44" />
+                <DateField label="Effective from" name="effectiveFrom" value={roleDate} onChange={setRoleDate} />
+                <DateField label="Effective until (optional)" name="effectiveTo" value={roleEndDate} onChange={setRoleEndDate} min={roleDate} />
+                <Button type="submit" variant="neutral" size="sm" loading={planPending}>
+                  <Plus className="size-3.5" aria-hidden="true" /> Preassign role
                 </Button>
-              </form>
+                <p className="basis-full text-[0.68rem] text-muted-foreground">Set a start date and, when needed, a scheduled end date. Login authority remains inactive before the effective interval and before verified account activation.</p>
+              </form> : null}
+              {row.pendingInvitationId ? (
+                <div className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2.5 text-[0.68rem] leading-5 text-[color:var(--warning)]">
+                  A login invitation is already pending. Any role changes above are reconciled when that verified invitation is accepted; use Resend in the row if a fresh link is needed.
+                </div>
+              ) : (
+                <form action={inviteAction} className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                  <input type="hidden" name="schoolId" value={schoolId} />
+                  <input type="hidden" name="staffMemberId" value={row.staffId} />
+                  <input type="hidden" name="roleKey" value={invitationRoleKey} />
+                  <div>
+                    <label htmlFor={`staff-email-${row.staffId}`} className="block text-[0.68rem] text-muted-foreground">Login email</label>
+                    <input
+                      id={`staff-email-${row.staffId}`}
+                      name="email"
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="real email address"
+                      className="mt-1 min-h-9 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-2.5 text-xs outline-none focus:border-[color:var(--brand)]/50"
+                    />
+                  </div>
+                  <Button type="submit" size="sm" loading={invitePending} disabled={!email || !invitationRoleKey}>
+                    <Link2 className="size-3.5" aria-hidden="true" /> Send invite
+                  </Button>
+                  <p className="basis-full text-[0.68rem] text-muted-foreground">
+                    {invitationRoleKey
+                      ? `This invitation will use the ${eligiblePlannedRoles.length} current or scheduled preassigned ${eligiblePlannedRoles.length === 1 ? "role" : "roles"} above; no extra role is granted by the invitation.`
+                      : "Assign at least one current or scheduled role before creating login access."}
+                  </p>
+                </form>
+              )}
               {inviteState.invitationToken ? (
                 <p className="mt-3 break-all rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-2 text-[0.68rem] text-[color:var(--success)]">
                   Secure join link ready: <span className="font-mono">{`/join?token=${inviteState.invitationToken}`}</span>
                 </p>
               ) : null}
             </div>
+          )}
+        </div>
+      ) : null}
+
+      {panel === "hod-placement" ? (
+        <div className={panelClassName()} data-staff-operational-hod>
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-foreground">HOD staff placement</h3>
+            <p className="mt-1 text-[0.72rem] leading-5 text-muted-foreground">
+              Designate an existing staff member as HOD without creating a ScolaPro account or sending an invitation.
+              This permits later subject-portfolio appointment; login access and HOD review permissions remain separate.
+            </p>
+          </div>
+          {!operationalHodReady ? (
+            <p role="status" className="mb-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]">
+              HOD placement changes are unavailable until the operational HOD database migration is deployed.
+              Existing staff and login records remain accessible.
+            </p>
+          ) : null}
+          {row.operationalHodDesignation ? (
+            <form action={hodEndAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="designationId" value={row.operationalHodDesignation.id} />
+              <div>
+                <p className="font-semibold text-foreground">Operational HOD assigned</p>
+                <p className="mt-1 text-muted-foreground">Effective from {row.operationalHodDesignation.effectiveFrom}. Ending this designation also closes its open portfolio authority on the selected date.</p>
+              </div>
+              <div className="flex flex-wrap items-end justify-end gap-3">
+                <div className="min-w-[12rem] flex-1 sm:max-w-xs"><DateField label="Effective to" name="effectiveTo" value={hodDate} onChange={setHodDate} /></div>
+              <Button type="submit" variant="neutral" size="sm" disabled={!operationalHodReady || hodEndPending || hodDate < row.operationalHodDesignation.effectiveFrom} loading={hodEndPending}>
+                End HOD placement
+              </Button>
+              </div>
+            </form>
+          ) : (
+            <form action={hodAction} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-3">
+              <input type="hidden" name="schoolId" value={schoolId} />
+              <input type="hidden" name="staffMemberId" value={row.staffId} />
+              <p className="text-muted-foreground">No operational HOD designation. The staff member keeps their existing placement and login status.</p>
+              <div className="flex flex-wrap items-end justify-end gap-3">
+                <div className="min-w-[12rem] flex-1 sm:max-w-xs"><DateField label="Effective from" name="effectiveFrom" value={hodDate} onChange={setHodDate} /></div>
+              <Button type="submit" size="sm" disabled={!operationalHodReady || hodPending || !hodDate} loading={hodPending}>
+                <Network className="size-3.5" aria-hidden="true" /> Assign HOD placement
+              </Button>
+              </div>
+            </form>
           )}
         </div>
       ) : null}
