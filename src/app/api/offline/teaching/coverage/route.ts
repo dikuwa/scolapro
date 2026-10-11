@@ -15,7 +15,17 @@ const payloadSchema = z.object({
 export async function POST(request: Request) {
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ success: false, message: "Offline teaching coverage payload is invalid." }, { status: 400 });
-  const context = await getUserContext();
+  // Offline synchronization must return JSON, not a thrown server error,
+  // when credential rotation or school authority blocks the account.
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    return NextResponse.json(
+      { message: "Complete account security setup and verify school access before synchronizing." },
+      { status: 403 },
+    );
+  }
   const membership = context.currentSchoolMembership;
   if (!context.user || context.user.id !== parsed.data.scope.userId || !membership || membership.tenantId !== parsed.data.scope.tenantId || membership.schoolId !== parsed.data.scope.schoolId) {
     return NextResponse.json({ success: false, message: "Your current school access changed before this teaching actual could sync." }, { status: 409 });
