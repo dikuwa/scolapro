@@ -6,6 +6,7 @@ const actions = readFileSync("src/components/documents/official-document-actions
 const closeAction = readFileSync("src/components/ui/close-action.tsx", "utf8");
 const responsibilities = readFileSync("src/features/responsibilities/responsibilities-workspace.tsx", "utf8");
 const register = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
+const registerLayout = readFileSync("src/features/attendance/server/register-teacher-layout.ts", "utf8");
 
 test("shared close action defaults to the light dismiss treatment and permits contextual variants", () => {
   assert.match(closeAction, /variant = "danger-soft"/);
@@ -34,7 +35,8 @@ test("each register section ends with a structured aligned balance footer", () =
   assert.match(register, /balance-item/);
   assert.match(register, /balance-result/);
   assert.match(register, /\.balance-strip \{[^}]*display:grid[^}]*justify-content:end/s);
-  assert.match(register, /section\.termAttendanceTotal/);
-  assert.match(register, /section\.termAbsenceTotal/);
-  assert.match(register, /section\.termPossibleTotal/);
+  assert.match(register, /registerTeacherBalance\(section\)/);
+  assert.match(registerLayout, /section\.termAttendanceTotal/);
+  assert.match(registerLayout, /section\.termAbsenceTotal/);
+  assert.match(registerLayout, /section\.termPossibleTotal/);
 });

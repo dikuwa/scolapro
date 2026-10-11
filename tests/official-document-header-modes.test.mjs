@@ -152,6 +152,5 @@ test("shared school-name font runtime is reusable by custom document layouts", (
   assert.match(html, /header\.schoolNameFont === "old_english"/);
   assert.match(html, /ScolaPro Old English/);
   const register = read("src/features/attendance/server/render-register-teacher-html.ts");
-  assert.match(register, /renderOfficialDocumentSchoolNameFontStyle\(header\)/);
-  assert.match(register, /officialDocumentSchoolNameClass\(header\)/);
+  assert.match(register, /renderOfficialDocumentHtmlHeader\(header, undefined, \{ context \}\)/);
 });

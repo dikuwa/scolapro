@@ -85,9 +85,9 @@ test("register PDF is real A3 landscape output with separate sex sections", () =
   assert.match(route, /"Content-Type": "application\/pdf"/);
   assert.match(route, /attachment; filename=.*\.pdf/);
   assert.match(route, /renderRegisterTeacherPdf/);
-  assert.match(pdf, /const PAGE_WIDTH = 1190\.55/);
-  assert.match(pdf, /const PAGE_HEIGHT = 841\.89/);
-  assert.match(pdf, /for \(const section of input\.document\.sections\)/);
+  assert.match(pdf, /const PAGE_WIDTH = REGISTER_TEACHER_LAYOUT\.pageWidth/);
+  assert.match(pdf, /const PAGE_HEIGHT = REGISTER_TEACHER_LAYOUT\.pageHeight/);
+  assert.match(pdf, /for \(const job of registerTeacherPageJobs\(input\.document\)\)/);
   assert.match(pdf, /day\.reason \?\? `Non-teaching/);
   assert.match(pdf, /pdf\.addPage\(\[PAGE_WIDTH, PAGE_HEIGHT\]\)/);
   assert.match(pdf, /pdf\.save/);

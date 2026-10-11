@@ -64,7 +64,8 @@ test("register toolbar remains complete and week navigation honors term bounds",
 });
 
 test("boys and girls render as separate screen sheets and A3 print pages", () => {
-  assert.match(renderer, /document\.sections\.map/);
+  assert.match(renderer, /registerTeacherPageJobs\(document\)\.map/);
+  assert.match(renderer, /\{ \.\.\.job\.section, learners: job\.learners \}/);
   assert.match(renderer, /\.register-section \{ margin:0 0 18px; padding:16px 16px 20px; background:white; box-shadow:/);
   assert.match(renderer, /@page \{ size:A3 landscape; margin:8mm; \}/);
   assert.match(renderer, /break-before:page; break-after:page; page-break-before:always; page-break-after:always/);
