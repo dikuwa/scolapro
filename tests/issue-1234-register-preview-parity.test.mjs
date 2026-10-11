@@ -30,3 +30,10 @@ test("PDF mirrors HTML legend and metadata ordering", () => {
   assert.match(pdf, /"Tot\."/);
   assert.doesNotMatch(pdf, /drawCell\(page, resources\.bold, "WEEK"/);
 });
+
+
+test("reasoned absence PDF check sits next to the centered a, not at the cell edge", () => {
+  assert.match(pdf, /x: x \+ dayWidth \/ 2 \+ 2\.3/);
+  assert.doesNotMatch(pdf, /x: x \+ dayWidth - 5/);
+  assert.match(pdf, /pdf\.setSubject\("Issue 1234 revised register PDF layout"\)/);
+});
