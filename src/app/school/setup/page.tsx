@@ -7,12 +7,14 @@ import { ClassManagement } from "@/features/academics/class-management";
 import { getRegisterTeacherCandidates, getSchoolStructure } from "@/features/academics/server/structure";
 import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
 import { HodScopeConfiguration } from "@/features/academics/hod-scope-configuration";
+import { DepartmentActivitiesManager } from "@/features/calendar/department-activities-manager";
+import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
+import { getOperationalCalendarWorkspace } from "@/features/calendar/server/operational-calendar";
 import { RoomManagement } from "@/features/timetable/room-management";
 import { TimetableCycleSettings } from "@/features/timetable/timetable-cycle-settings";
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { hasAnySchoolRole, schoolLeadershipRoles } from "@/lib/auth/school-capabilities";
-import { getNamibiaCalendarYear } from "@/lib/namibia-date";
 
 export default async function SchoolSetupPage() {
   const context = await getUserContext();
@@ -30,13 +32,14 @@ export default async function SchoolSetupPage() {
 
   const schoolRoleKeys = new Set(schoolMemberships.map((item) => item.roleKey));
   const canManageAcademicStructure = schoolRoleKeys.has("school_admin");
-  const academicYear = getNamibiaCalendarYear();
+  const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const [structure, rooms, hodScope, registerTeacherCandidates] = await Promise.all([
+  const [structure, rooms, hodScope, registerTeacherCandidates, departmentCalendar] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
     getHodScopeConfiguration(membership.schoolId),
     getRegisterTeacherCandidates(membership.schoolId, today),
+    getOperationalCalendarWorkspace({ schoolId: membership.schoolId, academicYear, staffMemberId: membership.staffMemberId, canManageSchool: true, canManageDepartment: true, scopeKind: "department" }),
   ]);
   const activeHodScopeCount = hodScope.responsibilities.filter(
     (row) => row.effectiveFrom <= hodScope.today && (!row.effectiveTo || row.effectiveTo >= hodScope.today),
@@ -112,6 +115,10 @@ export default async function SchoolSetupPage() {
             />
           }
         />
+
+        <div className="mt-5">
+          <DepartmentActivitiesManager schoolId={membership.schoolId} year={academicYear} terms={departmentCalendar.terms} events={departmentCalendar.events} departments={departmentCalendar.departments} canManage title="Department activities" />
+        </div>
 
         {canManageAcademicStructure ? (
           <div className="mt-5">

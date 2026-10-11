@@ -76,7 +76,7 @@ export default async function CalendarPage() {
             <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CheckCircle2 className="size-4" /></span>
           </div>
           <div className="flex min-h-24 items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-4 py-3 shadow-[var(--shadow-xs)]">
-            <div><p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">School / department events</p><p className="mt-1 text-2xl font-semibold text-[color:var(--accent-amber)]">{operational.events.length}</p></div>
+            <div><p className="text-[0.68rem] font-semibold uppercase tracking-[0.05em] text-muted-foreground">School events</p><p className="mt-1 text-2xl font-semibold text-[color:var(--accent-amber)]">{operational.events.length}</p></div>
             <span className="scolapro-tone-amber grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Clock3 className="size-4" /></span>
           </div>
           <div className="flex min-h-24 items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-4 py-3 shadow-[var(--shadow-xs)]">
@@ -106,11 +106,8 @@ export default async function CalendarPage() {
           currentDate={getNamibiaDateKey()}
           terms={operational.terms}
           events={operational.events}
-          departments={operational.departments}
           staffOptions={operational.staffOptions}
-          schedules={teachingImpact.schedules}
           canManageSchool={canManageSchool}
-          canManageDepartment={canManageDepartment}
           dayExceptions={teachingImpact.overrides}
           learnerEvents={teachingImpact.events}
         />
@@ -123,6 +120,7 @@ export default async function CalendarPage() {
           overrides={teachingImpact.overrides}
           audienceOptions={teachingImpact.audienceOptions}
           canManage={canManageSchool}
+          terms={operational.terms}
         />
       </main>
     </AppShell>

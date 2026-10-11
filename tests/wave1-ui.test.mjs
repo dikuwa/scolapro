@@ -295,6 +295,8 @@ function teachingPage(context) {
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
     '@/lib/auth/get-user-context': { getUserContext: async () => context },
     '@/features/calendar/server/calendar': calendarMock,
+    '@/features/calendar/server/operational-calendar': { getOperationalCalendarWorkspace: async () => ({ terms: [], events: [], departments: [], staffOptions: [] }) },
+    '@/features/calendar/department-activities-manager': { DepartmentActivitiesManager: () => null },
     '@/features/teaching/server/queries': { getTeachingWorkspace: async (...args) => { teachingCalls.push(args); return teachingWorkspace; } },
   })('@/app/teaching/page').default;
 }
@@ -351,6 +353,8 @@ test('teaching workspace honest empty state when no active allocations exist', a
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
     '@/lib/auth/get-user-context': { getUserContext: async () => ({ user: { id: 'user' }, memberships: [{ roleKey: 'teacher', schoolId: 'school', staffMemberId: 'staff' }], platformMemberships: [] }) },
     '@/features/calendar/server/calendar': calendarMock,
+    '@/features/calendar/server/operational-calendar': { getOperationalCalendarWorkspace: async () => ({ terms: [], events: [], departments: [], staffOptions: [] }) },
+    '@/features/calendar/department-activities-manager': { DepartmentActivitiesManager: () => null },
     '@/features/teaching/server/queries': { getTeachingWorkspace: async () => emptyFixture },
   })('@/app/teaching/page').default;
   const html = renderToStaticMarkup(await page({}));
@@ -515,12 +519,12 @@ test('navigation exposes School Directory to every authenticated role without ne
 });
 
 
-test('academic setup and timetable share Namibia-local academic-year resolution', () => {
+test('academic setup uses governed year while timetable retains Namibia-local fallback', () => {
   const setupSource = fs.readFileSync(path.join(root, 'src/app/school/setup/page.tsx'), 'utf8');
   const timetableSource = fs.readFileSync(path.join(root, 'src/app/timetable/page.tsx'), 'utf8');
 
-  assert.match(setupSource, /import \{ getNamibiaCalendarYear \} from "@\/lib\/namibia-date";/);
-  assert.match(setupSource, /const academicYear = getNamibiaCalendarYear\(\);/);
+  assert.match(setupSource, /import \{ getGovernedAcademicYear \} from "@\/features\/calendar\/server\/calendar";/);
+  assert.match(setupSource, /const academicYear = await getGovernedAcademicYear\(membership\.schoolId\);/);
   assert.doesNotMatch(setupSource, /new Date\(\)\.getFullYear\(\)/);
 
   assert.match(timetableSource, /import \{ getNamibiaCalendarYear \} from "@\/lib\/namibia-date";/);

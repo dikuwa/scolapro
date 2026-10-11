@@ -10,6 +10,7 @@ const adjustmentMigration = read("supabase/migrations/20261007143000_calendar_ad
 const impactManager = read("src/features/calendar/teaching-impact-manager.tsx");
 const teachingImpactQuery = read("src/features/calendar/server/teaching-impact.ts");
 const manager = read("src/features/calendar/operational-calendar-manager.tsx");
+const departmentManager = read("src/features/calendar/department-activities-manager.tsx");
 const actions = read("src/features/calendar/server/actions.ts");
 const queries = read("src/features/calendar/server/operational-calendar.ts");
 const ocr = read("src/features/imports/server/calendar-ocr.ts");
@@ -45,8 +46,8 @@ test("school activities are informational by default and department events canno
   assert.ok(actions.includes("learnerDayEffect: z.enum(learnerDayEffects)"));
   assert.ok(actions.includes('value.scopeKind==="department"&&value.learnerDayEffect!=="UNCHANGED"'));
   assert.ok(actions.includes("Department events cannot change learner school-day status."));
-  assert.ok(manager.includes("No school-day change"));
-  assert.ok(manager.includes("Default for meetings, activities and deadlines"));
+  assert.ok(manager.includes('name="learnerDayEffect" value="UNCHANGED"'));
+  assert.ok(manager.includes("Informational whole-school activities"));
   assert.ok(migration.includes("Department events cannot change learner school-day status"));
 });
 
@@ -54,7 +55,7 @@ test("HOD department events are constrained by governed subject responsibility",
   assert.ok(migration.includes("can_manage_department_calendar"));
   assert.ok(migration.includes("subject_department_responsibilities"));
   assert.ok(migration.includes("Target teacher is outside this governed department"));
-  assert.ok(manager.includes("CASS/target-mark submissions and class visits"));
+  assert.ok(departmentManager.includes("Department-scoped activities"));
   assert.ok(queries.includes("list_my_operational_calendar_events"));
 });
 
@@ -62,11 +63,11 @@ test("staff dashboard exposes a compact scoped upcoming calendar feed", () => {
   assert.ok(dashboard.includes("Upcoming"));
   assert.ok(dashboard.includes("getUpcomingOperationalCalendarEvents"));
   assert.ok(queries.includes("list_my_operational_calendar_events"));
-  assert.ok(calendarPage.includes("School / department events"));
+  assert.ok(calendarPage.includes("School events"));
 });
 
 test("manual event entry and optional OCR intake share human review guardrails", () => {
-  assert.ok(manager.includes("Add event"));
+  assert.ok(manager.includes("Add school event"));
   assert.ok(manager.includes("Import / OCR"));
   assert.ok(intakePage.includes("Scan / OCR fallback"));
   assert.ok(intakePage.includes("OCR is optional"));

@@ -201,8 +201,58 @@ export async function saveOperationalCalendarEvent(
     p_lifecycle_status:"active",
   });
   if(error)return{message:error.message||"Operational calendar event could not be saved."};
-  revalidatePath("/calendar");revalidatePath("/");revalidatePath("/attendance");revalidatePath("/timetable");
+  revalidatePath("/calendar");revalidatePath("/school/setup");revalidatePath("/teaching");revalidatePath("/teaching/oversight");revalidatePath("/");revalidatePath("/attendance");revalidatePath("/timetable");
   return{success:true,message:parsed.data.scopeKind==="department"?"Department calendar event added.":"School calendar event added."};
+}
+
+const operationalEventRevisionSchema = z.object({
+  eventId:z.string().uuid(),eventKind:z.enum(operationalEventKinds),title:z.string().trim().min(1).max(180),
+  startsOn:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),endsOn:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startsAt:z.union([z.literal(""),z.string().regex(/^\d{2}:\d{2}$/)]),
+  endsAt:z.union([z.literal(""),z.string().regex(/^\d{2}:\d{2}$/)]),
+  audienceScope:z.enum(operationalAudiences),targetStaffMemberId:z.union([z.literal(""),z.string().uuid()]),
+  description:z.string().trim().max(3000).optional(),
+}).superRefine((value,ctx)=>{
+  if(value.endsOn<value.startsOn)ctx.addIssue({code:"custom",path:["endsOn"],message:"End date cannot be before start date."});
+  if(Boolean(value.startsAt)!==Boolean(value.endsAt))ctx.addIssue({code:"custom",path:["endsAt"],message:"Provide both times or leave both blank."});
+  if(value.startsAt&&value.endsAt&&value.endsAt<=value.startsAt)ctx.addIssue({code:"custom",path:["endsAt"],message:"End time must be after start time."});
+  if(value.audienceScope==="specific_teacher"&&!value.targetStaffMemberId)ctx.addIssue({code:"custom",path:["targetStaffMemberId"],message:"Choose the target teacher."});
+});
+
+export async function reviseOperationalCalendarEvent(
+  _state:TeachingImpactActionState,
+  formData:FormData,
+):Promise<TeachingImpactActionState>{
+  const parsed=operationalEventRevisionSchema.safeParse({
+    eventId:formData.get("eventId"),eventKind:formData.get("eventKind"),title:formData.get("title"),
+    startsOn:formData.get("startsOn"),endsOn:formData.get("endsOn"),startsAt:String(formData.get("startsAt")??""),
+    endsAt:String(formData.get("endsAt")??""),audienceScope:formData.get("audienceScope"),
+    targetStaffMemberId:String(formData.get("targetStaffMemberId")??""),description:String(formData.get("description")??""),
+  });
+  if(!parsed.success)return{fieldErrors:parsed.error.flatten().fieldErrors,message:"Check the highlighted event fields."};
+  const supabase=await createSupabaseServerClient();
+  const {error}=await supabase.rpc("revise_operational_calendar_event",{
+    p_event_id:parsed.data.eventId,p_event_kind:parsed.data.eventKind,p_title:parsed.data.title,
+    p_starts_on:parsed.data.startsOn,p_ends_on:parsed.data.endsOn,p_starts_at:parsed.data.startsAt||null,
+    p_ends_at:parsed.data.endsAt||null,p_audience_scope:parsed.data.audienceScope,
+    p_target_staff_member_id:parsed.data.targetStaffMemberId||null,p_description:parsed.data.description||null,
+  });
+  if(error)return{message:error.message||"Calendar event could not be updated."};
+  revalidatePath("/calendar");revalidatePath("/school/setup");revalidatePath("/teaching");revalidatePath("/teaching/oversight");
+  return{success:true,message:"Calendar event updated. The previous revision remains in the audit history."};
+}
+
+export async function cancelOperationalCalendarEvent(
+  _state:TeachingImpactActionState,
+  formData:FormData,
+):Promise<TeachingImpactActionState>{
+  const parsed=z.object({eventId:z.string().uuid()}).safeParse({eventId:formData.get("eventId")});
+  if(!parsed.success)return{message:"Choose a valid calendar event."};
+  const supabase=await createSupabaseServerClient();
+  const {error}=await supabase.rpc("cancel_operational_calendar_event",{p_event_id:parsed.data.eventId});
+  if(error)return{message:error.message||"Calendar event could not be cancelled."};
+  revalidatePath("/calendar");revalidatePath("/school/setup");revalidatePath("/teaching");revalidatePath("/teaching/oversight");
+  return{success:true,message:"Calendar event cancelled. Its history has been preserved."};
 }
 
 const termCalendarProfileSchema=z.object({
@@ -250,4 +300,29 @@ export async function saveTermCalendarProfile(
   if(error)return{message:error.message||"Official term-calendar metadata could not be saved."};
   revalidatePath("/calendar");revalidatePath("/attendance");revalidatePath("/timetable");revalidatePath("/academics");
   return{success:true,message:"Official term calendar saved. Learner boundaries now drive operational dates."};
+}
+
+const termSourceCorrectionSchema=z.object({
+  academicTermId:z.string().uuid(),
+  sourceLabel:z.string().trim().max(240).optional(),
+  sourceReference:z.string().trim().max(500).optional(),
+});
+
+export async function correctTermCalendarSource(
+  _state:TeachingImpactActionState,
+  formData:FormData,
+):Promise<TeachingImpactActionState>{
+  const parsed=termSourceCorrectionSchema.safeParse({
+    academicTermId:formData.get("academicTermId"),sourceLabel:String(formData.get("sourceLabel")??""),
+    sourceReference:String(formData.get("sourceReference")??""),
+  });
+  if(!parsed.success)return{fieldErrors:parsed.error.flatten().fieldErrors,message:"Check the source wording."};
+  const supabase=await createSupabaseServerClient();
+  const {error}=await supabase.rpc("correct_operational_term_calendar_source",{
+    p_academic_term_id:parsed.data.academicTermId,p_source_label:parsed.data.sourceLabel||null,
+    p_source_reference:parsed.data.sourceReference||null,
+  });
+  if(error)return{message:error.message||"Term source could not be updated."};
+  revalidatePath("/calendar");
+  return{success:true,message:"Term source updated without reopening or changing the finalized term."};
 }

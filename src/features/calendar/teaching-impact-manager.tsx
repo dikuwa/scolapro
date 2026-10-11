@@ -19,6 +19,7 @@ import type {
   LearnerCalendarEventRow,
   TeachingImpactRow,
 } from "@/features/calendar/server/teaching-impact";
+import type { TermCalendarSummary } from "@/features/calendar/server/operational-calendar";
 import type { BellScheduleSummary } from "@/features/timetable/server/bell-calendar";
 
 const initialState: TeachingImpactActionState = {};
@@ -30,10 +31,11 @@ const impactOptions = [
   { value: "EXAM_TIMETABLE", label: "Exam timetable", helper: "The learner day follows the examination timetable" },
 ];
 const categoryOptions = ["Information", "Public holiday", "School holiday", "Assessment", "School programme", "Closure", "Other"].map((value) => ({ value, label: value }));
-const inputClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
+const inputClass = "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition-[border-color,box-shadow] hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)] motion-reduce:transition-none";
+const dateFormatter = new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short", year: "numeric" });
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+  return dateFormatter.format(new Date(`${value}T12:00:00`));
 }
 
 function eventDateLabel(event: LearnerCalendarEventRow) {
@@ -49,6 +51,7 @@ export function TeachingImpactManager({
   overrides,
   audienceOptions,
   canManage,
+  terms,
 }: {
   schoolId: string;
   year: number;
@@ -57,6 +60,7 @@ export function TeachingImpactManager({
   overrides: TeachingImpactRow[];
   audienceOptions: CalendarAudienceOption[];
   canManage: boolean;
+  terms: TermCalendarSummary[];
 }) {
   const [state, action, pending] = useActionState(saveSchoolCalendarEvent, initialState);
   const [adjustmentState, adjustmentAction, adjustmentPending] = useActionState(saveTeachingImpact, initialState);
@@ -65,7 +69,7 @@ export function TeachingImpactManager({
   const [endsOn, setEndsOn] = useState(`${year}-01-01`);
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
-  const [impact, setImpact] = useState("NORMAL");
+  const [impact, setImpact] = useState("NO_TEACHING");
   const [audience, setAudience] = useState("all_learners");
   const [category, setCategory] = useState("Information");
   const [schedule, setSchedule] = useState("");
@@ -76,9 +80,28 @@ export function TeachingImpactManager({
   const [adjustmentReason, setAdjustmentReason] = useState("");
   const [adjustmentSchedule, setAdjustmentSchedule] = useState("");
   const [confirmDeleteDate, setConfirmDeleteDate] = useState<string | null>(null);
+  const [showAllEvents, setShowAllEvents] = useState(false);
+  const [showAllOverrides, setShowAllOverrides] = useState(false);
   const canSchedule = impact === "ALTERED_TIMETABLE" || impact === "EXAM_TIMETABLE";
   const canScheduleAdjustment = adjustmentImpact === "ALTERED_TIMETABLE" || adjustmentImpact === "EXAM_TIMETABLE";
   const audienceLabelByValue = useMemo(() => new Map(audienceOptions.map((option) => [option.value, option.label])), [audienceOptions]);
+  const deduplicatedEvents = useMemo(() => {
+    const byKey = new Map<string, LearnerCalendarEventRow>();
+    for (const event of events) {
+      const key = `${event.title.trim().toLocaleLowerCase()}|${event.startsOn}|${event.endsOn}|${event.teachingImpact}`;
+      const current = byKey.get(key);
+      if (!current || (current.scope !== "national" && event.scope === "national")) byKey.set(key, event);
+    }
+    return [...byKey.values()];
+  }, [events]);
+  const visibleEvents = showAllEvents ? deduplicatedEvents : deduplicatedEvents.slice(0, 6);
+  const visibleOverrides = showAllOverrides ? overrides : overrides.slice(0, 6);
+  const milestones = useMemo(() => terms.flatMap((term) => [
+    term.teacherStartsOn ? { key: `${term.academicTermId}-teacher-open`, label: "Teacher opening", date: term.teacherStartsOn, term: term.termNumber } : null,
+    term.learnerStartsOn ? { key: `${term.academicTermId}-learner-open`, label: "Learner opening", date: term.learnerStartsOn, term: term.termNumber } : null,
+    term.learnerEndsOn ? { key: `${term.academicTermId}-learner-close`, label: "Learner closing", date: term.learnerEndsOn, term: term.termNumber } : null,
+    term.teacherEndsOn ? { key: `${term.academicTermId}-teacher-close`, label: "Teacher closing", date: term.teacherEndsOn, term: term.termNumber } : null,
+  ].filter((item): item is {key:string;label:string;date:string;term:number} => Boolean(item))).sort((a,b)=>a.date.localeCompare(b.date)), [terms]);
 
   useEffect(() => {
     if (!state.message) return;
@@ -118,32 +141,54 @@ export function TeachingImpactManager({
     setShowAdjustment(true);
   }
 
+  const officialEventForm = canManage && showAddEvent ? (
+    <form action={action} className="mt-4 grid gap-4 rounded-[var(--radius-sm)] bg-surface-muted p-3 lg:grid-cols-2">
+      <input type="hidden" name="schoolId" value={schoolId} />
+      <input type="hidden" name="academicYear" value={year} />
+      <div><label htmlFor="calendar-event-title" className={formFieldLabelClass}>Event title</label><input id="calendar-event-title" name="title" required maxLength={160} className={`${inputClass} ${formFieldControlOffsetClass}`} placeholder="For example, Public holiday" /></div>
+      <Picker label="Category" name="category" value={category} onChange={setCategory} placeholder="Choose category" options={categoryOptions.filter((option) => option.value !== "Information")} />
+      <DateField label="Starts on" name="startsOn" value={startsOn} onChange={(value) => { setStartsOn(value); if (endsOn < value) setEndsOn(value); }} min={`${year}-01-01`} max={`${year}-12-31`} required />
+      <DateField label="Ends on" name="endsOn" value={endsOn} onChange={setEndsOn} min={startsOn || `${year}-01-01`} max={`${year}-12-31`} required />
+      <TimeField label="Starts at (optional)" name="startsAt" value={startsAt} onChange={setStartsAt} />
+      <TimeField label="Ends at (optional)" name="endsAt" value={endsAt} onChange={setEndsAt} />
+      <Picker label="Learner audience" name="audience" value={audience} onChange={setAudience} placeholder="Choose audience" options={audienceOptions} searchable />
+      <Picker label="Teaching impact" name="impact" value={impact} onChange={(value) => { setImpact(value); if (value !== "ALTERED_TIMETABLE" && value !== "EXAM_TIMETABLE") setSchedule(""); }} placeholder="Choose teaching impact" options={impactOptions.filter((option) => option.value !== "NORMAL")} />
+      {canSchedule ? <Picker label="Alternate bell schedule" name="bellScheduleId" value={schedule} onChange={setSchedule} placeholder="Use automatically effective schedule" options={schedules.map((item) => ({ value: item.id, label: item.name, helper: `From ${item.effectiveFrom}` }))} /> : <input type="hidden" name="bellScheduleId" value="" />}
+      <div className={canSchedule ? "" : "lg:col-span-2"}><label htmlFor="calendar-event-description" className={formFieldLabelClass}>Description (optional)</label><textarea id="calendar-event-description" name="description" rows={3} maxLength={2000} className={`${inputClass} ${formFieldControlOffsetClass} resize-y py-2.5`} /></div>
+      <div className="flex justify-end gap-2 lg:col-span-2"><Button type="button" size="sm" variant="neutral" onClick={() => setShowAddEvent(false)}>Cancel</Button><Button type="submit" size="sm" loading={pending}>Add official date</Button></div>
+    </form>
+  ) : null;
+
   return (
     <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-2.5">
           <span className="scolapro-tone-brand grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]"><CalendarCog className="size-4" /></span>
           <div>
-            <h2 className="scolapro-section-title">Learner calendar events</h2>
-            <p className="scolapro-section-description !mt-0">National learner dates form the baseline. School events overlay that baseline without changing teacher or hostel calendars.</p>
+            <h2 className="scolapro-section-title">Official calendar & adjustments</h2>
+            <p className="scolapro-section-description !mt-0">Authoritative term milestones, public dates and approved teaching-impact exceptions appear here once.</p>
           </div>
         </div>
         {canManage ? <Button type="button" size="sm" variant="soft" aria-expanded={showAddEvent} onClick={() => setShowAddEvent((current) => !current)}>
-          {showAddEvent ? "Close" : "Add school event"}
+          {showAddEvent ? "Close" : "Add official date"}
         </Button> : null}
       </div>
+
+      {officialEventForm}
 
       <div className="mt-4 grid gap-3 bg-surface-muted p-3 sm:grid-cols-2 sm:p-4">
         <div className="flex gap-2"><Globe2 className="mt-0.5 size-4 shrink-0 text-brand-strong" /><p className="text-xs leading-5 text-muted-foreground"><strong className="font-semibold text-foreground">Event existence is informational by default.</strong> Normal events do not close teaching or advance a weekend into a teaching day.</p></div>
         <div className="flex gap-2"><Clock3 className="mt-0.5 size-4 shrink-0 text-[color:var(--accent-amber)]" /><p className="text-xs leading-5 text-muted-foreground"><strong className="font-semibold text-foreground">No teaching has operational effect.</strong> Attendance capture is blocked and rotating timetables skip only the affected dates.</p></div>
       </div>
 
+      {milestones.length ? <div className="mt-4"><h3 className="text-sm font-semibold">Term milestones</h3><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{milestones.map((item) => <div key={item.key} className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border-subtle px-3 py-2"><div><p className="text-xs font-medium">{item.label}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{formatDate(item.date)}</p></div><span className="rounded-[var(--radius-xs)] bg-brand-soft px-2 py-0.5 text-[0.62rem] font-semibold text-brand-strong">Term {item.term}</span></div>)}</div></div> : null}
+
       <div id="learner-calendar-events" className="mt-6 border-t border-border-subtle pt-4" style={{ scrollMarginTop: "6rem" }}>
         <h3 className="text-sm font-semibold">Baseline and school overlay</h3>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">National and school events stay identifiable. Only the stated learner teaching impact affects timetable and attendance behavior.</p>
-        {events.length ? (
+        {deduplicatedEvents.length ? (
           <div className="mt-3 divide-y divide-border-subtle">
-            {events.map((event) => {
+            {visibleEvents.map((event) => {
               const audienceValue = event.audienceScope === "all_learners" ? "all_learners" : `${event.audienceScope}:${event.audienceReferenceId}`;
               return (
                 <article key={event.id} className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(9rem,0.8fr)_auto] sm:items-start">
@@ -179,6 +224,7 @@ export function TeachingImpactManager({
             })}
           </div>
         ) : <div className="mt-3 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-5 text-sm text-muted-foreground">No learner calendar events are configured for this academic year.</div>}
+        {deduplicatedEvents.length > 6 ? <div className="mt-2 flex justify-center"><Button type="button" size="sm" variant="neutral" onClick={() => setShowAllEvents((value) => !value)}>{showAllEvents ? "Show fewer" : `Show all ${deduplicatedEvents.length}`}</Button></div> : null}
       </div>
 
       <div id="calendar-adjustments" className="mt-6 border-t border-border-subtle pt-4" style={{ scrollMarginTop: "6rem" }}>
@@ -196,8 +242,8 @@ export function TeachingImpactManager({
           ) : null}
         </div>
 
-        {canManage ? (
-          <form action={adjustmentAction} className={showAdjustment ? "mt-4 grid gap-4 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-4" : "hidden"} aria-hidden={!showAdjustment}>
+        {canManage && showAdjustment ? (
+          <form action={adjustmentAction} className="mt-4 grid gap-4 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-4">
             <input type="hidden" name="schoolId" value={schoolId} />
             <DateField label="Effective date" name="date" value={adjustmentDate} onChange={setAdjustmentDate} min={`${year}-01-01`} max={`${year}-12-31`} required />
             <Picker
@@ -223,7 +269,7 @@ export function TeachingImpactManager({
 
         {overrides.length ? (
           <div className="mt-3 divide-y divide-border-subtle">
-            {overrides.map((item) => {
+            {visibleOverrides.map((item) => {
               const isOfficialBaseline = item.source === "national" || item.source === "regional";
               const isSchoolAdjustment = item.source === "school" || item.source === "emergency";
               return (
@@ -285,32 +331,8 @@ export function TeachingImpactManager({
             No school-level calendar adjustments are configured for {year}. The national/public baseline remains in effect.
           </div>
         )}
+        {overrides.length > 6 ? <div className="mt-2 flex justify-center"><Button type="button" size="sm" variant="neutral" onClick={() => setShowAllOverrides((value) => !value)}>{showAllOverrides ? "Show fewer" : `Show all ${overrides.length}`}</Button></div> : null}
       </div>
-      {canManage ? <form action={action} className={showAddEvent ? "mt-5 grid gap-4 lg:grid-cols-2" : "hidden"} aria-hidden={!showAddEvent}>
-        <input type="hidden" name="schoolId" value={schoolId} />
-        <input type="hidden" name="academicYear" value={year} />
-        <div>
-          <label htmlFor="calendar-event-title" className={formFieldLabelClass}>Event title</label>
-          <input id="calendar-event-title" name="title" required maxLength={160} className={`${inputClass} ${formFieldControlOffsetClass}`} placeholder="For example, Regional science fair" />
-        </div>
-        <Picker label="Category" name="category" value={category} onChange={setCategory} placeholder="Choose category" options={categoryOptions} />
-        <DateField label="Starts on" name="startsOn" value={startsOn} onChange={(value) => { setStartsOn(value); if (endsOn < value) setEndsOn(value); }} min={`${year}-01-01`} max={`${year}-12-31`} required />
-        <DateField label="Ends on" name="endsOn" value={endsOn} onChange={setEndsOn} min={startsOn || `${year}-01-01`} max={`${year}-12-31`} required />
-        <TimeField label="Starts at (optional)" name="startsAt" value={startsAt} onChange={setStartsAt} />
-        <TimeField label="Ends at (optional)" name="endsAt" value={endsAt} onChange={setEndsAt} />
-        <Picker label="Learner audience" name="audience" value={audience} onChange={setAudience} placeholder="Choose audience" options={audienceOptions} searchable />
-        <Picker label="Teaching impact" name="impact" value={impact} onChange={(value) => { setImpact(value); if (value !== "ALTERED_TIMETABLE" && value !== "EXAM_TIMETABLE") setSchedule(""); }} placeholder="Choose teaching impact" options={impactOptions} />
-        {canSchedule ? (
-          <Picker label="Alternate bell schedule" name="bellScheduleId" value={schedule} onChange={setSchedule} placeholder="Use automatically effective schedule" options={schedules.map((item) => ({ value: item.id, label: item.name, helper: `From ${item.effectiveFrom}` }))} />
-        ) : <input type="hidden" name="bellScheduleId" value="" />}
-        <div className={canSchedule ? "" : "lg:col-span-2"}>
-          <label htmlFor="calendar-event-description" className={formFieldLabelClass}>Description (optional)</label>
-          <textarea id="calendar-event-description" name="description" rows={3} maxLength={2000} className={`${inputClass} ${formFieldControlOffsetClass} resize-y py-2.5`} placeholder="Add context without changing the teaching impact." />
-        </div>
-        <div className="flex items-start lg:col-span-2">
-          <Button type="submit" loading={pending}>Add school event</Button>
-        </div>
-      </form> : null}
     </section>
   );
 }

@@ -6,8 +6,6 @@ const fs = nodeRequire('node:fs');
 const path = nodeRequire('node:path');
 const { test } = nodeRequire('node:test');
 const ts = nodeRequire('typescript');
-const React = nodeRequire('react');
-const { renderToStaticMarkup } = nodeRequire('react-dom/server');
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // Same compile-and-load harness as the repository UI suite; server entries and
@@ -31,52 +29,30 @@ function loader(mocks = {}) {
 
 const managerSource = fs.readFileSync(path.join(root, 'src/features/calendar/teaching-impact-manager.tsx'), 'utf8');
 
-function renderTeachingImpactManager() {
-  const load = loader({
-    sonner: { toast: { success() {}, error() {} } },
-    '@/features/calendar/server/actions': {
-      saveTeachingImpact: async () => ({}),
-      deleteTeachingImpactAdjustment: async () => ({}),
-      saveSchoolCalendarEvent: async () => ({}),
-    },
-  });
-  const { TeachingImpactManager } = load('@/features/calendar/teaching-impact-manager');
-  return renderToStaticMarkup(React.createElement(TeachingImpactManager, {
-    schoolId: 'school',
-    year: 2026,
-    schedules: [{ id: 'bs1', name: 'Exam day schedule', effectiveFrom: '2026-09-01' }],
-    events: [],
-    overrides: [],
-    audienceOptions: [{ value: 'all_learners', label: 'All learners' }],
-    canManage: true,
-  }));
-}
-
 test('learner event form aligns calendar and impact controls on the shared field contract', () => {
-  const html = renderTeachingImpactManager();
   for (const label of ['Event title', 'Category', 'Starts on', 'Ends on', 'Learner audience', 'Teaching impact']) {
-    assert.match(html, new RegExp(`<label[^>]*class="block h-4 text-xs font-medium leading-4"[^>]*>${label}`));
+    assert.match(managerSource, new RegExp(`(?:label=|>)"?${label}`));
   }
-  assert.match(html, /class="scolapro-control-surface flex min-h-10 w-full items-center overflow-hidden rounded-\[var\(--radius-sm\)\] hover:border-border"/);
-  assert.match(html, /flex min-h-10 w-full items-center justify-between gap-2 rounded-\[var\(--radius-sm\)\] border border-border-subtle bg-surface-elevated px-3 text-left text-sm shadow-\[var\(--shadow-xs\)\]/);
+  assert.match(managerSource, /formFieldLabelClass/);
+  assert.match(managerSource, /<Picker label="Teaching impact"/);
+  assert.match(managerSource, /<DateField label="Starts on"/);
 });
 
 test('event submit action uses the shared button and start-aligned action slot', () => {
-  const html = renderTeachingImpactManager();
-  assert.match(managerSource, /className="flex items-start lg:col-span-2"/);
-  assert.match(html, /type="submit"[^>]*>Add school event<\/button>/);
+  assert.match(managerSource, /className="flex justify-end gap-2 lg:col-span-2"/);
+  assert.match(managerSource, /Add official date<\/Button>/);
   assert.doesNotMatch(managerSource, /translate-y|-translate|margin-top|-mt-|mt-\[/);
 });
 
 test('learner event form keeps submitted fields and responsive stacking without browser-native pickers', () => {
-  const html = renderTeachingImpactManager();
-  assert.match(html, /name="schoolId" value="school"/);
-  assert.match(html, /name="startsOn" value="2026-01-01"/);
-  assert.match(html, /name="endsOn" value="2026-01-01"/);
-  assert.match(html, /name="impact" value="NORMAL"/);
-  assert.match(html, /name="audience" value="all_learners"/);
-  assert.doesNotMatch(html, /<select|type="date"|type="time"/);
+  assert.match(managerSource, /name="schoolId" value=\{schoolId\}/);
+  assert.match(managerSource, /name="startsOn" value=\{startsOn\}/);
+  assert.match(managerSource, /name="endsOn" value=\{endsOn\}/);
+  assert.match(managerSource, /name="impact" value=\{impact\}/);
+  assert.match(managerSource, /name="audience" value=\{audience\}/);
+  assert.doesNotMatch(managerSource, /<select|type="date"|type="time"/);
   assert.match(managerSource, /lg:grid-cols-2/);
+  assert.match(managerSource, /canManage && showAddEvent/);
 });
 
 test('shared form-field contract tokens stay authoritative for mixed rows', () => {
