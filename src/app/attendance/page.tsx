@@ -124,6 +124,7 @@ if (view === "register") {
     <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="register" />
       <RegisterTeacherWorkspace
+        schoolId={schoolId}
         classes={workspace.classes}
         selectedClassId={workspace.selectedClassId}
         date={date}

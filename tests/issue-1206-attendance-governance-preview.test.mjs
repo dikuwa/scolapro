@@ -68,8 +68,11 @@ test("register action lives in the document heading and shared preview controls 
   const workspace = read("src/features/attendance/register-teacher-workspace.tsx");
   const actions = read("src/components/documents/official-document-actions.tsx");
   const close = read("src/components/ui/close-action.tsx");
-  assert.ok(workspace.indexOf("Register Teacher document") < workspace.indexOf("<OfficialDocumentActions"));
-  assert.match(workspace, /previewDownloadHref/);
+  assert.ok(workspace.indexOf("Register Teacher document") < workspace.indexOf("<InlineRegisterDocumentPanel"));
+  const panel = read("src/features/attendance/inline-register-document-panel.tsx");
+  assert.match(panel, /<OfficialDocumentActions/);
+  assert.match(panel, /previewDownloadHref=\{documentUrls\?\.downloadUrl\}/);
+  assert.match(panel, /pdfBlob\(state\.document\)/);
   assert.match(actions, /iframeRef\.current\?\.contentWindow\?\.print\(\)/);
   assert.match(actions, /Download PDF/);
   assert.match(actions, /event\.key === "Escape"/);

@@ -1,4 +1,5 @@
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
 import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { loadOfficialDocumentLogoBytes } from "@/features/documents/server/official-document-logo-bytes";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
@@ -21,10 +22,11 @@ export async function GET(request: Request) {
   if (!context.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
-  const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey));
+  const url = new URL(request.url);
+  const requestedSchoolId = url.searchParams.get("school")?.trim() || null;
+  const membership = context.memberships.find((item) => allowedRoles.has(item.roleKey) && (!requestedSchoolId || item.schoolId === requestedSchoolId));
   if (!membership) return Response.json({ error: "School membership required" }, { status: 403 });
 
-  const url = new URL(request.url);
   const classId = url.searchParams.get("class")?.trim() ?? "";
   const date = safeDate(url.searchParams.get("date"));
   const academicYear = Number(url.searchParams.get("year") ?? date.slice(0, 4));
@@ -33,7 +35,8 @@ export async function GET(request: Request) {
   const termId = url.searchParams.get("term") || null;
   const fromWeek = url.searchParams.get("fromWeek") || null;
   const toWeek = url.searchParams.get("toWeek") || null;
-  const format = url.searchParams.get("format") === "pdf" ? "pdf" : "html";
+  const requestedFormat = url.searchParams.get("format");
+  const format = requestedFormat === "pdf" ? "pdf" : requestedFormat === "bundle" ? "bundle" : "html";
 
   if (!classId) return Response.json({ error: "Register class is required." }, { status: 400 });
   if (!Number.isInteger(academicYear) || academicYear < 2000 || academicYear > 2200) {
@@ -61,12 +64,32 @@ export async function GET(request: Request) {
     });
     const fileBase = `${document.className.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-${mode}-register-${document.scopeEnd}`;
 
-    if (format === "pdf") {
+    if (format === "pdf" || format === "bundle") {
       const rendered = await renderRegisterTeacherPdf({
         header,
         document,
         logoBytes: await loadOfficialDocumentLogoBytes(profile.logoStoragePath, profile.logoUrl),
       });
+      if (format === "bundle") {
+        const html = renderRegisterTeacherHtml({ header, document });
+        const identity = createHash("sha256")
+          .update(JSON.stringify(document))
+          .digest("hex")
+          .slice(0, 24);
+        return Response.json({
+          identity,
+          html,
+          pdfBase64: Buffer.from(rendered.bytes).toString("base64"),
+          fileName: `${fileBase}.pdf`,
+        }, {
+          status: 200,
+          headers: {
+            "Cache-Control": "private, no-store, max-age=0",
+            "X-Content-Type-Options": "nosniff",
+            "Referrer-Policy": "no-referrer",
+          },
+        });
+      }
       return new Response(Buffer.from(rendered.bytes), {
         status: 200,
         headers: {
