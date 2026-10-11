@@ -53,7 +53,13 @@ test("daily roster exposes one persistent A-Z toggle beside sex filters", () => 
   assert.match(daily, /persistRosterPreferences/);
   assert.match(daily, /window\.history\.replaceState/);
   assert.match(daily, /sort=\{sortDirection\} onChange=\{chooseSort\}/);
-  assert.match(page, /key=\{`\$\{workspace\.selectedClassId \?\? "none"\}:\$\{date\}:\$\{workspace\.currentSubmissionId \?\? "draft"\}`\}/);
+  // The day-register key intentionally excludes the submission id. Keying by it
+  // remounted the register on every save (revalidatePath) and discarded the
+  // useActionState value before the capture-success notification could fire
+  // (issue #1229). The draft still resets on a server revision through
+  // dailyAttendanceViewIdentity, which includes the submission id.
+  assert.match(page, /key=\{`\$\{workspace\.selectedClassId \?\? "none"\}:\$\{date\}`\}/);
+  assert.doesNotMatch(page, /key=\{`\$\{workspace\.selectedClassId \?\? "none"\}:\$\{date\}:\$\{workspace\.currentSubmissionId/);
   assert.doesNotMatch(page, /currentSubmissionId \?\? "draft"\}:\$\{sort\}/);
   assert.match(tabs, /params\.set\("sex", currentSexFilter\)/);
 });

@@ -103,6 +103,7 @@ data (the script asserts this).
 | login / session / sign-out / unauthenticated guards | `e2e/auth.spec.ts` |
 | capture authorization (allow/deny matrix) | `e2e/capture-authorization.spec.ts` |
 | authorized register capture + revision | `e2e/capture-flow.spec.ts` |
+| capture success notification survives the post-save refresh | `e2e/capture-notification.spec.ts` |
 | tenant isolation | `e2e/tenant-isolation.spec.ts` |
 | inline register preview + PDF download | `e2e/register-preview.spec.ts` |
 | governed dates (non-teaching day gate) | `e2e/governed-dates.spec.ts` |
@@ -180,10 +181,11 @@ properties are enforced, not just documented:
   "No school on this day" card; it remains covered by pgTAP.
 - Coverage targets the official daily register. Subject-period capture, absence
   reviews and official-summary finalisation are not yet covered by browser tests.
-- `e2e/capture-flow.spec.ts` asserts capture success through the deterministic
-  persisted-revision state ("Save revision" plus the retained exception), not the
-  transient success toast. The toast fired by `submitDailyRegister` is cleared by
-  the `router.refresh()` that immediately follows it, so it is not a stable
-  assertion target; the pre-navigation warning toast (unsaved changes) does render
-  and is asserted in `e2e/draft-protection.spec.ts`. The underlying UX defect is
-  tracked separately (issue #1229) and is out of scope for this harness.
+- The capture success notification is now asserted by
+  `e2e/capture-notification.spec.ts` (issue #1229). Before that fix the
+  notification never rendered: `<DailyRegister>` was keyed by the submission id,
+  so the `revalidatePath` that follows a save remounted the component and
+  `useActionState` reset to its initial value before the success effect ran. The
+  component is no longer keyed by the submission id; the draft still resets via
+  the `dailyAttendanceViewIdentity` check. `e2e/capture-flow.spec.ts` continues to
+  assert the deterministic persisted-revision state ("Save revision").

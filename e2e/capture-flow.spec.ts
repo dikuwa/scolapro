@@ -20,8 +20,7 @@ test.describe("official register capture", () => {
 
     await submitRegister(page);
     // A persisted submission always turns the primary action into a revision.
-    // That deterministic state is the capture-success signal: the transient
-    // success toast is cleared by the immediate router.refresh() that follows it.
+    // The success notification itself is covered by capture-notification.spec.ts.
     await expect(page.getByRole("button", { name: "Save revision" })).toBeVisible({ timeout: 25_000 });
     await expect(page.getByText("1 exceptions", { exact: true })).toBeVisible();
   });
