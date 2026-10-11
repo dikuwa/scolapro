@@ -24,7 +24,7 @@ export function inlineRegisterDocumentKey(selection: InlineRegisterDocumentSelec
       ? `${selection.fromWeek ?? ""}:${selection.toWeek ?? ""}`
       : selection.fromWeek ?? "";
 
-  return [selection.schoolId, selection.classId, selection.termId, selection.mode, period].join(":");
+  return [selection.schoolId, selection.classId, selection.termId, selection.date, selection.mode, period].join(":");
 }
 
 function inlineRegisterDocumentUrl(selection: InlineRegisterDocumentSelection) {
@@ -87,10 +87,12 @@ export function resolveInlineRegisterDocument(
     return response.json() as Promise<InlineRegisterDocument>;
   });
 
+  // Deduplicate only simultaneous requests. Persistently caching completed HTML/PDF
+  // bundles keeps the old PDF bytes after a renderer update or attendance revision.
   resolvedDocuments.set(key, request);
-  void request.catch(() => {
+  void request.finally(() => {
     if (resolvedDocuments.get(key) === request) resolvedDocuments.delete(key);
-  });
+  }).catch(() => undefined);
   return abortableDocument(request, signal);
 }
 
