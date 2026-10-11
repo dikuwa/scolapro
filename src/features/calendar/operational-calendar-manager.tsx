@@ -11,7 +11,7 @@ import {
   Pencil,
   School,
   ShieldAlert,
-  UsersRound,
+  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,22 +22,23 @@ import { Picker } from "@/components/ui/picker";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import { TimeField } from "@/components/ui/time-field";
 import {
+  cancelOperationalCalendarEvent,
+  correctTermCalendarSource,
+  reviseOperationalCalendarEvent,
   saveOperationalCalendarEvent,
   saveTermCalendarProfile,
   type TeachingImpactActionState,
 } from "@/features/calendar/server/actions";
 import type {
   CalendarStaffOption,
-  DepartmentCalendarOption,
   OperationalCalendarEvent,
   TermCalendarSummary,
 } from "@/features/calendar/server/operational-calendar";
 import type { LearnerCalendarEventRow, TeachingImpactRow } from "@/features/calendar/server/teaching-impact";
-import type { BellScheduleSummary } from "@/features/timetable/server/bell-calendar";
 
 const initialState: TeachingImpactActionState = {};
 const inputClass =
-  "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)]";
+  "min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition-[border-color,box-shadow,background-color] hover:border-border focus:border-[color:var(--brand)]/50 focus:ring-4 focus:ring-[color:var(--brand-soft)] motion-reduce:transition-none";
 
 const eventKinds = [
   ["event", "Event"],
@@ -63,20 +64,6 @@ const schoolAudienceOptions = [
   { value: "specific_teacher", label: "Specific teacher", helper: "One staff member" },
 ];
 
-const departmentAudienceOptions = [
-  { value: "department_staff", label: "Department staff", helper: "All teachers governed by this HOD portfolio" },
-  { value: "specific_teacher", label: "Specific teacher", helper: "For example, a class visit" },
-];
-
-const learnerDayEffects = [
-  { value: "UNCHANGED", label: "No school-day change", helper: "Default for meetings, activities and deadlines" },
-  { value: "NO_TEACHING", label: "Learners not at school", helper: "Closes learner registers and pauses normal teaching" },
-  { value: "SCHOOL_DAY", label: "Special school day", helper: "Explicitly opens a normally closed date, including an approved weekend" },
-  { value: "PARTIAL_DAY", label: "Partial learner day", helper: "School operates for part of the day" },
-  { value: "ALTERED_TIMETABLE", label: "Altered timetable", helper: "A different bell/timetable applies" },
-  { value: "EXAM_TIMETABLE", label: "Exam timetable", helper: "Learners follow the examination timetable" },
-];
-
 function formatDate(value: string | null) {
   if (!value) return "Not configured";
   return new Intl.DateTimeFormat("en-NA", { day: "numeric", month: "short", year: "numeric" }).format(
@@ -97,6 +84,15 @@ function eventDateLabel(event: OperationalCalendarEvent) {
   return event.startsAt && event.endsAt
     ? `${range} · ${event.startsAt.slice(0, 5)}–${event.endsAt.slice(0, 5)}`
     : range;
+}
+
+function eventTermLabel(event: OperationalCalendarEvent, terms: TermCalendarSummary[]) {
+  const overlapping = terms
+    .filter((term) => term.learnerStartsOn && term.learnerEndsOn && event.endsOn >= term.learnerStartsOn && event.startsOn <= term.learnerEndsOn)
+    .sort((a, b) => a.termNumber - b.termNumber);
+  if (!overlapping.length) return "Outside configured terms";
+  if (overlapping.length === 1) return `Term ${overlapping[0].termNumber}`;
+  return `Terms ${overlapping[0].termNumber}–${overlapping.at(-1)?.termNumber}`;
 }
 
 type CalendarDiscrepancyCause = {
@@ -229,6 +225,7 @@ function TermCalendarProfileEditor({
   learnerEvents: LearnerCalendarEventRow[];
 }) {
   const [state, action, pending] = useActionState(saveTermCalendarProfile, initialState);
+  const [sourceState, sourceAction, sourcePending] = useActionState(correctTermCalendarSource, initialState);
   const [learnerStartsOn, setLearnerStartsOn] = useState(term.learnerStartsOn ?? "");
   const [learnerEndsOn, setLearnerEndsOn] = useState(term.learnerEndsOn ?? "");
   const [teacherStartsOn, setTeacherStartsOn] = useState(term.teacherStartsOn ?? "");
@@ -241,12 +238,21 @@ function TermCalendarProfileEditor({
       queueMicrotask(onClose);
     } else toast.error(state.message);
   }, [onClose, state]);
+  useEffect(() => {
+    if (!sourceState.message) return;
+    if (sourceState.success) {
+      toast.success(sourceState.message);
+      queueMicrotask(onClose);
+    } else toast.error(sourceState.message);
+  }, [onClose, sourceState]);
 
   const hasOfficial = term.officialLearnerDayCount != null;
   const matches = hasOfficial && term.officialLearnerDayCount === term.calculatedLearnerDayCount;
   const discrepancyRows = discrepancyCausesForTerm(term, dayExceptions, learnerEvents);
   const reviewHref = discrepancyRows[0]?.href ?? "#calendar-adjustments";
-  const phase = !term.learnerStartsOn || !term.learnerEndsOn
+  const phase = term.termStatus === "closed"
+    ? "Closed"
+    : !term.learnerStartsOn || !term.learnerEndsOn
     ? "Needs dates"
     : currentDate < term.learnerStartsOn
       ? "Upcoming"
@@ -258,7 +264,7 @@ function TermCalendarProfileEditor({
   return (
     <article
       className={[
-        "overflow-hidden rounded-[var(--radius-sm)] border bg-surface transition",
+        "overflow-hidden rounded-[var(--radius-sm)] border bg-surface transition-[border-color,box-shadow] motion-reduce:transition-none",
         open
           ? "border-[color:var(--brand)]/55 ring-2 ring-[color:var(--brand-soft)] shadow-[var(--shadow-sm)]"
           : "border-border-subtle",
@@ -268,7 +274,7 @@ function TermCalendarProfileEditor({
         <div className="flex min-w-0 items-start gap-3">
           <span className={[
             "grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)] text-sm font-semibold",
-            active ? "bg-brand text-primary-foreground" : "bg-surface-muted text-muted-foreground",
+            active ? "bg-brand text-white" : "bg-surface-muted text-muted-foreground",
           ].join(" ")}>T{term.termNumber}</span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -298,7 +304,7 @@ function TermCalendarProfileEditor({
             open ? (
               <RecordActionButton icon={X} label={`Close ${term.termName}`} onClick={onToggle} expanded />
             ) : (
-              <RecordActionButton icon={Pencil} label={`Edit ${term.termName}`} actionKind="edit" onClick={onToggle} expanded={false} />
+              <RecordActionButton icon={Pencil} label={phase === "Closed" ? "Edit source" : `Edit ${term.termName}`} actionKind="edit" onClick={onToggle} expanded={false} />
             )
           ) : null}
         </div>
@@ -349,7 +355,24 @@ function TermCalendarProfileEditor({
         </div>
       ) : null}
 
-      {canManage ? (
+      {canManage ? (phase === "Closed" ? (
+            <form action={sourceAction} className="mt-4 grid gap-3 sm:grid-cols-2">
+              <input type="hidden" name="academicTermId" value={term.academicTermId} />
+              <div>
+                <label htmlFor={`source-label-${term.academicTermId}`} className={formFieldLabelClass}>Source label</label>
+                <input id={`source-label-${term.academicTermId}`} name="sourceLabel" defaultValue={term.sourceLabel ?? ""} maxLength={240} className={`${inputClass} ${formFieldControlOffsetClass}`} placeholder="Official calendar / circular" />
+              </div>
+              <div>
+                <label htmlFor={`source-ref-${term.academicTermId}`} className={formFieldLabelClass}>Source reference (optional)</label>
+                <input id={`source-ref-${term.academicTermId}`} name="sourceReference" defaultValue={term.sourceReference ?? ""} maxLength={500} className={`${inputClass} ${formFieldControlOffsetClass}`} placeholder="Document title, circular number or retained-source reference" />
+              </div>
+              <p className="sm:col-span-2 text-xs leading-5 text-muted-foreground">This correction changes provenance wording only. Finalized dates, learner-day totals and the closed status remain unchanged.</p>
+              <div className="flex justify-end gap-2 sm:col-span-2">
+                <Button type="button" size="sm" variant="neutral" onClick={onClose}>Cancel</Button>
+                <Button type="submit" size="sm" loading={sourcePending}>Save source</Button>
+              </div>
+            </form>
+      ) : (
             <form action={action} className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <input type="hidden" name="academicTermId" value={term.academicTermId} />
               <DateField
@@ -428,9 +451,79 @@ function TermCalendarProfileEditor({
                 </Button>
               </div>
             </form>
+      )
       ) : null}
       </div> : null}
     </article>
+  );
+}
+
+function SchoolEventEditor({
+  schoolId,
+  year,
+  event,
+  staffOptions,
+  onDone,
+}: {
+  schoolId: string;
+  year: number;
+  event?: OperationalCalendarEvent;
+  staffOptions: CalendarStaffOption[];
+  onDone: () => void;
+}) {
+  const [state, action, pending] = useActionState(
+    event ? reviseOperationalCalendarEvent : saveOperationalCalendarEvent,
+    initialState,
+  );
+  const [eventKind, setEventKind] = useState(event?.eventKind ?? "event");
+  const [startsOn, setStartsOn] = useState(event?.startsOn ?? `${year}-01-01`);
+  const [endsOn, setEndsOn] = useState(event?.endsOn ?? `${year}-01-01`);
+  const [startsAt, setStartsAt] = useState(event?.startsAt?.slice(0, 5) ?? "");
+  const [endsAt, setEndsAt] = useState(event?.endsAt?.slice(0, 5) ?? "");
+  const [audienceScope, setAudienceScope] = useState(event?.audienceScope ?? "all_school");
+  const [targetStaffMemberId, setTargetStaffMemberId] = useState(event?.targetStaffMemberId ?? "");
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(onDone);
+    } else toast.error(state.message);
+  }, [onDone, state]);
+
+  return (
+    <form action={action} className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <input type="hidden" name="schoolId" value={schoolId} />
+      <input type="hidden" name="academicYear" value={year} />
+      <input type="hidden" name="scopeKind" value="school" />
+      <input type="hidden" name="learnerDayEffect" value="UNCHANGED" />
+      <input type="hidden" name="departmentAssignmentId" value="" />
+      <input type="hidden" name="bellScheduleId" value="" />
+      <input type="hidden" name="linkedModule" value="" />
+      <input type="hidden" name="linkedPath" value="" />
+      {event ? <input type="hidden" name="eventId" value={event.id} /> : null}
+      <div className="sm:col-span-2">
+        <label htmlFor={`event-title-${event?.id ?? "new"}`} className={formFieldLabelClass}>Title</label>
+        <input id={`event-title-${event?.id ?? "new"}`} name="title" required maxLength={180} defaultValue={event?.title ?? ""} className={`${inputClass} ${formFieldControlOffsetClass}`} placeholder="For example, Parent meeting" />
+      </div>
+      <Picker label="Event type" name="eventKind" value={eventKind} onChange={setEventKind} options={eventKinds} placeholder="Choose event type" />
+      <Picker label="Audience" name="audienceScope" value={audienceScope} onChange={(value) => { setAudienceScope(value); if (value !== "specific_teacher") setTargetStaffMemberId(""); }} options={schoolAudienceOptions} placeholder="Choose audience" />
+      <DateField label="Starts on" name="startsOn" value={startsOn} onChange={(value) => { setStartsOn(value); if (endsOn < value) setEndsOn(value); }} min={`${year}-01-01`} max={`${year}-12-31`} required />
+      <DateField label="Ends on" name="endsOn" value={endsOn} onChange={setEndsOn} min={startsOn} max={`${year}-12-31`} required />
+      <TimeField label="Starts at (optional)" name="startsAt" value={startsAt} onChange={setStartsAt} />
+      <TimeField label="Ends at (optional)" name="endsAt" value={endsAt} onChange={setEndsAt} />
+      {audienceScope === "specific_teacher" ? (
+        <Picker label="Target teacher" name="targetStaffMemberId" value={targetStaffMemberId} onChange={setTargetStaffMemberId} options={staffOptions.map((staff) => ({ value: staff.staffMemberId, label: staff.label }))} placeholder="Search teacher" searchable />
+      ) : <input type="hidden" name="targetStaffMemberId" value="" />}
+      <div className={audienceScope === "specific_teacher" ? "sm:col-span-2 lg:col-span-3" : "sm:col-span-2 lg:col-span-4"}>
+        <label htmlFor={`event-description-${event?.id ?? "new"}`} className={formFieldLabelClass}>Notes / instructions (optional)</label>
+        <textarea id={`event-description-${event?.id ?? "new"}`} name="description" rows={2} maxLength={3000} defaultValue={event?.description ?? ""} className={`${inputClass} ${formFieldControlOffsetClass} resize-y py-2.5`} />
+      </div>
+      <div className="flex justify-end gap-2 sm:col-span-2 lg:col-span-4">
+        <Button type="button" size="sm" variant="neutral" onClick={onDone}>Cancel</Button>
+        <Button type="submit" size="sm" loading={pending}>{event ? "Save changes" : "Add school event"}</Button>
+      </div>
+    </form>
   );
 }
 
@@ -440,11 +533,8 @@ export function OperationalCalendarManager({
   currentDate,
   terms,
   events,
-  departments,
   staffOptions,
-  schedules,
   canManageSchool,
-  canManageDepartment,
   dayExceptions,
   learnerEvents,
 }: {
@@ -455,39 +545,16 @@ export function OperationalCalendarManager({
   events: OperationalCalendarEvent[];
   dayExceptions: TeachingImpactRow[];
   learnerEvents: LearnerCalendarEventRow[];
-  departments: DepartmentCalendarOption[];
   staffOptions: CalendarStaffOption[];
-  schedules: BellScheduleSummary[];
   canManageSchool: boolean;
-  canManageDepartment: boolean;
 }) {
-  const [state, action, pending] = useActionState(saveOperationalCalendarEvent, initialState);
   const [showAdd, setShowAdd] = useState(false);
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [cancelState, cancelAction, cancelPending] = useActionState(cancelOperationalCalendarEvent, initialState);
   const [activeTermId, setActiveTermId] = useState<string | null>(null);
   const closeTermEditor = useCallback(() => setActiveTermId(null), []);
-  const availableScopes = useMemo(
-    () => [
-      ...(canManageSchool ? [{ value: "school", label: "School event", helper: "Whole-school operational calendar" }] : []),
-      ...(canManageDepartment && departments.length
-        ? [{ value: "department", label: "Department event", helper: "HOD-governed portfolio" }]
-        : []),
-    ],
-    [canManageDepartment, canManageSchool, departments.length],
-  );
-  const [scopeKind, setScopeKind] = useState<"school" | "department">(
-    canManageSchool ? "school" : "department",
-  );
-  const [eventKind, setEventKind] = useState("event");
-  const [startsOn, setStartsOn] = useState(`${year}-01-01`);
-  const [endsOn, setEndsOn] = useState(`${year}-01-01`);
-  const [startsAt, setStartsAt] = useState("");
-  const [endsAt, setEndsAt] = useState("");
-  const [audienceScope, setAudienceScope] = useState(scopeKind === "department" ? "department_staff" : "all_school");
-  const [departmentAssignmentId, setDepartmentAssignmentId] = useState(departments[0]?.assignmentId ?? "");
-  const [targetStaffMemberId, setTargetStaffMemberId] = useState("");
-  const [learnerDayEffect, setLearnerDayEffect] = useState("UNCHANGED");
-  const [bellScheduleId, setBellScheduleId] = useState("");
 
   const orderedEvents = useMemo(
     () => [...events].sort((a, b) => a.startsOn.localeCompare(b.startsOn) || a.title.localeCompare(b.title)),
@@ -499,27 +566,12 @@ export function OperationalCalendarManager({
   const resolvedTotal = terms.reduce((sum, term) => sum + term.calculatedLearnerDayCount, 0);
 
   useEffect(() => {
-    if (!state.message) return;
-    if (state.success) {
-      toast.success(state.message);
-      queueMicrotask(() => setShowAdd(false));
-    } else toast.error(state.message);
-  }, [state]);
-
-  function changeScopeKind(value: string) {
-    const next = value as "school" | "department";
-    setScopeKind(next);
-    if (next === "department") {
-      setAudienceScope("department_staff");
-      setLearnerDayEffect("UNCHANGED");
-      setBellScheduleId("");
-    } else if (audienceScope === "department_staff") {
-      setAudienceScope("all_school");
-    }
-  }
-
-  const audienceOptions = scopeKind === "department" ? departmentAudienceOptions : schoolAudienceOptions;
-  const canChooseSchedule = learnerDayEffect === "ALTERED_TIMETABLE" || learnerDayEffect === "EXAM_TIMETABLE";
+    if (!cancelState.message) return;
+    if (cancelState.success) {
+      toast.success(cancelState.message);
+      queueMicrotask(() => setConfirmCancelId(null));
+    } else toast.error(cancelState.message);
+  }, [cancelState]);
 
   return (
     <div className="space-y-5">
@@ -562,10 +614,9 @@ export function OperationalCalendarManager({
               <CalendarDays className="size-4" />
             </span>
             <div>
-              <h2 className="scolapro-section-title">School & department events</h2>
+              <h2 className="scolapro-section-title">School events</h2>
               <p className="scolapro-section-description !mt-0">
-                Meetings, examinations, ceremonies, deadlines, CASS/target-mark submissions and class visits. Events are
-                informational unless leadership explicitly changes learner-day status.
+                Informational whole-school activities that do not change learner-day status. Official dates and teaching-impact changes belong below.
               </p>
             </div>
           </div>
@@ -577,59 +628,56 @@ export function OperationalCalendarManager({
               <FileScan className="size-3.5" />
               Import / OCR
             </Link>
-            {availableScopes.length ? (
+            {canManageSchool ? (
               <Button type="button" size="sm" variant="soft" onClick={() => setShowAdd((value) => !value)}>
-                {showAdd ? "Close" : "Add event"}
+                {showAdd ? "Close" : "Add school event"}
               </Button>
             ) : null}
           </div>
         </div>
 
+        {showAdd && canManageSchool ? (
+          <div className="mt-4">
+            <SchoolEventEditor schoolId={schoolId} year={year} staffOptions={staffOptions} onDone={() => setShowAdd(false)} />
+          </div>
+        ) : null}
+
         {events.length ? (
           <div className="mt-3 divide-y divide-border-subtle">
             {visibleEvents.map((event) => (
-              <article
-                key={event.id}
-                className="grid gap-2 py-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(10rem,0.8fr)_auto] sm:items-start"
-              >
+              <article key={event.id} className="py-3">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(10rem,0.8fr)_auto] sm:items-start">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    {event.scopeKind === "department" ? (
-                      <UsersRound className="size-3.5 shrink-0 text-[color:var(--accent-amber)]" />
-                    ) : (
-                      <School className="size-3.5 shrink-0 text-[color:var(--accent-mint)]" />
-                    )}
+                    <School className="size-3.5 shrink-0 text-[color:var(--accent-mint)]" />
                     <h3 className="scolapro-record-title truncate">{event.title}</h3>
                   </div>
                   <p className="mt-1 text-xs capitalize text-muted-foreground">
-                    {event.scopeKind === "department" ? event.departmentLabel ?? "Department" : "School"} ·{" "}
-                    {event.eventKind.replaceAll("_", " ")}
+                    School · {event.eventKind.replaceAll("_", " ")}
                   </p>
                   {event.description ? (
                     <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{event.description}</p>
                   ) : null}
                 </div>
-                <p className="text-xs leading-5 text-muted-foreground">{eventDateLabel(event)}</p>
-                <span
-                  className={[
-                    "w-fit rounded-[var(--radius-xs)] px-2 py-1 text-[0.68rem] font-semibold",
-                    event.learnerDayEffect === "UNCHANGED"
-                      ? "bg-surface-muted text-muted-foreground"
-                      : event.learnerDayEffect === "NO_TEACHING"
-                        ? "bg-warning-soft text-[color:var(--warning)]"
-                        : "bg-brand-soft text-brand-strong",
-                  ].join(" ")}
-                >
-                  {event.learnerDayEffect === "UNCHANGED"
-                    ? "Info only"
-                    : event.learnerDayEffect.replaceAll("_", " ")}
-                </span>
+                <div><p className="text-xs leading-5 text-muted-foreground">{eventDateLabel(event)}</p><span className="mt-1 inline-flex rounded-[var(--radius-xs)] bg-brand-soft px-2 py-0.5 text-[0.65rem] font-semibold text-brand-strong">{eventTermLabel(event, terms)}</span></div>
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  <span className="w-fit rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.68rem] font-semibold text-muted-foreground">Info only</span>
+                  {canManageSchool && event.canMutate ? <>
+                    <RecordActionButton icon={Pencil} label="Edit" actionKind="edit" expanded={false} onClick={() => setEditingEventId((current) => current === event.id ? null : event.id)} />
+                    {confirmCancelId === event.id ? <>
+                      <form action={cancelAction}><input type="hidden" name="eventId" value={event.id} /><Button type="submit" size="sm" variant="danger" loading={cancelPending}><Trash2 className="size-3.5" />Cancel event</Button></form>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmCancelId(null)}>Keep</Button>
+                    </> : <Button type="button" size="sm" variant="danger-ghost" onClick={() => setConfirmCancelId(event.id)}><Trash2 className="size-3.5" />Delete</Button>}
+                  </> : null}
+                </div>
+              </div>
+              {editingEventId === event.id ? <div className="mt-3"><SchoolEventEditor schoolId={schoolId} year={year} event={event} staffOptions={staffOptions} onDone={() => setEditingEventId(null)} /></div> : null}
               </article>
             ))}
           </div>
         ) : (
           <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted px-4 py-5 text-sm text-muted-foreground">
-            No school or department operational events are configured for {year}.
+            No informational school events are configured for {year}.
           </div>
         )}
 
@@ -642,168 +690,6 @@ export function OperationalCalendarManager({
           </div>
         ) : null}
 
-        {showAdd ? (
-          <form action={action} className="mt-5 grid gap-4 border-t border-border-subtle pt-5 lg:grid-cols-2">
-            <input type="hidden" name="schoolId" value={schoolId} />
-            <input type="hidden" name="academicYear" value={year} />
-            {availableScopes.length > 1 ? (
-              <Picker
-                label="Calendar scope"
-                name="scopeKind"
-                value={scopeKind}
-                onChange={changeScopeKind}
-                options={availableScopes}
-                placeholder="Choose scope"
-              />
-            ) : (
-              <input type="hidden" name="scopeKind" value={scopeKind} />
-            )}
-            <Picker
-              label="Event type"
-              name="eventKind"
-              value={eventKind}
-              onChange={setEventKind}
-              options={eventKinds}
-              placeholder="Choose event type"
-            />
-            <div className="lg:col-span-2">
-              <label htmlFor="operational-event-title" className={formFieldLabelClass}>
-                Title
-              </label>
-              <input
-                id="operational-event-title"
-                name="title"
-                required
-                maxLength={180}
-                className={`${inputClass} ${formFieldControlOffsetClass}`}
-                placeholder={
-                  scopeKind === "department" ? "For example, CASS marks submission due" : "For example, Parent meeting: Grade 8 & 9"
-                }
-              />
-            </div>
-            <DateField
-              label="Starts on"
-              name="startsOn"
-              value={startsOn}
-              onChange={(value) => {
-                setStartsOn(value);
-                if (endsOn < value) setEndsOn(value);
-              }}
-              min={`${year}-01-01`}
-              max={`${year}-12-31`}
-              required
-            />
-            <DateField
-              label="Ends on"
-              name="endsOn"
-              value={endsOn}
-              onChange={setEndsOn}
-              min={startsOn || `${year}-01-01`}
-              max={`${year}-12-31`}
-              required
-            />
-            <TimeField label="Starts at (optional)" name="startsAt" value={startsAt} onChange={setStartsAt} />
-            <TimeField label="Ends at (optional)" name="endsAt" value={endsAt} onChange={setEndsAt} />
-
-            {scopeKind === "department" ? (
-              <Picker
-                label="Department / HOD portfolio"
-                name="departmentAssignmentId"
-                value={departmentAssignmentId}
-                onChange={setDepartmentAssignmentId}
-                options={departments.map((department) => ({
-                  value: department.assignmentId,
-                  label: department.label,
-                  helper: department.subjectNames.join(", "),
-                }))}
-                placeholder="Choose department"
-              />
-            ) : (
-              <input type="hidden" name="departmentAssignmentId" value="" />
-            )}
-
-            <Picker
-              label="Audience"
-              name="audienceScope"
-              value={audienceScope}
-              onChange={(value) => {
-                setAudienceScope(value);
-                if (value !== "specific_teacher") setTargetStaffMemberId("");
-              }}
-              options={audienceOptions}
-              placeholder="Choose audience"
-            />
-
-            {audienceScope === "specific_teacher" ? (
-              <Picker
-                label="Target teacher"
-                name="targetStaffMemberId"
-                value={targetStaffMemberId}
-                onChange={setTargetStaffMemberId}
-                options={staffOptions.map((staff) => ({ value: staff.staffMemberId, label: staff.label }))}
-                placeholder="Search teacher"
-                searchable
-              />
-            ) : (
-              <input type="hidden" name="targetStaffMemberId" value="" />
-            )}
-
-            {scopeKind === "school" ? (
-              <Picker
-                label="Learner school-day effect"
-                name="learnerDayEffect"
-                value={learnerDayEffect}
-                onChange={(value) => {
-                  setLearnerDayEffect(value);
-                  if (value !== "ALTERED_TIMETABLE" && value !== "EXAM_TIMETABLE") setBellScheduleId("");
-                }}
-                options={learnerDayEffects}
-                placeholder="Choose effect"
-              />
-            ) : (
-              <input type="hidden" name="learnerDayEffect" value="UNCHANGED" />
-            )}
-
-            {scopeKind === "school" && canChooseSchedule ? (
-              <Picker
-                label="Alternate bell schedule"
-                name="bellScheduleId"
-                value={bellScheduleId}
-                onChange={setBellScheduleId}
-                options={schedules.map((schedule) => ({
-                  value: schedule.id,
-                  label: schedule.name,
-                  helper: `From ${schedule.effectiveFrom}`,
-                }))}
-                placeholder="Use effective schedule"
-              />
-            ) : (
-              <input type="hidden" name="bellScheduleId" value="" />
-            )}
-
-            <div className="lg:col-span-2">
-              <label htmlFor="operational-event-description" className={formFieldLabelClass}>
-                Notes / instructions (optional)
-              </label>
-              <textarea
-                id="operational-event-description"
-                name="description"
-                rows={3}
-                maxLength={3000}
-                className={`${inputClass} ${formFieldControlOffsetClass} resize-y py-2.5`}
-                placeholder="Add concise operational detail. Do not duplicate information already represented by the scope and event type."
-              />
-            </div>
-
-            <input type="hidden" name="linkedModule" value="" />
-            <input type="hidden" name="linkedPath" value="" />
-            <div className="lg:col-span-2">
-              <Button type="submit" loading={pending}>
-                Add {scopeKind === "department" ? "department" : "school"} event
-              </Button>
-            </div>
-          </form>
-        ) : null}
       </section>
 
       <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted p-4 sm:p-5">

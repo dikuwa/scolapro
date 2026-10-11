@@ -5,6 +5,8 @@ import { AppShell } from "@/components/shell/app-shell";
 import { TeachingWorkspace } from "@/features/teaching/teaching-workspace";
 import { getTeachingWorkspace } from "@/features/teaching/server/queries";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
+import { DepartmentActivitiesManager } from "@/features/calendar/department-activities-manager";
+import { getOperationalCalendarWorkspace } from "@/features/calendar/server/operational-calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "hod", "teacher", "class_teacher"]);
@@ -40,12 +42,12 @@ export default async function TeachingPage() {
   // can be running a configured or activated year that differs from the calendar
   // year, and the plan authoring route reads the same resolved year.
   const academicYear = await getGovernedAcademicYear(membership.schoolId);
-  const workspace = await getTeachingWorkspace({
-    schoolId: membership.schoolId,
-    academicYear,
-    roleKey: membership.roleKey,
-    staffMemberId: membership.staffMemberId,
-  });
+  const [workspace, departmentCalendar] = await Promise.all([
+    getTeachingWorkspace({ schoolId: membership.schoolId, academicYear, roleKey: membership.roleKey, staffMemberId: membership.staffMemberId }),
+    staffTeachingMembership
+      ? getOperationalCalendarWorkspace({ schoolId: membership.schoolId, academicYear, staffMemberId: staffTeachingMembership.staffMemberId, canManageSchool: false, canManageDepartment: false, scopeKind: "department" })
+      : Promise.resolve(null),
+  ]);
 
   return (
     <AppShell>
@@ -66,6 +68,7 @@ export default async function TeachingPage() {
           reviewHref={canReview ? "/teaching/reviews" : null}
           oversightHref={canUseOversight ? "/teaching/oversight" : null}
         />
+        {departmentCalendar?.events.length ? <DepartmentActivitiesManager schoolId={membership.schoolId} year={academicYear} terms={departmentCalendar.terms} events={departmentCalendar.events} departments={[]} canManage={false} title="Department activities" /> : null}
       </div>
     </AppShell>
   );

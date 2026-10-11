@@ -5,6 +5,7 @@ export type TermCalendarSummary = {
   academicTermId: string;
   termNumber: number;
   termName: string;
+  termStatus: string;
   learnerStartsOn: string | null;
   learnerEndsOn: string | null;
   teacherStartsOn: string | null;
@@ -28,8 +29,13 @@ export type OperationalCalendarEvent = {
   description: string | null;
   learnerDayEffect: string;
   departmentLabel: string | null;
+  departmentAssignmentId: string | null;
   targetStaffMemberId: string | null;
+  linkedLearnerEventId: string | null;
   linkedPath: string | null;
+  sourceKind: string | null;
+  sourceReference: string | null;
+  canMutate: boolean;
 };
 
 export type DepartmentCalendarOption = {
@@ -63,8 +69,15 @@ function mapOperationalEvent(row: Record<string, unknown>): OperationalCalendarE
     description: row.description ? String(row.description) : null,
     learnerDayEffect: String(row.learner_day_effect),
     departmentLabel: row.department_label ? String(row.department_label) : null,
+    departmentAssignmentId: row.department_head_staff_assignment_id
+      ? String(row.department_head_staff_assignment_id)
+      : null,
     targetStaffMemberId: row.target_staff_member_id ? String(row.target_staff_member_id) : null,
+    linkedLearnerEventId: row.learner_calendar_event_id ? String(row.learner_calendar_event_id) : null,
     linkedPath: row.linked_path ? String(row.linked_path) : null,
+    sourceKind: row.source_kind ? String(row.source_kind) : null,
+    sourceReference: row.source_reference ? String(row.source_reference) : null,
+    canMutate: row.can_mutate == null ? false : Boolean(row.can_mutate),
   };
 }
 
@@ -74,11 +87,14 @@ export async function getOperationalCalendarWorkspace(input: {
   staffMemberId: string | null;
   canManageSchool: boolean;
   canManageDepartment: boolean;
+  scopeKind?: "school" | "department";
 }) {
   const supabase = await createSupabaseServerClient();
   const yearStart = `${input.academicYear}-01-01`;
   const yearEnd = `${input.academicYear}-12-31`;
-  const loadManagementScope = input.canManageDepartment || input.canManageSchool;
+  const scopeKind = input.scopeKind ?? "school";
+  const loadManagementScope = scopeKind === "department" && (input.canManageDepartment || input.canManageSchool);
+  const loadStaffOptions = input.canManageSchool || loadManagementScope;
 
   const [
     termResult,
@@ -91,18 +107,25 @@ export async function getOperationalCalendarWorkspace(input: {
       p_school_id: input.schoolId,
       p_academic_year: input.academicYear,
     }),
-    supabase.rpc("list_my_operational_calendar_events", {
-      p_school_id: input.schoolId,
-      p_from: yearStart,
-      p_to: yearEnd,
-    }),
+    input.canManageSchool || (scopeKind === "department" && input.canManageDepartment)
+      ? supabase.rpc("list_manageable_operational_calendar_events", {
+          p_school_id: input.schoolId,
+          p_from: yearStart,
+          p_to: yearEnd,
+          p_scope_kind: scopeKind,
+        })
+      : supabase.rpc("list_my_operational_calendar_events", {
+          p_school_id: input.schoolId,
+          p_from: yearStart,
+          p_to: yearEnd,
+        }),
     loadManagementScope
       ? supabase
           .from("subject_department_responsibilities")
           .select("subject_id,department_head_staff_assignment_id,department_label,effective_from,effective_to")
           .eq("school_id", input.schoolId)
       : Promise.resolve({ data: [], error: null }),
-    loadManagementScope
+    loadStaffOptions
       ? supabase
           .from("staff_school_assignments")
           .select("id,staff_member_id,effective_from,effective_to")
@@ -132,6 +155,16 @@ export async function getOperationalCalendarWorkspace(input: {
     });
     throw new Error("Unable to load the operational calendar workspace.");
   }
+
+  const termIds = ((termResult.data ?? []) as Array<Record<string, unknown>>).map((row) => String(row.academic_term_id));
+  const termStatusResult = termIds.length
+    ? await supabase.from("academic_terms").select("id,status").in("id", termIds)
+    : { data: [], error: null };
+  if (termStatusResult.error) {
+    console.error("[calendar] term status query failed", termStatusResult.error);
+    throw new Error("Unable to load academic-term lifecycle status.");
+  }
+  const termStatusById = new Map((termStatusResult.data ?? []).map((row) => [row.id, row.status]));
 
   const today = getNamibiaDateKey();
   const active = (from: string, to: string | null) => from <= today && (!to || to >= today);
@@ -184,6 +217,7 @@ export async function getOperationalCalendarWorkspace(input: {
     academicTermId: String(row.academic_term_id),
     termNumber: Number(row.term_number),
     termName: String(row.term_name ?? `Term ${row.term_number}`),
+    termStatus: termStatusById.get(String(row.academic_term_id)) ?? "setup",
     learnerStartsOn: row.learner_starts_on ? String(row.learner_starts_on).slice(0, 10) : null,
     learnerEndsOn: row.learner_ends_on ? String(row.learner_ends_on).slice(0, 10) : null,
     teacherStartsOn: row.teacher_starts_on ? String(row.teacher_starts_on).slice(0, 10) : null,
@@ -196,7 +230,13 @@ export async function getOperationalCalendarWorkspace(input: {
 
   return {
     terms,
-    events: ((eventResult.data ?? []) as Array<Record<string, unknown>>).map(mapOperationalEvent),
+    events: ((eventResult.data ?? []) as Array<Record<string, unknown>>)
+      .map(mapOperationalEvent)
+      .filter((event) =>
+        event.scopeKind === scopeKind &&
+        event.learnerDayEffect === "UNCHANGED" &&
+        !event.linkedLearnerEventId,
+      ),
     departments: [...departmentMap.values()].sort((a, b) => a.label.localeCompare(b.label)),
     staffOptions: (staffResult.data ?? []).map((row) => ({
       staffMemberId: row.id,

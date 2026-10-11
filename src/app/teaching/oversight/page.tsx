@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { AppBackLink } from "@/components/navigation/app-back-link";
 import { AppShell } from "@/components/shell/app-shell";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
+import { DepartmentActivitiesManager } from "@/features/calendar/department-activities-manager";
+import { getOperationalCalendarWorkspace } from "@/features/calendar/server/operational-calendar";
 import { HodOversightWorkspace } from "@/features/teaching/hod-oversight-workspace";
 import { getHodTeachingOversight } from "@/features/teaching/server/hod-oversight";
 import { resolveReviewScope } from "@/features/teaching/server/review-queries";
@@ -12,7 +14,10 @@ export default async function HodTeachingOversightPage() {
   if (scope.roleKey !== "hod") redirect("/teaching");
 
   const academicYear = await getGovernedAcademicYear(scope.schoolId);
-  const result = await getHodTeachingOversight(academicYear);
+  const [result, departmentCalendar] = await Promise.all([
+    getHodTeachingOversight(academicYear),
+    getOperationalCalendarWorkspace({ schoolId: scope.schoolId, academicYear, staffMemberId: scope.staffMemberId, canManageSchool: false, canManageDepartment: true, scopeKind: "department" }),
+  ]);
 
   if (result.state === "denied") redirect("/teaching");
 
@@ -34,6 +39,7 @@ export default async function HodTeachingOversightPage() {
         ) : (
           <HodOversightWorkspace rows={result.rows} />
         )}
+        <DepartmentActivitiesManager schoolId={scope.schoolId} year={academicYear} terms={departmentCalendar.terms} events={departmentCalendar.events} departments={departmentCalendar.departments} canManage title="My department activities" />
       </div>
     </AppShell>
   );

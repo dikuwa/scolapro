@@ -88,9 +88,10 @@ test("voluntary contributions page shows contribution state before campaign setu
 });
 
 
-test("school calendar shows the national and school overlay before add-event configuration", () => {
+test("school calendar mounts official-date configuration beside its heading only on demand", () => {
   const source = read("src/features/calendar/teaching-impact-manager.tsx");
-  assert.ok(source.indexOf("Baseline and school overlay") < source.indexOf("<form action={action}"));
+  assert.ok(source.indexOf("{officialEventForm}") < source.indexOf("Baseline and school overlay"));
+  assert.match(source, /canManage && showAddEvent/);
   assert.match(source, /showAddEvent/);
   assert.match(source, /aria-expanded=\{showAddEvent\}/);
 });

@@ -7,6 +7,7 @@ const read = (path) => readFileSync(path, "utf8");
 const calendarPage = read("src/app/calendar/page.tsx");
 const dashboard = read("src/app/page.tsx");
 const manager = read("src/features/calendar/operational-calendar-manager.tsx");
+const departmentManager = read("src/features/calendar/department-activities-manager.tsx");
 const actions = read("src/features/calendar/server/actions.ts");
 const queries = read("src/features/calendar/server/operational-calendar.ts");
 const ocr = read("src/features/imports/server/calendar-ocr.ts");
@@ -24,10 +25,9 @@ test("calendar workspace separates official day metadata from operational events
   assert.match(manager, /Academic terms & official calendar/);
   assert.match(manager, /visibleEvents\.map/);
   assert.match(manager, /View all/);
-  assert.match(manager, /School & department events/);
+  assert.match(manager, /School events/);
   assert.match(manager, /Resolved \/ published learner days/);
-  assert.match(manager, /Learner school-day effect/);
-  assert.match(manager, /No school-day change/);
+  assert.match(manager, /learnerDayEffect" value="UNCHANGED/);
   assert.match(manager, /Department events can never change learner school-day status/);
 });
 
@@ -47,8 +47,8 @@ test("HOD calendar authority is derived from governed subject responsibility and
   assert.match(migration, /can_manage_department_calendar/);
   assert.match(migration, /subject_department_responsibilities/);
   assert.match(migration, /Department events cannot change learner school-day status/);
-  assert.match(manager, /CASS marks submission due/);
-  assert.match(manager, /Department \/ HOD portfolio/);
+  assert.match(departmentManager, /Department-scoped activities/);
+  assert.match(departmentManager, /Choose department/);
   assert.match(actions, /scopeKind==="department"&&value\.learnerDayEffect!=="UNCHANGED"/);
 });
 
