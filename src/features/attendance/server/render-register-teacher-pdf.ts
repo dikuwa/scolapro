@@ -194,7 +194,7 @@ function drawPage(input: {
   const balanceX = PAGE_WIDTH - MARGIN - resources.bold.widthOfTextAtSize(balanceLabel, balanceSize) - 9;
   const balanceY = Math.max(20, y - 10);
   page.drawText(balanceLabel, { x: balanceX, y: balanceY, size: balanceSize, font: resources.bold, color: RED });
-  page.drawText(balance.balanced ? "✓" : "!", { x: PAGE_WIDTH - MARGIN - 6, y: balanceY + 1, size: 6, font: checkFont, color: RED });
+  page.drawText(balance.balanced ? "✓" : "!", { x: PAGE_WIDTH - MARGIN - 6, y: balanceY + 1, size: 6, font: balance.balanced ? checkFont : resources.bold, color: RED });
   const governanceAlert = registerTeacherGovernanceAlert(document);
   if (governanceAlert) {
     page.drawText(fitOfficialDocumentPdfText(resources.bold, `Governance flag: ${governanceAlert}`, 5.2, CONTENT_WIDTH), {
