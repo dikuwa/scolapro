@@ -121,22 +121,49 @@ function drawPage(input: {
   const identityTotal = identityWidths.reduce((sum, width) => sum + width, 0);
   const dayWidth = plan.dayWidth;
   const widths = [...identityWidths, ...Array.from({ length: attendanceColumns }, () => dayWidth), ...termWidths];
-  const labels = REGISTER_TEACHER_LAYOUT.identityColumns.map((column) => column.header);
+  // Two-tier page heading mirrors the HTML table: identity cells span both
+  // bands, each weekly group has a week-ending heading above daily dates,
+  // and the right-hand total-per-term group spans its three metric columns.
+  const headerTop = 15;
+  const headerBottom = 15;
   let x = MARGIN;
-  labels.forEach((label, index) => { drawCell(page, resources.bold, label, x, y, widths[index], 22, { fill: RED_SOFT, color: RED, size: 5 }); x += widths[index]; });
+  const identityLabels = ["ADMIN NO.", "NO.", "SURNAME", "GIVEN NAMES", "DATE OF BIRTH"];
+  identityLabels.forEach((label, index) => {
+    drawCell(page, resources.bold, label, x, y, identityWidths[index], headerTop + headerBottom, {
+      fill: RED_SOFT, color: RED, size: 5,
+      align: index === 2 || index === 3 ? "left" : "center",
+    });
+    x += identityWidths[index];
+  });
   for (const week of weeks) {
+    const groupWidth = (week.dates.length + 1) * dayWidth;
+    drawCell(page, resources.bold, `Week Ending Friday  ${formatDate(week.weekEnding)}`,
+      x, y, groupWidth, headerTop, { fill: RED_SOFT, color: RED, size: 6 });
     for (const day of week.dates) {
       const dayLabel = day.teaching
-        ? `${day.weekday} ${day.dayNumber}`
-        : day.reason ?? `Non-teaching · ${day.weekday} ${day.dayNumber}`;
-      drawCell(page, resources.bold, dayLabel, x, y, dayWidth, 22, { fill: day.teaching ? RED_SOFT : GREY, color: day.teaching ? RED : MUTED, size: day.teaching ? 5 : 4 });
+        ? `${day.weekday}  ${day.dayNumber}`
+        : day.reason ?? `Non-teaching ${day.weekday} ${day.dayNumber}`;
+      drawCell(page, resources.bold, dayLabel, x, y - headerTop, dayWidth, headerBottom, {
+        fill: day.teaching ? RED_SOFT : GREY,
+        color: day.teaching ? RED : MUTED,
+        size: day.teaching ? 5.2 : 4,
+      });
       x += dayWidth;
     }
-    drawCell(page, resources.bold, "Tot.", x, y, dayWidth, 22, { fill: RED_SOFT, color: RED, size: 4.8 });
+    drawCell(page, resources.bold, "Tot.", x, y - headerTop, dayWidth, headerBottom,
+      { fill: RED_SOFT, color: RED, size: 5 });
     x += dayWidth;
   }
-  REGISTER_TEACHER_LAYOUT.termColumns.map((column) => column.header).forEach((label, index) => { drawCell(page, resources.bold, label, x, y, termWidths[index], 22, { fill: index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT, color: index === 1 ? RED : INK, size: 5 }); x += termWidths[index]; });
-  y -= 22;
+  const termGroupWidth = termWidths.reduce((sum, width) => sum + width, 0);
+  drawCell(page, resources.bold, "TOTAL PER TERM", x, y, termGroupWidth, headerTop,
+    { fill: RED_SOFT, color: RED, size: 5.5 });
+  ["Attend.", "Absent", "Days"].forEach((label, index) => {
+    const fill = index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT;
+    drawCell(page, resources.bold, label, x, y - headerTop, termWidths[index], headerBottom,
+      { fill, color: index === 1 ? RED : INK, size: 5.2 });
+    x += termWidths[index];
+  });
+  y -= headerTop + headerBottom;
 
   learners.forEach((learner, index) => {
     x = MARGIN;
