@@ -157,11 +157,11 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
         </tbody>
       </table>
       ${governanceAlert ? `<div class="governance-alert">Governance flag: ${escapeHtml(governanceAlert)}</div>` : ""}
-      <div class="balance-strip">
-        <div class="balance-item"><span>Attendance</span><strong>${balance.attendance}</strong></div>
-        <div class="balance-item"><span>Absence</span><strong>${balance.absence}</strong></div>
-        <div class="balance-item"><span>Possible</span><strong>${balance.possible}</strong></div>
-        <div class="balance-item balance-result"><span>Balance:</span><strong>${balance.accounted} / ${balance.possible} ${balance.balanced ? "✓" : "!"}</strong></div>
+      <div class="balance-strip" aria-label="Register attendance balance">
+        <span>Attendance <strong>${balance.attendance}</strong></span>
+        <span>Absence <strong>${balance.absence}</strong></span>
+        <span>Possible <strong>${balance.possible}</strong></span>
+        <span>Balance: <strong>${balance.accounted} / ${balance.possible} ${balance.balanced ? "✓" : "!"}</strong></span>
       </div>
     </section>
   `;
@@ -187,8 +187,8 @@ export function renderRegisterTeacherHtml(input: {
   :root { --register-red:#a31218; --register-red-soft:#fff1f2; --ink:#151515; --grid:#3a3a3a; }
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#ececec; }
-  body { padding:18px; }
-  .sheet { width:404mm; max-width:100%; margin:0 auto; background:white; padding:16px 16px 20px; box-shadow:0 10px 28px rgba(0,0,0,.12); }
+  body { padding:12px; }
+  .sheet { width:100%; max-width:none; margin-inline:auto; background:white; padding:12px; box-shadow:0 10px 28px rgba(0,0,0,.12); }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
   .register-section { margin-top:0; break-after:page; overflow:visible; }
@@ -222,7 +222,7 @@ export function renderRegisterTeacherHtml(input: {
   .mark { white-space:nowrap; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; font-size:10px; }
   .register-mark { position:relative; display:inline-block; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; }
   .absent-mark { color:var(--register-red); }
-  .absence-reason-mark { position:relative; top:-.42em; margin-left:1px; font-size:.52em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
+  .absence-reason-mark { position:relative; top:-.55em; margin-left:1px; font-size:.5em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
   .non-teaching { background:#ececec !important; color:#999; background-image:repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(0,0,0,.035) 3px,rgba(0,0,0,.035) 6px)!important; }
   .summary-row th { text-align:left; padding-left:6px; font-weight:900; }
   .summary-row td { font-weight:900; }
@@ -232,22 +232,19 @@ export function renderRegisterTeacherHtml(input: {
   .possible-summary-row th,.possible-summary-row td { background:#eef5d8; color:#263517; }
   .summary-value { font-weight:900; }
   .absence-value { color:var(--register-red) !important; font-weight:900; }
-  .balance-strip { display:grid; grid-template-columns:repeat(4,max-content); justify-content:end; align-items:stretch; border:1px solid var(--register-red); border-top:0; background:#fffafa; color:#6d0d12; }
-  .balance-item { display:grid; grid-template-columns:auto auto; align-items:center; gap:4px; min-height:24px; padding:4px 8px; border-left:1px solid rgba(163,18,24,.45); font-size:7.8px; white-space:nowrap; }
-  .balance-item:first-child { border-left:0; }
-  .balance-item span { font-weight:700; text-transform:uppercase; letter-spacing:.02em; }
-  .balance-item strong { font-size:8.4px; }
-  .balance-result { min-width:116px; justify-content:center; background:#fff1f2; }
+  .balance-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; align-items:center; gap:3px 11px; padding:5px 2px 0; color:#6d0d12; font-size:8px; font-weight:600; }
+  .balance-strip span { white-space:nowrap; }
+  .balance-strip strong { font-weight:800; }
   .governance-alert { padding:4px 6px; border:1px solid var(--register-red); border-top:0; background:#fff1f2; color:var(--register-red); font-size:7px; font-weight:700; }
   .empty { padding:18px; color:#777; font-size:9px; }
   .legend { margin:8px 0 2px; display:flex; align-items:center; flex-wrap:wrap; gap:5px 14px; min-height:20px; padding:2px 1px; font-size:8px; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:3px; min-height:16px; white-space:nowrap; }
-  .legend .mark-sample { display:inline-grid; min-width:12px; place-items:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; }
-  .legend .absence-reason-mark { top:-.34em; }
+  .legend .mark-sample { display:inline-block; min-width:12px; text-align:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; overflow:visible; }
+  .legend .absence-reason-mark { top:-.48em; }
   @page { size:A3 landscape; margin:8mm; }
   @media screen {
     .sheet { background:transparent; padding:0; box-shadow:none; }
-    .register-section { margin:0 0 18px; padding:16px 16px 20px; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); }
+    .register-section { margin:0 0 18px; padding:12px; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); }
     .register-section:last-child { margin-bottom:0; }
   }
   @media print {
