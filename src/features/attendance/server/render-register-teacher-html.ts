@@ -191,7 +191,7 @@ export function renderRegisterTeacherHtml(input: {
   .sheet { width:100%; max-width:none; margin-inline:auto; background:white; padding:12px; box-shadow:0 10px 28px rgba(0,0,0,.12); }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
-  .register-section { margin-top:0; break-after:page; overflow:visible; }
+  .register-section { width:100%; min-width:0; min-height:0; margin:0 auto; break-after:page; overflow:visible; }
   .register-section:last-child { break-after:auto; }
   .register-meta { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1px; background:var(--register-red); border:1px solid var(--register-red); margin-bottom:4px; }
   .register-meta > div { background:white; padding:5px 7px; font-size:9px; }
@@ -251,7 +251,7 @@ export function renderRegisterTeacherHtml(input: {
     html,body { background:white; }
     body { padding:0; }
     .sheet { width:auto; max-width:none; box-shadow:none; padding:0; }
-    .register-section { margin:0; padding:0; box-shadow:none; break-before:page; break-after:page; page-break-before:always; page-break-after:always; }
+    .register-section { width:100%; min-width:0; margin:0; padding:0; box-shadow:none; break-before:page; break-after:page; page-break-before:always; page-break-after:always; }
     .register-section:first-child { break-before:auto; page-break-before:auto; }
     .register-section:last-child { break-after:auto; page-break-after:auto; }
   }
