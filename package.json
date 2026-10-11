@@ -16,6 +16,10 @@
     "typecheck": "tsc --noEmit",
     "validate:report-font": "node scripts/validate-report-card-font.mjs",
     "validate:navigation": "node scripts/validate-navigation-role-visibility.mjs",
+    "e2e": "node scripts/e2e-run.mjs",
+    "e2e:guard": "node scripts/e2e-guard.mjs",
+    "e2e:seed": "node scripts/seed-e2e-fixtures.mjs",
+    "e2e:ui": "node scripts/e2e-run.mjs --ui",
     "check": "pnpm lint && pnpm typecheck && pnpm validate:report-font && pnpm validate:navigation && pnpm build",
     "bench:report-cards": "node scripts/benchmark-report-card-worker.mjs",
     "local:sync-db": "supabase migration up --local --include-all",
@@ -57,6 +61,7 @@
     "zod": "^4.1.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^22.18.1",
     "@types/qrcode": "^1.5.6",
