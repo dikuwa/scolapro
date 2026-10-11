@@ -37,3 +37,18 @@ test("reasoned absence PDF check sits next to the centered a, not at the cell ed
   assert.doesNotMatch(pdf, /x: x \+ dayWidth - 5/);
   assert.match(pdf, /pdf\.setSubject\("Issue 1234 revised register PDF layout"\)/);
 });
+
+test("register letterhead uses the official old-English family in both renderers", () => {
+  const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "utf8");
+  const header = readFileSync("src/features/documents/server/official-document-html-header.ts", "utf8");
+  assert.match(route, /schoolNameFont: "old_english" as const/);
+  assert.match(header, /renderOfficialDocumentSchoolNameFontStyle/);
+  assert.match(pdf, /createOfficialDocumentPdfResources/);
+});
+
+test("preview PDF download retains the descriptive register file name", () => {
+  const actions = readFileSync("src/components/documents/official-document-actions.tsx", "utf8");
+  const panel = readFileSync("src/features/attendance/inline-register-document-panel.tsx", "utf8");
+  assert.match(actions, /download=\{previewDownloadName \|\| true\}/);
+  assert.match(panel, /previewDownloadName=\{documentUrls\?\.fileName\}/);
+});
