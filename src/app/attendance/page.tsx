@@ -215,7 +215,7 @@ return (
   <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="day" />
       <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} calendarNavigation={calendarNavigation} offlineScope={{ userId, tenantId, schoolId }} sort={sort} initialSexFilter={sexFilter} />
+      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} calendarNavigation={calendarNavigation} offlineScope={{ userId, tenantId, schoolId }} sort={sort} initialSexFilter={sexFilter} />
   </section>
 );
 }
