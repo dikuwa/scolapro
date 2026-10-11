@@ -1,0 +1,98 @@
+name: Authenticated E2E
+
+# Authenticated browser coverage for the attendance release (issue #1227).
+# Runs entirely against a LOCAL Supabase stack seeded with synthetic data, so it
+# needs no paid infrastructure and never touches production.
+#
+# The suite is fail-closed: `scripts/e2e-guard.mjs` refuses to run if the target
+# resolves to the production project ref (jhgumnvhoxmapmgotchu) or a Vercel host.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scolapro-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authenticated-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Synthetic local-only password. Not a secret: the accounts only exist in
+      # the throwaway local Supabase stack created for this job.
+      SCOLAPRO_E2E_PASSWORD: LocalE2ePassword2026
+      SCOLAPRO_LOCAL_ADMIN_PASSWORD: LocalE2ePassword2026
+      PRODUCTION_PROJECT_ID: jhgumnvhoxmapmgotchu
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        run: supabase start
+
+      - name: Apply migrations and seed the demo school
+        run: supabase db reset
+
+      - name: Write local application env
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(supabase status -o json)"
+          api_url="$(node -e 'const s=JSON.parse(process.argv[1]);process.stdout.write(s.API_URL)' "$status")"
+          anon_key="$(node -e 'const s=JSON.parse(process.argv[1]);process.stdout.write(s.ANON_KEY)' "$status")"
+          service_key="$(node -e 'const s=JSON.parse(process.argv[1]);process.stdout.write(s.SERVICE_ROLE_KEY)' "$status")"
+
+          # Fail closed: the local stack must never report the production ref.
+          if [[ "$api_url" == *"$PRODUCTION_PROJECT_ID"* ]]; then
+            echo "Refusing E2E: local Supabase URL references the production project."
+            exit 1
+          fi
+
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=\"$api_url\""
+            echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=\"$anon_key\""
+            echo "SUPABASE_SERVICE_ROLE_KEY=\"$service_key\""
+            echo "SCOLAPRO_LOCAL_ADMIN_EMAIL=\"local-admin@scolapro.test\""
+            echo "SCOLAPRO_LOCAL_ADMIN_PASSWORD=\"$SCOLAPRO_LOCAL_ADMIN_PASSWORD\""
+            echo "SCOLAPRO_E2E_PASSWORD=\"$SCOLAPRO_E2E_PASSWORD\""
+          } > .env.local
+
+      - name: Fail-closed environment guard
+        run: node scripts/e2e-guard.mjs
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run authenticated E2E suite
+        run: pnpm e2e
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

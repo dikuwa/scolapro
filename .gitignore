@@ -16,3 +16,8 @@ references/private/
 supabase/.branches/
 supabase/.temp/
 .env.local.backup-*
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+playwright/.cache/
