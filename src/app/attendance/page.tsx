@@ -5,12 +5,14 @@ import { headers } from "next/headers";
 import { AppShell } from "@/components/shell/app-shell";
 import { renderOfficialDocumentVerificationQrSvg } from "@/features/documents/server/official-document-verification";
 import { AttendanceViewTabs } from "@/features/attendance/attendance-view-tabs";
+import { attendanceWeekday } from "@/features/attendance/attendance-navigation";
 import { AbsenceOverview } from "@/features/attendance/absence-overview";
 import { DailyRegister } from "@/features/attendance/daily-register";
 import { OfficialSummary } from "@/features/attendance/official-summary";
 import { WeeklyRegister } from "@/features/attendance/weekly-register";
 import { RegisterTeacherWorkspace } from "@/features/attendance/register-teacher-workspace";
 import { getAbsenceOverviewWorkspace } from "@/features/attendance/server/absence-overview";
+import { getAttendanceCalendarNavigation } from "@/features/attendance/server/calendar-navigation";
 import { getDailyRegisterWorkspace, type AttendanceSortDirection } from "@/features/attendance/server/register";
 import { getOfficialAttendanceSummary } from "@/features/attendance/server/official-summary";
 import { getRegisterTeacherTermOptions } from "@/features/attendance/server/register-teacher-document";
@@ -26,10 +28,7 @@ function windhoekDate() {
 
 function safeSchoolDate(value?: string) {
   const date = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : windhoekDate();
-  const parsed = new Date(`${date}T12:00:00`);
-  if (parsed.getDay() === 6) parsed.setDate(parsed.getDate() - 1);
-  if (parsed.getDay() === 0) parsed.setDate(parsed.getDate() + 1);
-  return parsed.toISOString().slice(0, 10);
+  return attendanceWeekday(date) >= 0 ? date : windhoekDate();
 }
 
 export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; sex?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[] }> }) {
@@ -191,26 +190,32 @@ if (view === "absences") {
 }
 
 if (view === "week") {
-  const workspace = await getWeeklyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort);
+  const [workspace, calendarNavigation] = await Promise.all([
+    getWeeklyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, mondayFor(date), sort),
+    getAttendanceCalendarNavigation(schoolId, academicYear),
+  ]);
   const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
   const exceptionCount = workspace.learners.reduce((total, learner) => total + learner.days.filter((day) => isOfficiallyAbsent(day.status)).length, 0);
   return (
     <section className="attendance-page">
         <AttendanceHeader date={date} requestedClass={requestedClass} view="week" />
         <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Weekly exceptions" />
-        <WeeklyRegister key={`${workspace.selectedClassId ?? "none"}:${workspace.weekStart}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} weekStart={workspace.weekStart} weekEnd={workspace.weekEnd} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} initialSort={sort} />
+        <WeeklyRegister key={`${workspace.selectedClassId ?? "none"}:${workspace.weekStart}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} weekStart={workspace.weekStart} weekEnd={workspace.weekEnd} dates={workspace.dates} learners={workspace.learners} reasons={workspace.reasons} submissionIds={workspace.submissionIds} nonTeachingDates={workspace.nonTeachingDates} nonTeachingReasons={workspace.nonTeachingReasons} calendarNavigation={calendarNavigation} initialSort={sort} initialSexFilter={sexFilter} />
     </section>
   );
 }
 
-const workspace = await getDailyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, date, sort);
+const [workspace, calendarNavigation] = await Promise.all([
+  getDailyRegisterWorkspace(schoolId, academicYear, requestedClass ?? null, date, sort),
+  getAttendanceCalendarNavigation(schoolId, academicYear),
+]);
 const selectedClass = workspace.classes.find((item) => item.id === workspace.selectedClassId);
 const exceptionCount = workspace.learners.filter((item) => isOfficiallyAbsent(item.status)).length;
 return (
   <section className="attendance-page">
       <AttendanceHeader date={date} requestedClass={requestedClass} view="day" />
       <Summary selectedClassName={selectedClass?.name} learnerCount={workspace.learners.length} exceptionCount={exceptionCount} exceptionLabel="Exceptions" />
-      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} offlineScope={{ userId, tenantId, schoolId }} sort={sort} initialSexFilter={sexFilter} />
+      <DailyRegister key={`${workspace.selectedClassId ?? "none"}:${date}:${workspace.currentSubmissionId ?? "draft"}`} classes={workspace.classes} selectedClassId={workspace.selectedClassId} attendanceDate={date} learners={workspace.learners} reasons={workspace.reasons} currentSubmissionId={workspace.currentSubmissionId} teachingDay={workspace.teachingDay} calendarNavigation={calendarNavigation} offlineScope={{ userId, tenantId, schoolId }} sort={sort} initialSexFilter={sexFilter} />
   </section>
 );
 }
