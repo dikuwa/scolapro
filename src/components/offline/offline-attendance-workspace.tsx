@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Clock3, RefreshCw, ShieldCheck, X } from "lucide-react";
+import { Check, RefreshCw, X } from "lucide-react";
 import {
   listCachedDailyRegisters,
   queueDailyRegister,
@@ -13,11 +13,12 @@ import type { AttendanceLearnerRow } from "@/features/attendance/server/register
 type SnapshotRecord = OfflineSnapshot<OfflineDailyRegisterSnapshot>;
 type Status = AttendanceLearnerRow["status"];
 
+// The cached register is the same official daily register, so it exposes the
+// official Present/Absent vocabulary only. Justification is captured as a
+// reason or note on the absence, never as a separate official status.
 const statuses: Array<{ value: Status; label: string; icon: typeof Check }> = [
   { value: "present", label: "Present", icon: Check },
   { value: "absent", label: "Absent", icon: X },
-  { value: "late", label: "Late", icon: Clock3 },
-  { value: "excused", label: "Excused", icon: ShieldCheck },
 ];
 
 export function OfflineAttendanceWorkspace() {
@@ -133,7 +134,7 @@ export function OfflineAttendanceWorkspace() {
                     <p className="truncate text-sm font-medium">{row.name}</p>
                     <p className="text-[0.68rem] text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p>
                   </div>
-                  <div className="grid grid-cols-4 gap-1">
+                  <div className="grid grid-cols-2 gap-1">
                     {statuses.map((status) => {
                       const Icon = status.icon;
                       const active = row.status === status.value;

@@ -16,7 +16,13 @@ const renderer = readFileSync("src/features/attendance/server/render-register-te
 test("the unified period stepper is one accessible continuous control", () => {
   assert.match(picker, /export function WeekPicker/);
   assert.match(picker, /grid-cols-\[2\.5rem_minmax\(0,1fr\)_2\.5rem\]/);
-  assert.match(picker, /overflow-hidden/);
+  // The stepper is now the positioning context for its calendar popover, so the
+  // outer overflow is intentionally visible; the continuous-control shell is
+  // preserved by the rounded inner edges.
+  assert.match(picker, /relative grid/);
+  assert.match(picker, /rounded-l-\[var\(--radius-sm\)\]/);
+  assert.match(picker, /rounded-r-\[var\(--radius-sm\)\]/);
+  assert.match(picker, /CalendarPanel/);
   assert.match(picker, /aria-label=\{previousLabel\}/);
   assert.match(picker, /aria-label=\{nextLabel\}/);
   assert.match(picker, /previousDisabled/);
@@ -58,13 +64,14 @@ test("register toolbar remains complete and week navigation honors term bounds",
   assert.match(register, /label="Academic term"/);
   assert.match(register, /label=\{mode === "range" \? "From Week" : "Week"\}/);
   assert.match(register, /label="To Week"/);
-  assert.match(register, /Preview \/ Print/);
+  assert.match(register, /<InlineRegisterDocumentPanel/);
   assert.match(register, /previousDisabled=\{selectedWeekIndex <= 0\}/);
   assert.match(register, /nextDisabled=\{selectedWeekIndex < 0 \|\| selectedWeekIndex >= weekOptions\.length - 1\}/);
 });
 
 test("boys and girls render as separate screen sheets and A3 print pages", () => {
-  assert.match(renderer, /document\.sections\.map/);
+  assert.match(renderer, /registerTeacherPageJobs\(document\)\.map/);
+  assert.match(renderer, /\{ \.\.\.job\.section, learners: job\.learners \}/);
   assert.match(renderer, /\.register-section \{ margin:0 0 18px; padding:16px 16px 20px; background:white; box-shadow:/);
   assert.match(renderer, /@page \{ size:A3 landscape; margin:8mm; \}/);
   assert.match(renderer, /break-before:page; break-after:page; page-break-before:always; page-break-after:always/);

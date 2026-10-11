@@ -1,0 +1,19 @@
+{
+  "pageCount": 4,
+  "pdfPageCount": 4,
+  "pageWidth": 1190.55,
+  "pageHeight": 841.89,
+  "landscape": true,
+  "htmlSectionCount": 4,
+  "headerCount": 4,
+  "legendCount": 4,
+  "boysSection": true,
+  "girlsSection": true,
+  "reasonedAbsenceMarker": true,
+  "identityColumns": 5,
+  "attendanceColumns": 18,
+  "termColumns": 3,
+  "firstIdentityWidth": "4.438%",
+  "dayWidth": "3.208%",
+  "lastTermWidth": "3.728%"
+}

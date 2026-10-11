@@ -2,18 +2,21 @@
 
 import { useActionState, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarOff, Check, Clock3, MoreHorizontal, Paperclip, Save, Search, ShieldCheck, X } from "lucide-react";
+import { CalendarOff, Check, MoreHorizontal, Paperclip, Save, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
 import { PeriodStepper } from "@/components/ui/week-picker";
 import { AttendanceSortControl, type AttendanceSortDirection } from "@/features/attendance/attendance-sort-control";
 import { dailyAttendanceViewIdentity } from "@/features/attendance/attendance-date-integrity";
+import { buildAttendanceNavigationHref, formatAttendanceDate, schoolDayShift } from "@/features/attendance/attendance-navigation";
 import { getDailyRegisterExceptions, getVisibleDailyRegisterRows, type DailyRegisterSexFilter } from "@/features/attendance/daily-register-view-state";
 import { submitDailyRegister, type DailyRegisterState } from "@/features/attendance/server/actions";
+import type { AttendanceCalendarNavigation } from "@/features/attendance/server/calendar-navigation";
 import { cacheDailyRegisterSnapshot, hasQueuedEvidence, queueDailyRegister } from "@/features/attendance/offline/daily-register-queue";
 import type { OfflineScope } from "@/lib/offline/db";
 import type { AttendanceClassOption, AttendanceLearnerRow, AttendanceReasonOption, AttendanceTeachingDay } from "@/features/attendance/server/register";
+import { isOfficiallyAbsent, isOfficiallyPresent } from "@/features/attendance/server/official-semantics";
 
 const initialState: DailyRegisterState = {};
 type AttendanceStatus = AttendanceLearnerRow["status"];
@@ -21,25 +24,15 @@ type AttendanceStatus = AttendanceLearnerRow["status"];
 const statuses = [
   { value: "present" as const, label: "Present", icon: Check },
   { value: "absent" as const, label: "Absent", icon: X },
-  { value: "late" as const, label: "Late", icon: Clock3 },
-  { value: "excused" as const, label: "Excused", icon: ShieldCheck },
 ];
 
 function statusClass(status: AttendanceStatus, active: boolean) {
   if (!active) return "bg-surface-muted text-muted-foreground hover:bg-surface-subtle hover:text-foreground";
-  if (status === "present") return "bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/25";
   if (status === "absent") return "bg-danger-soft text-[color:var(--danger)] ring-1 ring-inset ring-[color:var(--danger)]/25";
-  if (status === "late") return "bg-warning-soft text-[color:var(--warning)] ring-1 ring-inset ring-[color:var(--warning)]/25";
-  return "bg-info-soft text-[color:var(--info)] ring-1 ring-inset ring-[color:var(--info)]/25";
+  return "bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/25";
 }
 
-function schoolDayShift(date: string, direction: -1 | 1) {
-  const current = new Date(`${date}T12:00:00`);
-  do current.setDate(current.getDate() + direction); while (current.getDay() === 0 || current.getDay() === 6);
-  return current.toISOString().slice(0, 10);
-}
-
-export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay, offlineScope, sort, initialSexFilter }: {
+export function DailyRegister({ classes, selectedClassId, attendanceDate, learners, reasons, currentSubmissionId, teachingDay, calendarNavigation, offlineScope, sort, initialSexFilter }: {
   classes: AttendanceClassOption[];
   selectedClassId: string | null;
   attendanceDate: string;
@@ -47,6 +40,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   reasons: AttendanceReasonOption[];
   currentSubmissionId: string | null;
   teachingDay: AttendanceTeachingDay;
+  calendarNavigation: AttendanceCalendarNavigation;
   offlineScope: OfflineScope;
   sort: AttendanceSortDirection;
   initialSexFilter: DailyRegisterSexFilter;
@@ -88,9 +82,20 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
   const exceptions = useMemo(() => getDailyRegisterExceptions(rows), [rows]);
   const visibleRows = useMemo(() => getVisibleDailyRegisterRows(rows, query, sexFilter, sortDirection), [query, rows, sexFilter, sortDirection]);
 
-  const presentCount = rows.filter((row) => row.status === "present").length;
-  const exceptionCount = rows.length - presentCount;
+  const presentCount = rows.filter((row) => isOfficiallyPresent(row.status)).length;
+  const exceptionCount = rows.filter((row) => isOfficiallyAbsent(row.status)).length;
   const focusedRow = focusedId ? rows.find((row) => row.enrolmentId === focusedId) ?? null : null;
+  const hasUnsavedChanges = useMemo(() => {
+    if (Object.values(evidenceNames).some(Boolean) || rows.length !== learners.length) return true;
+    const initialById = new Map(learners.map((row) => [row.enrolmentId, row] as const));
+    return rows.some((row) => {
+      const initial = initialById.get(row.enrolmentId);
+      return !initial
+        || row.status !== initial.status
+        || row.reasonId !== initial.reasonId
+        || row.note !== initial.note;
+    });
+  }, [evidenceNames, learners, rows]);
 
   useEffect(() => {
     if (!selectedClassId) return;
@@ -155,23 +160,46 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
     updateRow(row.enrolmentId, { status, reasonId: status === "present" ? null : row.reasonId, note: status === "present" ? null : row.note });
   }
 
-  function moveDate(direction: -1 | 1) {
+  function startRegisterNavigation(href: string) {
     setFocusedId(null);
-    const params = new URLSearchParams();
-    params.set("view", "day");
-    if (selectedClassId) params.set("class", selectedClassId);
-    params.set("date", schoolDayShift(attendanceDate, direction));
-    if (sortDirection === "desc") params.set("sort", "desc");
-    if (sexFilter !== "all") params.set("sex", sexFilter);
-    startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
+    startNavigation(() => router.replace(href, { scroll: false }));
+  }
+
+  function requestRegisterNavigation(href: string) {
+    if (!hasUnsavedChanges) {
+      startRegisterNavigation(href);
+      return;
+    }
+    toast.warning("Unsaved attendance changes", {
+      description: "Save this register, or discard the draft to continue navigating.",
+      action: { label: "Discard and continue", onClick: () => startRegisterNavigation(href) },
+    });
+  }
+
+  function navigateToDate(date: string) {
+    if (date === attendanceDate || navigationPending) return;
+    requestRegisterNavigation(buildAttendanceNavigationHref({
+      view: "day",
+      classId: selectedClassId,
+      date,
+      sort: sortDirection,
+      sex: sexFilter,
+    }));
+  }
+
+  function moveDate(direction: -1 | 1) {
+    navigateToDate(schoolDayShift(attendanceDate, direction));
   }
 
   function chooseClass(classId: string) {
-    setFocusedId(null);
-    const params = new URLSearchParams({ view: "day", class: classId, date: attendanceDate });
-    if (sortDirection === "desc") params.set("sort", "desc");
-    if (sexFilter !== "all") params.set("sex", sexFilter);
-    startNavigation(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
+    if (classId === selectedClassId || navigationPending) return;
+    requestRegisterNavigation(buildAttendanceNavigationHref({
+      view: "day",
+      classId,
+      date: attendanceDate,
+      sort: sortDirection,
+      sex: sexFilter,
+    }));
   }
 
   function persistRosterPreferences(nextSort: AttendanceSortDirection, nextSexFilter: DailyRegisterSexFilter) {
@@ -200,7 +228,30 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
           <Picker label="Register class" name="register-class-ui" value={selectedClassId ?? ""} onChange={chooseClass} placeholder="Choose a class" options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))} className="max-w-xl" />
           <div>
             <p className="text-xs font-medium text-muted-foreground lg:text-right">Attendance date</p>
-            <PeriodStepper className="mt-1.5" valueLabel={new Intl.DateTimeFormat("en-NA", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(new Date(`${attendanceDate}T12:00:00`))} onPrevious={() => moveDate(-1)} onNext={() => moveDate(1)} previousLabel="Previous school day" nextLabel="Next school day" pending={navigationPending} />
+            <PeriodStepper
+              className="mt-1.5"
+              valueLabel={formatAttendanceDate(attendanceDate, { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
+              onPrevious={() => moveDate(-1)}
+              onNext={() => moveDate(1)}
+              previousLabel="Previous school day"
+              nextLabel="Next school day"
+              pending={navigationPending}
+              calendar={{
+                value: attendanceDate,
+                onChange: navigateToDate,
+                label: "Choose attendance date",
+                min: calendarNavigation.minDate,
+                max: calendarNavigation.maxDate,
+                getDateStatus: (date) => {
+                  const day = calendarNavigation.dayStates[date];
+                  if (!day || day.kind === "teaching") return null;
+                  return {
+                    label: day.reason ?? (day.kind === "out_of_term" ? "Outside learner term" : "Attendance unavailable"),
+                    tone: day.kind === "out_of_term" ? "muted" : "warning",
+                  };
+                },
+              }}
+            />
           </div>
         </div>
       </section>
@@ -209,7 +260,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle bg-surface-muted/55 px-4 py-4 sm:px-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div><h2 className="scolapro-section-title">Daily register</h2><p className="scolapro-section-description">Everyone starts present. Search a learner or mark only the exceptions.</p></div>
+            <div><h2 className="scolapro-section-title">Daily register</h2><p className="scolapro-section-description">Everyone starts present. Mark a learner absent and retain any justification as the reason or evidence.</p></div>
             <div className="flex gap-2 text-xs"><span className="rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 font-medium text-[color:var(--success)]">{presentCount} present</span><span className="rounded-[var(--radius-xs)] bg-surface px-2.5 py-1.5 font-medium text-muted-foreground">{exceptionCount} exceptions</span></div>
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -251,7 +302,7 @@ export function DailyRegister({ classes, selectedClassId, attendanceDate, learne
                     <div className="min-w-0"><p className="scolapro-section-title truncate">{focusedRow.name}</p><p className="scolapro-section-description">{new Intl.DateTimeFormat("en-NA", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${attendanceDate}T12:00:00`))}</p></div>
                     <div className="flex shrink-0 items-center gap-1"><button type="button" onClick={() => setFocusedId(null)} aria-label="Done editing attendance" className="grid size-10 place-items-center rounded-[var(--radius-xs)] bg-success-soft text-[color:var(--success)] ring-1 ring-inset ring-[color:var(--success)]/20 hover:brightness-95"><Check className="size-4" strokeWidth={2.7} /></button><button type="button" onClick={() => setFocusedId(null)} aria-label="Close attendance editor" className="grid size-10 place-items-center rounded-[var(--radius-xs)] text-muted-foreground hover:bg-surface-muted"><X className="size-4" /></button></div>
                   </div>
-                  <div className="mt-3 grid grid-cols-4 gap-1.5 sm:ml-auto sm:max-w-md">{statuses.map((status) => { const Icon = status.icon; const active = focusedRow.status === status.value; return <button key={status.value} type="button" onClick={() => setStatus(focusedRow, status.value)} aria-pressed={active} className={`inline-flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] px-1 py-2 text-[0.65rem] font-semibold transition ${statusClass(status.value, active)}`}><Icon className="size-4" aria-hidden="true" strokeWidth={2.4} /><span>{status.label}</span></button>; })}</div>
+                  <div className="mt-3 grid grid-cols-2 gap-1.5 sm:ml-auto sm:max-w-md">{statuses.map((status) => { const Icon = status.icon; const active = focusedRow.status === status.value; return <button key={status.value} type="button" onClick={() => setStatus(focusedRow, status.value)} aria-pressed={active} className={`inline-flex min-h-12 flex-col items-center justify-center gap-1 rounded-[var(--radius-xs)] px-1 py-2 text-[0.65rem] font-semibold transition ${statusClass(status.value, active)}`}><Icon className="size-4" aria-hidden="true" strokeWidth={2.4} /><span>{status.label}</span></button>; })}</div>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">{focusedRow.status !== "present" ? <div className="space-y-3"><Picker label="Reason" name={`mobile-reason-ui-${focusedRow.enrolmentId}`} value={focusedRow.reasonId ?? ""} onChange={(reasonId) => updateRow(focusedRow.enrolmentId, { reasonId: reasonId || null })} placeholder="No reason" options={[{ value: "", label: "No reason" }, ...reasons.map((reason) => ({ value: reason.id, label: reason.name, helper: reason.sensitive ? "Restricted detail" : undefined }))]} /><div><label htmlFor={`mobile-note-${focusedRow.enrolmentId}`} className="block text-xs font-medium">Note</label><input id={`mobile-note-${focusedRow.enrolmentId}`} value={focusedRow.note ?? ""} onChange={(event) => updateRow(focusedRow.enrolmentId, { note: event.target.value })} placeholder="Optional context" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs shadow-[var(--shadow-xs)] outline-none" /></div><EvidenceControl row={focusedRow} evidenceNames={evidenceNames} setEvidenceNames={setEvidenceNames} /></div> : <p className="rounded-[var(--radius-sm)] bg-success-soft px-3 py-2.5 text-xs font-medium text-[color:var(--success)]">Present selected. Use the status buttons above to record an exception.</p>}</div>
               </div>

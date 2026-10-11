@@ -1,10 +1,14 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveAttendanceTeachingImpact, type AttendanceClassOption, type AttendanceReasonOption, type AttendanceSortDirection } from "@/features/attendance/server/register";
 import { formatLearnerName, formatPersonName } from "@/lib/person-name";
+import { getUserContext } from "@/lib/auth/get-user-context";
+import { canCaptureRegisterClass } from "@/features/attendance/server/capture-scope";
+import { officialCaptureStatusOf, type OfficialAttendanceStatus } from "@/features/attendance/server/official-semantics";
 
 export type WeeklyCell = {
   date: string;
-  status: "present" | "absent" | "late" | "excused" | "unknown";
+  /** Official weekly-register vocabulary: Present/Absent only. */
+  status: OfficialAttendanceStatus;
   reasonId: string | null;
   note: string | null;
 };
@@ -64,18 +68,25 @@ export async function getWeeklyRegisterWorkspace(
   sortDirection: AttendanceSortDirection = "asc",
 ) {
   const supabase = await createSupabaseServerClient();
+  const context = await getUserContext();
+  const actor = {
+    memberships: context.memberships,
+    platformRoles: context.platformMemberships.map((item) => item.roleKey),
+  };
   const weekDates = schoolWeekDates(date);
   const monday = weekDates[0];
   const friday = weekDates[4];
 
   const [{ data: classes, error: classError }, { data: reasons, error: reasonError }, resolvedDays] = await Promise.all([
-    supabase.from("register_classes").select("id,display_name,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
+    supabase.from("register_classes").select("id,display_name,register_teacher_staff_id,grades(display_name)").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name"),
     supabase.from("attendance_reasons").select("id,reason_code,display_name,sensitive").eq("audience", "learner").eq("active", true).order("sort_order"),
     Promise.all(weekDates.map(async (attendanceDate) => ({ attendanceDate, ...(await resolveAttendanceTeachingImpact(schoolId, attendanceDate)) }))),
   ]);
   if (classError || reasonError) throw new Error("Unable to load the weekly attendance workspace.");
 
-  const classOptions: AttendanceClassOption[] = (classes ?? []).map((item) => ({ id: item.id, name: item.display_name, grade: relation(item.grades)?.display_name ?? "Grade" }));
+  const classOptions: AttendanceClassOption[] = (classes ?? [])
+    .filter((item) => canCaptureRegisterClass(actor, { schoolId, registerTeacherStaffId: item.register_teacher_staff_id }))
+    .map((item) => ({ id: item.id, name: item.display_name, grade: relation(item.grades)?.display_name ?? "Grade" }));
   const reasonsList: AttendanceReasonOption[] = (reasons ?? []).map((item) => ({ id: item.id, code: item.reason_code, name: item.display_name, sensitive: item.sensitive }));
   const classId = selectedClassId && classOptions.some((item) => item.id === selectedClassId) ? selectedClassId : classOptions[0]?.id ?? null;
 
@@ -140,7 +151,7 @@ export async function getWeeklyRegisterWorkspace(
         const current = currentMap.get(`${item.id}:${attendanceDate}`);
         return {
           date: attendanceDate,
-          status: (current?.status as WeeklyCell["status"] | undefined) ?? "present",
+          status: officialCaptureStatusOf(current?.status) ?? "present",
           reasonId: current?.reason_id ?? null,
           note: current?.note ?? null,
         };
