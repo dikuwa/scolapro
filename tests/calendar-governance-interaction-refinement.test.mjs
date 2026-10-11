@@ -43,7 +43,9 @@ test("calendar separates informational school events from official dates", () =>
   assert.match(manager, />School events</);
   assert.doesNotMatch(manager, />School & department events</);
   assert.match(officialManager, /Official calendar & adjustments/);
-  assert.match(officialManager, /Term milestones/);
+  assert.doesNotMatch(officialManager, /Term milestones/);
+  assert.doesNotMatch(officialManager, /Baseline and school overlay/);
+  assert.doesNotMatch(officialManager, /Calendar adjustments & exceptions/);
   assert.match(officialManager, /deduplicatedEvents/);
   assert.match(calendarPage, />School events</);
 });
@@ -71,8 +73,15 @@ test("active term uses brand background with explicit white foreground", () => {
 });
 
 test("initial official lists are bounded and forms unmount when closed", () => {
-  assert.match(officialManager, /deduplicatedEvents\.slice\(0, 6\)/);
-  assert.match(officialManager, /overrides\.slice\(0, 6\)/);
-  assert.match(officialManager, /canManage && showAdjustment/);
-  assert.doesNotMatch(officialManager, /aria-hidden=\{!showAdjustment\}/);
+  assert.match(officialManager, /officialEntries\.slice\(0, 8\)/);
+  assert.match(officialManager, /adjustmentTarget\?\.key !== key/);
+  assert.doesNotMatch(officialManager, /aria-hidden=\{!adjustmentTarget\}/);
+});
+
+test("official calendar corrections stay attached to the selected row", () => {
+  assert.match(officialManager, /relatedOverrides/);
+  assert.match(officialManager, /adjustmentForm\(entry\.key\)/);
+  assert.match(officialManager, /schoolCorrections\.map\(\(item\) => adjustmentForm/);
+  assert.match(officialManager, /A correction stays attached to the date it changes/);
+  assert.match(officialManager, /id="official-calendar"/);
 });

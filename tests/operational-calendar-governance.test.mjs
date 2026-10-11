@@ -98,8 +98,8 @@ test("learner boundaries govern operational activity while teacher dates remain 
 });
 
 test("calendar correction keeps baseline evidence and exposes school-level exceptions", () => {
-  assert.match(impactManager, /Calendar adjustments & exceptions/);
-  assert.match(impactManager, /without deleting the national\/public baseline/);
+  assert.match(impactManager, /Official calendar & adjustments/);
+  assert.match(impactManager, /baseline retained/);
   assert.match(calendarDoc, /school-level adjustment changes the effective learner day/);
 });
 
@@ -121,7 +121,7 @@ test("official calendar rows are visibly distinct from deletable school adjustme
   assert.match(impactManager, /isSchoolAdjustment/);
   assert.match(impactManager, /Correct/);
   assert.match(impactManager, /Delete/);
-  assert.match(impactManager, /calendar-adjustments/);
+  assert.match(impactManager, /official-calendar/);
 });
 
 

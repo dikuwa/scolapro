@@ -11,10 +11,10 @@ test('canonical danger-ghost entry does not use filled background at rest', () =
 });
 
 test('Calendar uses unfilled Delete entry but filled confirmed destructive submission', () => {
-  assert.match(calendar, /type="button" size="sm" variant="danger-ghost" onClick=\{\(\) => setConfirmDeleteDate\(item\.date\)\}/);
+  assert.match(calendar, /type="button" size="sm" variant="danger-ghost" onClick=\{\(\) => setConfirmDeleteId\(item\.id\)\}/);
   assert.match(calendar, /type="submit" size="sm" variant="danger" loading=\{deletePending\}/);
-  assert.match(calendar, /confirmDeleteDate === item\.date/);
-  assert.match(calendar, /setConfirmDeleteDate\(null\)/);
+  assert.match(calendar, /confirmDeleteId === item\.id/);
+  assert.match(calendar, /setConfirmDeleteId\(null\)/);
 });
 
 const conduct = readFileSync(new URL('../src/features/conduct/policy-settings.tsx', import.meta.url), 'utf8');
