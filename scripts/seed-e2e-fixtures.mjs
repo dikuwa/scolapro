@@ -106,6 +106,9 @@ await upsert("schools", {
 });
 
 // 4. Demo-tenant staff identities (linked to the synthetic auth accounts).
+//    Placements are created in step 6, after memberships, because the deferred
+//    placement-creator check needs the demo admin's membership to already exist
+//    (each upsert is its own transaction).
 const demoStaff = [
   { account: SYNTHETIC_ACCOUNTS.registerTeacher, employeeNumber: "E2E-TCH-001", firstName: "E2E", lastName: "Register" },
   { account: SYNTHETIC_ACCOUNTS.unassignedTeacher, employeeNumber: "E2E-TCH-002", firstName: "E2E", lastName: "Unassigned" },
@@ -121,16 +124,6 @@ for (const { account, employeeNumber, firstName, lastName } of demoStaff) {
     first_name: firstName,
     last_name: lastName,
     status: "active",
-  });
-  await upsert("staff_school_assignments", {
-    id: account.assignmentId,
-    tenant_id: DEMO.tenantId,
-    school_id: DEMO.schoolId,
-    staff_member_id: account.staffMemberId,
-    assignment_type: "teacher",
-    position_title: "Teacher",
-    effective_from: "2026-01-05",
-    created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
   });
 }
 
@@ -163,14 +156,29 @@ await upsert("school_memberships", {
   active_to: null,
 });
 
-// 6. Bind Grade 10/A to the register teacher so allow/deny is meaningful.
+// 6. Staff-school placements, now that the demo admin's membership exists to
+//    satisfy the deferred placement-creator authorization check.
+for (const { account } of demoStaff) {
+  await upsert("staff_school_assignments", {
+    id: account.assignmentId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    staff_member_id: account.staffMemberId,
+    assignment_type: "teacher",
+    position_title: "Teacher",
+    effective_from: "2026-01-05",
+    created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+}
+
+// 7. Bind Grade 10/A to the register teacher so allow/deny is meaningful.
 const { error: bindError } = await supabase
   .from("register_classes")
   .update({ register_teacher_staff_id: SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId })
   .eq("id", DEMO.registerClass10A);
 if (bindError) throw new Error(`Unable to assign the register teacher: ${bindError.message}`);
 
-// 7. Deterministic governed days, so capture and calendar assertions never
+// 8. Deterministic governed days, so capture and calendar assertions never
 //    depend on the real 2026 calendar or the day the suite happens to run.
 await upsert("school_day_overrides", {
   tenant_id: DEMO.tenantId,
@@ -205,7 +213,7 @@ await upsert("school_day_overrides", {
   created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
 }, "school_id,school_date");
 
-// 8. Prove the world is what we think it is.
+// 9. Prove the world is what we think it is.
 const { data: boundClass, error: boundError } = await supabase
   .from("register_classes")
   .select("id,register_teacher_staff_id")
