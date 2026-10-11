@@ -84,7 +84,7 @@ function drawPage(input: {
   legendPart(" = Absent     ");
   legendPart("a", resources.regular, RED);
   // Keep the red reason marker immediately above and to the right of its "a".
-  page.drawText("✓", { x: legendX + 0.5, y: legendY + 3.2, size: 4.5, font: checkFont, color: RED });
+  page.drawText("✓", { x: legendX - 0.3, y: legendY + 3.2, size: 4.5, font: checkFont, color: RED });
   legendX += 5;
   legendPart(" = Absent with reason     Grey = non-teaching / inactive; governed closure names appear in the register");
   y -= 21;
@@ -176,7 +176,7 @@ function drawPage(input: {
         if (mark === "a") weekAbsent += 1;
         drawCell(page, resources.bold, mark, x, y, dayWidth, ROW_HEIGHT, { fill: day.teaching ? undefined : GREY, color: mark === "a" ? RED : INK, size: 7 });
         if (mark === "a" && learner.reasonedAbsenceDates[day.date]) {
-          page.drawText("✓", { x: x + dayWidth - 5, y: y - 5, size: 3.8, font: checkFont, color: RED });
+          page.drawText("✓", { x: x + dayWidth / 2 + 2.3, y: y - ROW_HEIGHT + 8.5, size: 3.8, font: checkFont, color: RED });
         }
         x += dayWidth;
       }
@@ -237,6 +237,7 @@ export async function renderRegisterTeacherPdf(input: { header: OfficialDocument
   pdf.setTitle(`${input.header.schoolName} - ${input.document.className} register`);
   pdf.setAuthor("ScolaPro");
   pdf.setCreator("ScolaPro register renderer");
+  pdf.setSubject("Issue 1234 revised register PDF layout");
   pdf.setCreationDate(new Date(0));
   pdf.setModificationDate(new Date(0));
   const resources = await createOfficialDocumentPdfResources(pdf, input.header, input.logoBytes);
