@@ -158,7 +158,7 @@ test("register attendance columns remain compact within fixed paper geometry", (
   assert.match(renderer, /<colgroup>\$\{columns\}<\/colgroup>/);
   assert.match(renderer, /\.identity\.surname \{ overflow-wrap:anywhere/);
   assert.match(renderer, /\.identity\.given \{ overflow-wrap:anywhere/);
-  assert.match(renderer, /\.register-section \{ margin-top:0; break-after:page; overflow:visible/);
+  assert.match(renderer, /\.register-section \{ width:100%; min-width:0; min-height:0; margin:0 auto; break-after:page; overflow:visible/);
   assert.doesNotMatch(renderer, /min-width:max-content/);
 });
 
