@@ -69,19 +69,48 @@ function drawPage(input: {
     context,
   });
 
-  const meta = [
-    `${section.label} · Page ${input.pageNumber}/${input.pageCount}`,
-    `Register teacher: ${document.registerTeacherName}`,
-    `Total school days: ${document.teachingDayCount}`,
-  ];
-  const metaWidth = CONTENT_WIDTH / meta.length;
-  meta.forEach((value, index) => drawCell(page, resources.bold, value, MARGIN + index * metaWidth, y, metaWidth, 18, { align: "left", fill: RED_SOFT, color: RED, size: 5.8 }));
-  y -= 22;
+  // Match the preview's visual order: official header, legend, five-cell
+  // metadata band, then the register grid.
+  const legendSize = 5.6;
+  const legendY = y - 7;
+  let legendX = MARGIN + 2;
+  const legendPart = (label: string, font: PDFFont = resources.regular, color = MUTED) => {
+    page.drawText(label, { x: legendX, y: legendY, size: legendSize, font, color });
+    legendX += font.widthOfTextAtSize(label, legendSize);
+  };
+  legendPart("I", resources.bold, INK);
+  legendPart(" = Present     ");
+  legendPart("a", resources.regular, RED);
+  legendPart(" = Absent     ");
+  legendPart("a", resources.regular, RED);
+  // Keep the red reason marker immediately above and to the right of its "a".
+  page.drawText("✓", { x: legendX + 0.5, y: legendY + 3.2, size: 4.5, font: checkFont, color: RED });
+  legendX += 5;
+  legendPart(" = Absent with reason     Grey = non-teaching / inactive; governed closure names appear in the register");
+  y -= 21;
 
-  page.drawText("I = Present   a = Absent   a", { x: MARGIN, y: y - 5, size: 5.4, font: resources.regular, color: MUTED });
-  page.drawText("✓", { x: MARGIN + 76, y: y - 3, size: 4.2, font: checkFont, color: RED });
-  page.drawText(" = Absent with reason   Grey = non-teaching / inactive", { x: MARGIN + 82, y: y - 5, size: 5.4, font: resources.regular, color: MUTED });
-  y -= 11;
+  const meta = [
+    ["BOYS/GIRLS:", section.label],
+    ["TERM:", `${document.termName}${input.pageCount > 1 ? ` · Page ${input.pageNumber}/${input.pageCount}` : ""}`],
+    ["TOTAL SCHOOL DAYS:", String(document.teachingDayCount)],
+    ["REGISTER CLASS:", document.className],
+    ["REGISTER TEACHER:", document.registerTeacherName],
+  ] as const;
+  const metaWidth = CONTENT_WIDTH / meta.length;
+  meta.forEach(([label, value], index) => {
+    const x = MARGIN + index * metaWidth;
+    drawCell(page, resources.regular, "", x, y, metaWidth, 17, { fill: RED_SOFT, borderWidth: 0.8 });
+    const labelSize = 5.6;
+    page.drawText(label, { x: x + 4, y: y - 11, size: labelSize, font: resources.bold, color: RED });
+    page.drawText(fitOfficialDocumentPdfText(resources.regular, ` ${value}`, 5.6, metaWidth - resources.bold.widthOfTextAtSize(label, labelSize) - 11), {
+      x: x + 4 + resources.bold.widthOfTextAtSize(label, labelSize),
+      y: y - 11,
+      size: 5.6,
+      font: resources.regular,
+      color: INK,
+    });
+  });
+  y -= 20;
 
   // Column geometry comes from the shared layout contract so the drawn PDF grid
   // matches the HTML/print preview exactly.
@@ -103,7 +132,7 @@ function drawPage(input: {
       drawCell(page, resources.bold, dayLabel, x, y, dayWidth, 22, { fill: day.teaching ? RED_SOFT : GREY, color: day.teaching ? RED : MUTED, size: day.teaching ? 5 : 4 });
       x += dayWidth;
     }
-    drawCell(page, resources.bold, "WEEK", x, y, dayWidth, 22, { fill: RED_SOFT, color: RED, size: 4.8 });
+    drawCell(page, resources.bold, "Tot.", x, y, dayWidth, 22, { fill: RED_SOFT, color: RED, size: 4.8 });
     x += dayWidth;
   }
   REGISTER_TEACHER_LAYOUT.termColumns.map((column) => column.header).forEach((label, index) => { drawCell(page, resources.bold, label, x, y, termWidths[index], 22, { fill: index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT, color: index === 1 ? RED : INK, size: 5 }); x += termWidths[index]; });
@@ -126,7 +155,7 @@ function drawPage(input: {
         }
         x += dayWidth;
       }
-      drawCell(page, resources.bold, `${weekPresent}/${weekPresent + weekAbsent}`, x, y, dayWidth, ROW_HEIGHT, { fill: RED_SOFT, size: 5.2 });
+      drawCell(page, resources.bold, String(weekPresent), x, y, dayWidth, ROW_HEIGHT, { fill: RED_SOFT, size: 5.2 });
       x += dayWidth;
     }
     [String(learner.termAttended), String(learner.termAbsent), String(learner.termDays)].forEach((value, termIndex) => { drawCell(page, resources.bold, value, x, y, termWidths[termIndex], ROW_HEIGHT, { fill: termIndex === 0 ? PURPLE_SOFT : termIndex === 1 ? RED_SOFT : GREEN_SOFT, color: termIndex === 1 ? RED : INK, size: 5.5 }); x += termWidths[termIndex]; });
@@ -160,8 +189,12 @@ function drawPage(input: {
   }
 
   const balance = registerTeacherBalance(section);
-  const balanceLabel = `Attendance ${balance.attendance}   Absence ${balance.absence}   Possible ${balance.possible}   Balance: ${balance.accounted} / ${balance.possible} ${balance.balanced ? "OK" : "!"}`;
-  page.drawText(balanceLabel, { x: PAGE_WIDTH - MARGIN - resources.bold.widthOfTextAtSize(balanceLabel, 6), y: Math.max(20, y - 10), size: 6, font: resources.bold, color: RED });
+  const balanceLabel = `Attendance ${balance.attendance}    Absence ${balance.absence}    Possible ${balance.possible}    Balance: ${balance.accounted} / ${balance.possible}`;
+  const balanceSize = 6;
+  const balanceX = PAGE_WIDTH - MARGIN - resources.bold.widthOfTextAtSize(balanceLabel, balanceSize) - 9;
+  const balanceY = Math.max(20, y - 10);
+  page.drawText(balanceLabel, { x: balanceX, y: balanceY, size: balanceSize, font: resources.bold, color: RED });
+  page.drawText(balance.balanced ? "✓" : "!", { x: PAGE_WIDTH - MARGIN - 6, y: balanceY + 1, size: 6, font: checkFont, color: RED });
   const governanceAlert = registerTeacherGovernanceAlert(document);
   if (governanceAlert) {
     page.drawText(fitOfficialDocumentPdfText(resources.bold, `Governance flag: ${governanceAlert}`, 5.2, CONTENT_WIDTH), {
