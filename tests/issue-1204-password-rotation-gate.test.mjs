@@ -273,6 +273,10 @@ test("staff identity and access actions independently enforce rotation clearance
     "resendExistingStaffInvitation",
     "addStaffRole",
     "endStaffRole",
+    "planStaffSchoolRole",
+    "endPlannedStaffSchoolRole",
+    "designateStaffOperationalHod",
+    "endStaffOperationalHod",
     "sendStaffPasswordReset",
     "sendStaffVerification",
   ]) {
@@ -291,6 +295,39 @@ test("staff corrections and reconciliation require rotation clearance", () => {
     const section = source.slice(start, start + 420);
     assert.match(section, /await requireStaffAccessSecurityClearance\(\)/);
   }
+});
+
+test("role and HOD planning actions fail closed on pending rotation and keep authorization for cleared administrators", () => {
+  const source = read("src/features/staff/server/access-actions.ts");
+  const gate = "await requireStaffAccessSecurityClearance()";
+  const sectionOf = (name) => {
+    const start = source.indexOf(`export async function ${name}(`);
+    assert.ok(start >= 0, name);
+    const next = source.indexOf("export async function ", start + 10);
+    return source.slice(start, next > start ? next : undefined);
+  };
+  const rpcByAction = {
+    planStaffSchoolRole: "plan_staff_school_role",
+    endPlannedStaffSchoolRole: "end_planned_staff_school_role",
+    designateStaffOperationalHod: "designate_staff_operational_hod",
+    endStaffOperationalHod: "end_staff_operational_hod",
+  };
+  for (const [name, rpc] of Object.entries(rpcByAction)) {
+    const section = sectionOf(name);
+    // Negative: a rotation-gated administrator is refused before anything runs.
+    assert.match(
+      section,
+      /if \(!\(await requireStaffAccessSecurityClearance\(\)\)\) return \{ message: "Complete account security setup before managing staff access\." \};/,
+      name,
+    );
+    assert.ok(section.indexOf(gate) < section.indexOf("supabase.rpc("), `${name} must clear rotation before its RPC`);
+    // Positive: a cleared administrator still reaches the existing tenant-scoped authorization path.
+    assert.match(section, /formData\.get\("schoolId"\)/, name);
+    assert.match(section, new RegExp(`supabase\\.rpc\\("${rpc}"`), name);
+  }
+  // The gate only blocks when the shared authority resolver cannot resolve a user,
+  // so an administrator with clearance (a resolved context) is not refused.
+  assert.match(source, /const context = await getUserContext\(\);\s*return Boolean\(context\.user\);/);
 });
 
 test("staff creation fails closed when shared authority is unavailable", () => {

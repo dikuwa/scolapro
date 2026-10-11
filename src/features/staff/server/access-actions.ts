@@ -134,6 +134,7 @@ export async function planStaffSchoolRole(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const today = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit",
   }).format(new Date());
@@ -159,6 +160,7 @@ export async function planStaffSchoolRole(
 }
 
 export async function endPlannedStaffSchoolRole(formData: FormData): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const schoolId = z.string().uuid().safeParse(formData.get("schoolId"));
   const roleId = z.string().uuid().safeParse(formData.get("plannedRoleId"));
   if (!schoolId.success || !roleId.success) return { message: "Invalid planned role." };
@@ -183,6 +185,7 @@ export async function designateStaffOperationalHod(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = operationalHodSchema.safeParse({
     schoolId: formData.get("schoolId"),
     staffMemberId: formData.get("staffMemberId"),
@@ -210,6 +213,7 @@ export async function endStaffOperationalHod(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = endOperationalHodSchema.safeParse({
     schoolId: formData.get("schoolId"),
     designationId: formData.get("designationId"),
