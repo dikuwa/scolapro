@@ -119,6 +119,71 @@ test("staging accepts an explicit non-production ref with synthetic-only", () =>
   assert.equal(env.production, false);
 });
 
+test("refuses an explicit production project ref on the local target", () => {
+  assert.throws(
+    () =>
+      resolveE2EEnvironment({
+        SCOLAPRO_E2E_SUPABASE_PROJECT_REF: PRODUCTION_PROJECT_REF,
+      }),
+    E2EEnvironmentError,
+  );
+});
+
+test("refuses staging when the app URL is the production project", () => {
+  assert.throws(
+    () =>
+      resolveE2EEnvironment({
+        SCOLAPRO_E2E_TARGET: "staging",
+        PLAYWRIGHT_BASE_URL: "https://staging.scolapro.test",
+        SCOLAPRO_E2E_SUPABASE_PROJECT_REF: STAGING_REF,
+        SCOLAPRO_E2E_SYNTHETIC_ONLY: "1",
+        NEXT_PUBLIC_SUPABASE_URL: `https://${PRODUCTION_PROJECT_REF}.supabase.co`,
+      }),
+    E2EEnvironmentError,
+  );
+});
+
+test("refuses staging when the app URL ref does not match the declared ref", () => {
+  assert.throws(
+    () =>
+      resolveE2EEnvironment({
+        SCOLAPRO_E2E_TARGET: "staging",
+        PLAYWRIGHT_BASE_URL: "https://staging.scolapro.test",
+        SCOLAPRO_E2E_SUPABASE_PROJECT_REF: STAGING_REF,
+        SCOLAPRO_E2E_SYNTHETIC_ONLY: "1",
+        NEXT_PUBLIC_SUPABASE_URL: "https://zyxwvutsrqponmlkjihg.supabase.co",
+      }),
+    E2EEnvironmentError,
+  );
+});
+
+test("refuses an unknown target", () => {
+  assert.throws(
+    () => resolveE2EEnvironment({ SCOLAPRO_E2E_TARGET: "production" }),
+    E2EEnvironmentError,
+  );
+});
+
+test("refuses a base URL that is not a valid URL", () => {
+  assert.throws(
+    () => resolveE2EEnvironment({ PLAYWRIGHT_BASE_URL: "not a url" }),
+    E2EEnvironmentError,
+  );
+});
+
+test("refuses a production Vercel host regardless of declared target", () => {
+  assert.throws(
+    () =>
+      resolveE2EEnvironment({
+        SCOLAPRO_E2E_TARGET: "staging",
+        PLAYWRIGHT_BASE_URL: "https://scola-pro.vercel.app",
+        SCOLAPRO_E2E_SUPABASE_PROJECT_REF: STAGING_REF,
+        SCOLAPRO_E2E_SYNTHETIC_ONLY: "1",
+      }),
+    E2EEnvironmentError,
+  );
+});
+
 test("rejection helper returns null when safe and a reason when unsafe", () => {
   assert.equal(e2eEnvironmentRejection({}), null);
   assert.match(

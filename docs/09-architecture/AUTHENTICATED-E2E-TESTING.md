@@ -132,10 +132,48 @@ infrastructure approval (a Supabase project slot and CI secrets). When approved:
 4. Apply migrations and seed **synthetic** data only — never restore production
    learner data into staging.
 
+## Security boundaries
+
+The harness must never be able to read or write production learner data. These
+properties are enforced, not just documented:
+
+- **Every entry point resolves through the guard.** `playwright.config.ts`,
+  `scripts/e2e-run.mjs`, `scripts/e2e-guard.mjs`, the seed script and CI all call
+  `resolveE2EEnvironment()`. The Playwright config resolves from the merged
+  `.env`/`.env.local` that the dev server itself reads (not only `process.env`),
+  so a production Supabase URL configured for the app cannot bypass the
+  config-level guard. Verified: a poisoned `.env.local` with the production ref
+  makes `playwright test --list` abort with `E2EEnvironmentError`.
+- **Writes are local-only.** `scripts/seed-e2e-fixtures.mjs` reads its target from
+  `supabase status` (the local stack) and refuses any non-loopback API URL. It
+  never reads a hosted `NEXT_PUBLIC_SUPABASE_URL` to decide where to write.
+- **No destructive reset in tooling.** The E2E scripts never run `supabase db
+  reset`. CI runs it once against the throwaway local stack; no `--linked`
+  target is used anywhere.
+- **No credential persistence.** The suite never writes `storageState` or cookie
+  jars; sessions live in memory for the run only.
+- **No secret values in logs.** The seed prints synthetic account emails and
+  capture outcomes only; the runner prints the resolved target, base URL and ref.
+  The committed `SCOLAPRO_E2E_PASSWORD` (`LocalE2ePassword2026`) is a synthetic
+  local-only value that exists solely inside the per-job throwaway stack.
+- **No session material in CI artifacts.** A Playwright HTML report is
+  self-contained and embeds captured traces (which record request headers). CI
+  therefore sets `trace: "off"` and `video: "off"`; the uploaded report contains
+  only the test list and failure screenshots (page pixels, no credentials). Local
+  runs keep `trace: "on-first-retry"` for debugging and are never uploaded.
+
 ## Known limitations
 
 - The suite runs against the local stack in CI. Tests that need a persistent
   hosted environment are not exercised until staging is approved.
+- The production-host check refuses `*.vercel.app` and the known production alias.
+  A hypothetical custom (non-Vercel) production domain is not recognised as a
+  production host by name; it is still blocked from a default run because any
+  non-loopback base URL requires the `staging` target, an explicit non-production
+  Supabase ref and `SCOLAPRO_E2E_SYNTHETIC_ONLY=1`, and the app's Supabase ref may
+  never be the production project.
+- CI disables traces/videos (see Security boundaries), so a CI-only failure must
+  be reproduced locally to obtain a trace.
 - The database-level defense-in-depth for a forged non-teaching-day submission
   (`submitDailyRegister` returning "This date is marked as a non-teaching day…")
   is not reachable through the UI, because the entry surface is replaced by the
@@ -147,6 +185,5 @@ infrastructure approval (a Supabase project slot and CI secrets). When approved:
   transient success toast. The toast fired by `submitDailyRegister` is cleared by
   the `router.refresh()` that immediately follows it, so it is not a stable
   assertion target; the pre-navigation warning toast (unsaved changes) does render
-  and is asserted in `e2e/draft-protection.spec.ts`. This is recorded as an
-  observation for the Control Room, not a release blocker — the submit control
-  still shows a pending spinner and the post-save state is deterministic.
+  and is asserted in `e2e/draft-protection.spec.ts`. The underlying UX defect is
+  tracked separately (issue #1229) and is out of scope for this harness.

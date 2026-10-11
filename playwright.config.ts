@@ -1,9 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 import { resolveE2EEnvironment } from "./e2e/support/env-guard.mjs";
+import { mergedProjectEnv } from "./scripts/env-file.mjs";
 
-// Fail closed before a single browser is launched. If the resolved target could
-// touch production, `resolveE2EEnvironment` throws and Playwright never starts.
-const environment = resolveE2EEnvironment();
+// Fail closed before a single browser is launched. Resolve from the same
+// `.env`/`.env.local` that the Next.js dev server will read, not just
+// `process.env`: a production Supabase URL configured for the app must not be
+// able to slip past the config-level guard. If the resolved target could touch
+// production, `resolveE2EEnvironment` throws and Playwright never starts.
+const environment = resolveE2EEnvironment(mergedProjectEnv(process.cwd()));
 
 const channel = process.env.PLAYWRIGHT_CHANNEL?.trim() || undefined;
 const manageWebServer = process.env.PLAYWRIGHT_MANAGE_WEBSERVER !== "0";
@@ -29,9 +33,14 @@ export default defineConfig({
   outputDir: "test-results",
   use: {
     baseURL: environment.baseUrl,
-    trace: "on-first-retry",
+    // CI uploads the HTML report as a repository artifact, and a Playwright HTML
+    // report is self-contained: it embeds any captured trace/video. Traces record
+    // request headers (session cookies), so CI captures neither — only failure
+    // screenshots (page pixels, no credentials) are retained. Local runs keep
+    // traces for debugging; local artifacts are never uploaded.
+    trace: process.env.CI ? "off" : "on-first-retry",
     screenshot: "only-on-failure",
-    video: process.env.CI ? "retain-on-failure" : "off",
+    video: "off",
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
   },
