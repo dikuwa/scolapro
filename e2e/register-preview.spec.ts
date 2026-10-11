@@ -15,6 +15,27 @@ test.describe("inline register document preview and PDF", () => {
     const frame = page.locator('iframe[title*="inline document"]');
     await expect(frame).toBeVisible({ timeout: 45_000 });
 
+    // The HTML sheet must fill the available preview frame without the
+    // fixed-width left-aligned canvas seen in #1234.
+    const sheet = frame.contentFrame().locator(".sheet");
+    await expect(sheet).toBeVisible();
+    const geometry = await frame.evaluate((element) => {
+      const frameRect = element.getBoundingClientRect();
+      const doc = (element as HTMLIFrameElement).contentDocument;
+      const sheetRect = doc?.querySelector(".sheet")?.getBoundingClientRect();
+      if (!sheetRect) return null;
+      return {
+        viewport: frameRect.width,
+        width: sheetRect.width,
+        left: sheetRect.left,
+        right: frameRect.width - sheetRect.right,
+      };
+    });
+    expect(geometry).not.toBeNull();
+    expect(geometry!.width).toBeGreaterThan(geometry!.viewport * 0.9);
+    expect(Math.abs(geometry!.left - geometry!.right)).toBeLessThan(16);
+
+
     // The same resolved document backs the PDF download control.
     const [download] = await Promise.all([
       page.waitForEvent("download", { timeout: 45_000 }),
