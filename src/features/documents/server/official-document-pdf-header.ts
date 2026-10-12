@@ -223,7 +223,7 @@ function drawInternalHeader(
 
   const internalDetails = [
     ...header.contactLines.map(({ label, value }) => ({ label, value })),
-    ...(!header.contactLines.length ? header.postalLines.map((value) => ({ label: "", value })) : []),
+    ...(!header.contactLines.some((line) => line.key === "address") ? header.postalLines.map((value) => ({ label: "", value })) : []),
     ...(header.schoolEmisNumber ? [{ label: "EMIS", value: header.schoolEmisNumber }] : []),
   ].slice(0, 5);
   internalDetails.forEach(({ label: rawLabel, value }) => {
