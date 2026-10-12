@@ -6,18 +6,22 @@ import path from "node:path";
 import { PRODUCTION_PROJECT_REF } from "../e2e/support/env-guard.mjs";
 import {
   StagingSeedError,
+  isApprovedStagingTarget,
   resolveStagingSeedIdentity,
   resolveStagingManagementTarget,
 } from "../e2e/support/staging-seed-guard.mjs";
 import {
   BASELINE,
   BASELINE_CALENDAR_ROUTINES,
+  REQUIRED_APP_PRIVATE_FUNCTIONS,
+  REQUIRED_MIGRATION_VERSIONS,
   REQUIRED_TABLES,
-  applyBaselineViaManagementApi,
+  applyApprovedStagingBaseline,
   assertBaselinePresent,
   assertSchemaReady,
   buildBaselineSql,
   runStagingBaselineBootstrap,
+  verifyStagingPrerequisites,
 } from "../e2e/support/staging-baseline.mjs";
 
 const STAGING_REF = "abcdefghijklmnopqrst"; // exactly 20 chars
@@ -29,11 +33,25 @@ const SEED_SQL = readFileSync(
 function identityEnv(overrides = {}) {
   return {
     SCOLAPRO_E2E_SYNTHETIC_ONLY: "1",
+    SCOLAPRO_E2E_APPROVED_STAGING_REFS: STAGING_REF,
     SCOLAPRO_E2E_SUPABASE_PROJECT_REF: STAGING_REF,
     STAGING_SUPABASE_URL: `https://${STAGING_REF}.supabase.co`,
     ...overrides,
   };
 }
+
+function recordingFetch({ ok = true, status = 200, body = [], textBody = "" } = {}) {
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push({ url, init });
+    return { ok, status, json: async () => body, text: async () => textBody };
+  };
+  return { fetchImpl, calls };
+}
+
+const COMPLETE_PREREQS = [
+  { versions: [...REQUIRED_MIGRATION_VERSIONS], functions: [...REQUIRED_APP_PRIVATE_FUNCTIONS] },
+];
 
 // ---------------------------------------------------------------------------
 // Baseline SQL: deterministic, idempotent, and in parity with supabase/seed.sql
@@ -71,34 +89,61 @@ test("baseline SQL stays in parity with supabase/seed.sql", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Read-only verification: explicit errors when the schema or baseline is absent
+// Fake PostgREST client for exact-row verification
 // ---------------------------------------------------------------------------
 
-function fakeClient({ school = BASELINE.school, classes = null, enrolmentCount = 2, missingTable = null } = {}) {
-  const presentClasses = classes ?? BASELINE.registerClasses;
+function baselineRows() {
+  return {
+    tenants: { [BASELINE.tenant.id]: { ...BASELINE.tenant } },
+    schools: { [BASELINE.school.id]: { ...BASELINE.school } },
+    grades: Object.fromEntries(
+      BASELINE.grades.map((grade) => [
+        grade.id,
+        { tenant_id: BASELINE.tenant.id, school_id: BASELINE.school.id, ...grade },
+      ]),
+    ),
+    register_classes: Object.fromEntries(
+      BASELINE.registerClasses.map((klass) => [
+        klass.id,
+        { tenant_id: BASELINE.tenant.id, school_id: BASELINE.school.id, ...klass },
+      ]),
+    ),
+    learners: Object.fromEntries(
+      BASELINE.learners.map((learner) => [learner.id, { tenant_id: BASELINE.tenant.id, ...learner }]),
+    ),
+    enrolments: Object.fromEntries(
+      BASELINE.enrolments.map((enrolment) => [
+        enrolment.id,
+        { tenant_id: BASELINE.tenant.id, school_id: BASELINE.school.id, ...enrolment },
+      ]),
+    ),
+  };
+}
+
+function fakeClient({ missingTable = null, remove = [], patch = [] } = {}) {
+  const rows = baselineRows();
+  for (const [table, id] of remove) delete rows[table]?.[id];
+  for (const [table, id, changes] of patch) {
+    if (rows[table]?.[id]) Object.assign(rows[table][id], changes);
+  }
+
   function query(table) {
+    let idFilter = null;
     const api = {
       select() {
         return api;
       },
-      eq() {
-        return api;
-      },
-      in() {
+      eq(column, value) {
+        if (column === "id") idFilter = value;
         return api;
       },
       maybeSingle() {
-        return { data: table === "schools" ? school : null, error: null };
+        const row = idFilter ? rows[table]?.[idFilter] : null;
+        return { data: row ? { ...row } : null, error: null };
       },
       then(resolve) {
         if (missingTable === table) {
           return Promise.resolve({ error: { message: "relation does not exist" } }).then(resolve);
-        }
-        if (table === "register_classes") {
-          return Promise.resolve({ data: presentClasses.map((klass) => ({ id: klass.id })), error: null }).then(resolve);
-        }
-        if (table === "enrolments") {
-          return Promise.resolve({ data: null, count: enrolmentCount, error: null }).then(resolve);
         }
         return Promise.resolve({ data: null, error: null }).then(resolve);
       },
@@ -120,100 +165,170 @@ test("schema preflight fails explicitly when a migration is missing", async () =
   );
 });
 
+// ---------------------------------------------------------------------------
+// Exact synthetic-row verification (collision detection)
+// ---------------------------------------------------------------------------
+
+test("baseline verification passes for an exact synthetic baseline", async () => {
+  await assert.doesNotReject(() => assertBaselinePresent(fakeClient()));
+});
+
 test("baseline verification fails when the demo school is missing", async () => {
   await assert.rejects(
-    () => assertBaselinePresent(fakeClient({ school: null })),
-    (error) => error instanceof StagingSeedError && /demo school/i.test(error.message),
+    () => assertBaselinePresent(fakeClient({ remove: [["schools", BASELINE.school.id]] })),
+    (error) => error instanceof StagingSeedError && /missing/i.test(error.message),
   );
 });
 
 test("baseline verification fails when a demo register class is missing", async () => {
   await assert.rejects(
-    () => assertBaselinePresent(fakeClient({ classes: [BASELINE.registerClasses[0]] })),
-    (error) => error instanceof StagingSeedError && /register class/i.test(error.message),
+    () => assertBaselinePresent(fakeClient({ remove: [["register_classes", BASELINE.registerClasses[1].id]] })),
+    (error) => error instanceof StagingSeedError && /missing/i.test(error.message),
   );
 });
 
-test("baseline verification fails when demo enrolments are absent", async () => {
-  await assert.rejects(
-    () => assertBaselinePresent(fakeClient({ enrolmentCount: 0 })),
-    (error) => error instanceof StagingSeedError && /enrolment/i.test(error.message),
-  );
-});
-
-test("baseline verification passes for a complete baseline", async () => {
-  await assert.doesNotReject(() => assertBaselinePresent(fakeClient()));
-});
-
-// ---------------------------------------------------------------------------
-// Write entrypoints: refuse before any network call on denied cases
-// ---------------------------------------------------------------------------
-
-test("baseline SQL applier refuses the production ref without calling fetch", async () => {
-  let called = 0;
-  const fetchImpl = async () => {
-    called += 1;
-    return { ok: true, json: async () => ({}) };
-  };
+test("baseline verification fails on a non-synthetic collision", async () => {
   await assert.rejects(
     () =>
-      applyBaselineViaManagementApi({
-        projectRef: PRODUCTION_PROJECT_REF,
-        accessToken: "token",
-        sql: "select 1;",
+      assertBaselinePresent(
+        fakeClient({ patch: [["schools", BASELINE.school.id, { name: "Real School" }]] }),
+      ),
+    (error) => error instanceof StagingSeedError && /collision/i.test(error.message),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Privileged write surface: no arbitrary SQL, branded target only
+// ---------------------------------------------------------------------------
+
+test("baseline applier refuses a hand-built target without making a request", async () => {
+  const { fetchImpl, calls } = recordingFetch();
+  await assert.rejects(
+    () =>
+      applyApprovedStagingBaseline({
+        target: { projectRef: STAGING_REF, accessToken: "token" },
         fetchImpl,
       }),
     StagingSeedError,
   );
-  assert.equal(called, 0, "no request may be issued for a production ref");
+  assert.equal(calls.length, 0);
 });
 
-test("baseline SQL applier refuses a missing access token", async () => {
-  await assert.rejects(
-    () => applyBaselineViaManagementApi({ projectRef: STAGING_REF, accessToken: "", sql: "select 1;", fetchImpl: async () => ({ ok: true, json: async () => ({}) }) }),
-    StagingSeedError,
-  );
-});
-
-test("bootstrap refuses production identifiers before any write", async () => {
-  let called = 0;
-  const fetchImpl = async () => {
-    called += 1;
-    return { ok: true, json: async () => ({}) };
-  };
+test("baseline applier refuses an unbranded production target without a request", async () => {
+  const { fetchImpl, calls } = recordingFetch();
   await assert.rejects(
     () =>
-      runStagingBaselineBootstrap({
-        env: identityEnv({
-          SCOLAPRO_E2E_SUPABASE_PROJECT_REF: PRODUCTION_PROJECT_REF,
-          STAGING_SUPABASE_URL: `https://${PRODUCTION_PROJECT_REF}.supabase.co`,
-          SUPABASE_ACCESS_TOKEN: "token",
-        }),
+      applyApprovedStagingBaseline({
+        target: { projectRef: PRODUCTION_PROJECT_REF, accessToken: "token" },
         fetchImpl,
       }),
     StagingSeedError,
   );
-  assert.equal(called, 0, "no unauthorized write may occur on a denied case");
+  assert.equal(calls.length, 0);
 });
 
-test("bootstrap applies deterministic SQL to the guarded staging ref only", async () => {
-  let captured = null;
-  const fetchImpl = async (url, init) => {
-    captured = { url, init };
-    return { ok: true, json: async () => ({}) };
-  };
+test("baseline applier ignores caller-supplied SQL (never an arbitrary executor)", async () => {
+  const { fetchImpl, calls } = recordingFetch();
+  const target = resolveStagingManagementTarget(identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  await applyApprovedStagingBaseline({
+    target,
+    sql: "drop table public.learners;",
+    fetchImpl,
+  });
+  assert.equal(calls.length, 1);
+  const posted = JSON.parse(calls[0].init.body).query;
+  assert.equal(posted, buildBaselineSql());
+  assert.ok(!posted.includes("drop table"), "caller SQL must never be executed");
+});
+
+// ---------------------------------------------------------------------------
+// Version/function preflight
+// ---------------------------------------------------------------------------
+
+test("prerequisite preflight passes when versions and functions are present", async () => {
+  const { fetchImpl } = recordingFetch({ body: COMPLETE_PREREQS });
+  const target = resolveStagingManagementTarget(identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  await assert.doesNotReject(() => verifyStagingPrerequisites({ target, fetchImpl }));
+});
+
+test("prerequisite preflight fails on a missing migration version", async () => {
+  const { fetchImpl } = recordingFetch({
+    body: [{ versions: [REQUIRED_MIGRATION_VERSIONS[0]], functions: [...REQUIRED_APP_PRIVATE_FUNCTIONS] }],
+  });
+  const target = resolveStagingManagementTarget(identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  await assert.rejects(
+    () => verifyStagingPrerequisites({ target, fetchImpl }),
+    (error) => error instanceof StagingSeedError && /migration version/i.test(error.message),
+  );
+});
+
+test("prerequisite preflight fails on a missing function", async () => {
+  const { fetchImpl } = recordingFetch({
+    body: [{ versions: [...REQUIRED_MIGRATION_VERSIONS], functions: [] }],
+  });
+  const target = resolveStagingManagementTarget(identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  await assert.rejects(
+    () => verifyStagingPrerequisites({ target, fetchImpl }),
+    (error) => error instanceof StagingSeedError && /function/i.test(error.message),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Sanitized Management-API failures
+// ---------------------------------------------------------------------------
+
+test("management API failures are sanitized and never echo the response body", async () => {
+  const secret = "sb_secret_leaky_token_value";
+  const { fetchImpl } = recordingFetch({ ok: false, status: 500, textBody: `boom ${secret} drop table x` });
+  const target = resolveStagingManagementTarget(identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  await assert.rejects(
+    () => applyApprovedStagingBaseline({ target, fetchImpl }),
+    (error) => {
+      assert.ok(error instanceof StagingSeedError);
+      assert.match(error.message, /HTTP 500/);
+      assert.ok(!error.message.includes(secret), "must not leak secrets");
+      assert.ok(!/drop table/.test(error.message), "must not leak SQL fragments");
+      return true;
+    },
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Guarded orchestration: every denied path makes zero requests
+// ---------------------------------------------------------------------------
+
+test("bootstrap makes zero requests for denied environments", async () => {
+  const denied = [
+    identityEnv({
+      SCOLAPRO_E2E_SUPABASE_PROJECT_REF: PRODUCTION_PROJECT_REF,
+      STAGING_SUPABASE_URL: `https://${PRODUCTION_PROJECT_REF}.supabase.co`,
+      SUPABASE_ACCESS_TOKEN: "token",
+    }),
+    identityEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "", SUPABASE_ACCESS_TOKEN: "token" }), // no allowlist
+    identityEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "zyxwvutsrqponmlkjihg", SUPABASE_ACCESS_TOKEN: "token" }),
+    identityEnv({ SCOLAPRO_E2E_SYNTHETIC_ONLY: "0", SUPABASE_ACCESS_TOKEN: "token" }),
+    identityEnv(), // missing access token
+  ];
+  for (const env of denied) {
+    const { fetchImpl, calls } = recordingFetch();
+    await assert.rejects(() => runStagingBaselineBootstrap({ env, fetchImpl }));
+    assert.equal(calls.length, 0, `no request may be issued for ${JSON.stringify(env.SCOLAPRO_E2E_SUPABASE_PROJECT_REF)}`);
+  }
+});
+
+test("bootstrap verifies then applies to the approved staging ref only", async () => {
+  const { fetchImpl, calls } = recordingFetch({ body: COMPLETE_PREREQS });
   await runStagingBaselineBootstrap({
     env: identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }),
     fetchImpl,
     log: () => {},
   });
-
-  assert.ok(captured, "a request should be issued for a valid staging target");
-  assert.match(captured.url, new RegExp(`/projects/${STAGING_REF}/database/query$`));
-  assert.ok(!captured.url.includes(PRODUCTION_PROJECT_REF), "must never target production");
-  const body = JSON.parse(captured.init.body);
-  assert.match(body.query, /insert into public\.tenants/);
-  assert.match(body.query, /insert into public\.register_classes/);
+  assert.equal(calls.length, 2, "expected a read-only preflight then a single baseline apply");
+  for (const call of calls) {
+    assert.match(call.url, new RegExp(`/projects/${STAGING_REF}/database/query$`));
+    assert.ok(!call.url.includes(PRODUCTION_PROJECT_REF));
+  }
+  assert.match(JSON.parse(calls[1].init.body).query, /insert into public\.register_classes/);
 });
 
 // ---------------------------------------------------------------------------
@@ -223,7 +338,6 @@ test("bootstrap applies deterministic SQL to the guarded staging ref only", asyn
 test("identity resolves from non-secret environment only", () => {
   const identity = resolveStagingSeedIdentity(identityEnv());
   assert.equal(identity.projectRef, STAGING_REF);
-  // No secret-bearing keys are present in the environment above.
   assert.equal(identity.production, false);
 });
 
@@ -234,10 +348,6 @@ test("identity refuses production refs and ambiguous identities", () => {
   );
   assert.throws(
     () => resolveStagingSeedIdentity(identityEnv({ STAGING_PROJECT_ID: "zyxwvutsrqponmlkjihg" })),
-    StagingSeedError,
-  );
-  assert.throws(
-    () => resolveStagingSeedIdentity(identityEnv({ SCOLAPRO_E2E_SYNTHETIC_ONLY: "0" })),
     StagingSeedError,
   );
 });
@@ -254,4 +364,9 @@ test("management target requires an access token and refuses production", () => 
       ),
     StagingSeedError,
   );
+});
+
+test("approved management targets are branded", () => {
+  const target = resolveStagingManagementTarget(identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  assert.equal(isApprovedStagingTarget(target), true);
 });

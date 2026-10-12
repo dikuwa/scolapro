@@ -2,8 +2,8 @@
 //
 // The local seed (`scripts/seed-e2e-fixtures.mjs`) can only ever reach the local
 // Supabase stack. A hosted staging seed must additionally prove it is pointed at
-// an isolated, non-production project before it opens a client or issues any
-// request — because it writes rows and runs baseline SQL.
+// an isolated, non-production, **explicitly approved** project before it opens a
+// client or issues any request — because it writes rows and runs baseline SQL.
 //
 // This module is intentionally dependency-free plain JavaScript so it can be unit
 // tested with `node --test`. It reuses the production-host and project-ref rules
@@ -19,9 +19,16 @@
 //   - `resolveStagingManagementTarget` — identity + the Supabase access token,
 //     for Management-API baseline SQL.
 //
+// The two credential-bearing resolvers return **branded** objects: only objects
+// they created are accepted by the write helpers (`isApprovedStagingTarget`).
+// A plain `{ projectRef, accessToken }` object cannot be forged into an approved
+// target, so the SQL applier is not a general-purpose query executor.
+//
 // Every resolver refuses, before any network/write, when:
 //   - `SCOLAPRO_E2E_SYNTHETIC_ONLY` is not exactly "1";
 //   - the declared staging ref is missing, malformed, or the production ref;
+//   - the declared ref is not on the explicit approval allowlist
+//     `SCOLAPRO_E2E_APPROVED_STAGING_REFS` (missing or unapproved identity);
 //   - `STAGING_PROJECT_ID` and `SCOLAPRO_E2E_SUPABASE_PROJECT_REF` disagree;
 //   - the staging URL is missing, not a hosted Supabase URL, a production host,
 //     or its project ref differs from the declared ref (ambiguous identity);
@@ -44,8 +51,29 @@ export class StagingSeedError extends Error {
 /** Hosted Supabase project refs are exactly 20 lowercase alphanumeric characters. */
 const REF_PATTERN = /^[a-z0-9]{20}$/;
 
+/** Brand for objects produced by the credential-bearing resolvers. Unforgeable. */
+const approvedTargets = new WeakSet();
+
+/**
+ * True only for a target object created by `resolveStagingSeedTarget` or
+ * `resolveStagingManagementTarget`. A hand-built object is never approved.
+ */
+export function isApprovedStagingTarget(value) {
+  return typeof value === "object" && value !== null && approvedTargets.has(value);
+}
+
 function read(env, key) {
   return String(env?.[key] ?? "").trim();
+}
+
+/** Parses the approval allowlist into a set of refs. */
+function approvedRefAllowlist(env) {
+  return new Set(
+    read(env, "SCOLAPRO_E2E_APPROVED_STAGING_REFS")
+      .split(/[\s,]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  );
 }
 
 /**
@@ -92,6 +120,22 @@ export function resolveStagingSeedIdentity(env = process.env) {
     );
   }
 
+  // Approval binding: a runtime ref alone does not establish that a project is
+  // truly staging. The ref must be on the explicit, separately approved allowlist.
+  const allowlist = approvedRefAllowlist(env);
+  if (allowlist.size === 0) {
+    throw new StagingSeedError(
+      "SCOLAPRO_E2E_APPROVED_STAGING_REFS must list the explicitly approved staging ref(s) " +
+        "(missing approval allowlist)",
+    );
+  }
+  if (!allowlist.has(declaredRef)) {
+    throw new StagingSeedError(
+      `the declared staging ref "${declaredRef}" is not on the approved staging allowlist ` +
+        "(unapproved identity)",
+    );
+  }
+
   const workflowRef = read(env, "STAGING_PROJECT_ID");
   if (workflowRef && workflowRef !== declaredRef) {
     throw new StagingSeedError(
@@ -134,7 +178,7 @@ export function resolveStagingSeedIdentity(env = process.env) {
 
 /**
  * Resolves the identity plus the staging service-role key used for PostgREST
- * (supabase-js) writes. Returns `{ ...identity, serviceRoleKey }`.
+ * (supabase-js) writes. Returns a branded `{ ...identity, serviceRoleKey }`.
  *
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
@@ -165,12 +209,14 @@ export function resolveStagingSeedTarget(env = process.env) {
     );
   }
 
-  return { ...identity, serviceRoleKey };
+  const target = Object.freeze({ ...identity, serviceRoleKey });
+  approvedTargets.add(target);
+  return target;
 }
 
 /**
  * Resolves the identity plus the Supabase access token used for Management-API
- * baseline SQL. Returns `{ ...identity, accessToken }`.
+ * baseline SQL. Returns a branded `{ ...identity, accessToken }`.
  *
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
@@ -182,7 +228,9 @@ export function resolveStagingManagementTarget(env = process.env) {
     throw new StagingSeedError("SUPABASE_ACCESS_TOKEN is required to apply baseline SQL");
   }
 
-  return { ...identity, accessToken };
+  const target = Object.freeze({ ...identity, accessToken });
+  approvedTargets.add(target);
+  return target;
 }
 
 /** Returns the reason a candidate staging environment is unsafe, or null when safe. */

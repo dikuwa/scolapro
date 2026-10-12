@@ -2,7 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   StagingSeedError,
+  isApprovedStagingTarget,
   resolveStagingSeedTarget,
+  resolveStagingManagementTarget,
   stagingSeedRejection,
   supabaseRefFromKey,
 } from "../e2e/support/staging-seed-guard.mjs";
@@ -16,6 +18,7 @@ const PASSWORD = "LocalE2ePassword2026";
 function validEnv(overrides = {}) {
   return {
     SCOLAPRO_E2E_SYNTHETIC_ONLY: "1",
+    SCOLAPRO_E2E_APPROVED_STAGING_REFS: STAGING_REF,
     SCOLAPRO_E2E_SUPABASE_PROJECT_REF: STAGING_REF,
     STAGING_SUPABASE_URL: `https://${STAGING_REF}.supabase.co`,
     STAGING_SUPABASE_SERVICE_ROLE_KEY: "sb_secret_staging_example_value",
@@ -48,6 +51,43 @@ test("accepts a legacy JWT staging key whose ref matches the declared ref", () =
     validEnv({ STAGING_SUPABASE_SERVICE_ROLE_KEY: jwtKeyForRef(STAGING_REF) }),
   );
   assert.equal(target.projectRef, STAGING_REF);
+});
+
+// ---------------------------------------------------------------------------
+// Approval binding and target branding
+// ---------------------------------------------------------------------------
+
+test("refuses when the approval allowlist is missing", () => {
+  const env = validEnv();
+  delete env.SCOLAPRO_E2E_APPROVED_STAGING_REFS;
+  assert.throws(
+    () => resolveStagingSeedTarget(env),
+    (error) => error instanceof StagingSeedError && /approv/i.test(error.message),
+  );
+});
+
+test("refuses a ref that is not on the approval allowlist", () => {
+  assert.throws(
+    () => resolveStagingSeedTarget(validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "zyxwvutsrqponmlkjihg" })),
+    (error) => error instanceof StagingSeedError && /unapproved|approv/i.test(error.message),
+  );
+});
+
+test("accepts a ref that appears in a multi-entry approval allowlist", () => {
+  const target = resolveStagingSeedTarget(
+    validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: `zyxwvutsrqponmlkjihg, ${STAGING_REF}` }),
+  );
+  assert.equal(target.projectRef, STAGING_REF);
+});
+
+test("credential resolvers return branded approved targets only", () => {
+  const seedTarget = resolveStagingSeedTarget(validEnv());
+  const managementTarget = resolveStagingManagementTarget(validEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  assert.equal(isApprovedStagingTarget(seedTarget), true);
+  assert.equal(isApprovedStagingTarget(managementTarget), true);
+  assert.equal(isApprovedStagingTarget({ projectRef: STAGING_REF, accessToken: "token" }), false);
+  assert.equal(isApprovedStagingTarget(null), false);
+  assert.equal(isApprovedStagingTarget("staging"), false);
 });
 
 // ---------------------------------------------------------------------------

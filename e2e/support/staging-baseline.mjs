@@ -14,14 +14,26 @@
 //   - The baseline must therefore run as SQL, and only through a guarded,
 //     non-production path.
 //
-// Nothing here is executed at import time. Every write entrypoint resolves
-// through `staging-seed-guard.mjs` first and refuses before any network call.
+// Security posture:
+//   - The SQL applier is NOT a general query executor. It accepts no caller SQL
+//     and requires a **branded** target produced by `resolveStagingManagementTarget`
+//     (`isApprovedStagingTarget`). A hand-built `{ projectRef, accessToken }`
+//     object is refused before any request.
+//   - A read-only preflight verifies applied migration versions and the required
+//     `app_private` functions before any write.
+//   - Management-API failures never echo the response body (which could contain
+//     secrets or SQL fragments) — only the HTTP status.
+//
+// Nothing here is executed at import time.
 
 import { PRODUCTION_PROJECT_REF } from "./env-guard.mjs";
 import {
   StagingSeedError,
+  isApprovedStagingTarget,
   resolveStagingManagementTarget,
 } from "./staging-seed-guard.mjs";
+
+const MANAGEMENT_API = "https://api.supabase.com";
 
 /** Demo tenant / school / structure. Mirrors `supabase/seed.sql` exactly. */
 export const BASELINE = Object.freeze({
@@ -69,8 +81,23 @@ export const BASELINE_CALENDAR_ROUTINES = Object.freeze([
 ]);
 
 /**
+ * Migration versions that must already be applied before the baseline can run.
+ * The two calendar routines live in these migrations.
+ */
+export const REQUIRED_MIGRATION_VERSIONS = Object.freeze([
+  "20261004110740",
+  "20261006212006",
+]);
+
+/** `app_private` functions the baseline depends on (not PostgREST-exposed). */
+export const REQUIRED_APP_PRIVATE_FUNCTIONS = Object.freeze([
+  "recover_namib_high_2026_learner_calendar",
+  "apply_namib_high_2026_operational_calendar_source",
+]);
+
+/**
  * Tables that must exist before the baseline/world seed can run. This is the
- * migration preflight: a missing table means migrations were not applied.
+ * table-level migration preflight; a missing table means migrations were not applied.
  */
 export const REQUIRED_TABLES = Object.freeze([
   "tenants",
@@ -162,6 +189,92 @@ export function buildBaselineSql() {
   return `${statements.join("\n\n")}\n`;
 }
 
+// ---------------------------------------------------------------------------
+// Guarded Management-API access
+// ---------------------------------------------------------------------------
+
+function assertApprovedTarget(target) {
+  if (!isApprovedStagingTarget(target)) {
+    throw new StagingSeedError(
+      "refusing Management-API access: target was not produced by the approved staging resolver",
+    );
+  }
+  if (!target.projectRef || target.projectRef === PRODUCTION_PROJECT_REF) {
+    throw new StagingSeedError(
+      "refusing Management-API access: target is not an approved isolated staging ref",
+    );
+  }
+}
+
+/**
+ * Issues a read-only or baseline Management-API query for an approved target.
+ * Never echoes the response body, which may contain secrets or SQL fragments.
+ */
+async function runManagementQuery({ target, sql, fetchImpl = globalThis.fetch }) {
+  assertApprovedTarget(target);
+  const response = await fetchImpl(
+    `${MANAGEMENT_API}/v1/projects/${target.projectRef}/database/query`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${target.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query: sql }),
+    },
+  );
+  if (!response.ok) {
+    // Status only — never the body.
+    throw new StagingSeedError(`management API request failed (HTTP ${response.status})`);
+  }
+  return response.json().catch(() => null);
+}
+
+/**
+ * Read-only preflight: verifies the required migration versions are applied and
+ * the required `app_private` functions exist. Fails closed with an explicit,
+ * non-secret error naming the missing prerequisite. Never writes.
+ */
+export async function verifyStagingPrerequisites({ target, fetchImpl = globalThis.fetch }) {
+  const sql =
+    "select " +
+    "coalesce((select json_agg(version order by version) from supabase_migrations.schema_migrations), '[]'::json) as versions, " +
+    "coalesce((select json_agg(p.proname order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'app_private'), '[]'::json) as functions;";
+  const rows = await runManagementQuery({ target, sql, fetchImpl });
+  const row = Array.isArray(rows) ? rows[0] : rows;
+  const versions = new Set(Array.isArray(row?.versions) ? row.versions : []);
+  const functions = new Set(Array.isArray(row?.functions) ? row.functions : []);
+
+  const missingVersions = REQUIRED_MIGRATION_VERSIONS.filter((version) => !versions.has(version));
+  if (missingVersions.length > 0) {
+    throw new StagingSeedError(
+      `staging prerequisite check failed: missing migration version(s) ${missingVersions.join(", ")}`,
+    );
+  }
+  const missingFunctions = REQUIRED_APP_PRIVATE_FUNCTIONS.filter((name) => !functions.has(name));
+  if (missingFunctions.length > 0) {
+    throw new StagingSeedError(
+      `staging prerequisite check failed: missing function(s) ${missingFunctions.join(", ")}`,
+    );
+  }
+  return { versions: [...versions], functions: [...functions] };
+}
+
+/**
+ * Applies the generated baseline SQL to an approved staging target. Takes **no
+ * caller-supplied SQL** — it always applies `buildBaselineSql()`. A non-branded
+ * or production target is refused before any request. Never runs `supabase db reset`.
+ */
+export async function applyApprovedStagingBaseline({ target, fetchImpl = globalThis.fetch }) {
+  assertApprovedTarget(target);
+  const sql = buildBaselineSql();
+  return runManagementQuery({ target, sql, fetchImpl });
+}
+
+// ---------------------------------------------------------------------------
+// Read-only PostgREST verification (exact synthetic rows)
+// ---------------------------------------------------------------------------
+
 /**
  * Read-only migration preflight: every required table must be queryable. Throws
  * an explicit error naming the first missing table.
@@ -178,96 +291,71 @@ export async function assertSchemaReady(client) {
   }
 }
 
-/**
- * Read-only baseline verification: the demo tenant/school/classes/learners must
- * already exist. Throws an explicit error naming the missing row.
- */
-export async function assertBaselinePresent(client) {
-  const { data: school, error: schoolError } = await client
-    .from("schools")
-    .select("id,tenant_id,name")
-    .eq("id", BASELINE.school.id)
+/** Requires an exact synthetic row; any mismatch is a non-synthetic collision. */
+async function requireExactRow(client, table, expected) {
+  const columns = Object.keys(expected).filter((column) => column !== "id");
+  const { data, error } = await client
+    .from(table)
+    .select(["id", ...columns].join(","))
+    .eq("id", expected.id)
     .maybeSingle();
-  if (schoolError) throw new StagingSeedError(`baseline check failed: ${schoolError.message}`);
-  if (!school || school.tenant_id !== BASELINE.tenant.id) {
-    throw new StagingSeedError(
-      `baseline missing: demo school ${BASELINE.school.id} (${BASELINE.school.name}) is absent. ` +
-        "Run the staging baseline bootstrap first.",
-    );
+  if (error) throw new StagingSeedError(`baseline check failed for ${table}: ${error.message}`);
+  if (!data) {
+    throw new StagingSeedError(`baseline missing: ${table} row ${expected.id} is absent`);
   }
-
-  const { data: classes, error: classError } = await client
-    .from("register_classes")
-    .select("id")
-    .in("id", BASELINE.registerClasses.map((klass) => klass.id));
-  if (classError) throw new StagingSeedError(`baseline check failed: ${classError.message}`);
-  const presentClasses = new Set((classes ?? []).map((row) => row.id));
-  for (const klass of BASELINE.registerClasses) {
-    if (!presentClasses.has(klass.id)) {
+  for (const column of columns) {
+    if (String(data[column]) !== String(expected[column])) {
       throw new StagingSeedError(
-        `baseline missing: register class ${klass.id} (${klass.display_name}) is absent.`,
+        `baseline collision: ${table} ${expected.id} has ${column}="${data[column]}", ` +
+          `expected "${expected[column]}" (non-synthetic row)`,
       );
     }
   }
-
-  const { count, error: enrolmentError } = await client
-    .from("enrolments")
-    .select("id", { count: "exact", head: true })
-    .eq("tenant_id", BASELINE.tenant.id);
-  if (enrolmentError) throw new StagingSeedError(`baseline check failed: ${enrolmentError.message}`);
-  if ((count ?? 0) < BASELINE.enrolments.length) {
-    throw new StagingSeedError(
-      `baseline missing: expected at least ${BASELINE.enrolments.length} demo enrolments, found ${count ?? 0}.`,
-    );
-  }
 }
 
 /**
- * Applies baseline SQL through the Supabase Management API query endpoint. This
- * is the only write entrypoint for the baseline and it refuses a production ref
- * defensively, on top of the caller having already resolved the staging guard.
- *
- * Never runs `supabase db reset`.
+ * Read-only baseline verification: every demo row must exist **and match the
+ * expected synthetic values exactly**. A preexisting row with the demo id but
+ * different content is a collision and fails closed. Writes nothing.
  */
-export async function applyBaselineViaManagementApi({
-  projectRef,
-  accessToken,
-  sql,
-  fetchImpl = globalThis.fetch,
-}) {
-  if (!projectRef || projectRef === PRODUCTION_PROJECT_REF) {
-    throw new StagingSeedError(
-      `refusing to apply baseline SQL: project ref "${projectRef ?? "(unset)"}" is not an isolated staging project`,
-    );
-  }
-  if (!accessToken) {
-    throw new StagingSeedError("refusing to apply baseline SQL: SUPABASE_ACCESS_TOKEN is required");
-  }
+export async function assertBaselinePresent(client) {
+  await requireExactRow(client, "tenants", BASELINE.tenant);
+  await requireExactRow(client, "schools", BASELINE.school);
 
-  const response = await fetchImpl(
-    `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query: sql }),
-    },
-  );
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new StagingSeedError(
-      `baseline SQL failed: HTTP ${response.status}${detail ? ` ${detail.slice(0, 200)}` : ""}`,
-    );
+  for (const grade of BASELINE.grades) {
+    await requireExactRow(client, "grades", {
+      tenant_id: BASELINE.tenant.id,
+      school_id: BASELINE.school.id,
+      ...grade,
+    });
   }
-  return response.json().catch(() => null);
+  for (const klass of BASELINE.registerClasses) {
+    await requireExactRow(client, "register_classes", {
+      tenant_id: BASELINE.tenant.id,
+      school_id: BASELINE.school.id,
+      ...klass,
+    });
+  }
+  for (const learner of BASELINE.learners) {
+    await requireExactRow(client, "learners", { tenant_id: BASELINE.tenant.id, ...learner });
+  }
+  for (const enrolment of BASELINE.enrolments) {
+    await requireExactRow(client, "enrolments", {
+      tenant_id: BASELINE.tenant.id,
+      school_id: BASELINE.school.id,
+      ...enrolment,
+    });
+  }
 }
 
+// ---------------------------------------------------------------------------
+// Guarded orchestration
+// ---------------------------------------------------------------------------
+
 /**
- * Orchestrates the guarded baseline bootstrap. Resolves the staging identity +
- * Management token first (refusing before any network call), then applies the
- * deterministic baseline SQL. Testable via `fetchImpl`.
+ * Orchestrates the guarded baseline bootstrap: resolve the approved staging
+ * target (refusing before any network call), run the read-only version/function
+ * preflight, then apply the deterministic baseline SQL. Testable via `fetchImpl`.
  *
  * @param {object} options
  * @param {Record<string, string | undefined>} [options.env]
@@ -276,14 +364,10 @@ export async function applyBaselineViaManagementApi({
  */
 export async function runStagingBaselineBootstrap({ env = process.env, fetchImpl, log = () => {} }) {
   const target = resolveStagingManagementTarget(env);
-  const sql = buildBaselineSql();
+  log(`[staging-baseline] verifying prerequisites for projectRef=${target.projectRef}`);
+  await verifyStagingPrerequisites({ target, fetchImpl });
   log(`[staging-baseline] applying deterministic baseline to projectRef=${target.projectRef}`);
-  await applyBaselineViaManagementApi({
-    projectRef: target.projectRef,
-    accessToken: target.accessToken,
-    sql,
-    fetchImpl,
-  });
+  await applyApprovedStagingBaseline({ target, fetchImpl });
   log("[staging-baseline] baseline applied.");
   return target;
 }

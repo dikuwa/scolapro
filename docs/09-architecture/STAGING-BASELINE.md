@@ -61,6 +61,23 @@ the tenant/school identity does not match.
   (`runStagingBaselineBootstrap`), which resolves
   `e2e/support/staging-seed-guard.mjs` first and refuses a production ref, host,
   credential or missing `SCOLAPRO_E2E_SYNTHETIC_ONLY=1` **before** any request.
+- **Approval binding.** A runtime ref alone does not prove a project is staging.
+  The declared ref must also appear on the explicit allowlist
+  `SCOLAPRO_E2E_APPROVED_STAGING_REFS`; a missing or unapproved identity is
+  refused. There is no broad token access by default.
+- **No arbitrary query executor.** The applier takes no caller-supplied SQL — it
+  always applies the generated baseline — and requires a **branded** target
+  produced by `resolveStagingManagementTarget` (`isApprovedStagingTarget`). A
+  hand-built `{ projectRef, accessToken }` object is refused before any request.
+- **Read-only preflight.** Before applying, the bootstrap verifies applied
+  migration versions (`REQUIRED_MIGRATION_VERSIONS`) and required `app_private`
+  functions (`REQUIRED_APP_PRIVATE_FUNCTIONS`), failing closed on any missing
+  prerequisite.
+- **Exact synthetic-row verification.** Baseline verification checks exact row
+  values, not counts or ids alone, and refuses a preexisting non-synthetic row
+  that collides with a demo id.
+- **Sanitized failures.** Management-API errors report only the HTTP status and
+  never echo the response body (which may contain secrets or SQL fragments).
 - `supabase db reset` is never run against a hosted database.
 
 ## Commands
@@ -69,7 +86,7 @@ the tenant/school identity does not match.
 # Local, non-secret preflight (no connection, no secret read):
 node scripts/seed-staging-fixtures.mjs --check
 
-# Read-only online preflight (schema/migrations + baseline present):
+# Read-only online preflight (schema, migration versions, functions, exact rows):
 node scripts/seed-staging-fixtures.mjs --verify-baseline
 
 # Apply the baseline SQL, then seed the synthetic world (idempotent):
@@ -78,6 +95,7 @@ node scripts/seed-staging-fixtures.mjs --bootstrap
 
 ## Residual dependencies
 
-Applying the baseline for real requires an isolated staging project ref, a
+Applying the baseline for real requires an isolated staging project ref, an entry
+for it on the `SCOLAPRO_E2E_APPROVED_STAGING_REFS` allowlist, a
 `STAGING_SUPABASE_SERVICE_ROLE_KEY` and a `SUPABASE_ACCESS_TOKEN`. None are
 provisioned by this change; see the provisioning blockers in the PR.

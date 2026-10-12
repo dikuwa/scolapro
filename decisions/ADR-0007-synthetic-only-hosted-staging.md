@@ -38,8 +38,9 @@ through `e2e/support/staging-seed-guard.mjs`, which refuses to continue unless a
 of the following hold:
 
 - `SCOLAPRO_E2E_SYNTHETIC_ONLY=1` is explicitly set;
-- the declared staging ref is a well-formed 20-character ref and is not the
-  production ref;
+- the declared staging ref is a well-formed 20-character ref, is not the
+  production ref, and appears on the explicit approval allowlist
+  `SCOLAPRO_E2E_APPROVED_STAGING_REFS` (approval-bound, not runtime-only);
 - `STAGING_PROJECT_ID` (when present) and `SCOLAPRO_E2E_SUPABASE_PROJECT_REF`
   agree, and the `STAGING_SUPABASE_URL` ref matches the declared ref;
 - the staging URL is a hosted Supabase URL and not a production host;

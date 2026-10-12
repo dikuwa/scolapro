@@ -1,25 +1,28 @@
-// Seeds the synthetic E2E world into an ISOLATED hosted staging Supabase project.
+// Seeds the synthetic E2E world into an ISOLATED, EXPLICITLY APPROVED hosted
+// staging Supabase project.
 //
 // Unlike the local seed, this runs against a hosted project and therefore opens
 // a service-role client and may apply baseline SQL. It is fail-closed:
 // `e2e/support/staging-seed-guard.mjs` must prove the target is an isolated,
-// non-production, synthetic-only project before any client is created or any
-// request is issued. It never touches production and never runs `supabase db reset`.
+// non-production, synthetic-only project **on the explicit approval allowlist**
+// before any client is created or any request is issued. It never touches
+// production and never runs `supabase db reset`.
 //
 // Modes:
 //   --check            Validate the non-secret environment and the baseline
 //                      fixture locally. Reads NO secret and makes NO connection.
-//   --verify-baseline  Read-only online preflight: connect and confirm the schema
-//                      (migrations) and the demo baseline exist. Writes nothing.
+//   --verify-baseline  Read-only online preflight: schema tables, migration
+//                      versions, required functions and the exact demo baseline.
 //   --bootstrap        Apply the deterministic baseline SQL, then seed the world.
-//   (default)          Guard -> schema preflight -> seed the world.
+//   (default)          Guard -> schema preflight -> exact baseline -> seed world.
 //
 // Required environment (see e2e/support/staging-seed-guard.mjs):
 //   SCOLAPRO_E2E_SYNTHETIC_ONLY=1
+//   SCOLAPRO_E2E_APPROVED_STAGING_REFS=<comma-separated approved refs>
 //   SCOLAPRO_E2E_SUPABASE_PROJECT_REF=<isolated staging ref>
 //   STAGING_SUPABASE_URL=https://<isolated staging ref>.supabase.co
 //   STAGING_SUPABASE_SERVICE_ROLE_KEY=<staging secret key>   (online modes)
-//   SUPABASE_ACCESS_TOKEN=<management token>                 (--bootstrap only)
+//   SUPABASE_ACCESS_TOKEN=<management token>                 (--bootstrap/--verify-baseline)
 //   SCOLAPRO_E2E_PASSWORD=<>= 12 chars, staging-only>        (write modes)
 
 import path from "node:path";
@@ -29,6 +32,7 @@ import { syntheticPassword } from "../e2e/support/accounts.mjs";
 import {
   StagingSeedError,
   resolveStagingSeedIdentity,
+  resolveStagingManagementTarget,
   resolveStagingSeedTarget,
 } from "../e2e/support/staging-seed-guard.mjs";
 import {
@@ -36,6 +40,7 @@ import {
   assertSchemaReady,
   buildBaselineSql,
   runStagingBaselineBootstrap,
+  verifyStagingPrerequisites,
 } from "../e2e/support/staging-baseline.mjs";
 import { seedSyntheticWorld } from "../e2e/support/seed-world.mjs";
 
@@ -58,7 +63,7 @@ if (flags.has("--check")) {
       throw new StagingSeedError("baseline fixture is not idempotent");
     }
     console.log(
-      `[seed:staging] --check OK projectRef=${identity.projectRef} url=${identity.apiUrl} (synthetic-only)`,
+      `[seed:staging] --check OK projectRef=${identity.projectRef} url=${identity.apiUrl} (synthetic-only, approved)`,
     );
     console.log(
       `[seed:staging] --check: baseline fixture ready (${sql.length} bytes); no secrets read, no connection made.`,
@@ -82,7 +87,7 @@ try {
 }
 
 console.log(
-  `[seed:staging] target=staging projectRef=${target.projectRef} url=${target.apiUrl} (synthetic-only)`,
+  `[seed:staging] target=staging projectRef=${target.projectRef} url=${target.apiUrl} (synthetic-only, approved)`,
 );
 
 // Loaded lazily so the --check preflight stays dependency-free.
@@ -96,12 +101,16 @@ try {
   await assertSchemaReady(client);
 
   if (bootstrap) {
+    // Verifies migration versions + required functions, then applies the baseline.
     await runStagingBaselineBootstrap({ env, log: console.log });
   }
 
   if (verifyBaselineOnly) {
+    // Read-only version/function preflight, then exact synthetic-row verification.
+    const managementTarget = resolveStagingManagementTarget(env);
+    await verifyStagingPrerequisites({ target: managementTarget });
     await assertBaselinePresent(client);
-    console.log("[seed:staging] --verify-baseline: schema and demo baseline are present.");
+    console.log("[seed:staging] --verify-baseline: schema, prerequisites and exact demo baseline are present.");
     process.exit(0);
   }
 
