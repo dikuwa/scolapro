@@ -180,11 +180,9 @@ function drawPage(input: {
     identity.forEach((value, cellIndex) => { drawCell(page, resources.regular, value, x, y, identityWidths[cellIndex], ROW_HEIGHT, { align: cellIndex === 2 || cellIndex === 3 ? "left" : "center", size: 5.3 }); x += identityWidths[cellIndex]; });
     for (const week of weeks) {
       let weekPresent = 0;
-      let weekAbsent = 0;
       for (const day of week.dates) {
         const mark = learner.marks[day.date] ?? "";
         if (mark === "I") weekPresent += 1;
-        if (mark === "a") weekAbsent += 1;
         drawCell(page, resources.bold, mark, x, y, dayWidth, ROW_HEIGHT, { fill: day.teaching ? undefined : GREY, color: mark === "a" ? RED : INK, size: 7 });
         if (mark === "a" && learner.reasonedAbsenceDates[day.date]) {
           page.drawText("✓", { x: x + dayWidth / 2 + 2.3, y: y - ROW_HEIGHT + 8.5, size: 3.8, font: checkFont, color: RED });
