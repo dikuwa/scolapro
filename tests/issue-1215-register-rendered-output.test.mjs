@@ -113,10 +113,10 @@ test("configured school contacts render in the HTML letterhead and PDF content",
     ],
   };
   const html = htmlRenderer.renderRegisterTeacherHtml({ header, document });
-  assert.match(html, /Address:<\\/strong> Fixture Campus, Swakopmund/);
-  assert.match(html, /Tel:<\\/strong> \\+264 00 000 0000/);
-  assert.match(html, /Email:<\\/strong> fixture@example\\.test/);
-  assert.equal((html.match(/fixture@example\\.test/g) ?? []).length, 4, "every repeated header includes the configured email");
+  assert.match(html, /Address:<\/strong> Fixture Campus, Swakopmund/);
+  assert.match(html, /Tel:<\/strong> \+264 00 000 0000/);
+  assert.match(html, /Email:<\/strong> fixture@example\.test/);
+  assert.equal((html.match(/fixture@example\.test/g) ?? []).length, 4, "every repeated header includes the configured email");
   const result = await pdfRenderer.renderRegisterTeacherPdf({ header, document });
   const pdfText = Buffer.from(result.bytes).toString("latin1");
   // PDF content streams are normally compressed; rendering must still succeed
