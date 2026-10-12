@@ -95,25 +95,24 @@ export default async function SchoolSetupPage() {
           rotating={structure.timetableCycleMode === "rotating"}
           hodScopeCount={activeHodScopeCount}
           hodOverview={
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
               {hodScope.portfolios.length ? hodScope.portfolios.map((portfolio) => {
                 const appointment = portfolio.appointments.find((item) => item.effectiveFrom <= hodScope.today && (!item.effectiveTo || item.effectiveTo >= hodScope.today));
+                const upcoming = portfolio.appointments.some((item) => item.effectiveFrom > hodScope.today);
                 return (
-                  <div key={portfolio.id} className="rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2">
-                    <p className="text-xs font-semibold text-foreground">{portfolio.label} · {appointment?.headName ?? "Unassigned"}</p>
-                    <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{portfolio.subjectIds.map((id) => hodScope.subjects.find((subject) => subject.id === id)?.name ?? id).join(", ")}</p>
-                    {portfolio.appointments.map((item) => <p key={item.id} className="mt-0.5 text-[0.68rem] text-muted-foreground">{item.headName} · {item.effectiveFrom} → {item.effectiveTo ?? "open"}</p>)}
+                  <div key={portfolio.id} className="min-w-0 rounded-[var(--radius-sm)] border border-border-subtle bg-surface px-3 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs font-semibold text-foreground">{portfolio.label}</p>
+                      <span className={appointment ? "rounded-full bg-success-soft px-2 py-0.5 text-[0.68rem] font-semibold text-[color:var(--success)]" : "rounded-full bg-surface-muted px-2 py-0.5 text-[0.68rem] font-medium text-muted-foreground"}>
+                        {appointment ? "Active" : upcoming ? "Upcoming" : "Unassigned"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs font-medium text-brand-strong">HOD: {appointment?.headName ?? "Not assigned"}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{portfolio.subjectIds.map((id) => hodScope.subjects.find((subject) => subject.id === id)?.name ?? id).join(", ") || "No subjects assigned"}</p>
+                    {appointment ? <p className="mt-1 text-[0.68rem] text-muted-foreground">{appointment.effectiveFrom} → {appointment.effectiveTo ?? "open"}</p> : null}
                   </div>
                 );
               }) : <p className="text-xs text-muted-foreground">No subject portfolios configured yet.</p>}
-              {activeHodScopeCount > 0 ? (
-                <div className="max-h-44 space-y-1 overflow-y-auto border-t border-border-subtle pt-2">
-                  <p className="text-[0.68rem] font-semibold text-foreground">Current subject responsibilities</p>
-                  {hodScope.responsibilities.filter((item) => item.effectiveFrom <= hodScope.today && (!item.effectiveTo || item.effectiveTo >= hodScope.today)).map((item) => (
-                    <p key={item.id} className="text-[0.68rem] text-muted-foreground">{item.subjectName} · {item.headName}</p>
-                  ))}
-                </div>
-              ) : null}
             </div>
           }
           timetableEditor={
