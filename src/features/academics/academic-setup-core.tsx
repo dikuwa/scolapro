@@ -34,6 +34,7 @@ function CoreSetupCard({
   children,
   editor,
   disabled = false,
+  editorFirst = false,
 }: {
   icon: LucideIcon;
   tone: string;
@@ -45,6 +46,7 @@ function CoreSetupCard({
   children: ReactNode;
   editor: ReactNode;
   disabled?: boolean;
+  editorFirst?: boolean;
 }) {
   return (
     <ConfigurationCard
@@ -58,6 +60,7 @@ function CoreSetupCard({
       summary={children}
       editor={editor}
       disabled={disabled}
+      editorFirst={editorFirst}
     />
   );
 }
@@ -146,6 +149,7 @@ export function AcademicSetupCore({
               active={activePanel === "hod"}
               panelId="academic-setup-panel-hod"
               editor={hodEditor}
+              editorFirst
               onToggle={() => toggle("hod")}
             >
               <SummaryMetric
