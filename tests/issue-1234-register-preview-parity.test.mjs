@@ -70,3 +70,8 @@ test("PDF has the same grouped NAME identity heading as the accepted HTML previe
   assert.match(pdf, /"Surname", x, y - headerTop/);
   assert.match(pdf, /"Given Names", x \+ identityWidths\[2\], y - headerTop/);
 });
+
+test("HTML reasoned absence superscript is anchored directly to its lowercase a", () => {
+  assert.match(html, /\.legend \.mark-sample:has\(\.absence-reason-mark\) \{ position:relative/);
+  assert.match(html, /\.legend \.absence-reason-mark \{ position:absolute; top:-\.38em; right:0/);
+});
