@@ -93,6 +93,7 @@ production credentials are always refused.
 
 - `docs/11-roadmap/2026-10-12-SYNTHETIC-STAGING-PROPOSAL.md`
 - `docs/09-architecture/AUTHENTICATED-E2E-TESTING.md`
+- `docs/09-architecture/STAGING-BASELINE.md`
 - `e2e/support/env-guard.mjs`, `e2e/support/staging-seed-guard.mjs`
 - `scripts/seed-staging-fixtures.mjs`, `e2e/support/seed-world.mjs`
 - `tests/staging-seed-guard.test.mjs`

@@ -1,24 +1,31 @@
-// Fail-closed identity guard for the hosted-staging synthetic seed.
+// Fail-closed identity guard for the hosted-staging synthetic seed and baseline.
 //
 // The local seed (`scripts/seed-e2e-fixtures.mjs`) can only ever reach the local
 // Supabase stack. A hosted staging seed must additionally prove it is pointed at
-// an isolated, non-production project before it opens a client — because it runs
-// with a service-role key and can write rows.
+// an isolated, non-production project before it opens a client or issues any
+// request — because it writes rows and runs baseline SQL.
 //
 // This module is intentionally dependency-free plain JavaScript so it can be unit
 // tested with `node --test`. It reuses the production-host and project-ref rules
 // from `e2e/support/env-guard.mjs` (which is not modified) so the two guards can
 // never disagree about what "production" means.
 //
-// It refuses to resolve a target when any of these hold:
+// The guard is split into three resolvers so a caller only ever receives the
+// credential it actually needs:
+//   - `resolveStagingSeedIdentity` — refs/hosts/flags only; reads NO secret and
+//     makes NO network call. Used by the `--check` preflight.
+//   - `resolveStagingSeedTarget` — identity + the staging service-role key, for
+//     PostgREST (supabase-js) writes.
+//   - `resolveStagingManagementTarget` — identity + the Supabase access token,
+//     for Management-API baseline SQL.
+//
+// Every resolver refuses, before any network/write, when:
 //   - `SCOLAPRO_E2E_SYNTHETIC_ONLY` is not exactly "1";
 //   - the declared staging ref is missing, malformed, or the production ref;
 //   - `STAGING_PROJECT_ID` and `SCOLAPRO_E2E_SUPABASE_PROJECT_REF` disagree;
 //   - the staging URL is missing, not a hosted Supabase URL, a production host,
 //     or its project ref differs from the declared ref (ambiguous identity);
-//   - the app's own Supabase URL points at the production project;
-//   - the staging secret is missing, is the production service-role key or
-//     publishable key, or (when it is a decodable JWT) belongs to another ref.
+//   - the app's own Supabase URL points at the production project.
 
 import {
   PRODUCTION_PROJECT_REF,
@@ -59,14 +66,13 @@ export function supabaseRefFromKey(key) {
 }
 
 /**
- * Resolves and validates the hosted-staging seed target. Throws
- * {@link StagingSeedError} when the environment is unsafe or ambiguous, and
- * returns `{ target, production, projectRef, apiUrl, host, serviceRoleKey }`
- * otherwise.
+ * Resolves and validates the hosted-staging identity from non-secret environment
+ * only. Reads no secret and makes no network call. Returns
+ * `{ target, production, projectRef, apiUrl, host }`.
  *
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
  */
-export function resolveStagingSeedTarget(env = process.env) {
+export function resolveStagingSeedIdentity(env = process.env) {
   if (read(env, "SCOLAPRO_E2E_SYNTHETIC_ONLY") !== "1") {
     throw new StagingSeedError(
       "set SCOLAPRO_E2E_SYNTHETIC_ONLY=1 to confirm that only synthetic accounts and learners are in scope",
@@ -107,9 +113,7 @@ export function resolveStagingSeedTarget(env = process.env) {
   }
   const urlRef = supabaseProjectRefFromUrl(apiUrlRaw);
   if (!urlRef) {
-    throw new StagingSeedError(
-      "STAGING_SUPABASE_URL is not a hosted Supabase project URL",
-    );
+    throw new StagingSeedError("STAGING_SUPABASE_URL is not a hosted Supabase project URL");
   }
   if (urlRef !== declaredRef) {
     throw new StagingSeedError(
@@ -124,6 +128,18 @@ export function resolveStagingSeedTarget(env = process.env) {
       "NEXT_PUBLIC_SUPABASE_URL points at the production project (production configuration)",
     );
   }
+
+  return { target: "staging", production: false, projectRef: declaredRef, apiUrl: apiUrl.origin, host };
+}
+
+/**
+ * Resolves the identity plus the staging service-role key used for PostgREST
+ * (supabase-js) writes. Returns `{ ...identity, serviceRoleKey }`.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ */
+export function resolveStagingSeedTarget(env = process.env) {
+  const identity = resolveStagingSeedIdentity(env);
 
   const serviceRoleKey = read(env, "STAGING_SUPABASE_SERVICE_ROLE_KEY");
   if (!serviceRoleKey) {
@@ -142,27 +158,37 @@ export function resolveStagingSeedTarget(env = process.env) {
     );
   }
   const keyRef = supabaseRefFromKey(serviceRoleKey);
-  if (keyRef && keyRef !== declaredRef) {
+  if (keyRef && keyRef !== identity.projectRef) {
     throw new StagingSeedError(
       `the staging key belongs to project ref "${keyRef}", not the declared staging ref ` +
-        `"${declaredRef}" (ambiguous identity)`,
+        `"${identity.projectRef}" (ambiguous identity)`,
     );
   }
 
-  return {
-    target: "staging",
-    production: false,
-    projectRef: declaredRef,
-    apiUrl: apiUrl.origin,
-    host,
-    serviceRoleKey,
-  };
+  return { ...identity, serviceRoleKey };
+}
+
+/**
+ * Resolves the identity plus the Supabase access token used for Management-API
+ * baseline SQL. Returns `{ ...identity, accessToken }`.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ */
+export function resolveStagingManagementTarget(env = process.env) {
+  const identity = resolveStagingSeedIdentity(env);
+
+  const accessToken = read(env, "SUPABASE_ACCESS_TOKEN");
+  if (!accessToken) {
+    throw new StagingSeedError("SUPABASE_ACCESS_TOKEN is required to apply baseline SQL");
+  }
+
+  return { ...identity, accessToken };
 }
 
 /** Returns the reason a candidate staging environment is unsafe, or null when safe. */
 export function stagingSeedRejection(env = process.env) {
   try {
-    resolveStagingSeedTarget(env);
+    resolveStagingSeedIdentity(env);
     return null;
   } catch (error) {
     return error instanceof StagingSeedError ? error.message : String(error);
