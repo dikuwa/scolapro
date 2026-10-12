@@ -3,8 +3,10 @@
 import type { LucideIcon } from "lucide-react";
 import { CalendarDays, CalendarRange, Network } from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { createContext, useCallback, useState } from "react";
 import { ConfigurationCard } from "@/components/ui/configuration-card";
+
+export const HodScopeCloseContext = createContext<(() => void) | null>(null);
 
 type ActivePanel = "workflow" | "anchor" | "hod" | null;
 
@@ -34,6 +36,7 @@ function CoreSetupCard({
   children,
   editor,
   disabled = false,
+  editorFirst = false,
 }: {
   icon: LucideIcon;
   tone: string;
@@ -45,6 +48,7 @@ function CoreSetupCard({
   children: ReactNode;
   editor: ReactNode;
   disabled?: boolean;
+  editorFirst?: boolean;
 }) {
   return (
     <ConfigurationCard
@@ -58,6 +62,7 @@ function CoreSetupCard({
       summary={children}
       editor={editor}
       disabled={disabled}
+      editorFirst={editorFirst}
     />
   );
 }
@@ -86,6 +91,8 @@ export function AcademicSetupCore({
   hodEditor: ReactNode;
 }) {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+
+  const closeHodEditor = useCallback(() => setActivePanel(null), []);
 
   const toggle = (panel: Exclude<ActivePanel, null>) => {
     setActivePanel((current) => (current === panel ? null : panel));
@@ -145,7 +152,8 @@ export function AcademicSetupCore({
               description="Assign explicit subject responsibilities to HODs."
               active={activePanel === "hod"}
               panelId="academic-setup-panel-hod"
-              editor={hodEditor}
+              editor={<HodScopeCloseContext.Provider value={closeHodEditor}>{hodEditor}</HodScopeCloseContext.Provider>}
+              editorFirst
               onToggle={() => toggle("hod")}
             >
               <SummaryMetric
