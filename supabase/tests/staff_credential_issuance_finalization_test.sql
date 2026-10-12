@@ -1,0 +1,12 @@
+begin;
+select plan(8);
+select has_function('public','finalize_staff_credential_issuance',array['uuid','text','text','timestamp with time zone'],'credential finalization function exists');
+select ok(not has_function_privilege('authenticated','public.finalize_staff_credential_issuance(uuid,text,text,timestamptz)','EXECUTE'),'authenticated cannot finalize');
+select ok(not has_function_privilege('anon','public.finalize_staff_credential_issuance(uuid,text,text,timestamptz)','EXECUTE'),'anon cannot finalize');
+select ok(has_function_privilege('service_role','public.finalize_staff_credential_issuance(uuid,text,text,timestamptz)','EXECUTE'),'service role may finalize');
+select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='finalize_staff_credential_issuance') ilike '%outcome=''reserved''%','only reserved attempts can transition');
+select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='finalize_staff_credential_issuance') ilike '%15 minutes%','stale reservations cannot be finalized');
+select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='finalize_staff_credential_issuance') ilike '%2 hours%','completed issuance expiry is bounded');
+select ok((select pg_get_functiondef(p.oid) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='finalize_staff_credential_issuance') ilike '%credential_expires_at%','finalization persists non-secret expiry provenance');
+select * from finish();
+rollback;

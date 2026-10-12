@@ -38,7 +38,7 @@ test("academic setup does not invent activity or secondary setup surfaces", () =
 test("room management remains complete but bounded for scanning", () => {
   assert.match(rooms, /max-h-\[33rem\]/);
   assert.match(rooms, /overflow-y-auto/);
-  assert.match(rooms, /Add room/);
+  assert.match(rooms, /<CardActionToggle action="add"/);
   assert.match(rooms, /Pencil/);
   assert.match(rooms, /Trash2/);
 });
