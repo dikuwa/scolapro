@@ -37,7 +37,7 @@ async function expectFittedRegisterFrame(frame: Locator) {
   expect(geometry!.scrollWidth).toBeLessThanOrEqual(geometry!.viewport + 2);
 }
 
-async function inspectAndAttachPdf(pdfPath: string, label: string, testInfo: TestInfo) {
+async function inspectAndAttachPdf(pdfPath: string, label: string, testInfo: TestInfo, closureLabel?: string) {
   const bytes = await import("node:fs/promises").then(({ readFile }) => readFile(pdfPath));
   const parsed = await PDFDocument.load(bytes);
   expect(parsed.getPageCount()).toBeGreaterThanOrEqual(2);
@@ -56,6 +56,13 @@ async function inspectAndAttachPdf(pdfPath: string, label: string, testInfo: Tes
   expect(extracted).toContain("Absence");
   expect(extracted).toContain("Possible");
   expect(extracted).toContain("Balance:");
+  if (closureLabel?.trim()) {
+    // The governed holiday/closure name must appear in the PDF attendance area
+    // exactly as the preview prints it. Whitespace is ignored because the PDF
+    // draws the label rotated inside its attendance column.
+    const flattened = extracted.replace(/\s+/g, "");
+    expect(flattened).toContain(closureLabel.replace(/\s+/g, ""));
+  }
 
   const prefix = testInfo.outputPath(`${label}-pdf-page`);
   execFileSync("pdftoppm", ["-png", "-r", "96", pdfPath, prefix], { stdio: "pipe" });
@@ -102,6 +109,8 @@ test.describe("inline register document preview and PDF", () => {
       (element) => getComputedStyle(element).borderStyle,
     );
     expect(balanceBorder).toBe("none");
+    const closureLabel = await documentFrame.locator(".closure-label").first().innerText().catch(() => "");
+    expect(closureLabel.trim().length).toBeGreaterThan(0);
 
     for (const width of [390, 768, 1440]) {
       await page.setViewportSize({ width, height: 1000 });
@@ -137,7 +146,7 @@ test.describe("inline register document preview and PDF", () => {
       path: pdfPath,
       contentType: "application/pdf",
     });
-    await inspectAndAttachPdf(pdfPath, "synthetic-register-week", testInfo);
+    await inspectAndAttachPdf(pdfPath, "synthetic-register-week", testInfo, closureLabel);
   });
 
   test("the term bundle repeats matching HTML and PDF pages for boys and girls", async ({ page }, testInfo) => {

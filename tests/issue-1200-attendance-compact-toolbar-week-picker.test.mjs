@@ -79,7 +79,9 @@ test("boys and girls render as separate screen sheets and A3 print pages", () =>
   assert.match(renderer, /registerTeacherPageJobs\(document\)\.map/);
   assert.match(renderer, /\{ \.\.\.job\.section, learners: job\.learners \}/);
   assert.match(renderer, /\.register-section \{ margin:0 0 18px; padding:12px; background:white; box-shadow:/);
-  assert.match(renderer, /@page \{ size:A3 landscape; margin:8mm; \}/);
+  // The A3 print box is owned by the shared layout contract so the printed
+  // preview and the downloaded PDF share one physical margin.
+  assert.match(renderer, /\$\{REGISTER_TEACHER_PRINT_PAGE_RULE\}/);
   assert.match(renderer, /break-before:page; break-after:page; page-break-before:always; page-break-after:always/);
   assert.match(renderer, /\.register-section:last-child \{ break-after:auto; page-break-after:auto; \}/);
 });

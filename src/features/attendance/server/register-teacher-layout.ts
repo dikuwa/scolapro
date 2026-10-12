@@ -28,12 +28,34 @@ import type {
 export type RegisterTeacherColumnAlign = "left" | "center";
 export type RegisterTeacherColumnTone = "plain" | "purple" | "red" | "green";
 
+/**
+ * CSS px per PDF point at the 96 dpi reference the preview is authored in.
+ * The preview is the approved visual target, so its measurements are stored here
+ * in physical points and converted back to the exact px values the browser uses.
+ */
+export const REGISTER_TEACHER_PX_PER_POINT = 96 / 72;
+
+export function registerTeacherCssPx(points: number) {
+  return Number((points * REGISTER_TEACHER_PX_PER_POINT).toFixed(4));
+}
+
 export const REGISTER_TEACHER_LAYOUT = Object.freeze({
   pageWidth: 1190.55,
   pageHeight: 841.89,
   margin: 32,
   learnersPerPage: 40,
   weeksPerPanel: 3,
+  // Vertical rhythm in PDF points, authored from the approved preview (19px,
+  // 21pt, 20pt, 18pt at the 96 dpi CSS reference). The HTML renderer converts
+  // these back to px and the PDF draws them directly, so row pitch, legend band
+  // and metadata band cannot drift between the preview and the downloaded PDF.
+  // Without this the PDF used a 13pt row pitch against the preview's 14.25pt,
+  // which accumulated to a 50pt (17.6mm) divergence over a full 40-learner page.
+  rowHeight: 14.25,
+  tableHeaderTop: 18,
+  tableHeaderBottom: 18,
+  legendHeight: 21,
+  metadataHeight: 20,
   // Complete column geometry in PDF points. HTML converts these to table-column
   // percentages against the same content width, so both renderers draw the same
   // column grid. Widths are physical points, not independently chosen CSS.
@@ -58,6 +80,28 @@ export const REGISTER_TEACHER_LAYOUT = Object.freeze({
 });
 
 export const REGISTER_TEACHER_CONTENT_WIDTH = REGISTER_TEACHER_LAYOUT.pageWidth - REGISTER_TEACHER_LAYOUT.margin * 2;
+
+/**
+ * Shared print/PDF page rule. The PDF renderer content box is
+ * `pageWidth - margin * 2`, so the printed preview must use the same physical
+ * margin or the two sheets cannot be compared edge to edge.
+ */
+export const REGISTER_TEACHER_PRINT_PAGE_RULE = `@page { size: A3 landscape; margin: ${REGISTER_TEACHER_LAYOUT.margin}pt; }`;
+
+/**
+ * Single governed compaction for a closed-day reason, consumed by both
+ * renderers so the holiday/closure name printed in the attendance area matches
+ * the preview exactly.
+ */
+export function registerTeacherClosureLabel(reason: string | null | undefined) {
+  if (!reason) return "Non-teaching day";
+  const compacted = reason
+    .replace(/^school holiday\s*[-:]\s*/i, "")
+    .replace(/^public holiday\s*[-:]\s*/i, "")
+    .replace(/^holiday\s*[-:]\s*/i, "")
+    .trim();
+  return compacted || "Non-teaching day";
+}
 
 /**
  * Shared column plan consumed by both the HTML and PDF renderers. Day columns

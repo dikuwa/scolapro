@@ -8,9 +8,13 @@ import { renderOfficialDocumentHtmlHeader } from "@/features/documents/server/of
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWeek } from "@/features/attendance/server/register-teacher-document";
 import {
+  REGISTER_TEACHER_LAYOUT,
+  REGISTER_TEACHER_PRINT_PAGE_RULE,
   formatRegisterTeacherDate,
   registerTeacherBalance,
+  registerTeacherClosureLabel,
   registerTeacherColumnPlan,
+  registerTeacherCssPx,
   registerTeacherDocumentContext,
   registerTeacherGovernanceAlert,
   registerTeacherPageJobs,
@@ -39,14 +43,6 @@ function learnerIdentityCells(section: RegisterTeacherSection, rowIndex: number)
   `;
 }
 
-function compactCalendarReason(value: string | null) {
-  if (!value) return "";
-  return value
-    .replace(/^school holiday\s*[-:]\s*/i, "")
-    .replace(/^public holiday\s*[-:]\s*/i, "")
-    .replace(/^holiday\s*[-:]\s*/i, "")
-    .trim();
-}
 
 function weeklyColumns(week: RegisterTeacherWeek) {
   return week.dates.map((day) =>
@@ -59,7 +55,7 @@ function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: Re
   const marks = week.dates.map((day) => {
     if (!day.teaching) {
       if (rowIndex > 0) return "";
-      const reason = compactCalendarReason(day.reason) || "Non-teaching day";
+      const reason = registerTeacherClosureLabel(day.reason);
       return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column" title="${escapeHtml(day.reason ?? reason)}"><span class="closure-label">${escapeHtml(reason)}</span></td>`;
     }
     const mark = learner.marks[day.date] ?? "";
@@ -197,7 +193,7 @@ export function renderRegisterTeacherHtml(input: {
   .register-meta > div { min-width:0; background:white; padding:5px 7px; overflow-wrap:anywhere; font-size:9px; }
   .register-meta strong { color:var(--register-red); }
   table { width:100%; min-width:0; border-collapse:collapse; table-layout:fixed; font-size:7.4px; }
-  th,td { border:1px solid var(--grid); padding:2px 2px; text-align:center; height:19px; overflow:hidden; }
+  th,td { border:1px solid var(--grid); padding:2px 2px; text-align:center; height:${registerTeacherCssPx(REGISTER_TEACHER_LAYOUT.rowHeight)}px; overflow:hidden; }
   thead th { background:var(--register-red-soft); color:#6d0d12; font-weight:700; }
   .identity { text-align:left; }
   .identity.admin { text-align:center; white-space:nowrap; }
@@ -243,7 +239,7 @@ export function renderRegisterTeacherHtml(input: {
   .legend .mark-sample { display:inline-block; min-width:12px; text-align:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; overflow:visible; }
   .legend .mark-sample:has(.absence-reason-mark) { position:relative; padding-right:4px; }
   .legend .absence-reason-mark { position:absolute; top:-.38em; right:0; margin:0; font-size:.6em; line-height:1; }
-  @page { size:A3 landscape; margin:8mm; }
+  ${REGISTER_TEACHER_PRINT_PAGE_RULE}
   @media screen {
     .sheet { background:transparent; padding:0; box-shadow:none; }
     .register-section { margin:0 0 18px; padding:12px; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); }

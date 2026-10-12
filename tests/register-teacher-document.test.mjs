@@ -139,7 +139,10 @@ test("register non-teaching columns display governed calendar reasons inside the
   assert.match(model, /reasonByDate\.set\(date, String\(event\.title\)\)/);
   assert.doesNotMatch(model, /Before learner opening/);
   assert.doesNotMatch(model, /After learner closing/);
-  assert.match(renderer, /compactCalendarReason/);
+  // Governed closure compaction now lives in one shared contract consumed by
+  // the HTML and PDF renderers, so the printed label cannot drift.
+  assert.match(registerLayout, /export function registerTeacherClosureLabel/);
+  assert.match(renderer, /registerTeacherClosureLabel\(day\.reason\)/);
   assert.match(renderer, /rowspan="\$\{Math\.max\(1, section\.learners\.length\)\}"/);
   assert.match(renderer, /closure-column/);
   assert.match(renderer, /closure-label/);

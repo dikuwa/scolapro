@@ -1,6 +1,6 @@
 import "server-only";
 
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, StandardFonts, degrees, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
 import {
   createOfficialDocumentPdfResources,
@@ -12,6 +12,7 @@ import {
   REGISTER_TEACHER_LAYOUT,
   formatRegisterTeacherDate,
   registerTeacherBalance,
+  registerTeacherClosureLabel,
   registerTeacherColumnPlan,
   registerTeacherDocumentContext,
   registerTeacherGovernanceAlert,
@@ -33,7 +34,16 @@ const RED_SOFT = rgb(1, 0.95, 0.95);
 const GREY = rgb(0.92, 0.92, 0.92);
 const PURPLE_SOFT = rgb(0.95, 0.93, 0.98);
 const GREEN_SOFT = rgb(0.93, 0.96, 0.84);
-const ROW_HEIGHT = 13;
+// Row pitch and band heights come from the shared layout contract, so the
+// downloaded PDF has the same page density as the approved preview.
+const ROW_HEIGHT = REGISTER_TEACHER_LAYOUT.rowHeight;
+const HEADER_TOP = REGISTER_TEACHER_LAYOUT.tableHeaderTop;
+const HEADER_BOTTOM = REGISTER_TEACHER_LAYOUT.tableHeaderBottom;
+const LEGEND_HEIGHT = REGISTER_TEACHER_LAYOUT.legendHeight;
+const METADATA_HEIGHT = REGISTER_TEACHER_LAYOUT.metadataHeight;
+// Mirrors the preview's governed closure label (`max-height:72mm` clip).
+const CLOSURE_LABEL_MAX_SIZE = 5.6;
+const CLOSURE_LABEL_MIN_SIZE = 3.4;
 
 function formatDate(value: string) {
   return formatRegisterTeacherDate(value);
@@ -87,7 +97,7 @@ function drawPage(input: {
   page.drawText("✓", { x: legendX - 0.4, y: legendY + 3.2, size: 4.5, font: checkFont, color: RED });
   legendX += 5;
   legendPart(" = Absent with reason     Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area");
-  y -= 21;
+  y -= LEGEND_HEIGHT;
 
   const meta = [
     ["BOYS/GIRLS:", section.label],
@@ -101,16 +111,23 @@ function drawPage(input: {
     const x = MARGIN + index * metaWidth;
     drawCell(page, resources.regular, "", x, y, metaWidth, 17, { fill: RED_SOFT, borderWidth: 0.8 });
     const labelSize = 5.6;
+    const valueSize = 5.6;
+    const labelWidth = resources.bold.widthOfTextAtSize(label, labelSize);
+    // Leave a real gap between the label and its value: drawn flush they read as
+    // a single crowded token and metric rounding can touch the two spans.
+    const valueX = x + 4 + labelWidth + 3;
     page.drawText(label, { x: x + 4, y: y - 11, size: labelSize, font: resources.bold, color: RED });
-    page.drawText(fitOfficialDocumentPdfText(resources.regular, ` ${value}`, 5.6, metaWidth - resources.bold.widthOfTextAtSize(label, labelSize) - 11), {
-      x: x + 4 + resources.bold.widthOfTextAtSize(label, labelSize),
+    // The leading space keeps PDF text extraction identical to the preview's
+    // `LABEL: VALUE` metadata string.
+    page.drawText(fitOfficialDocumentPdfText(resources.regular, ` ${value}`, valueSize, Math.max(8, x + metaWidth - 4 - valueX)), {
+      x: valueX,
       y: y - 11,
-      size: 5.6,
+      size: valueSize,
       font: resources.regular,
       color: INK,
     });
   });
-  y -= 20;
+  y -= METADATA_HEIGHT;
 
   // Column geometry comes from the shared layout contract so the drawn PDF grid
   // matches the HTML/print preview exactly.
@@ -122,8 +139,12 @@ function drawPage(input: {
   // Two-tier page heading mirrors the HTML table: identity cells span both
   // bands, each weekly group has a week-ending heading above daily dates,
   // and the right-hand total-per-term group spans its three metric columns.
-  const headerTop = 18;
-  const headerBottom = 18;
+  const headerTop = HEADER_TOP;
+  const headerBottom = HEADER_BOTTOM;
+  // Closed days carry the governed holiday/closure name in the attendance area,
+  // exactly like the preview's rotated `.closure-label`. They are drawn after
+  // the learner rows once the full row band is known.
+  const closureColumns: Array<{ x: number; width: number; label: string }> = [];
   let x = MARGIN;
   // Match the HTML three-level identity heading: NAME is a grouped heading
   // above Surname and Given Names, while the other identity columns span it.
@@ -166,14 +187,31 @@ function drawPage(input: {
       color: RED,
     });
     for (const day of week.dates) {
-      const dayLabel = day.teaching
-        ? `${day.weekday}  ${day.dayNumber}`
-        : day.reason ?? `Non-teaching ${day.weekday} ${day.dayNumber}`;
-      drawCell(page, resources.bold, dayLabel, x, y - headerTop, dayWidth, headerBottom, {
+      // The panel is filled here and its weekday/day number are drawn as the
+      // preview's two stacked lines, so teaching and closed days share one
+      // daily grid in both renderers.
+      drawCell(page, resources.bold, "", x, y - headerTop, dayWidth, headerBottom, {
         fill: day.teaching ? RED_SOFT : GREY,
-        color: day.teaching ? RED : MUTED,
-        size: day.teaching ? 5.2 : 4,
       });
+      const weekdaySize = day.teaching ? 5.2 : 4.6;
+      const dayNumberSize = day.teaching ? 4 : 3.6;
+      const weekdayWidth = resources.bold.widthOfTextAtSize(day.weekday, weekdaySize);
+      page.drawText(day.weekday, {
+        x: x + Math.max(1.5, (dayWidth - weekdayWidth) / 2),
+        y: y - headerTop - headerBottom + 7.4,
+        size: weekdaySize,
+        font: resources.bold,
+        color: day.teaching ? RED : MUTED,
+      });
+      const dayNumberWidth = resources.bold.widthOfTextAtSize(day.dayNumber, dayNumberSize);
+      page.drawText(day.dayNumber, {
+        x: x + Math.max(1.5, (dayWidth - dayNumberWidth) / 2),
+        y: y - headerTop - headerBottom + 2.6,
+        size: dayNumberSize,
+        font: resources.bold,
+        color: MUTED,
+      });
+      if (!day.teaching) closureColumns.push({ x, width: dayWidth, label: registerTeacherClosureLabel(day.reason) });
       x += dayWidth;
     }
     drawCell(page, resources.bold, "Tot.", x, y - headerTop, dayWidth, headerBottom,
@@ -190,6 +228,7 @@ function drawPage(input: {
     x += termWidths[index];
   });
   y -= headerTop + headerBottom;
+  const rowBandTop = y;
 
   learners.forEach((learner, index) => {
     x = MARGIN;
@@ -221,6 +260,27 @@ function drawPage(input: {
     y -= 28;
   }
 
+  // Governed closure/holiday name inside the attendance area, rotated like the
+  // preview's vertical `.closure-label`. The label is clipped to the drawn row
+  // band rather than allowed to spill over the summary rows.
+  for (const column of closureColumns) {
+    const available = rowBandTop - y - 4;
+    if (available <= 6) continue;
+    let size = CLOSURE_LABEL_MAX_SIZE;
+    const naturalWidth = resources.bold.widthOfTextAtSize(column.label, size);
+    if (naturalWidth > available) size = Math.max(CLOSURE_LABEL_MIN_SIZE, (size * available) / Math.max(1, naturalWidth));
+    const fitted = resources.bold.widthOfTextAtSize(column.label, size);
+    if (fitted > available) continue;
+    page.drawText(column.label, {
+      x: column.x + column.width / 2 + size * 0.34,
+      y: y + (available - fitted) / 2 + 2,
+      size,
+      font: resources.bold,
+      color: MUTED,
+      rotate: degrees(90),
+    });
+  }
+
   const summaryRows: Array<{ label: string; kind: RegisterTeacherSummaryKind; fill: ReturnType<typeof rgb>; color: ReturnType<typeof rgb> }> = [
     { label: "Total number of attendances", kind: "attendance", fill: PURPLE_SOFT, color: INK },
     { label: "Total number of absentees", kind: "absence", fill: RED_SOFT, color: RED },
@@ -247,18 +307,20 @@ function drawPage(input: {
   const balanceSize = 6;
   const balanceX = PAGE_WIDTH - MARGIN - resources.bold.widthOfTextAtSize(balanceLabel, balanceSize) - 9;
   const balanceY = Math.max(20, y - 10);
-  page.drawText(balanceLabel, { x: balanceX, y: balanceY, size: balanceSize, font: resources.bold, color: RED });
-  page.drawText(balance.balanced ? "✓" : "!", { x: PAGE_WIDTH - MARGIN - 6, y: balanceY + 1, size: 6, font: balance.balanced ? checkFont : resources.bold, color: RED });
+  // The preview renders the governance flag as its own block above the balance
+  // strip. Draw it on its own line so the two can never overlap.
   const governanceAlert = registerTeacherGovernanceAlert(document);
   if (governanceAlert) {
     page.drawText(fitOfficialDocumentPdfText(resources.bold, `Governance flag: ${governanceAlert}`, 5.2, CONTENT_WIDTH), {
       x: MARGIN,
-      y: Math.max(20, y - 10),
+      y: balanceY + 9,
       size: 5.2,
       font: resources.bold,
       color: RED,
     });
   }
+  page.drawText(balanceLabel, { x: balanceX, y: balanceY, size: balanceSize, font: resources.bold, color: RED });
+  page.drawText(balance.balanced ? "✓" : "!", { x: PAGE_WIDTH - MARGIN - 6, y: balanceY + 1, size: 6, font: balance.balanced ? checkFont : resources.bold, color: RED });
 }
 
 export async function renderRegisterTeacherPdf(input: { header: OfficialDocumentHeaderModel; document: RegisterTeacherDocument; logoBytes?: Uint8Array | null }) {
