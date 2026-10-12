@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useContext, useEffect, useMemo, useState } from "react";
+import { HodScopeCloseContext } from "./academic-setup-core";
 import Link from "next/link";
 import { ChevronDown, Network, Plus, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,7 @@ export function HodScopeConfiguration({
   embedded?: boolean;
   portfolios: { id: string; label: string; subjectIds: string[]; appointments: { id: string; headName: string; effectiveFrom: string; effectiveTo: string | null }[] }[];
 }) {
+  const closeEditor = useContext(HodScopeCloseContext);
   const [portfolioLabel, setPortfolioLabel] = useState("");
   const [portfolioId, setPortfolioId] = useState("");
   const [portfolioHeadId, setPortfolioHeadId] = useState("");
@@ -83,6 +85,12 @@ export function HodScopeConfiguration({
     endHodSubjectResponsibility,
     emptyState,
   );
+
+  useEffect(() => {
+    if (portfolioState.success || appointmentState.success || createState.success || endState.success) {
+      closeEditor?.();
+    }
+  }, [portfolioState.success, appointmentState.success, createState.success, endState.success, closeEditor]);
 
   const subjectOptions = useMemo(
     () =>
