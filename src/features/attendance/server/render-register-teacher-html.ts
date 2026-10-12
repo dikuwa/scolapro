@@ -240,7 +240,8 @@ export function renderRegisterTeacherHtml(input: {
   .legend { margin:8px 0 2px; display:flex; align-items:center; flex-wrap:wrap; gap:5px 14px; min-height:20px; padding:2px 1px; font-size:8px; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:3px; min-height:16px; white-space:nowrap; }
   .legend .mark-sample { display:inline-block; min-width:12px; text-align:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; overflow:visible; }
-  .legend .absence-reason-mark { top:-.58em; margin-left:0; font-size:.75em; }
+  .legend .mark-sample:has(.absence-reason-mark) { position:relative; padding-right:4px; }
+  .legend .absence-reason-mark { position:absolute; top:-.38em; right:0; margin:0; font-size:.6em; line-height:1; }
   @page { size:A3 landscape; margin:8mm; }
   @media screen {
     .sheet { background:transparent; padding:0; box-shadow:none; }
