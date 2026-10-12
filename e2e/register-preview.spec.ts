@@ -3,7 +3,7 @@ import { DEMO } from "./support/accounts.mjs";
 import { signInToAttendance } from "./support/session";
 
 test.describe("inline register document preview and PDF", () => {
-  test("the register tab renders the shared document and downloads a PDF", async ({ page }) => {
+  test("the register tab renders the shared document and downloads a PDF", async ({ page }, testInfo) => {
     await signInToAttendance(page, "admin");
     await page.goto(
       `/attendance?view=register&class=${DEMO.registerClass10A}&date=${DEMO.teachingDate}`,
@@ -42,6 +42,18 @@ test.describe("inline register document preview and PDF", () => {
       page.getByRole("button", { name: "PDF", exact: true }).click(),
     ]);
     expect(download.suggestedFilename()).toMatch(/\.pdf$/i);
+    // Attach only synthetic local-fixture output to the private CI test report.
+    // This enables an actual visual HTML/PDF comparison at the release gate.
+    await testInfo.attach("synthetic-register-preview.png", {
+      body: await frame.screenshot(),
+      contentType: "image/png",
+    });
+    const pdfPath = testInfo.outputPath("synthetic-register.pdf");
+    await download.saveAs(pdfPath);
+    await testInfo.attach("synthetic-register.pdf", {
+      path: pdfPath,
+      contentType: "application/pdf",
+    });
   });
 
   test("the register-teacher PDF endpoint returns a PDF for an authorized user", async ({ page }) => {
