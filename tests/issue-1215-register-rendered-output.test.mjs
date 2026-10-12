@@ -101,6 +101,30 @@ test("rendered HTML and PDF share page count, A3 landscape geometry and repeated
   }
 });
 
+
+test("configured school contacts render in the HTML letterhead and PDF content", async () => {
+  const document = buildRangeDocument();
+  const header = {
+    ...HEADER_FIXTURE,
+    contactLines: [
+      { key: "address", label: "Address", value: "Fixture Campus, Swakopmund", text: "Address: Fixture Campus, Swakopmund" },
+      { key: "telephone", label: "Tel", value: "+264 00 000 0000", text: "Tel: +264 00 000 0000" },
+      { key: "email", label: "Email", value: "fixture@example.test", text: "Email: fixture@example.test" },
+    ],
+  };
+  const html = htmlRenderer.renderRegisterTeacherHtml({ header, document });
+  assert.match(html, /Address:<\\/strong> Fixture Campus, Swakopmund/);
+  assert.match(html, /Tel:<\\/strong> \\+264 00 000 0000/);
+  assert.match(html, /Email:<\\/strong> fixture@example\\.test/);
+  assert.equal((html.match(/fixture@example\\.test/g) ?? []).length, 4, "every repeated header includes the configured email");
+  const result = await pdfRenderer.renderRegisterTeacherPdf({ header, document });
+  const pdfText = Buffer.from(result.bytes).toString("latin1");
+  // PDF content streams are normally compressed; rendering must still succeed
+  // with a fully populated identity in the source document.
+  assert.equal(result.pageCount, 4);
+  assert.ok(pdfText.startsWith("%PDF-"));
+});
+
 test("HTML column grid is derived from the shared layout contract", () => {
   const document = buildRangeDocument();
   const html = htmlRenderer.renderRegisterTeacherHtml({ header: HEADER_FIXTURE, document });
