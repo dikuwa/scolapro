@@ -122,17 +122,28 @@ function drawPage(input: {
   // Two-tier page heading mirrors the HTML table: identity cells span both
   // bands, each weekly group has a week-ending heading above daily dates,
   // and the right-hand total-per-term group spans its three metric columns.
-  const headerTop = 15;
-  const headerBottom = 15;
+  const headerTop = 18;
+  const headerBottom = 18;
   let x = MARGIN;
-  const identityLabels = ["ADMIN NO.", "NO.", "SURNAME", "GIVEN NAMES", "DATE OF BIRTH"];
-  identityLabels.forEach((label, index) => {
-    drawCell(page, resources.bold, label, x, y, identityWidths[index], headerTop + headerBottom, {
-      fill: RED_SOFT, color: RED, size: 5,
-      align: index === 2 || index === 3 ? "left" : "center",
-    });
-    x += identityWidths[index];
-  });
+  // Match the HTML three-level identity heading: NAME is a grouped heading
+  // above Surname and Given Names, while the other identity columns span it.
+  drawCell(page, resources.bold, "ADMIN NO.", x, y, identityWidths[0], headerTop + headerBottom,
+    { fill: RED_SOFT, color: RED, size: 5 });
+  x += identityWidths[0];
+  drawCell(page, resources.bold, "NO.", x, y, identityWidths[1], headerTop + headerBottom,
+    { fill: RED_SOFT, color: RED, size: 5 });
+  x += identityWidths[1];
+  const nameWidth = identityWidths[2] + identityWidths[3];
+  drawCell(page, resources.bold, "NAME", x, y, nameWidth, headerTop,
+    { fill: RED_SOFT, color: RED, size: 5.4 });
+  drawCell(page, resources.bold, "Surname", x, y - headerTop, identityWidths[2], headerBottom,
+    { fill: RED_SOFT, color: RED, size: 5.1, align: "left" });
+  drawCell(page, resources.bold, "Given Names", x + identityWidths[2], y - headerTop, identityWidths[3], headerBottom,
+    { fill: RED_SOFT, color: RED, size: 5.1, align: "left" });
+  x += nameWidth;
+  drawCell(page, resources.bold, "DATE OF BIRTH", x, y, identityWidths[4], headerTop + headerBottom,
+    { fill: RED_SOFT, color: RED, size: 5 });
+  x += identityWidths[4];
   for (const week of weeks) {
     const groupWidth = (week.dates.length + 1) * dayWidth;
     drawCell(page, resources.bold, `Week Ending Friday  ${formatDate(week.weekEnding)}`,
