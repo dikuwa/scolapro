@@ -41,9 +41,7 @@ export default async function SchoolSetupPage() {
     getRegisterTeacherCandidates(membership.schoolId, today),
     getOperationalCalendarWorkspace({ schoolId: membership.schoolId, academicYear, staffMemberId: membership.staffMemberId, canManageSchool: true, canManageDepartment: true, scopeKind: "department" }),
   ]);
-  const activeHodScopeCount = hodScope.responsibilities.filter(
-    (row) => row.effectiveFrom <= hodScope.today && (!row.effectiveTo || row.effectiveTo >= hodScope.today),
-  ).length;
+  const activeHodScopeCount = hodScope.portfolios.length;
 
   return (
     <AppShell>
