@@ -63,3 +63,10 @@ test("internal letterhead preserves governed contact and school identity in HTML
   assert.match(pdfHeader, /header\.schoolEmisNumber/);
   assert.match(pdfHeader, /header\.contactLines/);
 });
+
+test("PDF has the same grouped NAME identity heading as the accepted HTML preview", () => {
+  assert.match(html, /class="identity name-head">NAME/);
+  assert.match(pdf, /drawCell\(page, resources\.bold, "NAME", x, y, nameWidth, headerTop/);
+  assert.match(pdf, /"Surname", x, y - headerTop/);
+  assert.match(pdf, /"Given Names", x \+ identityWidths\[2\], y - headerTop/);
+});
