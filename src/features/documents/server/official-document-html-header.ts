@@ -101,6 +101,14 @@ export function renderOfficialDocumentHtmlHeader(
   const contactMarkup = header.contactLines
     .map((line) => `<div><strong>${escapeOfficialDocumentHtml(line.label)}:</strong> ${escapeOfficialDocumentHtml(line.value)}</div>`)
     .join("");
+  // Use only the school's governed profile: when optional contact fields are
+  // unset, retain the real town/postal identity and EMIS instead of a blank
+  // identity block. Never manufacture phone or email details.
+  const internalIdentityDetails = [
+    contactMarkup,
+    ...(!header.contactLines.length ? header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`) : []),
+    ...(header.schoolEmisNumber ? [`<div><strong>EMIS:</strong> ${escapeOfficialDocumentHtml(header.schoolEmisNumber)}</div>`] : []),
+  ].filter(Boolean).join("");
   const postalMarkup = header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`).join("");
   const fontFace = renderOfficialDocumentSchoolNameFontStyle(header);
 
@@ -134,7 +142,7 @@ export function renderOfficialDocumentHtmlHeader(
     <div class="school-identity">
       <h1 class="${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
       ${header.formerName ? `<div class="former-name">(${escapeOfficialDocumentHtml(header.formerName)})</div>` : ""}
-      ${contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : ""}
+      ${internalIdentityDetails ? `<div class="school-contact">${internalIdentityDetails}</div>` : ""}
     </div>
     ${contextMarkup}
   </header>`;
