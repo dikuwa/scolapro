@@ -19,6 +19,7 @@
     "e2e": "node scripts/e2e-run.mjs",
     "e2e:guard": "node scripts/e2e-guard.mjs",
     "e2e:seed": "node scripts/seed-e2e-fixtures.mjs",
+    "e2e:seed:staging": "node scripts/seed-staging-fixtures.mjs",
     "e2e:ui": "node scripts/e2e-run.mjs --ui",
     "check": "pnpm lint && pnpm typecheck && pnpm validate:report-font && pnpm validate:navigation && pnpm build",
     "bench:report-cards": "node scripts/benchmark-report-card-worker.mjs",

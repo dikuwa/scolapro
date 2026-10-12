@@ -133,6 +133,14 @@ infrastructure approval (a Supabase project slot and CI secrets). When approved:
 4. Apply migrations and seed **synthetic** data only — never restore production
    learner data into staging.
 
+The synthetic world is applied by `scripts/seed-staging-fixtures.mjs`
+(`pnpm e2e:seed:staging`), which resolves its target through
+`e2e/support/staging-seed-guard.mjs` and refuses production refs, hosts and
+credentials, a missing `SCOLAPRO_E2E_SYNTHETIC_ONLY=1`, and ambiguous identities.
+`node scripts/seed-staging-fixtures.mjs --check` is a dependency-free preflight
+that validates the environment without connecting. This boundary is recorded in
+`decisions/ADR-0007-synthetic-only-hosted-staging.md`.
+
 ## Security boundaries
 
 The harness must never be able to read or write production learner data. These
