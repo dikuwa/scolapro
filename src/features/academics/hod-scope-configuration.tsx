@@ -169,44 +169,6 @@ export function HodScopeConfiguration({
         </form>
       </div>
       <div className="mt-5 space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">Current responsibility history</h3>
-          <div className="mt-3 divide-y divide-border-subtle rounded-[var(--radius-sm)] border border-border-subtle">
-            {responsibilities.length ? (
-              responsibilities.map((row) => {
-                const status = statusFor(row, today);
-                return (
-                  <div key={row.id} className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">
-                        {row.subjectName}
-                        {row.subjectCode ? (
-                          <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                            {row.subjectCode}
-                          </span>
-                        ) : null}
-                      </p>
-                      {row.departmentLabel ? <p className="mt-1 text-xs font-medium text-brand-strong">{row.departmentLabel}</p> : null}
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {row.headName} · {row.effectiveFrom} → {row.effectiveTo ?? "open"}
-                      </p>
-                    </div>
-                    <span className="self-start rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-xs font-medium text-foreground">
-                      {status}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="px-4 py-6 text-center">
-                <p className="text-sm font-medium text-foreground">No HOD scope configured</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Add explicit subject responsibilities before HOD review or planning authority is expected.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
 
         <details className="group rounded-[var(--radius-sm)] border border-border-subtle bg-surface">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 text-sm font-semibold text-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft [&::-webkit-details-marker]:hidden">
