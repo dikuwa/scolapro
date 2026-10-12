@@ -113,8 +113,10 @@ data (the script asserts this).
 ## CI
 
 `.github/workflows/e2e.yml` runs on every pull request and on demand. It starts a
-local Supabase stack, applies migrations and the demo seed, writes a local
-`.env.local`, runs the guard, installs Chromium and executes `pnpm e2e`. The
+local Supabase stack, applies migrations and the demo seed (`supabase db reset`),
+writes a local `.env.local`, runs the guard, **verifies repeat-seeding idempotency**
+(`scripts/verify-e2e-seed-idempotency.mjs`, which seeds twice and compares a
+deterministic world digest), installs Chromium and executes `pnpm e2e`. The
 Playwright report is uploaded as an artifact. No secrets, hosted projects or paid
 infrastructure are involved.
 
@@ -175,6 +177,10 @@ properties are enforced, not just documented:
 
 - The suite runs against the local stack in CI. Tests that need a persistent
   hosted environment are not exercised until staging is approved.
+- The hosted-staging baseline path (`scripts/seed-staging-fixtures.mjs --bootstrap`,
+  which uses the Supabase Management API) is **NOT VERIFIED**: it requires an
+  isolated, approved staging project that is not provisioned. Only its guard,
+  read-only preflight, refusal paths and generated SQL are covered by unit tests.
 - The production-host check refuses `*.vercel.app` and the known production alias.
   A hypothetical custom (non-Vercel) production domain is not recognised as a
   production host by name; it is still blocked from a default run because any

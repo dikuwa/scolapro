@@ -11,39 +11,18 @@
 // Requires: local `supabase start`, supabase/seed.sql applied (pnpm local:sync-db
 // or a fresh `supabase db reset`), and SCOLAPRO_E2E_PASSWORD (>= 12 chars).
 
-import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { mergedProjectEnv } from "./env-file.mjs";
 import { syntheticPassword } from "../e2e/support/accounts.mjs";
+import { localSupabaseStatus } from "../e2e/support/local-supabase.mjs";
 import { seedSyntheticWorld } from "../e2e/support/seed-world.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const password = syntheticPassword(mergedProjectEnv(projectRoot));
 
-function localStatus() {
-  let status;
-  try {
-    status = JSON.parse(
-      execFileSync("supabase", ["status", "-o", "json"], {
-        cwd: projectRoot,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }),
-    );
-  } catch {
-    throw new Error("Local Supabase is not running. Start it with `supabase start` first.");
-  }
-  const apiUrl = new URL(status.API_URL);
-  if (!["localhost", "127.0.0.1", "::1"].includes(apiUrl.hostname)) {
-    throw new Error("Refusing to seed E2E fixtures outside the local Supabase stack.");
-  }
-  if (!status.SERVICE_ROLE_KEY) throw new Error("Local Supabase did not report a service-role key.");
-  return status;
-}
-
-const status = localStatus();
+const status = localSupabaseStatus({ projectRoot });
 const supabase = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });

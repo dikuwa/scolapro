@@ -99,3 +99,15 @@ Applying the baseline for real requires an isolated staging project ref, an entr
 for it on the `SCOLAPRO_E2E_APPROVED_STAGING_REFS` allowlist, a
 `STAGING_SUPABASE_SERVICE_ROLE_KEY` and a `SUPABASE_ACCESS_TOKEN`. None are
 provisioned by this change; see the provisioning blockers in the PR.
+
+## Verification status
+
+- **Hosted Management-API path: NOT VERIFIED.** No isolated staging project is
+  provisioned, so `--bootstrap`/`--verify-baseline` have not run online. They are
+  covered by unit tests only (identity guards, approval binding, refusal paths with
+  zero requests, read-only version/function preflight, exact-row collision checks,
+  generated SQL parity).
+- **Local equivalent: VERIFIED in CI.** `.github/workflows/e2e.yml` runs on a
+  Docker-capable `ubuntu-latest` runner and exercises disposable local Supabase
+  migrations (`supabase db reset`), the local baseline/world seed, repeat-seeding
+  idempotency, synthetic login and tenant isolation.
