@@ -57,7 +57,7 @@ export function ConfigurationCard({
         </div>
         <CardActionToggle open={open} controls={panelId} action={action} disabled={disabled} onClick={onToggle} />
       </div>
-      {editorFirst && open ? {open ? (
+      {editorFirst && open ? (
         <div
           id={panelId}
           className="mt-4 border-t border-border-subtle pt-4 [&>section]:mt-0 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none"
@@ -65,9 +65,9 @@ export function ConfigurationCard({
         >
           {editor}
         </div>
-      ) : null} : null}
+      ) : null}
       <div className="mt-4 border-t border-border-subtle pt-3">{summary}</div>
-      {!editorFirst ? {open ? (
+      {!editorFirst && open ? (
         <div
           id={panelId}
           className="mt-4 border-t border-border-subtle pt-4 [&>section]:mt-0 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none"
@@ -75,7 +75,7 @@ export function ConfigurationCard({
         >
           {editor}
         </div>
-      ) : null} : null}
+      ) : null}
     </article>
   );
 }
