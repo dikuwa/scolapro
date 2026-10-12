@@ -5,6 +5,7 @@ import test from "node:test";
 const page = readFileSync("src/app/school/setup/page.tsx", "utf8");
 const core = readFileSync("src/features/academics/academic-setup-core.tsx", "utf8");
 const forms = readFileSync("src/features/academics/structure-forms.tsx", "utf8");
+const hod = readFileSync("src/features/academics/hod-scope-configuration.tsx", "utf8");
 const rooms = readFileSync("src/features/timetable/room-management.tsx", "utf8");
 
 test("academic setup keeps existing content but leads with compact summaries", () => {
@@ -12,8 +13,8 @@ test("academic setup keeps existing content but leads with compact summaries", (
   assert.match(core, /Core academic setup/);
   assert.match(core, /Timetable workflow/);
   assert.match(core, /Calendar anchor/);
-  assert.match(core, /HOD teaching scope/);
-  assert.match(page, /Current register structure/);
+  assert.match(hod, /HOD teaching scope/);
+  assert.match(forms, /Grade &amp; class management/);
   assert.match(page, /RoomManagement/);
 });
 
@@ -21,7 +22,9 @@ test("configuration forms open only after an explicit user action", () => {
   assert.match(core, /useState<ActivePanel>\(null\)/);
   assert.match(core, /activePanel === "workflow"/);
   assert.match(core, /activePanel === "anchor"/);
-  assert.match(core, /activePanel === "hod"/);
+  assert.doesNotMatch(core, /activePanel === "hod"/);
+  assert.match(hod, /useState<string \| null>\(null\)/);
+  assert.match(hod, /useState\(false\)/);
   assert.match(forms, /useState<"grade" \| "class" \| null>\(null\)/);
   assert.match(forms, /openPanel === "grade"/);
   assert.match(forms, /openPanel === "class"/);
@@ -43,7 +46,7 @@ test("room management remains complete but bounded for scanning", () => {
   assert.match(rooms, /Trash2/);
 });
 
-test("current register structure stays bounded and scrollable like room management", () => {
-  assert.match(page, /max-h-\[33rem\] overflow-y-auto overscroll-contain pr-1/);
-  assert.match(page, /<ClassManagement/);
+test("register structure stays bounded and scrollable inside the combined Grade & Class card", () => {
+  assert.match(forms, /max-h-\[33rem\] overflow-y-auto overscroll-contain pr-1/);
+  assert.match(forms, /<ClassManagement/);
 });

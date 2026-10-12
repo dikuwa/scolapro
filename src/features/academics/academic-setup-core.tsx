@@ -1,13 +1,13 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, CalendarRange, Network, X } from "lucide-react";
+import { CalendarDays, CalendarRange, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import { cn } from "@/lib/utils";
 
-type ActivePanel = "workflow" | "anchor" | "hod" | null;
+type ActivePanel = "workflow" | "anchor" | null;
 type ActionKind = "edit" | "manage";
 
 function SummaryMetric({
@@ -25,28 +25,41 @@ function SummaryMetric({
   );
 }
 
+/**
+ * A single core-setup card.
+ *
+ * The compact summary is the default read-only view. Opening the editor
+ * replaces that summary content inside the same card — it never renders a
+ * second panel, duplicate heading, description or an unrelated editing column.
+ */
 function CoreSetupCard({
   icon: Icon,
   tone,
   title,
   description,
+  statusLabel,
   active,
   actionKind,
   actionLabel,
   closeLabel,
+  actionDisabled,
   onToggle,
-  children,
+  summary,
+  editor,
 }: {
   icon: LucideIcon;
   tone: string;
   title: string;
   description: string;
+  statusLabel: string;
   active: boolean;
   actionKind: ActionKind;
   actionLabel: string;
   closeLabel: string;
+  actionDisabled?: boolean;
   onToggle: () => void;
-  children: ReactNode;
+  summary: ReactNode;
+  editor: ReactNode;
 }) {
   return (
     <article
@@ -57,77 +70,46 @@ function CoreSetupCard({
           : "border-border-subtle",
       )}
     >
-      <div className={cn("grid gap-4", !active && "md:grid-cols-[minmax(0,1fr)_minmax(15rem,0.72fr)] md:items-start")}>
-        <div className="flex min-w-0 items-start gap-3">
-          <span className={cn(tone, "grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]")}>
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-              {active ? (
-                <span className="rounded-[var(--radius-xs)] bg-brand-soft px-2 py-0.5 text-[0.62rem] font-semibold text-brand-strong">
-                  Active
-                </span>
-              ) : null}
-            </div>
-            <p className="scolapro-section-description !mt-1">{description}</p>
+      <div className="flex min-w-0 items-start gap-3">
+        <span className={cn(tone, "grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]")}>
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+            {active ? (
+              <span className="rounded-[var(--radius-xs)] bg-brand-soft px-2 py-0.5 text-[0.62rem] font-semibold text-brand-strong">
+                Active
+              </span>
+            ) : null}
           </div>
+          <p className="scolapro-section-description !mt-1">{description}</p>
         </div>
-        <div
-          className={cn(
-            "grid gap-4 border-t border-border-subtle pt-4",
-            !active && "md:border-l md:border-t-0 md:pl-4 md:pt-0",
-          )}
-        >
-          {children}
-        </div>
+      </div>
+
+      <div className="mt-4 min-w-0" data-core-setup-content={active ? "editor" : "summary"}>
+        {active ? editor : summary}
       </div>
 
       <div className="mt-auto flex justify-end pt-4">
-        <RecordActionButton
-          label={active ? closeLabel : actionLabel}
-          icon={active ? X : undefined}
-          actionKind={active ? undefined : actionKind}
-          variant="soft"
-          compact={false}
-          expanded={active}
-          onClick={onToggle}
-          className="min-h-9 px-3 text-xs"
-        />
+        {actionDisabled ? (
+          <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2 py-1 text-[0.68rem] font-medium text-muted-foreground">
+            {statusLabel}
+          </span>
+        ) : (
+          <RecordActionButton
+            label={active ? closeLabel : actionLabel}
+            icon={active ? X : undefined}
+            actionKind={active ? undefined : actionKind}
+            variant="soft"
+            compact={false}
+            expanded={active}
+            onClick={onToggle}
+            className="min-h-9 px-3 text-xs"
+          />
+        )}
       </div>
     </article>
-  );
-}
-
-function CoreSetupRow({
-  summary,
-  editor,
-  open,
-  panel,
-}: {
-  summary: ReactNode;
-  editor: ReactNode;
-  open: boolean;
-  panel: "timetable" | "hod";
-}) {
-  return (
-    <div
-      className={cn(
-        "grid gap-3",
-        open && "xl:grid-cols-[minmax(20rem,0.8fr)_minmax(0,1.2fr)] xl:items-start",
-      )}
-    >
-      {summary}
-      {open ? (
-        <div
-          className="min-w-0 [&>section]:mt-0"
-          data-academic-setup-panel={panel}
-        >
-          {editor}
-        </div>
-      ) : null}
-    </div>
   );
 }
 
@@ -137,18 +119,16 @@ export function AcademicSetupCore({
   anchorDate,
   anchorDay,
   rotating,
-  hodScopeCount,
-  timetableEditor,
-  hodEditor,
+  workflowEditor,
+  anchorEditor,
 }: {
   timetableModeLabel: string;
   cycleLength: number;
   anchorDate: string | null;
   anchorDay: number | null;
   rotating: boolean;
-  hodScopeCount: number;
-  timetableEditor: ReactNode;
-  hodEditor: ReactNode;
+  workflowEditor: ReactNode;
+  anchorEditor: ReactNode;
 }) {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
 
@@ -156,89 +136,65 @@ export function AcademicSetupCore({
     setActivePanel((current) => (current === panel ? null : panel));
   };
 
+  const workflowStatus = "Configured";
+  const anchorConfigured = Boolean(anchorDate && anchorDay);
+  const anchorStatus = rotating ? (anchorConfigured ? "Configured" : "Not configured") : "Not required";
+
   return (
     <section className="mt-5 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div>
         <h2 className="scolapro-section-title">Core academic setup</h2>
         <p className="scolapro-section-description">
-          Review the current academic workflow first, then open only the configuration you need to change.
+          Review the current academic workflow, then open only the configuration you need to change. Editors replace the
+          summary inside the same card.
         </p>
       </div>
 
-      <div className="mt-4 space-y-3">
-        <CoreSetupRow
-          open={activePanel === "workflow"}
-          panel="timetable"
-          editor={timetableEditor}
+      <div className="mt-4 grid gap-5 lg:grid-cols-2 lg:items-start">
+        <CoreSetupCard
+          icon={CalendarRange}
+          tone="scolapro-tone-sky"
+          title="Timetable workflow"
+          description="Choose whether this school uses weekday names or a numbered rotating timetable cycle."
+          statusLabel={workflowStatus}
+          active={activePanel === "workflow"}
+          actionKind="edit"
+          actionLabel="Edit timetable settings"
+          closeLabel="Close timetable settings"
+          onToggle={() => toggle("workflow")}
+          editor={workflowEditor}
           summary={
-            <CoreSetupCard
-              icon={CalendarRange}
-              tone="scolapro-tone-sky"
-              title="Timetable workflow"
-              description="Choose whether this school uses weekday names or a numbered rotating timetable cycle."
-              active={activePanel === "workflow"}
-              actionKind="edit"
-              actionLabel="Edit timetable settings"
-              closeLabel="Close timetable settings"
-              onToggle={() => toggle("workflow")}
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <SummaryMetric label="Day system" value={timetableModeLabel} />
-                <SummaryMetric label="Cycle length" value={`${cycleLength} day${cycleLength === 1 ? "" : "s"}`} />
-              </div>
-            </CoreSetupCard>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <SummaryMetric label="Day system" value={timetableModeLabel} />
+              <SummaryMetric label="Cycle length" value={`${cycleLength} day${cycleLength === 1 ? "" : "s"}`} />
+              <SummaryMetric label="Configuration status" value={workflowStatus} />
+            </div>
           }
         />
 
-        <CoreSetupRow
-          open={activePanel === "anchor"}
-          panel="timetable"
-          editor={timetableEditor}
-          summary={
-            <CoreSetupCard
-              icon={CalendarDays}
-              tone="scolapro-tone-mint"
-              title="Calendar anchor"
-              description={
-                rotating
-                  ? "Set the official school date and rotating cycle day used for calendar resolution."
-                  : "Weekday timetables use real weekday labels and do not require a rotating-cycle anchor."
-              }
-              active={activePanel === "anchor"}
-              actionKind="edit"
-              actionLabel="Edit calendar anchor"
-              closeLabel="Close calendar settings"
-              onToggle={() => toggle("anchor")}
-            >
-              <div className="grid grid-cols-2 gap-4">
-                <SummaryMetric label="Known school date" value={rotating ? (anchorDate ?? "Not configured") : "Not required"} />
-                <SummaryMetric label="Cycle day" value={rotating && anchorDay ? `Day ${anchorDay}` : rotating ? "Not configured" : "Weekday"} />
-              </div>
-            </CoreSetupCard>
+        <CoreSetupCard
+          icon={CalendarDays}
+          tone="scolapro-tone-mint"
+          title="Calendar anchor"
+          description={
+            rotating
+              ? "Set the official school date and rotating cycle day used for calendar resolution."
+              : "Weekday timetables use real weekday labels and do not require a rotating-cycle anchor."
           }
-        />
-
-        <CoreSetupRow
-          open={activePanel === "hod"}
-          panel="hod"
-          editor={hodEditor}
+          statusLabel={anchorStatus}
+          active={activePanel === "anchor"}
+          actionKind="edit"
+          actionLabel={anchorConfigured ? "Edit calendar anchor" : "Configure calendar anchor"}
+          closeLabel="Close calendar settings"
+          actionDisabled={!rotating}
+          onToggle={() => toggle("anchor")}
+          editor={anchorEditor}
           summary={
-            <CoreSetupCard
-              icon={Network}
-              tone="scolapro-tone-brand"
-              title="HOD teaching scope"
-              description="Assign explicit subject responsibilities to HODs."
-              active={activePanel === "hod"}
-              actionKind="manage"
-              actionLabel="Manage HOD responsibilities"
-              closeLabel="Close HOD responsibilities"
-              onToggle={() => toggle("hod")}
-            >
-              <SummaryMetric
-                label="Configured"
-                value={`${hodScopeCount} HOD scope${hodScopeCount === 1 ? "" : "s"}`}
-              />
-            </CoreSetupCard>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <SummaryMetric label="Known school date" value={rotating ? (anchorDate ?? "Not configured") : "Not required"} />
+              <SummaryMetric label="Cycle day" value={rotating && anchorDay ? `Day ${anchorDay}` : rotating ? "Not configured" : "Weekday"} />
+              <SummaryMetric label="Configuration status" value={anchorStatus} />
+            </div>
           }
         />
       </div>

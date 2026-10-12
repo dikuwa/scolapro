@@ -166,5 +166,8 @@ export async function getHodScopeConfiguration(schoolId: string) {
       headName: staffById.get(assignments.find((item) => item.id === a.staff_assignment_id)?.staff_member_id ?? "")?.name ?? "Historical HOD",
     })),
   }));
-  return { subjects, heads, responsibilities, portfolios, today };
+  const activeHodScopeCount = portfolios.filter((portfolio) =>
+    portfolio.appointments.some((appointment) => activeOn(today, appointment.effectiveFrom, appointment.effectiveTo)),
+  ).length;
+  return { subjects, heads, responsibilities, portfolios, today, activeHodScopeCount };
 }

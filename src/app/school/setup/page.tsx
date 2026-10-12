@@ -1,18 +1,20 @@
-import { BookOpenCheck, School, UsersRound } from "lucide-react";
+import { BookOpenCheck, CalendarRange, Network, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { AcademicSetupCore } from "@/features/academics/academic-setup-core";
 import { AcademicStructureForms } from "@/features/academics/structure-forms";
-import { ClassManagement } from "@/features/academics/class-management";
-import { getRegisterTeacherCandidates, getSchoolStructure } from "@/features/academics/server/structure";
-import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
 import { HodScopeConfiguration } from "@/features/academics/hod-scope-configuration";
+import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
+import { getRegisterTeacherCandidates, getSchoolStructure } from "@/features/academics/server/structure";
 import { DepartmentActivitiesManager } from "@/features/calendar/department-activities-manager";
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getOperationalCalendarWorkspace } from "@/features/calendar/server/operational-calendar";
-import { RoomManagement } from "@/features/timetable/room-management";
-import { TimetableCycleSettings } from "@/features/timetable/timetable-cycle-settings";
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
+import { RoomManagement } from "@/features/timetable/room-management";
+import {
+  TimetableCalendarAnchorSettings,
+  TimetableWorkflowSettings,
+} from "@/features/timetable/timetable-cycle-settings";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { hasAnySchoolRole, schoolLeadershipRoles } from "@/lib/auth/school-capabilities";
 
@@ -41,9 +43,9 @@ export default async function SchoolSetupPage() {
     getRegisterTeacherCandidates(membership.schoolId, today),
     getOperationalCalendarWorkspace({ schoolId: membership.schoolId, academicYear, staffMemberId: membership.staffMemberId, canManageSchool: true, canManageDepartment: true, scopeKind: "department" }),
   ]);
-  const activeHodScopeCount = hodScope.responsibilities.filter(
-    (row) => row.effectiveFrom <= hodScope.today && (!row.effectiveTo || row.effectiveTo >= hodScope.today),
-  ).length;
+  const activeHodScopeCount = hodScope.activeHodScopeCount;
+  const rotating = structure.timetableCycleMode === "rotating";
+  const timetableModeLabel = rotating ? "Rotating cycle" : "Standard week";
 
   return (
     <AppShell>
@@ -52,100 +54,97 @@ export default async function SchoolSetupPage() {
           <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Academic setup</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             {canManageAcademicStructure
-              ? `Configure the school structure and academic rules used by enrolment, registers, attendance, timetable, assessment and reporting workflows for ${academicYear}. School document identity and report-card presentation live in School settings.`
-              : "Review and configure the school's timetable day workflow. Grade, class and room structure remains administered by the School Admin."}
+              ? `Configure ${membership.schoolName}'s academic structure and rules used by enrolment, registers, attendance, timetable, assessment and reporting workflows for ${academicYear}. School document identity and report-card presentation live in School settings.`
+              : `Review ${membership.schoolName}'s register structure and configure the timetable day workflow for ${academicYear}. Grade, class and room structure remains administered by the School Admin.`}
           </p>
         </div>
 
-        <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-3">
-          <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-5">
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">School</p>
-              <p className="mt-1.5 text-sm font-semibold text-[color:var(--accent-indigo)]">{membership.schoolName}</p>
-            </div>
-            <span className="scolapro-tone-brand grid size-9 place-items-center rounded-[var(--radius-sm)]">
-              <School className="size-4" aria-hidden="true" />
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
-            <div>
+        <div className="grid gap-3 overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
+          <div className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-border-subtle bg-surface px-4 py-4 shadow-[var(--shadow-xs)] sm:px-5">
+            <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground">Configured grades</p>
               <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-mint)]">{structure.grades.length}</p>
             </div>
-            <span className="scolapro-tone-mint grid size-9 place-items-center rounded-[var(--radius-sm)]">
+            <span className="scolapro-tone-mint grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
               <BookOpenCheck className="size-4" aria-hidden="true" />
             </span>
           </div>
-          <div className="flex items-center justify-between gap-4 border-t border-border-subtle px-4 py-4 sm:border-l sm:border-t-0 sm:px-5">
-            <div>
+          <div className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-border-subtle bg-surface px-4 py-4 shadow-[var(--shadow-xs)] sm:px-5">
+            <div className="min-w-0">
               <p className="text-xs font-medium text-muted-foreground">Register classes</p>
               <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-amber)]">{structure.classes.length}</p>
             </div>
-            <span className="scolapro-tone-amber grid size-9 place-items-center rounded-[var(--radius-sm)]">
+            <span className="scolapro-tone-amber grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
               <UsersRound className="size-4" aria-hidden="true" />
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-border-subtle bg-surface px-4 py-4 shadow-[var(--shadow-xs)] sm:px-5">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">Active HOD scopes</p>
+              <p className="mt-1.5 text-2xl font-semibold tracking-[-0.04em] text-[color:var(--accent-indigo)]">{activeHodScopeCount}</p>
+            </div>
+            <span className="scolapro-tone-brand grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
+              <Network className="size-4" aria-hidden="true" />
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-[var(--radius-md)] border border-border-subtle bg-surface px-4 py-4 shadow-[var(--shadow-xs)] sm:px-5">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-muted-foreground">Timetable workflow</p>
+              <p className="mt-1.5 text-sm font-semibold text-[color:var(--accent-sky)]">{timetableModeLabel}</p>
+            </div>
+            <span className="scolapro-tone-sky grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
+              <CalendarRange className="size-4" aria-hidden="true" />
             </span>
           </div>
         </div>
 
         <AcademicSetupCore
-          timetableModeLabel={structure.timetableCycleMode === "rotating" ? "Rotating cycle" : "Standard week"}
+          timetableModeLabel={timetableModeLabel}
           cycleLength={structure.timetableCycleLength}
           anchorDate={structure.timetableCycleAnchorDate}
           anchorDay={structure.timetableCycleAnchorDay}
-          rotating={structure.timetableCycleMode === "rotating"}
-          hodScopeCount={activeHodScopeCount}
-          timetableEditor={
-            <TimetableCycleSettings
+          rotating={rotating}
+          workflowEditor={
+            <TimetableWorkflowSettings
               schoolId={membership.schoolId}
-              academicYear={academicYear}
               initialMode={structure.timetableCycleMode}
               initialLength={structure.timetableCycleLength}
+            />
+          }
+          anchorEditor={
+            <TimetableCalendarAnchorSettings
+              schoolId={membership.schoolId}
+              academicYear={academicYear}
+              cycleLength={structure.timetableCycleLength}
               initialAnchorDate={structure.timetableCycleAnchorDate}
               initialAnchorDay={structure.timetableCycleAnchorDay}
             />
           }
-          hodEditor={
-            <HodScopeConfiguration
-              schoolId={membership.schoolId}
-              subjects={hodScope.subjects}
-              heads={hodScope.heads}
-              responsibilities={hodScope.responsibilities}
-              portfolios={hodScope.portfolios}
-              today={hodScope.today}
-            />
-          }
+        />
+
+        <HodScopeConfiguration
+          schoolId={membership.schoolId}
+          subjects={hodScope.subjects}
+          heads={hodScope.heads}
+          responsibilities={hodScope.responsibilities}
+          portfolios={hodScope.portfolios}
+          today={hodScope.today}
         />
 
         <div className="mt-5">
           <DepartmentActivitiesManager schoolId={membership.schoolId} year={academicYear} terms={departmentCalendar.terms} events={departmentCalendar.events} departments={departmentCalendar.departments} canManage title="Department activities" />
         </div>
 
-        {canManageAcademicStructure ? (
-          <div className="mt-5">
-            <AcademicStructureForms
-              schoolId={membership.schoolId}
-              academicYear={academicYear}
-              grades={structure.grades} rooms={rooms} classes={structure.classes}
-            />
-          </div>
-        ) : null}
-
         <div className={`mt-5 grid gap-5 ${canManageAcademicStructure ? "xl:grid-cols-2" : ""} xl:items-start`}>
-          <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-            <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4">
-              <div>
-                <h2 className="scolapro-section-title">Current register structure</h2>
-                <p className="scolapro-section-description">
-                  Review grades and register classes here. Register Teacher assignment is available to school leadership; grade/class structure changes remain School Admin controlled.
-                </p>
-              </div>
-              <span className="rounded-[var(--radius-xs)] bg-[color:var(--accent-sky-soft)] px-2 py-1 text-xs font-medium text-[color:var(--accent-sky)]">{academicYear}</span>
-            </div>
-            <div className="max-h-[33rem] overflow-y-auto overscroll-contain pr-1">
-              <ClassManagement grades={structure.grades} classes={structure.classes} rooms={rooms} staff={registerTeacherCandidates} canEditStructure={canManageAcademicStructure} />
-            </div>
-          </section>
-
+          <AcademicStructureForms
+            schoolId={membership.schoolId}
+            academicYear={academicYear}
+            grades={structure.grades}
+            rooms={rooms}
+            classes={structure.classes}
+            staff={registerTeacherCandidates}
+            canEditStructure={canManageAcademicStructure}
+          />
           {canManageAcademicStructure ? (
             <div className="[&>section]:mt-0">
               <RoomManagement schoolId={membership.schoolId} rooms={rooms} />
