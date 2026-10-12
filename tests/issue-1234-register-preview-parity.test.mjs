@@ -57,9 +57,9 @@ test("internal letterhead preserves governed contact and school identity in HTML
   const htmlHeader = readFileSync("src/features/documents/server/official-document-html-header.ts", "utf8");
   const pdfHeader = readFileSync("src/features/documents/server/official-document-pdf-header.ts", "utf8");
   assert.match(htmlHeader, /internalIdentityDetails/);
-  assert.match(htmlHeader, /header\\.schoolEmisNumber/);
-  assert.match(htmlHeader, /header\\.postalLines/);
+  assert.match(htmlHeader, /header\.schoolEmisNumber/);
+  assert.match(htmlHeader, /header\.postalLines/);
   assert.match(pdfHeader, /internalDetails/);
-  assert.match(pdfHeader, /header\\.schoolEmisNumber/);
-  assert.match(pdfHeader, /header\\.contactLines/);
+  assert.match(pdfHeader, /header\.schoolEmisNumber/);
+  assert.match(pdfHeader, /header\.contactLines/);
 });
