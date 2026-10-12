@@ -23,6 +23,7 @@ export function ConfigurationCard({
   action = "edit",
   disabled = false,
   className,
+  editorFirst = false,
 }: {
   icon: LucideIcon;
   tone?: string;
@@ -36,6 +37,7 @@ export function ConfigurationCard({
   action?: "edit" | "add";
   disabled?: boolean;
   className?: string;
+  editorFirst?: boolean;
 }) {
   return (
     <article className={cn(
@@ -55,8 +57,7 @@ export function ConfigurationCard({
         </div>
         <CardActionToggle open={open} controls={panelId} action={action} disabled={disabled} onClick={onToggle} />
       </div>
-      <div className="mt-4 border-t border-border-subtle pt-3">{summary}</div>
-      {open ? (
+      {editorFirst && open ? {open ? (
         <div
           id={panelId}
           className="mt-4 border-t border-border-subtle pt-4 [&>section]:mt-0 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none"
@@ -64,7 +65,17 @@ export function ConfigurationCard({
         >
           {editor}
         </div>
-      ) : null}
+      ) : null} : null}
+      <div className="mt-4 border-t border-border-subtle pt-3">{summary}</div>
+      {!editorFirst ? {open ? (
+        <div
+          id={panelId}
+          className="mt-4 border-t border-border-subtle pt-4 [&>section]:mt-0 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none"
+          data-configuration-editor={panelId}
+        >
+          {editor}
+        </div>
+      ) : null} : null}
     </article>
   );
 }
