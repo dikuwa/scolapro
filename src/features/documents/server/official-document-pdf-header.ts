@@ -221,11 +221,16 @@ function drawInternalHeader(
     lineY -= 8;
   }
 
-  header.contactLines.slice(0, 4).forEach((line) => {
-    const label = `${line.label}:`;
-    page.drawText(label, { x: identityX + 2, y: lineY, size: 5.7, font: bold, color: INK });
-    const labelWidth = bold.widthOfTextAtSize(label, 5.7);
-    page.drawText(fitOfficialDocumentPdfText(regular, line.value, 5.7, Math.max(18, identityWidth - labelWidth - 5)), {
+  const internalDetails = [
+    ...header.contactLines.map(({ label, value }) => ({ label, value })),
+    ...(!header.contactLines.length ? header.postalLines.map((value) => ({ label: "", value })) : []),
+    ...(header.schoolEmisNumber ? [{ label: "EMIS", value: header.schoolEmisNumber }] : []),
+  ].slice(0, 5);
+  internalDetails.forEach(({ label: rawLabel, value }) => {
+    const label = rawLabel ? `${rawLabel}:` : "";
+    const labelWidth = label ? bold.widthOfTextAtSize(label, 5.7) : 0;
+    if (label) page.drawText(label, { x: identityX + 2, y: lineY, size: 5.7, font: bold, color: INK });
+    page.drawText(fitOfficialDocumentPdfText(regular, value, 5.7, Math.max(18, identityWidth - labelWidth - 5)), {
       x: identityX + 5 + labelWidth,
       y: lineY,
       size: 5.7,
