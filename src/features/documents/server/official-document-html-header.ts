@@ -106,7 +106,7 @@ export function renderOfficialDocumentHtmlHeader(
   // identity block. Never manufacture phone or email details.
   const internalIdentityDetails = [
     contactMarkup,
-    ...(!header.contactLines.length ? header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`) : []),
+    ...(!header.contactLines.some((line) => line.key === "address") ? header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`) : []),
     ...(header.schoolEmisNumber ? [`<div><strong>EMIS:</strong> ${escapeOfficialDocumentHtml(header.schoolEmisNumber)}</div>`] : []),
   ].filter(Boolean).join("");
   const postalMarkup = header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`).join("");
