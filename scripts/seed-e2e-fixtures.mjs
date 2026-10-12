@@ -85,26 +85,6 @@ assert(
   "The demo school from supabase/seed.sql is missing. Run `supabase db reset` (or pnpm local:sync-db) first.",
 );
 
-// The register-document acceptance fixture deliberately supplies every governed
-// identity field. Values are synthetic/local-only; the bundled crest and the
-// configured Old English font exercise Namib High's document treatment without
-// copying or inventing real contact details.
-await upsert("school_settings", {
-  tenant_id: DEMO.tenantId,
-  school_id: DEMO.schoolId,
-  setting_key: "document_profile",
-  setting_value: {
-    former_name: "Synthetic Former School Name",
-    physical_address: "123 Synthetic School Road",
-    postal_address: "P.O. Box 12345",
-    telephone: "+264 64 555 0100",
-    fax: "+264 64 555 0101",
-    email: "office@synthetic-school.test",
-    town: "Swakopmund",
-    school_name_font: "old_english",
-  },
-}, "school_id,setting_key");
-
 // 2. Synthetic accounts + profiles.
 for (const account of Object.values(SYNTHETIC_ACCOUNTS)) {
   await ensureAuthUser({
@@ -198,6 +178,29 @@ await upsert("school_memberships", {
   active_from: "2026-01-05",
   active_to: null,
 });
+
+// The register-document acceptance fixture deliberately supplies every governed
+// identity field. Values are synthetic/local-only; the bundled crest and the
+// configured Old English font exercise Namib High's document treatment without
+// copying or inventing real contact details. Seed this only after the demo admin
+// membership exists because school-setting provenance requires a current,
+// authorized actor even for service-role writes.
+await upsert("school_settings", {
+  tenant_id: DEMO.tenantId,
+  school_id: DEMO.schoolId,
+  setting_key: "document_profile",
+  setting_value: {
+    former_name: "Synthetic Former School Name",
+    physical_address: "123 Synthetic School Road",
+    postal_address: "P.O. Box 12345",
+    telephone: "+264 64 555 0100",
+    fax: "+264 64 555 0101",
+    email: "office@synthetic-school.test",
+    town: "Swakopmund",
+    school_name_font: "old_english",
+  },
+  updated_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+}, "school_id,setting_key");
 
 // 6. Staff-school placements, now that the demo admin's membership exists to
 //    satisfy the deferred placement-creator authorization check.
