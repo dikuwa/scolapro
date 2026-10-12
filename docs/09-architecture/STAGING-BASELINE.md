@@ -111,3 +111,18 @@ provisioned by this change; see the provisioning blockers in the PR.
   Docker-capable `ubuntu-latest` runner and exercises disposable local Supabase
   migrations (`supabase db reset`), the local baseline/world seed, repeat-seeding
   idempotency, synthetic login and tenant isolation.
+
+## Contract validation (in-process, no credentials)
+
+`tests/staging-baseline.test.mjs` validates the Management-API adapter against a
+deterministic **in-process fake transport** — no credentials, no network, no
+project. It asserts ordered calls (read-only preflight before the single write),
+the endpoint project ref, static generated SQL only, absence of caller SQL,
+sanitized rejections, and **zero write requests on any failed preflight** plus
+**zero requests on any identity-denied path**. A mock PASS is a *contract* PASS,
+not hosted E2E.
+
+Real database idempotency is established by the disposable Postgres repeat-seed
+test (`scripts/verify-e2e-seed-idempotency.mjs`, run in CI), **not** by the fake
+transport: re-POSTing identical static SQL to a fake would only assert the fake's
+own behaviour, so it is deliberately not counted as evidence.

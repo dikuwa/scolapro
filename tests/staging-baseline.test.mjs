@@ -316,7 +316,15 @@ test("bootstrap makes zero requests for denied environments", async () => {
   }
 });
 
-test("bootstrap verifies then applies to the approved staging ref only", async () => {
+const isWriteRequest = (call) => {
+  try {
+    return /insert into public\./.test(JSON.parse(call.init.body).query);
+  } catch {
+    return false;
+  }
+};
+
+test("bootstrap issues a read-only preflight before the single baseline write", async () => {
   const { fetchImpl, calls } = recordingFetch({ body: COMPLETE_PREREQS });
   await runStagingBaselineBootstrap({
     env: identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }),
@@ -328,7 +336,72 @@ test("bootstrap verifies then applies to the approved staging ref only", async (
     assert.match(call.url, new RegExp(`/projects/${STAGING_REF}/database/query$`));
     assert.ok(!call.url.includes(PRODUCTION_PROJECT_REF));
   }
-  assert.match(JSON.parse(calls[1].init.body).query, /insert into public\.register_classes/);
+
+  const preflightQuery = JSON.parse(calls[0].init.body).query;
+  assert.match(preflightQuery, /supabase_migrations\.schema_migrations/);
+  assert.ok(!isWriteRequest(calls[0]), "the preflight must be read-only");
+
+  assert.equal(JSON.parse(calls[1].init.body).query, buildBaselineSql(), "the write must be the static generated SQL");
+});
+
+test("a failed preflight issues zero write requests", async () => {
+  const cases = [
+    { name: "missing migration version", options: { body: [{ versions: [REQUIRED_MIGRATION_VERSIONS[0]], functions: [...REQUIRED_APP_PRIVATE_FUNCTIONS] }] } },
+    { name: "missing function", options: { body: [{ versions: [...REQUIRED_MIGRATION_VERSIONS], functions: [] }] } },
+    { name: "malformed body", options: { body: { unexpected: true } } },
+    { name: "denied token", options: { ok: false, status: 403, textBody: "forbidden" } },
+  ];
+  for (const scenario of cases) {
+    const { fetchImpl, calls } = recordingFetch(scenario.options);
+    await assert.rejects(
+      () => runStagingBaselineBootstrap({ env: identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }), fetchImpl, log: () => {} }),
+      StagingSeedError,
+      scenario.name,
+    );
+    assert.equal(calls.filter(isWriteRequest).length, 0, `no write may occur when the preflight fails (${scenario.name})`);
+  }
+});
+
+test("a rejected token is sanitized on the preflight path", async () => {
+  const secret = "sb_secret_stale_token";
+  const { fetchImpl } = recordingFetch({ ok: false, status: 401, textBody: `denied ${secret} insert into public.learners` });
+  const target = resolveStagingManagementTarget(identityEnv({ SUPABASE_ACCESS_TOKEN: "token" }));
+  await assert.rejects(
+    () => verifyStagingPrerequisites({ target, fetchImpl }),
+    (error) => {
+      assert.ok(error instanceof StagingSeedError);
+      assert.match(error.message, /HTTP 401/);
+      assert.ok(!error.message.includes(secret), "must not leak the token");
+      assert.ok(!/insert into/.test(error.message), "must not leak SQL");
+      return true;
+    },
+  );
+});
+
+test("generated baseline SQL contains only the fixed synthetic identifiers", () => {
+  const fixtureIds = new Set([
+    BASELINE.tenant.id,
+    BASELINE.school.id,
+    ...BASELINE.grades.map((grade) => grade.id),
+    ...BASELINE.registerClasses.map((klass) => klass.id),
+    ...BASELINE.learners.map((learner) => learner.id),
+    ...BASELINE.enrolments.map((enrolment) => enrolment.id),
+  ]);
+  const sqlIds = new Set(
+    buildBaselineSql().match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g) ?? [],
+  );
+  assert.deepEqual([...sqlIds].sort(), [...fixtureIds].sort());
+});
+
+test("baseline verification fails on learner and enrolment collisions", async () => {
+  await assert.rejects(
+    () => assertBaselinePresent(fakeClient({ patch: [["learners", BASELINE.learners[0].id, { surname: "Real" }]] })),
+    (error) => error instanceof StagingSeedError && /collision/i.test(error.message),
+  );
+  await assert.rejects(
+    () => assertBaselinePresent(fakeClient({ patch: [["enrolments", BASELINE.enrolments[0].id, { admission_number: "REAL-1" }]] })),
+    (error) => error instanceof StagingSeedError && /collision/i.test(error.message),
+  );
 });
 
 // ---------------------------------------------------------------------------
