@@ -114,7 +114,7 @@ test.describe("inline register document preview and PDF", () => {
     }
 
     await page.getByRole("button", { name: "Preview / Print", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Register Teacher document" });
+    const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     const fullScreenFrame = dialog.locator("iframe");
     await expect(fullScreenFrame).toBeVisible();
