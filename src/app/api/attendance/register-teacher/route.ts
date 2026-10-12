@@ -58,15 +58,10 @@ export async function GET(request: Request) {
       getLiveSchoolDocumentProfile(membership.schoolId),
     ]);
 
-    const header = {
-      ...buildOfficialDocumentHeaderModel(profile, {
-        mode: officialDocumentHeaderModeForType("register_teacher"),
-        provenanceSource: "live_school_profile",
-      }),
-      // The Register Teacher document uses the school's official Old English
-      // letterhead in HTML, print and downloadable PDF alike.
-      schoolNameFont: "old_english" as const,
-    };
+    const header = buildOfficialDocumentHeaderModel(profile, {
+      mode: officialDocumentHeaderModeForType("register_teacher"),
+      provenanceSource: "live_school_profile",
+    });
     const fileBase = `${document.className.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-${mode}-register-${document.scopeEnd}`;
 
     if (format === "pdf" || format === "bundle") {

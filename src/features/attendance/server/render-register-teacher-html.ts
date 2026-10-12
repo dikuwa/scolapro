@@ -176,7 +176,7 @@ export function renderRegisterTeacherHtml(input: {
   const title = context.title;
   const repeatedHeader = `
     ${renderOfficialDocumentHtmlHeader(header, undefined, { context })}
-    <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span>Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area</span></div>`;
+    <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span class="legend-note">Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area</span></div>`;
 
   return `<!doctype html>
 <html>
@@ -194,7 +194,7 @@ export function renderRegisterTeacherHtml(input: {
   .register-section { width:100%; min-width:0; min-height:0; margin:0 auto; break-after:page; overflow:visible; }
   .register-section:last-child { break-after:auto; }
   .register-meta { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:1px; background:var(--register-red); border:1px solid var(--register-red); margin-bottom:4px; }
-  .register-meta > div { background:white; padding:5px 7px; font-size:9px; }
+  .register-meta > div { min-width:0; background:white; padding:5px 7px; overflow-wrap:anywhere; font-size:9px; }
   .register-meta strong { color:var(--register-red); }
   table { width:100%; min-width:0; border-collapse:collapse; table-layout:fixed; font-size:7.4px; }
   th,td { border:1px solid var(--grid); padding:2px 2px; text-align:center; height:19px; overflow:hidden; }
@@ -222,7 +222,7 @@ export function renderRegisterTeacherHtml(input: {
   .mark { white-space:nowrap; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; font-size:10px; }
   .register-mark { position:relative; display:inline-block; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; }
   .absent-mark { color:var(--register-red); }
-  .absence-reason-mark { position:relative; top:-.55em; margin-left:1px; font-size:.5em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
+  .absence-reason-mark { position:relative; top:-.55em; margin-left:0; font-size:.5em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
   .non-teaching { background:#ececec !important; color:#999; background-image:repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(0,0,0,.035) 3px,rgba(0,0,0,.035) 6px)!important; }
   .summary-row th { text-align:left; padding-left:6px; font-weight:900; }
   .summary-row td { font-weight:900; }
@@ -239,6 +239,7 @@ export function renderRegisterTeacherHtml(input: {
   .empty { padding:18px; color:#777; font-size:9px; }
   .legend { margin:8px 0 2px; display:flex; align-items:center; flex-wrap:wrap; gap:5px 14px; min-height:20px; padding:2px 1px; font-size:8px; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:3px; min-height:16px; white-space:nowrap; }
+  .legend > .legend-note { flex:1 1 280px; white-space:normal; }
   .legend .mark-sample { display:inline-block; min-width:12px; text-align:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; overflow:visible; }
   .legend .mark-sample:has(.absence-reason-mark) { position:relative; padding-right:4px; }
   .legend .absence-reason-mark { position:absolute; top:-.38em; right:0; margin:0; font-size:.6em; line-height:1; }

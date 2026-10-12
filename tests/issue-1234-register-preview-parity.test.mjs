@@ -33,17 +33,22 @@ test("PDF mirrors HTML legend and metadata ordering", () => {
 
 
 test("reasoned absence PDF check sits next to the centered a, not at the cell edge", () => {
-  assert.match(pdf, /x: x \+ dayWidth \/ 2 \+ 2\.3/);
+  assert.match(pdf, /const markX = x \+ \(dayWidth - markWidth\) \/ 2/);
+  assert.match(pdf, /x: markX \+ markWidth - 0\.35/);
   assert.doesNotMatch(pdf, /x: x \+ dayWidth - 5/);
   assert.match(pdf, /pdf\.setSubject\("Issue 1234 revised register PDF layout"\)/);
 });
 
-test("register letterhead uses the official old-English family in both renderers", () => {
+test("register letterhead honors the configured old-English family in both renderers", () => {
   const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "utf8");
   const header = readFileSync("src/features/documents/server/official-document-html-header.ts", "utf8");
-  assert.match(route, /schoolNameFont: "old_english" as const/);
+  const seed = readFileSync("scripts/seed-e2e-fixtures.mjs", "utf8");
+  assert.doesNotMatch(route, /schoolNameFont: "old_english" as const/);
+  assert.match(route, /buildOfficialDocumentHeaderModel\(profile/);
+  assert.match(seed, /school_name_font: "old_english"/);
   assert.match(header, /renderOfficialDocumentSchoolNameFontStyle/);
   assert.match(pdf, /createOfficialDocumentPdfResources/);
+  assert.match(pdf, /resources\.italic/);
 });
 
 test("preview PDF download retains the descriptive register file name", () => {
@@ -56,12 +61,15 @@ test("preview PDF download retains the descriptive register file name", () => {
 test("internal letterhead preserves governed contact and school identity in HTML and PDF", () => {
   const htmlHeader = readFileSync("src/features/documents/server/official-document-html-header.ts", "utf8");
   const pdfHeader = readFileSync("src/features/documents/server/official-document-pdf-header.ts", "utf8");
+  const headerModel = readFileSync("src/features/documents/server/official-document-header.ts", "utf8");
   assert.match(htmlHeader, /internalIdentityDetails/);
-  assert.match(htmlHeader, /header\.schoolEmisNumber/);
-  assert.match(htmlHeader, /header\.postalLines/);
-  assert.match(pdfHeader, /internalDetails/);
-  assert.match(pdfHeader, /header\.schoolEmisNumber/);
-  assert.match(pdfHeader, /header\.contactLines/);
+  assert.match(htmlHeader, /officialDocumentInternalIdentityLines\(header\)/);
+  assert.match(pdfHeader, /officialDocumentInternalIdentityLines\(header\)/);
+  assert.match(headerModel, /label: "Postal \/ town"/);
+  assert.match(headerModel, /contacts\.get\("telephone"\)/);
+  assert.match(headerModel, /contacts\.get\("fax"\)/);
+  assert.match(headerModel, /contacts\.get\("email"\)/);
+  assert.match(headerModel, /header\.schoolEmisNumber/);
 });
 
 test("PDF has the same grouped NAME identity heading as the accepted HTML preview", () => {
@@ -72,6 +80,7 @@ test("PDF has the same grouped NAME identity heading as the accepted HTML previe
 });
 
 test("HTML reasoned absence superscript is anchored directly to its lowercase a", () => {
+  assert.match(html, /margin-left:0/);
   assert.match(html, /\.legend \.mark-sample:has\(\.absence-reason-mark\) \{ position:relative/);
   assert.match(html, /\.legend \.absence-reason-mark \{ position:absolute; top:-\.38em; right:0/);
 });

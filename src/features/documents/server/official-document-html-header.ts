@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   normalizeInternalSchoolDocumentHeaderContext,
+  officialDocumentInternalIdentityLines,
   type InternalSchoolDocumentHeaderContext,
   type OfficialDocumentHeaderModel,
 } from "@/features/documents/server/official-document-header";
@@ -101,14 +102,13 @@ export function renderOfficialDocumentHtmlHeader(
   const contactMarkup = header.contactLines
     .map((line) => `<div><strong>${escapeOfficialDocumentHtml(line.label)}:</strong> ${escapeOfficialDocumentHtml(line.value)}</div>`)
     .join("");
-  // Use only the school's governed profile: when optional contact fields are
-  // unset, retain the real town/postal identity and EMIS instead of a blank
-  // identity block. Never manufacture phone or email details.
-  const internalIdentityDetails = [
-    contactMarkup,
-    ...(!header.contactLines.some((line) => line.key === "address") ? header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`) : []),
-    ...(header.schoolEmisNumber ? [`<div><strong>EMIS:</strong> ${escapeOfficialDocumentHtml(header.schoolEmisNumber)}</div>`] : []),
-  ].filter(Boolean).join("");
+  // Internal school documents use the same compact, lossless profile projection
+  // as the PDF renderer. No configured address/contact/postal field is omitted.
+  const internalIdentityDetails = officialDocumentInternalIdentityLines(header)
+    .map((line) => `<div>${line.parts.map((part) =>
+      `<span><strong>${escapeOfficialDocumentHtml(part.label)}:</strong> ${escapeOfficialDocumentHtml(part.value)}</span>`,
+    ).join('<span class="identity-part-gap">&nbsp;&nbsp;</span>')}</div>`)
+    .join("");
   const postalMarkup = header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`).join("");
   const fontFace = renderOfficialDocumentSchoolNameFontStyle(header);
 

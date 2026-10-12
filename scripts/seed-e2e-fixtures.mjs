@@ -85,6 +85,26 @@ assert(
   "The demo school from supabase/seed.sql is missing. Run `supabase db reset` (or pnpm local:sync-db) first.",
 );
 
+// The register-document acceptance fixture deliberately supplies every governed
+// identity field. Values are synthetic/local-only; the bundled crest and the
+// configured Old English font exercise Namib High's document treatment without
+// copying or inventing real contact details.
+await upsert("school_settings", {
+  tenant_id: DEMO.tenantId,
+  school_id: DEMO.schoolId,
+  setting_key: "document_profile",
+  setting_value: {
+    former_name: "Synthetic Former School Name",
+    physical_address: "123 Synthetic School Road",
+    postal_address: "P.O. Box 12345",
+    telephone: "+264 64 555 0100",
+    fax: "+264 64 555 0101",
+    email: "office@synthetic-school.test",
+    town: "Swakopmund",
+    school_name_font: "old_english",
+  },
+}, "school_id,setting_key");
+
 // 2. Synthetic accounts + profiles.
 for (const account of Object.values(SYNTHETIC_ACCOUNTS)) {
   await ensureAuthUser({
@@ -93,6 +113,29 @@ for (const account of Object.values(SYNTHETIC_ACCOUNTS)) {
     displayName: account.displayName,
   });
 }
+
+// Add a boy to Grade 10/A so the visual register acceptance always renders
+// populated BOYS and GIRLS pages, independent of spec execution order.
+await upsert("learners", {
+  id: DEMO.registerBoyLearnerId,
+  tenant_id: DEMO.tenantId,
+  first_names: "Synthetic Boy",
+  surname: "Register",
+  preferred_name: "Synthetic",
+  date_of_birth: "2010-06-18",
+  sex: "male",
+});
+await upsert("enrolments", {
+  id: DEMO.registerBoyEnrolmentId,
+  tenant_id: DEMO.tenantId,
+  school_id: DEMO.schoolId,
+  learner_id: DEMO.registerBoyLearnerId,
+  academic_year: 2026,
+  grade_id: DEMO.gradeTenId,
+  register_class_id: DEMO.registerClass10A,
+  admission_number: "E2E-REGISTER-BOY",
+  enrolled_from: "2026-01-12",
+});
 
 // 3. Isolation tenant + school (never contains learner data).
 await upsert("tenants", { id: OUTSIDER_TENANT.tenantId, name: OUTSIDER_TENANT.tenantName, slug: "e2e-isolation-group" });
@@ -190,6 +233,46 @@ await upsert("school_day_overrides", {
   source: "school",
   created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
 }, "school_id,school_date");
+
+const { data: sickReason, error: sickReasonError } = await supabase
+  .from("attendance_reasons")
+  .select("id")
+  .eq("reason_code", "sick")
+  .single();
+assert(!sickReasonError && sickReason?.id, "Synthetic reasoned-absence reason is unavailable.");
+
+await upsert("attendance_register_submissions", {
+  id: DEMO.registerVisualSubmissionId,
+  tenant_id: DEMO.tenantId,
+  school_id: DEMO.schoolId,
+  academic_year: 2026,
+  register_class_id: DEMO.registerClass10A,
+  attendance_date: "2026-10-12",
+  default_status: "present",
+  note: "Synthetic register visual acceptance",
+  recorded_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  recorded_at: "2026-10-12T08:00:00Z",
+  source: "import",
+}, "id");
+
+await upsert("attendance_events", {
+  id: DEMO.registerVisualAbsenceEventId,
+  tenant_id: DEMO.tenantId,
+  school_id: DEMO.schoolId,
+  academic_year: 2026,
+  learner_id: DEMO.registerBoyLearnerId,
+  enrolment_id: DEMO.registerBoyEnrolmentId,
+  register_class_id: DEMO.registerClass10A,
+  attendance_date: "2026-10-12",
+  observation_type: "daily_register",
+  status: "absent",
+  reason_id: sickReason.id,
+  note: "Synthetic reason supplied",
+  recorded_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  recorded_at: "2026-10-12T08:00:00Z",
+  source: "import",
+  register_submission_id: DEMO.registerVisualSubmissionId,
+}, "id");
 
 await upsert("school_day_overrides", {
   tenant_id: DEMO.tenantId,

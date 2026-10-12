@@ -4,11 +4,13 @@ import test from "node:test";
 import {
   HEADER_FIXTURE,
   htmlRenderer,
+  headerBuilder,
   learnerRow,
   layout,
   model,
   normalImpactRows,
   pdfRenderer,
+  profileBuilder,
   weekdaysBetween,
 } from "./helpers/register-teacher-harness.mjs";
 
@@ -61,6 +63,53 @@ function buildRangeDocument() {
   });
 }
 
+test("complete configured school profile maps losslessly into shared identity lines", () => {
+  const profile = profileBuilder.buildSchoolDocumentProfile({
+    fallbackSchoolName: "Fallback School",
+    fallbackSchoolEmisNumber: "FALLBACK-EMIS",
+    schoolIdentity: {
+      name: "Namib High School",
+      emis_number: "DEMO001",
+      town: "Identity Town",
+    },
+    schoolDocumentProfile: {
+      former_name: "Synthetic Former Name",
+      physical_address: "123 Synthetic School Road",
+      telephone: "+264 64 555 0100",
+      fax: "+264 64 555 0101",
+      email: "office@synthetic-school.test",
+      postal_address: "P.O. Box 12345",
+      town: "Swakopmund",
+      school_name_font: "old_english",
+    },
+  });
+  assert.deepEqual(profile, {
+    schoolName: "Namib High School",
+    schoolEmisNumber: "DEMO001",
+    formerName: "Synthetic Former Name",
+    logoUrl: "/brand/schools/namib-high/crest.png",
+    logoStoragePath: "",
+    physicalAddress: "123 Synthetic School Road",
+    telephone: "+264 64 555 0100",
+    fax: "+264 64 555 0101",
+    email: "office@synthetic-school.test",
+    postalAddress: "P.O. Box 12345",
+    town: "Swakopmund",
+    schoolNameFont: "old_english",
+  });
+  const header = headerBuilder.buildOfficialDocumentHeaderModel(profile);
+  const identityText = headerBuilder.officialDocumentInternalIdentityLines(header)
+    .flatMap((line) => line.parts.map((part) => `${part.label}: ${part.value}`));
+  assert.deepEqual(identityText, [
+    "Address: 123 Synthetic School Road",
+    "Postal / town: P.O. Box 12345, Swakopmund",
+    "Tel: +264 64 555 0100",
+    "Fax: +264 64 555 0101",
+    "Email: office@synthetic-school.test",
+    "EMIS: DEMO001",
+  ]);
+});
+
 test("rendered HTML and PDF share page count, A3 landscape geometry and repeated chrome", async () => {
   const document = buildRangeDocument();
   const expectedPages = layout.registerTeacherPageJobs(document).length;
@@ -109,13 +158,17 @@ test("configured school contacts render in the HTML letterhead and PDF content",
     contactLines: [
       { key: "address", label: "Address", value: "Fixture Campus, Swakopmund", text: "Address: Fixture Campus, Swakopmund" },
       { key: "telephone", label: "Tel", value: "+264 00 000 0000", text: "Tel: +264 00 000 0000" },
+      { key: "fax", label: "Fax", value: "+264 00 000 0001", text: "Fax: +264 00 000 0001" },
       { key: "email", label: "Email", value: "fixture@example.test", text: "Email: fixture@example.test" },
     ],
+    postalLines: ["P.O. Box 123", "Swakopmund"],
   };
   const html = htmlRenderer.renderRegisterTeacherHtml({ header, document });
   assert.match(html, /Address:<\/strong> Fixture Campus, Swakopmund/);
   assert.match(html, /Tel:<\/strong> \+264 00 000 0000/);
+  assert.match(html, /Fax:<\/strong> \+264 00 000 0001/);
   assert.match(html, /Email:<\/strong> fixture@example\.test/);
+  assert.match(html, /Postal \/ town:<\/strong> P\.O\. Box 123, Swakopmund/);
   assert.equal((html.match(/fixture@example\.test/g) ?? []).length, 4, "every repeated header includes the configured email");
   const result = await pdfRenderer.renderRegisterTeacherPdf({ header, document });
   const pdfText = Buffer.from(result.bytes).toString("latin1");

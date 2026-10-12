@@ -80,13 +80,13 @@ function drawPage(input: {
   };
   legendPart("I", resources.bold, INK);
   legendPart(" = Present     ");
-  legendPart("a", resources.regular, RED);
+  legendPart("a", resources.italic, RED);
   legendPart(" = Absent     ");
-  legendPart("a", resources.regular, RED);
+  legendPart("a", resources.italic, RED);
   // Keep the red reason marker immediately above and to the right of its "a".
-  page.drawText("✓", { x: legendX - 0.3, y: legendY + 3.2, size: 4.5, font: checkFont, color: RED });
+  page.drawText("✓", { x: legendX - 0.4, y: legendY + 3.2, size: 4.5, font: checkFont, color: RED });
   legendX += 5;
-  legendPart(" = Absent with reason     Grey = non-teaching / inactive; governed closure names appear in the register");
+  legendPart(" = Absent with reason     Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area");
   y -= 21;
 
   const meta = [
@@ -146,8 +146,25 @@ function drawPage(input: {
   x += identityWidths[4];
   for (const week of weeks) {
     const groupWidth = (week.dates.length + 1) * dayWidth;
-    drawCell(page, resources.bold, `Week Ending Friday  ${formatDate(week.weekEnding)}`,
-      x, y, groupWidth, headerTop, { fill: RED_SOFT, color: RED, size: 6 });
+    drawCell(page, resources.bold, "", x, y, groupWidth, headerTop, { fill: RED_SOFT, color: RED });
+    const weekLabel = "Week Ending Friday";
+    const weekDate = formatDate(week.weekEnding);
+    const weekLabelSize = 5.2;
+    const weekDateSize = 5.5;
+    page.drawText(weekLabel, {
+      x: x + Math.max(2, (groupWidth - resources.bold.widthOfTextAtSize(weekLabel, weekLabelSize)) / 2),
+      y: y - 7,
+      size: weekLabelSize,
+      font: resources.bold,
+      color: RED,
+    });
+    page.drawText(weekDate, {
+      x: x + Math.max(2, (groupWidth - resources.bold.widthOfTextAtSize(weekDate, weekDateSize)) / 2),
+      y: y - 14,
+      size: weekDateSize,
+      font: resources.bold,
+      color: RED,
+    });
     for (const day of week.dates) {
       const dayLabel = day.teaching
         ? `${day.weekday}  ${day.dayNumber}`
@@ -183,9 +200,12 @@ function drawPage(input: {
       for (const day of week.dates) {
         const mark = learner.marks[day.date] ?? "";
         if (mark === "I") weekPresent += 1;
-        drawCell(page, resources.bold, mark, x, y, dayWidth, ROW_HEIGHT, { fill: day.teaching ? undefined : GREY, color: mark === "a" ? RED : INK, size: 7 });
+        const markFont = mark === "a" ? resources.italic : resources.bold;
+        drawCell(page, markFont, mark, x, y, dayWidth, ROW_HEIGHT, { fill: day.teaching ? undefined : GREY, color: mark === "a" ? RED : INK, size: 7 });
         if (mark === "a" && learner.reasonedAbsenceDates[day.date]) {
-          page.drawText("✓", { x: x + dayWidth / 2 + 2.3, y: y - ROW_HEIGHT + 8.5, size: 3.8, font: checkFont, color: RED });
+          const markWidth = markFont.widthOfTextAtSize(mark, 7);
+          const markX = x + (dayWidth - markWidth) / 2;
+          page.drawText("✓", { x: markX + markWidth - 0.35, y: y - ROW_HEIGHT + 8.5, size: 3.8, font: checkFont, color: RED });
         }
         x += dayWidth;
       }
