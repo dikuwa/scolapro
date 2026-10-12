@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getUserContext } from "@/lib/auth/get-user-context";
 
 const role = z.enum([
   "school_admin", "principal", "deputy_principal", "hod", "teacher",
@@ -17,6 +18,18 @@ export type StaffAccessState = {
   fieldErrors?: Record<string, string[]>;
 };
 
+
+// Server actions bypass the page proxy. Require resolved security authority
+// before reaching invitation or role-management RPCs.
+async function requireStaffAccessSecurityClearance(): Promise<boolean> {
+  try {
+    const context = await getUserContext();
+    return Boolean(context.user);
+  } catch {
+    return false;
+  }
+}
+
 const invitationSchema = z.object({
   schoolId: z.string().uuid(),
   staffMemberId: z.string().uuid(),
@@ -28,6 +41,7 @@ export async function inviteExistingStaff(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = invitationSchema.safeParse({
     schoolId: formData.get("schoolId"),
     staffMemberId: formData.get("staffMemberId"),
@@ -59,6 +73,7 @@ export async function resendExistingStaffInvitation(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const invitationId = z.string().uuid().safeParse(formData.get("invitationId"));
   if (!invitationId.success) return { message: "The invitation could not be resent." };
   const supabase = await createSupabaseServerClient();
@@ -87,6 +102,7 @@ export async function addStaffRole(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = roleFormSchema.safeParse({
     schoolId: formData.get("schoolId"),
     staffMemberId: formData.get("staffMemberId"),
@@ -104,12 +120,125 @@ export async function addStaffRole(
   return { success: true, message: "School role added." };
 }
 
+
+const plannedRoleSchema = roleFormSchema.extend({
+  effectiveFrom: z.iso.date(),
+  effectiveTo: z.union([z.iso.date(), z.literal("")]).optional(),
+}).refine(
+  (value) => !value.effectiveTo || value.effectiveTo >= value.effectiveFrom,
+  { path: ["effectiveTo"], message: "Role end date cannot be before its start date." },
+);
+
+// Pre-invitation role intentions are staff-scoped records, not Auth permissions.
+export async function planStaffSchoolRole(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date());
+  const parsed = plannedRoleSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    staffMemberId: formData.get("staffMemberId"),
+    roleKey: formData.get("roleKey"),
+    effectiveFrom: String(formData.get("effectiveFrom") || today),
+    effectiveTo: String(formData.get("effectiveTo") || ""),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("plan_staff_school_role", {
+    p_school_id: parsed.data.schoolId,
+    p_staff_member_id: parsed.data.staffMemberId,
+    p_role_key: parsed.data.roleKey,
+    p_effective_from: parsed.data.effectiveFrom,
+    p_effective_to: parsed.data.effectiveTo || null,
+  });
+  if (error) return { message: error.message || "Could not preassign this staff role." };
+  revalidatePath("/staff");
+  return { success: true, message: "Role preassigned. Login access remains inactive until verified activation." };
+}
+
+export async function endPlannedStaffSchoolRole(formData: FormData): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
+  const schoolId = z.string().uuid().safeParse(formData.get("schoolId"));
+  const roleId = z.string().uuid().safeParse(formData.get("plannedRoleId"));
+  if (!schoolId.success || !roleId.success) return { message: "Invalid planned role." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("end_planned_staff_school_role", {
+    p_school_id: schoolId.data,
+    p_planned_role_id: roleId.data,
+  });
+  if (error) return { message: error.message || "Could not end the planned role." };
+  revalidatePath("/staff");
+  return { success: true, message: "Planned role ended; audit history retained." };
+}
+
+// Operational placement is intentionally separate from invitation/login membership.
+const operationalHodSchema = z.object({
+  schoolId: z.string().uuid(),
+  staffMemberId: z.string().uuid(),
+  effectiveFrom: z.iso.date(),
+});
+
+export async function designateStaffOperationalHod(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
+  const parsed = operationalHodSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    staffMemberId: formData.get("staffMemberId"),
+    effectiveFrom: formData.get("effectiveFrom"),
+  });
+  if (!parsed.success) return { message: "Choose an effective date for an existing staff placement." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("designate_staff_operational_hod", {
+    p_school_id: parsed.data.schoolId,
+    p_staff_member_id: parsed.data.staffMemberId,
+    p_effective_from: parsed.data.effectiveFrom,
+  });
+  if (error) return { message: error.message || "The HOD placement could not be assigned." };
+  revalidatePath("/staff");
+  revalidatePath("/school/setup");
+  return { success: true, message: "Staff HOD placement assigned. A login invitation is not required." };
+}
+
+const endOperationalHodSchema = z.object({
+  schoolId: z.string().uuid(),
+  designationId: z.string().uuid(),
+  effectiveTo: z.iso.date(),
+});
+export async function endStaffOperationalHod(
+  _previous: StaffAccessState,
+  formData: FormData,
+): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
+  const parsed = endOperationalHodSchema.safeParse({
+    schoolId: formData.get("schoolId"),
+    designationId: formData.get("designationId"),
+    effectiveTo: formData.get("effectiveTo"),
+  });
+  if (!parsed.success) return { message: "Choose a valid end date for the HOD placement." };
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("end_staff_operational_hod", {
+    p_school_id: parsed.data.schoolId,
+    p_designation_id: parsed.data.designationId,
+    p_effective_to: parsed.data.effectiveTo,
+  });
+  if (error) return { message: error.message || "The HOD placement could not be ended." };
+  revalidatePath("/staff");
+  revalidatePath("/school/setup");
+  return { success: true, message: "HOD placement ended; its history and appointment provenance remain recorded." };
+}
+
 const endRoleSchema = z.object({
   schoolId: z.string().uuid(),
   membershipId: z.string().uuid(),
 });
 
 export async function endStaffRole(formData: FormData): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = endRoleSchema.safeParse({
     schoolId: formData.get("schoolId"),
     membershipId: formData.get("membershipId"),
@@ -135,6 +264,22 @@ async function linkedAuthEmail(schoolId: string, staffMemberId: string) {
   const supabase = await createSupabaseServerClient();
   const { createSupabaseAdminClient } = await import("@/lib/supabase/admin");
   const admin = createSupabaseAdminClient();
+  // Admin-client reads bypass RLS. Verify the staff identity is assigned to
+  // the requested school before resolving a linked Auth account, even when a
+  // school administrator supplies a valid identity from another school.
+  const schoolDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+  const { data: assignment, error: assignmentError } = await admin
+    .from("staff_school_assignments")
+    .select("staff_member_id")
+    .eq("school_id", schoolId)
+    .eq("staff_member_id", staffMemberId)
+    .lte("effective_from", schoolDate)
+    .or(`effective_to.is.null,effective_to.gte.${schoolDate}`)
+    .limit(1)
+    .maybeSingle();
+  if (assignmentError || assignment?.staff_member_id !== staffMemberId) {
+    throw new Error("Staff member is not assigned to this school.");
+  }
   const { data: staff, error } = await admin
     .from("staff_members")
     .select("user_id")
@@ -149,6 +294,7 @@ async function linkedAuthEmail(schoolId: string, staffMemberId: string) {
 }
 
 export async function sendStaffPasswordReset(_previous: StaffAccessState, formData: FormData): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = userSchema.safeParse({ schoolId: formData.get("schoolId"), staffMemberId: formData.get("staffMemberId") });
   if (!parsed.success) return { message: "The password reset email could not be sent." };
   try {
@@ -162,6 +308,7 @@ export async function sendStaffPasswordReset(_previous: StaffAccessState, formDa
 }
 
 export async function sendStaffVerification(_previous: StaffAccessState, formData: FormData): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = userSchema.safeParse({ schoolId: formData.get("schoolId"), staffMemberId: formData.get("staffMemberId") });
   if (!parsed.success) return { message: "The verification email could not be sent." };
   try {
@@ -188,6 +335,7 @@ export async function correctStaffDetails(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = correctionSchema.safeParse({
     schoolId: formData.get("schoolId"),
     staffMemberId: formData.get("staffMemberId"),
@@ -226,6 +374,7 @@ export async function reconcileStaffIdentities(
   _previous: StaffAccessState,
   formData: FormData,
 ): Promise<StaffAccessState> {
+  if (!(await requireStaffAccessSecurityClearance())) return { message: "Complete account security setup before managing staff access." };
   const parsed = reconciliationSchema.safeParse({
     schoolId: formData.get("schoolId"),
     canonicalStaffMemberId: formData.get("canonicalStaffMemberId"),

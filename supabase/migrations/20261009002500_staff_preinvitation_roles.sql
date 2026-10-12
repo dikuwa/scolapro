@@ -1,0 +1,325 @@
+-- #1202: pre-invitation staff role intentions, distinct from login authority.
+-- A plan NEVER creates an Auth user or school_membership before verified join.
+create table if not exists public.staff_planned_school_roles (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null references public.tenants(id),
+  school_id uuid not null references public.schools(id),
+  staff_member_id uuid not null references public.staff_members(id),
+  role_key text not null check (role_key in ('school_admin','principal','deputy_principal','hod','teacher','class_teacher','counsellor','social_worker','librarian','board_member')),
+  effective_from date not null,
+  effective_to date,
+  created_by_user_id uuid not null references auth.users(id),
+  created_at timestamptz not null default now(),
+  linked_user_id uuid references auth.users(id),
+  linked_at timestamptz,
+  revoked_at timestamptz,
+  revoked_by_user_id uuid references auth.users(id),
+  constraint staff_planned_dates_valid check (effective_to is null or effective_to >= effective_from)
+);
+create index if not exists staff_planned_roles_staff_idx
+  on public.staff_planned_school_roles(school_id,staff_member_id,role_key,effective_from);
+create unique index if not exists staff_planned_roles_open_unique
+  on public.staff_planned_school_roles(school_id,staff_member_id,role_key) where effective_to is null and revoked_at is null;
+alter table public.staff_planned_school_roles enable row level security;
+-- Defense in depth: no direct table read/write, even if a future grant is added.
+create policy staff_planned_school_roles_deny_direct on public.staff_planned_school_roles
+  for all to authenticated using (false) with check (false);
+revoke all on public.staff_planned_school_roles from anon,authenticated;
+
+create or replace function public.plan_staff_school_role(
+  p_school_id uuid, p_staff_member_id uuid, p_role_key text,
+  p_effective_from date default current_date,
+  p_effective_to date default null
+) returns uuid language plpgsql security definer
+set search_path=pg_catalog,public,app_private as $$
+declare
+  v_staff public.staff_members%rowtype;
+  v_school public.schools%rowtype;
+  v_id uuid;
+begin
+  if auth.uid() is null
+     or not app_private.user_can_manage_current_school_membership(auth.uid(),p_school_id) then
+    raise exception 'School administrator permission required';
+  end if;
+  if p_effective_from is null or p_role_key not in
+    ('school_admin','principal','deputy_principal','hod','teacher','class_teacher','counsellor','social_worker','librarian','board_member')
+  then raise exception 'Invalid planned school role'; end if;
+  if p_effective_to is not null and p_effective_to<p_effective_from then
+    raise exception 'Planned role end date cannot precede its start date';
+  end if;
+  select * into v_school from public.schools where id=p_school_id and status='active';
+  if not found then raise exception 'School unavailable'; end if;
+  select * into v_staff from public.staff_members where id=p_staff_member_id and tenant_id=v_school.tenant_id for update;
+  if not found then raise exception 'Staff outside school tenant'; end if;
+  if not exists (
+    select 1 from public.staff_school_assignments
+    where school_id=p_school_id and staff_member_id=p_staff_member_id
+      and effective_from<=p_effective_from
+      and (
+        effective_to is null
+        or (p_effective_to is not null and effective_to>=p_effective_to)
+      )
+  ) then raise exception 'No effective school placement covering the planned role interval'; end if;
+  if v_staff.user_id=auth.uid() then raise exception 'Self-assignment is not permitted'; end if;
+  if v_staff.user_id is not null then
+    raise exception 'Linked account exists; use active membership role management';
+  end if;
+  if exists (
+    select 1 from public.staff_planned_school_roles
+    where school_id=p_school_id and staff_member_id=p_staff_member_id and role_key=p_role_key
+      and revoked_at is null
+      and daterange(effective_from,coalesce(effective_to,'infinity'::date),'[]')
+          && daterange(p_effective_from,coalesce(p_effective_to,'infinity'::date),'[]')
+  ) then raise exception 'Planned role interval overlaps an existing assignment'; end if;
+  insert into public.staff_planned_school_roles
+    (tenant_id,school_id,staff_member_id,role_key,effective_from,effective_to,created_by_user_id)
+  values (v_school.tenant_id,p_school_id,p_staff_member_id,p_role_key,p_effective_from,p_effective_to,auth.uid())
+  returning id into v_id;
+  insert into public.audit_events
+    (tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
+  values (v_school.tenant_id,p_school_id,auth.uid(),'staff.role_planned',
+    'staff_planned_school_role',v_id,jsonb_build_object(
+      'role_key',p_role_key,'staff_member_id',p_staff_member_id,
+      'effective_from',p_effective_from,'effective_to',p_effective_to));
+  return v_id;
+end;$$;
+
+create or replace function public.end_planned_staff_school_role(
+  p_school_id uuid, p_planned_role_id uuid, p_effective_to date default current_date
+) returns boolean language plpgsql security definer
+set search_path=pg_catalog,public,app_private as $$
+declare v_role public.staff_planned_school_roles%rowtype;
+begin
+  if auth.uid() is null
+     or not app_private.user_can_manage_current_school_membership(auth.uid(),p_school_id) then
+    raise exception 'School administrator permission required';
+  end if;
+  select * into v_role from public.staff_planned_school_roles
+    where id=p_planned_role_id and school_id=p_school_id for update;
+  if not found then raise exception 'Planned role not found'; end if;
+  if v_role.linked_at is not null then raise exception 'Already activated; manage account role instead'; end if;
+  if v_role.revoked_at is not null then raise exception 'Planned role already revoked'; end if;
+  if p_effective_to is null then raise exception 'End date is required'; end if;
+  update public.staff_planned_school_roles
+  set effective_to=case when p_effective_to>=effective_from then p_effective_to else effective_to end,
+      revoked_at=now(), revoked_by_user_id=auth.uid()
+  where id=v_role.id;
+  insert into public.audit_events
+    (tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
+  values (v_role.tenant_id,p_school_id,auth.uid(),'staff.planned_role_ended',
+    'staff_planned_school_role',v_role.id,jsonb_build_object('effective_to',p_effective_to));
+  return true;
+end;$$;
+
+-- The existing accept_school_invitation routine validates the token, authenticated
+-- email, identity collision, school and staff link before accepting the invitation.
+-- This trigger runs in the SAME TRANSACTION at the final accepted transition.
+create or replace function app_private.activate_planned_roles_on_staff_invitation()
+returns trigger language plpgsql security definer
+set search_path=pg_catalog,public,app_private as $$
+declare
+  v_plan public.staff_planned_school_roles%rowtype;
+  v_membership_id uuid;
+  v_has_plans boolean;
+  v_eligible_count integer;
+begin
+  if new.status <> 'accepted' or old.status = 'accepted'
+    or new.staff_member_id is null or new.accepted_user_id is null then
+    return new;
+  end if;
+  select exists (
+    select 1 from public.staff_planned_school_roles
+    where school_id=new.school_id and tenant_id=new.tenant_id
+      and staff_member_id=new.staff_member_id
+  ) into v_has_plans;
+  if not v_has_plans then
+    return new;
+  end if;
+
+  if not exists (
+    select 1 from public.staff_members
+      where id=new.staff_member_id and tenant_id=new.tenant_id and user_id=new.accepted_user_id
+  ) then raise exception 'Accepted staff identity mismatch'; end if;
+  if not exists (
+    select 1 from auth.users u
+    where u.id=new.accepted_user_id
+      and lower(btrim(coalesce(u.email,'')))=lower(btrim(coalesce(new.email,'')))
+      and u.email_confirmed_at is not null
+  ) then raise exception 'Accepted staff account email is not verified'; end if;
+
+  select count(*) into v_eligible_count
+  from public.staff_planned_school_roles
+  where school_id=new.school_id and tenant_id=new.tenant_id
+    and staff_member_id=new.staff_member_id
+    and linked_at is null and revoked_at is null
+    and (effective_to is null or effective_to>=current_date);
+  if v_eligible_count=0 then
+    raise exception 'No eligible planned staff roles remain';
+  end if;
+
+  -- accept_school_invitation historically inserts one bootstrap role before the
+  -- invitation status transition. Once this staff identity has governed planned
+  -- roles, remove that uncommitted bootstrap row and rebuild authority exclusively
+  -- from the plan set so a revoked/expired picker value cannot bypass planning.
+  delete from public.school_memberships
+  where school_id=new.school_id
+    and staff_member_id=new.staff_member_id
+    and user_id=new.accepted_user_id
+    and role_key=new.role_key
+    and active_from=current_date
+    and active_to is null;
+
+  for v_plan in
+    select * from public.staff_planned_school_roles
+    where school_id=new.school_id and tenant_id=new.tenant_id
+      and staff_member_id=new.staff_member_id and linked_at is null and revoked_at is null
+      and (effective_to is null or effective_to>=current_date)
+    order by effective_from,id for update
+  loop
+    v_membership_id:=null;
+    select id into v_membership_id
+    from public.school_memberships
+    where school_id=new.school_id and staff_member_id=new.staff_member_id
+      and user_id=new.accepted_user_id and role_key=v_plan.role_key
+      and daterange(active_from,coalesce(active_to,'infinity'::date),'[]')
+          && daterange(v_plan.effective_from,coalesce(v_plan.effective_to,'infinity'::date),'[]')
+    order by active_from desc
+    limit 1
+    for update;
+
+    if v_membership_id is null then
+      insert into public.school_memberships
+        (tenant_id,school_id,user_id,staff_member_id,role_key,active_from,active_to)
+      values (
+        new.tenant_id,new.school_id,new.accepted_user_id,new.staff_member_id,
+        v_plan.role_key,v_plan.effective_from,v_plan.effective_to
+      )
+      returning id into v_membership_id;
+    else
+      update public.school_memberships
+      set active_from=v_plan.effective_from,
+          active_to=v_plan.effective_to
+      where id=v_membership_id;
+    end if;
+
+    update public.staff_planned_school_roles
+      set linked_user_id=new.accepted_user_id, linked_at=now()
+      where id=v_plan.id;
+
+    insert into public.audit_events
+      (tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata)
+    values (
+      new.tenant_id,new.school_id,new.accepted_user_id,'staff.planned_role_activated',
+      'school_membership',v_membership_id,
+      jsonb_build_object('planned_role_id',v_plan.id,'role_key',v_plan.role_key,
+        'effective_from',v_plan.effective_from,'effective_to',v_plan.effective_to)
+    );
+  end loop;
+  return new;
+end;$$;
+drop trigger if exists staff_invitation_activate_planned_roles on public.school_invitations;
+create trigger staff_invitation_activate_planned_roles
+after update of status on public.school_invitations
+for each row execute function app_private.activate_planned_roles_on_staff_invitation();
+
+-- Active role management remains the post-link authority surface. Protect the
+-- school from losing its final authorized School Admin while retaining immediate
+-- revocation semantics and effective-dated history from #1145.
+create or replace function public.end_staff_school_role(
+  p_school_id uuid,
+  p_membership_id uuid,
+  p_effective_to date default (current_date - 1)
+) returns boolean language plpgsql security definer
+set search_path=pg_catalog,public,app_private as $last_admin$
+declare
+  v_membership public.school_memberships%rowtype;
+  v_successor_date date;
+begin
+  if auth.uid() is null
+     or not app_private.user_can_manage_current_school_membership(auth.uid(),p_school_id) then
+    raise exception 'Permission denied';
+  end if;
+
+  select * into v_membership
+  from public.school_memberships
+  where id=p_membership_id and school_id=p_school_id
+  for update;
+  if not found then raise exception 'School role not found'; end if;
+  if p_effective_to is null or p_effective_to < (v_membership.active_from - 1) then
+    raise exception 'Role end date is invalid';
+  end if;
+  if v_membership.active_to is not null and p_effective_to > v_membership.active_to then
+    raise exception 'Cannot extend a closed school role';
+  end if;
+
+  if v_membership.role_key='school_admin'
+     and (v_membership.active_to is null or v_membership.active_to>=current_date) then
+    -- Serialize same-school administrator revocations before evaluating the
+    -- successor set. Without this lock, two administrators may each observe
+    -- the other and concurrently revoke both remaining memberships.
+    perform pg_advisory_xact_lock(hashtextextended(p_school_id::text, 1202));
+    v_successor_date:=greatest(current_date,p_effective_to+1);
+    if not exists (
+      select 1 from public.school_memberships other
+      where other.school_id=p_school_id
+        and other.id<>v_membership.id
+        and other.role_key='school_admin'
+        and other.active_from<=v_successor_date
+        and (other.active_to is null or other.active_to>=v_successor_date)
+        and (
+          other.staff_member_id is null
+          or app_private.staff_member_covers_school_period(
+            other.staff_member_id,p_school_id,v_successor_date,v_successor_date
+          )
+        )
+    ) then
+      raise exception 'Cannot remove the last active School Admin';
+    end if;
+  end if;
+
+  update public.school_memberships
+  set active_to=p_effective_to
+  where id=p_membership_id;
+
+  insert into public.audit_events(
+    tenant_id,school_id,actor_user_id,event_type,entity_type,entity_id,metadata
+  ) values (
+    v_membership.tenant_id,p_school_id,auth.uid(),
+    'school_membership.role_ended','school_membership',p_membership_id,
+    jsonb_build_object(
+      'staff_member_id',v_membership.staff_member_id,
+      'role_key',v_membership.role_key,
+      'effective_to',p_effective_to,
+      'revoked_on',current_date
+    )
+  );
+  return true;
+end;$last_admin$;
+revoke all on function public.end_staff_school_role(uuid,uuid,date) from public,anon;
+grant execute on function public.end_staff_school_role(uuid,uuid,date) to authenticated;
+
+revoke all on function public.plan_staff_school_role(uuid,uuid,text,date,date) from public,anon;
+grant execute on function public.plan_staff_school_role(uuid,uuid,text,date,date) to authenticated;
+revoke all on function public.end_planned_staff_school_role(uuid,uuid,date) from public,anon;
+grant execute on function public.end_planned_staff_school_role(uuid,uuid,date) to authenticated;
+revoke all on function app_private.activate_planned_roles_on_staff_invitation() from public,anon,authenticated;
+
+-- Guarded list read for Staff Directory; raw table remains inaccessible.
+create or replace function public.list_staff_planned_roles(
+ p_school_id uuid, p_staff_ids uuid[]
+) returns table(id uuid, staff_member_id uuid, role_key text, effective_from date, effective_to date, revoked_at timestamptz)
+language plpgsql stable security definer
+set search_path=pg_catalog,public,app_private as $$
+begin
+ if auth.uid() is null
+    or not app_private.user_can_manage_current_school_membership(auth.uid(),p_school_id) then
+   raise exception 'School administrator permission required';
+ end if;
+ return query
+ select r.id,r.staff_member_id,r.role_key,r.effective_from,r.effective_to,r.revoked_at
+ from public.staff_planned_school_roles r
+ where r.school_id=p_school_id and r.staff_member_id=any(p_staff_ids)
+ order by r.staff_member_id,r.role_key,r.effective_from;
+end;$$;
+revoke all on function public.list_staff_planned_roles(uuid,uuid[]) from public,anon;
+grant execute on function public.list_staff_planned_roles(uuid,uuid[]) to authenticated;

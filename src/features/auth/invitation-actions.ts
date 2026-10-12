@@ -53,11 +53,24 @@ export async function signUpForInvitation(
     return { message: "The account could not be created. If you already have an account, sign in instead." };
   }
 
+  if (!data.user) return { message: "Account creation could not be verified. Sign in and reopen your invitation." };
+
   if (!data.session) {
     return {
       success: true,
       message: "Account created. Confirm your email if requested, then sign in and reopen this invitation link to finish joining the school.",
     };
+  }
+
+  // A signup may return an authenticated session immediately. Do not
+  // bypass first-login rotation through this automatic acceptance path.
+  const { data: signupProfile, error: signupProfileError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", data.user.id)
+    .maybeSingle();
+  if (signupProfileError || !signupProfile || signupProfile.must_change_password !== false) {
+    return { message: "Your account was created. Complete account security setup before accepting the invitation." };
   }
 
   const { error: acceptError } = await supabase.rpc("accept_school_invitation", {
@@ -82,6 +95,17 @@ export async function acceptInvitation(
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) {
     redirect(`/login?next=${encodeURIComponent(`/join?token=${parsed.data.token}`)}`);
+  }
+
+  // This action is callable independently of page navigation. A session
+  // awaiting mandatory rotation must not obtain new school memberships.
+  const { data: rotationProfile, error: rotationError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+  if (rotationError || !rotationProfile || rotationProfile.must_change_password !== false) {
+    redirect("/password-rotation");
   }
 
   const { error } = await supabase.rpc("accept_school_invitation", {

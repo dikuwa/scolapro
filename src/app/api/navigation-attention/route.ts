@@ -18,6 +18,20 @@ export async function GET() {
     );
   }
 
+  // Avoid the expensive school-context RPC on this high-frequency endpoint.
+  // Verify the password-rotation flag directly before reading notifications.
+  const { data: profile, error: profileError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", verifiedUserId)
+    .maybeSingle();
+  if (profileError || !profile || profile.must_change_password !== false) {
+    return NextResponse.json({ counts: {} }, {
+      status: 403,
+      headers: { "cache-control": "private, no-store" },
+    });
+  }
+
   const counts = await getNavigationAttentionCounts();
   return NextResponse.json(
     { counts },
