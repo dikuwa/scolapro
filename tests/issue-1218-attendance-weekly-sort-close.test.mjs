@@ -133,7 +133,7 @@ test("close actions default to the light danger-soft dismiss treatment", () => {
   assert.match(close, /variant=\{variant\}/);
   assert.match(button, /"danger-soft":\s*"bg-\[color:var\(--danger-soft\)\]/);
   // The saturated danger fill stays reserved for destructive commits.
-  assert.match(button, /danger: "bg-danger-soft text-\[color:var\(--danger\)\] hover:bg-\[color:var\(--danger\)\] hover:text-white"/);
+  assert.match(button, /danger: "bg-danger-soft text-\[color:var\(--danger\)\] hover:bg-\[color:var\(--danger\)\]\/15 hover:text-\[color:var\(--danger\)\]"/);
   assert.match(actions, /<CloseAction variant="danger-soft"/);
 });
 
