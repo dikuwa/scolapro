@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   StagingSeedError,
   isApprovedStagingTarget,
+  openApprovedStagingSeedClient,
   resolveStagingSeedTarget,
   resolveStagingManagementTarget,
   stagingSeedRejection,
@@ -70,6 +71,28 @@ test("refuses a ref that is not on the approval allowlist", () => {
   assert.throws(
     () => resolveStagingSeedTarget(validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "zyxwvutsrqponmlkjihg" })),
     (error) => error instanceof StagingSeedError && /unapproved|approv/i.test(error.message),
+  );
+});
+
+test("refuses a malformed allowlist entry instead of silently ignoring it", () => {
+  assert.throws(
+    () =>
+      resolveStagingSeedTarget(
+        validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: `${STAGING_REF},not-a-ref` }),
+      ),
+    (error) => error instanceof StagingSeedError && /malformed/i.test(error.message),
+  );
+});
+
+test("refuses a production-tainted allowlist even for an otherwise approved ref", () => {
+  assert.throws(
+    () =>
+      resolveStagingSeedTarget(
+        validEnv({
+          SCOLAPRO_E2E_APPROVED_STAGING_REFS: `${STAGING_REF},${PRODUCTION_PROJECT_REF}`,
+        }),
+      ),
+    (error) => error instanceof StagingSeedError && /production/i.test(error.message),
   );
 });
 
@@ -408,4 +431,68 @@ test("isolated seed binds the register teacher and leaves the isolation tenant e
   const boundClass = dump.tables.register_classes.find((row) => row.id === DEMO.registerClass10A);
   assert.equal(boundClass.register_teacher_staff_id, SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId);
   assert.deepEqual(dump.tables.learners ?? [], []);
+});
+
+// ---------------------------------------------------------------------------
+// Staging seed entrypath: every denied configuration opens NO client (zero
+// network), and the approved configuration opens exactly one.
+//
+// `openApprovedStagingSeedClient` is the guard-first boundary the hosted seed
+// CLI (`scripts/seed-staging-fixtures.mjs`) uses: it resolves the approved
+// target and only then calls `createClient`. A denial throws before any client
+// exists, so the entrypoint can issue zero network requests.
+// ---------------------------------------------------------------------------
+
+/** Every configuration the staging seed entrypath must refuse. */
+function deniedSeedEnvironments() {
+  const without = (key) => {
+    const env = validEnv();
+    delete env[key];
+    return env;
+  };
+  return [
+    ["production declared ref", validEnv({
+      SCOLAPRO_E2E_SUPABASE_PROJECT_REF: PRODUCTION_PROJECT_REF,
+      STAGING_SUPABASE_URL: `https://${PRODUCTION_PROJECT_REF}.supabase.co`,
+    })],
+    ["unapproved ref", validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "zyxwvutsrqponmlkjihg" })],
+    ["absent allowlist", without("SCOLAPRO_E2E_APPROVED_STAGING_REFS")],
+    ["empty allowlist", validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "   " })],
+    ["malformed allowlist entry", validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: `${STAGING_REF},not-a-ref` })],
+    ["production-tainted allowlist", validEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: `${STAGING_REF},${PRODUCTION_PROJECT_REF}` })],
+    ["missing synthetic-only acknowledgement", validEnv({ SCOLAPRO_E2E_SYNTHETIC_ONLY: "0" })],
+    ["missing declared ref", without("SCOLAPRO_E2E_SUPABASE_PROJECT_REF")],
+    ["malformed declared ref", validEnv({ SCOLAPRO_E2E_SUPABASE_PROJECT_REF: "short" })],
+    ["STAGING_PROJECT_ID mismatch", validEnv({ STAGING_PROJECT_ID: "zyxwvutsrqponmlkjihg" })],
+    ["URL ref mismatch", validEnv({ STAGING_SUPABASE_URL: "https://zyxwvutsrqponmlkjihg.supabase.co" })],
+    ["missing staging secret key", without("STAGING_SUPABASE_SERVICE_ROLE_KEY")],
+  ];
+}
+
+test("staging seed entrypath opens no client (zero network) for every denied configuration", () => {
+  for (const [label, env] of deniedSeedEnvironments()) {
+    let opened = 0;
+    const createClient = () => {
+      opened += 1;
+      return { from: () => ({}) };
+    };
+    assert.throws(
+      () => openApprovedStagingSeedClient(env, createClient),
+      StagingSeedError,
+      `expected refusal for: ${label}`,
+    );
+    assert.equal(opened, 0, `no client may be opened for: ${label}`);
+  }
+});
+
+test("staging seed entrypath opens exactly one client for an approved configuration", () => {
+  let opened = 0;
+  const createClient = (url, key, options) => {
+    opened += 1;
+    return { url, key, options };
+  };
+  const { target, client } = openApprovedStagingSeedClient(validEnv(), createClient);
+  assert.equal(opened, 1);
+  assert.equal(target.projectRef, STAGING_REF);
+  assert.equal(client.url, `https://${STAGING_REF}.supabase.co`);
 });

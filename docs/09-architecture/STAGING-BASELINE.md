@@ -63,8 +63,10 @@ the tenant/school identity does not match.
   credential or missing `SCOLAPRO_E2E_SYNTHETIC_ONLY=1` **before** any request.
 - **Approval binding.** A runtime ref alone does not prove a project is staging.
   The declared ref must also appear on the explicit allowlist
-  `SCOLAPRO_E2E_APPROVED_STAGING_REFS`; a missing or unapproved identity is
-  refused. There is no broad token access by default.
+  `SCOLAPRO_E2E_APPROVED_STAGING_REFS`. The allowlist is validated strictly: a
+  missing/empty list, a malformed entry, a production-tainted list or an
+  unapproved ref refuses the whole run before any client, Management-API request
+  or write. There is no broad token access by default.
 - **No arbitrary query executor.** The applier takes no caller-supplied SQL — it
   always applies the generated baseline — and requires a **branded** target
   produced by `resolveStagingManagementTarget` (`isApprovedStagingTarget`). A

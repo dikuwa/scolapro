@@ -306,6 +306,8 @@ test("bootstrap makes zero requests for denied environments", async () => {
     }),
     identityEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "", SUPABASE_ACCESS_TOKEN: "token" }), // no allowlist
     identityEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: "zyxwvutsrqponmlkjihg", SUPABASE_ACCESS_TOKEN: "token" }),
+    identityEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: `${STAGING_REF},not-a-ref`, SUPABASE_ACCESS_TOKEN: "token" }), // malformed allowlist entry
+    identityEnv({ SCOLAPRO_E2E_APPROVED_STAGING_REFS: `${STAGING_REF},${PRODUCTION_PROJECT_REF}`, SUPABASE_ACCESS_TOKEN: "token" }), // production-tainted allowlist
     identityEnv({ SCOLAPRO_E2E_SYNTHETIC_ONLY: "0", SUPABASE_ACCESS_TOKEN: "token" }),
     identityEnv(), // missing access token
   ];

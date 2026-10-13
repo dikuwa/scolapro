@@ -27,8 +27,9 @@
 // Every resolver refuses, before any network/write, when:
 //   - `SCOLAPRO_E2E_SYNTHETIC_ONLY` is not exactly "1";
 //   - the declared staging ref is missing, malformed, or the production ref;
-//   - the declared ref is not on the explicit approval allowlist
-//     `SCOLAPRO_E2E_APPROVED_STAGING_REFS` (missing or unapproved identity);
+//   - the approval allowlist `SCOLAPRO_E2E_APPROVED_STAGING_REFS` is missing or
+//     empty, contains a malformed entry, is production-tainted, or does not list
+//     the declared ref (missing, malformed, tainted or unapproved identity);
 //   - `STAGING_PROJECT_ID` and `SCOLAPRO_E2E_SUPABASE_PROJECT_REF` disagree;
 //   - the staging URL is missing, not a hosted Supabase URL, a production host,
 //     or its project ref differs from the declared ref (ambiguous identity);
@@ -66,14 +67,26 @@ function read(env, key) {
   return String(env?.[key] ?? "").trim();
 }
 
-/** Parses the approval allowlist into a set of refs. */
-function approvedRefAllowlist(env) {
-  return new Set(
-    read(env, "SCOLAPRO_E2E_APPROVED_STAGING_REFS")
-      .split(/[\s,]+/)
-      .map((entry) => entry.trim())
-      .filter(Boolean),
-  );
+/**
+ * Parses the approval allowlist into well-formed refs and malformed entries.
+ * Entries may be separated by commas, whitespace or newlines. A malformed entry
+ * is never silently dropped: the caller must refuse the whole allowlist.
+ *
+ * @returns {{ refs: string[], malformed: string[] }}
+ */
+function parseApprovedRefAllowlist(env) {
+  const entries = read(env, "SCOLAPRO_E2E_APPROVED_STAGING_REFS")
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  const refs = [];
+  const malformed = [];
+  for (const entry of entries) {
+    if (REF_PATTERN.test(entry)) refs.push(entry);
+    else malformed.push(entry);
+  }
+  return { refs, malformed };
 }
 
 /**
@@ -122,14 +135,28 @@ export function resolveStagingSeedIdentity(env = process.env) {
 
   // Approval binding: a runtime ref alone does not establish that a project is
   // truly staging. The ref must be on the explicit, separately approved allowlist.
-  const allowlist = approvedRefAllowlist(env);
-  if (allowlist.size === 0) {
+  // The allowlist is validated strictly (matching the workflow ref gate): a
+  // malformed entry, an empty list, or a production-tainted list refuses the
+  // whole run rather than being partially trusted.
+  const { refs, malformed } = parseApprovedRefAllowlist(env);
+  if (malformed.length > 0) {
+    throw new StagingSeedError(
+      `SCOLAPRO_E2E_APPROVED_STAGING_REFS contains ${malformed.length} malformed ` +
+        `entr${malformed.length === 1 ? "y" : "ies"}; expected only 20-character project refs`,
+    );
+  }
+  if (refs.length === 0) {
     throw new StagingSeedError(
       "SCOLAPRO_E2E_APPROVED_STAGING_REFS must list the explicitly approved staging ref(s) " +
         "(missing approval allowlist)",
     );
   }
-  if (!allowlist.has(declaredRef)) {
+  if (refs.includes(PRODUCTION_PROJECT_REF)) {
+    throw new StagingSeedError(
+      "SCOLAPRO_E2E_APPROVED_STAGING_REFS lists the production project; refusing",
+    );
+  }
+  if (!refs.includes(declaredRef)) {
     throw new StagingSeedError(
       `the declared staging ref "${declaredRef}" is not on the approved staging allowlist ` +
         "(unapproved identity)",
@@ -212,6 +239,27 @@ export function resolveStagingSeedTarget(env = process.env) {
   const target = Object.freeze({ ...identity, serviceRoleKey });
   approvedTargets.add(target);
   return target;
+}
+
+/**
+ * Guard-first client factory for the hosted-staging seed entrypoint. Resolves
+ * the approved staging target (refusing before any client exists) and only then
+ * constructs a Supabase client. A denied environment throws before `createClient`
+ * is ever invoked, so the entrypoint can issue zero network requests.
+ *
+ * `createClient` is injected so the entrypoint stays testable without
+ * `@supabase/supabase-js` and without any connection.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @param {(url: string, key: string, options?: object) => unknown} createClient
+ * @returns {{ target: object, client: unknown }}
+ */
+export function openApprovedStagingSeedClient(env, createClient) {
+  const target = resolveStagingSeedTarget(env);
+  const client = createClient(target.apiUrl, target.serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  return { target, client };
 }
 
 /**

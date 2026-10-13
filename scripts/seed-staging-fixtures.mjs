@@ -31,9 +31,9 @@ import { mergedProjectEnv } from "./env-file.mjs";
 import { syntheticPassword } from "../e2e/support/accounts.mjs";
 import {
   StagingSeedError,
+  openApprovedStagingSeedClient,
   resolveStagingSeedIdentity,
   resolveStagingManagementTarget,
-  resolveStagingSeedTarget,
 } from "../e2e/support/staging-seed-guard.mjs";
 import {
   assertBaselinePresent,
@@ -77,10 +77,17 @@ if (flags.has("--check")) {
 const verifyBaselineOnly = flags.has("--verify-baseline");
 const bootstrap = flags.has("--bootstrap");
 
+// Guard first: `openApprovedStagingSeedClient` resolves the approved target and
+// refuses before `createClient` is called, so a denied environment opens no
+// client and issues no network request. Loaded lazily so the --check preflight
+// above stays dependency-free.
+const { createClient } = await import("@supabase/supabase-js");
+
 let target;
+let client;
 let password;
 try {
-  target = resolveStagingSeedTarget(env);
+  ({ target, client } = openApprovedStagingSeedClient(env, createClient));
   password = syntheticPassword(env);
 } catch (error) {
   fail(error);
@@ -89,12 +96,6 @@ try {
 console.log(
   `[seed:staging] target=staging projectRef=${target.projectRef} url=${target.apiUrl} (synthetic-only, approved)`,
 );
-
-// Loaded lazily so the --check preflight stays dependency-free.
-const { createClient } = await import("@supabase/supabase-js");
-const client = createClient(target.apiUrl, target.serviceRoleKey, {
-  auth: { autoRefreshToken: false, persistSession: false },
-});
 
 try {
   // Migration preflight: refuse with an explicit error if the schema is absent.
