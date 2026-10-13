@@ -160,7 +160,7 @@ test("reasoned absence PDF check sits next to the centered a, not at the cell ed
 test("register letterhead honors the configured old-English family in both renderers", () => {
   const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "utf8");
   const header = readFileSync("src/features/documents/server/official-document-html-header.ts", "utf8");
-  const seed = readFileSync("scripts/seed-e2e-fixtures.mjs", "utf8");
+  const seed = readFileSync("e2e/support/seed-world.mjs", "utf8");
   assert.doesNotMatch(route, /schoolNameFont: "old_english" as const/);
   assert.match(route, /buildOfficialDocumentHeaderModel\(profile/);
   assert.match(seed, /school_name_font: "old_english"/);

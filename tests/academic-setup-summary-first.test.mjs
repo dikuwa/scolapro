@@ -47,3 +47,17 @@ test("current register structure stays bounded and scrollable like room manageme
   assert.match(page, /max-h-\[33rem\] overflow-y-auto overscroll-contain pr-1/);
   assert.match(page, /<ClassManagement/);
 });
+
+test("HOD scopes show compact portfolio cards without duplicate responsibility lists", () => {
+  const hod = readFileSync("src/features/academics/hod-scope-configuration.tsx", "utf8");
+  const configurationCard = readFileSync("src/components/ui/configuration-card.tsx", "utf8");
+  assert.match(page, /hodScope\.portfolios\.length/);
+  assert.match(page, /HOD: \{appointment\?\.headName/);
+  assert.match(page, /"Active" : upcoming \? "Upcoming" : "Unassigned"/);
+  assert.doesNotMatch(page, /Current subject responsibilities/);
+  assert.doesNotMatch(hod, /Current responsibility history/);
+  assert.match(core, /editorFirst/);
+  assert.match(configurationCard, /editorFirst && open/);
+  assert.match(hod, /closeEditor\?\.\(\)/);
+  assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
+});

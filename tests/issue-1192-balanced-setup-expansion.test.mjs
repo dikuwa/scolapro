@@ -34,11 +34,12 @@ test("workflow and anchor editors are independent without duplicate headings", (
   assert.match(page, /section="anchor"/);
   assert.match(core, /editor=\{anchorEditor\}/);
 });
-test("HOD portfolio listing precedes editing forms", () => {
+test("HOD portfolio cards stay visible while forms appear first only in edit mode", () => {
   assert.match(page, /hodOverview=/);
   assert.match(page, /hodScope.portfolios.map/);
   assert.match(hod, /embedded \? ""/);
-  assert.match(hod, /Current responsibility history/);
+  assert.doesNotMatch(hod, /Current responsibility history/);
+  assert.match(core, /editorFirst/);
   assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
 });
 
