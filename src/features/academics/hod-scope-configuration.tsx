@@ -74,7 +74,9 @@ export function HodScopeConfiguration({
   const [departmentLabel, setDepartmentLabel] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState(today);
   const [effectiveTo, setEffectiveTo] = useState("");
-  const [endResponsibilityId, setEndResponsibilityId] = useState("");
+  const [endMode, setEndMode] = useState<"scope" | "subjects">("scope");
+  const [endAppointmentId, setEndAppointmentId] = useState("");
+  const [endResponsibilityIds, setEndResponsibilityIds] = useState<string[]>([]);
   const [endDate, setEndDate] = useState(today);
 
   const [createState, createAction, createPending] = useActionState(
@@ -114,15 +116,26 @@ export function HodScopeConfiguration({
       })),
     [heads],
   );
-  const endOptions = useMemo(
-    () =>
-      responsibilities
-        .filter((row) => statusFor(row, today) !== "Ended")
-        .map((row) => ({
-          value: row.id,
-          label: `${row.subjectName} · ${row.headName}`,
-          helper: `From ${row.effectiveFrom}`,
+  const endScopeOptions = useMemo(
+    () => portfolios.flatMap((portfolio) =>
+      portfolio.appointments
+        .filter((appointment) => appointment.effectiveFrom <= today && (!appointment.effectiveTo || appointment.effectiveTo >= today))
+        .map((appointment) => ({
+          value: appointment.id,
+          label: portfolio.label,
+          helper: `HOD: ${appointment.headName} · ${portfolio.subjectIds.length} subjects · From ${appointment.effectiveFrom}`,
         })),
+    ),
+    [portfolios, today],
+  );
+  const endOptions = useMemo(
+    () => responsibilities
+      .filter((row) => !row.portfolioAppointmentId && statusFor(row, today) === "Active")
+      .map((row) => ({
+        value: row.id,
+        label: row.subjectName,
+        helper: `${row.headName} · From ${row.effectiveFrom}`,
+      })),
     [responsibilities, today],
   );
 
@@ -275,20 +288,42 @@ export function HodScopeConfiguration({
             <div>
               <h3 className="text-sm font-semibold text-foreground">End responsibility</h3>
               <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Ending a responsibility preserves the original assignment and its historical provenance.
+                End an entire HOD scope together, or select multiple standalone subject responsibilities. Assignment history is preserved.
               </p>
             </div>
             <ActionMessage state={endState} />
             <input type="hidden" name="schoolId" value={schoolId} />
-            <Picker
-              label="Responsibility"
-              name="responsibilityId"
-              value={endResponsibilityId}
-              onChange={setEndResponsibilityId}
-              options={endOptions}
-              placeholder="Choose responsibility"
-              disabled={!endOptions.length || endPending}
-            />
+            <div className="flex flex-wrap gap-2" role="group" aria-label="End responsibility by">
+              <Button type="button" size="sm" variant={endMode === "scope" ? "soft" : "neutral"} aria-pressed={endMode === "scope"} onClick={() => setEndMode("scope")}>Whole scope</Button>
+              <Button type="button" size="sm" variant={endMode === "subjects" ? "soft" : "neutral"} aria-pressed={endMode === "subjects"} onClick={() => setEndMode("subjects")}>Select subjects</Button>
+            </div>
+            {endMode === "scope" ? (
+              <Picker
+                label="HOD scope"
+                value={endAppointmentId}
+                onChange={setEndAppointmentId}
+                options={endScopeOptions}
+                placeholder="Choose whole scope"
+                disabled={!endScopeOptions.length || endPending}
+              />
+            ) : (
+              <>
+                <SearchableSelect
+                  label="Individual subjects"
+                  options={endOptions}
+                  placeholder="Search and select subjects"
+                  searchPlaceholder="Search subjects"
+                  multiple
+                  value=""
+                  selectedValues={endResponsibilityIds}
+                  onToggle={(id) => setEndResponsibilityIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current, id])}
+                  disabled={!endOptions.length || endPending}
+                />
+                <p className="text-xs text-muted-foreground">Subjects already assigned through a named HOD scope must be ended together using Whole scope.</p>
+              </>
+            )}
+            {endMode === "scope" && endAppointmentId ? <input type="hidden" name="appointmentId" value={endAppointmentId} /> : null}
+            {endMode === "subjects" ? endResponsibilityIds.map((id) => <input key={id} type="hidden" name="responsibilityIds" value={id} />) : null}
             <DateField
               label="Effective to"
               name="effectiveTo"
@@ -300,7 +335,7 @@ export function HodScopeConfiguration({
                 type="submit"
                 variant="neutral"
                 loading={endPending}
-                disabled={!endResponsibilityId || !endDate}
+                disabled={!(endMode === "scope" ? endAppointmentId : endResponsibilityIds.length > 0) || !endDate}
               >
                 End responsibility
               </Button>
