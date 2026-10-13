@@ -11,7 +11,7 @@ const portfolioMigration = await read(
   "supabase/migrations/20260919143000_hod_subject_portfolio_label.sql",
 );
 const query = await read("src/features/academics/server/hod-scope.ts");
-const closureMigration = await read("supabase/migrations/20261013024000_end_hod_scope_responsibilities.sql");
+const closureMigration = await read("supabase/migrations/20261013025813_end_hod_scope_responsibilities.sql");
 const actions = await read("src/features/academics/server/hod-scope-actions.ts");
 const capabilities = await read("src/lib/auth/school-capabilities.ts");
 const panel = await read("src/features/academics/hod-scope-configuration.tsx");
