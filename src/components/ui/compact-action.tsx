@@ -12,7 +12,10 @@ const toneClasses: Record<CompactActionTone, string> = {
   brand: "bg-brand-soft text-brand-strong hover:bg-brand hover:text-white",
   success: "bg-success-soft text-[color:var(--success)] hover:bg-[color:var(--success)] hover:text-white",
   warning: "bg-warning-soft text-[color:var(--warning)] hover:bg-[color:var(--warning)] hover:text-white",
-  danger: "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)] hover:text-white",
+  // Matches the canonical Button `danger` variant: a quiet theme-aware
+  // `--danger-soft` surface with a low-opacity danger hover, no saturated fill
+  // and no forced white text (light + dark).
+  danger: "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15 hover:text-[color:var(--danger)]",
 };
 
 export const compactActionBase = "inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] px-2.5 text-[0.68rem] font-semibold transition-colors duration-[var(--motion-fast)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft active:translate-y-px disabled:pointer-events-none disabled:opacity-55";
