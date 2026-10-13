@@ -338,6 +338,10 @@ function createFakeSupabase(seedTables = {}) {
     maybeSingle() {
       return { data: this.matched()[0] ?? null, error: null };
     }
+    single() {
+      const data = this.matched()[0] ?? null;
+      return { data, error: data ? null : { message: "No rows" } };
+    }
     then(resolve, reject) {
       let result;
       if (this.mode === "update") {
@@ -387,6 +391,7 @@ function seededFake() {
   return createFakeSupabase({
     schools: [{ id: DEMO.schoolId, tenant_id: DEMO.tenantId, name: DEMO.schoolName }],
     register_classes: [{ id: DEMO.registerClass10A, register_teacher_staff_id: null }],
+    attendance_reasons: [{ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", reason_code: "sick" }],
   });
 }
 
@@ -430,7 +435,8 @@ test("isolated seed binds the register teacher and leaves the isolation tenant e
 
   const boundClass = dump.tables.register_classes.find((row) => row.id === DEMO.registerClass10A);
   assert.equal(boundClass.register_teacher_staff_id, SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId);
-  assert.deepEqual(dump.tables.learners ?? [], []);
+  assert.equal(dump.tables.learners.some((row) => row.id === DEMO.registerBoyLearnerId), true);
+  assert.equal(dump.tables.learners.some((row) => row.tenant_id === OUTSIDER_TENANT.tenantId), false);
 });
 
 // ---------------------------------------------------------------------------

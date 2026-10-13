@@ -139,7 +139,10 @@ test("register non-teaching columns display governed calendar reasons inside the
   assert.match(model, /reasonByDate\.set\(date, String\(event\.title\)\)/);
   assert.doesNotMatch(model, /Before learner opening/);
   assert.doesNotMatch(model, /After learner closing/);
-  assert.match(renderer, /compactCalendarReason/);
+  // Governed closure compaction now lives in one shared contract consumed by
+  // the HTML and PDF renderers, so the printed label cannot drift.
+  assert.match(registerLayout, /export function registerTeacherClosureLabel/);
+  assert.match(renderer, /registerTeacherClosureLabel\(day\.reason\)/);
   assert.match(renderer, /rowspan="\$\{Math\.max\(1, section\.learners\.length\)\}"/);
   assert.match(renderer, /closure-column/);
   assert.match(renderer, /closure-label/);
@@ -158,7 +161,7 @@ test("register attendance columns remain compact within fixed paper geometry", (
   assert.match(renderer, /<colgroup>\$\{columns\}<\/colgroup>/);
   assert.match(renderer, /\.identity\.surname \{ overflow-wrap:anywhere/);
   assert.match(renderer, /\.identity\.given \{ overflow-wrap:anywhere/);
-  assert.match(renderer, /\.register-section \{ margin-top:0; break-after:page; overflow:visible/);
+  assert.match(renderer, /\.register-section \{ width:100%; min-width:0; min-height:0; margin:0 auto; break-after:page; overflow:visible/);
   assert.doesNotMatch(renderer, /min-width:max-content/);
 });
 

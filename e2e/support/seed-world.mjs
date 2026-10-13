@@ -65,6 +65,28 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     });
   }
 
+  // Keep both register sex sections populated for document parity checks.
+  await upsert("learners", {
+    id: DEMO.registerBoyLearnerId,
+    tenant_id: DEMO.tenantId,
+    first_names: "Synthetic Boy",
+    surname: "Register",
+    preferred_name: "Synthetic",
+    date_of_birth: "2010-06-18",
+    sex: "male",
+  });
+  await upsert("enrolments", {
+    id: DEMO.registerBoyEnrolmentId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    learner_id: DEMO.registerBoyLearnerId,
+    academic_year: 2026,
+    grade_id: DEMO.gradeTenId,
+    register_class_id: DEMO.registerClass10A,
+    admission_number: "E2E-REGISTER-BOY",
+    enrolled_from: "2026-01-12",
+  });
+
   // 3. Isolation tenant + school (never contains learner data).
   await upsert("tenants", { id: OUTSIDER_TENANT.tenantId, name: OUTSIDER_TENANT.tenantName, slug: "e2e-isolation-group" });
   await upsert("schools", {
@@ -127,6 +149,24 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     active_to: null,
   });
 
+  // Exercise the complete governed school header using synthetic values only.
+  await upsert("school_settings", {
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    setting_key: "document_profile",
+    setting_value: {
+      former_name: "Synthetic Former School Name",
+      physical_address: "123 Synthetic School Road",
+      postal_address: "P.O. Box 12345",
+      telephone: "+264 64 555 0100",
+      fax: "+264 64 555 0101",
+      email: "office@synthetic-school.test",
+      town: "Swakopmund",
+      school_name_font: "old_english",
+    },
+    updated_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  }, "school_id,setting_key");
+
   // 6. Staff-school placements, now that the demo admin's membership exists to
   //    satisfy the deferred placement-creator authorization check.
   for (const { account } of demoStaff) {
@@ -161,6 +201,46 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     source: "school",
     created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
   }, "school_id,school_date");
+
+  const { data: sickReason, error: sickReasonError } = await client
+    .from("attendance_reasons")
+    .select("id")
+    .eq("reason_code", "sick")
+    .single();
+  assert(!sickReasonError && sickReason?.id, "Synthetic reasoned-absence reason is unavailable.");
+
+  await upsert("attendance_register_submissions", {
+    id: DEMO.registerVisualSubmissionId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    register_class_id: DEMO.registerClass10A,
+    attendance_date: "2026-10-12",
+    default_status: "present",
+    note: "Synthetic register visual acceptance",
+    recorded_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+    recorded_at: "2026-10-12T08:00:00Z",
+    source: "import",
+  });
+
+  await upsert("attendance_events", {
+    id: DEMO.registerVisualAbsenceEventId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    learner_id: DEMO.registerBoyLearnerId,
+    enrolment_id: DEMO.registerBoyEnrolmentId,
+    register_class_id: DEMO.registerClass10A,
+    attendance_date: "2026-10-12",
+    observation_type: "daily_register",
+    status: "absent",
+    reason_id: sickReason.id,
+    note: "Synthetic reason supplied",
+    recorded_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+    recorded_at: "2026-10-12T08:00:00Z",
+    source: "import",
+    register_submission_id: DEMO.registerVisualSubmissionId,
+  });
 
   await upsert("school_day_overrides", {
     tenant_id: DEMO.tenantId,

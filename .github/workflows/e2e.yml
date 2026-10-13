@@ -52,6 +52,32 @@ jobs:
         with:
           version: latest
 
+      - name: Select collision-free local Supabase ports
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import socket
+
+          names = [
+              "SUPABASE_API_PORT",
+              "SUPABASE_DB_PORT",
+              "SUPABASE_DB_SHADOW_PORT",
+              "SUPABASE_STUDIO_PORT",
+              "SUPABASE_INBUCKET_PORT",
+          ]
+          sockets = []
+          try:
+              for name in names:
+                  sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                  sock.bind(("127.0.0.1", 0))
+                  sockets.append(sock)
+                  print(f"{name}={sock.getsockname()[1]}")
+          finally:
+              for sock in sockets:
+                  sock.close()
+          PY
+
       - name: Start local Supabase
         run: supabase start
 
@@ -90,6 +116,15 @@ jobs:
 
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
+
+      - name: Ensure PDF visual comparison tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v pdftoppm >/dev/null || ! command -v pdftotext >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y poppler-utils
+          fi
 
       - name: Run authenticated E2E suite
         run: pnpm e2e

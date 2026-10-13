@@ -108,6 +108,10 @@ export type OfficialDocumentHeaderBuildOptions = {
   provenanceSource?: OfficialDocumentHeaderProvenance["source"];
 };
 
+export type OfficialDocumentInternalIdentityLine = {
+  parts: Array<{ label: string; value: string }>;
+};
+
 type OfficialDocumentHeaderProfile = {
   schoolName: string;
   schoolEmisNumber: string;
@@ -142,6 +146,43 @@ export function normalizeInternalSchoolDocumentHeaderContext(
     secondaryContext: context.secondaryContext?.trim() ?? "",
     summary: context.summary?.trim() ?? "",
   };
+}
+
+/**
+ * Compact, lossless identity rows for internal school documents.
+ *
+ * The internal letterhead has less vertical space than external correspondence,
+ * so telephone/fax and postal/town share rows. Keeping this projection here
+ * ensures HTML and PDF present every configured profile field in the same order
+ * instead of silently dropping postal details whenever a physical address exists.
+ */
+export function officialDocumentInternalIdentityLines(
+  header: Pick<OfficialDocumentHeaderModel, "contactLines" | "postalLines" | "schoolEmisNumber">,
+): OfficialDocumentInternalIdentityLine[] {
+  const contacts = new Map(header.contactLines.map((line) => [line.key, line.value]));
+  const lines: OfficialDocumentInternalIdentityLine[] = [];
+  const address = contacts.get("address");
+  const telephone = contacts.get("telephone");
+  const fax = contacts.get("fax");
+  const email = contacts.get("email");
+
+  if (address) lines.push({ parts: [{ label: "Address", value: address }] });
+  if (header.postalLines.length) {
+    lines.push({ parts: [{ label: "Postal / town", value: header.postalLines.join(", ") }] });
+  }
+  if (telephone || fax) {
+    lines.push({
+      parts: [
+        ...(telephone ? [{ label: "Tel", value: telephone }] : []),
+        ...(fax ? [{ label: "Fax", value: fax }] : []),
+      ],
+    });
+  }
+  if (email) lines.push({ parts: [{ label: "Email", value: email }] });
+  if (header.schoolEmisNumber) {
+    lines.push({ parts: [{ label: "EMIS", value: header.schoolEmisNumber }] });
+  }
+  return lines;
 }
 
 /**
