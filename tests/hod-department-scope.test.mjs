@@ -49,7 +49,7 @@ test("responsibility history is append/end rather than destructive", () => {
   assert.match(closureMigration, /set effective_to=p_effective_to/);
   assert.match(actions, /end_hod_scope_responsibilities/);
   assert.doesNotMatch(actions, /\.delete\(/);
-  assert.match(panel, /Historical provenance is retained|historical provenance/i);
+  assert.match(panel, /Assignment history is preserved|historical provenance/i);
 });
 
 test("school setup exposes the bounded configuration surface", () => {
