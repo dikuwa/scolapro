@@ -6,6 +6,9 @@ name: Authenticated E2E
 #
 # The suite is fail-closed: `scripts/e2e-guard.mjs` refuses to run if the target
 # resolves to the production project ref (jhgumnvhoxmapmgotchu) or a Vercel host.
+#
+# This job also verifies repeat-seeding idempotency against the disposable stack.
+# The hosted-staging baseline (Management API) path is NOT exercised here.
 
 on:
   pull_request:
@@ -81,6 +84,9 @@ jobs:
 
       - name: Fail-closed environment guard
         run: node scripts/e2e-guard.mjs
+
+      - name: Verify synthetic seed idempotency (disposable local stack)
+        run: node scripts/verify-e2e-seed-idempotency.mjs
 
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium
