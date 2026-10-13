@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
-const migration = read("supabase/migrations/20261013024000_end_hod_scope_responsibilities.sql");
+const migration = read("supabase/migrations/20261013025813_end_hod_scope_responsibilities.sql");
 const actions = read("src/features/academics/server/hod-scope-actions.ts");
 const ui = read("src/features/academics/hod-scope-configuration.tsx");
 const query = read("src/features/academics/server/hod-scope.ts");
