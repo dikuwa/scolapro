@@ -28,7 +28,7 @@ export function CardActionToggle({
       className={cn(
         "inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-[var(--radius-sm)] px-3 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:cursor-not-allowed disabled:opacity-50",
         open
-          ? "text-[color:var(--danger)] hover:bg-danger-soft/60"
+          ? "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15"
           : "bg-brand-soft text-brand-strong hover:bg-brand-soft/70",
       )}
     >
