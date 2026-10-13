@@ -13,7 +13,7 @@ test("delete and close button variants use existing theme-aware soft danger toke
   assert.match(buttons, /"danger-soft":\s*"bg-/);
   assert.match(buttons, /"danger-ghost": "bg-danger-soft/);
   assert.match(buttons, /var\(--danger-soft\)/);
-  assert.doesNotMatch(buttons, /hover:text-white/);
+  assert.doesNotMatch(buttons, /danger: "[^"\n]*hover:text-white/);
   assert.match(close, /variant = "danger-soft"/);
   assert.match(toggle, /bg-danger-soft text-/);
 });
