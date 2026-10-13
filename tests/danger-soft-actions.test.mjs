@@ -9,9 +9,9 @@ const activities = read("src/features/calendar/department-activities-manager.tsx
 const close = read("src/components/ui/close-action.tsx");
 
 test("delete and close button variants use existing theme-aware soft danger tokens", () => {
-  for (const variant of ["danger", "danger-soft", "danger-ghost"]) {
-    assert.match(buttons, new RegExp(`["']?${variant}["']?: "bg-`));
-  }
+  assert.match(buttons, /danger: "bg-danger-soft/);
+  assert.match(buttons, /"danger-soft":\s*"bg-/);
+  assert.match(buttons, /"danger-ghost": "bg-danger-soft/);
   assert.match(buttons, /var\(--danger-soft\)/);
   assert.doesNotMatch(buttons, /hover:text-white/);
   assert.match(close, /variant = "danger-soft"/);
