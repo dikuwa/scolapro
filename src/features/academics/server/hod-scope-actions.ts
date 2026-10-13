@@ -30,9 +30,13 @@ const createSchema = z.object({
 
 const endSchema = z.object({
   schoolId: z.string().uuid(),
-  responsibilityId: z.string().uuid(),
+  appointmentId: z.union([z.string().uuid(), z.literal("")]),
+  responsibilityIds: z.array(z.string().uuid()).max(100),
   effectiveTo: z.string().date(),
-});
+}).refine(
+  (value) => Boolean(value.appointmentId) !== Boolean(value.responsibilityIds.length),
+  "Choose either a complete scope or individual subjects.",
+);
 
 async function canConfigureSchool(schoolId: string) {
   const context = await getUserContext();
@@ -199,36 +203,34 @@ export async function endHodSubjectResponsibility(
 ): Promise<HodScopeActionState> {
   const parsed = endSchema.safeParse({
     schoolId: form.get("schoolId"),
-    responsibilityId: form.get("responsibilityId"),
+    appointmentId: String(form.get("appointmentId") ?? ""),
+    responsibilityIds: form.getAll("responsibilityIds"),
     effectiveTo: form.get("effectiveTo"),
   });
-  if (!parsed.success) return { message: "Choose a valid end date." };
+  if (!parsed.success) return { message: "Choose a scope or one or more subjects and a valid end date." };
 
   const context = await canConfigureSchool(parsed.data.schoolId);
-  if (!context?.user) return { message: "Assigning HOD portfolios requires an active School Admin, Principal or Deputy Principal role in this school. HOD authority alone covers existing assigned subjects." };
+  if (!context?.user) return { message: "Only current school leadership may end HOD responsibilities." };
 
   const db = await createSupabaseServerClient();
-  const { data: responsibility, error: readError } = await db
-    .from("subject_department_responsibilities")
-    .select("id,effective_from")
-    .eq("id", parsed.data.responsibilityId)
-    .eq("school_id", parsed.data.schoolId)
-    .maybeSingle();
-
-  if (readError || !responsibility) return { message: "That responsibility could not be found." };
-  if (parsed.data.effectiveTo < responsibility.effective_from) {
-    return { message: "The end date cannot be before the responsibility start date." };
+  const { error } = await db.rpc("end_hod_scope_responsibilities", {
+    p_school_id: parsed.data.schoolId,
+    p_appointment_id: parsed.data.appointmentId || null,
+    p_responsibility_ids: parsed.data.appointmentId ? null : [...new Set(parsed.data.responsibilityIds)],
+    p_effective_to: parsed.data.effectiveTo,
+  });
+  if (error) {
+    return {
+      message: error.code === "42501"
+        ? "You do not have permission to end HOD responsibilities for this school."
+        : error.code === "22023"
+          ? "The selected scope or subjects are no longer eligible, or the end date is invalid. Refresh and try again."
+          : "The HOD responsibility change could not be completed.",
+    };
   }
-
-  const { error } = await db
-    .from("subject_department_responsibilities")
-    .update({ effective_to: parsed.data.effectiveTo })
-    .eq("id", responsibility.id)
-    .eq("school_id", parsed.data.schoolId);
-
-  return error
-    ? { message: "The HOD responsibility could not be ended." }
-    : saved("HOD responsibility ended. Historical provenance is retained.");
+  return saved(parsed.data.appointmentId
+    ? "HOD portfolio appointment ended. Linked subject authority closed; history retained."
+    : "Selected subject responsibilities ended together. History retained.");
 }
 
 const unassignedPortfolioSchema = z.object({

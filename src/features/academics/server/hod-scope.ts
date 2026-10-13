@@ -17,6 +17,7 @@ export type HodScopeHeadOption = {
 export type HodScopeResponsibility = {
   id: string;
   subjectId: string;
+  portfolioAppointmentId: string | null;
   subjectName: string;
   subjectCode: string;
   assignmentId: string;
@@ -51,7 +52,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .order("display_name"),
     db
       .from("subject_department_responsibilities")
-      .select("id,subject_id,department_head_staff_assignment_id,department_label,effective_from,effective_to")
+      .select("id,subject_id,department_head_staff_assignment_id,department_label,effective_from,effective_to,portfolio_appointment_id")
       .eq("school_id", schoolId)
       .order("effective_from", { ascending: false }),
     db
@@ -156,6 +157,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
       return {
         id: row.id,
         subjectId: row.subject_id,
+        portfolioAppointmentId: row.portfolio_appointment_id ?? null,
         subjectName: subject?.display_name ?? "Unknown subject",
         subjectCode: subject?.subject_code ?? "",
         assignmentId: row.department_head_staff_assignment_id,
