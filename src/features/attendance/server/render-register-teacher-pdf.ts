@@ -44,6 +44,7 @@ const METADATA_HEIGHT = REGISTER_TEACHER_LAYOUT.metadataHeight;
 // Mirrors the preview's governed closure label (`max-height:72mm` clip).
 const CLOSURE_LABEL_MAX_SIZE = 5.6;
 const CLOSURE_LABEL_MIN_SIZE = 3.4;
+const SPARSE_CLOSURE_BAND_HEIGHT = 28;
 
 function formatDate(value: string) {
   return formatRegisterTeacherDate(value);
@@ -256,28 +257,98 @@ function drawPage(input: {
   });
 
   if (!learners.length) {
-    drawCell(page, resources.regular, `No ${section.label.toLowerCase()} in this register section.`, MARGIN, y, CONTENT_WIDTH, 28, { size: 6.2 });
-    y -= 28;
+    drawCell(page, resources.regular, `No ${section.label.toLowerCase()} in this register section.`, MARGIN, y, CONTENT_WIDTH, SPARSE_CLOSURE_BAND_HEIGHT, { size: 6.2 });
+    y -= SPARSE_CLOSURE_BAND_HEIGHT;
+  } else if (rowBandTop - y < SPARSE_CLOSURE_BAND_HEIGHT && closureColumns.length) {
+    // A single learner row is too short to contain a useful rotated closure
+    // name. Extend the grid with a bounded blank continuation row so the full
+    // governed label remains inside the attendance area instead of colliding
+    // with the headings or summary rows.
+    const spacerHeight = SPARSE_CLOSURE_BAND_HEIGHT - (rowBandTop - y);
+    x = MARGIN;
+    for (const width of identityWidths) {
+      drawCell(page, resources.regular, "", x, y, width, spacerHeight);
+      x += width;
+    }
+    for (const week of weeks) {
+      for (const day of week.dates) {
+        drawCell(page, resources.regular, "", x, y, dayWidth, spacerHeight, { fill: day.teaching ? undefined : GREY });
+        x += dayWidth;
+      }
+      drawCell(page, resources.regular, "", x, y, dayWidth, spacerHeight, { fill: RED_SOFT });
+      x += dayWidth;
+    }
+    termWidths.forEach((width, index) => {
+      drawCell(page, resources.regular, "", x, y, width, spacerHeight, {
+        fill: index === 0 ? PURPLE_SOFT : index === 1 ? RED_SOFT : GREEN_SOFT,
+      });
+      x += width;
+    });
+    y -= spacerHeight;
   }
 
   // Governed closure/holiday name inside the attendance area, rotated like the
-  // preview's vertical `.closure-label`. The label is clipped to the drawn row
-  // band rather than allowed to spill over the summary rows.
+  // preview's vertical `.closure-label`. Dense sections (the common case) draw a
+  // single scaled line clipped to the row band. Sparse sections (0-2 learners)
+  // have a band shorter than the minimum line, so the label wraps onto stacked
+  // rotated lines inside its own attendance column instead of being dropped:
+  // the full name stays associated with its date column, never overlaps learner
+  // information, and never leaves the column or the printable page.
   for (const column of closureColumns) {
-    const available = rowBandTop - y - 4;
-    if (available <= 6) continue;
+    const available = Math.max(4, rowBandTop - y - 4);
     let size = CLOSURE_LABEL_MAX_SIZE;
     const naturalWidth = resources.bold.widthOfTextAtSize(column.label, size);
     if (naturalWidth > available) size = Math.max(CLOSURE_LABEL_MIN_SIZE, (size * available) / Math.max(1, naturalWidth));
     const fitted = resources.bold.widthOfTextAtSize(column.label, size);
-    if (fitted > available) continue;
-    page.drawText(column.label, {
-      x: column.x + column.width / 2 + size * 0.34,
-      y: y + (available - fitted) / 2 + 2,
-      size,
-      font: resources.bold,
-      color: MUTED,
-      rotate: degrees(90),
+    if (fitted <= available) {
+      page.drawText(column.label, {
+        x: column.x + column.width / 2 + size * 0.34,
+        y: y + (available - fitted) / 2 + 2,
+        size,
+        font: resources.bold,
+        color: MUTED,
+        rotate: degrees(90),
+      });
+      continue;
+    }
+    // Band too short even at the minimum size: wrap into stacked rotated lines.
+    // Step the size down until the stack fits the column width; if a pathological
+    // label still overflows, truncate with an ellipsis so the layout stays
+    // bounded and deterministic rather than silently omitting the name.
+    const columnInnerWidth = Math.max(6, column.width - 4);
+    let lines: string[] = [];
+    let stackPitch = 0;
+    for (const candidateSize of [CLOSURE_LABEL_MIN_SIZE, 3, 2.6]) {
+      const wrapped = wrapClosureLabelLines(resources.bold, column.label, candidateSize, available);
+      const pitch = candidateSize * 1.2;
+      if (wrapped.length * pitch <= columnInnerWidth) {
+        lines = wrapped;
+        stackPitch = pitch;
+        size = candidateSize;
+        break;
+      }
+    }
+    if (!lines.length) {
+      size = 2.6;
+      stackPitch = size * 1.2;
+      const wrapped = wrapClosureLabelLines(resources.bold, column.label, size, available);
+      const maxLines = Math.max(1, Math.floor(columnInnerWidth / stackPitch));
+      lines = wrapped.slice(0, maxLines);
+      const last = lines[lines.length - 1];
+      lines[lines.length - 1] = last.endsWith("…") ? last : `${last.slice(0, -1).trimEnd()}…`;
+    }
+    const stackWidth = lines.length * stackPitch;
+    const stackStartX = column.x + Math.max(2, (column.width - stackWidth) / 2);
+    lines.forEach((line, index) => {
+      const lineWidth = resources.bold.widthOfTextAtSize(line, size);
+      page.drawText(line, {
+        x: stackStartX + index * stackPitch + size * 0.34,
+        y: y + Math.max(0, (available - lineWidth) / 2) + 2,
+        size,
+        font: resources.bold,
+        color: MUTED,
+        rotate: degrees(90),
+      });
     });
   }
 
@@ -321,6 +392,37 @@ function drawPage(input: {
   }
   page.drawText(balanceLabel, { x: balanceX, y: balanceY, size: balanceSize, font: resources.bold, color: RED });
   page.drawText(balance.balanced ? "✓" : "!", { x: PAGE_WIDTH - MARGIN - 6, y: balanceY + 1, size: 6, font: balance.balanced ? checkFont : resources.bold, color: RED });
+}
+
+/**
+ * Deterministic bounded wrap for a rotated closure label. Lines are cut at word
+ * boundaries when possible and hard-split by character only when a single word
+ * exceeds the limit, so no character of a governed name is ever dropped.
+ */
+function wrapClosureLabelLines(
+  font: PDFFont,
+  label: string,
+  size: number,
+  maxLineWidth: number,
+): string[] {
+  const widthOf = (text: string) => font.widthOfTextAtSize(text, size);
+  const lines: string[] = [];
+  let line = "";
+  const flush = () => { if (line) { lines.push(line); line = ""; } };
+  for (const word of label.split(" ")) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (widthOf(candidate) <= maxLineWidth) { line = candidate; continue; }
+    flush();
+    if (widthOf(word) <= maxLineWidth) { line = word; continue; }
+    let chunk = "";
+    for (const character of word) {
+      if (chunk && widthOf(chunk + character) > maxLineWidth) { lines.push(chunk); chunk = character; }
+      else chunk += character;
+    }
+    line = chunk;
+  }
+  flush();
+  return lines.length ? lines : [label];
 }
 
 export async function renderRegisterTeacherPdf(input: { header: OfficialDocumentHeaderModel; document: RegisterTeacherDocument; logoBytes?: Uint8Array | null }) {

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import zlib from "node:zlib";
 import {
   HEADER_FIXTURE,
   headerBuilder,
@@ -12,6 +13,39 @@ import {
   profileBuilder,
   weekdaysBetween,
 } from "./helpers/register-teacher-harness.mjs";
+
+/**
+ * Extracts text-showing operators from a rendered register PDF by inflating
+ * its FlateDecode content streams and decoding the hex-encoded strings pdf-lib
+ * emits for standard fonts. This validates what a PDF reader (and pdftotext
+ * in the E2E guard) can actually see, not just source-code patterns.
+ */
+async function extractPdfContentText(bytes) {
+  const { PDFArray, PDFDocument, PDFRawStream } = await import("pdf-lib");
+  const doc = await PDFDocument.load(bytes);
+  let text = "";
+  for (const page of doc.getPages()) {
+    const contents = page.node.Contents();
+    if (!contents) continue;
+    const streams = contents instanceof PDFArray
+      ? contents.asArray().map((reference) => doc.context.lookup(reference))
+      : [contents];
+    for (const stream of streams) {
+      if (!(stream instanceof PDFRawStream)) continue;
+      const raw = Buffer.from(stream.getContents());
+      let decoded;
+      try { decoded = zlib.inflateSync(raw).toString("latin1"); } catch { decoded = raw.toString("latin1"); }
+      // pdf-lib draws standard-font text as hex strings (<48656C6C6F> Tj).
+      // Decode those to ASCII; glyph-ID hex from the subset Old English font
+      // decodes to non-printable bytes and is ignored by the printable filter.
+      text += decoded.replace(/<([0-9A-Fa-f]+)>\s*Tj/g, (match, hex) => {
+        const value = Buffer.from(hex, "hex").toString("latin1");
+        return /^[\x20-\x7E]+$/.test(value) ? value : " ";
+      });
+    }
+  }
+  return text;
+}
 
 const html = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
 const pdf = readFileSync("src/features/attendance/server/render-register-teacher-pdf.ts", "utf8");
@@ -258,4 +292,93 @@ test("dense synthetic register renders matching HTML and PDF pages in both modes
   }
   // The fixture header stays usable for the shared chrome path as well.
   await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document: buildDenseDocument("week") });
+});
+
+/**
+ * A sparse register section (0-2 learners) with a long governed closure name
+ * spanning consecutive closed days. The band above the summary rows is then
+ * shorter than the minimum rotated line, which used to make the PDF silently
+ * drop the label the preview still shows.
+ */
+function buildSparseDocument(learnerCount, closureTitle) {
+  const closure = { start: "2026-01-14", end: "2026-01-15" };
+  const inClosure = (date) => date >= closure.start && date <= closure.end;
+  const enrolments = Array.from({ length: learnerCount }, (_, index) => learnerRow({
+    id: `s${index + 1}`,
+    admission_number: `2026-${String(index + 1).padStart(3, "0")}`,
+    surname: "Van Der Merwe",
+    first_names: "Johannes Nepomuk",
+    sex: index % 2 ? "female" : "male",
+  }));
+  const selectedDate = "2026-01-16";
+  const scope = model.resolveRegisterTeacherScope({ mode: "week", selectedDate, fromWeek: "2026-01-12", termStart: TERM_START, termEnd: TERM_END });
+  return model.buildRegisterTeacherDocument({
+    mode: "week",
+    academicYear: 2026,
+    classId: "class-1",
+    className: "Grade 10 A",
+    gradeName: "Grade 10",
+    registerTeacherName: "Fixture Teacher",
+    termId: "term-1",
+    termName: "Term 1",
+    selectedDate,
+    termStart: TERM_START,
+    termEnd: TERM_END,
+    scope,
+    impactRows: weekdaysBetween(TERM_START, TERM_END).map((target_date) => ({
+      target_date,
+      teaching_impact: inClosure(target_date) ? "NO_TEACHING" : "NORMAL",
+    })),
+    enrolments,
+    currentRows: [],
+    overrideRows: [],
+    calendarEventRows: [{
+      event_scope: "school",
+      title: closureTitle,
+      starts_on: closure.start,
+      ends_on: closure.end,
+      created_at: "2026-01-05T08:00:00Z",
+    }],
+    submissionRows: [],
+  });
+}
+
+test("sparse register sections never drop the governed closure label from the PDF", async () => {
+  const closureTitle = "School holiday - Coastal Storm Closure And Community Evacuation Observance";
+  const closureLabel = layout.registerTeacherClosureLabel(closureTitle);
+  const labelWords = closureLabel.split(" ");
+  // The source renderer must not contain a silent omission path for labels.
+  assert.doesNotMatch(pdf, /if \(fitted > available\) continue/);
+  assert.match(pdf, /wrapClosureLabelLines/);
+  const wordsInOrder = (text, words) => {
+    const flattened = text.replace(/\s+/g, "");
+    let cursor = 0;
+    for (const word of words) {
+      const index = flattened.indexOf(word, cursor);
+      if (index === -1) return false;
+      cursor = index + word.length;
+    }
+    return true;
+  };
+  for (const learnerCount of [0, 1, 2, 43]) {
+    const document = buildSparseDocument(learnerCount, closureTitle);
+    const rendered = await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document });
+    assert.equal(rendered.pageCount, 2, `learnerCount=${learnerCount} renders BOYS + GIRLS pages`);
+    const text = await extractPdfContentText(rendered.bytes);
+    assert.ok(text.length > 0, `learnerCount=${learnerCount} exposes inflated content streams`);
+    // Wrapped labels are drawn as one text operator per line, so the full name
+    // is validated word-by-word in order rather than as one contiguous string.
+    assert.ok(
+      wordsInOrder(text, labelWords),
+      `learnerCount=${learnerCount} must keep the full closure label in the PDF content stream`,
+    );
+    // Consecutive closed days mean one label per closed column across both
+    // sections (BOYS + GIRLS): the label's leading word must be drawn at least
+    // once per closed day per section, never omitted for sparse bands.
+    const leadingWordOccurrences = text.split(labelWords[0]).length - 1;
+    assert.ok(
+      leadingWordOccurrences >= 4,
+      `learnerCount=${learnerCount} must draw the closure label for both closed days in both sections (found ${leadingWordOccurrences})`,
+    );
+  }
 });
