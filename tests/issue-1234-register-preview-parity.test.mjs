@@ -82,6 +82,28 @@ async function extractPdfTextPlacements(bytes) {
   return placements;
 }
 
+// Continuation-band body lines are drawn at MARGIN(32) + band padding(5) + text
+// inset(2) = 39 — a unique x on these pages — so they can be isolated from grid
+// and summary text and read back in logical order (page, then top-to-bottom)
+// regardless of where summary rows fall between the pages a long note spans.
+const CLOSURE_BAND_BODY_X = 39;
+
+function bandLinesFromPlacements(placements) {
+  return placements
+    .filter((placement) => Math.abs(placement.x - CLOSURE_BAND_BODY_X) < 0.01)
+    .sort((a, b) => a.page - b.page || b.y - a.y);
+}
+
+function reconstructClosureBandText(placements) {
+  return bandLinesFromPlacements(placements)
+    .map((placement) => placement.text)
+    .join("")
+    .replace(/\s+/g, "")
+    // Strip the per-page "(continued)" marker so a note split across pages
+    // reconstructs as one contiguous string.
+    .replace(/\d+\.\d+\w+\d{4}\(continued\)/g, "");
+}
+
 const html = readFileSync("src/features/attendance/server/render-register-teacher-html.ts", "utf8");
 const pdf = readFileSync("src/features/attendance/server/render-register-teacher-pdf.ts", "utf8");
 const layoutSource = readFileSync("src/features/attendance/server/register-teacher-layout.ts", "utf8");
@@ -428,6 +450,18 @@ const LONG_CLOSURE_A = `School holiday - ${"Coastal Storm Closure And Community 
 const LONG_CLOSURE_B = `Public holiday - ${"Regional Flooding Response And Shelter Coordination Directive ".repeat(10).trim()}`;
 const OVERLONG_CLOSURES = { "2026-01-14": LONG_CLOSURE_A, "2026-01-15": LONG_CLOSURE_B };
 
+/**
+ * A single governed closure name of 20,000+ characters — far longer than any
+ * date column or single continuation band can read — used to prove the band
+ * preserves it in full with valid geometry.
+ */
+const MEGA_CLOSURE_20K = `School holiday - ${"Coastal Storm Closure And Community Evacuation Observance ".repeat(345).trim()}`;
+/**
+ * A single governed closure name longer than an entire A3 continuation page, so
+ * the band must split the *same* note across pages to avoid losing any text.
+ */
+const MEGA_CLOSURE_MULTIPAGE = `School holiday - ${"Coastal Storm Closure And Community Evacuation Observance ".repeat(2000).trim()}`;
+
 function buildOverlongClosureDocument(learnerCount, mode, closures = OVERLONG_CLOSURES, selectedDateOverride) {
   const enrolments = Array.from({ length: learnerCount }, (_, index) => learnerRow({
     id: `o${index + 1}`,
@@ -580,13 +614,17 @@ test("a panel carrying more governed closure text than one band holds spills wit
   const jobs = layout.registerTeacherPageJobs(document);
   const rendered = await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document });
   assert.ok(rendered.pageCount >= jobs.length);
+  const placements = await extractPdfTextPlacements(rendered.bytes);
   const text = (await extractPdfContentText(rendered.bytes)).replace(/\s+/g, "");
   // The overflow is carried to continuation pages, never truncated or dropped.
   assert.ok(text.includes("Registerclosurenotes(continued)"), "the overflow spills to a continuation page");
+  // Names are read back in band order (page, then top-to-bottom), so an entry
+  // split across a page boundary is still fully recoverable even though summary
+  // rows sit between the two halves in the raw content stream.
+  const bandText = reconstructClosureBandText(placements);
   for (const reason of Object.values(closures)) {
-    assert.ok(text.includes(layout.registerTeacherClosureLabel(reason).replace(/\s+/g, "")), "every governed closure name survives the spill");
+    assert.ok(bandText.includes(layout.registerTeacherClosureLabel(reason).replace(/\s+/g, "")), "every governed closure name survives the spill");
   }
-  const placements = await extractPdfTextPlacements(rendered.bytes);
   const summaries = placements.filter((p) => p.text === "Total number of attendances");
   assert.ok(summaries.length >= 2);
   for (const summary of summaries) {
@@ -607,4 +645,75 @@ test("zero-learner sections mark closure columns consistently in HTML and PDF", 
   const text = (await extractPdfContentText(rendered.bytes)).replace(/\s+/g, "");
   assert.ok(text.includes(layout.registerTeacherClosureLabel(LONG_CLOSURE_A).replace(/\s+/g, "")));
   assert.ok(text.includes(layout.registerTeacherClosureLabel(LONG_CLOSURE_B).replace(/\s+/g, "")));
+});
+
+test("a single 20,000+ character governed closure name is preserved in full with valid geometry", async () => {
+  const label = layout.registerTeacherClosureLabel(MEGA_CLOSURE_20K);
+  assert.ok(label.length >= 20000, "fixture name is at least 20,000 characters");
+  const dateText = layout.formatRegisterTeacherDate("2026-01-14");
+  const document = buildOverlongClosureDocument(1, "week", { "2026-01-14": MEGA_CLOSURE_20K });
+  const rendered = await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document });
+  assert.ok(Number.isFinite(rendered.pageCount) && rendered.pageCount > 0, "the page count is finite");
+
+  const placements = await extractPdfTextPlacements(rendered.bytes);
+  const band = bandLinesFromPlacements(placements);
+  // The complete name survives, reconstructed from the band in logical order.
+  assert.ok(reconstructClosureBandText(placements).includes(label.replace(/\s+/g, "")), "the complete 20,000+ character name is present");
+  // The band's first line carries the note index and the exact closure date.
+  assert.match(band[0].text, /^1\.\s/, "the band's first line carries the note index");
+  assert.ok(band[0].text.includes(dateText), "the band's first line carries the closure date");
+
+  // Every drawn band line stays inside the printable A3 page.
+  for (const placement of band) {
+    assert.ok(placement.y > 32 && placement.y < 842, `band line stays inside the printable page (page ${placement.page}, y=${placement.y})`);
+  }
+  // No summary row is overlapped where the page also carries the band.
+  const summaries = placements.filter((placement) => placement.text === "Total number of attendances");
+  for (const page of new Set(placements.map((placement) => placement.page))) {
+    const pageBand = band.filter((placement) => placement.page === page);
+    const pageSummary = summaries.filter((placement) => placement.page === page);
+    if (pageBand.length && pageSummary.length) {
+      assert.ok(
+        Math.min(...pageBand.map((placement) => placement.y)) > Math.max(...pageSummary.map((placement) => placement.y)),
+        `page ${page}: the band sits above the summary rows`,
+      );
+    }
+  }
+});
+
+test("a single governed closure name longer than one page splits across pages without loss", async () => {
+  const label = layout.registerTeacherClosureLabel(MEGA_CLOSURE_MULTIPAGE);
+  assert.ok(label.length >= 20000, "fixture name is at least 20,000 characters");
+  const dateText = layout.formatRegisterTeacherDate("2026-01-14");
+  const document = buildOverlongClosureDocument(1, "week", { "2026-01-14": MEGA_CLOSURE_MULTIPAGE });
+  const rendered = await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document });
+  assert.ok(Number.isFinite(rendered.pageCount), "the page count is finite");
+  // A single note longer than one A3 page must span continuation pages.
+  assert.ok(rendered.pageCount >= 4, `the single note spans multiple pages (got ${rendered.pageCount})`);
+  assert.ok(rendered.pageCount <= 16, "pagination terminates in a bounded number of pages");
+
+  const placements = await extractPdfTextPlacements(rendered.bytes);
+  const band = bandLinesFromPlacements(placements);
+  // Each section's continuation page re-marks the split note with its index/date.
+  const markers = band.filter((placement) => /\(continued\)$/.test(placement.text));
+  assert.ok(markers.length >= 2, "each section's continuation page re-marks the split note");
+  assert.ok(markers.every((placement) => placement.text.includes(dateText)), "the continuation marker carries the closure date");
+  // The whole name is recoverable in order with no characters dropped.
+  assert.ok(reconstructClosureBandText(placements).includes(label.replace(/\s+/g, "")), "the complete name survives the page split");
+  // Every drawn band line stays inside the printable A3 page.
+  for (const placement of band) {
+    assert.ok(placement.y > 32 && placement.y < 842, `band line stays inside the printable page (page ${placement.page}, y=${placement.y})`);
+  }
+  // No summary row is overlapped where the page also carries the band.
+  const summaries = placements.filter((placement) => placement.text === "Total number of attendances");
+  for (const page of new Set(placements.map((placement) => placement.page))) {
+    const pageBand = band.filter((placement) => placement.page === page);
+    const pageSummary = summaries.filter((placement) => placement.page === page);
+    if (pageBand.length && pageSummary.length) {
+      assert.ok(
+        Math.min(...pageBand.map((placement) => placement.y)) > Math.max(...pageSummary.map((placement) => placement.y)),
+        `page ${page}: the band sits above the summary rows`,
+      );
+    }
+  }
 });
