@@ -9,16 +9,19 @@ import {
 } from "@/features/documents/server/official-document-pdf-header";
 import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWeek } from "@/features/attendance/server/register-teacher-document";
 import {
+  REGISTER_TEACHER_CLOSURE_READABLE_SIZE,
   REGISTER_TEACHER_LAYOUT,
   formatRegisterTeacherDate,
   registerTeacherBalance,
   registerTeacherClosureLabel,
+  registerTeacherClosureNotes,
   registerTeacherColumnPlan,
   registerTeacherDocumentContext,
   registerTeacherGovernanceAlert,
   registerTeacherPageJobs,
   registerTeacherTermValue,
   registerTeacherValuesFor,
+  type RegisterTeacherClosureNote,
   type RegisterTeacherSummaryKind,
 } from "@/features/attendance/server/register-teacher-layout";
 
@@ -41,10 +44,17 @@ const HEADER_TOP = REGISTER_TEACHER_LAYOUT.tableHeaderTop;
 const HEADER_BOTTOM = REGISTER_TEACHER_LAYOUT.tableHeaderBottom;
 const LEGEND_HEIGHT = REGISTER_TEACHER_LAYOUT.legendHeight;
 const METADATA_HEIGHT = REGISTER_TEACHER_LAYOUT.metadataHeight;
-// Mirrors the preview's governed closure label (`max-height:72mm` clip).
+// Mirrors the preview's governed closure label: a single rotated line is scaled
+// down to the readable minimum, and a name that still cannot fit is carried in
+// the closure-note continuation band instead of being shrunk or clipped.
 const CLOSURE_LABEL_MAX_SIZE = 5.6;
-const CLOSURE_LABEL_MIN_SIZE = 3.4;
-const SPARSE_CLOSURE_BAND_HEIGHT = 28;
+const CLOSURE_LABEL_MIN_SIZE = REGISTER_TEACHER_CLOSURE_READABLE_SIZE;
+const SPARSE_CLOSURE_BAND_HEIGHT = REGISTER_TEACHER_LAYOUT.sparseClosureBandHeight;
+// Candidate sizes for the closure-note continuation band. The band prefers the
+// largest size that keeps every entry on one page and steps down, never below
+// the readable minimum, before any remainder spills to a continuation page.
+const CLOSURE_BAND_SIZES = [5.4, 5, 4.6, 4.2, 3.8, 3.4];
+const CLOSURE_BAND_LINE_PITCH = 1.15;
 
 function formatDate(value: string) {
   return formatRegisterTeacherDate(value);
@@ -71,7 +81,7 @@ function drawPage(input: {
   learners: RegisterTeacherSection["learners"];
   pageNumber: number;
   pageCount: number;
-}) {
+}): { cursor: ClosureBandCursor | null; entries: RegisterTeacherClosureNote[] } {
   const { page, header, resources, checkFont, document, section, weeks, learners } = input;
   const context = registerTeacherDocumentContext(document);
   let y = drawOfficialDocumentPdfHeader(page, header, resources, PAGE_HEIGHT - MARGIN, {
@@ -144,8 +154,11 @@ function drawPage(input: {
   const headerBottom = HEADER_BOTTOM;
   // Closed days carry the governed holiday/closure name in the attendance area,
   // exactly like the preview's rotated `.closure-label`. They are drawn after
-  // the learner rows once the full row band is known.
+  // the learner rows once the full row band is known. `closureNotes` is built by
+  // the same ordered iteration over closed days, so entry `i` describes
+  // `closureColumns[i]` and decides whether that name fits readably in-column.
   const closureColumns: Array<{ x: number; width: number; label: string }> = [];
+  const closureNotes = registerTeacherClosureNotes(weeks, learners.length);
   let x = MARGIN;
   // Match the HTML three-level identity heading: NAME is a grouped heading
   // above Surname and Given Names, while the other identity columns span it.
@@ -291,10 +304,28 @@ function drawPage(input: {
   // preview's vertical `.closure-label`. Dense sections (the common case) draw a
   // single scaled line clipped to the row band. Sparse sections (0-2 learners)
   // have a band shorter than the minimum line, so the label wraps onto stacked
-  // rotated lines inside its own attendance column instead of being dropped:
-  // the full name stays associated with its date column, never overlaps learner
-  // information, and never leaves the column or the printable page.
-  for (const column of closureColumns) {
+  // rotated lines inside its own attendance column. A name that still cannot fit
+  // readably is never truncated or shrunk to microscopic text: its date column
+  // carries an index marker and the complete governed name is carried by the
+  // closure-note continuation band drawn below the grid.
+  closureColumns.forEach((column, index) => {
+    const note = closureNotes[index];
+    if (note?.continuation) {
+      // With no learner row there is no date-column body to mark, exactly as in
+      // the HTML preview; the band's own date keeps the name unambiguous.
+      if (!learners.length) return;
+      const marker = String(note.index);
+      const markerSize = 6.4;
+      const markerWidth = resources.bold.widthOfTextAtSize(marker, markerSize);
+      page.drawText(marker, {
+        x: column.x + Math.max(1.5, (column.width - markerWidth) / 2),
+        y: rowBandTop - 9,
+        size: markerSize,
+        font: resources.bold,
+        color: MUTED,
+      });
+      return;
+    }
     const available = Math.max(4, rowBandTop - y - 4);
     let size = CLOSURE_LABEL_MAX_SIZE;
     const naturalWidth = resources.bold.widthOfTextAtSize(column.label, size);
@@ -309,12 +340,12 @@ function drawPage(input: {
         color: MUTED,
         rotate: degrees(90),
       });
-      continue;
+      return;
     }
     // Band too short even at the minimum size: wrap into stacked rotated lines.
-    // Step the size down until the stack fits the column width; if a pathological
-    // label still overflows, truncate with an ellipsis so the layout stays
-    // bounded and deterministic rather than silently omitting the name.
+    // Step the size down until the stack fits the column width. The shared
+    // continuation contract guarantees a label that reaches this branch fits;
+    // the final fallback keeps every line so no governed text is ever dropped.
     const columnInnerWidth = Math.max(6, column.width - 4);
     let lines: string[] = [];
     let stackPitch = 0;
@@ -331,18 +362,14 @@ function drawPage(input: {
     if (!lines.length) {
       size = 2.6;
       stackPitch = size * 1.2;
-      const wrapped = wrapClosureLabelLines(resources.bold, column.label, size, available);
-      const maxLines = Math.max(1, Math.floor(columnInnerWidth / stackPitch));
-      lines = wrapped.slice(0, maxLines);
-      const last = lines[lines.length - 1];
-      lines[lines.length - 1] = last.endsWith("…") ? last : `${last.slice(0, -1).trimEnd()}…`;
+      lines = wrapClosureLabelLines(resources.bold, column.label, size, available);
     }
     const stackWidth = lines.length * stackPitch;
     const stackStartX = column.x + Math.max(2, (column.width - stackWidth) / 2);
-    lines.forEach((line, index) => {
+    lines.forEach((line, lineIndex) => {
       const lineWidth = resources.bold.widthOfTextAtSize(line, size);
       page.drawText(line, {
-        x: stackStartX + index * stackPitch + size * 0.34,
+        x: stackStartX + lineIndex * stackPitch + size * 0.34,
         y: y + Math.max(0, (available - lineWidth) / 2) + 2,
         size,
         font: resources.bold,
@@ -350,7 +377,24 @@ function drawPage(input: {
         rotate: degrees(90),
       });
     });
-  }
+  });
+
+  // Full governed closure names that could not be read inside their date column,
+  // drawn as one indexed band immediately beneath the grid and before the
+  // summary rows. The band height is bounded so it never collides with the
+  // summary or leaves the printable page; when the plan is taller than this page
+  // the band returns a cursor so the caller continues it on continuation pages.
+  const continuationEntries = closureNotes.filter((note) => note.continuation);
+  const closureBand = drawClosureNoteBand({
+    page,
+    font: resources.regular,
+    bold: resources.bold,
+    entries: continuationEntries,
+    top: y,
+    maxHeight: Math.max(0, y - MARGIN - ROW_HEIGHT * 3 - 14),
+    withHeading: true,
+  });
+  y -= closureBand.height;
 
   const summaryRows: Array<{ label: string; kind: RegisterTeacherSummaryKind; fill: ReturnType<typeof rgb>; color: ReturnType<typeof rgb> }> = [
     { label: "Total number of attendances", kind: "attendance", fill: PURPLE_SOFT, color: INK },
@@ -392,6 +436,7 @@ function drawPage(input: {
   }
   page.drawText(balanceLabel, { x: balanceX, y: balanceY, size: balanceSize, font: resources.bold, color: RED });
   page.drawText(balance.balanced ? "✓" : "!", { x: PAGE_WIDTH - MARGIN - 6, y: balanceY + 1, size: 6, font: balance.balanced ? checkFont : resources.bold, color: RED });
+  return { cursor: closureBand.cursor, entries: continuationEntries };
 }
 
 /**
@@ -425,6 +470,129 @@ function wrapClosureLabelLines(
   return lines.length ? lines : [label];
 }
 
+/** Cursor into the flattened closure-note line plan (entry, then line within it). */
+type ClosureBandCursor = { entryIndex: number; lineIndex: number };
+
+/** A rendered band row: either a text line or the spacing between entries. */
+type ClosureBandRow = { text: string } | { gap: true };
+
+/**
+ * Bounded, line-aware continuation band for governed closure names that cannot
+ * be read inside their date column. Each entry repeats the index marked in its
+ * date column, its exact date and the complete governed name, so no text is ever
+ * truncated or dropped.
+ *
+ * The band prefers the largest readable size that keeps the whole remaining plan
+ * on one page. When the remaining plan needs more height than the page offers —
+ * including a single entry longer than an entire page — it falls back to the
+ * smallest readable size and fills the page line by line, returning a cursor so
+ * the caller can continue the *same* entry on the next page. A page that resumes
+ * a split entry re-draws that entry's index and date as a "(continued)" marker,
+ * so the association is never lost.
+ *
+ * Every drawn line stays inside `maxHeight`, so the band can never overlap the
+ * summary rows or leave the printable page. Progress is guaranteed: the first
+ * remaining line is always drawn, even when the page offers less than one line
+ * of height (the overshoot is bounded by a single line pitch, far inside the
+ * three summary rows the caller already reserves).
+ */
+function drawClosureNoteBand(input: {
+  page: PDFPage;
+  font: PDFFont;
+  bold: PDFFont;
+  entries: readonly RegisterTeacherClosureNote[];
+  top: number;
+  maxHeight: number;
+  withHeading: boolean;
+  cursor?: ClosureBandCursor;
+}): { height: number; cursor: ClosureBandCursor | null } {
+  const { page, font, bold, entries, top, maxHeight, withHeading } = input;
+  const start: ClosureBandCursor = input.cursor ?? { entryIndex: 0, lineIndex: 0 };
+  if (!entries.length || start.entryIndex >= entries.length) return { height: 0, cursor: null };
+
+  const x = MARGIN;
+  const padding = 5;
+  const innerWidth = CONTENT_WIDTH - padding * 2 - 4;
+  const headingSize = 5.8;
+  const headingGap = 4;
+  const entryGap = 2;
+  const headingBlock = withHeading ? headingSize + headingGap : 0;
+  const bodyBudget = Math.max(0, maxHeight - padding * 2 - headingBlock);
+
+  const wrapAll = (size: number) => entries.map((note) =>
+    wrapClosureLabelLines(font, `${note.index}. ${formatDate(note.date)} - ${note.label}`, size, innerWidth));
+  const markerText = (note: RegisterTeacherClosureNote) => `${note.index}. ${formatDate(note.date)} (continued)`;
+
+  // Lay out the plan from the cursor, stopping once `budget` of content height is
+  // used. A `cursor` of null means the whole remaining plan was drawn.
+  const build = (size: number, wrapped: string[][], budget: number) => {
+    const pitch = size * CLOSURE_BAND_LINE_PITCH;
+    const rows: ClosureBandRow[] = [];
+    let used = 0;
+    let cursor: ClosureBandCursor | null = null;
+    for (let entryIndex = start.entryIndex; entryIndex < entries.length; entryIndex += 1) {
+      const from = entryIndex === start.entryIndex ? start.lineIndex : 0;
+      if (from > 0) {
+        // The first line of a page always draws, so a split entry cannot stall.
+        if (rows.length && used + pitch > budget) { cursor = { entryIndex, lineIndex: from }; break; }
+        rows.push({ text: markerText(entries[entryIndex]) });
+        used += pitch;
+      }
+      const lines = wrapped[entryIndex];
+      let lineIndex = from;
+      for (; lineIndex < lines.length; lineIndex += 1) {
+        if (rows.length && used + pitch > budget) break;
+        rows.push({ text: lines[lineIndex] });
+        used += pitch;
+      }
+      if (lineIndex < lines.length) { cursor = { entryIndex, lineIndex }; break; }
+      if (entryIndex < entries.length - 1) {
+        if (rows.length && used + entryGap > budget) { cursor = { entryIndex: entryIndex + 1, lineIndex: 0 }; break; }
+        rows.push({ gap: true });
+        used += entryGap;
+      }
+    }
+    return { rows, used, pitch, cursor };
+  };
+
+  const render = (size: number, pitch: number, rows: ClosureBandRow[], height: number) => {
+    page.drawRectangle({ x, y: top - height, width: CONTENT_WIDTH, height, color: rgb(0.985, 0.985, 0.985), borderColor: LINE, borderWidth: 0.6 });
+    let cursorY = top - padding;
+    if (withHeading) {
+      cursorY -= headingSize;
+      page.drawText("Governed closures - full names", { x: x + padding, y: cursorY, size: headingSize, font: bold, color: MUTED });
+      cursorY -= headingGap;
+    }
+    for (const row of rows) {
+      if ("gap" in row) { cursorY -= entryGap; continue; }
+      cursorY -= pitch;
+      page.drawText(row.text, { x: x + padding + 2, y: cursorY, size, font, color: INK });
+    }
+  };
+
+  // A fresh band prefers the largest readable size that keeps the whole plan on
+  // one page. A continuation page must reuse the smallest size the split began
+  // at, so the wrapped line indices its cursor refers to stay valid.
+  if (!input.cursor) {
+    for (const size of CLOSURE_BAND_SIZES) {
+      const plan = build(size, wrapAll(size), Infinity);
+      if (plan.used <= bodyBudget) {
+        const height = padding * 2 + headingBlock + plan.used;
+        render(size, plan.pitch, plan.rows, height);
+        return { height, cursor: null };
+      }
+    }
+  }
+
+  // The plan is taller than one page: fill this page line by line at the smallest
+  // readable size and hand the rest back for the next page.
+  const size = CLOSURE_BAND_SIZES[CLOSURE_BAND_SIZES.length - 1];
+  const plan = build(size, wrapAll(size), bodyBudget);
+  const height = padding * 2 + headingBlock + plan.used;
+  render(size, plan.pitch, plan.rows, height);
+  return { height, cursor: plan.cursor };
+}
+
 export async function renderRegisterTeacherPdf(input: { header: OfficialDocumentHeaderModel; document: RegisterTeacherDocument; logoBytes?: Uint8Array | null }) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${input.header.schoolName} - ${input.document.className} register`);
@@ -437,7 +605,7 @@ export async function renderRegisterTeacherPdf(input: { header: OfficialDocument
   const checkFont = await pdf.embedFont(StandardFonts.ZapfDingbats);
 
   for (const job of registerTeacherPageJobs(input.document)) {
-    drawPage({
+    const { cursor, entries } = drawPage({
       page: pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]),
       header: input.header,
       resources,
@@ -449,6 +617,34 @@ export async function renderRegisterTeacherPdf(input: { header: OfficialDocument
       pageNumber: job.pageNumber,
       pageCount: job.pageCount,
     });
+    // A panel can carry more governed closure text than one page's band can hold,
+    // including a single entry longer than a whole page. The cursor resumes the
+    // exact entry and line on the next page until the whole plan is drawn, so no
+    // name is truncated or pushed off the printable page.
+    let pending: ClosureBandCursor | null = cursor;
+    while (pending) {
+      const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+      const headerY = drawOfficialDocumentPdfHeader(page, input.header, resources, PAGE_HEIGHT - MARGIN, {
+        documentX: MARGIN,
+        documentWidth: CONTENT_WIDTH,
+        context: registerTeacherDocumentContext(input.document),
+      });
+      const titleY = headerY - 16;
+      page.drawText("Register closure notes (continued)", { x: MARGIN, y: titleY, size: 8, font: resources.bold, color: INK });
+      const band = drawClosureNoteBand({
+        page,
+        font: resources.regular,
+        bold: resources.bold,
+        entries,
+        top: titleY - 12,
+        maxHeight: Math.max(0, titleY - 12 - MARGIN),
+        withHeading: false,
+        cursor: pending,
+      });
+      // Defensive termination: never loop if a page fails to advance.
+      if (!band.cursor || (band.cursor.entryIndex === pending.entryIndex && band.cursor.lineIndex === pending.lineIndex)) break;
+      pending = band.cursor;
+    }
   }
 
   const bytes = await pdf.save({ useObjectStreams: false, addDefaultPage: false, objectsPerTick: 50 });

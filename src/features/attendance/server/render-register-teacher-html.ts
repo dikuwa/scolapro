@@ -13,6 +13,7 @@ import {
   formatRegisterTeacherDate,
   registerTeacherBalance,
   registerTeacherClosureLabel,
+  registerTeacherClosureNotes,
   registerTeacherColumnPlan,
   registerTeacherCssPx,
   registerTeacherDocumentContext,
@@ -20,6 +21,7 @@ import {
   registerTeacherPageJobs,
   registerTeacherTermValue,
   registerTeacherValuesFor,
+  type RegisterTeacherClosureNote,
   type RegisterTeacherSummaryKind,
 } from "@/features/attendance/server/register-teacher-layout";
 
@@ -50,13 +52,20 @@ function weeklyColumns(week: RegisterTeacherWeek) {
   ).join("") + '<th class="week-total">Tot.</th>';
 }
 
-function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: RegisterTeacherWeek) {
+function weeklyMarks(section: RegisterTeacherSection, rowIndex: number, week: RegisterTeacherWeek, closureNotesByDate: Map<string, RegisterTeacherClosureNote>) {
   const learner = section.learners[rowIndex];
   const marks = week.dates.map((day) => {
     if (!day.teaching) {
       if (rowIndex > 0) return "";
       const reason = registerTeacherClosureLabel(day.reason);
-      return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column" title="${escapeHtml(day.reason ?? reason)}"><span class="closure-label">${escapeHtml(reason)}</span></td>`;
+      // A name that cannot be read inside its column keeps its date column
+      // marked with the index of the closure-note continuation band instead of
+      // being clipped by the column height.
+      const note = closureNotesByDate.get(day.date);
+      const body = note?.continuation
+        ? `<span class="closure-index" aria-label="See governed closure note ${note.index}">${note.index}</span>`
+        : `<span class="closure-label">${escapeHtml(reason)}</span>`;
+      return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column${note?.continuation ? " closure-continuation" : ""}" title="${escapeHtml(day.reason ?? reason)}">${body}</td>`;
     }
     const mark = learner.marks[day.date] ?? "";
     const reasoned = mark === "a" && Boolean(learner.reasonedAbsenceDates[day.date]);
@@ -107,9 +116,22 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
   ].join("");
   const weekHeaders = weeks.map((week) => `<th class="week-heading" colspan="${week.dates.length + 1}"><span class="week-heading-label">Week Ending Friday</span><strong class="week-heading-date">${escapeHtml(formatDate(week.weekEnding))}</strong></th>`).join("");
   const dayHeaders = weeks.map(weeklyColumns).join("");
+  // Shared closure-note plan: closed days whose governed name cannot be read
+  // inside its column are marked with an index and carried in full in the band
+  // beneath the grid, identical to the PDF renderer.
+  const closureNotes = registerTeacherClosureNotes(weeks, section.learners.length);
+  const closureNotesByDate = new Map(closureNotes.map((note) => [note.date, note]));
+  const continuationNotes = closureNotes.filter((note) => note.continuation);
+  const totalColumns = plan.identityFractions.length + plan.attendanceColumns + plan.termFractions.length;
+  const closureBand = continuationNotes.length
+    ? `<tr class="closure-notes-row"><td colspan="${totalColumns}"><div class="closure-notes">
+          <p class="closure-notes-heading">Governed closures - full names</p>
+          <ol class="closure-notes-list">${continuationNotes.map((note) => `<li class="closure-note"><span class="closure-note-index">${note.index}</span><span class="closure-note-date">${escapeHtml(formatDate(note.date))}</span><span class="closure-note-name">${escapeHtml(note.label)}</span></li>`).join("")}</ol>
+        </div></td></tr>`
+    : "";
   const learnerRows = section.learners.map((_, index) => {
     const learner = section.learners[index];
-    return `<tr>${learnerIdentityCells(section, index)}${weeks.map((week) => weeklyMarks(section, index, week)).join("")}<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td></tr>`;
+    return `<tr>${learnerIdentityCells(section, index)}${weeks.map((week) => weeklyMarks(section, index, week, closureNotesByDate)).join("")}<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td></tr>`;
   }).join("");
 
   const balance = registerTeacherBalance(section);
@@ -147,6 +169,7 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
         </thead>
         <tbody>
           ${learnerRows || '<tr><td colspan="999" class="empty">No learners in this section.</td></tr>'}
+          ${closureBand}
           ${totalsRow("Total number of attendances", section, weeks, "attendance")}
           ${totalsRow("Total number of absentees", section, weeks, "absence")}
           ${totalsRow("Total number of possible attendances", section, weeks, "possible")}
@@ -209,6 +232,14 @@ export function renderRegisterTeacherHtml(input: {
   .day small { display:block; margin-top:1px; font-size:6px; color:#555; }
   .closure-column { padding:3px 1px; text-align:center; vertical-align:middle; overflow:visible; }
   .closure-label { display:inline-block; max-height:72mm; overflow:hidden; writing-mode:vertical-rl; transform:rotate(180deg); font-size:6.3px; font-style:normal; font-weight:700; line-height:1.1; letter-spacing:.01em; color:#555; white-space:normal; }
+  .closure-index { display:inline-block; font-size:9px; font-weight:800; line-height:1; color:#6d0d12; }
+  .closure-notes-row > td { padding:5px 6px; text-align:left; background:#fafafa; }
+  .closure-notes-heading { margin:0 0 3px; font-size:7px; font-weight:700; color:#555; }
+  .closure-notes-list { margin:0; padding:0; list-style:none; display:grid; gap:2px; }
+  .closure-note { display:flex; gap:5px; align-items:baseline; font-size:7px; color:var(--ink); }
+  .closure-note-index { flex:0 0 auto; min-width:11px; text-align:center; font-weight:800; color:#6d0d12; }
+  .closure-note-date { flex:0 0 auto; font-weight:700; color:#555; white-space:nowrap; }
+  .closure-note-name { flex:1 1 auto; overflow-wrap:anywhere; }
   .week-total { white-space:nowrap; background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
   .term-group { width:1%; white-space:nowrap; background:#fff; font-weight:800; border-left:2px solid var(--register-red); }
   .term-actual,.term-absent,.term-days { white-space:nowrap; font-weight:800; }
