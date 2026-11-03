@@ -491,10 +491,10 @@ type ClosureBandRow = { text: string } | { gap: true };
  * so the association is never lost.
  *
  * Every drawn line stays inside `maxHeight`, so the band can never overlap the
- * summary rows or leave the printable page. Progress is guaranteed: the first
- * remaining line is always drawn, even when the page offers less than one line
- * of height (the overshoot is bounded by a single line pitch, far inside the
- * three summary rows the caller already reserves).
+ * summary rows or leave the printable page. If the heading, padding and first
+ * body line cannot fit, nothing is drawn and the unchanged cursor is returned.
+ * Dedicated continuation pages have room for the marker and body text, so they
+ * advance without borrowing space from the register summaries.
  */
 function drawClosureNoteBand(input: {
   page: PDFPage;
@@ -518,6 +518,12 @@ function drawClosureNoteBand(input: {
   const entryGap = 2;
   const headingBlock = withHeading ? headingSize + headingGap : 0;
   const bodyBudget = Math.max(0, maxHeight - padding * 2 - headingBlock);
+  const minimumPitch = CLOSURE_BAND_SIZES[CLOSURE_BAND_SIZES.length - 1] * CLOSURE_BAND_LINE_PITCH;
+  // A resumed entry needs its date/index marker AND at least one content line.
+  // Defer the entire band when the register grid has exhausted its space.
+  if (bodyBudget < minimumPitch * (start.lineIndex > 0 ? 2 : 1)) {
+    return { height: 0, cursor: start };
+  }
 
   const wrapAll = (size: number) => entries.map((note) =>
     wrapClosureLabelLines(font, `${note.index}. ${formatDate(note.date)} - ${note.label}`, size, innerWidth));
@@ -533,15 +539,15 @@ function drawClosureNoteBand(input: {
     for (let entryIndex = start.entryIndex; entryIndex < entries.length; entryIndex += 1) {
       const from = entryIndex === start.entryIndex ? start.lineIndex : 0;
       if (from > 0) {
-        // The first line of a page always draws, so a split entry cannot stall.
-        if (rows.length && used + pitch > budget) { cursor = { entryIndex, lineIndex: from }; break; }
+        // Keep the association marker together with at least one content line.
+        if (used + pitch * 2 > budget) { cursor = { entryIndex, lineIndex: from }; break; }
         rows.push({ text: markerText(entries[entryIndex]) });
         used += pitch;
       }
       const lines = wrapped[entryIndex];
       let lineIndex = from;
       for (; lineIndex < lines.length; lineIndex += 1) {
-        if (rows.length && used + pitch > budget) break;
+        if (used + pitch > budget) break;
         rows.push({ text: lines[lineIndex] });
         used += pitch;
       }

@@ -717,3 +717,36 @@ test("a single governed closure name longer than one page splits across pages wi
     }
   }
 });
+
+for (const [fixture, closure] of [["20k+", MEGA_CLOSURE_20K], ["116016", MEGA_CLOSURE_MULTIPAGE]]) {
+  test(`full 40-learner pages defer the ${fixture}-character closure without summary overflow`, async () => {
+    const label = layout.registerTeacherClosureLabel(closure);
+    if (fixture === "116016") assert.equal(closure.length, 116016);
+    // Alternating sexes give exactly 40 boys and 40 girls, filling both grids.
+    const document = buildOverlongClosureDocument(80, "week", { "2026-01-14": closure });
+    const rendered = await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document });
+    assert.ok(rendered.pageCount >= 4 && rendered.pageCount <= 16, `finite pagination: ${rendered.pageCount}`);
+    const placements = await extractPdfTextPlacements(rendered.bytes);
+    const band = bandLinesFromPlacements(placements);
+    const summaryPages = new Set(placements.filter((p) => p.text === "Total number of attendances").map((p) => p.page));
+    assert.equal(summaryPages.size, 2, "both full learner pages retain their summaries");
+    for (const placement of placements) {
+      assert.ok(placement.y >= 32 && placement.y <= 842 - 32, `printable text bounds: page ${placement.page}, ${placement.text.slice(0, 40)}, y=${placement.y}`);
+    }
+    for (const page of summaryPages) {
+      assert.equal(band.filter((p) => p.page === page).length, 0, "no band is drawn in the exhausted grid space");
+      assert.equal(placements.filter((p) => p.page === page && p.text === "Governed closures - full names").length, 0, "no orphan heading");
+    }
+    const dateText = layout.formatRegisterTeacherDate("2026-01-14");
+    const starts = band.filter((p) => p.text.startsWith(`1. ${dateText} - `));
+    assert.equal(starts.length, 2, "both sections carry the complete initial index/date");
+    for (const page of new Set(band.map((p) => p.page))) {
+      const first = band.find((p) => p.page === page);
+      assert.ok(first.text.startsWith(`1. ${dateText}`), "each continuation page preserves date/index association");
+      assert.ok(band.filter((p) => p.page === page).length > 1, "continuation pages advance beyond the marker");
+    }
+    const recovered = reconstructClosureBandText(placements);
+    const expected = `1.${dateText}-${label}`.replace(/\s+/g, "");
+    assert.equal(recovered, expected + expected, "both sections preserve every character in order without duplication or loss");
+  });
+}
