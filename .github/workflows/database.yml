@@ -14,6 +14,10 @@ on:
 permissions:
   contents: read
 
+# Keep the local config schema and container versions reproducible.
+env:
+  SUPABASE_CLI_VERSION: "2.122.0"
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -26,8 +30,11 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: ${{ env.SUPABASE_CLI_VERSION }}
           github-token: ${{ github.token }}
+
+      - name: Verify local Supabase CLI and mail config
+        run: python3 scripts/validate-local-supabase-config.py
 
       - name: Start local database and apply migrations
         run: supabase db start
