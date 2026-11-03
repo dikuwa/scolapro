@@ -17,6 +17,10 @@ on:
 permissions:
   contents: read
 
+# Keep the local config schema and container versions reproducible.
+env:
+  SUPABASE_CLI_VERSION: "2.122.0"
+
 concurrency:
   group: scolapro-e2e-${{ github.ref }}
   cancel-in-progress: true
@@ -50,7 +54,10 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Verify local Supabase CLI and mail config
+        run: python3 scripts/validate-local-supabase-config.py
 
       - name: Select collision-free local Supabase ports
         shell: bash
@@ -64,7 +71,7 @@ jobs:
               "SUPABASE_DB_PORT",
               "SUPABASE_DB_SHADOW_PORT",
               "SUPABASE_STUDIO_PORT",
-              "SUPABASE_INBUCKET_PORT",
+              "SUPABASE_LOCAL_SMTP_PORT",
           ]
           sockets = []
           try:
