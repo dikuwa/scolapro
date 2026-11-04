@@ -31,7 +31,7 @@ function safeSchoolDate(value?: string) {
   return attendanceWeekday(date) >= 0 ? date : windhoekDate();
 }
 
-export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; sex?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[] }> }) {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; sex?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[]; closingDate?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/attendance");
 
@@ -50,8 +50,9 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedMode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
   const requestedFromWeek = Array.isArray(params.fromWeek) ? params.fromWeek[0] : params.fromWeek;
   const requestedToWeek = Array.isArray(params.toWeek) ? params.toWeek[0] : params.toWeek;
+  const requestedClosingDate = Array.isArray(params.closingDate) ? params.closingDate[0] : params.closingDate;
   const view = requestedView === "week" ? "week" : requestedView === "register" ? "register" : requestedView === "official" ? "official" : requestedView === "absences" ? "absences" : "day";
-  const mode: "week" | "range" | "term" = requestedMode === "term" ? "term" : requestedMode === "range" ? "range" : "week";
+  const mode: "week" | "range" | "term" | "full-term" = requestedMode === "full-term" ? "full-term" : requestedMode === "term" ? "term" : requestedMode === "range" ? "range" : "week";
   const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
   const sexFilter: "all" | "male" | "female" = requestedSex === "male" ? "male" : requestedSex === "female" ? "female" : "all";
   const date = safeSchoolDate(requestedDate);
@@ -74,6 +75,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           requestedTerm={requestedTerm}
           requestedFromWeek={requestedFromWeek}
           requestedToWeek={requestedToWeek}
+          closingDate={requestedClosingDate}
           canFinalize={canFinalize}
         />
       </Suspense>
@@ -95,6 +97,7 @@ async function AttendanceWorkspaceData({
   requestedTerm,
   requestedFromWeek,
   requestedToWeek,
+  closingDate,
   canFinalize,
 }: {
   schoolId: string;
@@ -106,10 +109,11 @@ async function AttendanceWorkspaceData({
   view: "day" | "week" | "register" | "official" | "absences";
   sort: AttendanceSortDirection;
   sexFilter: "all" | "male" | "female";
-  mode: "week" | "range" | "term";
+  mode: "week" | "range" | "term" | "full-term";
   requestedTerm?: string;
   requestedFromWeek?: string;
   requestedToWeek?: string;
+  closingDate?: string;
   canFinalize: boolean;
 }) {
 if (view === "register") {
@@ -135,13 +139,15 @@ if (view === "register") {
         selectedTermId={selectedTermId}
         fromWeek={requestedFromWeek ?? null}
         toWeek={requestedToWeek ?? null}
+        closingDate={closingDate ?? null}
+        today={windhoekDate()}
       />
     </section>
   );
 }
 
 if (view === "official") {
-    const summaryMode = mode === "term" ? "term" : "week";
+    const summaryMode = mode === "term" || mode === "full-term" ? "term" : "week";
     const summary = await getOfficialAttendanceSummary(schoolId, academicYear, summaryMode, date, requestedTerm ?? null);
   const finalization = await getOfficialAttendanceSummaryFinalization({
     schoolId,

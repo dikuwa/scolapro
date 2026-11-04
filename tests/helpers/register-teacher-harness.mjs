@@ -13,6 +13,10 @@ export const layout = await import("@/features/attendance/server/register-teache
 export const model = await import("@/features/attendance/server/register-teacher-document.ts");
 export const htmlRenderer = await import("@/features/attendance/server/render-register-teacher-html.ts");
 export const pdfRenderer = await import("@/features/attendance/server/render-register-teacher-pdf.ts");
+export const fullTermModel = await import("@/features/attendance/server/register-teacher-full-term.ts");
+export const fullTermLayout = await import("@/features/attendance/server/register-teacher-full-term-layout.ts");
+export const fullTermHtml = await import("@/features/attendance/server/render-register-teacher-full-term-html.ts");
+export const fullTermPdf = await import("@/features/attendance/server/render-register-teacher-full-term-pdf.ts");
 export const profileBuilder = await import("@/features/documents/server/school-document-profile.ts");
 export const headerBuilder = await import("@/features/documents/server/official-document-header.ts");
 
