@@ -56,14 +56,28 @@ export async function getLiveSchoolDocumentProfile(schoolId: string): Promise<Sc
   const supabase = await createSupabaseServerClient();
   const [schoolResult, settingsResult] = await Promise.all([
     supabase.from("schools").select("name,emis_number,town").eq("id", schoolId).maybeSingle(),
-    supabase.rpc("get_report_card_school_settings", { p_school_id: schoolId }),
+    // The live document-profile read is a direct, RLS-scoped read of the
+    // school's own `document_profile` setting rather than the
+    // `get_report_card_school_settings` management RPC. That RPC is guarded by
+    // `can_manage_report_card_settings` (school leadership only), so a governed
+    // read of a school's own official identity must not depend on it. Any active
+    // school member may generate an official document that carries the school's
+    // identity (name, EMIS number, address, logo), and the `school_settings`
+    // SELECT policy (`has_school_access`) authorises exactly that. The
+    // management RPC stays the only path that may read report-card pass-mark and
+    // subject governance, which is intentionally leadership-scoped.
+    supabase
+      .from("school_settings")
+      .select("setting_value")
+      .eq("school_id", schoolId)
+      .eq("setting_key", "document_profile")
+      .maybeSingle(),
   ]);
 
   if (schoolResult.error || !schoolResult.data) throw new Error("Unable to load school identity for this document.");
   if (settingsResult.error) throw new Error("Unable to load school document profile.");
 
-  const root = record(settingsResult.data);
-  const profile = record(root.document_profile);
+  const profile = record(settingsResult.data?.setting_value);
   const logoStoragePath = String(profile.logo_storage_path ?? "").trim();
   let signedLogoUrl = "";
 
