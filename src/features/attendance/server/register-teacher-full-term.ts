@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { RegisterTeacherEnrolmentRow } from "@/features/attendance/server/register-teacher-document";
 
 /**
@@ -126,13 +127,42 @@ export type RegisterTeacherFullTermCertificationEvidence = {
 };
 
 /**
+ * Independently derived export snapshot identifier.
+ *
+ * The identifier is bound to the authoritative export scope — school, class,
+ * term and closing (cutoff) date — and is deterministic, so an authoritative
+ * class-level finalization can pre-produce exactly this value. A snapshot that
+ * does not equal this id (stale, from another export, or fabricated) must never
+ * certify the sheet, because certification would otherwise be a no-op check on
+ * a non-empty string.
+ */
+export function computeFullTermExportSnapshotId(scope: {
+  schoolId: string;
+  classId: string;
+  termId: string | null;
+  cutoff: string | null;
+}): string {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      schoolId: scope.schoolId,
+      classId: scope.classId,
+      termId: scope.termId,
+      cutoff: scope.cutoff,
+    }))
+    .digest("hex")
+    .slice(0, 24);
+}
+
+/**
  * Provisional/certified decision.
  *
  * Existing Official Attendance Summary finalization is school scoped, so a
  * matching school summary cannot certify this class register. Certification
  * requires authoritative evidence that explicitly covers school, class, term,
- * cutoff and the exported snapshot. Until such evidence is supplied, the sheet
- * stays provisional even when the term has ended.
+ * cutoff and the exact exported snapshot. The snapshot id must equal the value
+ * independently derived from this export's scope — a non-empty but mismatched
+ * id (stale, unrelated or fabricated) stays provisional. Until such evidence is
+ * supplied, the sheet stays provisional even when the term has ended.
  */
 export function resolveFullTermCertification(input: {
   scope: { schoolId: string; classId: string; termId: string | null; cutoff: string | null };
@@ -145,6 +175,7 @@ export function resolveFullTermCertification(input: {
       certificationNote: "Provisional: no authoritative class-level finalization covers this school, class, term, closing date and snapshot.",
     };
   }
+  const expectedSnapshotId = computeFullTermExportSnapshotId(scope);
   const coversScope = evidence.schoolId === scope.schoolId
     && evidence.classId != null
     && evidence.classId === scope.classId
@@ -152,7 +183,7 @@ export function resolveFullTermCertification(input: {
     && evidence.termId === scope.termId
     && scope.cutoff != null
     && evidence.cutoff === scope.cutoff
-    && Boolean(evidence.snapshotId);
+    && evidence.snapshotId === expectedSnapshotId;
   return coversScope
     ? { status: "certified", certificationNote: "Certified by authoritative class-level finalization for this exact scope and snapshot." }
     : {

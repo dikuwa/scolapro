@@ -13,6 +13,8 @@ import { renderRegisterTeacherHtml } from "@/features/attendance/server/render-r
 import { renderRegisterTeacherPdf } from "@/features/attendance/server/render-register-teacher-pdf";
 import { renderRegisterTeacherFullTermHtml } from "@/features/attendance/server/render-register-teacher-full-term-html";
 import { renderRegisterTeacherFullTermPdf } from "@/features/attendance/server/render-register-teacher-full-term-pdf";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { canCaptureRegisterClass } from "@/features/attendance/server/capture-scope";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 export const runtime = "nodejs";
@@ -62,6 +64,34 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Class-scope authorization. A staff member may only export the register of
+    // a class they are assigned to capture (or an explicitly governed admin
+    // override). This is enforced before any learner identity/attendance is
+    // resolved, so a teacher without the requested class assignment cannot
+    // export another class's learner names, dates of birth or attendance.
+    // Permissions are never broadened via RLS; the same-school read policy
+    // remains in place and no-store headers are retained.
+    const actor = {
+      memberships: context.memberships,
+      platformRoles: context.platformMemberships.map((item) => item.roleKey),
+    };
+    const supabase = await createSupabaseServerClient();
+    const { data: classRow, error: classError } = await supabase
+      .from("register_classes")
+      .select("id,register_teacher_staff_id")
+      .eq("school_id", membership.schoolId)
+      .eq("academic_year", academicYear)
+      .eq("id", classId)
+      .maybeSingle();
+    if (classError || !classRow) {
+      return Response.json({ error: "Register class not found." }, { status: 404 });
+    }
+    if (!canCaptureRegisterClass(actor, {
+      schoolId: membership.schoolId,
+      registerTeacherStaffId: classRow.register_teacher_staff_id,
+    })) {
+      return Response.json({ error: "You are not authorized to export this register class." }, { status: 403 });
+    }
     const [document, profile] = await Promise.all([
       getRegisterTeacherDocument({
         schoolId: membership.schoolId,

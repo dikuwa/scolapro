@@ -2,7 +2,7 @@ import { inflateSync } from "node:zlib";
 import { expect, test, type TestInfo } from "@playwright/test";
 import { PDFArray, PDFDocument, PDFRawStream, PDFRef } from "pdf-lib";
 import { DEMO } from "./support/accounts.mjs";
-import { signInToAttendance } from "./support/session";
+import { signIn, signInToAttendance } from "./support/session";
 
 const endpoint =
   `/api/attendance/register-teacher?school=${DEMO.schoolId}&class=${DEMO.registerClass10A}` +
@@ -191,5 +191,43 @@ test.describe("full-term single-sheet register", () => {
   test("signed-out requests cannot read the full-term register", async ({ request }) => {
     const response = await request.get(`${endpoint}&format=bundle`);
     expect(response.status()).toBe(401);
+  });
+
+  // Class-scope authorization (independent-review finding #1). A staff member
+  // may only export the register of a class they are assigned to capture, or
+  // via an explicitly governed admin override. An unassigned teacher, an HOD and
+  // a cross-tenant administrator must all be denied before any learner data is
+  // built.
+  test.describe("class-scope authorization", () => {
+    const classScopeCases = [
+      { role: "admin" as const, allowed: true, because: "governed admin override" },
+      { role: "registerTeacher" as const, allowed: true, because: "assigned register teacher of the class" },
+      { role: "unassignedTeacher" as const, allowed: false, because: "teacher without the class assignment" },
+      { role: "hod" as const, allowed: false, because: "HOD review authority is not capture" },
+    ];
+
+    for (const { role, allowed, because } of classScopeCases) {
+      test(`${role} ${allowed ? "may" : "may not"} export the assigned class register (${because})`, async ({ page }) => {
+        await signInToAttendance(page, role);
+        const response = await page.request.get(
+          `/api/attendance/register-teacher?school=${DEMO.schoolId}&class=${DEMO.registerClass10A}&date=${DEMO.teachingDate}&mode=full-term&format=bundle`,
+          { timeout: 120_000 },
+        );
+        expect(response.status()).toBe(allowed ? 200 : 403);
+        if (!allowed) {
+          const body = (await response.json().catch(() => ({}))) as { error?: string };
+          expect(String(body.error ?? "")).toMatch(/not authorized|membership/i);
+        }
+      });
+    }
+
+    test("a cross-tenant administrator cannot reach another school's register", async ({ page }) => {
+      await signIn(page, "outsider");
+      const response = await page.request.get(
+        `/api/attendance/register-teacher?school=${DEMO.schoolId}&class=${DEMO.registerClass10A}&date=${DEMO.teachingDate}&mode=full-term&format=bundle`,
+        { timeout: 120_000 },
+      );
+      expect(response.status()).toBe(403);
+    });
   });
 });

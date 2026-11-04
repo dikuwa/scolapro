@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import zlib from "node:zlib";
-import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
+import { PDFArray, PDFDocument, PDFRawStream, StandardFonts } from "pdf-lib";
 import {
   HEADER_FIXTURE,
   fullTermHtml,
@@ -78,6 +78,41 @@ async function pdfText(bytes) {
     }
   }
   return text;
+}
+
+function collapseWs(value) {
+  return value.replace(/\s+/g, "");
+}
+
+function stripHtml(value) {
+  return value.replace(/<[^>]+>/g, " ");
+}
+
+/**
+ * Prove no planned closure continuation line can cross the 32pt printable
+ * inset: every line, measured with the real Helvetica font, is no wider than
+ * the content box, and the planned band rectangle encloses every drawn line.
+ */
+async function assertClosureBandWithinInset(plan) {
+  const measureDoc = await PDFDocument.create();
+  const regular = await measureDoc.embedFont(StandardFonts.Helvetica);
+  const size = 7;
+  const linePitch = size * 1.18;
+  for (const sheet of plan.sheets) {
+    const continuation = sheet.closureNotes.filter((note) => note.continuation);
+    const maxWidth = Math.max(20, sheet.contentWidth - 16);
+    let totalLines = 0;
+    for (const note of continuation) {
+      for (const line of note.lines) {
+        const lineWidth = regular.widthOfTextAtSize(line, size);
+        assert.ok(lineWidth <= maxWidth + 0.5, `closure line fits content width: ${line.slice(0, 24)}…`);
+        totalLines += 1;
+      }
+    }
+    // Drawn band height = title (6+7) + gap (4) + lines*pitch + inter-note gaps (2).
+    const drawnHeight = 17 + 4 + totalLines * linePitch + Math.max(0, continuation.length - 1) * 2;
+    assert.ok(drawnHeight <= sheet.closureBandHeight + 0.5, "planned band encloses every continuation line");
+  }
 }
 
 test("full-term closing date defaults to the last eligible day and accepts a non-teaching boundary", () => {
@@ -160,27 +195,55 @@ test("full-term preserves disjoint re-entry and fails closed on ambiguous overla
   }), /Overlapping enrolments/i);
 });
 
-test("full-term stays provisional for school-only finalization and certifies only exact class scope", () => {
-  const schoolOnly = fullTermModel.resolveFullTermCertification({
-    scope: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16" },
-    evidence: { schoolId: "school", classId: null, termId: "term", cutoff: "2026-01-16", snapshotId: "snapshot" },
-  });
-  assert.equal(schoolOnly.status, "provisional");
-  const mismatchedCutoff = fullTermModel.resolveFullTermCertification({
-    scope: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16" },
-    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-15", snapshotId: "snapshot" },
-  });
-  assert.equal(mismatchedCutoff.status, "provisional");
-  const otherSchool = fullTermModel.resolveFullTermCertification({
-    scope: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16" },
-    evidence: { schoolId: "other-school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: "snapshot" },
-  });
-  assert.equal(otherSchool.status, "provisional");
-  const certified = fullTermModel.resolveFullTermCertification({
-    scope: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16" },
+test("full-term stays provisional unless evidence matches the exact exported snapshot", () => {
+  const scope = { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16" };
+  const expected = fullTermModel.computeFullTermExportSnapshotId(scope);
+
+  // A school-only summary cannot certify a class register, even with a valid id.
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope,
+    evidence: { schoolId: "school", classId: null, termId: "term", cutoff: "2026-01-16", snapshotId: expected },
+  }).status, "provisional");
+
+  // Mismatched cutoff.
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope,
+    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-15", snapshotId: expected },
+  }).status, "provisional");
+
+  // Different school.
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope,
+    evidence: { schoolId: "other-school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: expected },
+  }).status, "provisional");
+
+  // FABRICATED snapshot: scope matches but the id was not derived from it.
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope,
     evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: "snapshot" },
-  });
-  assert.equal(certified.status, "certified");
+  }).status, "provisional");
+
+  // STALE snapshot: id derived from a different closing date.
+  const staleId = fullTermModel.computeFullTermExportSnapshotId({ ...scope, cutoff: "2026-01-15" });
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope,
+    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: staleId },
+  }).status, "provisional");
+
+  // UNRELATED snapshot: id derived from a different class.
+  const unrelatedId = fullTermModel.computeFullTermExportSnapshotId({ ...scope, classId: "other-class" });
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope,
+    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: unrelatedId },
+  }).status, "provisional");
+
+  // Exact match certifies.
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope,
+    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: expected },
+  }).status, "certified");
+
+  // A non-class-scoped document stays provisional.
   const document = build({ certificationEvidence: { schoolId: "synthetic-school", classId: null, termId: "synthetic-term", cutoff: "2026-01-16", snapshotId: "snapshot" } });
   assert.equal(document.fullTerm.status, "provisional");
 });
@@ -271,11 +334,31 @@ test("full-term preserves complete long closure text or falls back explicitly", 
   const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
   if (plan.fits) {
     const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
-    assert.ok(html.includes(longName));
+    assert.ok(collapseWs(stripHtml(html)).includes(collapseWs(longName)), "html carries the full closure text unbroken");
     const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
-    assert.ok((await pdfText(bytes)).includes(longName.slice(0, 40)));
+    assert.ok(collapseWs(await pdfText(bytes)).includes(collapseWs(longName)), "pdf carries the full closure text unbroken");
+    await assertClosureBandWithinInset(plan);
   } else {
     assert.ok(plan.reason);
+  }
+
+  // A very large closure that still fits a single sheet must keep every
+  // character in both renderings and stay within the printable inset.
+  const bigName = `Regional educational infrastructure closure ${"Z".repeat(20000)}`;
+  const big = build({
+    fullTerm: { today: "2026-01-18" },
+    enrolments: [learnerRow({ id: "one" })],
+    overrideRows: [{ school_date: CLOSURE, reason: bigName }],
+  });
+  const bigPlan = fullTermLayout.planRegisterTeacherFullTermDocument(big);
+  if (bigPlan.fits) {
+    const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document: big, plan: bigPlan });
+    assert.ok(collapseWs(stripHtml(html)).includes(collapseWs(bigName)), "html carries the 20k closure text unbroken");
+    const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document: big, plan: bigPlan });
+    assert.ok(collapseWs(await pdfText(bytes)).includes(collapseWs(bigName)), "pdf carries the 20k closure text unbroken");
+    await assertClosureBandWithinInset(bigPlan);
+  } else {
+    assert.ok(bigPlan.reason);
   }
 
   const extreme = build({

@@ -31,6 +31,18 @@ export const FULL_TERM_MIN_DAY_WIDTH = 12;
 export const FULL_TERM_MIN_ROW_HEIGHT = 10;
 export const FULL_TERM_MAX_ROW_HEIGHT = 14.25;
 
+/**
+ * Conservative per-glyph advance bounds for the PDF fonts (Helvetica /
+ * Helvetica-Bold). Standard Helvetica's widest ordinary glyph approaches
+ * 0.889em and Helvetica-Bold's approaches 0.944em. Using these factors makes
+ * every planned line width an over-estimate, so the planner can never declare a
+ * line "fits" while the real font would overflow the printable inset. Over-
+ * estimating only ever rejects a sheet (or sends a name to the indexed band),
+ * never clips it.
+ */
+export const FULL_TERM_GLYPH_FACTOR_REGULAR = 0.9;
+export const FULL_TERM_GLYPH_FACTOR_BOLD = 0.95;
+
 export const FULL_TERM_PAPERS = Object.freeze({
   a2: Object.freeze({ key: "a2" as const, width: 1683.78, height: 1190.55, label: "A2 landscape" }),
   a1: Object.freeze({ key: "a1" as const, width: 2383.94, height: 1683.78, label: "A1 landscape" }),
@@ -99,7 +111,10 @@ export type FullTermPlan = {
 };
 
 export function approxFullTermTextWidth(text: string, size: number, bold = false) {
-  return text.length * size * (bold ? 0.58 : 0.54);
+  // Conservative upper bound on rendered width: text.length * size * factor.
+  // Because this over-estimates, planned wrapping/fit can never under-shrink a
+  // line relative to the actual font.
+  return text.length * size * (bold ? FULL_TERM_GLYPH_FACTOR_BOLD : FULL_TERM_GLYPH_FACTOR_REGULAR);
 }
 
 /** Deterministic word wrap shared by the HTML and PDF renderers. */
@@ -189,7 +204,7 @@ function identityPlan(section: RegisterTeacherSection, contentWidth: number) {
   // Conservative bold advance: the PDF uses Helvetica-Bold, whose widest
   // ordinary glyphs approach this factor. Over-estimating keeps names inside
   // the planned lines instead of clipping them at print time.
-  const boldWidth = (text: string) => text.length * size * 0.64;
+  const boldWidth = (text: string) => text.length * size * FULL_TERM_GLYPH_FACTOR_BOLD;
   const surname = section.learners.reduce((max, learner) => Math.max(max, boldWidth(learner.surname)), 0);
   const given = section.learners.reduce((max, learner) => Math.max(max, boldWidth(learner.givenNames)), 0);
   const admission = section.learners.reduce((max, learner) => Math.max(max, approxFullTermTextWidth(learner.admissionNumber ?? "", size, false)), 0);
