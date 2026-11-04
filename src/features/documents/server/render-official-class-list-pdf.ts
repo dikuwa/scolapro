@@ -101,7 +101,7 @@ function fitColumnWidths(keys: string[]): number[] {
   const preferred = keys.map(preferredColumnWidth);
   const total = preferred.reduce((sum, width) => sum + width, 0);
   const scale = CONTENT_WIDTH / total;
-  const minimumWidths = keys.map((key) => key === "dateOfBirth" ? 44 : key === "sex" ? 28 : 0);
+  const minimumWidths = keys.map<number>((key) => key === "dateOfBirth" ? 44 : key === "sex" ? 28 : 0);
   if (preferred.every((width, index) => width * scale >= minimumWidths[index])) {
     return preferred.map((width) => width * scale);
   }

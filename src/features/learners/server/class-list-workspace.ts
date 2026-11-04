@@ -431,7 +431,7 @@ export async function getClassListWorkspace(input: {
       admissionNumber: item.admission_number,
       sex: learner?.sex ?? null,
       ...(includeDateOfBirth
-        ? { dateOfBirth: learner && "date_of_birth" in learner ? learner.date_of_birth : null }
+        ? { dateOfBirth: learner && "date_of_birth" in learner && typeof learner.date_of_birth === "string" ? learner.date_of_birth : null }
         : {}),
       registerClass: registerClass?.display_name ?? "Unassigned",
       status: item.status,
