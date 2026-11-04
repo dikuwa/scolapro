@@ -69,6 +69,7 @@ test("house roster exports stay above configuration and DOB remains opt-in", () 
 
 test("sports year reference-date setup requires explicit approval and records audit evidence", () => {
   const migration = readFileSync("supabase/migrations/20261104113000_sports_year_reference_date_setup.sql","utf8");
+  const hardening = readFileSync("supabase/migrations/20261104140000_sports_houses_authorization_privacy_hardening.sql","utf8");
   assert.match(workspace,/Official age reference date/);
   assert.match(workspace,/currentDate=\{yearSettings\?\.ageReferenceDate \?\? null\}/);
   assert.match(workspace,/No official age reference date is configured/);
@@ -77,7 +78,10 @@ test("sports year reference-date setup requires explicit approval and records au
   assert.match(sportsActions,/schoolApprovalConfirmed: z\.literal\("on"\)/);
   assert.match(sportsActions,/ageReferenceDate\.slice\(0, 4\)/);
   assert.match(sportsActions,/rpc\("set_sports_year_reference_date"/);
-  assert.match(migration,/app_private\.can_manage_sports\(p_school_id\)/);
+  assert.match(sportsActions,/canSetSportsYearReferenceDate/);
+  assert.match(hardening,/app_private\.is_active_school_admin\(p_school_id\)/);
+  assert.match(hardening,/v_existing_reference_date is distinct from p_age_reference_date/);
+  assert.match(hardening,/p_school_approval_confirmed is not true/);
   assert.match(migration,/sports\.year_reference_date\.configured/);
   assert.match(migration,/insert into public\.audit_events/);
 });

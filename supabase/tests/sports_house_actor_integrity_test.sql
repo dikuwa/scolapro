@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(18);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
 ('fea00000-0000-4000-8000-000000000001','sports-actor-admin@example.test','authenticated','authenticated',now(),now()),
@@ -53,10 +53,16 @@ select set_config('request.jwt.claim.sub','fea00000-0000-4000-8000-000000000001'
 set local role authenticated;
 
 select lives_ok(
+  $$select public.set_sports_year_reference_date(
+    '22222222-2222-4222-8222-222222222222',2026,'2026-12-31',true
+  )$$,
+  'governed RPC creates the school-approved annual date for an authorized school admin'
+);
+select lives_ok(
   $$select public.set_sports_year_settings(
     '22222222-2222-4222-8222-222222222222',2026,'2026-12-31','carry_forward',true,true,false
   )$$,
-  'governed RPC still creates sports year settings for an authorized school admin'
+  'governed RPC still updates other sports year settings without changing the approved date'
 );
 select lives_ok(
   $$select public.upsert_sports_age_group(

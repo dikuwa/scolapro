@@ -27,7 +27,7 @@ export type SportsLearner = {
   id: string;
   name: string;
   admissionNumber: string | null;
-  dateOfBirth: string | null;
+  dateOfBirth?: string | null;
   houseId: string | null;
   houseName: string | null;
   houseColorHex: string | null;
@@ -75,7 +75,6 @@ type LearnerRosterRow = {
   first_names: string;
   surname: string;
   admission_number: string | null;
-  date_of_birth: string | null;
   house_id: string | null;
   house_name: string | null;
   house_color_hex: string | null;
@@ -149,7 +148,7 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     supabase
       .rpc("get_sports_house_operational_learner_roster_v2", { p_school_id: schoolId, p_academic_year: academicYear })
       .select(
-        "learner_id,first_names,surname,admission_number,sex,date_of_birth,grade_id,grade_name,register_class_id,register_class_name,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label",
+        "learner_id,first_names,surname,admission_number,sex,grade_id,grade_name,register_class_id,register_class_name,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label",
       ),
     supabase.rpc("get_sports_house_assignment_years", { p_school_id: schoolId }),
     supabase.rpc("get_sports_house_staff_roster", { p_school_id: schoolId, p_academic_year: academicYear }),
@@ -211,7 +210,6 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     id: row.learner_id,
     name: formatLearnerName(row.first_names, row.surname),
     admissionNumber: row.admission_number,
-    dateOfBirth: row.date_of_birth,
     houseId: row.house_id,
     houseName: row.house_name,
     houseColorHex: row.house_color_hex,
@@ -282,4 +280,44 @@ export async function getSportsHousesWorkspace(schoolId: string, academicYear: n
     staffAssignedCount: staff.filter((item) => item.houseId).length,
     staffUnassignedCount: staff.filter((item) => !item.houseId).length,
   };
+}
+
+export async function getSportsHouseRosterDateOfBirths(
+  schoolId: string,
+  academicYear: number,
+  houseIds: string[],
+) {
+  if (!houseIds.length) return new Map<string, string>();
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc("get_sports_house_roster_dob_export", {
+    p_school_id: schoolId,
+    p_academic_year: academicYear,
+    p_house_ids: houseIds,
+    p_include_date_of_birth: true,
+  });
+  if (error) {
+    console.error("[sports-houses] DOB export read failed", { code: error.code ?? "unknown" });
+    throw new Error("Unable to load authorized learner dates of birth for the selected export.");
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error("The authorized learner DOB export returned an invalid response.");
+  }
+
+  const dateOfBirths = new Map<string, string>();
+  for (const value of data as unknown[]) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      throw new Error("The authorized learner DOB export returned an invalid row.");
+    }
+
+    const row = value as Record<string, unknown>;
+    if (typeof row.learner_id !== "string"
+      || (row.date_of_birth !== null && typeof row.date_of_birth !== "string")) {
+      throw new Error("The authorized learner DOB export returned an invalid row.");
+    }
+    if (row.date_of_birth !== null) dateOfBirths.set(row.learner_id, row.date_of_birth);
+  }
+
+  return dateOfBirths;
 }

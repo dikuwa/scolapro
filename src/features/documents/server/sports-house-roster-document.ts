@@ -75,7 +75,7 @@ type LearnerColumnDefinition = {
 
 const LEARNER_COLUMN_DEFINITIONS: Record<SportsHouseRosterColumn, LearnerColumnDefinition> = {
   admission: { key: "admission", label: "Admission No.", width: 68, value: (learner) => learner.admissionNumber ?? "" },
-  dob: { key: "dob", label: "DOB", width: 48, value: (learner) => formatDateOfBirth(learner.dateOfBirth) },
+  dob: { key: "dob", label: "DOB", width: 48, value: (learner) => formatDateOfBirth(learner.dateOfBirth ?? null) },
   grade: { key: "grade", label: "Grade", width: 50, value: (learner) => learner.gradeName ?? "" },
   class: { key: "class", label: "Class", width: 48, value: (learner) => learner.registerClassName ?? "" },
   sex: { key: "sex", label: "Gender", width: 36, value: (learner) => sexLabel(learner.sex) },

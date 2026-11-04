@@ -11,8 +11,8 @@ select has_function(
 
 select ok(
   pg_get_function_result('public.get_sports_house_operational_learner_roster_v2(uuid,integer)'::regprocedure)
-    ilike '%date_of_birth date%',
-  'DOB is a nullable date field in the governed roster result'
+    not ilike '%date_of_birth%',
+  'default learner roster result does not expose raw DOB'
 );
 
 select ok(
@@ -63,13 +63,17 @@ select function_privs_are(
 select is(
   has_function_privilege('anon','public.get_sports_house_operational_learner_roster_v2(uuid,integer)','EXECUTE'),
   false,
-  'anonymous users cannot invoke the DOB-aware roster RPC'
+  'anonymous users cannot invoke the guarded roster RPC'
 );
 
 select ok(
-  pg_get_functiondef('public.get_sports_house_operational_learner_roster_v2(uuid,integer)'::regprocedure)
-    ilike '%l.sex,l.date_of_birth%',
-  'DOB is returned directly from the canonical learner row without fallback'
+  pg_get_function_result('public.get_sports_house_roster_dob_export(uuid,integer,uuid[],boolean)'::regprocedure)
+    ilike '%date_of_birth date%'
+    and pg_get_functiondef('public.get_sports_house_roster_dob_export(uuid,integer,uuid[],boolean)'::regprocedure)
+      ilike '%p_include_date_of_birth is not true%'
+    and pg_get_functiondef('public.get_sports_house_roster_dob_export(uuid,integer,uuid[],boolean)'::regprocedure)
+      ilike '%can_read_learner_identity(p_school_id,e.learner_id)%',
+  'DOB is exposed only through the explicit export RPC and canonical per-learner identity gate'
 );
 
 select ok(

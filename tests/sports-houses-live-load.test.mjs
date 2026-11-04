@@ -16,8 +16,10 @@ test("Sports & Houses initial learner load uses one governed school/year roster 
   assert.match(queries, /p_academic_year: academicYear/);
   assert.match(
     queries,
-    /\.select\(\s*"learner_id,first_names,surname,admission_number,sex,date_of_birth,grade_id,grade_name,register_class_id,register_class_name,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label"/,
+    /\.select\(\s*"learner_id,first_names,surname,admission_number,sex,grade_id,grade_name,register_class_id,register_class_name,house_id,house_name,house_color_hex,assignment_source,is_locked,assigned_at,age_on_reference_date,age_group_label"/,
   );
+  assert.match(queries, /get_sports_house_roster_dob_export/);
+  assert.doesNotMatch(queries, /dateOfBirth:\s*row\.date_of_birth/);
   assert.doesNotMatch(
     queries,
     /\.select\([^)]*(?:tenant_id|school_id|academic_year)[^)]*\)/s,

@@ -34,6 +34,13 @@ async function canManageSports(schoolId: string) {
   return context.memberships.some((item) => item.schoolId === schoolId && managerRoles.has(item.roleKey));
 }
 
+async function canSetSportsYearReferenceDate(schoolId: string) {
+  const context = await getUserContext();
+  if (!context.user) return false;
+  if (context.platformMemberships.some((item) => ["platform_admin", "platform_support"].includes(item.roleKey))) return false;
+  return context.allSchoolMemberships.some((item) => item.schoolId === schoolId && item.roleKey === "school_admin");
+}
+
 function errorMessage(message: string, fallback: string) {
   const allowed = [
     "House name is required",
@@ -102,7 +109,7 @@ export async function saveSportsYearReferenceDate(_state: SportsHousesActionStat
   if (Number(parsed.data.ageReferenceDate.slice(0, 4)) !== parsed.data.academicYear) {
     return { message: "The reference date must fall within the selected academic year." };
   }
-  if (!(await canManageSports(parsed.data.schoolId))) return { message: "You do not have permission to change the Sports / Houses year context." };
+  if (!(await canSetSportsYearReferenceDate(parsed.data.schoolId))) return { message: "Only an active School Admin for this school can change the approved Sports reference date." };
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("set_sports_year_reference_date", {

@@ -36,7 +36,9 @@ export default async function SportsHousesPage({
   const requestedYear = Number(Array.isArray(params.year) ? params.year[0] : params.year);
   const academicYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2200 ? requestedYear : defaultYear;
   const canManage = platformAdmin || context.memberships.some((item) => item.schoolId === schoolId && managerRoles.has(item.roleKey));
-  const canManageYearContext = canManage;
+  const canManageYearContext = !platformAdmin
+    && !platformSupport
+    && context.allSchoolMemberships.some((item) => item.schoolId === schoolId && item.roleKey === "school_admin");
 
   const workspace = await getSportsHousesWorkspace(schoolId, academicYear);
 
