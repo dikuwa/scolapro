@@ -216,7 +216,7 @@ export async function renderAdmissionApplicationPdf(
   learnerY = fieldLine(page, bold, "Surname", MARGIN, learnerY, learnerWidth, { height: 17 });
   learnerY = fieldLine(page, bold, "First names", MARGIN, learnerY, learnerWidth, { height: 17 });
   learnerY = fieldLine(page, bold, "Preferred name", MARGIN, learnerY, learnerWidth, { height: 17 });
-  learnerY = fieldPair(page, bold, "Date of birth", "Sex", MARGIN, learnerY, learnerWidth);
+  learnerY = fieldPair(page, bold, "Date of birth", "Gender", MARGIN, learnerY, learnerWidth);
   learnerY = fieldLine(page, bold, "Citizenship", MARGIN, learnerY, learnerWidth, { height: 17 });
   learnerY = fieldLine(page, bold, "Home language", MARGIN, learnerY, learnerWidth, { height: 17 });
   learnerY = fieldLine(page, bold, "Current / previous school", MARGIN, learnerY, learnerWidth, { height: 17 });

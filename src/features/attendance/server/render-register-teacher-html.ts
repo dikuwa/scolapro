@@ -10,6 +10,7 @@ import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWe
 import {
   REGISTER_TEACHER_LAYOUT,
   REGISTER_TEACHER_PRINT_PAGE_RULE,
+  formatRegisterTeacherBirthDate,
   formatRegisterTeacherDate,
   registerTeacherBalance,
   registerTeacherClosureLabel,
@@ -41,7 +42,7 @@ function learnerIdentityCells(section: RegisterTeacherSection, rowIndex: number)
     <td class="identity no">${rowIndex + 1}</td>
     <td class="identity surname">${escapeHtml(learner.surname)}</td>
     <td class="identity given">${escapeHtml(learner.givenNames)}</td>
-    <td class="identity dob">${learner.dateOfBirth ? escapeHtml(formatDate(learner.dateOfBirth)) : ""}</td>
+    <td class="identity dob">${formatRegisterTeacherBirthDate(learner.dateOfBirth)}</td>
   `;
 }
 
@@ -131,7 +132,7 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
     : "";
   const learnerRows = section.learners.map((_, index) => {
     const learner = section.learners[index];
-    return `<tr>${learnerIdentityCells(section, index)}${weeks.map((week) => weeklyMarks(section, index, week, closureNotesByDate)).join("")}<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td></tr>`;
+    return `<tr class="learner-row">${learnerIdentityCells(section, index)}${weeks.map((week) => weeklyMarks(section, index, week, closureNotesByDate)).join("")}<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td></tr>`;
   }).join("");
 
   const balance = registerTeacherBalance(section);
@@ -223,6 +224,8 @@ export function renderRegisterTeacherHtml(input: {
   .identity.no { text-align:center; white-space:nowrap; }
   .identity.surname { overflow-wrap:anywhere; }
   .identity.given { overflow-wrap:anywhere; }
+  .learner-row > td { font-weight:400; }
+  .learner-row > .surname,.learner-row > .given { font-weight:700; }
   .identity.dob { text-align:center; white-space:nowrap; }
   .name-head { text-align:center; }
   .week-heading { padding:3px 2px 4px; color:var(--register-red); text-align:center; vertical-align:middle; line-height:1.05; border-right:2px solid var(--register-red); white-space:nowrap; }
@@ -246,11 +249,12 @@ export function renderRegisterTeacherHtml(input: {
   .term-actual { background:#f1ebf7; border-left:2px solid var(--register-red); }
   .term-absent { background:#fff7f7; color:var(--register-red); }
   .term-days { background:#eef5d8; }
-  .mark { white-space:nowrap; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; font-size:10px; }
-  .register-mark { position:relative; display:inline-block; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:500; }
+  .mark { white-space:nowrap; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:400; font-size:10px; }
+  .register-mark { position:relative; display:inline-block; font-family:Arial, Helvetica, sans-serif; font-style:italic; font-weight:400; }
   .absent-mark { color:var(--register-red); }
   .absence-reason-mark { position:relative; top:-.55em; margin-left:0; font-size:.5em; line-height:0; font-style:normal; font-weight:800; color:var(--register-red); }
   .non-teaching { background:#ececec !important; color:#999; background-image:repeating-linear-gradient(135deg,transparent,transparent 3px,rgba(0,0,0,.035) 3px,rgba(0,0,0,.035) 6px)!important; }
+  .non-teaching.closure-column { background-image:none !important; }
   .summary-row th { text-align:left; padding-left:6px; font-weight:900; }
   .summary-row td { font-weight:900; }
   .summary-row:first-of-type th,.summary-row:first-of-type td { border-top:3px solid var(--register-red); }
@@ -267,7 +271,8 @@ export function renderRegisterTeacherHtml(input: {
   .legend { margin:8px 0 2px; display:flex; align-items:center; flex-wrap:wrap; gap:5px 14px; min-height:20px; padding:2px 1px; font-size:8px; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:3px; min-height:16px; white-space:nowrap; }
   .legend > .legend-note { flex:1 1 280px; white-space:normal; }
-  .legend .mark-sample { display:inline-block; min-width:12px; text-align:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-size:11px; line-height:1; color:#111; overflow:visible; }
+  .legend .mark-sample { display:inline-block; min-width:12px; text-align:center; font-family:Arial,Helvetica,sans-serif; font-style:italic; font-weight:400; font-size:11px; line-height:1; color:#111; overflow:visible; }
+  .legend .mark-sample.absent-mark { color:var(--register-red); }
   .legend .mark-sample:has(.absence-reason-mark) { position:relative; padding-right:4px; }
   .legend .absence-reason-mark { position:absolute; top:-.38em; right:0; margin:0; font-size:.6em; line-height:1; }
   ${REGISTER_TEACHER_PRINT_PAGE_RULE}

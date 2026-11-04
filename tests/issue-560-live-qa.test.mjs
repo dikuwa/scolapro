@@ -12,7 +12,7 @@ test("Issue #560 target surfaces retain bounded responsive, state and focus cont
   const loading = read("src/app/conduct/loading.tsx");
   const error = read("src/app/conduct/error.tsx");
 
-  assert.match(setup, /sm:grid-cols-3/);
+  assert.match(setup, /sm:grid-cols-2 xl:grid-cols-4/);
   assert.match(setup, /overflow-hidden/);
   assert.match(conduct, /sm:grid-cols-2 xl:grid-cols-4/);
   assert.match(conduct, /flex flex-wrap/);

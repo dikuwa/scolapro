@@ -9,7 +9,8 @@ function excelColumnWidth(key: string): number {
   if (key === "number") return 7;
   if (key === "admissionNumber") return 14;
   if (key === "learner") return 28;
-  if (key === "sex") return 7;
+  if (key === "sex") return 8;
+  if (key === "dateOfBirth") return 14;
   if (key === "status") return 11;
   if (key === "registerClass") return 16;
   if (key === "guardianName") return 24;

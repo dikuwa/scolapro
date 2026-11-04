@@ -412,8 +412,11 @@ export async function getClassListWorkspace(input: {
     if (configuration.rosterType === "teacher_subject") className = scoped.classById.get([...allowedClassIds][0] ?? "")?.display_name ?? "Multiple classes";
   }
 
+  const includeDateOfBirth = configuration.columns.includes("dateOfBirth");
   let query = supabase.from("enrolments")
-    .select("id,learner_id,admission_number,status,register_class_id,learners!inner(first_names,surname,sex),register_classes(display_name)")
+    .select(includeDateOfBirth
+      ? "id,learner_id,admission_number,status,register_class_id,learners!inner(first_names,surname,sex,date_of_birth),register_classes(display_name)"
+      : "id,learner_id,admission_number,status,register_class_id,learners!inner(first_names,surname,sex),register_classes(display_name)")
     .eq("school_id", input.membership.schoolId).eq("academic_year", input.academicYear).eq("status", "current")
     .in("register_class_id", [...allowedClassIds]);
   if (enrolmentIds) query = enrolmentIds.length ? query.in("id", enrolmentIds) : query.in("id", ["00000000-0000-0000-0000-000000000000"]);
@@ -427,6 +430,9 @@ export async function getClassListWorkspace(input: {
       learnerName: formatLearnerName(learner?.first_names, learner?.surname),
       admissionNumber: item.admission_number,
       sex: learner?.sex ?? null,
+      ...(includeDateOfBirth
+        ? { dateOfBirth: learner && "date_of_birth" in learner && typeof learner.date_of_birth === "string" ? learner.date_of_birth : null }
+        : {}),
       registerClass: registerClass?.display_name ?? "Unassigned",
       status: item.status,
       guardianName: null, guardianPhone: null, guardianAddress: null, emergencyContact: null,

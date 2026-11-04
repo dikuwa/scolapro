@@ -31,9 +31,9 @@ test("multi-subject end validates complete selection before changing any rows", 
   assert.doesNotMatch(actions.slice(actions.indexOf("export async function endHodSubjectResponsibility"), actions.indexOf("const unassignedPortfolioSchema")), /\.from\("subject_department_responsibilities"\)\.update/);
 });
 
-test("advanced end defaults to whole scope and supports multi-select standalone subjects", () => {
-  assert.match(ui, /useState<"scope" \| "subjects">\("scope"\)/);
-  assert.match(ui, /Whole scope/);
+test("portfolio end submits the active appointment and standalone end supports multi-select", () => {
+  assert.match(ui, /appointmentId=\{active\.id\}/);
+  assert.match(ui, /End whole scope/);
   assert.match(ui, /Select subjects/);
   assert.match(ui, /multiple/);
   assert.match(ui, /name="appointmentId"/);

@@ -9,6 +9,7 @@ const button = read("src/components/ui/button.tsx");
 const recordAction = read("src/components/ui/record-action-button.tsx");
 const academicCore = read("src/features/academics/academic-setup-core.tsx");
 const academicForms = read("src/features/academics/structure-forms.tsx");
+const academicHodScope = read("src/features/academics/hod-scope-configuration.tsx");
 const academicPage = read("src/app/school/setup/page.tsx");
 const directory = read("src/features/school-directory/directory-contact-settings-panel.tsx");
 const statutory = read("src/features/statutory/school-statutory-profile-panel.tsx");
@@ -32,21 +33,30 @@ test("shared record actions own edit and manage icon semantics", () => {
   assert.match(recordAction, /actionKind === "manage" \? Settings2/);
 });
 
-test("core academic setup keeps summary and editor within one bounded card", () => {
+test("core academic setup keeps exactly two workflow cards whose editors replace the summary in place", () => {
+  assert.match(academicCore, /grid gap-5 lg:grid-cols-2 lg:items-start/);
   assert.match(academicCore, /function CoreSetupCard/);
-  assert.doesNotMatch(academicCore, /function CoreSetupRow/);
-  assert.match(academicCore, /<ConfigurationCard/);
-  assert.match(academicCore, /panelId=\{panelId\}/);
-  assert.match(academicCore, /editor=\{editor\}/);
   assert.match(academicCore, /title="Timetable workflow"/);
   assert.match(academicCore, /title="Calendar anchor"/);
-  assert.match(academicCore, /title="HOD teaching scope"/);
+  assert.doesNotMatch(academicCore, /title="HOD teaching scope"/);
+  assert.match(academicCore, /data-core-setup-content=\{active \? "editor" : "summary"\}/);
+  assert.equal((academicCore.match(/active \? editor : summary/g) ?? []).length, 1);
+  assert.match(academicCore, /<CardActionToggle/);
+  assert.match(academicCore, />\s*Active\s*</);
+  // No second side-by-side editing column and no third workflow card.
+  assert.doesNotMatch(academicCore, /xl:grid-cols-\[minmax/);
+  assert.doesNotMatch(academicCore, /function CoreSetupRow/);
+  assert.doesNotMatch(academicCore, /lg:grid-cols-3/);
+  // HOD scope editing lives in its own section behind an explicit manage action.
+  assert.match(academicHodScope, /actionKind=\{open \? undefined : "manage"\}/);
 });
 
-test("academic structure cards remain balanced in two columns with actions anchored to the right", () => {
-  assert.match(academicForms, /lg:grid-cols-2 lg:items-start/);
-  assert.match(academicForms, /min-h-\[10rem\] flex-col/);
-  assert.ok((academicForms.match(/<CardActionToggle/g) ?? []).length >= 2);
+test("academic structure uses one tabbed Grade & Class card with right-anchored actions", () => {
+  assert.match(academicForms, /role="tablist"/);
+  assert.match(academicForms, /role="tabpanel"/);
+  assert.match(academicForms, /aria-selected=\{tab === value\}/);
+  assert.ok((academicForms.match(/flex justify-end/g) ?? []).length >= 2);
+  assert.doesNotMatch(academicForms, /lg:grid-cols-2 lg:items-start/);
   assert.match(academicPage, /canManageAcademicStructure \? "xl:grid-cols-2"/);
 });
 

@@ -15,7 +15,7 @@ const fields = [
   ["surname", "Surname"],
   ["preferred_name", "Preferred name"],
   ["date_of_birth", "Date of birth (YYYY-MM-DD)"],
-  ["sex", "Sex"],
+  ["sex", "Gender"],
   ["national_id", "National ID"],
   ["birth_certificate_number", "Birth certificate number"],
 ] as const;
