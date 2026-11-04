@@ -36,6 +36,9 @@ export default async function SportsHousesPage({
   const requestedYear = Number(Array.isArray(params.year) ? params.year[0] : params.year);
   const academicYear = Number.isInteger(requestedYear) && requestedYear >= 2000 && requestedYear <= 2200 ? requestedYear : defaultYear;
   const canManage = platformAdmin || context.memberships.some((item) => item.schoolId === schoolId && managerRoles.has(item.roleKey));
+  const canManageYearContext = !platformAdmin
+    && !platformSupport
+    && context.allSchoolMemberships.some((item) => item.schoolId === schoolId && item.roleKey === "school_admin");
 
   const workspace = await getSportsHousesWorkspace(schoolId, academicYear);
 
@@ -48,7 +51,7 @@ export default async function SportsHousesPage({
             Configure school houses and age groups, then manage year-scoped learner and staff house allocation without changing the canonical Sports & Houses model.
           </p>
         </div>
-        <SportsHousesWorkspace {...workspace} canManage={canManage} balanceOperationId={crypto.randomUUID()} />
+        <SportsHousesWorkspace {...workspace} canManage={canManage} canManageYearContext={canManageYearContext} balanceOperationId={crypto.randomUUID()} />
       </div>
     </AppShell>
   );

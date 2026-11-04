@@ -1,6 +1,6 @@
 begin;
 
-select plan(18);
+select plan(19);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
  ('ec000000-0000-4000-8000-000000000001','sports-admin@example.test','authenticated','authenticated',now(),now()),
@@ -30,8 +30,12 @@ select is((select count(*)::integer from public.sports_houses where school_id='2
 select is((select color_hex from public.sports_houses where school_id='22222222-2222-4222-8222-222222222222' and name='Cheetah'),'#F97316','configured colour is preserved');
 
 select lives_ok(
+ $$select public.set_sports_year_reference_date('22222222-2222-4222-8222-222222222222',2026,'2026-12-31',true)$$,
+ 'school administrator explicitly configures the annual sports reference date'
+);
+select lives_ok(
  $$select public.set_sports_year_settings('22222222-2222-4222-8222-222222222222',2026,'2026-12-31','carry_forward',true,true,false)$$,
- 'school configures explicit annual sports age reference date and continuity'
+ 'school manager configures continuity without changing the reference date'
 );
 select lives_ok(
  $$select public.upsert_sports_age_group('22222222-2222-4222-8222-222222222222','Age 13',13,13,1,null)$$,

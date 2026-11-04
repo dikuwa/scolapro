@@ -117,7 +117,7 @@ export function AssistedBalancingPanel({
             Preview deterministic balancing before any assignment changes. Manual and locked assignments stay fixed; staff leaders are never redistributed.
           </p>
           <p className="mt-2 text-xs leading-5 text-muted-foreground">
-            Learner proposals minimise total house imbalance first, then configured sex, age-group and grade cohorts. Staff are balanced separately by house size.
+            Learner proposals minimise total house imbalance first, then configured gender, age-group and grade cohorts. Staff are balanced separately by house size.
           </p>
         </div>
 
@@ -168,7 +168,7 @@ export function AssistedBalancingPanel({
               </div>
               {preview.scope === "learner" ? (
                 <p className="text-xs text-muted-foreground">
-                  Sex {preview.configuration.balanceBySex ? "on" : "off"} · Age group {preview.configuration.balanceByAgeGroup ? "on" : "off"} · Grade {preview.configuration.balanceByGrade ? "on" : "off"}
+                  Gender {preview.configuration.balanceBySex ? "on" : "off"} · Age group {preview.configuration.balanceByAgeGroup ? "on" : "off"} · Grade {preview.configuration.balanceByGrade ? "on" : "off"}
                 </p>
               ) : null}
             </div>

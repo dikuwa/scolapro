@@ -29,7 +29,7 @@ export type SportsHouseRosterSection = {
   staff: SportsStaff[];
 };
 
-export type SportsHouseRosterColumn = "admission" | "grade" | "class" | "sex" | "age" | "age_group" | "source" | "lock";
+export type SportsHouseRosterColumn = "admission" | "dob" | "grade" | "class" | "sex" | "age" | "age_group" | "source" | "lock";
 
 export const DEFAULT_SPORTS_HOUSE_ROSTER_COLUMNS: readonly SportsHouseRosterColumn[] = ["grade", "class", "sex", "age", "age_group"];
 
@@ -56,6 +56,15 @@ function sexLabel(value: string | null) {
   return value ?? "";
 }
 
+function formatDateOfBirth(value: string | null) {
+  const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "";
+  const [, year, month, day] = match;
+  const date = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  if (date.getUTCFullYear() !== Number(year) || date.getUTCMonth() !== Number(month) - 1 || date.getUTCDate() !== Number(day)) return "";
+  return `${day}/${month}/${year}`;
+}
+
 
 type LearnerColumnDefinition = {
   key: SportsHouseRosterColumn;
@@ -66,9 +75,10 @@ type LearnerColumnDefinition = {
 
 const LEARNER_COLUMN_DEFINITIONS: Record<SportsHouseRosterColumn, LearnerColumnDefinition> = {
   admission: { key: "admission", label: "Admission No.", width: 68, value: (learner) => learner.admissionNumber ?? "" },
+  dob: { key: "dob", label: "DOB", width: 48, value: (learner) => formatDateOfBirth(learner.dateOfBirth ?? null) },
   grade: { key: "grade", label: "Grade", width: 50, value: (learner) => learner.gradeName ?? "" },
   class: { key: "class", label: "Class", width: 48, value: (learner) => learner.registerClassName ?? "" },
-  sex: { key: "sex", label: "Sex", width: 28, value: (learner) => sexLabel(learner.sex) },
+  sex: { key: "sex", label: "Gender", width: 36, value: (learner) => sexLabel(learner.sex) },
   age: { key: "age", label: "Age", width: 28, value: (learner) => learner.ageOnReferenceDate === null ? "" : String(learner.ageOnReferenceDate) },
   age_group: { key: "age_group", label: "Age group", width: 55, value: (learner) => learner.ageGroupLabel ?? "Unresolved" },
   source: { key: "source", label: "Source", width: 60, value: (learner) => learner.assignmentSource ?? "" },
@@ -82,7 +92,7 @@ function selectedLearnerColumns(input: SportsHouseRosterDocumentInput) {
 
 function learnerGroupLabel(learner: SportsLearner, groupBy: SportsHouseRosterDocumentInput["groupBy"]) {
   if (groupBy === "age_group") return learner.ageGroupLabel ?? "Unresolved age group";
-  if (groupBy === "sex") return sexLabel(learner.sex) || "Unspecified sex";
+  if (groupBy === "sex") return sexLabel(learner.sex) || "Unspecified gender";
   if (groupBy === "grade") return learner.gradeName ?? "Unassigned grade";
   if (groupBy === "class") return learner.registerClassName ?? "Unassigned class";
   return "";

@@ -9,7 +9,7 @@ import {
   type SportsHouseRosterColumn,
   type SportsHouseRosterDocumentInput,
 } from "@/features/documents/server/sports-house-roster-document";
-import { getSportsHousesWorkspace } from "@/features/sports-houses/server/queries";
+import { getSportsHouseRosterDateOfBirths, getSportsHousesWorkspace } from "@/features/sports-houses/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 const readerRoles = new Set(["school_admin","principal","deputy_principal","hod","teacher","class_teacher"]);
 
-const SPORTS_ROSTER_COLUMN_KEYS = new Set<SportsHouseRosterColumn>(["admission","grade","class","sex","age","age_group","source","lock"]);
+const SPORTS_ROSTER_COLUMN_KEYS = new Set<SportsHouseRosterColumn>(["admission","dob","grade","class","sex","age","age_group","source","lock"]);
 
 
 function validUuid(value: string | null) {
@@ -75,6 +75,9 @@ export async function GET(request: Request) {
     if (!selectedHouses.length) return Response.json({ error:"No valid houses were selected." },{ status:404 });
     if (requestedIds.size && selectedHouses.length!==requestedIds.size) return Response.json({ error:"A selected house is outside this school." },{ status:403 });
 
+    const dateOfBirths = requestedColumns.includes("dob") && content !== "staff"
+      ? await getSportsHouseRosterDateOfBirths(schoolId, academicYear, selectedHouses.map((house) => house.id))
+      : null;
     const header = await getLiveSchoolDocumentHeader(schoolId,officialDocumentHeaderModeForType("sports_house_roster"));
     const generatedAt = new Intl.DateTimeFormat("en-NA",{day:"2-digit",month:"long",year:"numeric"}).format(new Date());
     const input: SportsHouseRosterDocumentInput = {
@@ -88,7 +91,11 @@ export async function GET(request: Request) {
       learnerColumns,
       sections: selectedHouses.map((house)=>({
         house,
-        learners: workspace.learners.filter((learner)=>learner.houseId===house.id),
+        learners: workspace.learners
+          .filter((learner)=>learner.houseId===house.id)
+          .map((learner) => dateOfBirths
+            ? { ...learner, dateOfBirth: dateOfBirths.get(learner.id) ?? null }
+            : learner),
         staff: workspace.staff.filter((person)=>person.houseId===house.id),
       })),
     };
