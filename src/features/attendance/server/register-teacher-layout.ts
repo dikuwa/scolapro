@@ -184,7 +184,8 @@ export function registerTeacherClosureNotes(
     .filter((day) => !day.teaching)
     .map((day) => {
       const label = registerTeacherClosureLabel(day.reason);
-      const continuation = registerTeacherClosureNeedsContinuation({ label, availableHeight, columnWidth: plan.dayWidth });
+      // Empty sections have no learner grid in which to place a date-column label.
+      const continuation = rowCount === 0 || registerTeacherClosureNeedsContinuation({ label, availableHeight, columnWidth: plan.dayWidth });
       return { date: day.date, label, continuation, index: continuation ? (nextIndex += 1) : null };
     }));
 }
@@ -216,6 +217,12 @@ export function registerTeacherColumnPlan(weeks: readonly RegisterTeacherWeek[])
 }
 
 export type RegisterTeacherSummaryKind = "attendance" | "absence" | "possible";
+
+/** Format the ISO date-only value stored on a learner identity. */
+export function formatRegisterTeacherBirthDate(value: string | null) {
+  const date = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return date ? `${date[3]}/${date[2]}/${date[1]}` : "";
+}
 
 export function formatRegisterTeacherDate(value: string) {
   return new Intl.DateTimeFormat("en-NA", {

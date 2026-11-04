@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { inflateSync } from "node:zlib";
+import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
+import { classListColumnIds } from "../../src/features/learners/class-list-types.ts";
+import { renderOfficialClassListHtml } from "../../src/features/documents/server/render-official-class-list-html.ts";
 import * as XLSX from "xlsx";
 import {
   renderClassListBatchXlsx,
@@ -220,6 +224,53 @@ const classPdf = await renderOfficialClassListPdf({
   responsibleTeacherName: classPdfInput.responsibleTeacherName,
   rosterTitle: classPdfInput.title,
 });
+
+// Render the widest allowed configuration and check that a leap-day value
+// survives PDF fitting and workbook serialization as an unambiguous string.
+const birthDateInput = input("10A");
+birthDateInput.configuration.columns = [...classListColumnIds];
+birthDateInput.configuration.blankColumns = 6;
+birthDateInput.learners[0].dateOfBirth = "2012-02-29";
+birthDateInput.learners[1].dateOfBirth = null;
+const birthDateDocument = {
+  header,
+  academicYear: birthDateInput.academicYear,
+  grade: birthDateInput.grade,
+  registerClass: birthDateInput.className,
+  rows: birthDateInput.learners,
+  columns: birthDateInput.configuration.columns,
+  blankColumns: birthDateInput.configuration.blankColumns,
+};
+const birthDateHtml = renderOfficialClassListHtml(birthDateDocument);
+assert.match(birthDateHtml, />Date of Birth<\/th>/);
+assert.match(birthDateHtml, />Gender<\/th>/);
+assert.match(birthDateHtml, />29\/02\/2012<\/td>/);
+assert.match(birthDateHtml, /column-dateOfBirth">—<\/td>/);
+assert.doesNotMatch(renderOfficialClassListHtml({ ...birthDateDocument, columns: ["sex"] }), /29\/02\/2012|Date of Birth/);
+
+const birthDateWorkbook = XLSX.read(Buffer.from(renderClassListXlsx(birthDateInput, header)), { type: "buffer" });
+const birthDateRows = XLSX.utils.sheet_to_json(birthDateWorkbook.Sheets[birthDateWorkbook.SheetNames[0]], { header: 1 });
+const headerRow = birthDateRows.find((row) => row.includes("Date of Birth"));
+assert.ok(headerRow, "the workbook must have a Date of Birth header");
+const birthDateColumn = headerRow.indexOf("Date of Birth");
+assert.ok(headerRow.includes("Gender"));
+assert.equal(birthDateRows[birthDateRows.indexOf(headerRow) + 1][birthDateColumn], "29/02/2012");
+assert.equal(birthDateRows[birthDateRows.indexOf(headerRow) + 2][birthDateColumn], "—");
+
+const birthDatePdf = await PDFDocument.load((await renderOfficialClassListPdf(birthDateDocument)).bytes);
+const pdfText = birthDatePdf.getPages().flatMap((page) => {
+  const contents = page.node.Contents();
+  const streams = contents instanceof PDFArray
+    ? contents.asArray().map((ref) => birthDatePdf.context.lookup(ref))
+    : [contents];
+  return streams.flatMap((stream) => stream instanceof PDFRawStream
+    ? [...inflateSync(stream.getContents()).toString("latin1").matchAll(/<([0-9a-f]+)>\s*Tj/gi)]
+      .map((match) => Buffer.from(match[1], "hex").toString("latin1"))
+    : []);
+});
+assert.ok(pdfText.includes("Date of Birth"));
+assert.ok(pdfText.includes("Gender"));
+assert.ok(pdfText.includes("29/02/2012"), "the date must fit in the PDF without truncation");
 
 const batch = renderClassListBatchXlsx([input("10A"), input("10B", 10)], header, logoBytes);
 assertWorkbook(batch, 2);

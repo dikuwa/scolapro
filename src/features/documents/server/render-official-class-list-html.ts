@@ -12,7 +12,7 @@ import {
   renderOfficialDocumentHtmlHeader,
 } from "@/features/documents/server/official-document-html-header";
 import type { OfficialDocumentHeaderModel } from "@/features/documents/server/official-document-header";
-import { buildOfficialClassListColumns, classListDocumentName } from "@/features/documents/server/class-list-document";
+import { buildOfficialClassListColumns, classListColumnPercentages, classListDocumentName } from "@/features/documents/server/class-list-document";
 import type { ClassListColumnId, ClassListLearnerRow } from "@/features/learners/class-list-types";
 
 export type OfficialClassListRow = ClassListLearnerRow;
@@ -48,6 +48,8 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
     )
     .join("");
 
+  const hasBirthDate = columns.some((column) => column.key === "dateOfBirth");
+  const columnPercentages = hasBirthDate ? classListColumnPercentages(columns) : null;
   const maleCount = input.rows.filter((row) => normalizedSex(row.sex) === "M").length;
   const femaleCount = input.rows.filter((row) => normalizedSex(row.sex) === "F").length;
   const metadataFooter = renderOfficialDocumentHtmlFooter({
@@ -114,7 +116,7 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
     })}
 
     <table class="class-list">
-      <colgroup>${columns.map((column) => `<col data-column="${escapeOfficialDocumentHtml(column.key)}" />`).join("")}</colgroup>
+      <colgroup>${columns.map((column, index) => `<col data-column="${escapeOfficialDocumentHtml(column.key)}"${columnPercentages ? ` style="width:${columnPercentages[index]}%"` : ""} />`).join("")}</colgroup>
       <thead>
         <tr>${columns.map((column) => `<th class="${column.key === "number" ? "number-cell" : ""}">${escapeOfficialDocumentHtml(column.label)}</th>`).join("")}</tr>
       </thead>

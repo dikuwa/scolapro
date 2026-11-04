@@ -10,7 +10,8 @@ export type OfficialClassListColumn = {
 
 const columnWeights: Record<ClassListColumnId, number> = {
   admissionNumber: 1.05,
-  sex: 0.55,
+  sex: 0.9,
+  dateOfBirth: 1.35,
   registerClass: 0.85,
   status: 0.7,
   guardianName: 1.25,
@@ -26,12 +27,24 @@ function sexInitial(value: string | null): string {
   return value?.trim() || "—";
 }
 
+function formatClassListBirthDate(value: string | null | undefined): string {
+  const parts = value?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!parts) return "—";
+
+  const [, year, month, day] = parts;
+  return `${day}/${month}/${year}`;
+}
+
 function optionalColumn(key: ClassListColumnId): OfficialClassListColumn {
   return {
     key,
     label: classListColumnLabels[key],
     weight: columnWeights[key],
-    value: (row) => key === "sex" ? sexInitial(row.sex) : row[key] || "—",
+    value: (row) => {
+      if (key === "sex") return sexInitial(row.sex);
+      if (key === "dateOfBirth") return formatClassListBirthDate(row.dateOfBirth);
+      return row[key] || "—";
+    },
   };
 }
 

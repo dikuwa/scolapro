@@ -73,7 +73,7 @@ test("application PDF contains the requested labelled form sections", () => {
   assert.match(renderer, /Guardian signature/);
   assert.match(renderer, /SCHOOL STAMP \/ OFFICIAL USE/);
   assert.match(renderer, /const SCHOOL_USE_BOX_HEIGHT = 76/);
-  assert.match(renderer, /fieldPair\(page, bold, "Date of birth", "Sex"/);
+  assert.match(renderer, /fieldPair\(page, bold, "Date of birth", "Gender"/);
   assert.match(renderer, /fieldPair\(page, bold, "Current \/ last grade", "Intended grade \/ year"/);
 });
 

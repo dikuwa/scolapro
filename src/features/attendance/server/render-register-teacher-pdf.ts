@@ -11,6 +11,7 @@ import type { RegisterTeacherDocument, RegisterTeacherSection, RegisterTeacherWe
 import {
   REGISTER_TEACHER_CLOSURE_READABLE_SIZE,
   REGISTER_TEACHER_LAYOUT,
+  formatRegisterTeacherBirthDate,
   formatRegisterTeacherDate,
   registerTeacherBalance,
   registerTeacherClosureLabel,
@@ -99,7 +100,7 @@ function drawPage(input: {
     page.drawText(label, { x: legendX, y: legendY, size: legendSize, font, color });
     legendX += font.widthOfTextAtSize(label, legendSize);
   };
-  legendPart("I", resources.bold, INK);
+  legendPart("I", resources.italic, INK);
   legendPart(" = Present     ");
   legendPart("a", resources.italic, RED);
   legendPart(" = Absent     ");
@@ -246,15 +247,32 @@ function drawPage(input: {
 
   learners.forEach((learner, index) => {
     x = MARGIN;
-    const identity = [learner.admissionNumber ?? "", String(index + 1), learner.surname, learner.givenNames, learner.dateOfBirth ? formatDate(learner.dateOfBirth) : ""];
-    identity.forEach((value, cellIndex) => { drawCell(page, resources.regular, value, x, y, identityWidths[cellIndex], ROW_HEIGHT, { align: cellIndex === 2 || cellIndex === 3 ? "left" : "center", size: 5.3 }); x += identityWidths[cellIndex]; });
+    const identity = [
+      learner.admissionNumber ?? "",
+      String(index + 1),
+      learner.surname,
+      learner.givenNames,
+      formatRegisterTeacherBirthDate(learner.dateOfBirth),
+    ];
+    identity.forEach((value, cellIndex) => {
+      const isName = cellIndex === 2 || cellIndex === 3;
+      drawCell(page, isName ? resources.bold : resources.regular, value, x, y, identityWidths[cellIndex], ROW_HEIGHT, {
+        align: isName ? "left" : "center",
+        size: 5.3,
+      });
+      x += identityWidths[cellIndex];
+    });
     for (const week of weeks) {
       let weekPresent = 0;
       for (const day of week.dates) {
+        if (!day.teaching) {
+          x += dayWidth;
+          continue;
+        }
         const mark = learner.marks[day.date] ?? "";
         if (mark === "I") weekPresent += 1;
-        const markFont = mark === "a" ? resources.italic : resources.bold;
-        drawCell(page, markFont, mark, x, y, dayWidth, ROW_HEIGHT, { fill: day.teaching ? undefined : GREY, color: mark === "a" ? RED : INK, size: 7 });
+        const markFont = resources.italic;
+        drawCell(page, markFont, mark, x, y, dayWidth, ROW_HEIGHT, { color: mark === "a" ? RED : INK, size: 7 });
         if (mark === "a" && learner.reasonedAbsenceDates[day.date]) {
           const markWidth = markFont.widthOfTextAtSize(mark, 7);
           const markX = x + (dayWidth - markWidth) / 2;
@@ -262,10 +280,10 @@ function drawPage(input: {
         }
         x += dayWidth;
       }
-      drawCell(page, resources.bold, String(weekPresent), x, y, dayWidth, ROW_HEIGHT, { fill: RED_SOFT, size: 5.2 });
+      drawCell(page, resources.regular, String(weekPresent), x, y, dayWidth, ROW_HEIGHT, { fill: RED_SOFT, size: 5.2 });
       x += dayWidth;
     }
-    [String(learner.termAttended), String(learner.termAbsent), String(learner.termDays)].forEach((value, termIndex) => { drawCell(page, resources.bold, value, x, y, termWidths[termIndex], ROW_HEIGHT, { fill: termIndex === 0 ? PURPLE_SOFT : termIndex === 1 ? RED_SOFT : GREEN_SOFT, color: termIndex === 1 ? RED : INK, size: 5.5 }); x += termWidths[termIndex]; });
+    [String(learner.termAttended), String(learner.termAbsent), String(learner.termDays)].forEach((value, termIndex) => { drawCell(page, resources.regular, value, x, y, termWidths[termIndex], ROW_HEIGHT, { fill: termIndex === 0 ? PURPLE_SOFT : termIndex === 1 ? RED_SOFT : GREEN_SOFT, color: termIndex === 1 ? RED : INK, size: 5.5 }); x += termWidths[termIndex]; });
     y -= ROW_HEIGHT;
   });
 
@@ -285,7 +303,7 @@ function drawPage(input: {
     }
     for (const week of weeks) {
       for (const day of week.dates) {
-        drawCell(page, resources.regular, "", x, y, dayWidth, spacerHeight, { fill: day.teaching ? undefined : GREY });
+        if (day.teaching) drawCell(page, resources.regular, "", x, y, dayWidth, spacerHeight);
         x += dayWidth;
       }
       drawCell(page, resources.regular, "", x, y, dayWidth, spacerHeight, { fill: RED_SOFT });
@@ -309,11 +327,21 @@ function drawPage(input: {
   // carries an index marker and the complete governed name is carried by the
   // closure-note continuation band drawn below the grid.
   closureColumns.forEach((column, index) => {
+    // Empty sections identify closed dates in the notes, as in the HTML preview.
+    if (!learners.length) return;
+    // Match the preview's rowspan with one fill and a perimeter. Drawing a cell
+    // on each learner row would put horizontal rules through the rotated label.
+    page.drawRectangle({
+      x: column.x,
+      y,
+      width: column.width,
+      height: rowBandTop - y,
+      color: GREY,
+      borderColor: LINE,
+      borderWidth: 0.42,
+    });
     const note = closureNotes[index];
     if (note?.continuation) {
-      // With no learner row there is no date-column body to mark, exactly as in
-      // the HTML preview; the band's own date keeps the name unambiguous.
-      if (!learners.length) return;
       const marker = String(note.index);
       const markerSize = 6.4;
       const markerWidth = resources.bold.widthOfTextAtSize(marker, markerSize);

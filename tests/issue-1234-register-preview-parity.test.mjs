@@ -14,6 +14,26 @@ import {
   weekdaysBetween,
 } from "./helpers/register-teacher-harness.mjs";
 
+async function readPdfPages(bytes) {
+  const { PDFArray, PDFDict, PDFDocument, PDFName, PDFRawStream } = await import("pdf-lib");
+  const doc = await PDFDocument.load(bytes);
+  return doc.getPages().map((page) => {
+    const contents = page.node.Contents();
+    const streams = contents instanceof PDFArray
+      ? contents.asArray().map((reference) => doc.context.lookup(reference))
+      : [contents];
+    const content = streams.filter((stream) => stream instanceof PDFRawStream).map((stream) => {
+      const raw = Buffer.from(stream.getContents());
+      try { return zlib.inflateSync(raw).toString("latin1"); } catch { return raw.toString("latin1"); }
+    }).join("\n");
+    const fonts = page.node.Resources()?.lookup(PDFName.of("Font"), PDFDict);
+    return {
+      content,
+      fontName: (key) => fonts?.lookup(PDFName.of(key), PDFDict).get(PDFName.of("BaseFont"))?.toString(),
+    };
+  });
+}
+
 /**
  * Extracts text-showing operators from a rendered register PDF by inflating
  * its FlateDecode content streams and decoding the hex-encoded strings pdf-lib
@@ -21,65 +41,64 @@ import {
  * in the E2E guard) can actually see, not just source-code patterns.
  */
 async function extractPdfContentText(bytes) {
-  const { PDFArray, PDFDocument, PDFRawStream } = await import("pdf-lib");
-  const doc = await PDFDocument.load(bytes);
   let text = "";
-  for (const page of doc.getPages()) {
-    const contents = page.node.Contents();
-    if (!contents) continue;
-    const streams = contents instanceof PDFArray
-      ? contents.asArray().map((reference) => doc.context.lookup(reference))
-      : [contents];
-    for (const stream of streams) {
-      if (!(stream instanceof PDFRawStream)) continue;
-      const raw = Buffer.from(stream.getContents());
-      let decoded;
-      try { decoded = zlib.inflateSync(raw).toString("latin1"); } catch { decoded = raw.toString("latin1"); }
-      // pdf-lib draws standard-font text as hex strings (<48656C6C6F> Tj).
-      // Only the decoded printable text is kept so a name wrapped across several
-      // drawText operators can still be checked as one contiguous string. Glyph
-      // IDs from the subset Old English font decode to non-printable bytes and
-      // are skipped.
-      for (const match of decoded.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
-        const value = Buffer.from(match[1], "hex").toString("latin1");
-        if (/^[\x20-\x7E]+$/.test(value)) text += `${value} `;
-      }
+  for (const { content } of await readPdfPages(bytes)) {
+    // Skip non-printable glyph IDs from the subset Old English font.
+    for (const match of content.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
+      const value = Buffer.from(match[1], "hex").toString("latin1");
+      if (/^[\x20-\x7E]+$/.test(value)) text += `${value} `;
     }
   }
   return text;
 }
 
-/**
- * Horizontal text placements (page, x, y, text) read from the rendered PDF
- * content stream. pdf-lib draws horizontal standard-font text as
- * `1 0 0 1 x y Tm` followed by a hex `<...> Tj`, so this deliberately ignores
- * the rotated in-column closure labels and lets the band/summary geometry be
- * compared directly to prove there is no text collision.
- */
+/** Extract horizontal text positions and the actual PDF font resource per span. */
 async function extractPdfTextPlacements(bytes) {
-  const { PDFArray, PDFDocument, PDFRawStream } = await import("pdf-lib");
-  const doc = await PDFDocument.load(bytes);
-  const placements = [];
-  const pages = doc.getPages();
-  for (const [pageIndex, page] of pages.entries()) {
-    const contents = page.node.Contents();
-    if (!contents) continue;
-    const streams = contents instanceof PDFArray
-      ? contents.asArray().map((reference) => doc.context.lookup(reference))
-      : [contents];
-    for (const stream of streams) {
-      if (!(stream instanceof PDFRawStream)) continue;
-      const raw = Buffer.from(stream.getContents());
-      let decoded;
-      try { decoded = zlib.inflateSync(raw).toString("latin1"); } catch { decoded = raw.toString("latin1"); }
-      for (const match of decoded.matchAll(/1 0 0 1 (-?[\d.]+) (-?[\d.]+) Tm\s*<([0-9A-Fa-f]+)> Tj/g)) {
+  return (await readPdfPages(bytes)).flatMap(({ content, fontName }, page) => {
+    const placements = [];
+    for (const [block] of content.matchAll(/(?:^|\n)BT\n[\s\S]*?\nET(?=\n|$)/g)) {
+      const font = block.match(/\/([^\s/]+) [-\d.]+ Tf/)?.[1];
+      const color = block.match(/^([\d.]+ [\d.]+ [\d.]+) rg$/m)?.[1];
+      for (const match of block.matchAll(/1 0 0 1 (-?[\d.]+) (-?[\d.]+) Tm\s*<([0-9A-Fa-f]+)> Tj/g)) {
         const value = Buffer.from(match[3], "hex").toString("latin1");
         if (!/^[\x20-\x7E]+$/.test(value)) continue;
-        placements.push({ page: pageIndex, x: Number(match[1]), y: Number(match[2]), text: value });
+        placements.push({ page, x: Number(match[1]), y: Number(match[2]), text: value, font: font && fontName(font), color });
       }
     }
+    return placements;
+  });
+}
+
+function rectanglePaths(content) {
+  return content.split(/^q$/m).flatMap((block) => {
+    const origin = block.match(/^1 0 0 1 ([-\d.]+) ([-\d.]+) cm$/m);
+    const path = block.match(/^0 0 m\n0 ([\d.]+) l\n([\d.]+) \1 l\n\2 0 l\nh\n([BfS])\nQ$/m);
+    if (!origin || !path) return [];
+    const color = block.match(/^([\d.]+ [\d.]+ [\d.]+) rg$/m)?.[1];
+    return [{ x: Number(origin[1]), y: Number(origin[2]), height: Number(path[1]), width: Number(path[2]), paint: path[3], color }];
+  });
+}
+
+function assertContinuousClosureBands(content, weeks, learnerCount) {
+  const { dayWidth, identityWidths } = layout.registerTeacherColumnPlan(weeks);
+  let x = layout.REGISTER_TEACHER_LAYOUT.margin + identityWidths.reduce((total, width) => total + width, 0);
+  const rectangles = rectanglePaths(content);
+  const bodyHeight = Math.max(layout.REGISTER_TEACHER_LAYOUT.sparseClosureBandHeight, layout.REGISTER_TEACHER_LAYOUT.rowHeight * learnerCount);
+  for (const week of weeks) {
+    for (const date of week.dates) {
+      if (!date.teaching) {
+        const column = rectangles.filter((rectangle) => Math.abs(rectangle.x - x) < 0.01 && Math.abs(rectangle.width - dayWidth) < 0.01);
+        const bands = column.filter((rectangle) => rectangle.paint === "B" && rectangle.color === "0.92 0.92 0.92" && Math.abs(rectangle.height - bodyHeight) < 0.01);
+        assert.equal(bands.length, learnerCount > 0 ? 1 : 0, `closure band for ${date.date}`);
+        for (const band of bands) {
+          assert.equal(column.filter((rectangle) => rectangle !== band && rectangle.y < band.y + band.height - 0.01 && rectangle.y + rectangle.height > band.y + 0.01).length, 0,
+            `no learner cell rectangles or horizontal strokes inside ${date.date}`);
+        }
+      }
+      x += dayWidth;
+    }
+    x += dayWidth;
   }
-  return placements;
 }
 
 // Continuation-band body lines are drawn at MARGIN(32) + band padding(5) + text
@@ -127,6 +146,7 @@ function buildDenseDocument(mode = "week") {
       id: `b${index + 1}`,
       admission_number: `2026-${String(index + 1).padStart(3, "0")}`,
       surname: surnames[index % surnames.length],
+      date_of_birth: "2014-07-09",
       first_names: given[index % given.length],
       sex: "male",
     }));
@@ -338,6 +358,23 @@ test("dense synthetic register renders matching HTML and PDF pages in both modes
     const renderedPdf = await pdfRenderer.renderRegisterTeacherPdf({ header, document });
     assert.equal(renderedPdf.pageCount, expectedPages);
     assert.equal((renderedHtml.match(/register page \d+ of \d+/g) ?? []).length, expectedPages);
+    const pdfPages = await readPdfPages(renderedPdf.bytes);
+    for (const [index, job] of layout.registerTeacherPageJobs(document).entries()) {
+      assertContinuousClosureBands(pdfPages[index].content, job.weeks, job.learners.length);
+    }
+    const placements = await extractPdfTextPlacements(renderedPdf.bytes);
+    for (const [mark, color] of [["I", "0.08 0.08 0.08"], ["a", "0.64 0.07 0.09"]]) {
+      const spans = placements.filter((placement) => placement.text === mark);
+      assert.ok(spans.length > expectedPages, `both legend and body contain ${mark}`);
+      assert.ok(spans.every((span) => span.font === "/Helvetica-Oblique" && span.color === color));
+    }
+    for (const [value, font] of [["Amutenya", "/Helvetica-Bold"], ["Johannes Nepomuk", "/Helvetica-Bold"], ["09/07/2014", "/Helvetica"], ["2026-001", "/Helvetica"]]) {
+      const spans = placements.filter((placement) => placement.text === value);
+      assert.ok(spans.length > 0, `PDF contains ${value}`);
+      assert.ok(spans.every((span) => span.font === font), `PDF uses ${font} for ${value}`);
+    }
+    assert.match(renderedHtml, /class="identity dob">09\/07\/2014</);
+    assert.match(renderedHtml, /\.learner-row > \.surname,\.learner-row > \.given \{ font-weight:700/);
     // Both sections paginate at the shared 40 learners per page and keep the
     // governed closure label in the HTML attendance area.
     assert.match(renderedHtml, /class="mark non-teaching closure-column"/);
@@ -421,6 +458,14 @@ test("sparse register sections never drop the governed closure label from the PD
     const document = buildSparseDocument(learnerCount, closureTitle);
     const rendered = await pdfRenderer.renderRegisterTeacherPdf({ header: HEADER_FIXTURE, document });
     assert.equal(rendered.pageCount, 2, `learnerCount=${learnerCount} renders BOYS + GIRLS pages`);
+    const pdfPages = await readPdfPages(rendered.bytes);
+    for (const [index, job] of layout.registerTeacherPageJobs(document).entries()) {
+      assertContinuousClosureBands(pdfPages[index].content, job.weeks, job.learners.length);
+    }
+    if (learnerCount === 0) {
+      const preview = htmlRenderer.renderRegisterTeacherHtml({ header: HEADER_FIXTURE, document });
+      assert.equal(preview.split(`class="closure-note-name">${closureLabel}`).length - 1, 4);
+    }
     const text = await extractPdfContentText(rendered.bytes);
     assert.ok(text.length > 0, `learnerCount=${learnerCount} exposes inflated content streams`);
     // Wrapped labels are drawn as one text operator per line, so the full name
