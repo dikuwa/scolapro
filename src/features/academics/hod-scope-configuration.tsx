@@ -166,21 +166,19 @@ function AssignSubjectsForm({
   subjects,
   heads,
   today,
-  defaultDepartmentLabel,
   onComplete,
 }: {
   schoolId: string;
   subjects: HodScopeSubject[];
   heads: HodScopeHeadOption[];
   today: string;
-  defaultDepartmentLabel?: string;
   onComplete: () => void;
 }) {
   const [state, action, pending] = useActionState(saveHodSubjectPortfolio, emptyState);
   useCloseOnSuccess(state, onComplete);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [assignmentId, setAssignmentId] = useState("");
-  const [departmentLabel, setDepartmentLabel] = useState(defaultDepartmentLabel ?? "");
+  const [departmentLabel, setDepartmentLabel] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState(today);
   const [effectiveTo, setEffectiveTo] = useState("");
 
@@ -196,7 +194,7 @@ function AssignSubjectsForm({
   return (
     <form action={action} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
       <div>
-        <h4 className="text-sm font-semibold text-foreground">Assign subjects</h4>
+        <h4 className="text-sm font-semibold text-foreground">Assign standalone subjects</h4>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
           Select one or more subjects in one save. Only current HOD staff placements are offered; the HOD does not need to teach the subject.
         </p>
@@ -441,16 +439,15 @@ function PortfolioScopeRow({
   today: string;
   schoolId: string;
   open: boolean;
-  operation: "assign" | "change" | "end" | null;
+  operation: "change" | "end" | null;
   onToggle: () => void;
   onComplete: () => void;
-  onToggleOperation: (next: "assign" | "change" | "end") => void;
+  onToggleOperation: (next: "change" | "end") => void;
 }) {
   const active = activeAppointment(portfolio, today);
   const status = portfolioStatus(portfolio, today);
 
   const operations = [
-    { value: "assign" as const, label: "Assign subjects" },
     { value: "change" as const, label: active ? "Change HOD" : "Assign HOD later" },
     { value: "end" as const, label: "End responsibility" },
   ];
@@ -526,16 +523,6 @@ function PortfolioScopeRow({
           {operation === null ? (
             <p className="text-[0.68rem] text-muted-foreground">Choose an operation to update this scope.</p>
           ) : null}
-          {operation === "assign" ? (
-            <AssignSubjectsForm
-              schoolId={schoolId}
-              subjects={subjects}
-              heads={heads}
-              today={today}
-              defaultDepartmentLabel={portfolio.label}
-              onComplete={onComplete}
-            />
-          ) : null}
           {operation === "change" ? (
             <AppointHodForm schoolId={schoolId} heads={heads} today={today} portfolios={[]} portfolio={portfolio} onComplete={onComplete} />
           ) : null}
@@ -564,7 +551,7 @@ export function HodScopeConfiguration({
   portfolios: HodScopePortfolio[];
 }) {
   const [openScopeId, setOpenScopeId] = useState<string | null>(null);
-  const [openOperation, setOpenOperation] = useState<"assign" | "change" | "end" | null>(null);
+  const [openOperation, setOpenOperation] = useState<"change" | "end" | null>(null);
 
   const toggleScope = (scopeId: string) => {
     setOpenScopeId((current) => (current === scopeId ? null : scopeId));
@@ -573,7 +560,7 @@ export function HodScopeConfiguration({
     setShowCreate(false);
   };
 
-  const toggleOperation = (next: "assign" | "change" | "end") =>
+  const toggleOperation = (next: "change" | "end") =>
     setOpenOperation((current) => (current === next ? null : next));
   const [showCreate, setShowCreate] = useState(false);
   const [standaloneOperation, setStandaloneOperation] = useState<"assign" | "end" | null>(null);
@@ -595,7 +582,7 @@ export function HodScopeConfiguration({
           <div>
             <h2 className="scolapro-section-title">HOD teaching scope</h2>
             <p className="scolapro-section-description">
-              Every configured portfolio is listed here. Open one scope to assign subjects, change its HOD or end a responsibility.
+              Every configured portfolio is listed here. Open one scope to appoint or change its HOD, or end the whole scope.
             </p>
           </div>
         </div>

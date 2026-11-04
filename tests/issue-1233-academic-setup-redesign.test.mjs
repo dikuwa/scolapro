@@ -83,7 +83,7 @@ test("all configured HOD scopes are listed without opening an editor", () => {
   assert.doesNotMatch(hod, /openScopeId === portfolio\.id \? \(/);
   // Progressive, explicit per-scope actions.
   assert.match(hod, /Manage scope/);
-  assert.match(hod, /Assign subjects/);
+  assert.match(hod, /Assign standalone subjects/);
   assert.match(hod, /Change HOD/);
   assert.match(hod, /End responsibility/);
   // Compact subject-code badges instead of a large editable row per subject.
@@ -95,7 +95,6 @@ test("all configured HOD scopes are listed without opening an editor", () => {
   // Within an opened scope only one operation renders at a time.
   assert.match(hod, /operation=\{openScopeId === portfolio\.id \? openOperation : null\}/);
   assert.match(hod, /onToggleOperation=\{toggleOperation\}/);
-  assert.match(hod, /operation === "assign" \? \(/);
   assert.match(hod, /operation === "change" \? \(/);
   assert.match(hod, /operation === "end" && active \? \(/);
 });
@@ -185,4 +184,17 @@ test("departmental create and revision actions reject reversed dates before data
     const result = await action({}, form);
     assert.deepEqual(result.fieldErrors, { endsOn: ["End date cannot be before start date."] });
   }
+});
+
+test("portfolio operations cannot grant standalone responsibilities", () => {
+  const portfolio = hod.slice(hod.indexOf("function PortfolioScopeRow"), hod.indexOf("export function HodScopeConfiguration"));
+  const standalone = hod.slice(hod.indexOf('aria-label="Standalone subject responsibilities"'));
+  assert.doesNotMatch(portfolio, /AssignSubjectsForm|Assign subjects|value: "assign"/);
+  assert.match(portfolio, /AppointHodForm[^>]*portfolio=\{portfolio\}/);
+  assert.match(portfolio, /EndResponsibilityForm[^>]*appointmentId=\{active.id\}/);
+  assert.match(standalone, /Assign standalone subjects/);
+  assert.match(standalone, /standaloneOperation === "assign"[^>]*<AssignSubjectsForm/);
+  assert.match(standalone, /EndResponsibilityForm[^>]*responsibilities=\{responsibilities\}/);
+  assert.match(hod, /name="appointmentId" value=\{appointmentId\}/);
+  assert.match(hod, /name="responsibilityIds" value=\{id\}/);
 });
