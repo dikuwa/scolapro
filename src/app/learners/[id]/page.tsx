@@ -124,7 +124,7 @@ export default async function LearnerOverviewPage({ params }: { params: Promise<
           <dl className="grid gap-x-5 gap-y-3 text-xs sm:grid-cols-2 lg:grid-cols-4">
             <div><dt className="text-muted-foreground">Admission</dt><dd className="mt-1 font-semibold">{learner.admissionNumber ?? "Not recorded"}</dd></div>
             <div><dt className="text-muted-foreground">Placement</dt><dd className="mt-1 font-semibold">{learner.grade} · {learner.registerClass}</dd></div>
-            <div><dt className="text-muted-foreground">Sex</dt><dd className="mt-1 font-semibold capitalize">{learner.sex ?? "Not recorded"}</dd></div>
+            <div><dt className="text-muted-foreground">Gender</dt><dd className="mt-1 font-semibold capitalize">{learner.sex ?? "Not recorded"}</dd></div>
             <div><dt className="text-muted-foreground">DOB / age</dt><dd className="mt-1 font-semibold">{formatDate(learner.dateOfBirth)}{age !== null ? ` · ${age}` : ""}</dd></div>
             <div><dt className="text-muted-foreground">House</dt><dd className="mt-1 font-semibold">{compactContext.houseName ?? "Unassigned"}</dd></div>
             <div><dt className="text-muted-foreground">Status</dt><dd className="mt-1 font-semibold capitalize">{learner.status}</dd></div>

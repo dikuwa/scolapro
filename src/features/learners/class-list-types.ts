@@ -1,6 +1,7 @@
 export const classListColumnIds = [
   "admissionNumber",
   "sex",
+  "dateOfBirth",
   "registerClass",
   "status",
   "guardianName",
@@ -43,6 +44,7 @@ export type ClassListLearnerRow = {
   learnerName: string;
   admissionNumber: string | null;
   sex: string | null;
+  dateOfBirth?: string | null;
   registerClass: string;
   status: string;
   guardianName: string | null;
@@ -76,7 +78,8 @@ export type ClassListBatchWorkspaceData = {
 
 export const classListColumnLabels: Record<ClassListColumnId, string> = {
   admissionNumber: "Admission No.",
-  sex: "Sex",
+  sex: "Gender",
+  dateOfBirth: "Date of Birth",
   registerClass: "Register Class",
   status: "Status",
   guardianName: "Guardian name",

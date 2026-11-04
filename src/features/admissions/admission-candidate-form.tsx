@@ -25,7 +25,7 @@ export function AdmissionCandidateForm({
         <Field label="First names" name="first_names" defaultValue={candidate.first_names} required />
         <Field label="Preferred name" name="preferred_name" defaultValue={candidate.preferred_name} />
         <Field label="Date of birth" name="date_of_birth" type="date" defaultValue={candidate.date_of_birth} />
-        <Field label="Sex" name="sex" defaultValue={candidate.sex} />
+        <Field label="Gender" name="sex" defaultValue={candidate.sex} />
         <Field label="Citizenship" name="citizenship" defaultValue={candidate.citizenship} />
         <Field label="Home language" name="home_language" defaultValue={candidate.home_language} />
         <Field label="Previous school" name="previous_school" defaultValue={candidate.previous_school} />

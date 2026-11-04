@@ -85,7 +85,8 @@ function preferredColumnWidth(key: string): number {
   if (key === "number") return 28;
   if (key === "admissionNumber") return 68;
   if (key === "learner") return 150;
-  if (key === "sex") return 34;
+  if (key === "sex") return 38;
+  if (key === "dateOfBirth") return 84;
   if (key === "status") return 58;
   if (key === "registerClass") return 78;
   if (key === "guardianName") return 118;
@@ -100,7 +101,13 @@ function fitColumnWidths(keys: string[]): number[] {
   const preferred = keys.map(preferredColumnWidth);
   const total = preferred.reduce((sum, width) => sum + width, 0);
   const scale = CONTENT_WIDTH / total;
-  return preferred.map((width) => width * scale);
+  const minimumWidths = keys.map((key) => key === "dateOfBirth" ? 44 : key === "sex" ? 28 : 0);
+  if (preferred.every((width, index) => width * scale >= minimumWidths[index])) {
+    return preferred.map((width) => width * scale);
+  }
+  const reservedWidth = minimumWidths.reduce((sum, width) => sum + width, 0);
+  const flexibleWidth = preferred.reduce((sum, width, index) => sum + (minimumWidths[index] ? 0 : width), 0);
+  return preferred.map((width, index) => minimumWidths[index] || width * (CONTENT_WIDTH - reservedWidth) / flexibleWidth);
 }
 
 function drawTableHeader(page: PDFPage, bold: PDFFont, y: number, widths: number[], labels: string[], documentX: number) {

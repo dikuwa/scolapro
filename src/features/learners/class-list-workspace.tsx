@@ -35,7 +35,7 @@ type StoredConfiguration = { id: string; name: string; configuration: ClassListC
 function readStored(key: string): StoredConfiguration[] {
   try {
     const parsed = JSON.parse(localStorage.getItem(key) ?? "[]");
-    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.name === "string" && item.configuration) : [];
+    return Array.isArray(parsed) ? parsed.filter((item) => item && typeof item.name === "string" && Array.isArray(item.configuration?.columns)) : [];
   } catch {
     return [];
   }
@@ -297,6 +297,10 @@ export function ClassListWorkspace({
   const exportBase = `/api/official-documents/class-list?${exportParams.toString()}`;
   const availableColumns = classListColumnIds.filter((column) => data.canViewGuardianFields || !guardianColumns.has(column));
   const batchMatchesServer = targets.length === batch.targets.length && targets.every((item) => batch.targets.some((current) => targetKey(current) === targetKey(item)));
+  const previewMatchesDraft = batchMatchesServer &&
+    configuration.blankColumns === data.configuration.blankColumns &&
+    configuration.columns.length === data.configuration.columns.length &&
+    configuration.columns.every((column, index) => column === data.configuration.columns[index]);
 
   function patch(next: Partial<ClassListConfiguration>) {
     setConfiguration((current) => ({ ...current, ...next }));
@@ -362,7 +366,7 @@ export function ClassListWorkspace({
   }
 
   function applyStored(item: StoredConfiguration) {
-    const allowedColumns = item.configuration.columns.filter((column) => data.canViewGuardianFields || !guardianColumns.has(column));
+    const allowedColumns = Array.from(new Set(item.configuration.columns.filter((column) => availableColumns.includes(column))));
     setConfiguration((current) => ({
       ...current,
       columns: allowedColumns,
@@ -444,11 +448,15 @@ export function ClassListWorkspace({
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]" aria-busy={pending}>
         <div className="flex flex-col gap-3 border-b border-border-subtle px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div><h2 className="scolapro-section-title">Preview</h2><p className="scolapro-section-description">{batch.targets.length} list{batch.targets.length === 1 ? "" : "s"} · {batch.totalLearners} learner{batch.totalLearners === 1 ? "" : "s"}</p></div>
-          {targets.length ? <ClassListDocumentActions baseHref={exportBase} batch={targets.length > 1} /> : null}
+          {targets.length && previewMatchesDraft && !pending ? <ClassListDocumentActions baseHref={exportBase} batch={targets.length > 1} /> : null}
         </div>
-        {batch.lists.length ? <div className="space-y-5 p-4 sm:p-5">
+        {!previewMatchesDraft ? (
+          <p role="status" className="p-4 text-xs text-muted-foreground">
+            {targets.length ? "Preview the batch to apply your changes." : "Select a roster to prepare a preview."}
+          </p>
+        ) : batch.lists.length ? <div className="space-y-5 p-4 sm:p-5">
           {batch.lists.map((list) => {
-            const previewColumns = buildOfficialClassListColumns(configuration.columns, configuration.blankColumns);
+            const previewColumns = buildOfficialClassListColumns(list.configuration.columns, list.configuration.blankColumns);
             return <section key={`${list.configuration.rosterType}:${list.configuration.rosterId}`} className="overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle">
               <div className="flex flex-wrap items-baseline justify-between gap-2 bg-surface-muted px-3 py-2.5"><h3 className="text-sm font-semibold">{classListDocumentName(list.className, list.title)}</h3><span className="text-xs text-muted-foreground">{list.learners.length} learners</span></div>
               {list.learners.length ? <div className="max-h-[52vh] w-full overflow-auto overscroll-contain">
