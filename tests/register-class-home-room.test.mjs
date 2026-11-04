@@ -109,8 +109,10 @@ test("10. the warning uses theme tokens and announces itself for assistive techn
 });
 
 test("11. the setup page keeps school-scoped rooms and passes classes for conflict detection", () => {
-  assert.match(setupPage, /rooms=\{rooms\} classes=\{structure\.classes\}/);
-  assert.match(setupPage, /classes=\{structure\.classes\} rooms=\{rooms\}/);
+  // Issue #1233 moved the register structure into the combined Grade & Class
+  // card, so the page passes grades/rooms/classes once to that single surface.
+  assert.match(setupPage, /rooms=\{rooms\}\s+classes=\{structure\.classes\}/);
+  assert.match(setupPage, /<AcademicStructureForms/);
   assert.match(setupPage, /canManageAcademicStructure \? listSchoolRooms\(membership\.schoolId\) : Promise\.resolve\(\[\]\)/);
 });
 
