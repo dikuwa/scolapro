@@ -3,7 +3,7 @@ import { DEMO } from "./support/accounts.mjs";
 import { signIn } from "./support/session";
 
 const roster = `register_class:${DEMO.registerClass10A}`;
-const target = new URLSearchParams({ scope: "all", target: roster });
+const target = new URLSearchParams({ scope: "all", target: roster, year: "2026" });
 const previewUrl = `/class-lists?${target}`;
 const presetKey = "scolapro:class-list-presets:v1";
 const birthDate = "18/06/2010";
