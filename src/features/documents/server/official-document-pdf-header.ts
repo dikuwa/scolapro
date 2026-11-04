@@ -14,6 +14,7 @@ import { loadOfficialOldEnglishFontBytes } from "@/features/documents/server/off
 import { isBoundedDecodablePng } from "@/features/documents/server/official-document-png";
 import {
   normalizeInternalSchoolDocumentHeaderContext,
+  officialDocumentInternalIdentityLines,
   type InternalSchoolDocumentHeaderContext,
   type OfficialDocumentHeaderModel,
 } from "@/features/documents/server/official-document-header";
@@ -33,6 +34,7 @@ export const INTERNAL_SCHOOL_DOCUMENT_PDF_HEADER_HEIGHT = 72;
 export type OfficialDocumentPdfResources = {
   regular: PDFFont;
   bold: PDFFont;
+  italic: PDFFont;
   schoolNameFont: PDFFont;
   logo: PDFImage | null;
   coatOfArms: PDFImage | null;
@@ -132,6 +134,7 @@ export async function createOfficialDocumentPdfResources(
 ): Promise<OfficialDocumentPdfResources> {
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const italic = await pdf.embedFont(StandardFonts.HelveticaOblique);
   let schoolNameFont = bold;
   if (header.schoolNameFont === "old_english") {
     pdf.registerFontkit(fontkit);
@@ -140,6 +143,7 @@ export async function createOfficialDocumentPdfResources(
   return {
     regular,
     bold,
+    italic,
     schoolNameFont,
     logo: await embedOfficialDocumentLogo(
       pdf,
@@ -221,16 +225,23 @@ function drawInternalHeader(
     lineY -= 8;
   }
 
-  header.contactLines.slice(0, 4).forEach((line) => {
-    const label = `${line.label}:`;
-    page.drawText(label, { x: identityX + 2, y: lineY, size: 5.7, font: bold, color: INK });
-    const labelWidth = bold.widthOfTextAtSize(label, 5.7);
-    page.drawText(fitOfficialDocumentPdfText(regular, line.value, 5.7, Math.max(18, identityWidth - labelWidth - 5)), {
-      x: identityX + 5 + labelWidth,
-      y: lineY,
-      size: 5.7,
-      font: regular,
-      color: INK,
+  officialDocumentInternalIdentityLines(header).forEach((line) => {
+    let partX = identityX + 2;
+    line.parts.forEach((part, index) => {
+      if (index > 0) partX += 7;
+      const label = `${part.label}:`;
+      const labelWidth = bold.widthOfTextAtSize(label, 5.7);
+      const remainingWidth = Math.max(18, identityX + identityWidth - partX - labelWidth - 3);
+      const value = fitOfficialDocumentPdfText(regular, part.value, 5.7, remainingWidth);
+      page.drawText(label, { x: partX, y: lineY, size: 5.7, font: bold, color: INK });
+      page.drawText(value, {
+        x: partX + labelWidth + 3,
+        y: lineY,
+        size: 5.7,
+        font: regular,
+        color: INK,
+      });
+      partX += labelWidth + 3 + regular.widthOfTextAtSize(value, 5.7);
     });
     lineY -= 7;
   });

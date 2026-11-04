@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useActionState, useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
   FileScan,
@@ -102,7 +101,7 @@ type CalendarDiscrepancyCause = {
   reason: string;
   sourceLabel: string;
   dayDelta: -1 | 1;
-  href: "#calendar-adjustments" | "#learner-calendar-events";
+  href: "#official-calendar";
 };
 
 function dateRange(start: string, end: string) {
@@ -180,7 +179,7 @@ function discrepancyCausesForTerm(
       reason: item.reason ?? underlyingClosure?.title ?? "Calendar adjustment",
       sourceLabel,
       dayDelta: closesWeekday ? -1 : 1,
-      href: "#calendar-adjustments",
+      href: "#official-calendar",
     });
   }
 
@@ -193,7 +192,7 @@ function discrepancyCausesForTerm(
       reason: event.title,
       sourceLabel: event.scope === "national" ? "national learner event" : "school learner event",
       dayDelta: -1,
-      href: "#learner-calendar-events",
+      href: "#official-calendar",
     });
   }
 
@@ -249,7 +248,7 @@ function TermCalendarProfileEditor({
   const hasOfficial = term.officialLearnerDayCount != null;
   const matches = hasOfficial && term.officialLearnerDayCount === term.calculatedLearnerDayCount;
   const discrepancyRows = discrepancyCausesForTerm(term, dayExceptions, learnerEvents);
-  const reviewHref = discrepancyRows[0]?.href ?? "#calendar-adjustments";
+  const reviewHref = discrepancyRows[0]?.href ?? "#official-calendar";
   const phase = term.termStatus === "closed"
     ? "Closed"
     : !term.learnerStartsOn || !term.learnerEndsOn
@@ -690,21 +689,6 @@ export function OperationalCalendarManager({
           </div>
         ) : null}
 
-      </section>
-
-      <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface-muted p-4 sm:p-5">
-        <div className="flex items-start gap-2.5">
-          <span className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-success-soft text-[color:var(--success)]">
-            <CheckCircle2 className="size-4" />
-          </span>
-          <div>
-            <h2 className="scolapro-section-title">Calendar rule</h2>
-            <p className="scolapro-section-description !mt-0">
-              An event does not close registers simply because it exists. Only an explicit learner-day effect changes the
-              resolved school day. Department events can never change learner school-day status.
-            </p>
-          </div>
-        </div>
       </section>
     </div>
   );

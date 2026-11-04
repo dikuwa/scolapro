@@ -9,7 +9,7 @@ const recordAction = readFileSync("src/components/ui/record-action-button.tsx", 
 test("staff desktop rows allocate the widest flexible region to ScolaPro access", () => {
   assert.match(page, /lg:grid-cols-\[2rem_minmax\(15rem,1\.1fr\)_minmax\(12rem,0\.72fr\)_minmax\(24rem,1\.45fr\)\]/);
   assert.match(access, /bg-surface-muted\/35/);
-  assert.match(access, /sm:grid-cols-\[minmax\(0,1fr\)_auto\]/);
+  assert.match(access, /flex min-w-0 flex-col gap-2/);
 });
 
 test("tablet rows place access below identity and placement without horizontal-only assumptions", () => {
@@ -25,7 +25,7 @@ test("closed linked-account rows cap role preview at two labels plus an overflow
 });
 
 test("access and identity panels use one mutually exclusive row state and full-width tray", () => {
-  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| null/);
+  assert.match(access, /type StaffRowPanel = "access" \| "identity" \| "hod-placement" \| null/);
   assert.match(access, /setPanel\(\(current\) => current === next \? null : next\)/);
   assert.match(access, /panel === "access"/);
   assert.match(access, /panel === "identity"/);

@@ -28,7 +28,7 @@ test("calendar workspace separates official day metadata from operational events
   assert.match(manager, /School events/);
   assert.match(manager, /Resolved \/ published learner days/);
   assert.match(manager, /learnerDayEffect" value="UNCHANGED/);
-  assert.match(manager, /Department events can never change learner school-day status/);
+  assert.match(manager, /Official dates and teaching-impact changes belong below/);
 });
 
 test("official published totals remain validation targets while resolved days drive registers", () => {
@@ -104,11 +104,11 @@ test("learner term boundaries are first-class editable operational dates", () =>
 
 test("school leadership edits effective calendar adjustments without rewriting national baseline", () => {
   assert.match(calendarPage, /canManage=\{canManageSchool\}/);
-  assert.match(impactManager, /Calendar adjustments & exceptions/);
+  assert.match(impactManager, /Official calendar & adjustments/);
   assert.match(impactManager, /saveTeachingImpact/);
   assert.match(impactManager, /Adjust/);
   assert.match(impactManager, /Save adjustment/);
-  assert.match(impactManager, /national\/public baseline/);
+  assert.match(impactManager, /baseline retained/);
   assert.doesNotMatch(impactManager, /Legacy single-date teaching overrides/);
 });
 
@@ -122,8 +122,7 @@ test("term discrepancy warning attributes overrides and effective learner events
   assert.match(manager, /current\.scope === "national" && event\.scope === "school"/);
   assert.match(manager, /overrideByDate\.has\(date\)/);
   assert.match(manager, /item\.baselineIsSchoolDay === false \|\| underlyingClosure !== undefined/);
-  assert.match(manager, /href: "#learner-calendar-events"/);
-  assert.match(manager, /href: "#calendar-adjustments"/);
+  assert.match(manager, /href: "#official-calendar"/);
   assert.match(manager, /href=\{item\.href\}/);
   assert.match(manager, /href=\{reviewHref\}/);
   assert.match(manager, /const countDelta/);
@@ -131,7 +130,7 @@ test("term discrepancy warning attributes overrides and effective learner events
   assert.match(manager, /Review difference/);
   assert.match(calendarPage, /dayExceptions=\{teachingImpact\.overrides\}/);
   assert.match(calendarPage, /learnerEvents=\{teachingImpact\.events\}/);
-  assert.match(impactManager, /id="learner-calendar-events"/);
+  assert.match(impactManager, /id="official-calendar"/);
 });
 
 test("school adjustments can be deleted while official baseline is preserved", () => {

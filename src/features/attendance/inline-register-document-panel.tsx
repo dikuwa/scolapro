@@ -145,6 +145,7 @@ export function InlineRegisterDocumentPanel({
         <OfficialDocumentActions
           previewHref={documentUrls?.previewUrl}
           previewDownloadHref={documentUrls?.downloadUrl}
+          previewDownloadName={documentUrls?.fileName}
           previewTitle={title}
           previewDescription="The same resolved register document shown in the workspace."
           previewLabel="Preview / Print"

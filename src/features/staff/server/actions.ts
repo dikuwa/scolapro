@@ -33,7 +33,12 @@ export async function createSingleStaff(_previous: SingleStaffState, formData: F
   });
   if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
 
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    return { message: "Complete account security setup before creating staff." };
+  }
   const allowed = Boolean(
     context.user && (
       context.platformMemberships.some((item) => item.roleKey === "platform_admin") ||

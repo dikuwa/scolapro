@@ -1,14 +1,13 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import { CalendarDays, CalendarRange, X } from "lucide-react";
+import { CalendarDays, CalendarRange } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { RecordActionButton } from "@/components/ui/record-action-button";
+import { CardActionToggle } from "@/components/ui/card-action-toggle";
 import { cn } from "@/lib/utils";
 
 type ActivePanel = "workflow" | "anchor" | null;
-type ActionKind = "edit" | "manage";
 
 function SummaryMetric({
   label,
@@ -39,9 +38,7 @@ function CoreSetupCard({
   description,
   statusLabel,
   active,
-  actionKind,
-  actionLabel,
-  closeLabel,
+  panelId,
   actionDisabled,
   onToggle,
   summary,
@@ -53,9 +50,7 @@ function CoreSetupCard({
   description: string;
   statusLabel: string;
   active: boolean;
-  actionKind: ActionKind;
-  actionLabel: string;
-  closeLabel: string;
+  panelId: string;
   actionDisabled?: boolean;
   onToggle: () => void;
   summary: ReactNode;
@@ -87,7 +82,7 @@ function CoreSetupCard({
         </div>
       </div>
 
-      <div className="mt-4 min-w-0" data-core-setup-content={active ? "editor" : "summary"}>
+      <div id={panelId} className="mt-4 min-w-0" data-core-setup-content={active ? "editor" : "summary"}>
         {active ? editor : summary}
       </div>
 
@@ -97,16 +92,7 @@ function CoreSetupCard({
             {statusLabel}
           </span>
         ) : (
-          <RecordActionButton
-            label={active ? closeLabel : actionLabel}
-            icon={active ? X : undefined}
-            actionKind={active ? undefined : actionKind}
-            variant="soft"
-            compact={false}
-            expanded={active}
-            onClick={onToggle}
-            className="min-h-9 px-3 text-xs"
-          />
+          <CardActionToggle open={active} controls={panelId} onClick={onToggle} />
         )}
       </div>
     </article>
@@ -158,9 +144,7 @@ export function AcademicSetupCore({
           description="Choose whether this school uses weekday names or a numbered rotating timetable cycle."
           statusLabel={workflowStatus}
           active={activePanel === "workflow"}
-          actionKind="edit"
-          actionLabel="Edit timetable settings"
-          closeLabel="Close timetable settings"
+          panelId="academic-setup-panel-workflow"
           onToggle={() => toggle("workflow")}
           editor={workflowEditor}
           summary={
@@ -183,9 +167,7 @@ export function AcademicSetupCore({
           }
           statusLabel={anchorStatus}
           active={activePanel === "anchor"}
-          actionKind="edit"
-          actionLabel={anchorConfigured ? "Edit calendar anchor" : "Configure calendar anchor"}
-          closeLabel="Close calendar settings"
+          panelId="academic-setup-panel-anchor"
           actionDisabled={!rotating}
           onToggle={() => toggle("anchor")}
           editor={anchorEditor}

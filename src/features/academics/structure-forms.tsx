@@ -115,10 +115,15 @@ export function AcademicStructureForms({
               tabIndex={tab === value ? 0 : -1}
               onClick={() => selectTab(value)}
               onKeyDown={(event) => {
-                if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-                  event.preventDefault();
-                  selectTab(value === "grade" ? "class" : "grade");
-                }
+                const next = event.key === "Home" ? "grade"
+                  : event.key === "End" ? "class"
+                  : event.key === "ArrowRight" || event.key === "ArrowLeft"
+                    ? value === "grade" ? "class" : "grade"
+                    : null;
+                if (!next) return;
+                event.preventDefault();
+                selectTab(next);
+                document.getElementById(`grade-class-${next}-tab`)?.focus();
               }}
               className={`inline-flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-[var(--radius-xs)] px-3 text-xs font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]/35 sm:flex-none ${tab === value ? "bg-brand-soft text-brand-strong shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}
             >
@@ -138,8 +143,9 @@ export function AcademicStructureForms({
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  variant="soft"
+                  variant={openPanel === "grade" ? "danger-soft" : "soft"}
                   size="sm"
+                  aria-controls="academic-grade-form"
                   aria-expanded={openPanel === "grade"}
                   onClick={() => setOpenPanel((current) => (current === "grade" ? null : "grade"))}
                 >
@@ -151,7 +157,7 @@ export function AcademicStructureForms({
           </div>
 
           {canEditStructure && openPanel === "grade" ? (
-            <form action={gradeAction} className="mt-3 space-y-4 border-t border-border-subtle pt-4" noValidate>
+            <form id="academic-grade-form" action={gradeAction} className="mt-3 space-y-4 border-t border-border-subtle pt-4" noValidate>
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name="academicYear" value={academicYear} />
               <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
@@ -177,7 +183,7 @@ export function AcademicStructureForms({
             </form>
           ) : null}
 
-          <div className="mt-4 max-h-[33rem] overflow-y-auto overscroll-contain pr-1">
+          <div className="mt-4 max-h-[33rem] overflow-y-auto overscroll-contain pr-1 @container">
             <ClassManagement grades={grades} classes={classes} rooms={rooms} staff={staff} canEditStructure={canEditStructure} view="grades" />
           </div>
         </div>
@@ -191,8 +197,9 @@ export function AcademicStructureForms({
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  variant="soft"
+                  variant={openPanel === "class" ? "danger-soft" : "soft"}
                   size="sm"
+                  aria-controls="academic-class-form"
                   aria-expanded={openPanel === "class"}
                   onClick={() => setOpenPanel((current) => (current === "class" ? null : "class"))}
                 >
@@ -204,7 +211,7 @@ export function AcademicStructureForms({
           </div>
 
           {canEditStructure && openPanel === "class" ? (
-            <form action={classAction} className="mt-3 space-y-4 border-t border-border-subtle pt-4" noValidate>
+            <form id="academic-class-form" action={classAction} className="mt-3 space-y-4 border-t border-border-subtle pt-4" noValidate>
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name="academicYear" value={academicYear} />
 
@@ -271,7 +278,7 @@ export function AcademicStructureForms({
             </form>
           ) : null}
 
-          <div className="mt-4 max-h-[33rem] overflow-y-auto overscroll-contain pr-1">
+          <div className="mt-4 max-h-[33rem] overflow-y-auto overscroll-contain pr-1 @container">
             <ClassManagement grades={grades} classes={classes} rooms={rooms} staff={staff} canEditStructure={canEditStructure} view="classes" />
           </div>
         </div>

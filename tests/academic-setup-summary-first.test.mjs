@@ -41,7 +41,7 @@ test("academic setup does not invent activity or secondary setup surfaces", () =
 test("room management remains complete but bounded for scanning", () => {
   assert.match(rooms, /max-h-\[33rem\]/);
   assert.match(rooms, /overflow-y-auto/);
-  assert.match(rooms, /Add room/);
+  assert.match(rooms, /<CardActionToggle action="add"/);
   assert.match(rooms, /Pencil/);
   assert.match(rooms, /Trash2/);
 });
@@ -49,4 +49,12 @@ test("room management remains complete but bounded for scanning", () => {
 test("register structure stays bounded and scrollable inside the combined Grade & Class card", () => {
   assert.match(forms, /max-h-\[33rem\] overflow-y-auto overscroll-contain pr-1/);
   assert.match(forms, /<ClassManagement/);
+});
+
+test("HOD scopes show one compact portfolio list and one selected editor", () => {
+  assert.match(page, /<HodScopeConfiguration/);
+  assert.match(hod, /portfolios\.map\(\(portfolio\) =>/);
+  assert.match(hod, /open=\{openScopeId === portfolio\.id\}/);
+  assert.match(hod, /Subject responsibility history/);
+  assert.doesNotMatch(page, /hodOverview=/);
 });

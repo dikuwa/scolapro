@@ -73,7 +73,7 @@ export function ClassManagement({ grades, classes, rooms, staff, canEditStructur
   function renderClassRow(item: RegisterClass) {
     if (editingClassId === item.id) {
       return (
-        <form key={item.id} action={classAction} className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-[0.8fr_1fr_1fr_0.8fr_auto] sm:items-end">
+        <form key={item.id} action={classAction} className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 @md:grid-cols-2 @2xl:grid-cols-[0.8fr_1fr_1fr_0.8fr_auto] @md:items-end">
           <input type="hidden" name="classId" value={item.id} />
           <Picker label="Grade" name="gradeId" value={classGradeId || item.gradeId} onChange={setClassGradeId} placeholder="Choose grade" options={orderedGrades.map((option) => ({ value: option.id, label: option.name }))} />
           <div><label className="text-xs font-medium" htmlFor={`code-${item.id}`}>Class code</label><input id={`code-${item.id}`} name="classCode" defaultValue={item.code.toUpperCase()} className={`${fieldClass} mt-1.5 uppercase`} /></div>
@@ -92,7 +92,7 @@ export function ClassManagement({ grades, classes, rooms, staff, canEditStructur
 
     if (editingTeacherClassId === item.id) {
       return (
-        <div key={item.id} className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,22rem)_auto] sm:items-end">
+        <div key={item.id} className="grid gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 @2xl:grid-cols-[minmax(9rem,1fr)_minmax(12rem,1.5fr)_auto] @2xl:items-end">
           <div><p className="text-xs font-semibold">{item.name}</p><p className="mt-1 text-[0.68rem] text-muted-foreground">Assign the operational register teacher for attendance, class lists and register documents.</p></div>
           <Picker label="Register teacher" name={`register-teacher-${item.id}`} value={registerTeacherStaffId} onChange={setRegisterTeacherStaffId} placeholder="Unassigned" searchable searchPlaceholder="Search active staff" options={[{ value: "", label: "Unassigned" }, ...staff.map((candidate) => ({ value: candidate.staffMemberId, label: candidate.staffName, helper: candidate.employeeNumber ? `Employee ${candidate.employeeNumber}` : undefined }))]} />
           <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export function ClassManagement({ grades, classes, rooms, staff, canEditStructur
     }
 
     return (
-      <div key={item.id} className="flex min-h-12 items-center justify-between gap-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2">
+      <div key={item.id} className="flex min-h-12 flex-wrap items-center justify-between gap-3 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-2">
         <div className="min-w-0">
           <p className="text-xs font-medium">{item.name}</p>
           <p className="mt-0.5 text-[0.68rem] uppercase tracking-[0.04em] text-muted-foreground">{item.code}</p>

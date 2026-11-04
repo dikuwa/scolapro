@@ -25,7 +25,12 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ message: "AI lesson-drafting request is invalid." }, { status: 400 });
 
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    return NextResponse.json({ message: "Complete account security setup before using AI drafting." }, { status: 403 });
+  }
   if (!context.user || context.platformMemberships.length) return NextResponse.json({ message: "Teacher access is required." }, { status: 403 });
   const membership = context.memberships.find((item) => teacherRoles.has(item.roleKey));
   if (!membership) return NextResponse.json({ message: "Teacher access is required." }, { status: 403 });

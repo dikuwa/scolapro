@@ -25,7 +25,7 @@ export const buttonVariants = cva(
         neutral: "bg-surface-muted text-muted-foreground hover:bg-surface-subtle hover:text-foreground",
         ghost: "bg-transparent text-muted-foreground hover:bg-surface-muted hover:text-foreground",
         success: "bg-success-soft text-[color:var(--success)] hover:bg-[color:var(--success)] hover:text-white",
-        danger: "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)] hover:text-white",
+        danger: "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15 hover:text-[color:var(--danger)]",
         /**
          * Light red-tinted dismiss/close treatment. Keeps a quiet
          * `--danger-soft` surface and a low-opacity danger hover instead of the
@@ -34,7 +34,7 @@ export const buttonVariants = cva(
          */
         "danger-soft":
           "bg-[color:var(--danger-soft)] text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15 hover:text-[color:var(--danger)]",
-        "danger-ghost": "bg-transparent text-[color:var(--danger)] hover:bg-danger-soft hover:text-[color:var(--danger)]",
+        "danger-ghost": "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15 hover:text-[color:var(--danger)]",
       },
       size: {
         md: "min-h-10 px-4 text-sm",

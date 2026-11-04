@@ -14,6 +14,17 @@ export async function GET(_request: Request, context: RouteContext) {
   const { data: auth } = await userClient.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // API routes bypass the page-level mandatory password rotation proxy.
+  // Deny artifact URL issuance unless the security profile resolves cleanly.
+  const { data: securityProfile, error: securityError } = await userClient
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
+    return NextResponse.json({ error: "Complete account security setup before accessing reports" }, { status: 403 });
+  }
+
   // The authenticated client is the authorization boundary. RLS permits only staff
   // with report access or a linked guardian reading a published learner report.
   // The active document route deliberately serves only the current renderer revision;

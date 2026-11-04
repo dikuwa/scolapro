@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   normalizeInternalSchoolDocumentHeaderContext,
+  officialDocumentInternalIdentityLines,
   type InternalSchoolDocumentHeaderContext,
   type OfficialDocumentHeaderModel,
 } from "@/features/documents/server/official-document-header";
@@ -101,6 +102,13 @@ export function renderOfficialDocumentHtmlHeader(
   const contactMarkup = header.contactLines
     .map((line) => `<div><strong>${escapeOfficialDocumentHtml(line.label)}:</strong> ${escapeOfficialDocumentHtml(line.value)}</div>`)
     .join("");
+  // Internal school documents use the same compact, lossless profile projection
+  // as the PDF renderer. No configured address/contact/postal field is omitted.
+  const internalIdentityDetails = officialDocumentInternalIdentityLines(header)
+    .map((line) => `<div>${line.parts.map((part) =>
+      `<span><strong>${escapeOfficialDocumentHtml(part.label)}:</strong> ${escapeOfficialDocumentHtml(part.value)}</span>`,
+    ).join('<span class="identity-part-gap">&nbsp;&nbsp;</span>')}</div>`)
+    .join("");
   const postalMarkup = header.postalLines.map((line) => `<div>${escapeOfficialDocumentHtml(line)}</div>`).join("");
   const fontFace = renderOfficialDocumentSchoolNameFontStyle(header);
 
@@ -134,7 +142,7 @@ export function renderOfficialDocumentHtmlHeader(
     <div class="school-identity">
       <h1 class="${nameClass}">${escapeOfficialDocumentHtml(header.schoolName)}</h1>
       ${header.formerName ? `<div class="former-name">(${escapeOfficialDocumentHtml(header.formerName)})</div>` : ""}
-      ${contactMarkup ? `<div class="school-contact">${contactMarkup}</div>` : ""}
+      ${internalIdentityDetails ? `<div class="school-contact">${internalIdentityDetails}</div>` : ""}
     </div>
     ${contextMarkup}
   </header>`;

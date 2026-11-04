@@ -30,7 +30,9 @@ function generatedLabel() {
 }
 
 export async function GET(request:Request) {
-  const context=await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try { context = await getUserContext(); }
+  catch { return NextResponse.json({ message: "Complete account security setup before downloading documents." }, { status: 403 }); }
   const membership=context.currentSchoolMembership;
   if (!context.user || context.platformMemberships.length || !membership) {
     return NextResponse.json({message:"Not authorized."},{status:403});

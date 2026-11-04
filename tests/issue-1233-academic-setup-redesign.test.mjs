@@ -32,19 +32,14 @@ test("no duplicate Timetable Workflow or Calendar Anchor editor is rendered", ()
   // Exactly one card per workflow in the core setup section.
   assert.equal((core.match(/title="Timetable workflow"/g) ?? []).length, 1);
   assert.equal((core.match(/title="Calendar anchor"/g) ?? []).length, 1);
-  // The editors are in-card bodies: they never repeat a card heading, wrap
-  // themselves in a second <section>, or add an unrelated editing column.
-  assert.doesNotMatch(cycle, /<h[1-6][^>]*>\s*Timetable workflow/);
-  assert.doesNotMatch(cycle, /<h[1-6][^>]*>\s*Calendar anchor/);
-  assert.doesNotMatch(cycle, /<section/);
-  assert.doesNotMatch(cycle, /scolapro-section-title/);
+  assert.match(cycle, /section === "both" \? <div/);
+  assert.match(cycle, /section !== "anchor"/);
+  assert.match(cycle, /section === "anchor" \? initialMode === "rotating"/);
   assert.doesNotMatch(core, /xl:grid-cols-\[minmax\(20rem/);
-  // The editor replaces the summary inside the same card.
   assert.match(core, /data-core-setup-content=\{active \? "editor" : "summary"\}/);
   assert.equal((core.match(/active \? editor : summary/g) ?? []).length, 1);
-  // One editor instance each on the page.
-  assert.equal((page.match(/<TimetableWorkflowSettings/g) ?? []).length, 1);
-  assert.equal((page.match(/<TimetableCalendarAnchorSettings/g) ?? []).length, 1);
+  assert.equal((page.match(/section="workflow"/g) ?? []).length, 1);
+  assert.equal((page.match(/section="anchor"/g) ?? []).length, 1);
 });
 
 test("the academic summary shows four real-data metric cards and no duplicates", () => {
@@ -102,7 +97,7 @@ test("all configured HOD scopes are listed without opening an editor", () => {
   assert.match(hod, /onToggleOperation=\{toggleOperation\}/);
   assert.match(hod, /operation === "assign" \? \(/);
   assert.match(hod, /operation === "change" \? \(/);
-  assert.match(hod, /operation === "end" \? \(/);
+  assert.match(hod, /operation === "end" && active \? \(/);
 });
 
 test("HOD portfolios without an appointed HOD remain supported", () => {
@@ -119,7 +114,7 @@ test("HOD configuration keeps leadership-only authorization and no self-assignme
   assert.match(hodActions, /HOD authority alone covers existing assigned subjects/);
   // Effective-dated history stays append/end rather than destructive.
   assert.doesNotMatch(hodActions, /\.delete\(/);
-  assert.match(hodActions, /update\(\{ effective_to:/);
+  assert.match(hodActions, /end_hod_scope_responsibilities/);
 });
 
 test("departmental activity dates format single, multi-day, cross-month and cross-year ranges", () => {
@@ -162,7 +157,32 @@ test("Rooms & blocks keep their bounded scrollable inventory behaviour", () => {
   assert.match(rooms, /Rooms & blocks/);
   assert.match(rooms, /max-h-\[33rem\]/);
   assert.match(rooms, /overflow-y-auto/);
-  assert.match(rooms, /Add room/);
+  assert.match(rooms, /<CardActionToggle action="add"/);
   assert.match(rooms, /Pencil/);
   assert.match(rooms, /Trash2/);
+});
+
+test("departmental create and revision actions reject reversed dates before database access", async () => {
+  const { saveOperationalCalendarEvent, reviseOperationalCalendarEvent } =
+    await import("@/features/calendar/server/actions.ts");
+  const fixtureId = "c1312000-0000-4000-8000-000000000001";
+  const form = new FormData();
+  for (const [key, value] of Object.entries({
+    schoolId: fixtureId,
+    eventId: fixtureId,
+    academicYear: "2027",
+    scopeKind: "department",
+    eventKind: "deadline",
+    title: "Department deadline",
+    startsOn: "2027-01-15",
+    endsOn: "2027-01-14",
+    audienceScope: "department_staff",
+    departmentAssignmentId: fixtureId,
+    learnerDayEffect: "UNCHANGED",
+  })) form.set(key, value);
+
+  for (const action of [saveOperationalCalendarEvent, reviseOperationalCalendarEvent]) {
+    const result = await action({}, form);
+    assert.deepEqual(result.fieldErrors, { endsOn: ["End date cannot be before start date."] });
+  }
 });

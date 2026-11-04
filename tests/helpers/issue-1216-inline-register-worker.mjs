@@ -27,14 +27,17 @@ const [first, second] = await Promise.all([
 ]);
 assert.equal(fetchCount, 1, "an unchanged resolved selector key must not fetch twice");
 assert.strictEqual(first, second);
-assert.equal(inlineRegisterDocumentKey(selection), inlineRegisterDocumentKey({ ...selection, date: "2026-10-10" }), "the selected week, not navigation date, identifies a weekly document");
+assert.notEqual(inlineRegisterDocumentKey(selection), inlineRegisterDocumentKey({ ...selection, date: "2026-10-10" }), "selection date must invalidate term-to-date totals and the PDF bundle");
 
 const nextWeek = { ...selection, date: "2026-10-16", fromWeek: "2026-10-12", toWeek: "2026-10-12" };
 await resolveInlineRegisterDocument(nextWeek);
 assert.equal(fetchCount, 2, "a changed week must resolve a new document");
 
+await resolveInlineRegisterDocument(selection);
+assert.equal(fetchCount, 3, "a completed bundle is not cached indefinitely after attendance revisions or renderer updates");
+
 invalidateInlineRegisterDocument(selection);
 await resolveInlineRegisterDocument(selection);
-assert.equal(fetchCount, 3, "retry invalidation must permit one fresh request");
+assert.equal(fetchCount, 4, "retry invalidation must permit one fresh request");
 
 console.log("inline register cache scenarios passed");

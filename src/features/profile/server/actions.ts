@@ -16,6 +16,15 @@ export async function saveUploadedAvatar(path: string): Promise<ProfileActionSta
     return { success: false, message: "Sign in again before changing your avatar." };
   }
 
+  const { data: securityProfile, error: securityError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
+    return { success: false, message: "Complete account security setup before changing your avatar." };
+  }
+
   const match = avatarPathPattern.exec(path);
   if (!match || match[1] !== user.id) {
     console.error("Avatar save rejected invalid path", { userId: user.id });
@@ -69,6 +78,15 @@ export async function deleteAvatar(): Promise<ProfileActionState> {
     return { success: false, message: "Sign in again before changing your avatar." };
   }
 
+  const { data: securityProfile, error: securityError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
+    return { success: false, message: "Complete account security setup before changing your avatar." };
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select("avatar_path")
@@ -103,17 +121,53 @@ export async function deleteAvatar(): Promise<ProfileActionState> {
 export async function changePassword(_state: ProfileActionState, formData: FormData): Promise<ProfileActionState> {
   const password = String(formData.get("password") ?? "");
   const confirmation = String(formData.get("confirmation") ?? "");
-  if (password.length < 8) return { success: false, message: "Use at least 8 characters for your new password." };
+  if (password.length < 8 || password.length > 128 || !password.trim()) return { success: false, message: "Use a nonblank password between 8 and 128 characters." };
   if (password !== confirmation) return { success: false, message: "The password confirmation does not match." };
 
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { success: false, message: "Sign in again before changing your password." };
 
+  // Recheck the authenticated security profile immediately before the mutation.
+  // The normal profile password form must not be able to clear a rotation
+  // requirement for an absent or unresolved profile.
+  const { data: rotationProfile, error: rotationError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password,password_rotation_expires_at")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (rotationError || !rotationProfile) {
+    return { success: false, message: "Your account security profile could not be verified." };
+  }
+
+  if (
+    rotationProfile.must_change_password !== false &&
+    rotationProfile.password_rotation_expires_at &&
+    new Date(rotationProfile.password_rotation_expires_at).getTime() <= Date.now()
+  ) {
+    return { success: false, message: "This temporary password has expired. Ask your school administrator to issue a new one." };
+  }
+
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { success: false, message: "Your password could not be changed." };
 
-  await supabase.from("user_profiles").update({ must_change_password: false, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+  // A normal voluntary password change should not gain service-role write access
+  // to the rotation flag. Clear only when the account was actually gated.
+  if (rotationProfile.must_change_password === false) {
+    revalidatePath("/", "layout");
+    return { success: true, message: "Password changed successfully." };
+  }
+
+  // Only the trusted server may clear the rotation requirement, and only
+  // after Supabase Auth has accepted the new password. The service-only RPC
+  // clears the profile gate and writes a non-secret audit event atomically.
+  const { data: cleared, error: clearanceError } = await createSupabaseAdminClient().rpc(
+    "complete_password_rotation_clearance",
+    { p_user_id: user.id },
+  );
+  if (clearanceError || cleared !== true) {
+    return { success: false, message: "Password updated, but account clearance could not be saved. Contact your administrator." };
+  }
   revalidatePath("/", "layout");
   return { success: true, message: "Password changed successfully." };
 }

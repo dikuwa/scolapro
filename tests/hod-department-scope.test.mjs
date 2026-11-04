@@ -11,6 +11,7 @@ const portfolioMigration = await read(
   "supabase/migrations/20260919143000_hod_subject_portfolio_label.sql",
 );
 const query = await read("src/features/academics/server/hod-scope.ts");
+const closureMigration = await read("supabase/migrations/20261013025813_end_hod_scope_responsibilities.sql");
 const actions = await read("src/features/academics/server/hod-scope-actions.ts");
 const capabilities = await read("src/lib/auth/school-capabilities.ts");
 const panel = await read("src/features/academics/hod-scope-configuration.tsx");
@@ -44,9 +45,11 @@ test("configuration is separate from HOD operational authority", () => {
 test("responsibility history is append/end rather than destructive", () => {
   assert.match(migration, /preserve_subject_department_responsibility_provenance/);
   assert.match(migration, /Only effective_to may change/);
-  assert.match(actions, /update\(\{ effective_to:/);
+  assert.match(closureMigration, /update public.subject_department_responsibilities/);
+  assert.match(closureMigration, /set effective_to=p_effective_to/);
+  assert.match(actions, /end_hod_scope_responsibilities/);
   assert.doesNotMatch(actions, /\.delete\(/);
-  assert.match(panel, /Historical provenance is retained|historical provenance/i);
+  assert.match(panel, /Assignment history is preserved|historical provenance/i);
 });
 
 test("school setup exposes the bounded configuration surface", () => {

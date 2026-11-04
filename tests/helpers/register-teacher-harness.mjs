@@ -13,6 +13,8 @@ export const layout = await import("@/features/attendance/server/register-teache
 export const model = await import("@/features/attendance/server/register-teacher-document.ts");
 export const htmlRenderer = await import("@/features/attendance/server/render-register-teacher-html.ts");
 export const pdfRenderer = await import("@/features/attendance/server/render-register-teacher-pdf.ts");
+export const profileBuilder = await import("@/features/documents/server/school-document-profile.ts");
+export const headerBuilder = await import("@/features/documents/server/official-document-header.ts");
 
 export function addDays(date, days) {
   const value = new Date(`${date}T12:00:00Z`);

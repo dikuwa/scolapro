@@ -41,7 +41,7 @@ test("core academic setup keeps exactly two workflow cards whose editors replace
   assert.doesNotMatch(academicCore, /title="HOD teaching scope"/);
   assert.match(academicCore, /data-core-setup-content=\{active \? "editor" : "summary"\}/);
   assert.equal((academicCore.match(/active \? editor : summary/g) ?? []).length, 1);
-  assert.match(academicCore, /actionKind="edit"/);
+  assert.match(academicCore, /<CardActionToggle/);
   assert.match(academicCore, />\s*Active\s*</);
   // No second side-by-side editing column and no third workflow card.
   assert.doesNotMatch(academicCore, /xl:grid-cols-\[minmax/);

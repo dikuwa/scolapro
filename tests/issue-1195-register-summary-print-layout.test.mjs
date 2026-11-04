@@ -42,7 +42,10 @@ test("register panels retain school context, names, boys girls and totals", () =
   assert.match(register, /<strong>REGISTER TEACHER:<\/strong>/);
   assert.match(register, /learnerIdentityCells\(section, index\)/);
   assert.match(register, /totalsRow\("Total number of possible attendances"/);
-  assert.match(register, /@page \{ size:A3 landscape; margin:8mm; \}/);
+  // The A3 print page box comes from the shared layout contract instead of a
+  // per-renderer literal, so the preview and PDF cannot use different margins.
+  assert.match(register, /\$\{REGISTER_TEACHER_PRINT_PAGE_RULE\}/);
+  assert.match(registerLayout, /size: A3 landscape; margin: \$\{REGISTER_TEACHER_LAYOUT\.margin\}pt/);
 });
 
 test("term class splits sum all authoritative class-date buckets through weeks", () => {

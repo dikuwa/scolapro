@@ -1,6 +1,8 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { ChevronDown, Network, Plus, ShieldCheck, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -29,6 +31,14 @@ type HodScopePortfolio = {
 };
 
 const emptyState: HodScopeActionState = {};
+
+function useCloseOnSuccess(state: HodScopeActionState, onComplete: () => void) {
+  useEffect(() => {
+    if (!state.success) return;
+    if (state.message) toast.success(state.message);
+    onComplete();
+  }, [state.success, state.message, onComplete]);
+}
 
 function ActionMessage({ state }: { state: HodScopeActionState }) {
   if (!state.message) return null;
@@ -157,14 +167,17 @@ function AssignSubjectsForm({
   heads,
   today,
   defaultDepartmentLabel,
+  onComplete,
 }: {
   schoolId: string;
   subjects: HodScopeSubject[];
   heads: HodScopeHeadOption[];
   today: string;
   defaultDepartmentLabel?: string;
+  onComplete: () => void;
 }) {
   const [state, action, pending] = useActionState(saveHodSubjectPortfolio, emptyState);
+  useCloseOnSuccess(state, onComplete);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [assignmentId, setAssignmentId] = useState("");
   const [departmentLabel, setDepartmentLabel] = useState(defaultDepartmentLabel ?? "");
@@ -238,14 +251,17 @@ function AppointHodForm({
   today,
   portfolios,
   portfolio,
+  onComplete,
 }: {
   schoolId: string;
   heads: HodScopeHeadOption[];
   today: string;
   portfolios: HodScopePortfolio[];
   portfolio?: HodScopePortfolio;
+  onComplete: () => void;
 }) {
   const [state, action, pending] = useActionState(appointHodPortfolio, emptyState);
+  useCloseOnSuccess(state, onComplete);
   const [portfolioId, setPortfolioId] = useState(portfolio?.id ?? "");
   const [portfolioHeadId, setPortfolioHeadId] = useState("");
   const [portfolioDate, setPortfolioDate] = useState(today);
@@ -300,51 +316,57 @@ function AppointHodForm({
 
 function EndResponsibilityForm({
   schoolId,
-  responsibilities,
+  appointmentId,
+  responsibilities = [],
   today,
+  onComplete,
 }: {
   schoolId: string;
-  responsibilities: HodScopeResponsibility[];
+  appointmentId?: string;
+  responsibilities?: HodScopeResponsibility[];
   today: string;
+  onComplete: () => void;
 }) {
   const [state, action, pending] = useActionState(endHodSubjectResponsibility, emptyState);
-  const [endResponsibilityId, setEndResponsibilityId] = useState("");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [endDate, setEndDate] = useState(today);
+  const options = responsibilities
+    .filter((row) => !row.portfolioAppointmentId && statusFor(row, today) === "Active")
+    .map((row) => ({ value: row.id, label: row.subjectName, helper: `${row.headName} · From ${row.effectiveFrom}` }));
 
-  const endOptions = useMemo(
-    () =>
-      responsibilities
-        .filter((row) => statusFor(row, today) !== "Ended")
-        .map((row) => ({
-          value: row.id,
-          label: `${row.subjectName} · ${row.headName}`,
-          helper: `From ${row.effectiveFrom}`,
-        })),
-    [responsibilities, today],
-  );
+  useCloseOnSuccess(state, onComplete);
 
   return (
     <form action={action} className="space-y-3 rounded-[var(--radius-sm)] border border-border-subtle p-3">
-      <div>
-        <h4 className="text-sm font-semibold text-foreground">End responsibility</h4>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Ending a responsibility preserves the original assignment and its historical provenance.
-        </p>
-      </div>
+      <h4 className="text-sm font-semibold text-foreground">
+        {appointmentId ? "End whole scope" : "End standalone subject responsibilities"}
+      </h4>
+      <p className="text-xs text-muted-foreground">Assignment history is preserved.</p>
       <ActionMessage state={state} />
       <input type="hidden" name="schoolId" value={schoolId} />
-      <Picker
-        label="Responsibility"
-        name="responsibilityId"
-        value={endResponsibilityId}
-        onChange={setEndResponsibilityId}
-        options={endOptions}
-        placeholder="Choose responsibility"
-        disabled={!endOptions.length || pending}
-      />
+      {appointmentId ? (
+        <input type="hidden" name="appointmentId" value={appointmentId} />
+      ) : (
+        <>
+          <SearchableSelect
+            label="Individual subjects"
+            options={options}
+            placeholder="Select subjects"
+            searchPlaceholder="Search subjects"
+            multiple
+            value=""
+            selectedValues={selectedIds}
+            onToggle={(id) => setSelectedIds((current) =>
+              current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
+            )}
+            disabled={!options.length || pending}
+          />
+          {selectedIds.map((id) => <input key={id} type="hidden" name="responsibilityIds" value={id} />)}
+        </>
+      )}
       <DateField label="Effective to" name="effectiveTo" value={endDate} onChange={setEndDate} />
-      <div className="flex justify-start sm:justify-end">
-        <Button type="submit" variant="neutral" loading={pending} disabled={!endResponsibilityId || !endDate}>
+      <div className="flex justify-end">
+        <Button type="submit" variant="neutral" loading={pending} disabled={(!appointmentId && !selectedIds.length) || !endDate}>
           End responsibility
         </Button>
       </div>
@@ -352,9 +374,10 @@ function EndResponsibilityForm({
   );
 }
 
-function CreatePortfolioForm({ schoolId, subjects }: { schoolId: string; subjects: HodScopeSubject[] }) {
+function CreatePortfolioForm({ schoolId, subjects, onComplete }: { schoolId: string; subjects: HodScopeSubject[]; onComplete: () => void }) {
   const [portfolioLabel, setPortfolioLabel] = useState("");
   const [portfolioState, portfolioAction, portfolioPending] = useActionState(createUnassignedHodPortfolio, emptyState);
+  useCloseOnSuccess(portfolioState, onComplete);
   const [portfolioSubjectIds, setPortfolioSubjectIds] = useState<string[]>([]);
 
   const subjectOptions = useMemo(
@@ -404,23 +427,23 @@ function PortfolioScopeRow({
   portfolio,
   subjects,
   heads,
-  responsibilities,
   today,
   schoolId,
   open,
   operation,
   onToggle,
   onToggleOperation,
+  onComplete,
 }: {
   portfolio: HodScopePortfolio;
   subjects: HodScopeSubject[];
   heads: HodScopeHeadOption[];
-  responsibilities: HodScopeResponsibility[];
   today: string;
   schoolId: string;
   open: boolean;
   operation: "assign" | "change" | "end" | null;
   onToggle: () => void;
+  onComplete: () => void;
   onToggleOperation: (next: "assign" | "change" | "end") => void;
 }) {
   const active = activeAppointment(portfolio, today);
@@ -428,7 +451,7 @@ function PortfolioScopeRow({
 
   const operations = [
     { value: "assign" as const, label: "Assign subjects" },
-    { value: "change" as const, label: "Change HOD" },
+    { value: "change" as const, label: active ? "Change HOD" : "Assign HOD later" },
     { value: "end" as const, label: "End responsibility" },
   ];
 
@@ -463,7 +486,7 @@ function PortfolioScopeRow({
             label={open ? "Close scope" : "Manage scope"}
             icon={open ? X : undefined}
             actionKind={open ? undefined : "manage"}
-            variant="soft"
+            variant={open ? "danger-soft" : "soft"}
             expanded={open}
             onClick={onToggle}
             className="min-h-9 px-3 text-xs"
@@ -492,6 +515,7 @@ function PortfolioScopeRow({
                 type="button"
                 size="sm"
                 variant={operation === value ? "primary" : "soft"}
+                disabled={value === "end" && !active}
                 aria-expanded={operation === value}
                 onClick={() => onToggleOperation(value)}
               >
@@ -509,13 +533,14 @@ function PortfolioScopeRow({
               heads={heads}
               today={today}
               defaultDepartmentLabel={portfolio.label}
+              onComplete={onComplete}
             />
           ) : null}
           {operation === "change" ? (
-            <AppointHodForm schoolId={schoolId} heads={heads} today={today} portfolios={[]} portfolio={portfolio} />
+            <AppointHodForm schoolId={schoolId} heads={heads} today={today} portfolios={[]} portfolio={portfolio} onComplete={onComplete} />
           ) : null}
-          {operation === "end" ? (
-            <EndResponsibilityForm schoolId={schoolId} responsibilities={responsibilities} today={today} />
+          {operation === "end" && active ? (
+            <EndResponsibilityForm schoolId={schoolId} appointmentId={active.id} today={today} onComplete={onComplete} />
           ) : null}
         </div>
       ) : null}
@@ -544,11 +569,18 @@ export function HodScopeConfiguration({
   const toggleScope = (scopeId: string) => {
     setOpenScopeId((current) => (current === scopeId ? null : scopeId));
     setOpenOperation(null);
+    setStandaloneOperation(null);
+    setShowCreate(false);
   };
 
   const toggleOperation = (next: "assign" | "change" | "end") =>
     setOpenOperation((current) => (current === next ? null : next));
   const [showCreate, setShowCreate] = useState(false);
+  const [standaloneOperation, setStandaloneOperation] = useState<"assign" | "end" | null>(null);
+  const closeScope = () => {
+    setOpenScopeId(null);
+    setOpenOperation(null);
+  };
 
   return (
     <section
@@ -567,7 +599,7 @@ export function HodScopeConfiguration({
             </p>
           </div>
         </div>
-        <Button type="button" size="sm" variant="soft" aria-expanded={showCreate} onClick={() => setShowCreate((value) => !value)}>
+        <Button type="button" size="sm" variant={showCreate ? "danger-soft" : "soft"} aria-expanded={showCreate} onClick={() => { closeScope(); setStandaloneOperation(null); setShowCreate((value) => !value); }}>
           {showCreate ? <X className="size-3.5" aria-hidden="true" /> : <Plus className="size-3.5" aria-hidden="true" />}
           {showCreate ? "Close" : "New portfolio"}
         </Button>
@@ -584,7 +616,7 @@ export function HodScopeConfiguration({
 
       {showCreate ? (
         <div className="mt-4">
-          <CreatePortfolioForm schoolId={schoolId} subjects={subjects} />
+          <CreatePortfolioForm schoolId={schoolId} subjects={subjects} onComplete={() => setShowCreate(false)} />
         </div>
       ) : null}
 
@@ -596,13 +628,13 @@ export function HodScopeConfiguration({
               portfolio={portfolio}
               subjects={subjects}
               heads={heads}
-              responsibilities={responsibilities}
               today={today}
               schoolId={schoolId}
               open={openScopeId === portfolio.id}
               operation={openScopeId === portfolio.id ? openOperation : null}
               onToggle={() => toggleScope(portfolio.id)}
               onToggleOperation={toggleOperation}
+              onComplete={closeScope}
             />
           ))
         ) : (
@@ -613,6 +645,31 @@ export function HodScopeConfiguration({
             </p>
           </div>
         )}
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Standalone subject responsibilities">
+          {(["assign", "end"] as const).map((operation) => (
+            <Button
+              key={operation}
+              type="button"
+              variant={standaloneOperation === operation ? "danger-soft" : "soft"}
+              aria-expanded={standaloneOperation === operation}
+              disabled={operation === "end" && !responsibilities.some((row) => !row.portfolioAppointmentId && statusFor(row, today) === "Active")}
+              onClick={() => {
+                closeScope();
+                setShowCreate(false);
+                setStandaloneOperation((current) => current === operation ? null : operation);
+              }}
+            >
+              {standaloneOperation === operation ? "Close editor" : operation === "assign" ? "Assign standalone subjects" : "End standalone subjects"}
+            </Button>
+          ))}
+        </div>
+        {standaloneOperation === "assign" ? <AssignSubjectsForm schoolId={schoolId} subjects={subjects} heads={heads} today={today} onComplete={() => setStandaloneOperation(null)} /> : null}
+        {standaloneOperation === "end" ? (
+          <EndResponsibilityForm schoolId={schoolId} responsibilities={responsibilities} today={today} onComplete={() => setStandaloneOperation(null)} />
+        ) : null}
       </div>
 
       <details className="mt-5 rounded-[var(--radius-sm)] border border-border-subtle">
@@ -656,7 +713,7 @@ export function HodScopeConfiguration({
 
       {!heads.length ? (
         <p className="mt-4 rounded-[var(--radius-sm)] bg-warning-soft/60 px-3 py-2 text-xs text-[color:var(--warning)]">
-          No current HOD placement is available. Assign the HOD role and an effective staff placement first.
+          No current HOD placement is available. <Link href="/staff" className="font-semibold underline underline-offset-2">Open Staff Directory → Assign HOD</Link> on an existing staff record; no login invitation is needed.
         </p>
       ) : null}
     </section>

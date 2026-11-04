@@ -19,6 +19,10 @@ export const DEMO = Object.freeze({
   registerClass10BName: "Grade 10/B",
   learnerAmaraEnrolmentId: "60000000-0000-4000-8000-000000000001",
   learnerTomasEnrolmentId: "60000000-0000-4000-8000-000000000002",
+  registerBoyLearnerId: "e2e50000-0000-4000-8000-000000000001",
+  registerBoyEnrolmentId: "e2e60000-0000-4000-8000-000000000001",
+  registerVisualSubmissionId: "e2e70000-0000-4000-8000-000000000001",
+  registerVisualAbsenceEventId: "e2e80000-0000-4000-8000-000000000001",
   /** Weekday deliberately overridden to a non-teaching day by the E2E seed. */
   nonTeachingDate: "2026-10-14",
   /** Weekday deliberately forced open as a teaching day by the E2E seed. */

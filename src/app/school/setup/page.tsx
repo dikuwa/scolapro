@@ -12,8 +12,7 @@ import { getOperationalCalendarWorkspace } from "@/features/calendar/server/oper
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
 import { RoomManagement } from "@/features/timetable/room-management";
 import {
-  TimetableCalendarAnchorSettings,
-  TimetableWorkflowSettings,
+  TimetableCycleSettings,
 } from "@/features/timetable/timetable-cycle-settings";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { hasAnySchoolRole, schoolLeadershipRoles } from "@/lib/auth/school-capabilities";
@@ -105,17 +104,23 @@ export default async function SchoolSetupPage() {
           anchorDay={structure.timetableCycleAnchorDay}
           rotating={rotating}
           workflowEditor={
-            <TimetableWorkflowSettings
+            <TimetableCycleSettings
+              section="workflow"
               schoolId={membership.schoolId}
+              academicYear={academicYear}
               initialMode={structure.timetableCycleMode}
               initialLength={structure.timetableCycleLength}
+              initialAnchorDate={structure.timetableCycleAnchorDate}
+              initialAnchorDay={structure.timetableCycleAnchorDay}
             />
           }
           anchorEditor={
-            <TimetableCalendarAnchorSettings
+            <TimetableCycleSettings
+              section="anchor"
               schoolId={membership.schoolId}
               academicYear={academicYear}
-              cycleLength={structure.timetableCycleLength}
+              initialMode={structure.timetableCycleMode}
+              initialLength={structure.timetableCycleLength}
               initialAnchorDate={structure.timetableCycleAnchorDate}
               initialAnchorDay={structure.timetableCycleAnchorDay}
             />

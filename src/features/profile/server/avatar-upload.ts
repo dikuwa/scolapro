@@ -58,6 +58,16 @@ export async function prepareAvatarUpload(contentType: string): Promise<AvatarUp
     return { success: false, message: "Your session could not be verified. Sign in again and retry." };
   }
 
+  // Server actions are independently callable while the page proxy is bypassed.
+  const { data: securityProfile, error: securityError } = await supabase
+    .from("user_profiles")
+    .select("must_change_password")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (securityError || !securityProfile || securityProfile.must_change_password !== false) {
+    return { success: false, message: "Complete account security setup before uploading an avatar." };
+  }
+
   const path = `${user.id}/avatar-${Date.now()}-${crypto.randomUUID()}.${avatarExtension(canonicalContentType)}`;
 
   try {

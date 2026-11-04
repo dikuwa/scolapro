@@ -29,7 +29,14 @@ export async function POST(request: Request) {
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ message: "Offline attendance payload is invalid." }, { status: 400 });
 
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    // Offline sync must fail closed when the account's security clearance or
+    // school authority cannot be resolved. Never apply queued mutations.
+    return NextResponse.json({ message: "Account security or school access must be verified before syncing." }, { status: 403 });
+  }
   const membership = context.currentSchoolMembership;
   if (
     !context.user

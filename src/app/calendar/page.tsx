@@ -120,7 +120,6 @@ export default async function CalendarPage() {
           overrides={teachingImpact.overrides}
           audienceOptions={teachingImpact.audienceOptions}
           canManage={canManageSchool}
-          terms={operational.terms}
         />
       </main>
     </AppShell>

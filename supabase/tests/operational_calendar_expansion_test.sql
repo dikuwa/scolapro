@@ -1,6 +1,6 @@
 begin;
 
-select plan(24);
+select plan(25);
 
 select has_table('public','academic_term_calendar_profiles','official term calendar metadata table exists');
 select has_table('public','operational_calendar_events','operational school/department event table exists');
@@ -144,6 +144,16 @@ select lives_ok(
     'c1315000-0000-4000-8000-000000000001',null,'Submit verified CASS marks','UNCHANGED'
   )$$,
   'current HOD may create a compact department deadline inside the governed portfolio'
+);
+
+select throws_ok(
+  $$select public.create_operational_calendar_event(
+    'c1312000-0000-4000-8000-000000000001',2027,'department','deadline','Reversed dates',
+    '2027-01-15','2027-01-14',null,null,'department_staff',
+    'c1315000-0000-4000-8000-000000000001',null,null,'UNCHANGED'
+  )$$,
+  'Calendar event end date cannot precede start date',
+  'governed department event rejects a reversed date range'
 );
 
 select throws_ok(

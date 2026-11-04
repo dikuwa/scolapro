@@ -22,7 +22,7 @@ test("shared close action defaults to the light dismiss treatment and permits co
 test("register legend is aligned as one compact visual row", () => {
   assert.match(register, /\.legend \{[^}]*align-items:center[^}]*flex-wrap:wrap/s);
   assert.match(register, /\.legend > span \{[^}]*align-items:center/s);
-  assert.match(register, /\.legend \.mark-sample \{[^}]*place-items:center/s);
+  assert.match(register, /\.legend \.mark-sample \{[^}]*text-align:center[^}]*font-style:italic/s);
 });
 
 test("week ending headings use aligned label and date blocks", () => {
@@ -31,10 +31,10 @@ test("week ending headings use aligned label and date blocks", () => {
   assert.match(register, /\.week-heading \{[^}]*text-align:center[^}]*vertical-align:middle/s);
 });
 
-test("each register section ends with a structured aligned balance footer", () => {
-  assert.match(register, /balance-item/);
-  assert.match(register, /balance-result/);
-  assert.match(register, /\.balance-strip \{[^}]*display:grid[^}]*justify-content:end/s);
+test("each register section ends with a compact borderless aligned balance footer", () => {
+  assert.match(register, /class="balance-strip" aria-label="Register attendance balance"/);
+  assert.match(register, /\.balance-strip \{[^}]*display:flex[^}]*justify-content:flex-end/s);
+  assert.doesNotMatch(register, /\.balance-item \{/);
   assert.match(register, /registerTeacherBalance\(section\)/);
   assert.match(registerLayout, /section\.termAttendanceTotal/);
   assert.match(registerLayout, /section\.termAbsenceTotal/);

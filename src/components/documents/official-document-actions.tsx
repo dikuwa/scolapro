@@ -8,6 +8,7 @@ import { CloseAction } from "@/components/ui/close-action";
 export function OfficialDocumentActions({
   previewHref,
   previewDownloadHref,
+  previewDownloadName,
   downloadHref,
   spreadsheetHref,
   compact = false,
@@ -23,6 +24,7 @@ export function OfficialDocumentActions({
   previewHref?: string;
   /** Adds shared Print and real-PDF download controls to HTML previews. */
   previewDownloadHref?: string;
+  previewDownloadName?: string;
   downloadHref?: string;
   spreadsheetHref?: string;
   compact?: boolean;
@@ -156,7 +158,7 @@ export function OfficialDocumentActions({
                 {previewDownloadHref ? (
                   <>
                     <button type="button" onClick={() => iframeRef.current?.contentWindow?.print()} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-foreground transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><Printer className="size-3.5" aria-hidden="true" />Print</button>
-                    <a href={previewDownloadHref} download className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><Download className="size-3.5" aria-hidden="true" />Download PDF</a>
+                    <a href={previewDownloadHref} download={previewDownloadName || true} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><Download className="size-3.5" aria-hidden="true" />Download PDF</a>
                   </>
                 ) : null}
                 <CloseAction variant="danger-soft" onClick={() => setPreviewOpen(false)} ariaLabel="Close document preview" />

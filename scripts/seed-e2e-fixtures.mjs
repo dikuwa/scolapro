@@ -4,233 +4,27 @@
 // against any non-loopback API URL, so it can never touch production learner
 // data. It is idempotent: running it twice leaves the same synthetic world.
 //
+// The world itself is defined once in `e2e/support/seed-world.mjs` and shared
+// with the hosted-staging seed, so the two environments cannot drift apart.
+//
 // Usage: node scripts/seed-e2e-fixtures.mjs
 // Requires: local `supabase start`, supabase/seed.sql applied (pnpm local:sync-db
 // or a fresh `supabase db reset`), and SCOLAPRO_E2E_PASSWORD (>= 12 chars).
 
-import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { createClient } from "@supabase/supabase-js";
 import { mergedProjectEnv } from "./env-file.mjs";
-import {
-  DEMO,
-  OUTSIDER_TENANT,
-  SYNTHETIC_ACCOUNTS,
-  syntheticPassword,
-} from "../e2e/support/accounts.mjs";
+import { syntheticPassword } from "../e2e/support/accounts.mjs";
+import { localSupabaseStatus } from "../e2e/support/local-supabase.mjs";
+import { seedSyntheticWorld } from "../e2e/support/seed-world.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const password = syntheticPassword(mergedProjectEnv(projectRoot));
 
-function localStatus() {
-  let status;
-  try {
-    status = JSON.parse(
-      execFileSync("supabase", ["status", "-o", "json"], {
-        cwd: projectRoot,
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "ignore"],
-      }),
-    );
-  } catch {
-    throw new Error("Local Supabase is not running. Start it with `supabase start` first.");
-  }
-  const apiUrl = new URL(status.API_URL);
-  if (!["localhost", "127.0.0.1", "::1"].includes(apiUrl.hostname)) {
-    throw new Error("Refusing to seed E2E fixtures outside the local Supabase stack.");
-  }
-  if (!status.SERVICE_ROLE_KEY) throw new Error("Local Supabase did not report a service-role key.");
-  return status;
-}
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-const status = localStatus();
+const status = localSupabaseStatus({ projectRoot });
 const supabase = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-async function upsert(table, row, onConflict = "id") {
-  const { error } = await supabase.from(table).upsert(row, { onConflict });
-  if (error) throw new Error(`Failed to seed ${table}: ${error.message}`);
-}
-
-async function ensureAuthUser({ userId, email, displayName }) {
-  const existing = await supabase.auth.admin.getUserById(userId);
-  const result = existing.data?.user
-    ? await supabase.auth.admin.updateUserById(userId, { email, password, email_confirm: true })
-    : await supabase.auth.admin.createUser({ id: userId, email, password, email_confirm: true });
-  if (result.error || !result.data?.user) {
-    throw new Error(`Unable to seed Auth user ${email}: ${result.error?.message ?? "unknown error"}`);
-  }
-  await upsert("user_profiles", {
-    user_id: userId,
-    display_name: displayName,
-    preferred_name: displayName,
-    must_change_password: false,
-  }, "user_id");
-}
-
-// 1. Confirm the base demo structure exists before layering fixtures on it.
-const { data: demoSchool, error: demoSchoolError } = await supabase
-  .from("schools")
-  .select("id,tenant_id,name")
-  .eq("id", DEMO.schoolId)
-  .maybeSingle();
-assert(
-  !demoSchoolError && demoSchool?.tenant_id === DEMO.tenantId,
-  "The demo school from supabase/seed.sql is missing. Run `supabase db reset` (or pnpm local:sync-db) first.",
-);
-
-// 2. Synthetic accounts + profiles.
-for (const account of Object.values(SYNTHETIC_ACCOUNTS)) {
-  await ensureAuthUser({
-    userId: account.userId,
-    email: account.email,
-    displayName: account.displayName,
-  });
-}
-
-// 3. Isolation tenant + school (never contains learner data).
-await upsert("tenants", { id: OUTSIDER_TENANT.tenantId, name: OUTSIDER_TENANT.tenantName, slug: "e2e-isolation-group" });
-await upsert("schools", {
-  id: OUTSIDER_TENANT.schoolId,
-  tenant_id: OUTSIDER_TENANT.tenantId,
-  name: OUTSIDER_TENANT.schoolName,
-  emis_number: "E2EISO001",
-  region: "Erongo",
-  town: "Swakopmund",
-});
-
-// 4. Demo-tenant staff identities (linked to the synthetic auth accounts).
-//    Placements are created in step 6, after memberships, because the deferred
-//    placement-creator check needs the demo admin's membership to already exist
-//    (each upsert is its own transaction).
-const demoStaff = [
-  { account: SYNTHETIC_ACCOUNTS.registerTeacher, employeeNumber: "E2E-TCH-001", firstName: "E2E", lastName: "Register" },
-  { account: SYNTHETIC_ACCOUNTS.unassignedTeacher, employeeNumber: "E2E-TCH-002", firstName: "E2E", lastName: "Unassigned" },
-  { account: SYNTHETIC_ACCOUNTS.hod, employeeNumber: "E2E-HOD-001", firstName: "E2E", lastName: "Head" },
-];
-
-for (const { account, employeeNumber, firstName, lastName } of demoStaff) {
-  await upsert("staff_members", {
-    id: account.staffMemberId,
-    tenant_id: DEMO.tenantId,
-    user_id: account.userId,
-    employee_number: employeeNumber,
-    first_name: firstName,
-    last_name: lastName,
-    status: "active",
-  });
-}
-
-// 5. Memberships: demo roles for the demo school, isolation admin for the second tenant.
-for (const account of [
-  SYNTHETIC_ACCOUNTS.admin,
-  SYNTHETIC_ACCOUNTS.registerTeacher,
-  SYNTHETIC_ACCOUNTS.unassignedTeacher,
-  SYNTHETIC_ACCOUNTS.hod,
-]) {
-  await upsert("school_memberships", {
-    id: account.membershipId,
-    tenant_id: DEMO.tenantId,
-    school_id: DEMO.schoolId,
-    user_id: account.userId,
-    staff_member_id: account.staffMemberId ?? null,
-    role_key: account.roleKey,
-    active_from: "2026-01-05",
-    active_to: null,
-  });
-}
-await upsert("school_memberships", {
-  id: SYNTHETIC_ACCOUNTS.outsider.membershipId,
-  tenant_id: OUTSIDER_TENANT.tenantId,
-  school_id: OUTSIDER_TENANT.schoolId,
-  user_id: SYNTHETIC_ACCOUNTS.outsider.userId,
-  staff_member_id: null,
-  role_key: SYNTHETIC_ACCOUNTS.outsider.roleKey,
-  active_from: "2026-01-05",
-  active_to: null,
-});
-
-// 6. Staff-school placements, now that the demo admin's membership exists to
-//    satisfy the deferred placement-creator authorization check.
-for (const { account } of demoStaff) {
-  await upsert("staff_school_assignments", {
-    id: account.assignmentId,
-    tenant_id: DEMO.tenantId,
-    school_id: DEMO.schoolId,
-    staff_member_id: account.staffMemberId,
-    assignment_type: "teacher",
-    position_title: "Teacher",
-    effective_from: "2026-01-05",
-    created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
-  });
-}
-
-// 7. Bind Grade 10/A to the register teacher so allow/deny is meaningful.
-const { error: bindError } = await supabase
-  .from("register_classes")
-  .update({ register_teacher_staff_id: SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId })
-  .eq("id", DEMO.registerClass10A);
-if (bindError) throw new Error(`Unable to assign the register teacher: ${bindError.message}`);
-
-// 8. Deterministic governed days, so capture and calendar assertions never
-//    depend on the real 2026 calendar or the day the suite happens to run.
-await upsert("school_day_overrides", {
-  tenant_id: DEMO.tenantId,
-  school_id: DEMO.schoolId,
-  school_date: DEMO.teachingDate,
-  is_school_day: true,
-  teaching_impact: "NORMAL",
-  reason: "E2E synthetic teaching day",
-  source: "school",
-  created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
-}, "school_id,school_date");
-
-await upsert("school_day_overrides", {
-  tenant_id: DEMO.tenantId,
-  school_id: DEMO.schoolId,
-  school_date: DEMO.nonTeachingDate,
-  is_school_day: false,
-  teaching_impact: "NO_TEACHING",
-  reason: "E2E synthetic non-teaching day",
-  source: "school",
-  created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
-}, "school_id,school_date");
-
-await upsert("school_day_overrides", {
-  tenant_id: DEMO.tenantId,
-  school_id: DEMO.schoolId,
-  school_date: DEMO.draftDate,
-  is_school_day: true,
-  teaching_impact: "NORMAL",
-  reason: "E2E synthetic draft-protection day",
-  source: "school",
-  created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
-}, "school_id,school_date");
-
-// 9. Prove the world is what we think it is.
-const { data: boundClass, error: boundError } = await supabase
-  .from("register_classes")
-  .select("id,register_teacher_staff_id")
-  .eq("id", DEMO.registerClass10A)
-  .maybeSingle();
-assert(
-  !boundError && boundClass?.register_teacher_staff_id === SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId,
-  "Grade 10/A register teacher binding did not persist.",
-);
-
-const { count: outsiderLearners } = await supabase
-  .from("learners")
-  .select("id", { count: "exact", head: true })
-  .eq("tenant_id", OUTSIDER_TENANT.tenantId);
-assert((outsiderLearners ?? 0) === 0, "The isolation tenant must never contain learner data.");
-
-console.log("Synthetic E2E world is ready:");
-for (const account of Object.values(SYNTHETIC_ACCOUNTS)) {
-  console.log(`  - ${account.roleKey.padEnd(14)} ${account.email} (capture: ${account.expectCapture ? "allow" : "deny"})`);
-}
+await seedSyntheticWorld({ client: supabase, password, log: console.log });

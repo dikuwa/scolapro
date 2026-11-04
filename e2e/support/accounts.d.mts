@@ -23,6 +23,10 @@ export declare const DEMO: {
   readonly registerClass10BName: string;
   readonly learnerAmaraEnrolmentId: string;
   readonly learnerTomasEnrolmentId: string;
+  readonly registerBoyLearnerId: string;
+  readonly registerBoyEnrolmentId: string;
+  readonly registerVisualSubmissionId: string;
+  readonly registerVisualAbsenceEventId: string;
   readonly nonTeachingDate: string;
   readonly teachingDate: string;
   readonly draftDate: string;

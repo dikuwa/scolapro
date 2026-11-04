@@ -184,7 +184,12 @@ function xlsxBytes(summary: OfficialAttendanceSummary, meta: { header: OfficialD
 }
 
 export async function GET(request: Request) {
-  const context = await getUserContext();
+  let context: Awaited<ReturnType<typeof getUserContext>>;
+  try {
+    context = await getUserContext();
+  } catch {
+    return Response.json({ error: "Complete account security setup and verify school access." }, { status: 403 });
+  }
   if (!context.user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const membership = context.currentSchoolMembership;
   if (!membership) return Response.json({ error: "School membership required" }, { status: 403 });

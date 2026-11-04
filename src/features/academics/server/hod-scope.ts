@@ -17,6 +17,7 @@ export type HodScopeHeadOption = {
 export type HodScopeResponsibility = {
   id: string;
   subjectId: string;
+  portfolioAppointmentId: string | null;
   subjectName: string;
   subjectCode: string;
   assignmentId: string;
@@ -43,7 +44,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
   const db = await createSupabaseServerClient();
   const today = windhoekToday();
 
-  const [subjectsResult, responsibilitiesResult, assignmentsResult, portfoliosResult, appointmentsResult, membershipsResult] = await Promise.all([
+  const [subjectsResult, responsibilitiesResult, assignmentsResult, portfoliosResult, appointmentsResult, membershipsResult, operationalDesignationsResult] = await Promise.all([
     db
       .from("subjects")
       .select("id,subject_code,display_name")
@@ -51,7 +52,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .order("display_name"),
     db
       .from("subject_department_responsibilities")
-      .select("id,subject_id,department_head_staff_assignment_id,department_label,effective_from,effective_to")
+      .select("id,subject_id,department_head_staff_assignment_id,department_label,effective_from,effective_to,portfolio_appointment_id")
       .eq("school_id", schoolId)
       .order("effective_from", { ascending: false }),
     db
@@ -65,13 +66,23 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .select("staff_member_id,role_key,active_from,active_to")
       .eq("school_id", schoolId)
       .eq("role_key", "hod"),
+    db.from("staff_operational_hod_designations")
+      .select("staff_assignment_id,effective_from,effective_to")
+      .eq("school_id", schoolId),
   ]);
+
+  // Before a preview migration is applied, expose the existing HOD setup
+  // without operational-only designations. Do not ignore authorization or
+  // unrelated database errors.
+  const operationalTableMissing = operationalDesignationsResult.error &&
+    (operationalDesignationsResult.error.code === "42P01" ||
+      operationalDesignationsResult.error.code === "PGRST205");
 
   if (
     subjectsResult.error ||
     responsibilitiesResult.error ||
     assignmentsResult.error ||
-    membershipsResult.error || portfoliosResult.error || appointmentsResult.error
+    membershipsResult.error || portfoliosResult.error || appointmentsResult.error || (operationalDesignationsResult.error && !operationalTableMissing)
   ) {
     throw new Error("Unable to load HOD responsibility configuration.");
   }
@@ -114,13 +125,19 @@ export async function getHodScopeConfiguration(schoolId: string) {
       .map((membership) => membership.staff_member_id as string),
   );
 
+  const operationalHodAssignments = new Set(
+    (operationalDesignationsResult.data ?? [])
+      .filter((designation) => activeOn(today, designation.effective_from, designation.effective_to))
+      .map((designation) => designation.staff_assignment_id),
+  );
+
   const heads: HodScopeHeadOption[] = assignments
     .filter((assignment) => {
       const staff = staffById.get(assignment.staff_member_id);
       return (
         Boolean(staff) &&
         staff?.status === "active" &&
-        currentHodStaff.has(assignment.staff_member_id) &&
+        (currentHodStaff.has(assignment.staff_member_id) || operationalHodAssignments.has(assignment.id)) &&
         activeOn(today, assignment.effective_from, assignment.effective_to)
       );
     })
@@ -140,6 +157,7 @@ export async function getHodScopeConfiguration(schoolId: string) {
       return {
         id: row.id,
         subjectId: row.subject_id,
+        portfolioAppointmentId: row.portfolio_appointment_id ?? null,
         subjectName: subject?.display_name ?? "Unknown subject",
         subjectCode: subject?.subject_code ?? "",
         assignmentId: row.department_head_staff_assignment_id,
