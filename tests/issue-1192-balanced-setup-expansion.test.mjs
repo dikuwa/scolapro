@@ -11,11 +11,10 @@ const hod = read("src/features/academics/hod-scope-configuration.tsx");
 test("Academic Setup keeps summary and edit surface in the same card", () => {
   assert.match(core, /function CoreSetupCard/);
   assert.doesNotMatch(core, /function CoreSetupRow/);
-  assert.match(core, /<ConfigurationCard/);
-  assert.match(core, /panelId=\{panelId\}/);
-  assert.match(core, /editor=\{editor\}/);
-  assert.match(core, /summary=\{children\}/);
-  for (const name of ["workflow", "anchor", "hod"]) {
+  assert.match(core, /<CardActionToggle open=\{active\} controls=\{panelId\}/);
+  assert.match(core, /id=\{panelId\}/);
+  assert.match(core, /active \? editor : summary/);
+  for (const name of ["workflow", "anchor"]) {
     assert.match(core, new RegExp(`panelId="academic-setup-panel-${name}"`));
   }
 });
@@ -34,18 +33,15 @@ test("workflow and anchor editors are independent without duplicate headings", (
   assert.match(page, /section="anchor"/);
   assert.match(core, /editor=\{anchorEditor\}/);
 });
-test("HOD portfolio cards stay visible while forms appear first only in edit mode", () => {
-  assert.match(page, /hodOverview=/);
-  assert.match(page, /hodScope.portfolios.map/);
-  assert.match(hod, /embedded \? ""/);
-  assert.doesNotMatch(hod, /Current responsibility history/);
-  assert.match(core, /editorFirst/);
-  assert.match(hod, /Advanced: assign or end individual subject responsibilities/);
+test("HOD portfolio summaries and history stay available in their standalone section", () => {
+  assert.match(page, /<HodScopeConfiguration/);
+  assert.match(hod, /portfolios\.map\(\(portfolio\) =>/);
+  assert.match(hod, /Subject responsibility history/);
+  assert.match(hod, /open=\{openScopeId === portfolio\.id\}/);
 });
 
 test("calendar anchor edit is unavailable for a weekday-only timetable", () => {
-  const card = read("src/components/ui/configuration-card.tsx");
-  assert.match(core, /disabled=\{!rotating\}/);
-  assert.match(card, /disabled=\{disabled\}/);
+  assert.match(core, /actionDisabled=\{!rotating\}/);
+  assert.match(core, /actionDisabled \? \(/);
   assert.match(toggle, /disabled=\{disabled\}/);
 });

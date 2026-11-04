@@ -34,9 +34,10 @@ test('Academic setup offers create-now assign-later with displayed history',()=>
  assert.match(ui,/portfolioSubjectIds/);
  assert.match(ui,/setPortfolioSubjectIds/);
  assert.match(ui,/Assign HOD later/);
- assert.match(setup,/Unassigned/);
- assert.match(setup,/portfolio.appointments.find/);
- assert.match(setup,/appointment.effectiveFrom/);
+ assert.match(ui,/Unassigned/);
+ assert.match(ui,/portfolio.appointments.find/);
+ assert.match(ui,/appointment.effectiveFrom/);
+ assert.match(setup,/<HodScopeConfiguration/);
  assert.match(query,/hod_portfolio_appointments/);
  assert.match(actions,/appoint_hod_portfolio/);
 });
