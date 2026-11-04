@@ -17,6 +17,10 @@ const optionalAge = z.preprocess(
   (value) => value === "" || value === null ? undefined : Number(value),
   z.number().int().min(3).max(30).optional(),
 );
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+});
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "");
@@ -80,6 +84,37 @@ export async function saveSportsHouse(_state: SportsHousesActionState, formData:
 
   revalidatePath("/school/sports-houses");
   return { success: true, message: parsed.data.houseId ? "House updated." : "House created." };
+}
+
+export async function saveSportsYearReferenceDate(_state: SportsHousesActionState, formData: FormData): Promise<SportsHousesActionState> {
+  const parsed = z.object({
+    schoolId: uuid,
+    academicYear: z.coerce.number().int().min(2000).max(2200),
+    ageReferenceDate: isoDate,
+    schoolApprovalConfirmed: z.literal("on"),
+  }).safeParse({
+    schoolId: value(formData, "schoolId"),
+    academicYear: value(formData, "academicYear"),
+    ageReferenceDate: value(formData, "ageReferenceDate"),
+    schoolApprovalConfirmed: value(formData, "schoolApprovalConfirmed"),
+  });
+  if (!parsed.success) return { message: "Choose a valid date within the academic year and confirm school approval." };
+  if (Number(parsed.data.ageReferenceDate.slice(0, 4)) !== parsed.data.academicYear) {
+    return { message: "The reference date must fall within the selected academic year." };
+  }
+  if (!(await canManageSports(parsed.data.schoolId))) return { message: "You do not have permission to change the Sports / Houses year context." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("set_sports_year_reference_date", {
+    p_school_id: parsed.data.schoolId,
+    p_academic_year: parsed.data.academicYear,
+    p_age_reference_date: parsed.data.ageReferenceDate,
+    p_school_approval_confirmed: true,
+  });
+  if (error) return { message: errorMessage(error.message, "The reference date could not be saved. Confirm the date and your school authority.") };
+
+  revalidatePath("/school/sports-houses");
+  return { success: true, message: "The school-approved reference date was saved. Age groups remain unchanged." };
 }
 
 export async function changeSportsHouseStatus(_state: SportsHousesActionState, formData: FormData): Promise<SportsHousesActionState> {

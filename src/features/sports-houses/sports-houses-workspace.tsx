@@ -5,6 +5,8 @@ import { ChevronDown, ChevronRight, LockKeyhole, Pencil, Plus, Settings2, Shield
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { DateField } from "@/components/ui/date-field";
 import { RecordActionButton } from "@/components/ui/record-action-button";
 import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
 import { AssistedBalancingPanel } from "@/features/sports-houses/assisted-balancing-panel";
@@ -16,6 +18,7 @@ import {
   changeSportsHouseStatus,
   saveSportsAgeGroup,
   saveSportsHouse,
+  saveSportsYearReferenceDate,
   type SportsHousesActionState,
 } from "@/features/sports-houses/server/actions";
 import type {
@@ -30,9 +33,10 @@ import type {
 const initialState: SportsHousesActionState = {};
 const SPORTS_EXPORT_COLUMN_OPTIONS = [
   { value: "admission", label: "Admission No." },
+  { value: "dob", label: "DOB" },
   { value: "grade", label: "Grade" },
   { value: "class", label: "Class" },
-  { value: "sex", label: "Sex" },
+  { value: "sex", label: "Gender" },
   { value: "age", label: "Age" },
   { value: "age_group", label: "Age group" },
   { value: "source", label: "Source" },
@@ -77,6 +81,59 @@ function YearPicker({ academicYear, years }: { academicYear: number; years: numb
       options={years.map((year) => ({ value: String(year), label: String(year) }))}
       className="w-full sm:w-48"
     />
+  );
+}
+
+function SportsYearReferenceDateForm({
+  schoolId,
+  academicYear,
+  currentDate,
+}: {
+  schoolId: string;
+  academicYear: number;
+  currentDate: string | null;
+}) {
+  const [state, action, pending] = useActionState(saveSportsYearReferenceDate, initialState);
+  const [ageReferenceDate, setAgeReferenceDate] = useState(currentDate ?? "");
+  useActionToast(state);
+
+  return (
+    <form
+      action={action}
+      onSubmit={(event) => {
+        const invalidDate = event.currentTarget.querySelector<HTMLElement>('[aria-invalid="true"]');
+        if (invalidDate) {
+          event.preventDefault();
+          invalidDate.focus();
+        }
+      }}
+      className="mt-4 grid gap-3 border-t border-border-subtle pt-4 md:grid-cols-[minmax(14rem,20rem)_minmax(14rem,1fr)_auto] md:items-end"
+    >
+      <input type="hidden" name="schoolId" value={schoolId} />
+      <input type="hidden" name="academicYear" value={academicYear} />
+      <div>
+        <DateField
+          label="Official age reference date"
+          name="ageReferenceDate"
+          value={ageReferenceDate}
+          onChange={setAgeReferenceDate}
+          required
+          min={`${academicYear}-01-01`}
+          max={`${academicYear}-12-31`}
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          Use only the date formally approved by the school. No date is inferred or prefilled when the year is not configured.
+        </p>
+      </div>
+      <Checkbox
+        name="schoolApprovalConfirmed"
+        label="I confirm this date has been approved by school management."
+        className="min-h-10"
+      />
+      <Button type="submit" loading={pending} size="sm">
+        {currentDate ? "Update reference date" : "Save reference date"}
+      </Button>
+    </form>
   );
 }
 
@@ -277,6 +334,7 @@ export function SportsHousesWorkspace({
   staffAssignedCount,
   staffUnassignedCount,
   canManage,
+  canManageYearContext,
   balanceOperationId,
 }: {
   schoolId: string;
@@ -294,6 +352,7 @@ export function SportsHousesWorkspace({
   staffAssignedCount: number;
   staffUnassignedCount: number;
   canManage: boolean;
+  canManageYearContext: boolean;
   balanceOperationId: string;
 }) {
   const activeHouses = useMemo(() => houses.filter((house) => house.status === "active"), [houses]);
@@ -367,17 +426,27 @@ export function SportsHousesWorkspace({
 
   return (
     <div className="space-y-5">
-      <section className="flex flex-col gap-4 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="scolapro-section-title">Year context</h2>
-          <p className="scolapro-section-description">{schoolName} · assignments are historical and year-scoped.</p>
-          {yearSettings ? (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Age reference date {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${yearSettings.ageReferenceDate}T12:00:00`))} · continuity {yearSettings.assignmentContinuity.replaceAll("_", " ")}
-            </p>
-          ) : <p className="mt-2 text-xs text-muted-foreground">No year settings are stored for {academicYear}; age-group resolution may therefore be unavailable.</p>}
+      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="scolapro-section-title">Year context</h2>
+            <p className="scolapro-section-description">{schoolName} · assignments are historical and year-scoped.</p>
+            {yearSettings ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Age reference date {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${yearSettings.ageReferenceDate}T12:00:00`))} · continuity {yearSettings.assignmentContinuity.replaceAll("_", " ")}
+              </p>
+            ) : <p className="mt-2 text-xs text-muted-foreground">No official age reference date is configured for {academicYear}; derived ages remain unresolved.</p>}
+          </div>
+          <YearPicker academicYear={academicYear} years={years} />
         </div>
-        <YearPicker academicYear={academicYear} years={years} />
+        {canManageYearContext ? (
+          <SportsYearReferenceDateForm
+            key={`${academicYear}:${yearSettings?.ageReferenceDate ?? "unconfigured"}`}
+            schoolId={schoolId}
+            academicYear={academicYear}
+            currentDate={yearSettings?.ageReferenceDate ?? null}
+          />
+        ) : null}
       </section>
 
       <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-2 xl:grid-cols-4">
@@ -393,6 +462,17 @@ export function SportsHousesWorkspace({
           </div>
         ))}
       </div>
+
+      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="scolapro-section-title">House roster exports</h2><p className="scolapro-section-description">Choose one or multiple houses; leave empty to export all active houses.</p></div><OfficialDocumentActions previewHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf&preview=1`} downloadHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf`} spreadsheetHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=xlsx`} /></div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <SearchableSelect label="Houses" value="" options={activeHouses.map((house) => ({ value: house.id, label: house.name }))} placeholder="All active houses" searchPlaceholder="Search houses" multiple selectedValues={exportHouseIds} onToggle={(id) => setExportHouseIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current,id])} />
+          <Picker label="Include" placeholder="Choose content" value={exportContent} onChange={setExportContent} options={[{ value: "combined", label: "Learners + staff" },{ value: "learners", label: "Learners only" },{ value: "staff", label: "Staff only" }]} />
+          <Picker label="Group learners by" placeholder="Choose grouping" value={exportGroup} onChange={setExportGroup} options={[{ value: "none", label: "No grouping" },{ value: "age_group", label: "Age group" },{ value: "sex", label: "Gender" },{ value: "grade", label: "Grade" },{ value: "class", label: "Register class" }]} />
+          <Picker label="Blank columns" placeholder="Choose blank columns" value={exportBlankColumns} onChange={setExportBlankColumns} options={Array.from({ length: 7 }, (_, index) => ({ value: String(index), label: index === 0 ? "None" : `${index} blank column${index === 1 ? "" : "s"}` }))} />
+          <SearchableSelect label="Print columns" value="" options={SPORTS_EXPORT_COLUMN_OPTIONS.map((option) => ({ value: option.value, label: option.label }))} placeholder="Choose columns" searchPlaceholder="Search columns" multiple selectedValues={exportColumns} onToggle={(value) => setExportColumns((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value])} />
+        </div>
+      </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -450,7 +530,7 @@ export function SportsHousesWorkspace({
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[52rem] text-left text-xs">
-            <thead className="border-b border-border-subtle text-muted-foreground"><tr><th className="px-2 py-2">Learner</th><th className="px-2 py-2">Grade</th><th className="px-2 py-2">Class</th><th className="px-2 py-2">Sex</th><th className="px-2 py-2">Age</th><th className="px-2 py-2">Age group</th><th className="px-2 py-2">Source</th><th className="px-2 py-2">Lock</th></tr></thead>
+            <thead className="border-b border-border-subtle text-muted-foreground"><tr><th className="px-2 py-2">Learner</th><th className="px-2 py-2">Grade</th><th className="px-2 py-2">Class</th><th className="px-2 py-2">Gender</th><th className="px-2 py-2">Age</th><th className="px-2 py-2">Age group</th><th className="px-2 py-2">Source</th><th className="px-2 py-2">Lock</th></tr></thead>
             <tbody className="divide-y divide-border-subtle">{rosterLearners.map((learner) => <tr key={learner.id}><td className="px-2 py-2 font-medium">{learner.name}</td><td className="px-2 py-2">{learner.gradeName ?? "—"}</td><td className="px-2 py-2">{learner.registerClassName ?? "—"}</td><td className="px-2 py-2">{learner.sex ?? "—"}</td><td className="px-2 py-2">{learner.ageOnReferenceDate ?? "—"}</td><td className="px-2 py-2">{learner.ageGroupLabel ?? "Unresolved"}</td><td className="px-2 py-2">{learner.assignmentSource ?? "—"}</td><td className="px-2 py-2">{learner.isLocked ? "Locked" : "Unlocked"}</td></tr>)}</tbody>
           </table>
         </div>
@@ -490,17 +570,6 @@ export function SportsHousesWorkspace({
         {activeSourceProposal ? <div className="mt-3"><div className="flex flex-wrap gap-1.5">{activeSourceProposal.labels.map((label) => <span key={label} className="rounded-[var(--radius-xs)] bg-surface px-2 py-1 text-xs font-semibold">{label}</span>)}</div><p className="mt-3 text-xs leading-5 text-muted-foreground">Source labels are proposals only. The source does not prove the formal cutoff/reference date. School management verifies the reference date and min/max rules before canonical age groups are configured; source labels never rewrite learners.</p><p className="mt-2 text-xs font-medium text-muted-foreground">{yearSettings && ageGroups.length ? "Canonical rules are configured; derived roster labels can now be compared with source evidence." : "Mismatch comparison is pending canonical reference-date and age-band configuration."}</p></div> : null}
       </section>
 
-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="scolapro-section-title">House roster exports</h2><p className="scolapro-section-description">Choose one or multiple houses; leave empty to export all active houses.</p></div><OfficialDocumentActions previewHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf&preview=1`} downloadHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=pdf`} spreadsheetHref={`/api/official-documents/sports-house-roster?${exportQuery}&format=xlsx`} /></div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <SearchableSelect label="Houses" value="" options={activeHouses.map((house) => ({ value: house.id, label: house.name }))} placeholder="All active houses" searchPlaceholder="Search houses" multiple selectedValues={exportHouseIds} onToggle={(id) => setExportHouseIds((current) => current.includes(id) ? current.filter((value) => value !== id) : [...current,id])} />
-          <Picker label="Include" placeholder="Choose content" value={exportContent} onChange={setExportContent} options={[{ value: "combined", label: "Learners + staff" },{ value: "learners", label: "Learners only" },{ value: "staff", label: "Staff only" }]} />
-          <Picker label="Group learners by" placeholder="Choose grouping" value={exportGroup} onChange={setExportGroup} options={[{ value: "none", label: "No grouping" },{ value: "age_group", label: "Age group" },{ value: "sex", label: "Sex" },{ value: "grade", label: "Grade" },{ value: "class", label: "Register class" }]} />
-          <Picker label="Blank columns" placeholder="Choose blank columns" value={exportBlankColumns} onChange={setExportBlankColumns} options={Array.from({ length: 7 }, (_, index) => ({ value: String(index), label: index === 0 ? "None" : `${index} blank column${index === 1 ? "" : "s"}` }))} />
-          <SearchableSelect label="Print columns" value="" options={SPORTS_EXPORT_COLUMN_OPTIONS.map((option) => ({ value: option.value, label: option.label }))} placeholder="Choose columns" searchPlaceholder="Search columns" multiple selectedValues={exportColumns} onToggle={(value) => setExportColumns((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value])} />
-        </div>
-      </section>
-
       {canManage ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <button type="button" onClick={() => setBalanceOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 text-left">
           <div><h2 className="scolapro-section-title">Assisted balancing</h2><p className="scolapro-section-description">Preview deterministic learner balancing only when you need it.</p></div>
@@ -519,7 +588,7 @@ export function SportsHousesWorkspace({
           <Picker label="Grade" placeholder="All grades" value={learnerGradeFilter} onChange={setLearnerGradeFilter} options={[{ value: "all", label: "All grades" },...uniqueOptions(learners.map((item) => item.gradeName)).map((value) => ({ value, label: value }))]} />
           <Picker label="Register class" placeholder="All classes" value={learnerClassFilter} onChange={setLearnerClassFilter} options={[{ value: "all", label: "All classes" },...uniqueOptions(learners.map((item) => item.registerClassName)).map((value) => ({ value, label: value }))]} />
           <Picker label="Age group" placeholder="All age groups" value={learnerAgeGroupFilter} onChange={setLearnerAgeGroupFilter} options={[{ value: "all", label: "All age groups" },{ value: "unresolved", label: "Unresolved" },...uniqueOptions(learners.map((item) => item.ageGroupLabel)).map((value) => ({ value, label: value }))]} />
-          <Picker label="Sex" placeholder="All" value={learnerSexFilter} onChange={setLearnerSexFilter} options={[{ value: "all", label: "All" },...uniqueOptions(learners.map((item) => item.sex ?? "unspecified")).map((value) => ({ value, label: value }))]} />
+          <Picker label="Gender" placeholder="All" value={learnerSexFilter} onChange={setLearnerSexFilter} options={[{ value: "all", label: "All" },...uniqueOptions(learners.map((item) => item.sex ?? "unspecified")).map((value) => ({ value, label: value }))]} />
           <Picker label="Source" placeholder="All sources" value={learnerSourceFilter} onChange={setLearnerSourceFilter} options={[{ value: "all", label: "All sources" },{ value: "unassigned", label: "Unassigned" },...uniqueOptions(learners.map((item) => item.assignmentSource)).map((value) => ({ value, label: value }))]} />
           <Picker label="Lock" placeholder="All" value={learnerLockFilter} onChange={setLearnerLockFilter} options={[{ value: "all", label: "All" },{ value: "locked", label: "Locked" },{ value: "unlocked", label: "Unlocked" }]} />
         </div>

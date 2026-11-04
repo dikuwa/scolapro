@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 const readerRoles = new Set(["school_admin","principal","deputy_principal","hod","teacher","class_teacher"]);
 
-const SPORTS_ROSTER_COLUMN_KEYS = new Set<SportsHouseRosterColumn>(["admission","grade","class","sex","age","age_group","source","lock"]);
+const SPORTS_ROSTER_COLUMN_KEYS = new Set<SportsHouseRosterColumn>(["admission","dob","grade","class","sex","age","age_group","source","lock"]);
 
 
 function validUuid(value: string | null) {
