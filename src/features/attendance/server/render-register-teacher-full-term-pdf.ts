@@ -20,6 +20,7 @@ import {
   type FullTermPlan,
   type FullTermSheet,
 } from "@/features/attendance/server/register-teacher-full-term-layout";
+import { fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
 
 const LINE = rgb(0.25, 0.25, 0.25);
 const INK = rgb(0.08, 0.08, 0.08);
@@ -137,8 +138,12 @@ function drawSheet(input: {
   const contentRight = sheet.width - margin - inset;
   const contentWidth = sheet.contentWidth;
   const fullTerm = document.fullTerm;
-  const hasIncludedDays = Boolean(fullTerm?.closingDate) && document.weeks.length > 0;
-  const includedClosingDate = hasIncludedDays ? fullTerm!.closingDate! : null;
+  const includedClosingDate = fullTerm?.closingDate ?? null;
+  // A term with no included teaching day is an explicit empty state even when a
+  // caller supplied an in-term closing date: there is nothing to register.
+  const hasIncludedDays = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) > 0
+    && document.weeks.length > 0;
   let y = drawOfficialDocumentPdfHeader(page, header, resources, sheet.height - margin, {
     documentX: contentX,
     documentWidth: contentWidth,
@@ -169,9 +174,17 @@ function drawSheet(input: {
   y -= sheet.bands.legend;
 
   // Provisional banner. This is the explicit certification boundary.
-  const bannerText = includedClosingDate
-    ? `PROVISIONAL - closing ${formatDate(includedClosingDate)} - ${fullTerm!.scheduledTeachingDayCount} scheduled school days - ${fullTerm!.includedTeachingDayCount} included eligible days - ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
-    : `NO ELIGIBLE SCHOOL DAY - no included eligible day on or before ${formatDate(fullTerm?.today ?? document.selectedDate)} within this learner term.`;
+  // A school may open a replacement Saturday, so the included count can exceed
+  // the scheduled Mon-Fri baseline; the banner states that relationship instead
+  // of printing two numbers that read as an impossible total.
+  const dayBasis = fullTermDayBasis(
+    fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount,
+    fullTerm?.includedTeachingDayCount ?? document.teachingDayCount,
+  );
+  const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
+  const bannerText = hasIncludedDays
+    ? `PROVISIONAL - closing ${formatDate(includedClosingDate!)} - ${fullTerm!.scheduledTeachingDayCount} scheduled school days - ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} - ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
+    : "NO ELIGIBLE SCHOOL DAY - the governed learner term contains no eligible teaching day.";
   drawCell(page, { x: contentX, top: y, width: contentWidth, height: sheet.bands.banner, fill: RED_SOFT, borderWidth: 0.7 });
   drawTextBlock({ page, font: resources.bold, text: bannerText, x: contentX + 4, top: y - 3, width: contentWidth - 8, height: sheet.bands.banner - 6, size: 7, color: RED, align: "left" });
   y -= sheet.bands.banner;
@@ -181,7 +194,7 @@ function drawSheet(input: {
     ["BOYS/GIRLS:", section.label],
     ["TERM:", document.termName],
     ["CLOSING DATE:", includedClosingDate ? formatDate(includedClosingDate) : "None"],
-    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount}`],
+    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} included / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount} scheduled`],
     ["POSSIBLE LEARNER-DAYS:", String(fullTerm?.possibleLearnerDays ?? 0)],
     ["REGISTER CLASS:", document.className],
     ["REGISTER TEACHER:", document.registerTeacherName],
@@ -196,7 +209,7 @@ function drawSheet(input: {
 
   if (!hasIncludedDays) {
     drawCell(page, { x: contentX, top: y, width: contentWidth, height: 28 });
-    drawTextBlock({ page, font: resources.regular, text: "No eligible school day is available for this closing date. Configure or open a governed school day before printing.", x: contentX + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
+    drawTextBlock({ page, font: resources.regular, text: "No eligible school day exists in this governed learner term. Configure or open a governed school day before printing.", x: contentX + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
     return;
   }
 
@@ -375,7 +388,7 @@ function drawSheet(input: {
   const summaryRows: Array<{ label: string; kind: "attendance" | "absence" | "possible"; fill: ReturnType<typeof rgb>; color: ReturnType<typeof rgb> }> = [
     { label: "Total number of attendances", kind: "attendance", fill: PURPLE_SOFT, color: INK },
     { label: "Total number of absentees", kind: "absence", fill: RED_SOFT, color: RED },
-    { label: "Total number of possible attendances", kind: "possible", fill: GREEN_SOFT, color: INK },
+    { label: "Total possible attendances (daily/week = observed; term = full term)", kind: "possible", fill: GREEN_SOFT, color: INK },
   ];
   const summaryRowHeight = sheet.bands.summary / 3;
   for (const row of summaryRows) {

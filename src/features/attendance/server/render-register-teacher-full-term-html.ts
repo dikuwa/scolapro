@@ -21,6 +21,7 @@ import {
   type FullTermPlan,
   type FullTermSheet,
 } from "@/features/attendance/server/register-teacher-full-term-layout";
+import { fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char));
@@ -121,16 +122,28 @@ function sheetHtml(input: {
     ? `<tr class="learner-row empty-row"><td colspan="${totalColumns}">No learners in this section.</td></tr>`
     : "";
   const fullTerm = document.fullTerm;
-  const hasIncludedDays = Boolean(fullTerm?.closingDate) && document.weeks.length > 0;
-  const includedClosingDate = hasIncludedDays ? fullTerm!.closingDate! : null;
-  const banner = includedClosingDate
-    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} included eligible days · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
-    : `NO ELIGIBLE SCHOOL DAY — no included eligible day on or before ${escapeHtml(formatDate(fullTerm?.today ?? document.selectedDate))} within this learner term. The sheet is intentionally empty.`;
+  const includedClosingDate = fullTerm?.closingDate ?? null;
+  // A term with no included teaching day is an explicit empty state even when a
+  // caller supplied an in-term closing date: there is nothing to register.
+  const hasIncludedDays = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) > 0
+    && document.weeks.length > 0;
+  // A school may open a replacement Saturday, so included can exceed scheduled.
+  // State that relationship instead of printing two numbers that read as an
+  // impossible total on an official document.
+  const dayBasis = fullTermDayBasis(
+    fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount,
+    fullTerm?.includedTeachingDayCount ?? document.teachingDayCount,
+  );
+  const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
+  const banner = hasIncludedDays
+    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate!))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
+    : "NO ELIGIBLE SCHOOL DAY — the governed learner term contains no eligible teaching day. The sheet is intentionally empty.";
   const meta = [
     ["BOYS/GIRLS:", section.label],
     ["TERM:", document.termName],
     ["CLOSING DATE:", fullTerm?.closingDate ? formatDate(fullTerm.closingDate) : "None"],
-    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount}`],
+    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} included / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount} scheduled`],
     ["POSSIBLE LEARNER-DAYS:", String(fullTerm?.possibleLearnerDays ?? 0)],
     ["REGISTER CLASS:", document.className],
     ["REGISTER TEACHER:", document.registerTeacherName],
@@ -174,11 +187,11 @@ function sheetHtml(input: {
         ${closureBand}
         ${summaryRow(sheet, "Total number of attendances", "attendance")}
         ${summaryRow(sheet, "Total number of absentees", "absence")}
-        ${summaryRow(sheet, "Total number of possible attendances", "possible")}
+        ${summaryRow(sheet, "Total possible attendances (daily/week = observed; term = full term)", "possible")}
       </tbody>
     </table>
     <div class="balance-strip"><span>Present <strong>${balance.attendance}</strong></span><span>Absent <strong>${balance.absence}</strong></span><span>Projected <strong>${balance.projected}</strong></span><span>Observed <strong>${balance.observed} / Full-term ${balance.possible} ${balance.reconciled ? "✓" : "!"}</strong></span></div>`
-      : '<div class="empty-sheet">No eligible school day is available for this closing date. Configure or open a governed school day before printing.</div>'}
+      : '<div class="empty-sheet">No eligible school day exists in this governed learner term. Configure or open a governed school day before printing.</div>'}
     <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""} · Days column = full-term possible incl. projected future days.</div>
   </section>`;
 }

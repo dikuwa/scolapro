@@ -1,7 +1,8 @@
 {
-  "generatedAt": "2026-11-05T15:16:40.580Z",
+  "generatedAt": "2026-11-05T16:59:16.863Z",
   "cases": [
     {
+      "key": "a2",
       "paper": "a2",
       "paperLabel": "A2 landscape",
       "paperSizePt": [
@@ -10,6 +11,7 @@
       ],
       "term": "Term 3 2026-09-07..2026-12-04",
       "asOf": "2026-11-05",
+      "screenOnly": false,
       "scheduledTeachingDayCount": 65,
       "includedTeachingDayCount": 65,
       "possibleLearnerDays": 130,
@@ -99,6 +101,12 @@
           "footerGapFromBalancePt": 0,
           "footerDistanceFromSheetBottomPt": 376.664,
           "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 65 school-included teaching days · 130 possible learner-days. Not a certified class register.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
           "balance": [
             43,
             0,
@@ -119,6 +127,12 @@
           "footerGapFromBalancePt": 0,
           "footerDistanceFromSheetBottomPt": 376.664,
           "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 65 school-included teaching days · 130 possible learner-days. Not a certified class register.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
           "balance": [
             43,
             0,
@@ -130,6 +144,7 @@
       ]
     },
     {
+      "key": "a1",
       "paper": "a1",
       "paperLabel": "A1 landscape",
       "paperSizePt": [
@@ -138,6 +153,7 @@
       ],
       "term": "Term 1 2026-01-12..2026-04-28",
       "asOf": "2026-03-31",
+      "screenOnly": false,
       "scheduledTeachingDayCount": 77,
       "includedTeachingDayCount": 77,
       "possibleLearnerDays": 154,
@@ -227,6 +243,12 @@
           "footerGapFromBalancePt": 0,
           "footerDistanceFromSheetBottomPt": 376.664,
           "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 28 Apr 2026 · 77 scheduled school days · 77 school-included teaching days · 154 possible learner-days. Not a certified class register.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
           "balance": [
             56,
             0,
@@ -247,12 +269,102 @@
           "footerGapFromBalancePt": 0,
           "footerDistanceFromSheetBottomPt": 376.664,
           "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 28 Apr 2026 · 77 scheduled school days · 77 school-included teaching days · 154 possible learner-days. Not a certified class register.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
           "balance": [
             56,
             0,
             21,
             56,
             77
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a2-replacement-saturday",
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": true,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 66,
+      "possibleLearnerDays": 132,
+      "observedLearnerDays": 88,
+      "projectedLearnerDays": 44,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 13.921,
+      "rowHeight": 14.25,
+      "serverPdfPages": 0,
+      "serverPdfSizes": [],
+      "serverPdfPageLabels": [],
+      "serverInkExtents": [],
+      "printPdfPages": 0,
+      "printPdfSizes": [],
+      "printInkExtents": [],
+      "printPngs": [],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 11.625,
+          "footerGapFromBalancePt": 0,
+          "footerDistanceFromSheetBottomPt": 376.664,
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 66 school-included teaching days (1 school-added replacement day) · 132 possible learner-days. Not a certified class register.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            44,
+            0,
+            22,
+            44,
+            66
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 11.625,
+          "footerGapFromBalancePt": 0,
+          "footerDistanceFromSheetBottomPt": 376.664,
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 66 school-included teaching days (1 school-added replacement day) · 132 possible learner-days. Not a certified class register.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            44,
+            0,
+            22,
+            44,
+            66
           ]
         }
       ]
@@ -266,6 +378,8 @@
     "footerSitsDirectlyUnderBalanceStrip": true,
     "printMatchesServerPdf": true,
     "a2CarriesSixtyFiveGovernedDays": true,
-    "observedPlusProjectedEqualsPossible": true
+    "observedPlusProjectedEqualsPossible": true,
+    "summaryBasisLabelsAreExplicit": true,
+    "replacementSaturdayIsExplained": true
   }
 }

@@ -276,15 +276,17 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     ? fullTermEligibleDates[fullTermEligibleDates.length - 1]
     : input.termEnd;
   const closingDate = fullTerm
-    ? (fullTermEligibleDates.length
-      ? resolveFullTermClosingDate({
-          termStart: input.termStart,
-          termEnd: input.termEnd,
-          today: fullTerm.today,
-          closingDate: fullTerm.closingDate ?? defaultClosingDate,
-          eligibleDates: fullTermEligibleDates,
-        })
-      : null)
+    ? resolveFullTermClosingDate({
+        termStart: input.termStart,
+        termEnd: input.termEnd,
+        today: fullTerm.today,
+        // An explicit date is always validated, even when the term has no
+        // eligible day, so an out-of-term request fails as a 400 instead of
+        // silently producing an empty sheet.
+        closingDate: fullTerm.closingDate
+          ?? (fullTermEligibleDates.length ? defaultClosingDate : null),
+        eligibleDates: fullTermEligibleDates,
+      })
     : null;
   // A full-term sheet always starts at the official learner opening date and
   // stops at the governed term end so the whole term is displayed. Weekly and

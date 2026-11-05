@@ -55,7 +55,7 @@ governed closures and per-learner enrolment windows on top of that:
 - **126 possible learner-days** = 2 learners × 63 included days.
 
 That scheduled/included/per-learner split is visible in the app evidence below,
-which reports `65 scheduled school days · 63 included eligible days`.
+which reports `65 scheduled school days · 63 school-included teaching days (2 school closure days)`.
 
 ## Observed vs projected totals
 
@@ -107,6 +107,35 @@ Per section on the A1 sheet: `Present 56 · Absent 0 · Projected 21 · Observed
 - Screen: [`a2-screen-boys.png`](a2-screen-boys.png), [`a2-screen-girls.png`](a2-screen-girls.png)
 - Print: [`a2-print-boys.png`](a2-print-boys.png), [`a2-print-girls.png`](a2-print-girls.png)
 - PDF: [`a2-server.pdf`](a2-server.pdf) (renderer), [`a2-print.pdf`](a2-print.pdf) (Chromium print of the same HTML)
+
+## Control Room remediation (2026-11-05)
+
+After the dual review, the Control Room authorised a minimal corrective commit for
+four presentation issues. None of them changes a denominator or an observed count.
+
+1. **Replacement Saturday explained.** A school may open a replacement Saturday,
+   so the included count can exceed the scheduled Mon–Fri baseline. The banner
+   now states the relationship (`66 school-included teaching days (1 school-added
+   replacement day)`) and the metadata reads `66 included / 65 scheduled`,
+   instead of printing two numbers that look like an impossible total.
+2. **Summary bases labelled.** The row is now
+   `Total possible attendances (daily/week = observed; term = full term)` in both
+   HTML and PDF, so summing the observed daily columns is never presented as
+   equal to the full-term total. The 8pt/7pt floors and the A2/A1 fit are
+   unchanged.
+3. **Empty-state wording.** The stale `on or before {today}` clause is gone; a
+   term with no eligible teaching day now says so directly.
+4. **Out-of-term closing dates.** An explicit `closingDate` outside the learner
+   term returns HTTP 400 even when the term has zero eligible days, instead of
+   silently rendering an empty sheet. 401/403, `no-store` and the no-leakage
+   behaviour are unchanged.
+
+### Replacement-Saturday sheet (scheduled 65 / included 66)
+
+![A2 replacement Saturday boys sheet](a2-replacement-saturday-screen-boys.png)
+
+Banner: `PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 66 school-included teaching days (1 school-added replacement day) · 132 possible learner-days.`
+Metadata: `SCHOOL DAYS: 66 included / 65 scheduled`.
 
 ## A1 — Term 1, 77 governed days
 
@@ -172,16 +201,19 @@ ends. The large figure below the footer is the unused remainder of a one-learner
 roster page — the footer is anchored to the content block, which is the intended
 behaviour, not pinned to the page edge.
 
-## Documented trade-offs (unchanged by this evidence)
+## Documented trade-offs
 
-- The **"Total number of possible attendances"** summary row keeps observed
-  daily/week cells with a full-term term cell, so the row does not reconcile
-  horizontally mid-term. The reconciliation is carried by the balance strip and
-  the footer note, both visible in the artefacts above.
+- The **possible-attendances** summary row still keeps observed daily/week cells
+  with a full-term term cell. That is now stated by the row label itself, so the
+  row is self-describing rather than silently non-reconciling. Reconciliation is
+  also carried by the balance strip and the footer note.
 - Per-learner `Attend + Absent ≠ Days` mid-term, because `Days` is the full-term
   possible. The projected remainder is stated in the balance strip
   (`Projected N`) and the footer note. No per-learner projected column was added,
   to preserve the approved term format.
+- **Pending, not fixed:** teacher feedback for a future-dated absent row, and the
+  pre-existing 64pt difference between the screen preview width and the printed
+  sheet width. The Control Room allowed both to be separate tasks.
 
 ## Independent review
 

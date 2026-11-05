@@ -398,3 +398,107 @@ test("#1260 route keeps the opt-in full-term mode and paginated fallback wiring"
   assert.match(route, /renderRegisterTeacherFullTermHtml/);
   assert.match(route, /renderRegisterTeacherFullTermPdf/);
 });
+
+// --- Control Room presentation remediation (2026-11-05) -------------------
+// These cover the four items the Control Room authorised after the dual
+// ACCEPT WITH NITS review: the replacement-Saturday explanation, explicit
+// summary bases, the stale empty-state wording and out-of-term closing dates
+// on a term with no eligible day.
+
+test("#1260 explains a school-opened replacement Saturday instead of printing a contradictory total", () => {
+  const saturday = "2026-09-12";
+  assert.equal(new Date(`${saturday}T12:00:00Z`).getUTCDay(), 6, "fixture opens a real Saturday");
+
+  const document = build({
+    impactRows: [...impactRows(), { target_date: saturday, teaching_impact: "NORMAL" }],
+    overrideRows: [{ school_date: saturday, reason: "School open day (replacement Saturday)" }],
+  });
+
+  // The official Mon-Fri baseline is unchanged; the school adds one day.
+  assert.equal(document.fullTerm.scheduledTeachingDayCount, 65);
+  assert.equal(document.fullTerm.includedTeachingDayCount, 66);
+
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  assert.equal(plan.fits, true);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.match(html, /65 scheduled school days/);
+  assert.match(html, /66 school-included teaching days \(1 school-added replacement day\)/);
+  assert.match(html, /66 included \/ 65 scheduled/);
+  assert.doesNotMatch(html, /66 \/ 65/);
+
+  const learner = section(document, "male").learners[0];
+  assert.equal(learner.termDays, 66);
+  assert.equal(learner.termAttended + learner.termAbsent + learner.termProjected, 66);
+});
+
+test("#1260 states a net school closure count without inventing replacement days", () => {
+  const document = build({
+    calendarEventRows: [{
+      title: "School closure",
+      starts_on: "2026-10-14",
+      ends_on: "2026-10-14",
+      event_scope: "school",
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+    impactRows: impactRows({ "2026-10-14": "NO_TEACHING" }),
+  });
+  assert.equal(document.fullTerm.scheduledTeachingDayCount, 65);
+  assert.equal(document.fullTerm.includedTeachingDayCount, 64);
+
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.match(html, /64 school-included teaching days \(1 school closure day\)/);
+});
+
+test("#1260 labels the observed and full-term summary bases in the printed document", async () => {
+  const document = build({
+    enrolments: [
+      learnerRow({ id: "b1", learner_id: "b1", sex: "male" }),
+      learnerRow({ id: "g1", learner_id: "g1", sex: "female" }),
+    ],
+  });
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const label = "Total possible attendances (daily/week = observed; term = full term)";
+
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.ok(collapse(stripHtml(html)).includes(collapse(label)), "HTML carries the explicit basis label");
+
+  const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
+  const text = await pdfText(bytes);
+  assert.ok(collapse(text).includes(collapse(label)), "PDF carries the explicit basis label");
+});
+
+test("#1260 empty-state copy no longer claims an on-or-before-today boundary", () => {
+  const noTeaching = weekdaysBetween(START, END).map((date) => ({ target_date: date, teaching_impact: "NO_TEACHING" }));
+  const document = build({ impactRows: noTeaching });
+
+  assert.equal(document.fullTerm.closingDate, null);
+  assert.equal(document.fullTerm.includedTeachingDayCount, 0);
+
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.match(html, /the governed learner term contains no eligible teaching day/);
+  assert.doesNotMatch(html, /on or before/);
+});
+
+test("#1260 rejects an out-of-term closing date even when the term has no eligible day", () => {
+  const noTeaching = weekdaysBetween(START, END).map((date) => ({ target_date: date, teaching_impact: "NO_TEACHING" }));
+
+  assert.throws(
+    () => build({ impactRows: noTeaching, fullTerm: { today: TODAY, closingDate: "2027-01-15" } }),
+    (error) => error instanceof fullTermModel.RegisterTeacherFullTermError && error.status === 400,
+    "an out-of-term closing date is a 400, not a silently empty sheet",
+  );
+  assert.throws(
+    () => build({ impactRows: noTeaching, fullTerm: { today: TODAY, closingDate: "2026-09-06" } }),
+    (error) => error instanceof fullTermModel.RegisterTeacherFullTermError && error.status === 400,
+  );
+
+  // An in-term date stays valid and still renders the explicit empty state.
+  const inTerm = build({ impactRows: noTeaching, fullTerm: { today: TODAY, closingDate: "2026-10-01" } });
+  assert.equal(inTerm.fullTerm.closingDate, "2026-10-01");
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(inTerm);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document: inTerm, plan });
+  assert.match(html, /NO ELIGIBLE SCHOOL DAY/);
+  assert.match(html, /contains no eligible teaching day/);
+});

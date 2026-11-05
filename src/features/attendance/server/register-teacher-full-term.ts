@@ -55,11 +55,13 @@ export function isFullTermCalendarDate(value: string) {
  * Resolves and validates the closing date inside the official learner term. A
  * caller-supplied date may be any calendar day in the term, including a
  * non-teaching boundary day, and may legitimately fall after today for a
- * full-term register (the register spans the whole learner term). When no date is
- * supplied the last eligible school day on or before today is used as a
+ * full-term register (the register spans the whole learner term). A supplied
+ * date is validated even when the term has no eligible day at all, so an
+ * out-of-term request is a 400 rather than a silently empty sheet. When no date
+ * is supplied the last eligible school day on or before today is used as a
  * conservative boundary; the builder instead supplies the term's last eligible
  * day so the default view is the whole term. `null` means the term has no
- * eligible day yet (explicit empty state).
+ * eligible day (explicit empty state).
  */
 export function resolveFullTermClosingDate(input: {
   termStart: string;
@@ -84,6 +86,31 @@ export function resolveFullTermClosingDate(input: {
   const boundary = today < termEnd ? today : termEnd;
   const eligible = eligibleDates.filter((date) => date <= boundary);
   return eligible.length ? eligible[eligible.length - 1] : null;
+}
+
+/**
+ * Explains how the school-included teaching-day count relates to the official
+ * scheduled baseline.
+ *
+ * A school may open a replacement Saturday, so the included count can
+ * legitimately exceed the scheduled Mon-Fri baseline. Printing the two numbers
+ * without that explanation reads as a contradictory total on an official
+ * document, so the renderers state the relationship explicitly. A net-zero
+ * difference needs no explanation.
+ */
+export function fullTermDayBasis(
+  scheduledTeachingDayCount: number,
+  includedTeachingDayCount: number,
+) {
+  const delta = includedTeachingDayCount - scheduledTeachingDayCount;
+  if (delta === 0) return { delta, detail: null as string | null };
+  const unit = Math.abs(delta) === 1 ? "day" : "days";
+  return {
+    delta,
+    detail: delta > 0
+      ? `${delta} school-added replacement ${unit}`
+      : `${Math.abs(delta)} school closure ${unit}`,
+  };
 }
 
 /**

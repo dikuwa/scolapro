@@ -54,6 +54,19 @@ const CASES = [
     today: "2026-03-31",
     expectedPaper: "a1",
   },
+  {
+    // Control Room remediation: a school-opened replacement Saturday makes the
+    // included count exceed the scheduled Mon-Fri baseline. The sheet must say
+    // so instead of printing a contradictory total.
+    key: "a2-replacement-saturday",
+    termName: "Term 3",
+    termStart: "2026-09-07",
+    termEnd: "2026-12-04",
+    today: "2026-11-05",
+    expectedPaper: "a2",
+    replacementSaturday: "2026-09-12",
+    screenOnly: true,
+  },
 ];
 
 function buildDocument(entry) {
@@ -76,13 +89,17 @@ function buildDocument(entry) {
       termStart: entry.termStart,
       termEnd: entry.termEnd,
     }),
-    impactRows: normalImpactRows(entry.termStart, entry.termEnd),
+    impactRows: entry.replacementSaturday
+      ? [...normalImpactRows(entry.termStart, entry.termEnd), { target_date: entry.replacementSaturday, teaching_impact: "NORMAL" }]
+      : normalImpactRows(entry.termStart, entry.termEnd),
     enrolments: [
       learnerRow({ id: "b1", learner_id: "b1", sex: "male", surname: "Boy", first_names: "Evidence", admission_number: "ACC-001" }),
       learnerRow({ id: "g1", learner_id: "g1", sex: "female", surname: "Girl", first_names: "Evidence", admission_number: "ACC-002" }),
     ],
     currentRows: [],
-    overrideRows: [],
+    overrideRows: entry.replacementSaturday
+      ? [{ school_date: entry.replacementSaturday, reason: "School open day (replacement Saturday)" }]
+      : [],
     calendarEventRows: [],
     submissionRows: [],
     fullTerm: { today: entry.today },
@@ -191,6 +208,8 @@ async function measure(page) {
         footerGapFromSummary: footBox && summaryBox ? footBox.top - summaryBox.bottom : null,
         footerGapFromBalance: footBox && balanceBox ? footBox.top - balanceBox.bottom : null,
         footerDistanceFromSheetBottom: footBox ? box.bottom - footBox.bottom : null,
+        banner: sheet.querySelector(".provisional-banner")?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+        summaryLabels: [...sheet.querySelectorAll(".summary-row th")].map((cell) => cell.textContent?.trim() ?? ""),
         sheetText: sheet.textContent?.replace(/\s+/g, " ").trim() ?? "",
       };
     });
@@ -208,8 +227,13 @@ try {
     if (plan.paper !== entry.expectedPaper) throw new Error(`${entry.key}: expected ${entry.expectedPaper}, planned ${plan.paper}`);
 
     const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
-    const { bytes, pageCount } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
-    await writeFile(join(OUT, `${entry.key}-server.pdf`), bytes);
+    let pageCount = 0;
+    let serverSizes = [];
+    let serverPageLabels = [];
+    let serverInk = [];
+    let printSizes = [];
+    let printInk = [];
+    let printPngs = [];
 
     const page = await browser.newPage({ viewport: { width: 2600, height: 1800 }, deviceScaleFactor: 1 });
     await page.setContent(html, { waitUntil: "load" });
@@ -223,56 +247,62 @@ try {
     }
 
     const metrics = await measure(page);
-    const printed = await page.pdf({ preferCSSPageSize: true, printBackground: true });
-    await writeFile(join(OUT, `${entry.key}-print.pdf`), printed);
 
-    const printDocument = await PDFDocument.load(printed);
-    const serverDocument = await PDFDocument.load(bytes);
-    const printSizes = printDocument.getPages().map((p) => [round(p.getWidth()), round(p.getHeight())]);
-    const serverSizes = serverDocument.getPages().map((p) => [round(p.getWidth()), round(p.getHeight())]);
+    if (!entry.screenOnly) {
+      const { bytes, pageCount: renderedPages } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
+      pageCount = renderedPages;
+      await writeFile(join(OUT, `${entry.key}-server.pdf`), bytes);
 
-    const printPngs = [];
-    for (let pageIndex = 1; pageIndex <= printDocument.getPageCount(); pageIndex += 1) {
-      const label = pageIndex === 1 ? "boys" : "girls";
-      const target = join(OUT, `${entry.key}-print-${label}.png`);
-      renderPagePng(join(OUT, `${entry.key}-print.pdf`), pageIndex, target);
-      printPngs.push(`${entry.key}-print-${label}.png`);
-    }
+      const printed = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+      await writeFile(join(OUT, `${entry.key}-print.pdf`), printed);
 
-    const serverInk = [];
-    const printInk = [];
-    for (let pageIndex = 1; pageIndex <= serverDocument.getPageCount(); pageIndex += 1) {
-      const size = serverSizes[pageIndex - 1];
-      serverInk.push(inkExtents(join(OUT, `${entry.key}-server.pdf`), pageIndex, size[0], size[1]));
-      printInk.push(inkExtents(join(OUT, `${entry.key}-print.pdf`), pageIndex, printSizes[pageIndex - 1][0], printSizes[pageIndex - 1][1]));
-    }
+      const printDocument = await PDFDocument.load(printed);
+      const serverDocument = await PDFDocument.load(bytes);
+      printSizes = printDocument.getPages().map((p) => [round(p.getWidth()), round(p.getHeight())]);
+      serverSizes = serverDocument.getPages().map((p) => [round(p.getWidth()), round(p.getHeight())]);
 
-    const serverPageLabels = serverDocument.getPages().map((pdfPage) => {
-      const contents = pdfPage.node.Contents();
-      const streams = contents instanceof PDFArray
-        ? contents.asArray().map((reference) => serverDocument.context.lookup(reference))
-        : [contents];
-      let text = "";
-      for (const stream of streams) {
-        if (!(stream instanceof PDFRawStream)) continue;
-        const raw = Buffer.from(stream.getContents());
-        let decoded;
-        try { decoded = zlib.inflateSync(raw).toString("latin1"); } catch { decoded = raw.toString("latin1"); }
-        for (const match of decoded.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
-          const value = Buffer.from(match[1], "hex").toString("latin1");
-          if (/^[\x20-\x7E]+$/.test(value)) text += value;
-        }
+      for (let pageIndex = 1; pageIndex <= printDocument.getPageCount(); pageIndex += 1) {
+        const label = pageIndex === 1 ? "boys" : "girls";
+        const target = join(OUT, `${entry.key}-print-${label}.png`);
+        renderPagePng(join(OUT, `${entry.key}-print.pdf`), pageIndex, target);
+        printPngs.push(`${entry.key}-print-${label}.png`);
       }
-      const index = text.indexOf("BOYS/GIRLS:");
-      return index === -1 ? "" : text.slice(index, index + 24);
-    });
+
+      for (let pageIndex = 1; pageIndex <= serverDocument.getPageCount(); pageIndex += 1) {
+        const size = serverSizes[pageIndex - 1];
+        serverInk.push(inkExtents(join(OUT, `${entry.key}-server.pdf`), pageIndex, size[0], size[1]));
+        printInk.push(inkExtents(join(OUT, `${entry.key}-print.pdf`), pageIndex, printSizes[pageIndex - 1][0], printSizes[pageIndex - 1][1]));
+      }
+
+      serverPageLabels = serverDocument.getPages().map((pdfPage) => {
+        const contents = pdfPage.node.Contents();
+        const streams = contents instanceof PDFArray
+          ? contents.asArray().map((reference) => serverDocument.context.lookup(reference))
+          : [contents];
+        let text = "";
+        for (const stream of streams) {
+          if (!(stream instanceof PDFRawStream)) continue;
+          const raw = Buffer.from(stream.getContents());
+          let decoded;
+          try { decoded = zlib.inflateSync(raw).toString("latin1"); } catch { decoded = raw.toString("latin1"); }
+          for (const match of decoded.matchAll(/<([0-9A-Fa-f]+)>\s*Tj/g)) {
+            const value = Buffer.from(match[1], "hex").toString("latin1");
+            if (/^[\x20-\x7E]+$/.test(value)) text += value;
+          }
+        }
+        const index = text.indexOf("BOYS/GIRLS:");
+        return index === -1 ? "" : text.slice(index, index + 24);
+      });
+    }
 
     report.cases.push({
+      key: entry.key,
       paper: plan.paper,
       paperLabel: fullTermLayout.fullTermSheetContext(plan.sheets[0]).paperLabel,
       paperSizePt: [round(plan.sheets[0].width), round(plan.sheets[0].height)],
       term: `${entry.termName} ${entry.termStart}..${entry.termEnd}`,
       asOf: entry.today,
+      screenOnly: Boolean(entry.screenOnly),
       scheduledTeachingDayCount: document.fullTerm.scheduledTeachingDayCount,
       includedTeachingDayCount: document.fullTerm.includedTeachingDayCount,
       possibleLearnerDays: document.fullTerm.possibleLearnerDays,
@@ -287,7 +317,7 @@ try {
       serverPdfSizes: serverSizes,
       serverPdfPageLabels: serverPageLabels,
       serverInkExtents: serverInk,
-      printPdfPages: printDocument.getPageCount(),
+      printPdfPages: printSizes.length,
       printPdfSizes: printSizes,
       printInkExtents: printInk,
       printPngs,
@@ -303,6 +333,8 @@ try {
         footerGapFromBalancePt: round(metric.footerGapFromBalance * CSS_PX_TO_PT),
         footerDistanceFromSheetBottomPt: round(metric.footerDistanceFromSheetBottom * CSS_PX_TO_PT),
         pageSeparated: metric.label === (index === 0 ? "BOYS/GIRLS: BOYS" : "BOYS/GIRLS: GIRLS"),
+        banner: metric.banner,
+        summaryLabels: metric.summaryLabels,
         balance: /Present (\d+)\s*Absent (\d+)\s*Projected (\d+)\s*Observed (\d+) \/ Full-term (\d+)/.exec(metric.sheetText)?.slice(1).map(Number) ?? null,
       })),
     });
@@ -315,27 +347,39 @@ try {
 
 // Cross-case invariants that the acceptance claim depends on.
 const [a2] = report.cases;
+const fullCases = report.cases.filter((entry) => !entry.screenOnly);
+const saturdayCase = report.cases.find((entry) => entry.key === "a2-replacement-saturday");
 report.invariants = {
   boysOnPageOneGirlsOnPageTwo: report.cases.every((entry) => entry.sheets[0]?.pageSeparated && entry.sheets[1]?.pageSeparated),
-  pdfPageOneIsBoysPageTwoIsGirls: report.cases.every(
+  pdfPageOneIsBoysPageTwoIsGirls: fullCases.every(
     (entry) => entry.serverPdfPageLabels[0].startsWith("BOYS/GIRLS: BOYS") && entry.serverPdfPageLabels[1].startsWith("BOYS/GIRLS: GIRLS"),
   ),
   horizontalInsetIsTenPoints: report.cases.every((entry) => entry.sheets.every(
     (sheet) => Math.abs(sheet.tableLeftOffsetPt - 10) < 0.5 && Math.abs(sheet.tableRightGapPt - 10) < 0.5,
   )),
-  pdfInkStartsAtFortyTwoPoints: report.cases.every((entry) => entry.serverInkExtents.every(
+  pdfInkStartsAtFortyTwoPoints: fullCases.every((entry) => entry.serverInkExtents.every(
     (extent) => Math.abs(extent.leftPt - 42) <= 1 && Math.abs(extent.rightPt - 42) <= 1,
   )),
   footerSitsDirectlyUnderBalanceStrip: report.cases.every((entry) => entry.sheets.every(
     (sheet) => sheet.footerGapFromBalancePt >= 0 && sheet.footerGapFromBalancePt <= 8,
   )),
-  printMatchesServerPdf: report.cases.every(
+  printMatchesServerPdf: fullCases.every(
     (entry) => entry.printPdfPages === entry.serverPdfPages && entry.printPdfSizes.every(
       (size, index) => Math.abs(size[0] - entry.serverPdfSizes[index][0]) < 1 && Math.abs(size[1] - entry.serverPdfSizes[index][1]) < 1,
     ),
   ),
   a2CarriesSixtyFiveGovernedDays: a2.scheduledTeachingDayCount === 65 && a2.includedTeachingDayCount === 65,
   observedPlusProjectedEqualsPossible: report.cases.every((entry) => entry.observedLearnerDays + entry.projectedLearnerDays === entry.possibleLearnerDays),
+  summaryBasisLabelsAreExplicit: fullCases.every((entry) => entry.sheets.every(
+    (sheet) => sheet.summaryLabels.includes("Total possible attendances (daily/week = observed; term = full term)"),
+  )),
+  replacementSaturdayIsExplained: Boolean(saturdayCase)
+    && saturdayCase.scheduledTeachingDayCount === 65
+    && saturdayCase.includedTeachingDayCount === 66
+    && saturdayCase.sheets.every(
+      (sheet) => sheet.banner.includes("66 school-included teaching days (1 school-added replacement day)")
+        && !sheet.banner.includes("66 included eligible days"),
+    ),
 };
 
 await writeFile(join(OUT, "measurements.json"), `${JSON.stringify(report, null, 2)}\n`);
