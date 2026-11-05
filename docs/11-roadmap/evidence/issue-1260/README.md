@@ -185,8 +185,16 @@ behaviour, not pinned to the page edge.
 
 ## Independent review
 
-See the PR comment linked from #1261 for the verdict recorded against exact head
-`5cf23f3c6`.
+Verdict recorded against the reviewed code at exact head `5cf23f3c6`:
+**ACCEPT WITH NITS** (0 HIGH, 2 MEDIUM, 2 LOW) —
+[PR #1261 review comment](https://github.com/dikuwa/scolapro/pull/1261#issuecomment-6662093619).
+
+The two MEDIUM findings are the trade-offs documented above, plus one composition
+edge case: `scheduledTeachingDayCount` counts Mon–Fri minus national closures
+only, so a school that opens a replacement Saturday can print
+`included > scheduled`. Denominators and observed counts stay correct; only the
+banner wording self-contradicts. Proposed follow-up: derive scheduled days from
+the same override-aware resolver, or clamp/label the pair explicitly.
 
 ## Not covered
 
