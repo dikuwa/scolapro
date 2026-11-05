@@ -185,16 +185,34 @@ behaviour, not pinned to the page edge.
 
 ## Independent review
 
-Verdict recorded against the reviewed code at exact head `5cf23f3c6`:
-**ACCEPT WITH NITS** (0 HIGH, 2 MEDIUM, 2 LOW) —
-[PR #1261 review comment](https://github.com/dikuwa/scolapro/pull/1261#issuecomment-6662093619).
+Two independent read-only passes, both against the reviewed code at exact head
+`5cf23f3c6`, both returned **ACCEPT WITH NITS** with no HIGH findings and no
+change to any denominator or observed count.
 
-The two MEDIUM findings are the trade-offs documented above, plus one composition
-edge case: `scheduledTeachingDayCount` counts Mon–Fri minus national closures
-only, so a school that opens a replacement Saturday can print
-`included > scheduled`. Denominators and observed counts stay correct; only the
-banner wording self-contradicts. Proposed follow-up: derive scheduled days from
-the same override-aware resolver, or clamp/label the pair explicitly.
+- Verdict and property-by-property table:
+  [PR #1261 review comment](https://github.com/dikuwa/scolapro/pull/1261#issuecomment-6662093619)
+- Additional findings from the second pass:
+  [PR #1261 review addendum](https://github.com/dikuwa/scolapro/pull/1261#issuecomment-6662267288)
+
+Recorded findings, none of which affects the figures in this pack:
+
+- **MEDIUM** — `scheduledTeachingDayCount` counts Mon–Fri minus national closures
+  only, so a school that opens a replacement Saturday can print
+  `included > scheduled`. Denominators stay correct; the banner wording
+  self-contradicts. Proposed follow-up: derive scheduled days from the same
+  override-aware resolver, or clamp and label the pair explicitly.
+- **MEDIUM** — the "Total number of possible attendances" row does not cross-foot
+  mid-term (observed weekly cells vs the whole-term term cell).
+- **LOW** — projected future days render as blank cells; the legend documents
+  grey only.
+- **LOW** — `reconciled` is an algebraic identity, so the full-term tick cannot
+  fail at runtime (the builder assertion still fails closed).
+- **LOW** — the empty-state copy still says "on or before {today}", which is stale
+  now that a null closing date means the term has no eligible days.
+- **LOW** — a future-dated absent row is dropped silently, with no teacher
+  feedback, unlike the existing non-eligible-day counter.
+- **LOW** — an explicit out-of-term closing date on a term with no eligible days
+  yields an empty sheet rather than a 400.
 
 ## Not covered
 
