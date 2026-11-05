@@ -421,17 +421,6 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
   });
 
   const possibleLearnerDays = sections.reduce((sum, section) => sum + section.termPossibleTotal, 0);
-  const certification = fullTerm
-    ? resolveFullTermCertification({
-        scope: {
-          schoolId: input.schoolId ?? "",
-          classId: input.classId,
-          termId: input.termId,
-          cutoff: closingDate,
-        },
-        evidence: input.certificationEvidence,
-      })
-    : null;
   const document: RegisterTeacherDocument = {
     mode: input.mode,
     academicYear: input.academicYear,
@@ -445,17 +434,6 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     scopeEnd,
     selectedDate: input.selectedDate,
     teachingDayCount: termTeachingDayCount,
-    ...(fullTerm && certification ? {
-      fullTerm: {
-        closingDate,
-        today: fullTerm.today,
-        scheduledTeachingDayCount: termTeachingDayCount,
-        includedTeachingDayCount: termActualDates.length,
-        possibleLearnerDays,
-        status: certification.status,
-        certificationNote: certification.certificationNote,
-      } satisfies RegisterTeacherFullTermMetadata,
-    } : {}),
     governanceAlerts: {
       invalidSubmissionCount,
       invalidSubmissionDates: [...invalidSubmissionDates].sort(),
@@ -463,6 +441,32 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     weeks,
     sections,
   };
+  // Compute the governed full-term fingerprint from the authoritative exported
+  // content (not just scope) so a changed attendance mark necessarily changes the
+  // id; compare it against independently supplied finalization evidence.
+  const certification = fullTerm
+    ? resolveFullTermCertification({
+        scope: {
+          schoolId: input.schoolId ?? "",
+          classId: input.classId,
+          termId: input.termId,
+          cutoff: closingDate,
+        },
+        document,
+        evidence: input.certificationEvidence,
+      })
+    : null;
+  if (fullTerm && certification) {
+    document.fullTerm = {
+      closingDate,
+      today: fullTerm.today,
+      scheduledTeachingDayCount: termTeachingDayCount,
+      includedTeachingDayCount: termActualDates.length,
+      possibleLearnerDays,
+      status: certification.status,
+      certificationNote: certification.certificationNote,
+    } satisfies RegisterTeacherFullTermMetadata;
+  }
   assertRegisterTeacherDocumentTotals(document);
   if (document.fullTerm) {
     for (const section of document.sections) {

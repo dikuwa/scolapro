@@ -195,57 +195,126 @@ test("full-term preserves disjoint re-entry and fails closed on ambiguous overla
   }), /Overlapping enrolments/i);
 });
 
-test("full-term stays provisional unless evidence matches the exact exported snapshot", () => {
-  const scope = { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16" };
-  const expected = fullTermModel.computeFullTermExportSnapshotId(scope);
+test("full-term stays provisional unless evidence matches the exact exported snapshot of actual attendance content", () => {
+  const document = build();
+  const scope = {
+    schoolId: "synthetic-school",
+    classId: "synthetic-class",
+    termId: "synthetic-term",
+    cutoff: document.fullTerm.closingDate,
+  };
+  const expected = fullTermModel.computeFullTermExportSnapshotId({ ...scope, document });
 
-  // A school-only summary cannot certify a class register, even with a valid id.
+  // Exact match certifies.
   assert.equal(fullTermModel.resolveFullTermCertification({
-    scope,
-    evidence: { schoolId: "school", classId: null, termId: "term", cutoff: "2026-01-16", snapshotId: expected },
+    scope, document,
+    evidence: { schoolId: scope.schoolId, classId: scope.classId, termId: scope.termId, cutoff: scope.cutoff, snapshotId: expected },
+  }).status, "certified");
+
+  // A school-only summary cannot certify a class register.
+  assert.equal(fullTermModel.resolveFullTermCertification({
+    scope, document,
+    evidence: { schoolId: scope.schoolId, classId: null, termId: scope.termId, cutoff: scope.cutoff, snapshotId: expected },
   }).status, "provisional");
 
   // Mismatched cutoff.
   assert.equal(fullTermModel.resolveFullTermCertification({
-    scope,
-    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-15", snapshotId: expected },
+    scope, document,
+    evidence: { schoolId: scope.schoolId, classId: scope.classId, termId: scope.termId, cutoff: "2026-01-15", snapshotId: expected },
   }).status, "provisional");
 
   // Different school.
   assert.equal(fullTermModel.resolveFullTermCertification({
-    scope,
-    evidence: { schoolId: "other-school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: expected },
+    scope, document,
+    evidence: { schoolId: "other-school", classId: scope.classId, termId: scope.termId, cutoff: scope.cutoff, snapshotId: expected },
   }).status, "provisional");
 
-  // FABRICATED snapshot: scope matches but the id was not derived from it.
+  // FABRICATED snapshot: id not derived from this content.
   assert.equal(fullTermModel.resolveFullTermCertification({
-    scope,
-    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: "snapshot" },
+    scope, document,
+    evidence: { schoolId: scope.schoolId, classId: scope.classId, termId: scope.termId, cutoff: scope.cutoff, snapshotId: "snapshot" },
   }).status, "provisional");
 
-  // STALE snapshot: id derived from a different closing date.
-  const staleId = fullTermModel.computeFullTermExportSnapshotId({ ...scope, cutoff: "2026-01-15" });
+  // STALE snapshot: derived from a document whose attendance marks differ.
+  const changed = build({
+    enrolments: [learnerRow({ id: "p", learner_id: "p" })],
+    currentRows: [{ enrolment_id: "p", attendance_date: "2026-01-13", status: "present", reason_id: null, note: null }],
+  });
+  const staleId = fullTermModel.computeFullTermExportSnapshotId({ ...scope, document: changed });
+  assert.notEqual(staleId, expected, "a changed attendance mark yields a different snapshot id");
   assert.equal(fullTermModel.resolveFullTermCertification({
-    scope,
-    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: staleId },
+    scope, document,
+    evidence: { schoolId: scope.schoolId, classId: scope.classId, termId: scope.termId, cutoff: scope.cutoff, snapshotId: staleId },
   }).status, "provisional");
 
-  // UNRELATED snapshot: id derived from a different class.
-  const unrelatedId = fullTermModel.computeFullTermExportSnapshotId({ ...scope, classId: "other-class" });
+  // UNRELATED snapshot: derived from a different class's content.
+  const otherClass = build({ classId: "other-class", className: "Grade 6 B" });
+  const unrelatedId = fullTermModel.computeFullTermExportSnapshotId({
+    schoolId: scope.schoolId, classId: "other-class", termId: scope.termId, cutoff: scope.cutoff, document: otherClass,
+  });
   assert.equal(fullTermModel.resolveFullTermCertification({
-    scope,
-    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: unrelatedId },
+    scope, document,
+    evidence: { schoolId: scope.schoolId, classId: scope.classId, termId: scope.termId, cutoff: scope.cutoff, snapshotId: unrelatedId },
   }).status, "provisional");
-
-  // Exact match certifies.
-  assert.equal(fullTermModel.resolveFullTermCertification({
-    scope,
-    evidence: { schoolId: "school", classId: "class", termId: "term", cutoff: "2026-01-16", snapshotId: expected },
-  }).status, "certified");
 
   // A non-class-scoped document stays provisional.
-  const document = build({ certificationEvidence: { schoolId: "synthetic-school", classId: null, termId: "synthetic-term", cutoff: "2026-01-16", snapshotId: "snapshot" } });
-  assert.equal(document.fullTerm.status, "provisional");
+  const noClassDoc = build({ certificationEvidence: { schoolId: scope.schoolId, classId: null, termId: scope.termId, cutoff: scope.cutoff, snapshotId: "snapshot" } });
+  assert.equal(noClassDoc.fullTerm.status, "provisional");
+});
+
+test("full-term snapshot fingerprint reflects actual attendance content and excludes DOB", () => {
+  const fixture = (status) => build({
+    enrolments: [learnerRow({ id: "p", learner_id: "p" })],
+    currentRows: [{ enrolment_id: "p", attendance_date: "2026-01-13", status, reason_id: status === "absent" ? "reason" : null, note: null }],
+  });
+  const base = fixture("absent");
+  const scope = { schoolId: "synthetic-school", classId: "synthetic-class", termId: "synthetic-term", cutoff: base.fullTerm.closingDate };
+  const id1 = fullTermModel.computeFullTermExportSnapshotId({ ...scope, document: base });
+
+  // Stable ordering: identical content yields the same digest.
+  const id1Again = fullTermModel.computeFullTermExportSnapshotId({ ...scope, document: fixture("absent") });
+  assert.equal(id1, id1Again, "deterministic digest for identical content");
+
+  // A changed attendance mark changes the id.
+  const changed = fixture("present");
+  const id2 = fullTermModel.computeFullTermExportSnapshotId({ ...scope, document: changed });
+  assert.notEqual(id1, id2, "a changed mark yields a different snapshot id");
+
+  // No DOB (or any date_of_birth key) appears in the canonical digest inputs.
+  const canonical = JSON.stringify(fullTermModel.canonicalFullTermAttendance(base));
+  assert.ok(!/dateOfBirth|date_of_birth/i.test(canonical), "DOB is excluded from the digest inputs");
+});
+
+test("full-term rendered closure lines never overflow the printable inset at real Helvetica widths", async () => {
+  const cases = [
+    { reason: "@".repeat(900), label: "900 @ (widest glyph)" },
+    { reason: `Mixed wide glyphs ${"W@w".repeat(300)}`, label: "mixed wide glyphs" },
+    { reason: `Community closure ${"X".repeat(20000)}`, label: "20k closure" },
+  ];
+  const measureDoc = await PDFDocument.create();
+  const regular = await measureDoc.embedFont(StandardFonts.Helvetica);
+  const size = 7;
+  for (const { reason, label } of cases) {
+    const document = build({
+      fullTerm: { today: "2026-01-18" },
+      enrolments: [learnerRow({ id: "one" })],
+      overrideRows: [{ school_date: CLOSURE, reason }],
+    });
+    const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+    assert.ok(plan.margin >= 32, `${label}: printable inset is at least 32pt`);
+    for (const sheet of plan.sheets) {
+      const maxWidth = sheet.contentWidth - 16;
+      for (const note of sheet.closureNotes) {
+        for (const line of note.lines) {
+          const lineWidth = regular.widthOfTextAtSize(line, size);
+          assert.ok(lineWidth <= maxWidth + 0.5, `${label}: every continuation line stays within the printable inset (${line.slice(0, 20)}…)`);
+        }
+      }
+    }
+    // HTML/PDF parity: the full reason text is present in the rendered HTML.
+    const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+    assert.ok(collapseWs(stripHtml(html)).includes(collapseWs(reason)), `${label}: HTML carries the full closure text`);
+  }
 });
 
 test("weekly and paginated term outputs are unchanged by the full-term option", () => {

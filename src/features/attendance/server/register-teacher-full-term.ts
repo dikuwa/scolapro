@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { RegisterTeacherEnrolmentRow } from "@/features/attendance/server/register-teacher-document";
+import type { RegisterTeacherDocument, RegisterTeacherEnrolmentRow } from "@/features/attendance/server/register-teacher-document";
 
 /**
  * Governed full-term register semantics.
@@ -127,30 +127,66 @@ export type RegisterTeacherFullTermCertificationEvidence = {
 };
 
 /**
+ * Canonical, deterministic serialization of the actual exported attendance
+ * content. It deliberately excludes sensitive learner fields (date of birth,
+ * guardian contact, etc.) — only the governed attendance identity and marks feed
+ * the fingerprint. Learners and mark keys are ordered so identical content
+ * always yields the same digest regardless of source ordering.
+ */
+export function canonicalFullTermAttendance(document: RegisterTeacherDocument): unknown {
+  return document.sections.map((section) => ({
+    sex: section.sex,
+    learners: [...section.learners]
+      .sort((a, b) => (a.learnerId < b.learnerId ? -1 : a.learnerId > b.learnerId ? 1 : 0))
+      .map((learner) => ({
+        learnerId: learner.learnerId,
+        surname: learner.surname,
+        givenNames: learner.givenNames,
+        sex: learner.sex,
+        enrolledFrom: learner.enrolledFrom,
+        enrolledTo: learner.enrolledTo,
+        marks: Object.fromEntries(
+          Object.entries(learner.marks).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+        ),
+        attended: learner.attended,
+        absent: learner.absent,
+        possible: learner.possible,
+        termAttended: learner.termAttended,
+        termAbsent: learner.termAbsent,
+        termDays: learner.termDays,
+      })),
+  }));
+}
+
+/**
  * Independently derived export snapshot identifier.
  *
- * The identifier is bound to the authoritative export scope — school, class,
- * term and closing (cutoff) date — and is deterministic, so an authoritative
- * class-level finalization can pre-produce exactly this value. A snapshot that
- * does not equal this id (stale, from another export, or fabricated) must never
- * certify the sheet, because certification would otherwise be a no-op check on
- * a non-empty string.
+ * The identifier binds to the authoritative export scope — school, class, term
+ * and closing (cutoff) date — AND to a verifiable digest of the canonical
+ * exported attendance content. Because the digest covers the actual marks, two
+ * exports that differ only by an attendance mark necessarily produce different
+ * ids, so an authoritative class-level finalization cannot certify the sheet
+ * with a stale or mismatched snapshot. The digest is computed server-side from
+ * the resolved document, so a caller cannot supply an arbitrary value to claim
+ * certification. A snapshot that does not equal this id stays provisional.
  */
-export function computeFullTermExportSnapshotId(scope: {
+export function computeFullTermExportSnapshotId(input: {
   schoolId: string;
   classId: string;
   termId: string | null;
   cutoff: string | null;
+  document: RegisterTeacherDocument;
 }): string {
-  return createHash("sha256")
-    .update(JSON.stringify({
-      schoolId: scope.schoolId,
-      classId: scope.classId,
-      termId: scope.termId,
-      cutoff: scope.cutoff,
-    }))
-    .digest("hex")
-    .slice(0, 24);
+  const canonical = JSON.stringify({
+    scope: {
+      schoolId: input.schoolId,
+      classId: input.classId,
+      termId: input.termId,
+      cutoff: input.cutoff,
+    },
+    content: canonicalFullTermAttendance(input.document),
+  });
+  return createHash("sha256").update(canonical).digest("hex").slice(0, 24);
 }
 
 /**
@@ -160,22 +196,24 @@ export function computeFullTermExportSnapshotId(scope: {
  * matching school summary cannot certify this class register. Certification
  * requires authoritative evidence that explicitly covers school, class, term,
  * cutoff and the exact exported snapshot. The snapshot id must equal the value
- * independently derived from this export's scope — a non-empty but mismatched
- * id (stale, unrelated or fabricated) stays provisional. Until such evidence is
- * supplied, the sheet stays provisional even when the term has ended.
+ * independently derived from this export's actual content — a non-empty but
+ * mismatched id (stale, unrelated, fabricated, or derived from different marks)
+ * stays provisional. Until such evidence is supplied, the sheet stays
+ * provisional even when the term has ended.
  */
 export function resolveFullTermCertification(input: {
   scope: { schoolId: string; classId: string; termId: string | null; cutoff: string | null };
+  document: RegisterTeacherDocument;
   evidence?: RegisterTeacherFullTermCertificationEvidence | null;
 }): Pick<RegisterTeacherFullTermMetadata, "status" | "certificationNote"> {
-  const { scope, evidence } = input;
+  const { scope, document, evidence } = input;
+  const expectedSnapshotId = computeFullTermExportSnapshotId({ ...scope, document });
   if (!evidence) {
     return {
       status: "provisional",
       certificationNote: "Provisional: no authoritative class-level finalization covers this school, class, term, closing date and snapshot.",
     };
   }
-  const expectedSnapshotId = computeFullTermExportSnapshotId(scope);
   const coversScope = evidence.schoolId === scope.schoolId
     && evidence.classId != null
     && evidence.classId === scope.classId

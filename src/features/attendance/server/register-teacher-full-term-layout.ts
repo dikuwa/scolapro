@@ -32,16 +32,53 @@ export const FULL_TERM_MIN_ROW_HEIGHT = 10;
 export const FULL_TERM_MAX_ROW_HEIGHT = 14.25;
 
 /**
- * Conservative per-glyph advance bounds for the PDF fonts (Helvetica /
- * Helvetica-Bold). Standard Helvetica's widest ordinary glyph approaches
- * 0.889em and Helvetica-Bold's approaches 0.944em. Using these factors makes
- * every planned line width an over-estimate, so the planner can never declare a
- * line "fits" while the real font would overflow the printable inset. Over-
- * estimating only ever rejects a sheet (or sends a name to the indexed band),
- * never clips it.
+ * Verified glyph advance widths (per 1000 units) for the exact Helvetica and
+ * Helvetica-Bold fonts that pdf-lib embeds. The planner and the PDF renderer must
+ * use identical widths, so the planner measures text with these same advances and
+ * the renderer draws with the font that carries them. Any glyph not present in
+ * the table (outside WinAnsi, emoji, etc.) falls back to the measured maximum
+ * advance, a safe over-estimate: it can only ever reject a sheet or push a name
+ * to the indexed band, never clip a line the renderer would actually draw wider.
+ *
+ * The previously used 0.9/0.95 average factors were *under*-estimates for wide
+ * glyphs ("@" is 1.015em regular / 0.975em bold), which let the planner declare
+ * a line "fits" while the rendered line overflowed the 32pt printable inset.
+ * These tables were measured from the embedded font via `font.widthOfTextAtSize`
+ * at size 1000, so they match the renderer exactly.
  */
-export const FULL_TERM_GLYPH_FACTOR_REGULAR = 0.9;
-export const FULL_TERM_GLYPH_FACTOR_BOLD = 0.95;
+export const HELVETICA_ADVANCE: Readonly<Record<string, number>> = {
+  "0": 556, "1": 556, "2": 556, "3": 556, "4": 556, "5": 556, "6": 556, "7": 556, "8": 556, "9": 556,
+  " ": 278, "!": 278, "\"": 355, "#": 556, "$": 556, "%": 889, "&": 667, "'": 191, "(": 333, ")": 333,
+  "*": 389, "+": 584, ",": 278, "-": 333, ".": 278, "/": 278, ":": 278, ";": 278, "<": 584, "=": 584,
+  ">": 584, "?": 556, "@": 1015, "A": 667, "B": 667, "C": 722, "D": 722, "E": 667, "F": 611, "G": 778,
+  "H": 722, "I": 278, "J": 500, "K": 667, "L": 556, "M": 833, "N": 722, "O": 778, "P": 667, "Q": 778,
+  "R": 722, "S": 667, "T": 611, "U": 722, "V": 667, "W": 944, "X": 667, "Y": 667, "Z": 611,
+  "[": 278, "\\": 278, "]": 278, "^": 469, "_": 556, "`": 333,
+  "a": 556, "b": 556, "c": 500, "d": 556, "e": 556, "f": 278, "g": 556, "h": 556, "i": 222, "j": 222,
+  "k": 500, "l": 222, "m": 833, "n": 556, "o": 556, "p": 556, "q": 556, "r": 333, "s": 500, "t": 278,
+  "u": 556, "v": 500, "w": 722, "x": 500, "y": 500, "z": 500, "{": 334, "|": 260, "}": 334, "~": 584,
+  "é": 556, "è": 556, "ê": 556, "ë": 556, "ä": 556, "ö": 556, "ü": 556, "ç": 500, "ß": 611, "ñ": 556,
+  "ô": 556, "â": 556, "à": 556, "î": 278, "ù": 556, "ó": 556, "ò": 556, "œ": 944, "Œ": 1000, "æ": 889, "Æ": 1000,
+};
+
+export const HELVETICA_BOLD_ADVANCE: Readonly<Record<string, number>> = {
+  "0": 556, "1": 556, "2": 556, "3": 556, "4": 556, "5": 556, "6": 556, "7": 556, "8": 556, "9": 556,
+  " ": 278, "!": 333, "\"": 474, "#": 556, "$": 556, "%": 889, "&": 722, "'": 238, "(": 333, ")": 333,
+  "*": 389, "+": 584, ",": 278, "-": 333, ".": 278, "/": 278, ":": 333, ";": 333, "<": 584, "=": 584,
+  ">": 584, "?": 611, "@": 975, "A": 722, "B": 722, "C": 722, "D": 722, "E": 667, "F": 611, "G": 778,
+  "H": 722, "I": 278, "J": 556, "K": 722, "L": 611, "M": 833, "N": 722, "O": 778, "P": 667, "Q": 778,
+  "R": 722, "S": 667, "T": 611, "U": 722, "V": 667, "W": 944, "X": 667, "Y": 667, "Z": 611,
+  "[": 333, "\\": 278, "]": 333, "^": 584, "_": 556, "`": 333,
+  "a": 556, "b": 611, "c": 556, "d": 611, "e": 556, "f": 333, "g": 611, "h": 611, "i": 278, "j": 278,
+  "k": 556, "l": 278, "m": 889, "n": 611, "o": 611, "p": 611, "q": 611, "r": 389, "s": 556, "t": 333,
+  "u": 611, "v": 556, "w": 778, "x": 556, "y": 556, "z": 500, "{": 389, "|": 280, "}": 389, "~": 584,
+  "é": 556, "è": 556, "ê": 556, "ë": 556, "ä": 556, "ö": 611, "ü": 611, "ç": 556, "ß": 611, "ñ": 611,
+  "ô": 611, "â": 556, "à": 556, "î": 278, "ù": 611, "ó": 611, "ò": 611, "œ": 944, "Œ": 1000, "æ": 889, "Æ": 1000,
+};
+
+/** Widest measured advance per face; unknown glyphs default to this (over-estimate). */
+export const HELVETICA_MAX_ADVANCE = 1015; // "@" in Helvetica
+export const HELVETICA_BOLD_MAX_ADVANCE = 1000; // "Œ" in Helvetica-Bold
 
 export const FULL_TERM_PAPERS = Object.freeze({
   a2: Object.freeze({ key: "a2" as const, width: 1683.78, height: 1190.55, label: "A2 landscape" }),
@@ -110,11 +147,21 @@ export type FullTermPlan = {
   sheets: FullTermSheet[];
 };
 
-export function approxFullTermTextWidth(text: string, size: number, bold = false) {
-  // Conservative upper bound on rendered width: text.length * size * factor.
-  // Because this over-estimates, planned wrapping/fit can never under-shrink a
-  // line relative to the actual font.
-  return text.length * size * (bold ? FULL_TERM_GLYPH_FACTOR_BOLD : FULL_TERM_GLYPH_FACTOR_REGULAR);
+export function approxFullTermTextWidth(text: string, size: number, bold = false): number {
+  // Sum the exact Helvetica advance of every glyph (per 1000 units) and scale by
+  // the point size. These advances are the same ones the PDF renderer uses, so a
+  // planned line width equals the width the renderer draws — the planner can
+  // never declare "fits" for a line the renderer would actually overflow. Glyphs
+  // outside the embedded font fall back to the measured maximum (a safe
+  // over-estimate) so no real line can exceed the planned width.
+  const table = bold ? HELVETICA_BOLD_ADVANCE : HELVETICA_ADVANCE;
+  const max = bold ? HELVETICA_BOLD_MAX_ADVANCE : HELVETICA_MAX_ADVANCE;
+  let units = 0;
+  for (const character of text) {
+    const advance = table[character];
+    units += advance == null ? max : advance;
+  }
+  return (units / 1000) * size;
 }
 
 /** Deterministic word wrap shared by the HTML and PDF renderers. */
@@ -175,10 +222,10 @@ export function planFullTermClosures(input: {
     .map((day): FullTermClosureNote => {
       const label = day.reason?.trim() || "Non-teaching day";
       const compact = registerTeacherClosureLabel(day.reason);
-      // Hard upper bound rather than an average: Helvetica-Bold's widest ASCII
-      // advance is 0.944em, so `length * size` can never underestimate the
-      // rotated label. Over-estimating only sends a name to the indexed band.
-      const rotatedWidth = compact.length * size;
+      // Measure with the exact Helvetica-Bold advances the renderer uses for the
+      // rotated label (it is drawn bold): the planned rotation width therefore
+      // equals the drawn width, so the label can never overflow its column.
+      const rotatedWidth = approxFullTermTextWidth(compact, size, true);
       const fitsInColumn = rotatedWidth <= availableHeight && size <= columnInnerWidth;
       if (fitsInColumn) {
         return { date: day.date, label, continuation: false, index: null, lines: [] };
@@ -204,7 +251,7 @@ function identityPlan(section: RegisterTeacherSection, contentWidth: number) {
   // Conservative bold advance: the PDF uses Helvetica-Bold, whose widest
   // ordinary glyphs approach this factor. Over-estimating keeps names inside
   // the planned lines instead of clipping them at print time.
-  const boldWidth = (text: string) => text.length * size * FULL_TERM_GLYPH_FACTOR_BOLD;
+  const boldWidth = (text: string) => approxFullTermTextWidth(text, size, true);
   const surname = section.learners.reduce((max, learner) => Math.max(max, boldWidth(learner.surname)), 0);
   const given = section.learners.reduce((max, learner) => Math.max(max, boldWidth(learner.givenNames)), 0);
   const admission = section.learners.reduce((max, learner) => Math.max(max, approxFullTermTextWidth(learner.admissionNumber ?? "", size, false)), 0);
