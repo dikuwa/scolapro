@@ -1,0 +1,271 @@
+{
+  "generatedAt": "2026-11-05T15:16:40.580Z",
+  "cases": [
+    {
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 65,
+      "possibleLearnerDays": 130,
+      "observedLearnerDays": 86,
+      "projectedLearnerDays": 44,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 14.135,
+      "rowHeight": 14.25,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          1683.78,
+          1190.55
+        ],
+        [
+          1683.78,
+          1190.55
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 900
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 900
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          1684.08,
+          1191.12
+        ],
+        [
+          1684.08,
+          1191.12
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 941
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 941
+        }
+      ],
+      "printPngs": [
+        "a2-print-boys.png",
+        "a2-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 11.625,
+          "footerGapFromBalancePt": 0,
+          "footerDistanceFromSheetBottomPt": 376.664,
+          "pageSeparated": true,
+          "balance": [
+            43,
+            0,
+            22,
+            43,
+            65
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 11.625,
+          "footerGapFromBalancePt": 0,
+          "footerDistanceFromSheetBottomPt": 376.664,
+          "pageSeparated": true,
+          "balance": [
+            43,
+            0,
+            22,
+            43,
+            65
+          ]
+        }
+      ]
+    },
+    {
+      "paper": "a1",
+      "paperLabel": "A1 landscape",
+      "paperSizePt": [
+        2383.94,
+        1683.78
+      ],
+      "term": "Term 1 2026-01-12..2026-04-28",
+      "asOf": "2026-03-31",
+      "scheduledTeachingDayCount": 77,
+      "includedTeachingDayCount": 77,
+      "possibleLearnerDays": 154,
+      "observedLearnerDays": 112,
+      "projectedLearnerDays": 42,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 2299.94,
+      "dayWidth": 20.363,
+      "rowHeight": 14.25,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          2383.94,
+          1683.78
+        ],
+        [
+          2383.94,
+          1683.78
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 1394
+        },
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 1394
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          2383.92,
+          1684.08
+        ],
+        [
+          2383.92,
+          1684.08
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 1434
+        },
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 1434
+        }
+      ],
+      "printPngs": [
+        "a1-print-boys.png",
+        "a1-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 3178.578,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 11.625,
+          "footerGapFromBalancePt": 0,
+          "footerDistanceFromSheetBottomPt": 376.664,
+          "pageSeparated": true,
+          "balance": [
+            56,
+            0,
+            21,
+            56,
+            77
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 3178.578,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 11.625,
+          "footerGapFromBalancePt": 0,
+          "footerDistanceFromSheetBottomPt": 376.664,
+          "pageSeparated": true,
+          "balance": [
+            56,
+            0,
+            21,
+            56,
+            77
+          ]
+        }
+      ]
+    }
+  ],
+  "invariants": {
+    "boysOnPageOneGirlsOnPageTwo": true,
+    "pdfPageOneIsBoysPageTwoIsGirls": true,
+    "horizontalInsetIsTenPoints": true,
+    "pdfInkStartsAtFortyTwoPoints": true,
+    "footerSitsDirectlyUnderBalanceStrip": true,
+    "printMatchesServerPdf": true,
+    "a2CarriesSixtyFiveGovernedDays": true,
+    "observedPlusProjectedEqualsPossible": true
+  }
+}
