@@ -1,6 +1,11 @@
 # Issue #1260 — full-term register acceptance evidence
 
-Acceptance evidence for draft PR #1261, head **`5cf23f3c60ee7eb62f096bb7e23f864adf181190`**.
+Acceptance evidence for draft PR #1261.
+
+The counting/layout implementation was reviewed at `5cf23f3c6`. The Control Room
+then authorised a presentation-only corrective commit (`e92dfb48`) for the
+replacement-Saturday explanation, the summary basis labels, the empty-state
+wording and out-of-term closing dates. Both heads are recorded below.
 
 This directory contains the rendered artefacts and the numeric measurements used
 to accept the four corrections in Issue #1260: Boys/Girls page separation,
@@ -14,7 +19,7 @@ Nothing here reads, exports or writes production learner data.
 
 | Leg | Source | What it proves |
 | --- | --- | --- |
-| **App** | GitHub Actions `authenticated-e2e` run [42045623466](https://github.com/dikuwa/scolapro/actions/runs/42045623466) on exact head `5cf23f3c6` | The real authenticated route (`/api/attendance/register-teacher?mode=full-term&format=bundle`) served the sheet from the seeded local Supabase database, and Chromium printed it to the same two pages. |
+| **App** | GitHub Actions `authenticated-e2e` run [42071017190](https://github.com/dikuwa/scolapro/actions/runs/42071017190) on the remediation head `e92dfb48` | The real authenticated route (`/api/attendance/register-teacher?mode=full-term&format=bundle`) served the sheet from the seeded local Supabase database, and Chromium printed it to the same two pages. |
 | **Renderer** | `generate.mjs` in this directory, run against the shipping HTML and pdf-lib renderers | A2 and A1, Boys and Girls, screen / print / PDF artefacts plus the measured inset and footer offsets. |
 
 The app leg is the end-to-end proof. The renderer leg exists because the app leg
@@ -245,6 +250,33 @@ Recorded findings, none of which affects the figures in this pack:
   feedback, unlike the existing non-eligible-day counter.
 - **LOW** — an explicit out-of-term closing date on a term with no eligible days
   yields an empty sheet rather than a 400.
+
+### Re-review of the remediation commit
+
+A third independent read-only pass reviewed `e92dfb48` against `89c75da8` and
+returned **ACCEPT WITH NITS** with no HIGH findings. It confirmed the four
+corrections hold and that the denominators, layout constants, page separation,
+10pt inset, 32pt margin and balance strip were untouched.
+
+- **MEDIUM** — the new empty-state copy over-claimed. `includedTeachingDayCount`
+  is also 0 when an explicit in-term `closingDate` lands before the first eligible
+  day, so the sheet claimed the whole term had no teaching day. Fixed: the
+  document now carries `termEligibleTeachingDayCount`, and the copy distinguishes
+  "No eligible teaching day falls on or before the selected closing date" from
+  "The governed learner term contains no eligible teaching day." Regression test
+  `#1260 does not claim a term has no teaching days when only the closing date is
+  empty`.
+- **LOW** — a negative delta was labelled `school closure day` for any school-level
+  non-teaching decision. Fixed to `school non-teaching day(s)`, which is what the
+  evidence supports.
+- **LOW** — the e2e test title claimed the 400 fires "before reading register
+  evidence"; it fires after the governed-day read. Title corrected.
+- **LOW** — positive deltas are attributed to "school-added replacement days"
+  although scheduled and included counts come from different sources. This is a
+  label overstatement only; no count changes. Left as-is because the alternative
+  (deriving scheduled days from the override-aware resolver) would change the
+  reviewed denominator definition, which the Control Room excluded from this
+  corrective commit.
 
 ## Not covered
 

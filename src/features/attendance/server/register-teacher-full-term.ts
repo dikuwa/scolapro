@@ -28,6 +28,8 @@ export type RegisterTeacherFullTermMetadata = {
   scheduledTeachingDayCount: number;
   /** School-included eligible days after applying school closure overrides. */
   includedTeachingDayCount: number;
+  /** Eligible teaching days in the whole learner term, ignoring any caller closing date. */
+  termEligibleTeachingDayCount: number;
   /** Full-term possible learner-days: every enrolled learner × every eligible term day (denominator). */
   possibleLearnerDays: number;
   /** Observed learner-days up to the school-local as-of date (actual present + actual absent). */
@@ -109,7 +111,10 @@ export function fullTermDayBasis(
     delta,
     detail: delta > 0
       ? `${delta} school-added replacement ${unit}`
-      : `${Math.abs(delta)} school closure ${unit}`,
+      // "non-teaching" rather than "closure": a school-scoped NO_TEACHING
+      // decision can be a holiday, sports day or closure, and the evidence does
+      // not distinguish them.
+      : `${Math.abs(delta)} school non-teaching ${unit}`,
   };
 }
 

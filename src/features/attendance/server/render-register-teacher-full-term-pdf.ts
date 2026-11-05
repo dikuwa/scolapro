@@ -144,6 +144,15 @@ function drawSheet(input: {
   const hasIncludedDays = Boolean(includedClosingDate)
     && (fullTerm?.includedTeachingDayCount ?? 0) > 0
     && document.weeks.length > 0;
+  // An explicit closing date before the first eligible day is empty *for that
+  // date*, not a term without teaching days. The copy must not assert a
+  // term-wide fact the calendar contradicts.
+  const closingDateHasNoEligibleDay = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) === 0
+    && (fullTerm?.termEligibleTeachingDayCount ?? 0) > 0;
+  const emptyCopy = closingDateHasNoEligibleDay
+    ? "No eligible teaching day falls on or before the selected closing date."
+    : "The governed learner term contains no eligible teaching day.";
   let y = drawOfficialDocumentPdfHeader(page, header, resources, sheet.height - margin, {
     documentX: contentX,
     documentWidth: contentWidth,
@@ -184,7 +193,7 @@ function drawSheet(input: {
   const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
   const bannerText = hasIncludedDays
     ? `PROVISIONAL - closing ${formatDate(includedClosingDate!)} - ${fullTerm!.scheduledTeachingDayCount} scheduled school days - ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} - ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
-    : "NO ELIGIBLE SCHOOL DAY - the governed learner term contains no eligible teaching day.";
+    : `NO ELIGIBLE SCHOOL DAY - ${emptyCopy.charAt(0).toLowerCase()}${emptyCopy.slice(1)}`;
   drawCell(page, { x: contentX, top: y, width: contentWidth, height: sheet.bands.banner, fill: RED_SOFT, borderWidth: 0.7 });
   drawTextBlock({ page, font: resources.bold, text: bannerText, x: contentX + 4, top: y - 3, width: contentWidth - 8, height: sheet.bands.banner - 6, size: 7, color: RED, align: "left" });
   y -= sheet.bands.banner;
@@ -209,7 +218,7 @@ function drawSheet(input: {
 
   if (!hasIncludedDays) {
     drawCell(page, { x: contentX, top: y, width: contentWidth, height: 28 });
-    drawTextBlock({ page, font: resources.regular, text: "No eligible school day exists in this governed learner term. Configure or open a governed school day before printing.", x: contentX + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
+    drawTextBlock({ page, font: resources.regular, text: `${emptyCopy} Configure or open a governed school day before printing.`, x: contentX + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
     return;
   }
 

@@ -447,7 +447,7 @@ test("#1260 states a net school closure count without inventing replacement days
 
   const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
   const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
-  assert.match(html, /64 school-included teaching days \(1 school closure day\)/);
+  assert.match(html, /64 school-included teaching days \(1 school non-teaching day\)/);
 });
 
 test("#1260 labels the observed and full-term summary bases in the printed document", async () => {
@@ -501,4 +501,25 @@ test("#1260 rejects an out-of-term closing date even when the term has no eligib
   const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document: inTerm, plan });
   assert.match(html, /NO ELIGIBLE SCHOOL DAY/);
   assert.match(html, /contains no eligible teaching day/);
+});
+
+test("#1260 does not claim a term has no teaching days when only the closing date is empty", () => {
+  // The first three term days are non-teaching, so an explicit closing date
+  // before them yields an empty view even though the rest of the term teaches.
+  const document = build({
+    impactRows: impactRows({
+      "2026-09-07": "NO_TEACHING",
+      "2026-09-08": "NO_TEACHING",
+      "2026-09-09": "NO_TEACHING",
+    }),
+    fullTerm: { today: TODAY, closingDate: "2026-09-09" },
+  });
+
+  assert.equal(document.fullTerm.includedTeachingDayCount, 0);
+  assert.ok(document.fullTerm.scheduledTeachingDayCount > 0, "the term still has scheduled teaching days");
+
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.match(html, /No eligible teaching day falls on or before the selected closing date/);
+  assert.doesNotMatch(html, /governed learner term contains no eligible teaching day/);
 });

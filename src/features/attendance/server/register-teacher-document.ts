@@ -509,6 +509,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       today: fullTerm.today,
       scheduledTeachingDayCount,
       includedTeachingDayCount: termActualDates.length,
+      termEligibleTeachingDayCount: fullTermEligibleDates.length,
       possibleLearnerDays,
       observedLearnerDays,
       projectedLearnerDays,

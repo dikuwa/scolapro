@@ -128,6 +128,15 @@ function sheetHtml(input: {
   const hasIncludedDays = Boolean(includedClosingDate)
     && (fullTerm?.includedTeachingDayCount ?? 0) > 0
     && document.weeks.length > 0;
+  // An explicit closing date before the first eligible day is empty *for that
+  // date*, not a term without teaching days. The copy must not assert a
+  // term-wide fact the calendar contradicts.
+  const closingDateHasNoEligibleDay = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) === 0
+    && (fullTerm?.termEligibleTeachingDayCount ?? 0) > 0;
+  const emptyCopy = closingDateHasNoEligibleDay
+    ? "No eligible teaching day falls on or before the selected closing date."
+    : "The governed learner term contains no eligible teaching day.";
   // A school may open a replacement Saturday, so included can exceed scheduled.
   // State that relationship instead of printing two numbers that read as an
   // impossible total on an official document.
@@ -138,7 +147,7 @@ function sheetHtml(input: {
   const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
   const banner = hasIncludedDays
     ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate!))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
-    : "NO ELIGIBLE SCHOOL DAY — the governed learner term contains no eligible teaching day. The sheet is intentionally empty.";
+    : `NO ELIGIBLE SCHOOL DAY — ${emptyCopy.charAt(0).toLowerCase()}${emptyCopy.slice(1)} The sheet is intentionally empty.`;
   const meta = [
     ["BOYS/GIRLS:", section.label],
     ["TERM:", document.termName],
@@ -191,7 +200,7 @@ function sheetHtml(input: {
       </tbody>
     </table>
     <div class="balance-strip"><span>Present <strong>${balance.attendance}</strong></span><span>Absent <strong>${balance.absence}</strong></span><span>Projected <strong>${balance.projected}</strong></span><span>Observed <strong>${balance.observed} / Full-term ${balance.possible} ${balance.reconciled ? "✓" : "!"}</strong></span></div>`
-      : '<div class="empty-sheet">No eligible school day exists in this governed learner term. Configure or open a governed school day before printing.</div>'}
+      : `<div class="empty-sheet">${escapeHtml(emptyCopy)} Configure or open a governed school day before printing.</div>`}
     <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""} · Days column = full-term possible incl. projected future days.</div>
   </section>`;
 }

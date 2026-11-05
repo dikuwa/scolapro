@@ -63,7 +63,7 @@ async function attachBundle(bundle: Bundle, testInfo: TestInfo) {
 }
 
 test.describe("full-term single-sheet register", () => {
-  test("rejects an impossible closing date before reading register evidence", async ({ page }) => {
+  test("rejects an impossible or out-of-term closing date with 400", async ({ page }) => {
     await signInToAttendance(page, "admin");
     for (const closingDate of ["2026-10-32", "2026-13-01", "2027-01-15"]) {
       const response = await page.request.get(`${endpoint}&closingDate=${closingDate}`, { timeout: 120_000 });
