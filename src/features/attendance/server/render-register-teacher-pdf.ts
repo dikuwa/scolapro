@@ -627,7 +627,7 @@ function drawClosureNoteBand(input: {
   return { height, cursor: plan.cursor };
 }
 
-export async function renderRegisterTeacherPdf(input: { header: OfficialDocumentHeaderModel; document: RegisterTeacherDocument; logoBytes?: Uint8Array | null }) {
+export async function renderRegisterTeacherPdf(input: { header: OfficialDocumentHeaderModel; document: RegisterTeacherDocument; logoBytes?: Uint8Array | null; notice?: string | null }) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${input.header.schoolName} - ${input.document.className} register`);
   pdf.setAuthor("ScolaPro");
@@ -637,6 +637,25 @@ export async function renderRegisterTeacherPdf(input: { header: OfficialDocument
   pdf.setModificationDate(new Date(0));
   const resources = await createOfficialDocumentPdfResources(pdf, input.header, input.logoBytes);
   const checkFont = await pdf.embedFont(StandardFonts.ZapfDingbats);
+
+  // A full-term single sheet that cannot honour the legibility floors is
+  // replaced by the unchanged paginated term register. Put the explicit
+  // explanation on its own cover page instead of compressing the approved A3
+  // page geometry, so no existing page is clipped.
+  if (input.notice?.trim()) {
+    const page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    const headerY = drawOfficialDocumentPdfHeader(page, input.header, resources, PAGE_HEIGHT - MARGIN, {
+      documentX: MARGIN,
+      documentWidth: CONTENT_WIDTH,
+      context: registerTeacherDocumentContext(input.document),
+    });
+    page.drawText("Full-term single sheet unavailable", { x: MARGIN, y: headerY - 22, size: 11, font: resources.bold, color: INK });
+    const lines = wrapClosureLabelLines(resources.regular, input.notice.trim(), 8, CONTENT_WIDTH - 8);
+    lines.forEach((line, index) => {
+      page.drawText(line, { x: MARGIN, y: headerY - 42 - index * 10, size: 8, font: resources.regular, color: INK });
+    });
+    page.drawText("The unchanged paginated term register follows.", { x: MARGIN, y: headerY - 52 - lines.length * 10, size: 8, font: resources.bold, color: MUTED });
+  }
 
   for (const job of registerTeacherPageJobs(input.document)) {
     const { cursor, entries } = drawPage({

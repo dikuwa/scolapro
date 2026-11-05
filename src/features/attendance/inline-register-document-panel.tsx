@@ -155,6 +155,16 @@ export function InlineRegisterDocumentPanel({
           disabled={!documentUrls}
         />
       </div>
+      {state.document.notice ? (
+        <p role="status" className="mb-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted px-3 py-2 text-xs text-foreground">
+          {state.document.notice}
+        </p>
+      ) : null}
+      {state.document.paper ? (
+        <p className="mb-3 text-xs text-muted-foreground">
+          Single-sheet {state.document.paper.toUpperCase()} landscape preview. Scroll or zoom the preview to inspect every date; print/PDF uses the same sheet model.
+        </p>
+      ) : null}
       <div className="h-[70vh] min-h-96 overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-white shadow-[var(--shadow-xs)]">
         <iframe
           title={`${title} inline document`}

@@ -97,7 +97,7 @@ test("the public verification resolver returns only minimal provenance (no learn
 test("term mode is wired into the official attendance view", () => {
   assert.match(page, /requestedMode/);
   assert.match(page, /mode: "week" \| "range" \| "term"/);
-  assert.match(page, /summaryMode = mode === "term" \? "term" : "week"/);
+  assert.match(page, /summaryMode = mode === "term" \|\| mode === "full-term" \? "term" : "week"/);
   assert.match(page, /getOfficialAttendanceSummary\(schoolId, academicYear, summaryMode, date/);
   assert.match(page, /getOfficialAttendanceSummaryFinalization\(/);
 });

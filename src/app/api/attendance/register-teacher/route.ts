@@ -3,9 +3,18 @@ import { createHash } from "node:crypto";
 import { buildOfficialDocumentHeaderModel, officialDocumentHeaderModeForType } from "@/features/documents/server/official-document-header";
 import { loadOfficialDocumentLogoBytes } from "@/features/documents/server/official-document-logo-bytes";
 import { getLiveSchoolDocumentProfile } from "@/features/documents/server/live-school-document-profile";
-import { getRegisterTeacherDocument } from "@/features/attendance/server/register-teacher-document";
+import {
+  getRegisterTeacherDocument,
+  type RegisterTeacherMode,
+} from "@/features/attendance/server/register-teacher-document";
+import { RegisterTeacherFullTermError } from "@/features/attendance/server/register-teacher-full-term";
+import { planRegisterTeacherFullTermDocument } from "@/features/attendance/server/register-teacher-full-term-layout";
 import { renderRegisterTeacherHtml } from "@/features/attendance/server/render-register-teacher-html";
 import { renderRegisterTeacherPdf } from "@/features/attendance/server/render-register-teacher-pdf";
+import { renderRegisterTeacherFullTermHtml } from "@/features/attendance/server/render-register-teacher-full-term-html";
+import { renderRegisterTeacherFullTermPdf } from "@/features/attendance/server/render-register-teacher-full-term-pdf";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { canCaptureRegisterClass } from "@/features/attendance/server/capture-scope";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 export const runtime = "nodejs";
@@ -36,8 +45,14 @@ export async function GET(request: Request) {
   const date = safeDate(url.searchParams.get("date"));
   const academicYear = Number(url.searchParams.get("year") ?? date.slice(0, 4));
   const requestedMode = url.searchParams.get("mode");
-  const mode = requestedMode === "term" ? "term" : requestedMode === "range" ? "range" : "week";
+  const fullTermRequested = requestedMode === "full-term";
+  const mode: RegisterTeacherMode = fullTermRequested || requestedMode === "term"
+    ? "term"
+    : requestedMode === "range"
+      ? "range"
+      : "week";
   const termId = url.searchParams.get("term") || null;
+  const closingDate = url.searchParams.get("closingDate") || null;
   const fromWeek = url.searchParams.get("fromWeek") || null;
   const toWeek = url.searchParams.get("toWeek") || null;
   const requestedFormat = url.searchParams.get("format");
@@ -49,6 +64,34 @@ export async function GET(request: Request) {
   }
 
   try {
+    // Class-scope authorization. A staff member may only export the register of
+    // a class they are assigned to capture (or an explicitly governed admin
+    // override). This is enforced before any learner identity/attendance is
+    // resolved, so a teacher without the requested class assignment cannot
+    // export another class's learner names, dates of birth or attendance.
+    // Permissions are never broadened via RLS; the same-school read policy
+    // remains in place and no-store headers are retained.
+    const actor = {
+      memberships: context.memberships,
+      platformRoles: context.platformMemberships.map((item) => item.roleKey),
+    };
+    const supabase = await createSupabaseServerClient();
+    const { data: classRow, error: classError } = await supabase
+      .from("register_classes")
+      .select("id,register_teacher_staff_id")
+      .eq("school_id", membership.schoolId)
+      .eq("academic_year", academicYear)
+      .eq("id", classId)
+      .maybeSingle();
+    if (classError || !classRow) {
+      return Response.json({ error: "Register class not found." }, { status: 404 });
+    }
+    if (!canCaptureRegisterClass(actor, {
+      schoolId: membership.schoolId,
+      registerTeacherStaffId: classRow.register_teacher_staff_id,
+    })) {
+      return Response.json({ error: "You are not authorized to export this register class." }, { status: 403 });
+    }
     const [document, profile] = await Promise.all([
       getRegisterTeacherDocument({
         schoolId: membership.schoolId,
@@ -57,6 +100,7 @@ export async function GET(request: Request) {
         mode,
         selectedDate: date,
         requestedTermId: termId,
+        fullTerm: fullTermRequested ? { closingDate } : null,
         fromWeek,
         toWeek,
       }),
@@ -67,25 +111,40 @@ export async function GET(request: Request) {
       mode: officialDocumentHeaderModeForType("register_teacher"),
       provenanceSource: "live_school_profile",
     });
-    const fileBase = `${document.className.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-${mode}-register-${document.scopeEnd}`;
+    const fileMode = fullTermRequested ? "full-term" : mode;
+    const fileBase = `${document.className.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()}-${fileMode}-register-${document.scopeEnd}`;
+
+    // Full-term is an opt-in single-sheet presentation of the same governed
+    // document. If A2/A1 cannot honour the 8pt/7pt floors, the unchanged
+    // paginated term output is returned with an explicit notice; a multi-page
+    // export is never labelled as a single sheet.
+    const plan = fullTermRequested ? planRegisterTeacherFullTermDocument(document) : null;
+    const singleSheet = Boolean(plan?.fits);
+    const notice = fullTermRequested && plan && !plan.fits
+      ? `The full-term single sheet cannot fit A2 or A1 landscape at the approved 8pt/7pt legibility floor. ${plan.reason ?? ""} The unchanged paginated term register is shown instead.`.trim()
+      : null;
+    const renderHtml = () => singleSheet && plan
+      ? renderRegisterTeacherFullTermHtml({ header, document, plan })
+      : renderRegisterTeacherHtml({ header, document, notice });
 
     if (format === "pdf" || format === "bundle") {
-      const rendered = await renderRegisterTeacherPdf({
-        header,
-        document,
-        logoBytes: await loadOfficialDocumentLogoBytes(profile.logoStoragePath, profile.logoUrl),
-      });
+      const logoBytes = await loadOfficialDocumentLogoBytes(profile.logoStoragePath, profile.logoUrl);
+      const rendered = singleSheet && plan
+        ? await renderRegisterTeacherFullTermPdf({ header, document, plan, logoBytes })
+        : await renderRegisterTeacherPdf({ header, document, logoBytes, notice });
       if (format === "bundle") {
-        const html = renderRegisterTeacherHtml({ header, document });
         const identity = createHash("sha256")
-          .update(JSON.stringify(document))
+          .update(JSON.stringify({ document, plan: plan ? { paper: plan.paper, fits: plan.fits } : null }))
           .digest("hex")
           .slice(0, 24);
         return Response.json({
           identity,
-          html,
+          html: renderHtml(),
           pdfBase64: Buffer.from(rendered.bytes).toString("base64"),
           fileName: `${fileBase}.pdf`,
+          ...(notice ? { notice } : {}),
+          ...(singleSheet && plan ? { paper: plan.paper } : {}),
+          pageCount: rendered.pageCount,
         }, {
           status: 200,
           headers: {
@@ -108,9 +167,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const html = renderRegisterTeacherHtml({ header, document });
-
-    return new Response(html, {
+    return new Response(renderHtml(), {
       status: 200,
       headers: {
         "Content-Type": "text/html; charset=utf-8",
@@ -123,10 +180,13 @@ export async function GET(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     console.error("register teacher document failed", { message });
+    if (error instanceof RegisterTeacherFullTermError) {
+      return Response.json({ error: error.message }, { status: error.status, headers: { "Cache-Control": "no-store" } });
+    }
     if (/calendar is not ready/i.test(message)) {
       return Response.json({ error: message }, { status: 422, headers: { "Cache-Control": "no-store" } });
     }
-    if (/week|range/i.test(message)) {
+    if (/week|range|closing date|learner term/i.test(message)) {
       return Response.json({ error: message }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
     return Response.json({ error: "Unable to generate the register teacher document." }, { status: 500, headers: { "Cache-Control": "no-store" } });

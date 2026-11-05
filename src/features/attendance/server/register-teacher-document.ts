@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getNamibiaDateKey } from "@/lib/namibia-date";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { mondayFor } from "@/features/attendance/server/week";
 import {
@@ -9,6 +10,15 @@ import {
   type RegisterAttendanceMark,
 } from "@/features/attendance/server/governed-school-day";
 import { assertRegisterTeacherDocumentTotals } from "@/features/attendance/server/register-teacher-layout";
+import {
+  fullTermEnrolments,
+  RegisterTeacherFullTermError,
+  resolveFullTermCertification,
+  resolveFullTermClosingDate,
+  type RegisterTeacherFullTermCertificationEvidence,
+  type RegisterTeacherFullTermMetadata,
+  type RegisterTeacherFullTermRequest,
+} from "@/features/attendance/server/register-teacher-full-term";
 
 export type RegisterTeacherMode = "week" | "range" | "term";
 export type RegisterTeacherSex = "male" | "female";
@@ -86,6 +96,7 @@ export type RegisterTeacherDocument = {
   scopeEnd: string;
   selectedDate: string;
   teachingDayCount: number;
+  fullTerm?: RegisterTeacherFullTermMetadata;
   governanceAlerts: {
     invalidSubmissionCount: number;
     invalidSubmissionDates: string[];
@@ -136,6 +147,7 @@ export type RegisterTeacherScope = {
 
 export type RegisterTeacherBuildInput = {
   mode: RegisterTeacherMode;
+  schoolId?: string;
   academicYear: number;
   classId: string;
   className: string;
@@ -147,6 +159,8 @@ export type RegisterTeacherBuildInput = {
   termStart: string;
   termEnd: string;
   scope: RegisterTeacherScope;
+  fullTerm?: RegisterTeacherFullTermRequest;
+  certificationEvidence?: RegisterTeacherFullTermCertificationEvidence | null;
   impactRows: readonly GovernedTeachingImpactRow[];
   enrolments: readonly RegisterTeacherEnrolmentRow[];
   currentRows: readonly RegisterTeacherCurrentRow[];
@@ -236,18 +250,38 @@ export function resolveRegisterTeacherScope(input: {
  * totals before returning.
  */
 export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): RegisterTeacherDocument {
-  const { scopeStart, scopeEnd, termActualEnd } = input.scope;
-
   const governedDays = resolveGovernedSchoolDays({
     start: input.termStart,
     end: input.termEnd,
     rows: input.impactRows,
   });
+  if (input.fullTerm && input.mode !== "term") {
+    throw new RegisterTeacherFullTermError(400, "Full-term sheets require term mode.");
+  }
+  const fullTerm = input.fullTerm
+    ? { today: input.fullTerm.today, closingDate: input.fullTerm.closingDate ?? null }
+    : null;
+  const closingDate = fullTerm
+    ? resolveFullTermClosingDate({
+        termStart: input.termStart,
+        termEnd: input.termEnd,
+        today: fullTerm.today,
+        closingDate: fullTerm.closingDate,
+        eligibleDates: governedDays.eligibleDates(input.termStart, input.termEnd),
+      })
+    : null;
+  // A full-term sheet always starts at the official learner opening date and
+  // stops at the governed closing date. Weekly and paginated term scopes keep
+  // their existing resolver untouched.
+  const scopeStart = fullTerm ? input.termStart : input.scope.scopeStart;
+  const scopeEnd = fullTerm ? (closingDate ?? scopeStart) : input.scope.scopeEnd;
+  const termActualEnd = fullTerm ? scopeEnd : input.scope.termActualEnd;
+
   // Preserve the normal Monday-Friday grid, exclude ordinary weekends, and
   // include an explicitly opened replacement weekend day. Scope boundaries
   // are clipped to the learner term before this list is built, so out-of-term
   // labels/columns can never leak into the printed register.
-  const dates = governedDays.displayedDates(scopeStart, scopeEnd);
+  const dates = fullTerm && !closingDate ? [] : governedDays.displayedDates(scopeStart, scopeEnd);
   const reasonByDate = new Map<string, string>();
   const calendarClosures = [...input.calendarEventRows].sort((a, b) => {
     const scopeOrder = (a.event_scope === "school" ? 1 : 0) - (b.event_scope === "school" ? 1 : 0);
@@ -263,8 +297,11 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     reasonByDate.set(date, row.reason?.trim() || "School calendar adjustment");
   }
 
-  const termActualDates = governedDays.eligibleDates(input.termStart, termActualEnd);
+  const termActualDates = closingDate === null && fullTerm
+    ? []
+    : governedDays.eligibleDates(input.termStart, termActualEnd);
   const termTeachingDayCount = governedDays.eligibleDates(input.termStart, input.termEnd).length;
+  const enrolments = fullTerm ? fullTermEnrolments(input.enrolments, termActualDates) : input.enrolments;
 
   const dayModels: RegisterTeacherDay[] = dates.map((date) => {
     const decision = governedDays.decisionFor(date);
@@ -290,6 +327,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
   const currentByKey = new Map<string, { status: string; reasonId: string | null; note: string | null }>();
   for (const row of input.currentRows) {
     const attendanceDate = String(row.attendance_date).slice(0, 10);
+    if (fullTerm && (!closingDate || attendanceDate > closingDate)) continue;
     if (!governedDays.decisionFor(attendanceDate).eligible) {
       continue;
     }
@@ -303,6 +341,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
   let invalidSubmissionCount = 0;
   for (const row of input.submissionRows) {
     const attendanceDate = String(row.attendance_date).slice(0, 10);
+    if (fullTerm && (!closingDate || attendanceDate > closingDate)) continue;
     if (governedDays.decisionFor(attendanceDate).eligible) continue;
     invalidSubmissionCount += 1;
     invalidSubmissionDates.add(attendanceDate);
@@ -310,15 +349,27 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
 
   const sections: RegisterTeacherSection[] = (["male", "female"] as RegisterTeacherSex[]).map((sex) => {
     const learners: RegisterTeacherLearner[] = [];
-    for (const item of input.enrolments) {
+    for (const item of enrolments) {
       const learner = relation(item.learners);
       if (!learner || validSex(learner.sex) !== sex) continue;
+      const enrolledFrom = String(item.enrolled_from).slice(0, 10);
+      const enrolledTo = item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null;
+      const evidenceForDate = (date: string) => currentByKey.get(`${item.id}:${date}`);
+      if (fullTerm && !termActualDates.some((date) => enrolledFrom <= date && (!enrolledTo || enrolledTo >= date))) {
+        // The learner was not enrolled on any included eligible day, so they are
+        // not part of this closing-date register.
+        continue;
+      }
+      // Default-present applies only to eligible dates that are already past in
+      // the school-local calendar. Today and later contribute nothing unless
+      // authoritative evidence exists, so a future day is never certified.
+      const countable = (date: string) => !fullTerm || date < fullTerm.today || Boolean(evidenceForDate(date));
       const balance = calculateLearnerRegisterBalance({
-        scopeDays: dayModels.map((day) => ({ date: day.date, eligible: day.teaching })),
-        termEligibleDates: termActualDates,
-        enrolledFrom: String(item.enrolled_from).slice(0, 10),
-        enrolledTo: item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null,
-        evidenceForDate: (date) => currentByKey.get(`${item.id}:${date}`),
+        scopeDays: dayModels.map((day) => ({ date: day.date, eligible: day.teaching && countable(day.date) })),
+        termEligibleDates: fullTerm ? termActualDates.filter(countable) : termActualDates,
+        enrolledFrom,
+        enrolledTo,
+        evidenceForDate,
       });
 
       learners.push({
@@ -369,6 +420,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     };
   });
 
+  const possibleLearnerDays = sections.reduce((sum, section) => sum + section.termPossibleTotal, 0);
   const document: RegisterTeacherDocument = {
     mode: input.mode,
     academicYear: input.academicYear,
@@ -389,7 +441,44 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     weeks,
     sections,
   };
+  // Compute the governed full-term fingerprint from the authoritative exported
+  // content (not just scope) so a changed attendance mark necessarily changes the
+  // id; compare it against independently supplied finalization evidence.
+  const certification = fullTerm
+    ? resolveFullTermCertification({
+        scope: {
+          schoolId: input.schoolId ?? "",
+          classId: input.classId,
+          termId: input.termId,
+          cutoff: closingDate,
+        },
+        document,
+        evidence: input.certificationEvidence,
+      })
+    : null;
+  if (fullTerm && certification) {
+    document.fullTerm = {
+      closingDate,
+      today: fullTerm.today,
+      scheduledTeachingDayCount: termTeachingDayCount,
+      includedTeachingDayCount: termActualDates.length,
+      possibleLearnerDays,
+      status: certification.status,
+      certificationNote: certification.certificationNote,
+    } satisfies RegisterTeacherFullTermMetadata;
+  }
   assertRegisterTeacherDocumentTotals(document);
+  if (document.fullTerm) {
+    for (const section of document.sections) {
+      const sum = (counts: Record<string, number>) => Object.values(counts).reduce((total, count) => total + count, 0);
+      if (sum(section.attendanceByDate) !== section.termAttendanceTotal
+        || sum(section.absenceByDate) !== section.termAbsenceTotal
+        || sum(section.possibleByDate) !== section.termPossibleTotal
+        || section.learners.some((learner) => learner.termAttended + learner.termAbsent !== learner.termDays)) {
+        throw new Error("Full-term register row and column balances disagree.");
+      }
+    }
+  }
   return document;
 }
 
@@ -400,6 +489,7 @@ export async function getRegisterTeacherDocument(input: {
   mode: RegisterTeacherMode;
   selectedDate: string;
   requestedTermId?: string | null;
+  fullTerm?: { closingDate?: string | null } | null;
   fromWeek?: string | null;
   toWeek?: string | null;
 }): Promise<RegisterTeacherDocument> {
@@ -435,6 +525,10 @@ export async function getRegisterTeacherDocument(input: {
     [...normalizedTerms].reverse().find((item) => !item.startsOn || item.startsOn <= input.selectedDate) ??
     normalizedTerms[0] ??
     null;
+  if (input.fullTerm && input.requestedTermId != null
+    && !normalizedTerms.some((item) => item.id === input.requestedTermId)) {
+    throw new RegisterTeacherFullTermError(400, "Choose an official learner term for this school and year.");
+  }
 
   let registerTeacherName = "Not assigned";
   if (classRow.register_teacher_staff_id) {
@@ -459,17 +553,43 @@ export async function getRegisterTeacherDocument(input: {
   const termStart = learnerTerm?.learner_starts_on ?? null;
   const termEnd = learnerTerm?.learner_ends_on ?? null;
   if (!term || !termStart || !termEnd || termStart > termEnd) {
+    if (input.fullTerm) {
+      throw new RegisterTeacherFullTermError(400, "Configure valid official learner term dates before printing a full-term register.");
+    }
     throw new Error("Learner calendar is not ready: configure valid learner opening and closing dates for the selected term.");
   }
 
-  const scope = resolveRegisterTeacherScope({
-    mode: input.mode,
-    selectedDate: input.selectedDate,
-    fromWeek: input.fromWeek,
-    toWeek: input.toWeek,
-    termStart,
-    termEnd,
-  });
+  const fullTerm = input.fullTerm
+    ? { today: getNamibiaDateKey(), closingDate: input.fullTerm.closingDate ?? null }
+    : null;
+  if (fullTerm && input.mode !== "term") {
+    throw new RegisterTeacherFullTermError(400, "Full-term sheets require term mode.");
+  }
+  let scope: RegisterTeacherScope;
+  if (fullTerm) {
+    // Validate the boundary before querying. The exact last-eligible default is
+    // resolved in the builder once governed school-day evidence is available.
+    const requestedBoundary = fullTerm.closingDate != null
+      ? resolveFullTermClosingDate({
+          termStart,
+          termEnd,
+          today: fullTerm.today,
+          closingDate: fullTerm.closingDate,
+          eligibleDates: [],
+        })
+      : null;
+    const queryEnd = requestedBoundary ?? (fullTerm.today < termEnd ? fullTerm.today : termEnd);
+    scope = { scopeStart: termStart, scopeEnd: queryEnd, queryEnd, termActualEnd: queryEnd };
+  } else {
+    scope = resolveRegisterTeacherScope({
+      mode: input.mode,
+      selectedDate: input.selectedDate,
+      fromWeek: input.fromWeek,
+      toWeek: input.toWeek,
+      termStart,
+      termEnd,
+    });
+  }
 
   const queryEnd = scope.queryEnd;
   const [
@@ -528,6 +648,7 @@ export async function getRegisterTeacherDocument(input: {
 
   return buildRegisterTeacherDocument({
     mode: input.mode,
+    schoolId: input.schoolId,
     academicYear: input.academicYear,
     classId: String(classRow.id),
     className: String(classRow.display_name),
@@ -539,6 +660,7 @@ export async function getRegisterTeacherDocument(input: {
     termStart,
     termEnd,
     scope,
+    ...(fullTerm ? { fullTerm } : {}),
     impactRows: (impactRows ?? []) as GovernedTeachingImpactRow[],
     enrolments: (enrolments ?? []) as RegisterTeacherEnrolmentRow[],
     currentRows: (currentRows ?? []) as RegisterTeacherCurrentRow[],

@@ -190,12 +190,17 @@ function sectionHtml(document: RegisterTeacherDocument, section: RegisterTeacher
 export function renderRegisterTeacherHtml(input: {
   header: OfficialDocumentHeaderModel;
   document: RegisterTeacherDocument;
+  notice?: string | null;
 }) {
   const { header, document } = input;
   const context = registerTeacherDocumentContext(document);
   const title = context.title;
+  const notice = input.notice?.trim()
+    ? `<div class="document-notice" role="note">${escapeHtml(input.notice.trim())}</div>`
+    : "";
   const repeatedHeader = `
     ${renderOfficialDocumentHtmlHeader(header, undefined, { context })}
+    ${notice}
     <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span class="legend-note">Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area</span></div>`;
 
   return `<!doctype html>
@@ -267,6 +272,7 @@ export function renderRegisterTeacherHtml(input: {
   .balance-strip span { white-space:nowrap; }
   .balance-strip strong { font-weight:800; }
   .governance-alert { padding:4px 6px; border:1px solid var(--register-red); border-top:0; background:#fff1f2; color:var(--register-red); font-size:7px; font-weight:700; }
+  .document-notice { margin:4px 0 2px; padding:4px 6px; border:1px solid var(--register-red); background:#fff1f2; color:var(--register-red); font-size:7.5px; font-weight:700; line-height:1.2; }
   .empty { padding:18px; color:#777; font-size:9px; }
   .legend { margin:8px 0 2px; display:flex; align-items:center; flex-wrap:wrap; gap:5px 14px; min-height:20px; padding:2px 1px; font-size:8px; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:3px; min-height:16px; white-space:nowrap; }

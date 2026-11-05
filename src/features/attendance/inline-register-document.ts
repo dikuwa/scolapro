@@ -1,11 +1,14 @@
+export type RegisterTeacherViewMode = "week" | "range" | "term" | "full-term";
+
 export type InlineRegisterDocumentSelection = {
   schoolId: string;
   classId: string;
   date: string;
-  mode: "week" | "range" | "term";
+  mode: RegisterTeacherViewMode;
   termId: string;
   fromWeek: string | null;
   toWeek: string | null;
+  closingDate?: string | null;
 };
 
 export type InlineRegisterDocument = {
@@ -13,16 +16,21 @@ export type InlineRegisterDocument = {
   html: string;
   pdfBase64: string;
   fileName: string;
+  notice?: string;
+  paper?: "a2" | "a1";
+  pageCount?: number;
 };
 
 const resolvedDocuments = new Map<string, Promise<InlineRegisterDocument>>();
 
 export function inlineRegisterDocumentKey(selection: InlineRegisterDocumentSelection) {
-  const period = selection.mode === "term"
-    ? "term"
-    : selection.mode === "range"
-      ? `${selection.fromWeek ?? ""}:${selection.toWeek ?? ""}`
-      : selection.fromWeek ?? "";
+  const period = selection.mode === "full-term"
+    ? selection.closingDate ?? ""
+    : selection.mode === "term"
+      ? "term"
+      : selection.mode === "range"
+        ? `${selection.fromWeek ?? ""}:${selection.toWeek ?? ""}`
+        : selection.fromWeek ?? "";
 
   return [selection.schoolId, selection.classId, selection.termId, selection.date, selection.mode, period].join(":");
 }
@@ -36,8 +44,9 @@ function inlineRegisterDocumentUrl(selection: InlineRegisterDocumentSelection) {
     term: selection.termId,
     format: "bundle",
   });
-  if (selection.mode !== "term" && selection.fromWeek) params.set("fromWeek", selection.fromWeek);
+  if ((selection.mode === "week" || selection.mode === "range") && selection.fromWeek) params.set("fromWeek", selection.fromWeek);
   if (selection.mode === "range" && selection.toWeek) params.set("toWeek", selection.toWeek);
+  if (selection.mode === "full-term" && selection.closingDate) params.set("closingDate", selection.closingDate);
   return `/api/attendance/register-teacher?${params.toString()}`;
 }
 

@@ -22,7 +22,7 @@ test("inline register panel exposes empty, loading, error, offline, retry and su
 test("one resolved model bundle supplies inline, preview, print and PDF", () => {
   assert.match(route, /format === "pdf" \|\| format === "bundle"/);
   assert.match(route, /renderRegisterTeacherPdf/);
-  assert.match(route, /const html = renderRegisterTeacherHtml\(\{ header, document \}\)/);
+  assert.match(route, /renderRegisterTeacherHtml\(\{ header, document, notice \}\)/);
   assert.match(route, /identity/);
   assert.match(panel, /new Blob\(\[state\.document\.html\]/);
   assert.match(panel, /pdfBlob\(state\.document\)/);
