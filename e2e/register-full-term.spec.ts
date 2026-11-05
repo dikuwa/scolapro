@@ -125,7 +125,40 @@ test.describe("full-term single-sheet register", () => {
     if (!bundle.notice) {
       await expect(page.locator(".full-term-sheet")).toHaveCount(2);
       await expect(page.locator(".provisional-banner").first()).toContainText("PROVISIONAL");
-      await expect(page.locator(".balance-strip").first()).toContainText("Balance:");
+
+      // Issue #1260: the strip must separate observed attendance from the future
+      // projection instead of reporting a single "Balance: n / m".
+      const balanceText = (await page.locator(".balance-strip").first().textContent()) ?? "";
+      const balanceNumber = (label: string) => {
+        const match = new RegExp(`${label}\\s*(\\d+)`).exec(balanceText);
+        expect(match, `balance strip is missing "${label}": ${balanceText}`).not.toBeNull();
+        return Number(match![1]);
+      };
+      const present = balanceNumber("Present");
+      const absent = balanceNumber("Absent");
+      const projected = balanceNumber("Projected");
+      const observed = balanceNumber("Observed");
+      const fullTerm = balanceNumber("Full-term");
+      // Attendance integrity: observed present + observed absence is the elapsed
+      // slice, and elapsed + projected is the governed whole-term denominator.
+      expect(present + absent).toBe(observed);
+      expect(observed + projected).toBe(fullTerm);
+      expect(balanceText).toContain("✓");
+      const closingDate = bundle.fileName.match(/(\d{4}-\d{2}-\d{2})\.pdf$/)![1];
+      if (Date.parse(`${closingDate}T00:00:00Z`) > Date.now()) {
+        // The term is still running, so the sheet must project the remaining
+        // eligible days rather than stopping at today.
+        expect(projected).toBeGreaterThan(0);
+        expect(fullTerm).toBeGreaterThan(observed);
+      }
+
+      // Issue #1260: nonzero left/right sheet padding inside the 32pt page margin.
+      const sheetPadding = await page.locator(".full-term-sheet").first().evaluate(
+        (element) => Number.parseFloat(getComputedStyle(element).paddingLeft),
+      );
+      expect(sheetPadding).toBeGreaterThan(0);
+      expect(Math.abs(sheetPadding - 10 * (96 / 72))).toBeLessThan(0.1);
+
       const dataFontSize = await page.locator(".full-term-sheet table").first().evaluate(
         (element) => Number.parseFloat(getComputedStyle(element).fontSize),
       );
