@@ -52,6 +52,8 @@ export type RegisterTeacherLearner = {
   termAttended: number;
   termAbsent: number;
   termDays: number;
+  /** Eligible learner-days in the future (after the school-local as-of date) counted in the denominator but not yet observed. */
+  termProjected: number;
 };
 
 export type RegisterTeacherWeek = {
@@ -73,6 +75,7 @@ export type RegisterTeacherSection = {
   termAttendanceTotal: number;
   termAbsenceTotal: number;
   termPossibleTotal: number;
+  termProjectedTotal: number;
 };
 
 export type RegisterTeacherTermOption = {
@@ -261,18 +264,31 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
   const fullTerm = input.fullTerm
     ? { today: input.fullTerm.today, closingDate: input.fullTerm.closingDate ?? null }
     : null;
+  // The full-term sheet spans the entire official learner term, not a partial
+  // as-of cutoff. The closing date therefore defaults to the governed term end
+  // (the last eligible school day of the term). Attendance for school days after
+  // the school-local `today` is projected, never reported as already observed.
+  // Only a term with no eligible school days at all is an explicit empty state.
+  const fullTermEligibleDates = governedDays.eligibleDates(input.termStart, input.termEnd);
+  // Default to the last eligible school day of the term so a term that ends on a
+  // weekend/holiday still closes on a teaching day; an explicit caller date wins.
+  const defaultClosingDate = fullTermEligibleDates.length
+    ? fullTermEligibleDates[fullTermEligibleDates.length - 1]
+    : input.termEnd;
   const closingDate = fullTerm
-    ? resolveFullTermClosingDate({
-        termStart: input.termStart,
-        termEnd: input.termEnd,
-        today: fullTerm.today,
-        closingDate: fullTerm.closingDate,
-        eligibleDates: governedDays.eligibleDates(input.termStart, input.termEnd),
-      })
+    ? (fullTermEligibleDates.length
+      ? resolveFullTermClosingDate({
+          termStart: input.termStart,
+          termEnd: input.termEnd,
+          today: fullTerm.today,
+          closingDate: fullTerm.closingDate ?? defaultClosingDate,
+          eligibleDates: fullTermEligibleDates,
+        })
+      : null)
     : null;
   // A full-term sheet always starts at the official learner opening date and
-  // stops at the governed closing date. Weekly and paginated term scopes keep
-  // their existing resolver untouched.
+  // stops at the governed term end so the whole term is displayed. Weekly and
+  // paginated term scopes keep their existing resolver untouched.
   const scopeStart = fullTerm ? input.termStart : input.scope.scopeStart;
   const scopeEnd = fullTerm ? (closingDate ?? scopeStart) : input.scope.scopeEnd;
   const termActualEnd = fullTerm ? scopeEnd : input.scope.termActualEnd;
@@ -287,20 +303,40 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     const scopeOrder = (a.event_scope === "school" ? 1 : 0) - (b.event_scope === "school" ? 1 : 0);
     return scopeOrder || String(a.created_at).localeCompare(String(b.created_at));
   });
+  const officialClosureDates = new Set<string>();
   for (const event of calendarClosures) {
     const startsOn = String(event.starts_on).slice(0, 10) < input.termStart ? input.termStart : String(event.starts_on).slice(0, 10);
     const endsOn = String(event.ends_on).slice(0, 10) > input.termEnd ? input.termEnd : String(event.ends_on).slice(0, 10);
-    for (const date of rangeDates(startsOn, endsOn)) reasonByDate.set(date, String(event.title));
+    for (const date of rangeDates(startsOn, endsOn)) {
+      reasonByDate.set(date, String(event.title));
+      // Only national official calendar closures reduce the scheduled count.
+      // School-scoped events are school-specific and belong to the included
+      // count (via the governed impact rows), not the official schedule.
+      if (event.event_scope !== "school") officialClosureDates.add(date);
+    }
   }
   for (const row of input.overrideRows) {
     const date = String(row.school_date).slice(0, 10);
     reasonByDate.set(date, row.reason?.trim() || "School calendar adjustment");
   }
 
-  const termActualDates = closingDate === null && fullTerm
-    ? []
+  // Official scheduled teaching days: every Mon-Fri in the learner term that is
+  // not an official all-learner non-teaching calendar day. School-specific
+  // closure overrides are intentionally excluded here — they reduce the
+  // school-included count below, so scheduled >= included when the school closes
+  // an otherwise scheduled day.
+  const scheduledTeachingDayCount = rangeDates(input.termStart, input.termEnd).filter((date) => {
+    const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+    return weekday >= 1 && weekday <= 5 && !officialClosureDates.has(date);
+  }).length;
+
+  // A caller-supplied closing date is a deliberate partial view; the default
+  // full-term view spans the whole learner term.
+  const explicitClosingDate = Boolean(fullTerm && fullTerm.closingDate != null);
+  const termActualDates = fullTerm
+    ? (explicitClosingDate ? governedDays.eligibleDates(input.termStart, scopeEnd) : fullTermEligibleDates)
     : governedDays.eligibleDates(input.termStart, termActualEnd);
-  const termTeachingDayCount = governedDays.eligibleDates(input.termStart, input.termEnd).length;
+  const termTeachingDayCount = fullTermEligibleDates.length;
   const enrolments = fullTerm ? fullTermEnrolments(input.enrolments, termActualDates) : input.enrolments;
 
   const dayModels: RegisterTeacherDay[] = dates.map((date) => {
@@ -363,13 +399,15 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       // Default-present applies only to eligible dates that are already past in
       // the school-local calendar. Today and later contribute nothing unless
       // authoritative evidence exists, so a future day is never certified.
-      const countable = (date: string) => !fullTerm || date < fullTerm.today || Boolean(evidenceForDate(date));
       const balance = calculateLearnerRegisterBalance({
-        scopeDays: dayModels.map((day) => ({ date: day.date, eligible: day.teaching && countable(day.date) })),
-        termEligibleDates: fullTerm ? termActualDates.filter(countable) : termActualDates,
+        scopeDays: dayModels.map((day) => ({ date: day.date, eligible: day.teaching })),
+        termEligibleDates: termActualDates,
         enrolledFrom,
         enrolledTo,
         evidenceForDate,
+        // Full-term registers project future school days: they count toward the
+        // possible denominator but are never reported as observed present.
+        observedThrough: fullTerm ? fullTerm.today : null,
       });
 
       learners.push({
@@ -390,6 +428,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
         termAttended: balance.termAttended,
         termAbsent: balance.termAbsent,
         termDays: balance.termDays,
+        termProjected: balance.termProjected,
       });
     }
 
@@ -417,6 +456,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       termAttendanceTotal: learners.reduce((sum, learner) => sum + learner.termAttended, 0),
       termAbsenceTotal: learners.reduce((sum, learner) => sum + learner.termAbsent, 0),
       termPossibleTotal: learners.reduce((sum, learner) => sum + learner.termDays, 0),
+      termProjectedTotal: learners.reduce((sum, learner) => sum + learner.termProjected, 0),
     };
   });
 
@@ -457,12 +497,19 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       })
     : null;
   if (fullTerm && certification) {
+    const observedLearnerDays = sections.reduce(
+      (sum, section) => sum + section.termAttendanceTotal + section.termAbsenceTotal,
+      0,
+    );
+    const projectedLearnerDays = sections.reduce((sum, section) => sum + section.termProjectedTotal, 0);
     document.fullTerm = {
       closingDate,
       today: fullTerm.today,
-      scheduledTeachingDayCount: termTeachingDayCount,
+      scheduledTeachingDayCount,
       includedTeachingDayCount: termActualDates.length,
       possibleLearnerDays,
+      observedLearnerDays,
+      projectedLearnerDays,
       status: certification.status,
       certificationNote: certification.certificationNote,
     } satisfies RegisterTeacherFullTermMetadata;
@@ -473,8 +520,10 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       const sum = (counts: Record<string, number>) => Object.values(counts).reduce((total, count) => total + count, 0);
       if (sum(section.attendanceByDate) !== section.termAttendanceTotal
         || sum(section.absenceByDate) !== section.termAbsenceTotal
-        || sum(section.possibleByDate) !== section.termPossibleTotal
-        || section.learners.some((learner) => learner.termAttended + learner.termAbsent !== learner.termDays)) {
+        || sum(section.possibleByDate) !== section.possibleTotal
+        || section.learners.some(
+          (learner) => learner.termAttended + learner.termAbsent + learner.termProjected !== learner.termDays,
+        )) {
         throw new Error("Full-term register row and column balances disagree.");
       }
     }
@@ -578,7 +627,10 @@ export async function getRegisterTeacherDocument(input: {
           eligibleDates: [],
         })
       : null;
-    const queryEnd = requestedBoundary ?? (fullTerm.today < termEnd ? fullTerm.today : termEnd);
+    // A full-term view must query the whole term so learners enrolled later in
+    // the term and any future-dated evidence are still available to the builder.
+    // An explicit closing date narrows the query to that deliberate partial view.
+    const queryEnd = requestedBoundary ?? termEnd;
     scope = { scopeStart: termStart, scopeEnd: queryEnd, queryEnd, termActualEnd: queryEnd };
   } else {
     scope = resolveRegisterTeacherScope({

@@ -27,6 +27,8 @@ import { registerTeacherClosureLabel } from "@/features/attendance/server/regist
 export const FULL_TERM_DATA_FONT = 8;
 export const FULL_TERM_HEADING_FONT = 7;
 export const FULL_TERM_MARGIN = 32;
+/** Modest nonzero horizontal inset (points) applied inside the 32pt print margin so the grid never touches the paper edge. */
+export const FULL_TERM_INSET = 10;
 export const FULL_TERM_MIN_DAY_WIDTH = 12;
 export const FULL_TERM_MIN_ROW_HEIGHT = 10;
 export const FULL_TERM_MAX_ROW_HEIGHT = 14.25;
@@ -105,6 +107,8 @@ export type FullTermSheet = {
   width: number;
   height: number;
   margin: number;
+  /** Horizontal inset (points) inside the print margin; the grid is drawn between `margin + inset` and `width - margin - inset`. */
+  inset: number;
   contentWidth: number;
   contentHeight: number;
   identityWidths: readonly number[];
@@ -274,7 +278,10 @@ function identityPlan(section: RegisterTeacherSection, contentWidth: number) {
 function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherSection, paperKey: FullTermPaperKey): FullTermSheet {
   const paper = FULL_TERM_PAPERS[paperKey];
   const margin = FULL_TERM_MARGIN;
-  const contentWidth = paper.width - margin * 2;
+  const inset = FULL_TERM_INSET;
+  // The inset is horizontal only; vertical space keeps the symmetric 32pt margin
+  // so rows are not needlessly shortened and the top/bottom margins match.
+  const contentWidth = paper.width - margin * 2 - inset * 2;
   const contentHeight = paper.height - margin * 2;
   const bands = {
     header: 92,
@@ -335,6 +342,7 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
     width: paper.width,
     height: paper.height,
     margin,
+    inset,
     contentWidth,
     contentHeight,
     identityWidths: identity.widths,

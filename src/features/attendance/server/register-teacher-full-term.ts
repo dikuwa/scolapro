@@ -24,9 +24,16 @@ export type RegisterTeacherFullTermRequest = {
 export type RegisterTeacherFullTermMetadata = {
   closingDate: string | null;
   today: string;
+  /** Official scheduled term days from the governed learner calendar (excludes public holidays / official non-teaching days). */
   scheduledTeachingDayCount: number;
+  /** School-included eligible days after applying school closure overrides. */
   includedTeachingDayCount: number;
+  /** Full-term possible learner-days: every enrolled learner × every eligible term day (denominator). */
   possibleLearnerDays: number;
+  /** Observed learner-days up to the school-local as-of date (actual present + actual absent). */
+  observedLearnerDays: number;
+  /** Future eligible learner-days counted in the denominator but not yet observed (never certified attendance). */
+  projectedLearnerDays: number;
   status: "provisional" | "certified";
   certificationNote: string;
 };
@@ -45,12 +52,14 @@ export function isFullTermCalendarDate(value: string) {
 }
 
 /**
- * Resolves the closing date against the official learner term and the
- * school-local clock. A caller-supplied date may be any calendar day inside the
- * term, including a non-teaching boundary day; it may never be in the future or
- * outside the learner term. The default is the last eligible school day on or
- * before today. `null` means the term has no eligible day yet (explicit empty
- * state), not a silent fallback to the whole term.
+ * Resolves and validates the closing date inside the official learner term. A
+ * caller-supplied date may be any calendar day in the term, including a
+ * non-teaching boundary day, and may legitimately fall after today for a
+ * full-term register (the register spans the whole learner term). When no date is
+ * supplied the last eligible school day on or before today is used as a
+ * conservative boundary; the builder instead supplies the term's last eligible
+ * day so the default view is the whole term. `null` means the term has no
+ * eligible day yet (explicit empty state).
  */
 export function resolveFullTermClosingDate(input: {
   termStart: string;
@@ -69,9 +78,6 @@ export function resolveFullTermClosingDate(input: {
     }
     if (closingDate < termStart || closingDate > termEnd) {
       throw new RegisterTeacherFullTermError(400, "The closing date must fall inside the official learner term.");
-    }
-    if (closingDate > today) {
-      throw new RegisterTeacherFullTermError(400, "The closing date cannot be later than the school-local date.");
     }
     return closingDate;
   }

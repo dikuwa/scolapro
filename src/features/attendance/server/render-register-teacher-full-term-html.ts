@@ -16,6 +16,7 @@ import {
   registerTeacherValuesFor,
 } from "@/features/attendance/server/register-teacher-layout";
 import {
+  FULL_TERM_INSET,
   FULL_TERM_PAPERS,
   type FullTermPlan,
   type FullTermSheet,
@@ -176,9 +177,9 @@ function sheetHtml(input: {
         ${summaryRow(sheet, "Total number of possible attendances", "possible")}
       </tbody>
     </table>
-    <div class="balance-strip"><span>Attendance <strong>${balance.attendance}</strong></span><span>Absence <strong>${balance.absence}</strong></span><span>Possible <strong>${balance.possible}</strong></span><span>Balance: <strong>${balance.accounted} / ${balance.possible} ${balance.balanced ? "✓" : "!"}</strong></span></div>`
+    <div class="balance-strip"><span>Present <strong>${balance.attendance}</strong></span><span>Absent <strong>${balance.absence}</strong></span><span>Projected <strong>${balance.projected}</strong></span><span>Observed <strong>${balance.observed} / Full-term ${balance.possible} ${balance.reconciled ? "✓" : "!"}</strong></span></div>`
       : '<div class="empty-sheet">No eligible school day is available for this closing date. Configure or open a governed school day before printing.</div>'}
-    <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""}</div>
+    <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""} · Days column = full-term possible incl. projected future days.</div>
   </section>`;
 }
 
@@ -201,7 +202,7 @@ export function renderRegisterTeacherFullTermHtml(input: {
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#ececec; }
   body { padding:12px; }
-  .report { width:${widthMm}; min-width:${widthMm}; margin:0 auto 18px; padding:0; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
+  .report { width:${widthMm}; min-width:${widthMm}; margin:0 auto 18px; padding:0 ${FULL_TERM_INSET}pt; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
   @media screen { body { overflow-x:auto; } .report { width:${widthMm}; min-width:${widthMm}; } }
@@ -256,7 +257,7 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .empty-sheet { margin-top:6pt; padding:14pt; border:1px solid var(--grid); background:#fafafa; color:#555; font-size:8pt; }
   .balance-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:2pt 10pt; padding:3pt 1pt 0; color:#6d0d12; font-size:7pt; font-weight:600; }
   .balance-strip span { white-space:nowrap; }
-  .sheet-foot { padding:2pt 1pt 0; color:#666; font-size:7pt; line-height:1.1; }
+  .sheet-foot { padding:1pt 1pt 0; color:#666; font-size:7pt; line-height:1.1; }
   @page { size: ${paper.width}pt ${paper.height}pt; margin:${plan.margin}pt; }
   @media print {
     html,body { background:white; }

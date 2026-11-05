@@ -12,6 +12,7 @@ import {
   learnerRow,
   model,
   normalImpactRows,
+  weekdaysBetween,
 } from "./helpers/register-teacher-harness.mjs";
 
 const START = "2026-01-12";
@@ -115,34 +116,58 @@ async function assertClosureBandWithinInset(plan) {
   }
 }
 
-test("full-term closing date defaults to the last eligible day and accepts a non-teaching boundary", () => {
+test("full-term default spans the whole learner term, not a partial as-of cutoff", () => {
   const byDefault = build();
-  assert.equal(byDefault.fullTerm.closingDate, "2026-01-16");
-  assert.equal(byDefault.fullTerm.includedTeachingDayCount, 4);
+  // The full term ends on the last eligible school day (2026-04-24), not today.
+  assert.equal(byDefault.fullTerm.closingDate, "2026-04-24");
+  // 75 weekdays in the term; one governed school closure leaves 74 included.
+  assert.equal(byDefault.fullTerm.scheduledTeachingDayCount, 75);
+  assert.equal(byDefault.fullTerm.includedTeachingDayCount, 74);
   assert.equal(byDefault.fullTerm.status, "provisional");
+  // An explicit closing date is a deliberate partial view that clips the grid.
   const explicit = build({ fullTerm: { today: "2026-01-18", closingDate: "2026-01-14" } });
   assert.equal(explicit.fullTerm.closingDate, "2026-01-14");
   assert.equal(explicit.fullTerm.includedTeachingDayCount, 2);
   assert.ok(explicit.weeks.flatMap(({ dates }) => dates).every(({ date }) => date <= "2026-01-14"));
 });
 
-test("full-term closing date rejects impossible, outside-term and future dates", () => {
-  for (const closingDate of ["2026-02-30", "2026-01-11", "2026-01-19", "2026-04-25"]) {
+test("full-term closing date rejects impossible or outside-term dates but allows a future date inside the term", () => {
+  for (const closingDate of ["2026-02-30", "2026-01-11", "2026-04-25"]) {
     assert.throws(
       () => build({ fullTerm: { today: "2026-01-18", closingDate } }),
       /closing date|learner term|school-local/i,
     );
   }
+  // A closing date after the school-local as-of date is valid for a full-term
+  // register; it does not fabricate observed attendance for those future days.
+  const future = build({ fullTerm: { today: "2026-01-18", closingDate: "2026-01-19" } });
+  assert.equal(future.fullTerm.closingDate, "2026-01-19");
 });
 
-test("full-term has an explicit empty state before the first eligible day", () => {
-  const empty = build({ fullTerm: { today: "2026-01-11" } });
-  assert.equal(empty.fullTerm.closingDate, null);
-  assert.equal(empty.fullTerm.includedTeachingDayCount, 0);
-  assert.equal(empty.weeks.length, 0);
-  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(empty);
+test("full-term before the term starts shows the whole term as projected, never as observed", () => {
+  const future = build({ fullTerm: { today: "2026-01-11" }, enrolments: [learnerRow({ id: "p" })] });
+  assert.equal(future.fullTerm.closingDate, "2026-04-24");
+  assert.equal(future.fullTerm.includedTeachingDayCount, 74);
+  assert.ok(future.weeks.length > 0);
+  const learner = boys(future).learners[0];
+  assert.equal(learner.termAttended, 0);
+  assert.equal(learner.termAbsent, 0);
+  assert.equal(learner.termProjected, learner.termDays);
+  assert.equal(learner.termDays, 74);
+});
+
+test("full-term has an explicit empty state only when the term has no eligible school day", () => {
+  const noEligible = build({
+    fullTerm: { today: "2026-01-18" },
+    impactRows: normalImpactRows(START, END).map((row) => ({ ...row, teaching_impact: "NO_TEACHING" })),
+    overrideRows: [],
+  });
+  assert.equal(noEligible.fullTerm.closingDate, null);
+  assert.equal(noEligible.fullTerm.includedTeachingDayCount, 0);
+  assert.equal(noEligible.weeks.length, 0);
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(noEligible);
   assert.equal(plan.fits, true);
-  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document: empty, plan });
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document: noEligible, plan });
   assert.match(html, /NO ELIGIBLE SCHOOL DAY/);
 });
 
@@ -165,9 +190,14 @@ test("full-term counts closures, absence evidence and default-present only for p
   // 2026-01-16 is today: only the learner with explicit evidence contributes.
   assert.equal(section.possibleByDate["2026-01-16"], 1);
   for (const learner of section.learners) {
-    assert.equal(learner.termAttended + learner.termAbsent, learner.termDays);
+    assert.equal(learner.termAttended + learner.termAbsent + learner.termProjected, learner.termDays);
+    // Observed present + observed absent never exceeds the elapsed denominator.
+    assert.equal(learner.termAttended + learner.termAbsent, learner.termDays - learner.termProjected);
   }
-  assert.equal(section.termAttendanceTotal + section.termAbsenceTotal, section.termPossibleTotal);
+  assert.equal(
+    section.termAttendanceTotal + section.termAbsenceTotal + section.termProjectedTotal,
+    section.termPossibleTotal,
+  );
   const absent = section.learners.find(({ learnerId }) => learnerId === "absent");
   assert.equal(absent.termAbsent, 1);
   assert.ok(absent.reasonedAbsenceDates["2026-01-13"]);
@@ -182,9 +212,15 @@ test("full-term preserves disjoint re-entry and fails closed on ambiguous overla
     ],
   });
   // Disjoint re-entry stays as two separate enrolment rows until authoritative
-  // identity evidence permits a merge; no eligible learner-day is double-counted.
+  // identity evidence permits a merge; no eligible learner-day is double-counted
+  // across the full term.
   assert.equal(boys(reentry).learners.length, 2);
-  assert.equal(boys(reentry).learners.reduce((sum, learner) => sum + learner.termDays, 0), 3);
+  const expectedReentryDays = weekdaysBetween("2026-01-12", "2026-01-13").length
+    + weekdaysBetween("2026-01-16", END).length;
+  assert.equal(
+    boys(reentry).learners.reduce((sum, learner) => sum + learner.termDays, 0),
+    expectedReentryDays,
+  );
   assert.equal(girls(reentry).learners.length, 1);
 
   assert.throws(() => build({
@@ -456,11 +492,16 @@ test("full-term gender and learner balances reconcile without re-summing weekly 
   for (const section of document.sections) {
     const rowAttendance = section.learners.reduce((sum, learner) => sum + learner.termAttended, 0);
     const rowAbsence = section.learners.reduce((sum, learner) => sum + learner.termAbsent, 0);
+    const rowProjected = section.learners.reduce((sum, learner) => sum + learner.termProjected, 0);
     const rowPossible = section.learners.reduce((sum, learner) => sum + learner.termDays, 0);
     assert.equal(section.termAttendanceTotal, rowAttendance);
     assert.equal(section.termAbsenceTotal, rowAbsence);
+    assert.equal(section.termProjectedTotal, rowProjected);
     assert.equal(section.termPossibleTotal, rowPossible);
-    assert.equal(rowAttendance + rowAbsence, rowPossible);
+    // Observed present + absent + projected future days reconcile exactly.
+    assert.equal(rowAttendance + rowAbsence + rowProjected, rowPossible);
+    // Daily observed columns sum to the observed (elapsed) possible total, not
+    // the full-term denominator.
     assert.equal(
       Object.values(section.attendanceByDate).reduce((sum, value) => sum + value, 0),
       section.termAttendanceTotal,
@@ -471,7 +512,7 @@ test("full-term gender and learner balances reconcile without re-summing weekly 
     );
     assert.equal(
       Object.values(section.possibleByDate).reduce((sum, value) => sum + value, 0),
-      section.termPossibleTotal,
+      section.possibleTotal,
     );
   }
   assert.equal(
