@@ -21,7 +21,7 @@ import {
   type FullTermPlan,
   type FullTermSheet,
 } from "@/features/attendance/server/register-teacher-full-term-layout";
-import { fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
+import { fullTermCalendarAudit, fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char));
@@ -151,7 +151,7 @@ function sheetHtml(input: {
   );
   const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
   const banner = hasIncludedDays
-    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate!))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
+    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate!))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register. ${escapeHtml(fullTermCalendarAudit(fullTerm!))}`
     : `NO ELIGIBLE SCHOOL DAY — ${emptyCopy.charAt(0).toLowerCase()}${emptyCopy.slice(1)} The sheet is intentionally empty.`;
   const meta = [
     ["BOYS/GIRLS:", section.label],
@@ -203,10 +203,12 @@ function sheetHtml(input: {
         ${summaryRow(sheet, "Total number of absentees", "absence")}
         ${summaryRow(sheet, "Total possible attendances (daily/week = observed; term = full term)", "possible")}
       </tbody>
-    </table>
-    <div class="balance-strip"><span>Present <strong>${balance.attendance}</strong></span><span>Absent <strong>${balance.absence}</strong></span><span>Projected <strong>${balance.projected}</strong></span><span>Observed <strong>${balance.observed} / Full-term ${balance.possible} ${balance.reconciled ? "✓" : "!"}</strong></span></div>`
+    </table>`
       : `<div class="empty-sheet">${escapeHtml(emptyCopy)} ${escapeHtml(emptyRemedy)}</div>`}
-    <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""} · Days column = full-term possible incl. projected future days.</div>
+    <div class="sheet-footer-row">
+      <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""} · Days column = full-term possible incl. projected future days.</div>
+      ${hasIncludedDays ? `<div class="balance-strip"><span>Present <strong>${balance.attendance}</strong></span><span>Absent <strong>${balance.absence}</strong></span><span>Projected <strong>${balance.projected}</strong></span><span>Observed <strong>${balance.observed} / Full-term ${balance.possible} ${balance.reconciled ? "✓" : "!"}</strong></span></div>` : ""}
+    </div>
   </section>`;
 }
 
@@ -282,9 +284,13 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .absence-value { color:var(--register-red) !important; }
   .empty-row td { padding:10pt; color:#777; font-size:8pt; text-align:left; }
   .empty-sheet { margin-top:6pt; padding:14pt; border:1px solid var(--grid); background:#fafafa; color:#555; font-size:8pt; }
-  .balance-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:2pt 10pt; padding:3pt 1pt 0; color:#6d0d12; font-size:7pt; font-weight:600; }
+  /* The caption and the red totals share one baseline row directly under the
+     table. The caption takes the remaining width; if the row cannot fit them
+     side by side it wraps predictably instead of clipping either. */
+  .sheet-footer-row { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; column-gap:14pt; row-gap:1pt; padding:2pt 1pt 0; }
+  .balance-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0 10pt; margin-left:auto; color:#6d0d12; font-size:7pt; font-weight:600; line-height:1.15; }
   .balance-strip span { white-space:nowrap; }
-  .sheet-foot { padding:1pt 1pt 0; color:#666; font-size:7pt; line-height:1.1; }
+  .sheet-foot { flex:1 1 320pt; min-width:0; color:#666; font-size:7pt; line-height:1.15; }
   @page { size: ${paper.width}pt ${paper.height}pt; margin:${plan.margin}pt; }
   @media print {
     html,body { background:white; }

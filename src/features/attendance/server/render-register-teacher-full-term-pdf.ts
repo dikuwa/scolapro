@@ -20,7 +20,7 @@ import {
   type FullTermPlan,
   type FullTermSheet,
 } from "@/features/attendance/server/register-teacher-full-term-layout";
-import { fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
+import { fullTermCalendarAudit, fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
 
 const LINE = rgb(0.25, 0.25, 0.25);
 const INK = rgb(0.08, 0.08, 0.08);
@@ -197,7 +197,7 @@ function drawSheet(input: {
   );
   const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
   const bannerText = hasIncludedDays
-    ? `PROVISIONAL - closing ${formatDate(includedClosingDate!)} - ${fullTerm!.scheduledTeachingDayCount} scheduled school days - ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} - ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
+    ? `PROVISIONAL - closing ${formatDate(includedClosingDate!)} - ${fullTerm!.scheduledTeachingDayCount} scheduled school days - ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} - ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register. ${fullTermCalendarAudit(fullTerm!)}`
     : `NO ELIGIBLE SCHOOL DAY - ${emptyCopy.charAt(0).toLowerCase()}${emptyCopy.slice(1)}`;
   drawCell(page, { x: contentX, top: y, width: contentWidth, height: sheet.bands.banner, fill: RED_SOFT, borderWidth: 0.7 });
   drawTextBlock({ page, font: resources.bold, text: bannerText, x: contentX + 4, top: y - 3, width: contentWidth - 8, height: sheet.bands.banner - 6, size: 7, color: RED, align: "left" });
@@ -433,27 +433,41 @@ function drawSheet(input: {
 
   const balance = registerTeacherBalance(section);
   const balanceLabel = `Present ${balance.attendance}    Absent ${balance.absence}    Projected ${balance.projected}    Observed ${balance.observed} / Full-term ${balance.possible}`;
+  const balanceLabelWidth = resources.bold.widthOfTextAtSize(balanceLabel, 7);
+  // Share a baseline; wrap the caption inside the reserved footer band.
+  const footerBaselineY = Math.max(margin, y - 11);
   page.drawText(balanceLabel, {
-    x: contentRight - resources.bold.widthOfTextAtSize(balanceLabel, 7) - 8,
-    y: Math.max(margin, y - 11),
+    x: contentRight - balanceLabelWidth - 8,
+    y: footerBaselineY,
     size: 7,
     font: resources.bold,
     color: RED,
   });
   page.drawText(balance.reconciled ? "✓" : "!", {
     x: contentRight - 6,
-    y: Math.max(margin, y - 10),
+    y: footerBaselineY + 1,
     size: 7,
     font: balance.reconciled ? checkFont : resources.bold,
     color: RED,
   });
   const foot = `${FULL_TERM_PAPERS[sheet.paper].label} - ${fullTerm?.certificationNote ?? ""} - Days = full-term possible (incl. projected)`.trim();
-  page.drawText(safeText(foot), {
-    x: contentX,
-    y: Math.max(margin - 2, y - 20),
-    size: 7,
-    font: resources.regular,
-    color: MUTED,
+  const footLines = wrapWithFont(
+    resources.regular,
+    safeText(foot),
+    7,
+    Math.max(120, contentWidth - balanceLabelWidth - 22),
+  );
+  if (footLines.length > 2 || footerBaselineY - (footLines.length - 1) * 8 < margin) {
+    throw new Error("Full-term footer exceeds the reserved print area.");
+  }
+  footLines.forEach((line, index) => {
+    page.drawText(line, {
+      x: contentX,
+      y: footerBaselineY - index * 8,
+      size: 7,
+      font: resources.regular,
+      color: MUTED,
+    });
   });
 }
 

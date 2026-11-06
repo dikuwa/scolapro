@@ -24,6 +24,8 @@ export type RegisterTeacherFullTermRequest = {
 export type RegisterTeacherFullTermMetadata = {
   closingDate: string | null;
   today: string;
+  officialLearnerDayCount: number | null;
+  weekdayBaseline: number;
   /** Official scheduled term days from the governed learner calendar (excludes public holidays / official non-teaching days). */
   scheduledTeachingDayCount: number;
   /** School-included eligible days after applying school closure overrides. */
@@ -116,6 +118,18 @@ export function fullTermDayBasis(
       // not distinguish them.
       : `${Math.abs(delta)} school non-teaching ${unit}`,
   };
+}
+
+/** Published totals explain discrepancies; only resolved dates govern attendance. */
+export function fullTermCalendarAudit(metadata: RegisterTeacherFullTermMetadata) {
+  const reference = metadata.officialLearnerDayCount == null
+    ? ""
+    : `Official published school days: ${metadata.officialLearnerDayCount} (audit reference). `;
+  const discrepancy = metadata.officialLearnerDayCount != null
+    && metadata.officialLearnerDayCount !== metadata.termEligibleTeachingDayCount
+    ? " Published and governed totals differ; attendance uses governed dates."
+    : "";
+  return `${reference}Weekday baseline: ${metadata.weekdayBaseline}; governed eligible school days (whole term): ${metadata.termEligibleTeachingDayCount}.${discrepancy}`;
 }
 
 /**

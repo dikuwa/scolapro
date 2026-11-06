@@ -4,11 +4,14 @@ import test from "node:test";
 import zlib from "node:zlib";
 import { PDFArray, PDFDocument, PDFRawStream } from "pdf-lib";
 import {
+  COMPLETE_HEADER_FIXTURE,
+  COMPLETE_SCHOOL_PROFILE,
   HEADER_FIXTURE,
   fullTermHtml,
   fullTermLayout,
   fullTermModel,
   fullTermPdf,
+  headerBuilder,
   layout,
   learnerRow,
   model,
@@ -329,9 +332,10 @@ test("#1260 keeps the footer tight beneath the bottom summary and inside the ins
   const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
 
   const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
-  // The footer sits immediately under the balance strip (1pt top padding), not
-  // floating away from the bottom summary.
-  assert.match(html, /\.sheet-foot\s*\{[^}]*padding:1pt 1pt 0/);
+  // The footer caption shares the balance strip's row, so it cannot float away
+  // from the bottom summary or sit below the red totals.
+  assert.match(html, /\.sheet-footer-row\s*\{[^}]*align-items:baseline/);
+  assert.match(html, /\.sheet-foot\s*\{[^}]*flex:1 1 320pt/);
   assert.match(html, /\.balance-strip/);
 
   const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
@@ -534,4 +538,107 @@ test("#1260 does not claim a term has no teaching days when only the closing dat
   assert.ok(text.includes(collapse("No eligible teaching day falls on or before the selected closing date")));
   assert.ok(!text.includes(collapse("The governed learner term contains no eligible teaching day")));
   assert.ok(text.includes(collapse("Choose a later closing date")));
+});
+
+test("#1260 renders every configured school identity field in the full-term header", async () => {
+  const document = build();
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const expected = [
+    "Fixture Secondary School",
+    "(Fixture Combined School)",
+    "EMIS: EMIS-0001",
+    "Address: 12 Independence Avenue, Windhoek",
+    "Postal / town: Private Bag 5001, Windhoek",
+    "Tel: +264 61 000 0000",
+    "Fax: +264 61 000 0001",
+    "Email: office@fixture-secondary.example",
+  ];
+
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: COMPLETE_HEADER_FIXTURE, document, plan });
+  const htmlText = collapse(stripHtml(html));
+  for (const value of expected) {
+    assert.ok(htmlText.includes(collapse(value)), `HTML header is missing "${value}"`);
+  }
+  assert.match(html, /class="school-logo"/, "HTML header renders the configured crest");
+
+  const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: COMPLETE_HEADER_FIXTURE, document, plan });
+  const pdfTextValue = collapse(await pdfText(bytes));
+  for (const value of expected.slice(1)) {
+    assert.ok(pdfTextValue.includes(collapse(value)), `PDF header is missing "${value}"`);
+  }
+  // The school name is drawn with the configured Old English face, which is a
+  // subset-encoded font, so it cannot be recovered from the text operators. It
+  // is asserted through the document title and the embedded crest instead.
+  const rendered = await PDFDocument.load(bytes);
+  assert.match(rendered.getTitle() ?? "", /Fixture Secondary School/);
+  assert.ok(
+    Buffer.from(bytes).toString("latin1").includes("/Subtype /Image"),
+    "PDF header embeds the configured crest",
+  );
+});
+
+test("#1260 omits unconfigured school identity fields instead of inventing them", () => {
+  const header = headerBuilder.buildOfficialDocumentHeaderModel({
+    ...COMPLETE_SCHOOL_PROFILE,
+    physicalAddress: "",
+    postalAddress: "",
+    town: "",
+    telephone: "",
+    fax: "",
+    email: "",
+  }, { mode: "internal_school" });
+  const document = build();
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const html = stripHtml(fullTermHtml.renderRegisterTeacherFullTermHtml({ header, document, plan }));
+
+  assert.match(html, /Fixture Secondary School/);
+  assert.match(html, /EMIS-0001/);
+  for (const label of ["Address:", "Postal / town:", "Tel:", "Fax:", "Email:"]) {
+    assert.ok(!html.includes(label), `unconfigured ${label} must not be printed`);
+  }
+});
+
+test("#1260 places the footer caption and the balance totals on one row", async () => {
+  const document = build();
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+
+  const rowStart = html.indexOf('<div class="sheet-footer-row">');
+  assert.ok(rowStart > -1, "the sheet renders a shared footer row");
+  const row = html.slice(rowStart, html.indexOf("</section>", rowStart));
+  assert.match(row, /class="sheet-foot"/);
+  assert.match(row, /class="balance-strip"/);
+  assert.ok(
+    row.indexOf('class="sheet-foot"') < row.indexOf('class="balance-strip"'),
+    "the caption is the left cell and the red totals are the right cell",
+  );
+  assert.match(row, /Days column = full-term possible/);
+
+  const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
+  const text = collapse(await pdfText(bytes));
+  assert.ok(text.includes(collapse("Days = full-term possible (incl. projected)")));
+  assert.ok(text.includes(collapse("Present")) && text.includes(collapse("Full-term")));
+});
+
+test("#1260 dynamically excludes October 5 once and honours effective reopening", () => {
+  for (const [closed, expected] of [[[], 65], [["2026-10-05"], 64], [["2026-10-05", "2026-10-14"], 63]]) {
+    const document = build({ officialLearnerDayCount: 65, impactRows: impactRows(Object.fromEntries(closed.map(date => [date, "NO_TEACHING"]))),
+      calendarEventRows: closed.map(date => ({ event_scope: "school", title: "Governed holiday", starts_on: date, ends_on: date, created_at: date })) });
+    assert.equal(document.fullTerm.includedTeachingDayCount, expected);
+    assert.equal(document.sections[0].learners[0].termDays, expected);
+    for (const date of closed) {
+      assert.equal(document.sections[0].learners[0].marks[date], "");
+      assert.equal(document.sections[0].possibleByDate[date], 0);
+      assert.equal(document.sections[0].attendanceByDate[date], 0);
+      assert.equal(document.sections[0].absenceByDate[date], 0);
+      assert.equal(document.weeks.flatMap(w => w.dates).find(d => d.date === date).teaching, false);
+    }
+    const audit = fullTermModel.fullTermCalendarAudit(document.fullTerm);
+    assert.match(audit, /Official published school days: 65/);
+    assert.equal(audit.includes("totals differ"), expected !== 65);
+  }
+  const reopened = build({ calendarEventRows: [{ event_scope: "school", title: "Holiday", starts_on: "2026-10-05", ends_on: "2026-10-05", created_at: START }],
+    overrideRows: [{ school_date: "2026-10-05", reason: "Authorized reopening" }] });
+  assert.equal(reopened.fullTerm.includedTeachingDayCount, 65);
+  assert.equal(reopened.sections[0].learners[0].marks["2026-10-05"], "I");
 });

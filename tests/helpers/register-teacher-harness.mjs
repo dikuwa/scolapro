@@ -78,3 +78,34 @@ export const HEADER_FIXTURE = Object.freeze({
     governedAssetVersion: "2026-10-05",
   },
 });
+
+/**
+ * Complete synthetic school document profile.
+ *
+ * Built through the real `SchoolDocumentProfile` -> `OfficialDocumentHeaderModel`
+ * projection so the tests exercise the same mapping the live `document_profile`
+ * loader uses. Every configurable identity/contact field is populated; the crest
+ * slot uses the repository-bundled governed mark because no synthetic school
+ * crest asset exists and a real school's crest must not be borrowed.
+ */
+export const COMPLETE_SCHOOL_PROFILE = Object.freeze({
+  schoolName: "Fixture Secondary School",
+  schoolEmisNumber: "EMIS-0001",
+  formerName: "Fixture Combined School",
+  logoUrl: "/brand/governed/namibia-coat-of-arms.png",
+  logoStoragePath: "",
+  physicalAddress: "12 Independence Avenue, Windhoek",
+  telephone: "+264 61 000 0000",
+  fax: "+264 61 000 0001",
+  email: "office@fixture-secondary.example",
+  postalAddress: "Private Bag 5001",
+  town: "Windhoek",
+  schoolNameFont: "old_english",
+});
+
+export const COMPLETE_HEADER_FIXTURE = Object.freeze(
+  headerBuilder.buildOfficialDocumentHeaderModel(COMPLETE_SCHOOL_PROFILE, {
+    mode: "internal_school",
+    provenanceSource: "live_school_profile",
+  }),
+);

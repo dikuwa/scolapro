@@ -157,6 +157,22 @@ test.describe("full-term single-sheet register", () => {
         (element) => Number.parseFloat(getComputedStyle(element).paddingLeft),
       );
       expect(sheetPadding).toBeGreaterThan(0);
+
+      // Issue #1260 (final): the footer caption and the red totals share one
+      // rendered row, so the caption cannot sit below the balance strip.
+      const footerRow = page.locator(".sheet-footer-row").first();
+      await expect(footerRow.locator(".sheet-foot")).toHaveCount(1);
+      await expect(footerRow.locator(".balance-strip")).toHaveCount(1);
+      const footerBaselineDelta = await footerRow.evaluate((element) => {
+        const foot = element.querySelector(".sheet-foot")!.getBoundingClientRect();
+        const balance = element.querySelector(".balance-strip")!.getBoundingClientRect();
+        return Math.abs(foot.top - balance.top);
+      });
+      expect(footerBaselineDelta).toBeLessThanOrEqual(1);
+
+      // The official header is the shared school-document header, not a
+      // full-term-specific variant.
+      await expect(page.locator(".full-term-sheet .school-header .school-name").first()).not.toBeEmpty();
       expect(Math.abs(sheetPadding - 10 * (96 / 72))).toBeLessThan(0.1);
 
       const dataFontSize = await page.locator(".full-term-sheet table").first().evaluate(

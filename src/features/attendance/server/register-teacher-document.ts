@@ -163,6 +163,7 @@ export type RegisterTeacherBuildInput = {
   termEnd: string;
   scope: RegisterTeacherScope;
   fullTerm?: RegisterTeacherFullTermRequest;
+  officialLearnerDayCount?: number | null;
   certificationEvidence?: RegisterTeacherFullTermCertificationEvidence | null;
   impactRows: readonly GovernedTeachingImpactRow[];
   enrolments: readonly RegisterTeacherEnrolmentRow[];
@@ -507,6 +508,11 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     document.fullTerm = {
       closingDate,
       today: fullTerm.today,
+      officialLearnerDayCount: input.officialLearnerDayCount ?? null,
+      weekdayBaseline: rangeDates(input.termStart, input.termEnd).filter((date) => {
+        const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+        return weekday >= 1 && weekday <= 5;
+      }).length,
       scheduledTeachingDayCount,
       includedTeachingDayCount: termActualDates.length,
       termEligibleTeachingDayCount: fullTermEligibleDates.length,
@@ -599,7 +605,7 @@ export async function getRegisterTeacherDocument(input: {
     { p_school_id: input.schoolId, p_academic_year: input.academicYear },
   );
   const learnerTerm = !learnerCalendarError && term
-    ? ((learnerCalendar ?? []) as Array<{ academic_term_id: string; learner_starts_on: string | null; learner_ends_on: string | null }>)
+    ? ((learnerCalendar ?? []) as Array<{ academic_term_id: string; learner_starts_on: string | null; learner_ends_on: string | null; official_learner_day_count: number | null }>)
         .find((item) => item.academic_term_id === term.id)
     : null;
   const termStart = learnerTerm?.learner_starts_on ?? null;
@@ -715,7 +721,7 @@ export async function getRegisterTeacherDocument(input: {
     termStart,
     termEnd,
     scope,
-    ...(fullTerm ? { fullTerm } : {}),
+    ...(fullTerm ? { fullTerm, officialLearnerDayCount: learnerTerm?.official_learner_day_count ?? null } : {}),
     impactRows: (impactRows ?? []) as GovernedTeachingImpactRow[],
     enrolments: (enrolments ?? []) as RegisterTeacherEnrolmentRow[],
     currentRows: (currentRows ?? []) as RegisterTeacherCurrentRow[],
