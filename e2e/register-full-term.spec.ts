@@ -152,6 +152,16 @@ test.describe("full-term single-sheet register", () => {
         expect(fullTerm).toBeGreaterThan(observed);
       }
 
+      // The seeded effective calendar closes Oct 5 and Oct 14; no forced 65.
+      for (const sheet of await page.locator(".full-term-sheet").all()) {
+        await expect(sheet.locator(".full-term-meta")).toContainText("63 included");
+        const holiday = sheet.locator('td.closure-column[title*="International"]');
+        await expect(holiday).toHaveCount(1);
+        await expect(holiday).toHaveClass(/non-teaching/);
+        await expect(holiday.locator(".absent-mark")).toHaveCount(0);
+        await expect(sheet.locator(".possible-summary-row td.non-teaching")).toHaveCount(2);
+      }
+
       // Issue #1260: nonzero left/right sheet padding inside the 32pt page margin.
       const sheetPadding = await page.locator(".full-term-sheet").first().evaluate(
         (element) => Number.parseFloat(getComputedStyle(element).paddingLeft),
