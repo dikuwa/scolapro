@@ -5,8 +5,10 @@ Acceptance evidence for draft PR #1261.
 The counting/layout implementation was reviewed at `5cf23f3c6`. The Control Room
 then authorised presentation-only corrective commits: `e92dfb48` for the
 replacement-Saturday explanation, the summary basis labels, the empty-state
-wording and out-of-term closing dates, and `940bba67` for the empty-state scope
-and remedy copy found in review of `e92dfb48`.
+wording and out-of-term closing dates; `940bba67` for the empty-state scope,
+negative-delta label and e2e title found in review of `e92dfb48`; and
+`9c28c964` for the empty-state remedy copy and the evidence provenance found in
+review of `940bba67`.
 
 The app-leg artefacts in this directory were captured from the `e92dfb48` run.
 The later commits change only empty-state strings; the A2/A1 fixtures always have
@@ -294,8 +296,16 @@ closing-date diagnosis: the term does have governed days, so the user must move
 the date. The remedy is now branch-aware in both renderers
 ("Choose a later closing date, or open a governed school day on or before it."),
 and the regression test asserts the HTML and PDF copy plus the remedy. The
-review's other notes were the missing PDF assertion (added) and this README's
-earlier "both heads" claim (corrected above).
+review's other notes were the missing PDF assertion (added), the `day(s)`
+wording here (corrected), and this README's earlier "both heads" claim
+(corrected above).
+
+A fifth pass confirmed `9c28c964` with **ACCEPT WITH NITS**, no HIGH and no
+MEDIUM: each empty branch prints exactly one remedy in both renderers, the PDF
+assertion fails when the PDF branch is reverted, and the artefact provenance
+matches the recorded run. Its remaining notes were documentation accuracy in this
+section and the narrow scope of the PDF assertion (the branch is only reachable
+through an empty closing date); the text is corrected here.
 
 ## Not covered
 
