@@ -137,6 +137,11 @@ function sheetHtml(input: {
   const emptyCopy = closingDateHasNoEligibleDay
     ? "No eligible teaching day falls on or before the selected closing date."
     : "The governed learner term contains no eligible teaching day.";
+  // The remedy must match the diagnosis: an early closing date needs a later
+  // date, not a change to the governed school calendar.
+  const emptyRemedy = closingDateHasNoEligibleDay
+    ? "Choose a later closing date, or open a governed school day on or before it."
+    : "Configure or open a governed school day before printing.";
   // A school may open a replacement Saturday, so included can exceed scheduled.
   // State that relationship instead of printing two numbers that read as an
   // impossible total on an official document.
@@ -200,7 +205,7 @@ function sheetHtml(input: {
       </tbody>
     </table>
     <div class="balance-strip"><span>Present <strong>${balance.attendance}</strong></span><span>Absent <strong>${balance.absence}</strong></span><span>Projected <strong>${balance.projected}</strong></span><span>Observed <strong>${balance.observed} / Full-term ${balance.possible} ${balance.reconciled ? "✓" : "!"}</strong></span></div>`
-      : `<div class="empty-sheet">${escapeHtml(emptyCopy)} Configure or open a governed school day before printing.</div>`}
+      : `<div class="empty-sheet">${escapeHtml(emptyCopy)} ${escapeHtml(emptyRemedy)}</div>`}
     <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""} · Days column = full-term possible incl. projected future days.</div>
   </section>`;
 }

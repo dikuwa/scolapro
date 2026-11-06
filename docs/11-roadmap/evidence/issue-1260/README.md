@@ -3,9 +3,15 @@
 Acceptance evidence for draft PR #1261.
 
 The counting/layout implementation was reviewed at `5cf23f3c6`. The Control Room
-then authorised a presentation-only corrective commit (`e92dfb48`) for the
+then authorised presentation-only corrective commits: `e92dfb48` for the
 replacement-Saturday explanation, the summary basis labels, the empty-state
-wording and out-of-term closing dates. Both heads are recorded below.
+wording and out-of-term closing dates, and `940bba67` for the empty-state scope
+and remedy copy found in review of `e92dfb48`.
+
+The app-leg artefacts in this directory were captured from the `e92dfb48` run.
+The later commits change only empty-state strings; the A2/A1 fixtures always have
+eligible days, so they never enter that branch. Those strings are covered by
+unit tests against both renderers instead, not by new screenshots.
 
 This directory contains the rendered artefacts and the numeric measurements used
 to accept the four corrections in Issue #1260: Boys/Girls page separation,
@@ -267,8 +273,8 @@ corrections hold and that the denominators, layout constants, page separation,
   `#1260 does not claim a term has no teaching days when only the closing date is
   empty`.
 - **LOW** — a negative delta was labelled `school closure day` for any school-level
-  non-teaching decision. Fixed to `school non-teaching day(s)`, which is what the
-  evidence supports.
+  non-teaching decision. Fixed: the banner now emits `school non-teaching day` /
+  `school non-teaching days`, which is what the evidence supports.
 - **LOW** — the e2e test title claimed the 400 fires "before reading register
   evidence"; it fires after the governed-day read. Title corrected.
 - **LOW** — positive deltas are attributed to "school-added replacement days"
@@ -277,6 +283,19 @@ corrections hold and that the denominators, layout constants, page separation,
   (deriving scheduled days from the override-aware resolver) would change the
   reviewed denominator definition, which the Control Room excluded from this
   corrective commit.
+
+### Review of the corrective copy
+
+A fourth independent read-only pass reviewed `940bba67` and returned
+**ACCEPT WITH NITS** with no HIGH findings and confirmed the empty-state MEDIUM
+was closed. Its remaining MEDIUM was that the fixed remedy sentence
+("Configure or open a governed school day before printing") contradicted the new
+closing-date diagnosis: the term does have governed days, so the user must move
+the date. The remedy is now branch-aware in both renderers
+("Choose a later closing date, or open a governed school day on or before it."),
+and the regression test asserts the HTML and PDF copy plus the remedy. The
+review's other notes were the missing PDF assertion (added) and this README's
+earlier "both heads" claim (corrected above).
 
 ## Not covered
 

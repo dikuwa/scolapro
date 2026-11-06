@@ -153,6 +153,11 @@ function drawSheet(input: {
   const emptyCopy = closingDateHasNoEligibleDay
     ? "No eligible teaching day falls on or before the selected closing date."
     : "The governed learner term contains no eligible teaching day.";
+  // The remedy must match the diagnosis: an early closing date needs a later
+  // date, not a change to the governed school calendar.
+  const emptyRemedy = closingDateHasNoEligibleDay
+    ? "Choose a later closing date, or open a governed school day on or before it."
+    : "Configure or open a governed school day before printing.";
   let y = drawOfficialDocumentPdfHeader(page, header, resources, sheet.height - margin, {
     documentX: contentX,
     documentWidth: contentWidth,
@@ -218,7 +223,7 @@ function drawSheet(input: {
 
   if (!hasIncludedDays) {
     drawCell(page, { x: contentX, top: y, width: contentWidth, height: 28 });
-    drawTextBlock({ page, font: resources.regular, text: `${emptyCopy} Configure or open a governed school day before printing.`, x: contentX + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
+    drawTextBlock({ page, font: resources.regular, text: `${emptyCopy} ${emptyRemedy}`, x: contentX + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
     return;
   }
 

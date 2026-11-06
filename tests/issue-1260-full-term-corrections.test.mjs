@@ -503,7 +503,7 @@ test("#1260 rejects an out-of-term closing date even when the term has no eligib
   assert.match(html, /contains no eligible teaching day/);
 });
 
-test("#1260 does not claim a term has no teaching days when only the closing date is empty", () => {
+test("#1260 does not claim a term has no teaching days when only the closing date is empty", async () => {
   // The first three term days are non-teaching, so an explicit closing date
   // before them yields an empty view even though the rest of the term teaches.
   const document = build({
@@ -522,4 +522,16 @@ test("#1260 does not claim a term has no teaching days when only the closing dat
   const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
   assert.match(html, /No eligible teaching day falls on or before the selected closing date/);
   assert.doesNotMatch(html, /governed learner term contains no eligible teaching day/);
+  // The remedy must match the diagnosis: this is a closing-date choice, not a
+  // missing governed school day.
+  assert.match(html, /Choose a later closing date/);
+  assert.doesNotMatch(html, /Configure or open a governed school day before printing/);
+
+  // The branch is duplicated in the PDF renderer, so assert it there too.
+  // PDF text extraction drops spaces, so compare collapsed strings.
+  const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
+  const text = collapse(await pdfText(bytes));
+  assert.ok(text.includes(collapse("No eligible teaching day falls on or before the selected closing date")));
+  assert.ok(!text.includes(collapse("The governed learner term contains no eligible teaching day")));
+  assert.ok(text.includes(collapse("Choose a later closing date")));
 });
