@@ -63,6 +63,38 @@ async function attachBundle(bundle: Bundle, testInfo: TestInfo) {
 }
 
 test.describe("full-term single-sheet register", () => {
+  test("keeps a 09 Sep partial closing-date sheet compact with matching two-page print/PDF", async ({ page }, testInfo) => {
+    await signInToAttendance(page, "admin");
+    const response = await page.request.get(`${endpoint}&closingDate=2026-09-09&format=bundle`, { timeout: 120_000 });
+    expect(response.status()).toBe(200);
+    const bundle = await response.json() as Bundle;
+    expect(bundle.notice).toBeFalsy();
+    expect(bundle.pageCount).toBe(2);
+    expect(bundle.html).toContain("09 Sept 2026");
+    expect(bundle.html).toContain("3 school-included teaching days");
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await page.setContent(bundle.html, { waitUntil: "load" });
+    await expect(page.locator(".full-term-sheet")).toHaveCount(2);
+    for (const sheet of await page.locator(".full-term-sheet").all()) {
+      const dimensions = await sheet.evaluate(element => {
+        const table = element.querySelector("table")!;
+        const paper = element.getBoundingClientRect();
+        const grid = table.getBoundingClientRect();
+        return { paper: paper.width, grid: grid.width, inset: grid.left - paper.left };
+      });
+      expect(dimensions.grid).toBeLessThan(dimensions.paper * 0.65);
+      expect(dimensions.inset).toBeGreaterThan(0);
+      await expect(sheet.locator(".day")).toHaveCount(3);
+    }
+    const printBytes = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+    const chromiumPdf = await PDFDocument.load(printBytes);
+    const serverPdf = await PDFDocument.load(Buffer.from(bundle.pdfBase64, "base64"));
+    expect(chromiumPdf.getPageCount()).toBe(2);
+    expect(serverPdf.getPageCount()).toBe(2);
+    expect(Math.abs(chromiumPdf.getPages()[0].getWidth() - serverPdf.getPages()[0].getWidth())).toBeLessThan(1);
+    await testInfo.attach("early-closing-09-sep-screen.png", { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
+  });
+
   test("rejects an impossible or out-of-term closing date with 400", async ({ page }) => {
     await signInToAttendance(page, "admin");
     for (const closingDate of ["2026-10-32", "2026-13-01", "2027-01-15"]) {

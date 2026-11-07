@@ -682,3 +682,52 @@ test("#1264 document preview controls show pointer and honest action feedback", 
   assert.match(actions, /Starting PDF…/);
   assert.match(actions, /CloseAction[^\n]*cursor-pointer/);
 });
+
+
+test("#1266 an early 09 Sep closing date keeps day cells compact and leaves paper to the right", async () => {
+  const document = build({ fullTerm: { today: TODAY, closingDate: "2026-09-09" } });
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  assert.equal(plan.fits, true);
+  assert.equal(document.fullTerm.closingDate, "2026-09-09");
+  assert.equal(document.fullTerm.includedTeachingDayCount, 3);
+  assert.deepEqual(document.weeks.flatMap(week => week.dates.map(day => day.date)),
+    ["2026-09-07", "2026-09-08", "2026-09-09"]);
+  for (const sheet of plan.sheets) {
+    assert.ok(sheet.dayWidth <= fullTermLayout.FULL_TERM_COMPACT_DAY_WIDTH);
+    assert.ok(sheet.dayWidth >= fullTermLayout.FULL_TERM_MIN_DAY_WIDTH);
+    assert.ok(sheet.tableWidth < sheet.contentWidth * 0.65);
+    const identity = sheet.identityWidths.reduce((a, b) => a + b, 0);
+    const totals = sheet.termWidths.reduce((a, b) => a + b, 0);
+    assert.ok(Math.abs(sheet.tableWidth - (identity + totals + sheet.dayWidth * 3 + sheet.weekTotalWidth)) < 0.01);
+  }
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.ok(html.includes(`<table style="width:${plan.sheets[0].tableWidth.toFixed(2)}pt">`));
+  assert.ok(!html.includes('>10 Sep 2026<'));
+  assert.equal((html.match(/class="report full-term-sheet"/g) ?? []).length, 2);
+  const { bytes, pageCount } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
+  assert.equal(pageCount, 2);
+  assert.ok(bytes.length > 0);
+});
+
+test("#1266 normal full-term sheet still uses the entire planned horizontal grid", () => {
+  const document = build();
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  assert.equal(plan.fits, true);
+  for (const sheet of plan.sheets) assert.ok(Math.abs(sheet.tableWidth - sheet.contentWidth) < 0.01);
+});
+
+test("#1266 excluded closing-day and single-day partial term keep compact grid and governed counts", () => {
+  for (const closingDate of ["2026-09-07", "2026-09-09", "2026-10-05"]) {
+    const document = build({
+      fullTerm: { today: TODAY, closingDate },
+      impactRows: impactRows({ "2026-09-09": "NO_TEACHING", "2026-10-05": "NO_TEACHING" }),
+    });
+    const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+    assert.equal(plan.fits, true);
+    const dates = document.weeks.flatMap(week => week.dates);
+    assert.ok(dates.every(day => day.date <= closingDate));
+    assert.ok(plan.sheets.every(sheet => sheet.dayWidth <= fullTermLayout.FULL_TERM_COMPACT_DAY_WIDTH));
+    if (closingDate === "2026-09-09") assert.equal(document.fullTerm.includedTeachingDayCount, 2);
+    if (closingDate === "2026-09-07") assert.equal(document.fullTerm.includedTeachingDayCount, 1);
+  }
+});
