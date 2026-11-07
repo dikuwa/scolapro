@@ -95,24 +95,13 @@ function stripHtml(value) {
  * the content box, and the planned band rectangle encloses every drawn line.
  */
 async function assertClosureBandWithinInset(plan) {
-  const measureDoc = await PDFDocument.create();
-  const regular = await measureDoc.embedFont(StandardFonts.Helvetica);
-  const size = 7;
-  const linePitch = size * 1.18;
   for (const sheet of plan.sheets) {
-    const continuation = sheet.closureNotes.filter((note) => note.continuation);
-    const maxWidth = Math.max(20, sheet.contentWidth - 16);
-    let totalLines = 0;
-    for (const note of continuation) {
-      for (const line of note.lines) {
-        const lineWidth = regular.widthOfTextAtSize(line, size);
-        assert.ok(lineWidth <= maxWidth + 0.5, `closure line fits content width: ${line.slice(0, 24)}…`);
-        totalLines += 1;
-      }
+    assert.equal(sheet.closureBandHeight, 0);
+    for (const note of sheet.closureNotes) {
+      assert.equal(note.continuation, false);
+      assert.equal(note.index, null);
+      assert.ok(fullTermLayout.approxFullTermTextWidth(note.label, 7, true) + 4 <= sheet.rowHeight * Math.max(1, sheet.section.learners.length));
     }
-    // Drawn band height = title (6+7) + gap (4) + lines*pitch + inter-note gaps (2).
-    const drawnHeight = 17 + 4 + totalLines * linePitch + Math.max(0, continuation.length - 1) * 2;
-    assert.ok(drawnHeight <= sheet.closureBandHeight + 0.5, "planned band encloses every continuation line");
   }
 }
 
@@ -347,6 +336,10 @@ test("full-term rendered closure lines never overflow the printable inset at rea
         }
       }
     }
+    if (!plan.fits) {
+      assert.match(plan.reason, /cannot fit/i);
+      continue;
+    }
     // HTML/PDF parity: the full reason text is present in the rendered HTML.
     const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
     assert.ok(collapseWs(stripHtml(html)).includes(collapseWs(reason)), `${label}: HTML carries the full closure text`);
@@ -521,7 +514,7 @@ test("full-term gender and learner balances reconcile without re-summing weekly 
   );
 });
 
-test("full-term indexes every governed closure and keeps the complete name in the band", () => {
+test("full-term keeps complete unnumbered closure names inside the merged band", () => {
   const reasons = {
     "2026-01-13": "Regional agricultural show and district livestock exhibition",
     "2026-01-14": "Municipal water interruption for the greater school catchment area",
@@ -542,13 +535,13 @@ test("full-term indexes every governed closure and keeps the complete name in th
   for (const sheet of plan.sheets) {
     const notes = sheet.closureNotes.filter((note) => reasons[note.date]);
     assert.equal(notes.length, 3);
-    assert.deepEqual(notes.map((note) => note.index), [1, 2, 3]);
-    assert.ok(notes.every((note) => note.continuation));
+    assert.deepEqual(notes.map((note) => note.index), [null, null, null]);
+    assert.ok(notes.every((note) => !note.continuation));
     // The plan keeps the governed reason verbatim; the renderer wraps it rather
     // than truncating it.
     assert.deepEqual(notes.map((note) => note.label), Object.values(reasons));
-    assert.ok(notes.every((note) => note.lines.length > 0));
-    assert.ok(sheet.closureBandHeight > 0);
+    assert.ok(notes.every((note) => note.lines.length === 0));
+    assert.equal(sheet.closureBandHeight, 0);
   }
   const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
   const squash = (value) => value.replace(/<[^>]+>/g, "").replace(/\s+/g, "");

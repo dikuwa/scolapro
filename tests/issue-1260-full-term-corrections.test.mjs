@@ -642,3 +642,19 @@ test("#1260 dynamically excludes October 5 once and honours effective reopening"
   assert.equal(reopened.fullTerm.includedTeachingDayCount, 65);
   assert.equal(reopened.sections[0].learners[0].marks["2026-10-05"], "I");
 });
+
+for (const count of [0, 1, 35, 90]) test(`#1261 full closure band without numeric markers (${count} learners)`, async () => {
+  const reason = "International Teachers Day (School Holiday)";
+  const document = build({ impactRows: impactRows({ "2026-10-05": "NO_TEACHING" }), overrideRows: [{ school_date: "2026-10-05", reason }], enrolments: Array.from({ length: count }, (_, i) => learnerRow({ id: `b${i}`, sex: "male" })) });
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  assert.equal(plan.fits, true);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.ok(html.includes(`<span class="closure-label">${reason}</span>`));
+  assert.ok(!html.includes('class="closure-index"'));
+  assert.ok(!html.includes('class="closure-notes-row"'));
+  if (count) assert.ok(html.includes(`rowspan="${count}"`));
+  assert.equal(document.fullTerm.includedTeachingDayCount, 64);
+  for (const learner of document.sections[0].learners) assert.equal(learner.marks["2026-10-05"], "");
+  const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
+  assert.ok(collapse(await pdfText(bytes)).includes(collapse(reason)));
+});

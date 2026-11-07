@@ -11,7 +11,6 @@ import {
   formatRegisterTeacherBirthDate,
   formatRegisterTeacherDate,
   registerTeacherBalance,
-  registerTeacherClosureLabel,
   registerTeacherTermValue,
   registerTeacherValuesFor,
 } from "@/features/attendance/server/register-teacher-layout";
@@ -338,16 +337,16 @@ function drawSheet(input: {
   });
 
   if (sheet.empty) {
-    drawCell(page, { x: contentX, top: y, width: contentWidth, height: 24 });
-    drawTextBlock({ page, font: resources.regular, text: "No learners in this section.", x: contentX + 4, top: y, width: contentWidth - 8, height: 24, size: 8, color: MUTED, align: "left" });
-    y -= 24;
+    drawCell(page, { x: contentX, top: y, width: contentWidth, height: sheet.rowHeight });
+    drawTextBlock({ page, font: resources.regular, text: "No learners in this section.", x: contentX + 4, top: y, width: contentWidth - 8, height: sheet.rowHeight, size: 8, color: MUTED, align: "left" });
+    y -= sheet.rowHeight;
   }
 
   // Governed closure columns span the learner band. A name that cannot be read
   // at the 7pt floor is indexed and carried in the band below.
   const rowBandHeight = rowBandTop - y;
   const closureByDate = new Map(sheet.closureNotes.map((note) => [note.date, note]));
-  if (!sheet.empty) {
+  {
   x = contentX + identityTotal;
   for (const week of weeks) {
     for (const day of week.dates) {
@@ -357,10 +356,8 @@ function drawSheet(input: {
       }
       page.drawRectangle({ x, y, width: dayWidth, height: rowBandHeight, color: GREY, borderColor: LINE, borderWidth: 0.42 });
       const note = closureByDate.get(day.date);
-      if (note?.continuation) {
-        drawTextBlock({ page, font: resources.bold, text: String(note.index), x, top: rowBandTop - 2, width: dayWidth, height: Math.min(rowBandHeight - 4, 14), size: 8, color: MUTED });
-      } else if (note) {
-        const label = registerTeacherClosureLabel(day.reason);
+      if (note) {
+        const label = note.label;
         const size = 7;
         const available = Math.max(4, rowBandHeight - 4);
         const rendered = safeText(label);
@@ -379,25 +376,6 @@ function drawSheet(input: {
   }
   }
 
-  // Full closure names that could not be read in-column.
-  const continuation = sheet.closureNotes.filter((note) => note.continuation);
-  if (continuation.length) {
-    const bandHeight = sheet.closureBandHeight;
-    page.drawRectangle({ x: contentX, y: y - bandHeight, width: contentWidth, height: bandHeight, color: rgb(0.985, 0.985, 0.985), borderColor: LINE, borderWidth: 0.6 });
-    let cursor = y - 6;
-    page.drawText("Governed closures - full names", { x: contentX + 5, y: cursor - 7, size: 7, font: resources.bold, color: MUTED });
-    cursor -= 7 + 4;
-    for (const note of continuation) {
-      const pitch = 7 * 1.18;
-      for (const line of note.lines) {
-        cursor -= pitch;
-        page.drawText(line, { x: contentX + 7, y: cursor, size: 7, font: resources.regular, color: INK });
-      }
-      cursor -= 2;
-    }
-    y -= bandHeight;
-  }
-
   // Summary rows.
   const summaryRows: Array<{ label: string; kind: "attendance" | "absence" | "possible"; fill: ReturnType<typeof rgb>; color: ReturnType<typeof rgb> }> = [
     { label: "Total number of attendances", kind: "attendance", fill: PURPLE_SOFT, color: INK },
@@ -413,7 +391,7 @@ function drawSheet(input: {
     for (const week of weeks) {
       const values = registerTeacherValuesFor(section, week, row.kind);
       values.forEach((value) => {
-        drawCell(page, { x, top: y, width: dayWidth, height: summaryRowHeight, fill: row.fill });
+        drawCell(page, { x, top: y, width: dayWidth, height: summaryRowHeight, fill: value === null ? GREY : row.fill });
         drawTextBlock({ page, font: resources.bold, text: value === null ? "" : String(value), x, top: y, width: dayWidth, height: summaryRowHeight, size: 8, color: row.color });
         x += dayWidth;
       });

@@ -11,7 +11,6 @@ import {
   formatRegisterTeacherBirthDate,
   formatRegisterTeacherDate,
   registerTeacherBalance,
-  registerTeacherClosureLabel,
   registerTeacherTermValue,
   registerTeacherValuesFor,
 } from "@/features/attendance/server/register-teacher-layout";
@@ -83,7 +82,6 @@ function sheetHtml(input: {
   const dayHeaders = weeks.map((week) => week.dates.map((day) =>
     `<th class="day${day.teaching ? "" : " non-teaching"}"><span>${escapeHtml(day.weekday)}</span><small>${escapeHtml(day.dayNumber)}</small></th>`,
   ).join("") + '<th class="week-total">Tot.</th>').join("");
-  const closureByDate = new Map(sheet.closureNotes.map((note) => [note.date, note]));
   const learnerRows = section.learners.map((learner, rowIndex) => {
     const identity = [
       `<td class="identity admin">${escapeHtml(learner.admissionNumber ?? "")}</td>`,
@@ -95,11 +93,7 @@ function sheetHtml(input: {
     const marks = weeks.map((week) => week.dates.map((day) => {
       if (!day.teaching) {
         if (rowIndex > 0) return "";
-        const note = closureByDate.get(day.date);
-        const body = note?.continuation
-          ? `<span class="closure-index">${note.index}</span>`
-          : `<span class="closure-label">${escapeHtml(registerTeacherClosureLabel(day.reason))}</span>`;
-        return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column" title="${escapeHtml(day.reason ?? "Non-teaching day")}">${body}</td>`;
+        return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column" title="${escapeHtml(day.reason ?? "Non-teaching day")}"><span class="closure-label">${escapeHtml(day.reason?.trim() || "Non-teaching day")}</span></td>`;
       }
       const mark = learner.marks[day.date] ?? "";
       const reasoned = mark === "a" && Boolean(learner.reasonedAbsenceDates[day.date]);
@@ -108,18 +102,9 @@ function sheetHtml(input: {
     const term = `<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td>`;
     return `<tr class="learner-row">${identity}${marks}${term}</tr>`;
   }).join("");
-  const continuation = sheet.closureNotes.filter((note) => note.continuation);
-  const closureBand = continuation.length
-    ? `<tr class="closure-notes-row"><td colspan="${sheet.identityWidths.length + sheet.attendanceColumns + sheet.termWidths.length}">
-        <div class="closure-notes"><p>Governed closures - full names</p><ol>${continuation.map((note) =>
-          `<li><span class="closure-note-index">${note.index}</span><span>${note.lines.map((line, index) => `${index ? "<br>" : ""}${escapeHtml(line)}`).join("")}</span></li>`,
-        ).join("")}</ol></div>
-      </td></tr>`
-    : "";
   const balance = registerTeacherBalance(section);
-  const totalColumns = sheet.identityWidths.length + sheet.attendanceColumns + sheet.termWidths.length;
   const emptyRow = sheet.empty
-    ? `<tr class="learner-row empty-row"><td colspan="${totalColumns}">No learners in this section.</td></tr>`
+    ? `<tr class="learner-row empty-row"><td colspan="5">No learners in this section.</td>${weeks.map(week => week.dates.map(day => day.teaching ? '<td></td>' : `<td class="non-teaching closure-column"><span class="closure-label">${escapeHtml(day.reason?.trim() || "Non-teaching day")}</span></td>`).join("") + '<td class="week-total"></td>').join("")}<td></td><td></td><td></td></tr>`
     : "";
   const fullTerm = document.fullTerm;
   const includedClosingDate = fullTerm?.closingDate ?? null;
@@ -198,7 +183,6 @@ function sheetHtml(input: {
       </thead>
       <tbody>
         ${learnerRows || emptyRow}
-        ${closureBand}
         ${summaryRow(sheet, "Total number of attendances", "attendance")}
         ${summaryRow(sheet, "Total number of absentees", "absence")}
         ${summaryRow(sheet, "Total possible attendances (daily/week = observed; term = full term)", "possible")}
@@ -234,7 +218,7 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .report { width:${widthMm}; min-width:${widthMm}; margin:0 auto 18px; padding:0 ${FULL_TERM_INSET}pt; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
-  @media screen { body { overflow-x:auto; } .report { width:${widthMm}; min-width:${widthMm}; } }
+  @media screen { body { overflow-x:auto; padding-inline:16px; } .report { width:${widthMm}; min-width:${widthMm}; } }
   .legend { margin:3pt 0 2pt; display:flex; align-items:center; flex-wrap:wrap; gap:2pt 10pt; min-height:14pt; padding:0 1pt; font-size:7pt; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:2pt; white-space:nowrap; }
   .legend-note { flex:1 1 240pt; white-space:normal; }
@@ -258,14 +242,8 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .week-heading strong { display:block; margin-top:1pt; font-size:7pt; color:#6d0d12; white-space:nowrap; }
   .day { vertical-align:bottom; white-space:nowrap; }
   .day small { display:block; font-size:7pt; color:#555; }
-  .closure-column { padding:1pt; text-align:center; vertical-align:middle; overflow:visible; }
-  .closure-label { display:inline-block; max-height:100%; overflow:hidden; writing-mode:vertical-rl; transform:rotate(180deg); font-size:7pt; font-weight:700; line-height:1.05; color:#555; white-space:normal; }
-  .closure-index { display:inline-block; font-size:8pt; font-weight:800; color:#6d0d12; }
-  .closure-notes-row > td { padding:3pt 5pt; text-align:left; background:#fafafa; }
-  .closure-notes p { margin:0 0 2pt; font-size:7pt; font-weight:700; color:#555; }
-  .closure-notes ol { margin:0; padding:0; list-style:none; display:grid; gap:1.5pt; }
-  .closure-notes li { display:flex; gap:4pt; align-items:baseline; font-size:7pt; line-height:1.15; }
-  .closure-note-index { flex:0 0 auto; min-width:10pt; text-align:center; font-weight:800; color:#6d0d12; }
+  .closure-column { position:relative; padding:1pt; text-align:center; vertical-align:middle; overflow:visible; }
+  .closure-label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-90deg); font-size:7pt; font-weight:700; line-height:1.05; color:#555; white-space:nowrap; }
   .week-total { background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
   .term-group { background:#fff; font-weight:800; border-left:2px solid var(--register-red); }
   .term-actual,.term-absent,.term-days { font-weight:800; white-space:nowrap; }

@@ -3,7 +3,6 @@ import type {
   RegisterTeacherSection,
   RegisterTeacherWeek,
 } from "@/features/attendance/server/register-teacher-document";
-import { registerTeacherClosureLabel } from "@/features/attendance/server/register-teacher-layout";
 
 /**
  * Shared full-term single-sheet contract.
@@ -203,51 +202,20 @@ function isoDates(weeks: readonly RegisterTeacherWeek[]) {
   return weeks.flatMap((week) => week.dates);
 }
 
-/**
- * Full-term closure plan. A name that cannot be read inside its own date
- * column at the 7pt floor is indexed and carried in full in the band beneath
- * the grid. The band height is part of the fit decision, so an extremely long
- * governed closure forces the explicit paginated fallback instead of clipping.
- */
+/** Closure names stay inside the merged band; impossible fits use the route fallback. */
 export function planFullTermClosures(input: {
   weeks: readonly RegisterTeacherWeek[];
   rowBandHeight: number;
   columnWidth: number;
   contentWidth: number;
 }): { notes: FullTermClosureNote[]; bandHeight: number } {
-  const { weeks, rowBandHeight, columnWidth, contentWidth } = input;
-  const size = FULL_TERM_HEADING_FONT;
-  const linePitch = size * 1.18;
-  const availableHeight = Math.max(6, rowBandHeight - 4);
-  const columnInnerWidth = Math.max(6, columnWidth - 4);
-  let nextIndex = 0;
-  const notes = isoDates(weeks)
-    .filter((day) => !day.teaching)
-    .map((day): FullTermClosureNote => {
-      const label = day.reason?.trim() || "Non-teaching day";
-      const compact = registerTeacherClosureLabel(day.reason);
-      // Measure with the exact Helvetica-Bold advances the renderer uses for the
-      // rotated label (it is drawn bold): the planned rotation width therefore
-      // equals the drawn width, so the label can never overflow its column.
-      const rotatedWidth = approxFullTermTextWidth(compact, size, true);
-      const fitsInColumn = rotatedWidth <= availableHeight && size <= columnInnerWidth;
-      if (fitsInColumn) {
-        return { date: day.date, label, continuation: false, index: null, lines: [] };
-      }
-      const index = (nextIndex += 1);
-      return {
-        date: day.date,
-        label,
-        continuation: true,
-        index,
-        lines: wrapFullTermText(`${index}. ${day.date} - ${label}`, size, Math.max(20, contentWidth - 16), false),
-      };
-    });
-  const continuation = notes.filter((note) => note.continuation);
-  if (!continuation.length) return { notes, bandHeight: 0 };
-  const body = continuation.reduce((sum, note) => sum + note.lines.length * linePitch, 0);
-  const gaps = Math.max(0, continuation.length - 1) * 2;
-  return { notes, bandHeight: 8 + size + 4 + body + gaps + 6 };
+  return {
+    notes: isoDates(input.weeks).filter(day => !day.teaching).map(day => ({
+      date: day.date, label: day.reason?.trim() || "Non-teaching day",
+      continuation: false, index: null, lines: [],
+    })),
+    bandHeight: 0,
+  };
 }
 
 function identityPlan(section: RegisterTeacherSection, contentWidth: number) {
@@ -317,7 +285,9 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
     contentWidth,
   });
   const availableForRows = contentHeight - fixedHeight - closure.bandHeight;
+  const closureHeight = Math.max(24, ...closure.notes.map(note => approxFullTermTextWidth(note.label, 7, true) + 8));
   const nameRowFloor = Math.max(
+    closureHeight / Math.max(1, learnerCount),
     FULL_TERM_MIN_ROW_HEIGHT,
     FULL_TERM_DATA_FONT * (identity.nameLines + 0.35),
     // The HTML renderer uses a 1.02 line-height; the row must be at least that
@@ -325,9 +295,7 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
     FULL_TERM_DATA_FONT * 1.03 * identity.nameLines,
   );
   const maxRowHeight = Math.max(FULL_TERM_MAX_ROW_HEIGHT, nameRowFloor);
-  const rowHeight = empty
-    ? 24
-    : Math.max(0, Math.min(maxRowHeight, availableForRows / Math.max(1, learnerCount)));
+  const rowHeight = Math.max(0, Math.min(maxRowHeight, availableForRows / Math.max(1, learnerCount)));
   const fitsWidth = dayWidth >= FULL_TERM_MIN_DAY_WIDTH && weekTotalWidth >= 16 && contentWidth > 0;
   const fitsHeight = rowHeight >= nameRowFloor;
   const reason = !fitsWidth
@@ -350,7 +318,7 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
     dayWidth,
     weekTotalWidth,
     attendanceColumns,
-    rowHeight: empty ? 24 : Math.max(FULL_TERM_MIN_ROW_HEIGHT, rowHeight),
+    rowHeight: Math.max(FULL_TERM_MIN_ROW_HEIGHT, rowHeight),
     nameLines: identity.nameLines,
     fonts: { data: FULL_TERM_DATA_FONT, heading: FULL_TERM_HEADING_FONT, meta: FULL_TERM_HEADING_FONT, closure: FULL_TERM_HEADING_FONT },
     bands,

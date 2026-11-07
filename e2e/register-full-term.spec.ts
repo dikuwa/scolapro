@@ -158,6 +158,10 @@ test.describe("full-term single-sheet register", () => {
         const holiday = sheet.locator('td.closure-column[title*="International"]');
         await expect(holiday).toHaveCount(1);
         await expect(holiday).toHaveClass(/non-teaching/);
+        await expect(holiday.locator(".closure-label")).not.toBeEmpty();
+        await expect(sheet.locator(".closure-index, .closure-notes-row")).toHaveCount(0);
+        const rows = await sheet.locator(".learner-row").count();
+        await expect(holiday).toHaveAttribute("rowspan", String(rows));
         await expect(holiday.locator(".absent-mark")).toHaveCount(0);
         await expect(sheet.locator(".possible-summary-row td.non-teaching")).toHaveCount(2);
       }
