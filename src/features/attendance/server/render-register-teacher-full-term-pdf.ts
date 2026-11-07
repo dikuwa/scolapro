@@ -337,8 +337,21 @@ function drawSheet(input: {
   });
 
   if (sheet.empty) {
-    drawCell(page, { x: contentX, top: y, width: contentWidth, height: sheet.rowHeight });
-    drawTextBlock({ page, font: resources.regular, text: "No learners in this section.", x: contentX + 4, top: y, width: contentWidth - 8, height: sheet.rowHeight, size: 8, color: MUTED, align: "left" });
+    drawCell(page, { x: contentX, top: y, width: identityTotal, height: sheet.rowHeight });
+    drawTextBlock({ page, font: resources.regular, text: "No learners in this section.", x: contentX + 4, top: y, width: identityTotal - 8, height: sheet.rowHeight, size: 8, color: MUTED, align: "left" });
+    x = contentX + identityTotal;
+    for (const week of weeks) {
+      for (const day of week.dates) {
+        drawCell(page, { x, top: y, width: dayWidth, height: sheet.rowHeight, fill: day.teaching ? undefined : GREY });
+        x += dayWidth;
+      }
+      drawCell(page, { x, top: y, width: weekTotalWidth, height: sheet.rowHeight, fill: RED_SOFT });
+      x += weekTotalWidth;
+    }
+    for (const width of termWidths) {
+      drawCell(page, { x, top: y, width, height: sheet.rowHeight });
+      x += width;
+    }
     y -= sheet.rowHeight;
   }
 
