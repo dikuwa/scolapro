@@ -658,3 +658,27 @@ for (const count of [0, 1, 35, 90]) test(`#1261 full closure band without numeri
   const { bytes } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
   assert.ok(collapse(await pdfText(bytes)).includes(collapse(reason)));
 });
+
+
+test("#1264 full-term browser displays real sheet boundaries without altering print page geometry", () => {
+  const document = build({ impactRows: impactRows({ "2026-10-05": "NO_TEACHING" }) });
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.equal((html.match(/class="report full-term-sheet"/g) ?? []).length, 2);
+  assert.match(html, /@media screen \{[\s\S]*?min-height:calc\([\d.]+pt - 64pt\);/);
+  assert.match(html, /outline:1px solid #aab4c2;/);
+  assert.match(html, /margin:0 auto 28px;/);
+  assert.match(html, /@media print \{[\s\S]*?break-after:page; page-break-after:always;/);
+  assert.match(html, /\.report:last-child \{ break-after:auto; page-break-after:auto; \}/);
+  assert.match(html, /@page \{ size: (1683\.78pt 1190\.55pt|2383\.94pt 1683\.78pt); margin:32pt; \}/);
+});
+
+test("#1264 document preview controls show pointer and honest action feedback", () => {
+  const actions = readFileSync("src/components/documents/official-document-actions.tsx", "utf8");
+  assert.match(actions, /cursor-pointer/);
+  assert.match(actions, /disabled:cursor-not-allowed/);
+  assert.match(actions, /aria-busy=\{printing\}/);
+  assert.match(actions, /Opening print…/);
+  assert.match(actions, /Starting PDF…/);
+  assert.match(actions, /CloseAction[^\n]*cursor-pointer/);
+});
