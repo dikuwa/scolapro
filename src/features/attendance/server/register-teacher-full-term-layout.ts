@@ -281,7 +281,7 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
   // the remaining dates to occupy the released paper width. The PDF renderer
   // already uses physical point widths; the HTML renderer must use tableWidth
   // rather than widening this same plan back to 100% of the sheet.
-  const isShortClosingWindow = Boolean(document.fullTerm)
+  const isShortClosingWindow = document.fullTerm != null
     && document.fullTerm.includedTeachingDayCount < document.fullTerm.termEligibleTeachingDayCount;
   const dayWidth = isShortClosingWindow
     ? Math.min(naturalDayWidth, FULL_TERM_COMPACT_DAY_WIDTH)
