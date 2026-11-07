@@ -229,6 +229,8 @@ test.describe("full-term single-sheet register", () => {
 
     const frame = page.locator('iframe[title*="Full-Term Single-Sheet Register"]');
     await expect(frame).toBeVisible({ timeout: 45_000 });
+    const gutter = await frame.evaluate(element => Number.parseFloat(getComputedStyle(element.parentElement!).marginLeft));
+    expect(gutter).toBeGreaterThanOrEqual(4);
     const documentFrame = frame.contentFrame();
     await expect(documentFrame.locator(".full-term-sheet")).toHaveCount(2, { timeout: 45_000 });
     await expect(documentFrame.locator(".full-term-sheet").first()).toBeVisible();
