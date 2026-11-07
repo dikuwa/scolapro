@@ -235,6 +235,35 @@ test.describe("full-term single-sheet register", () => {
     await expect(documentFrame.locator(".full-term-sheet")).toHaveCount(2, { timeout: 45_000 });
     await expect(documentFrame.locator(".full-term-sheet").first()).toBeVisible();
     await expect(documentFrame.locator(".provisional-banner").first()).toContainText("PROVISIONAL");
+    // Issue #1264: each gender occupies a visibly distinct browser sheet.
+    const paperBoxes = await documentFrame.locator(".full-term-sheet").evaluateAll((elements) =>
+      elements.map((element) => {
+        const box = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return { top: box.top, bottom: box.bottom, outline: style.outlineStyle, height: box.height };
+      }),
+    );
+    expect(paperBoxes).toHaveLength(2);
+    expect(paperBoxes[0].outline).toBe("solid");
+    expect(paperBoxes[1].outline).toBe("solid");
+    expect(paperBoxes[1].top - paperBoxes[0].bottom).toBeGreaterThanOrEqual(24);
+    expect(paperBoxes[0].height).toBeGreaterThan(700);
+
+    const previewButton = page.getByRole("button", { name: "Preview / Print" });
+    await expect(previewButton).toBeVisible();
+    expect(await previewButton.evaluate(element => getComputedStyle(element).cursor)).toBe("pointer");
+    await previewButton.click();
+    const dialog = page.getByRole("dialog", { name: /Full-Term Single-Sheet Register/i });
+    await expect(dialog).toBeVisible();
+    for (const name of ["Print", "Close document preview"]) {
+      const control = dialog.getByRole("button", { name });
+      expect(await control.evaluate(element => getComputedStyle(element).cursor)).toBe("pointer");
+    }
+    expect(await dialog.getByRole("link", { name: "Download PDF" }).evaluate(
+      element => getComputedStyle(element).cursor,
+    )).toBe("pointer");
+    await dialog.getByRole("button", { name: "Close document preview" }).click();
+    await expect(dialog).not.toBeVisible();
     await expect(page.getByText(/Single-sheet A[12] landscape preview/i)).toBeVisible();
     await testInfo.attach("synthetic-full-term-workspace.png", {
       body: await page.screenshot(),
