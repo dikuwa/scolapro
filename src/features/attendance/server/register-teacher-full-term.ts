@@ -24,9 +24,20 @@ export type RegisterTeacherFullTermRequest = {
 export type RegisterTeacherFullTermMetadata = {
   closingDate: string | null;
   today: string;
+  officialLearnerDayCount: number | null;
+  weekdayBaseline: number;
+  /** Official scheduled term days from the governed learner calendar (excludes public holidays / official non-teaching days). */
   scheduledTeachingDayCount: number;
+  /** School-included eligible days after applying school closure overrides. */
   includedTeachingDayCount: number;
+  /** Eligible teaching days in the whole learner term, ignoring any caller closing date. */
+  termEligibleTeachingDayCount: number;
+  /** Full-term possible learner-days: every enrolled learner × every eligible term day (denominator). */
   possibleLearnerDays: number;
+  /** Observed learner-days up to the school-local as-of date (actual present + actual absent). */
+  observedLearnerDays: number;
+  /** Future eligible learner-days counted in the denominator but not yet observed (never certified attendance). */
+  projectedLearnerDays: number;
   status: "provisional" | "certified";
   certificationNote: string;
 };
@@ -45,12 +56,16 @@ export function isFullTermCalendarDate(value: string) {
 }
 
 /**
- * Resolves the closing date against the official learner term and the
- * school-local clock. A caller-supplied date may be any calendar day inside the
- * term, including a non-teaching boundary day; it may never be in the future or
- * outside the learner term. The default is the last eligible school day on or
- * before today. `null` means the term has no eligible day yet (explicit empty
- * state), not a silent fallback to the whole term.
+ * Resolves and validates the closing date inside the official learner term. A
+ * caller-supplied date may be any calendar day in the term, including a
+ * non-teaching boundary day, and may legitimately fall after today for a
+ * full-term register (the register spans the whole learner term). A supplied
+ * date is validated even when the term has no eligible day at all, so an
+ * out-of-term request is a 400 rather than a silently empty sheet. When no date
+ * is supplied the last eligible school day on or before today is used as a
+ * conservative boundary; the builder instead supplies the term's last eligible
+ * day so the default view is the whole term. `null` means the term has no
+ * eligible day (explicit empty state).
  */
 export function resolveFullTermClosingDate(input: {
   termStart: string;
@@ -70,14 +85,51 @@ export function resolveFullTermClosingDate(input: {
     if (closingDate < termStart || closingDate > termEnd) {
       throw new RegisterTeacherFullTermError(400, "The closing date must fall inside the official learner term.");
     }
-    if (closingDate > today) {
-      throw new RegisterTeacherFullTermError(400, "The closing date cannot be later than the school-local date.");
-    }
     return closingDate;
   }
   const boundary = today < termEnd ? today : termEnd;
   const eligible = eligibleDates.filter((date) => date <= boundary);
   return eligible.length ? eligible[eligible.length - 1] : null;
+}
+
+/**
+ * Explains how the school-included teaching-day count relates to the official
+ * scheduled baseline.
+ *
+ * A school may open a replacement Saturday, so the included count can
+ * legitimately exceed the scheduled Mon-Fri baseline. Printing the two numbers
+ * without that explanation reads as a contradictory total on an official
+ * document, so the renderers state the relationship explicitly. A net-zero
+ * difference needs no explanation.
+ */
+export function fullTermDayBasis(
+  scheduledTeachingDayCount: number,
+  includedTeachingDayCount: number,
+) {
+  const delta = includedTeachingDayCount - scheduledTeachingDayCount;
+  if (delta === 0) return { delta, detail: null as string | null };
+  const unit = Math.abs(delta) === 1 ? "day" : "days";
+  return {
+    delta,
+    detail: delta > 0
+      ? `${delta} school-added replacement ${unit}`
+      // "non-teaching" rather than "closure": a school-scoped NO_TEACHING
+      // decision can be a holiday, sports day or closure, and the evidence does
+      // not distinguish them.
+      : `${Math.abs(delta)} school non-teaching ${unit}`,
+  };
+}
+
+/** Published totals explain discrepancies; only resolved dates govern attendance. */
+export function fullTermCalendarAudit(metadata: RegisterTeacherFullTermMetadata) {
+  const reference = metadata.officialLearnerDayCount == null
+    ? ""
+    : `Official published school days: ${metadata.officialLearnerDayCount} (audit reference). `;
+  const discrepancy = metadata.officialLearnerDayCount != null
+    && metadata.officialLearnerDayCount !== metadata.termEligibleTeachingDayCount
+    ? " Published and governed totals differ; attendance uses governed dates."
+    : "";
+  return `${reference}Weekday baseline: ${metadata.weekdayBaseline}; governed eligible school days (whole term): ${metadata.termEligibleTeachingDayCount}.${discrepancy}`;
 }
 
 /**

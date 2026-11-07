@@ -28,7 +28,10 @@ test("register week navigation displays the active week-ending date between chev
 
 test("weekly register term totals balance against full governed term days", () => {
   assert.match(registerModel, /termTeachingDayCount/);
-  assert.match(schoolDays, /const termAttended = termDays - termAbsent/);
+  // Observed (elapsed) attendance is separated from future projected days; for
+  // weekly/paginated output every day is observed so projected is zero.
+  assert.match(schoolDays, /const termAttended = elapsedEligible - termAbsent/);
+  assert.match(schoolDays, /const termProjected = termDays - elapsedEligible/);
   assert.match(registerModel, /termDays: balance\.termDays/);
   assert.match(registerRenderer, /registerTeacherBalance\(section\)/);
   assert.match(registerLayout, /section\.termAttendanceTotal \+ section\.termAbsenceTotal/);

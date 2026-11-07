@@ -11,15 +11,16 @@ import {
   formatRegisterTeacherBirthDate,
   formatRegisterTeacherDate,
   registerTeacherBalance,
-  registerTeacherClosureLabel,
   registerTeacherTermValue,
   registerTeacherValuesFor,
 } from "@/features/attendance/server/register-teacher-layout";
 import {
+  FULL_TERM_INSET,
   FULL_TERM_PAPERS,
   type FullTermPlan,
   type FullTermSheet,
 } from "@/features/attendance/server/register-teacher-full-term-layout";
+import { fullTermCalendarAudit, fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] ?? char));
@@ -81,7 +82,6 @@ function sheetHtml(input: {
   const dayHeaders = weeks.map((week) => week.dates.map((day) =>
     `<th class="day${day.teaching ? "" : " non-teaching"}"><span>${escapeHtml(day.weekday)}</span><small>${escapeHtml(day.dayNumber)}</small></th>`,
   ).join("") + '<th class="week-total">Tot.</th>').join("");
-  const closureByDate = new Map(sheet.closureNotes.map((note) => [note.date, note]));
   const learnerRows = section.learners.map((learner, rowIndex) => {
     const identity = [
       `<td class="identity admin">${escapeHtml(learner.admissionNumber ?? "")}</td>`,
@@ -93,11 +93,7 @@ function sheetHtml(input: {
     const marks = weeks.map((week) => week.dates.map((day) => {
       if (!day.teaching) {
         if (rowIndex > 0) return "";
-        const note = closureByDate.get(day.date);
-        const body = note?.continuation
-          ? `<span class="closure-index">${note.index}</span>`
-          : `<span class="closure-label">${escapeHtml(registerTeacherClosureLabel(day.reason))}</span>`;
-        return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column" title="${escapeHtml(day.reason ?? "Non-teaching day")}">${body}</td>`;
+        return `<td rowspan="${Math.max(1, section.learners.length)}" class="mark non-teaching closure-column" title="${escapeHtml(day.reason ?? "Non-teaching day")}"><span class="closure-label">${escapeHtml(day.reason?.trim() || "Non-teaching day")}</span></td>`;
       }
       const mark = learner.marks[day.date] ?? "";
       const reasoned = mark === "a" && Boolean(learner.reasonedAbsenceDates[day.date]);
@@ -106,30 +102,47 @@ function sheetHtml(input: {
     const term = `<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td>`;
     return `<tr class="learner-row">${identity}${marks}${term}</tr>`;
   }).join("");
-  const continuation = sheet.closureNotes.filter((note) => note.continuation);
-  const closureBand = continuation.length
-    ? `<tr class="closure-notes-row"><td colspan="${sheet.identityWidths.length + sheet.attendanceColumns + sheet.termWidths.length}">
-        <div class="closure-notes"><p>Governed closures - full names</p><ol>${continuation.map((note) =>
-          `<li><span class="closure-note-index">${note.index}</span><span>${note.lines.map((line, index) => `${index ? "<br>" : ""}${escapeHtml(line)}`).join("")}</span></li>`,
-        ).join("")}</ol></div>
-      </td></tr>`
-    : "";
   const balance = registerTeacherBalance(section);
-  const totalColumns = sheet.identityWidths.length + sheet.attendanceColumns + sheet.termWidths.length;
   const emptyRow = sheet.empty
-    ? `<tr class="learner-row empty-row"><td colspan="${totalColumns}">No learners in this section.</td></tr>`
+    ? `<tr class="learner-row empty-row"><td colspan="5">No learners in this section.</td>${weeks.map(week => week.dates.map(day => day.teaching ? '<td></td>' : `<td class="non-teaching closure-column"><span class="closure-label">${escapeHtml(day.reason?.trim() || "Non-teaching day")}</span></td>`).join("") + '<td class="week-total"></td>').join("")}<td></td><td></td><td></td></tr>`
     : "";
   const fullTerm = document.fullTerm;
-  const hasIncludedDays = Boolean(fullTerm?.closingDate) && document.weeks.length > 0;
-  const includedClosingDate = hasIncludedDays ? fullTerm!.closingDate! : null;
-  const banner = includedClosingDate
-    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} included eligible days · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
-    : `NO ELIGIBLE SCHOOL DAY — no included eligible day on or before ${escapeHtml(formatDate(fullTerm?.today ?? document.selectedDate))} within this learner term. The sheet is intentionally empty.`;
+  const includedClosingDate = fullTerm?.closingDate ?? null;
+  // A term with no included teaching day is an explicit empty state even when a
+  // caller supplied an in-term closing date: there is nothing to register.
+  const hasIncludedDays = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) > 0
+    && document.weeks.length > 0;
+  // An explicit closing date before the first eligible day is empty *for that
+  // date*, not a term without teaching days. The copy must not assert a
+  // term-wide fact the calendar contradicts.
+  const closingDateHasNoEligibleDay = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) === 0
+    && (fullTerm?.termEligibleTeachingDayCount ?? 0) > 0;
+  const emptyCopy = closingDateHasNoEligibleDay
+    ? "No eligible teaching day falls on or before the selected closing date."
+    : "The governed learner term contains no eligible teaching day.";
+  // The remedy must match the diagnosis: an early closing date needs a later
+  // date, not a change to the governed school calendar.
+  const emptyRemedy = closingDateHasNoEligibleDay
+    ? "Choose a later closing date, or open a governed school day on or before it."
+    : "Configure or open a governed school day before printing.";
+  // A school may open a replacement Saturday, so included can exceed scheduled.
+  // State that relationship instead of printing two numbers that read as an
+  // impossible total on an official document.
+  const dayBasis = fullTermDayBasis(
+    fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount,
+    fullTerm?.includedTeachingDayCount ?? document.teachingDayCount,
+  );
+  const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
+  const banner = hasIncludedDays
+    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate!))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register. ${escapeHtml(fullTermCalendarAudit(fullTerm!))}`
+    : `NO ELIGIBLE SCHOOL DAY — ${emptyCopy.charAt(0).toLowerCase()}${emptyCopy.slice(1)} The sheet is intentionally empty.`;
   const meta = [
     ["BOYS/GIRLS:", section.label],
     ["TERM:", document.termName],
     ["CLOSING DATE:", fullTerm?.closingDate ? formatDate(fullTerm.closingDate) : "None"],
-    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount}`],
+    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} included / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount} scheduled`],
     ["POSSIBLE LEARNER-DAYS:", String(fullTerm?.possibleLearnerDays ?? 0)],
     ["REGISTER CLASS:", document.className],
     ["REGISTER TEACHER:", document.registerTeacherName],
@@ -170,15 +183,16 @@ function sheetHtml(input: {
       </thead>
       <tbody>
         ${learnerRows || emptyRow}
-        ${closureBand}
         ${summaryRow(sheet, "Total number of attendances", "attendance")}
         ${summaryRow(sheet, "Total number of absentees", "absence")}
-        ${summaryRow(sheet, "Total number of possible attendances", "possible")}
+        ${summaryRow(sheet, "Total possible attendances (daily/week = observed; term = full term)", "possible")}
       </tbody>
-    </table>
-    <div class="balance-strip"><span>Attendance <strong>${balance.attendance}</strong></span><span>Absence <strong>${balance.absence}</strong></span><span>Possible <strong>${balance.possible}</strong></span><span>Balance: <strong>${balance.accounted} / ${balance.possible} ${balance.balanced ? "✓" : "!"}</strong></span></div>`
-      : '<div class="empty-sheet">No eligible school day is available for this closing date. Configure or open a governed school day before printing.</div>'}
-    <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""}</div>
+    </table>`
+      : `<div class="empty-sheet">${escapeHtml(emptyCopy)} ${escapeHtml(emptyRemedy)}</div>`}
+    <div class="sheet-footer-row">
+      <div class="sheet-foot">${escapeHtml(paper.label)}${fullTerm?.certificationNote ? ` · ${escapeHtml(fullTerm.certificationNote)}` : ""} · Days column = full-term possible incl. projected future days.</div>
+      ${hasIncludedDays ? `<div class="balance-strip"><span>Present <strong>${balance.attendance}</strong></span><span>Absent <strong>${balance.absence}</strong></span><span>Projected <strong>${balance.projected}</strong></span><span>Observed <strong>${balance.observed} / Full-term ${balance.possible} ${balance.reconciled ? "✓" : "!"}</strong></span></div>` : ""}
+    </div>
   </section>`;
 }
 
@@ -201,10 +215,10 @@ export function renderRegisterTeacherFullTermHtml(input: {
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#ececec; }
   body { padding:12px; }
-  .report { width:${widthMm}; min-width:${widthMm}; margin:0 auto 18px; padding:0; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
+  .report { width:${widthMm}; min-width:${widthMm}; margin:0 auto 18px; padding:0 ${FULL_TERM_INSET}pt; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
-  @media screen { body { overflow-x:auto; } .report { width:${widthMm}; min-width:${widthMm}; } }
+  @media screen { body { overflow-x:auto; padding-inline:16px; } .report { width:${widthMm}; min-width:${widthMm}; } }
   .legend { margin:3pt 0 2pt; display:flex; align-items:center; flex-wrap:wrap; gap:2pt 10pt; min-height:14pt; padding:0 1pt; font-size:7pt; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:2pt; white-space:nowrap; }
   .legend-note { flex:1 1 240pt; white-space:normal; }
@@ -216,8 +230,11 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .full-term-meta > div { min-width:0; background:white; padding:1.5pt 3pt; overflow-wrap:anywhere; font-size:7pt; line-height:1.1; }
   .full-term-meta strong { color:var(--register-red); }
   table { width:100%; min-width:0; border-collapse:collapse; table-layout:fixed; font-size:8pt; }
-  th,td { border:1px solid var(--grid); padding:0 1pt; text-align:center; height:var(--row-height,10pt); overflow:hidden; line-height:1.02; }
-  thead th { background:var(--register-red-soft); color:#6d0d12; font-weight:700; font-size:7pt; }
+  th,td { border:1px solid var(--grid); padding:0 1pt; text-align:center; height:10pt; overflow:hidden; line-height:1.02; }
+  .learner-row > td { height:var(--row-height,10pt); }
+  thead tr:first-child { height:24pt; }
+  thead tr:last-child { height:20pt; }
+  thead th { height:auto; background:var(--register-red-soft); color:#6d0d12; font-weight:700; font-size:7pt; }
   .identity { text-align:left; }
   .identity.admin,.identity.no,.identity.dob { text-align:center; white-space:nowrap; }
   .identity.surname,.identity.given { overflow-wrap:anywhere; }
@@ -228,14 +245,8 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .week-heading strong { display:block; margin-top:1pt; font-size:7pt; color:#6d0d12; white-space:nowrap; }
   .day { vertical-align:bottom; white-space:nowrap; }
   .day small { display:block; font-size:7pt; color:#555; }
-  .closure-column { padding:1pt; text-align:center; vertical-align:middle; overflow:visible; }
-  .closure-label { display:inline-block; max-height:100%; overflow:hidden; writing-mode:vertical-rl; transform:rotate(180deg); font-size:7pt; font-weight:700; line-height:1.05; color:#555; white-space:normal; }
-  .closure-index { display:inline-block; font-size:8pt; font-weight:800; color:#6d0d12; }
-  .closure-notes-row > td { padding:3pt 5pt; text-align:left; background:#fafafa; }
-  .closure-notes p { margin:0 0 2pt; font-size:7pt; font-weight:700; color:#555; }
-  .closure-notes ol { margin:0; padding:0; list-style:none; display:grid; gap:1.5pt; }
-  .closure-notes li { display:flex; gap:4pt; align-items:baseline; font-size:7pt; line-height:1.15; }
-  .closure-note-index { flex:0 0 auto; min-width:10pt; text-align:center; font-weight:800; color:#6d0d12; }
+  .closure-column { position:relative; padding:1pt; text-align:center; vertical-align:middle; overflow:visible; }
+  .closure-label { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-90deg); font-size:7pt; font-weight:700; line-height:1.05; color:#555; white-space:nowrap; }
   .week-total { background:#fff7f7; font-weight:700; border-right:2px solid var(--register-red); }
   .term-group { background:#fff; font-weight:800; border-left:2px solid var(--register-red); }
   .term-actual,.term-absent,.term-days { font-weight:800; white-space:nowrap; }
@@ -252,11 +263,16 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .absence-summary-row th,.absence-summary-row td { background:#fff1f2; color:var(--register-red); }
   .possible-summary-row th,.possible-summary-row td { background:#eef5d8; color:#263517; }
   .absence-value { color:var(--register-red) !important; }
-  .empty-row td { padding:10pt; color:#777; font-size:8pt; text-align:left; }
+  .empty-row td { padding:0; color:#777; font-size:8pt; text-align:left; }
+  .empty-row td:first-child { padding:4pt; }
   .empty-sheet { margin-top:6pt; padding:14pt; border:1px solid var(--grid); background:#fafafa; color:#555; font-size:8pt; }
-  .balance-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:2pt 10pt; padding:3pt 1pt 0; color:#6d0d12; font-size:7pt; font-weight:600; }
+  /* The caption and the red totals share one baseline row directly under the
+     table. The caption takes the remaining width; if the row cannot fit them
+     side by side it wraps predictably instead of clipping either. */
+  .sheet-footer-row { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; column-gap:14pt; row-gap:1pt; padding:2pt 1pt 0; }
+  .balance-strip { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:0 10pt; margin-left:auto; color:#6d0d12; font-size:7pt; font-weight:600; line-height:1.15; }
   .balance-strip span { white-space:nowrap; }
-  .sheet-foot { padding:2pt 1pt 0; color:#666; font-size:7pt; line-height:1.1; }
+  .sheet-foot { flex:1 1 320pt; min-width:0; color:#666; font-size:7pt; line-height:1.15; }
   @page { size: ${paper.width}pt ${paper.height}pt; margin:${plan.margin}pt; }
   @media print {
     html,body { background:white; }

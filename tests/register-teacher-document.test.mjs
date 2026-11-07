@@ -169,7 +169,10 @@ test("printed term balance respects each learner's actual enrolment window", () 
   assert.match(model, /calculateLearnerRegisterBalance/);
   assert.match(schoolDays, /if \(!activeOn\(date\)\) continue/);
   assert.match(schoolDays, /termDays \+= 1/);
-  assert.match(schoolDays, /const termAttended = termDays - termAbsent/);
+  // Elapsed (observed) attendance and future projected days are separated so a
+  // future day is never counted as already present.
+  assert.match(schoolDays, /const termAttended = elapsedEligible - termAbsent/);
+  assert.match(schoolDays, /const termProjected = termDays - elapsedEligible/);
   assert.match(model, /termDays: balance\.termDays/);
   assert.match(model, /termPossibleTotal: learners\.reduce\(\(sum, learner\) => sum \+ learner\.termDays, 0\)/);
   assert.doesNotMatch(model, /termPossibleTotal: learners\.length \* termTeachingDayCount/);

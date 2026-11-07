@@ -11,7 +11,6 @@ import {
   formatRegisterTeacherBirthDate,
   formatRegisterTeacherDate,
   registerTeacherBalance,
-  registerTeacherClosureLabel,
   registerTeacherTermValue,
   registerTeacherValuesFor,
 } from "@/features/attendance/server/register-teacher-layout";
@@ -20,6 +19,7 @@ import {
   type FullTermPlan,
   type FullTermSheet,
 } from "@/features/attendance/server/register-teacher-full-term-layout";
+import { fullTermCalendarAudit, fullTermDayBasis } from "@/features/attendance/server/register-teacher-full-term";
 
 const LINE = rgb(0.25, 0.25, 0.25);
 const INK = rgb(0.08, 0.08, 0.08);
@@ -132,12 +132,33 @@ function drawSheet(input: {
   const { page, sheet, document, header, resources, checkFont } = input;
   const { section, weeks } = sheet;
   const margin = sheet.margin;
+  const inset = sheet.inset;
+  const contentX = margin + inset;
+  const contentRight = sheet.width - margin - inset;
   const contentWidth = sheet.contentWidth;
   const fullTerm = document.fullTerm;
-  const hasIncludedDays = Boolean(fullTerm?.closingDate) && document.weeks.length > 0;
-  const includedClosingDate = hasIncludedDays ? fullTerm!.closingDate! : null;
+  const includedClosingDate = fullTerm?.closingDate ?? null;
+  // A term with no included teaching day is an explicit empty state even when a
+  // caller supplied an in-term closing date: there is nothing to register.
+  const hasIncludedDays = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) > 0
+    && document.weeks.length > 0;
+  // An explicit closing date before the first eligible day is empty *for that
+  // date*, not a term without teaching days. The copy must not assert a
+  // term-wide fact the calendar contradicts.
+  const closingDateHasNoEligibleDay = Boolean(includedClosingDate)
+    && (fullTerm?.includedTeachingDayCount ?? 0) === 0
+    && (fullTerm?.termEligibleTeachingDayCount ?? 0) > 0;
+  const emptyCopy = closingDateHasNoEligibleDay
+    ? "No eligible teaching day falls on or before the selected closing date."
+    : "The governed learner term contains no eligible teaching day.";
+  // The remedy must match the diagnosis: an early closing date needs a later
+  // date, not a change to the governed school calendar.
+  const emptyRemedy = closingDateHasNoEligibleDay
+    ? "Choose a later closing date, or open a governed school day on or before it."
+    : "Configure or open a governed school day before printing.";
   let y = drawOfficialDocumentPdfHeader(page, header, resources, sheet.height - margin, {
-    documentX: margin,
+    documentX: contentX,
     documentWidth: contentWidth,
     context: {
       title: "FULL-TERM REGISTER",
@@ -149,7 +170,7 @@ function drawSheet(input: {
 
   // Legend.
   const legendSize = 7;
-  let legendX = margin + 1;
+  let legendX = contentX + 1;
   const legendY = y - 9;
   const legendPart = (text: string, font: PDFFont = resources.regular, color = MUTED) => {
     page.drawText(text, { x: legendX, y: legendY, size: legendSize, font, color });
@@ -166,11 +187,19 @@ function drawSheet(input: {
   y -= sheet.bands.legend;
 
   // Provisional banner. This is the explicit certification boundary.
-  const bannerText = includedClosingDate
-    ? `PROVISIONAL - closing ${formatDate(includedClosingDate)} - ${fullTerm!.scheduledTeachingDayCount} scheduled school days - ${fullTerm!.includedTeachingDayCount} included eligible days - ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register.`
-    : `NO ELIGIBLE SCHOOL DAY - no included eligible day on or before ${formatDate(fullTerm?.today ?? document.selectedDate)} within this learner term.`;
-  drawCell(page, { x: margin, top: y, width: contentWidth, height: sheet.bands.banner, fill: RED_SOFT, borderWidth: 0.7 });
-  drawTextBlock({ page, font: resources.bold, text: bannerText, x: margin + 4, top: y - 3, width: contentWidth - 8, height: sheet.bands.banner - 6, size: 7, color: RED, align: "left" });
+  // A school may open a replacement Saturday, so the included count can exceed
+  // the scheduled Mon-Fri baseline; the banner states that relationship instead
+  // of printing two numbers that read as an impossible total.
+  const dayBasis = fullTermDayBasis(
+    fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount,
+    fullTerm?.includedTeachingDayCount ?? document.teachingDayCount,
+  );
+  const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
+  const bannerText = hasIncludedDays
+    ? `PROVISIONAL - closing ${formatDate(includedClosingDate!)} - ${fullTerm!.scheduledTeachingDayCount} scheduled school days - ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} - ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register. ${fullTermCalendarAudit(fullTerm!)}`
+    : `NO ELIGIBLE SCHOOL DAY - ${emptyCopy.charAt(0).toLowerCase()}${emptyCopy.slice(1)}`;
+  drawCell(page, { x: contentX, top: y, width: contentWidth, height: sheet.bands.banner, fill: RED_SOFT, borderWidth: 0.7 });
+  drawTextBlock({ page, font: resources.bold, text: bannerText, x: contentX + 4, top: y - 3, width: contentWidth - 8, height: sheet.bands.banner - 6, size: 7, color: RED, align: "left" });
   y -= sheet.bands.banner;
 
   // Metadata band.
@@ -178,22 +207,22 @@ function drawSheet(input: {
     ["BOYS/GIRLS:", section.label],
     ["TERM:", document.termName],
     ["CLOSING DATE:", includedClosingDate ? formatDate(includedClosingDate) : "None"],
-    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount}`],
+    ["SCHOOL DAYS:", `${fullTerm?.includedTeachingDayCount ?? 0} included / ${fullTerm?.scheduledTeachingDayCount ?? document.teachingDayCount} scheduled`],
     ["POSSIBLE LEARNER-DAYS:", String(fullTerm?.possibleLearnerDays ?? 0)],
     ["REGISTER CLASS:", document.className],
     ["REGISTER TEACHER:", document.registerTeacherName],
   ] as const;
   const metaWidth = contentWidth / meta.length;
   meta.forEach(([label, value], index) => {
-    const x = margin + index * metaWidth;
+    const x = contentX + index * metaWidth;
     drawCell(page, { x, top: y, width: metaWidth, height: sheet.bands.meta, fill: RED_SOFT, borderWidth: 0.7 });
     drawTextBlock({ page, font: resources.bold, text: `${label} ${value}`, x: x + 3, top: y - 2, width: metaWidth - 6, height: sheet.bands.meta - 4, size: 7, color: RED, align: "left" });
   });
   y -= sheet.bands.meta;
 
   if (!hasIncludedDays) {
-    drawCell(page, { x: margin, top: y, width: contentWidth, height: 28 });
-    drawTextBlock({ page, font: resources.regular, text: "No eligible school day is available for this closing date. Configure or open a governed school day before printing.", x: margin + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
+    drawCell(page, { x: contentX, top: y, width: contentWidth, height: 28 });
+    drawTextBlock({ page, font: resources.regular, text: `${emptyCopy} ${emptyRemedy}`, x: contentX + 4, top: y - 4, width: contentWidth - 8, height: 20, size: 8, color: MUTED, align: "left" });
     return;
   }
 
@@ -206,7 +235,7 @@ function drawSheet(input: {
   const headerTop = 24;
   const headerBottom = tableHeaderHeight - headerTop;
   const tableTop = y;
-  let x = margin;
+  let x = contentX;
 
   // Three-tier heading: identity block, weekly groups with daily dates, totals.
   drawCell(page, { x, top: tableTop, width: identityWidths[0], height: tableHeaderHeight, fill: RED_SOFT });
@@ -254,7 +283,7 @@ function drawSheet(input: {
 
   // Learner rows.
   section.learners.forEach((learner, index) => {
-    x = margin;
+    x = contentX;
     const rowHeight = sheet.rowHeight;
     const identity = [
       learner.admissionNumber ?? "",
@@ -308,17 +337,29 @@ function drawSheet(input: {
   });
 
   if (sheet.empty) {
-    drawCell(page, { x: margin, top: y, width: contentWidth, height: 24 });
-    drawTextBlock({ page, font: resources.regular, text: "No learners in this section.", x: margin + 4, top: y, width: contentWidth - 8, height: 24, size: 8, color: MUTED, align: "left" });
-    y -= 24;
+    drawCell(page, { x: contentX, top: y, width: identityTotal, height: sheet.rowHeight });
+    drawTextBlock({ page, font: resources.regular, text: "No learners in this section.", x: contentX + 4, top: y, width: identityTotal - 8, height: sheet.rowHeight, size: 8, color: MUTED, align: "left" });
+    x = contentX + identityTotal;
+    for (const week of weeks) {
+      for (const day of week.dates) {
+        drawCell(page, { x, top: y, width: dayWidth, height: sheet.rowHeight, fill: day.teaching ? undefined : GREY });
+        x += dayWidth;
+      }
+      drawCell(page, { x, top: y, width: weekTotalWidth, height: sheet.rowHeight, fill: RED_SOFT });
+      x += weekTotalWidth;
+    }
+    for (const width of termWidths) {
+      drawCell(page, { x, top: y, width, height: sheet.rowHeight });
+      x += width;
+    }
+    y -= sheet.rowHeight;
   }
 
-  // Governed closure columns span the learner band. A name that cannot be read
-  // at the 7pt floor is indexed and carried in the band below.
+  // One continuous grey band carries the complete rotated closure name.
   const rowBandHeight = rowBandTop - y;
   const closureByDate = new Map(sheet.closureNotes.map((note) => [note.date, note]));
-  if (!sheet.empty) {
-  x = margin + identityTotal;
+  {
+  x = contentX + identityTotal;
   for (const week of weeks) {
     for (const day of week.dates) {
       if (day.teaching) {
@@ -327,10 +368,8 @@ function drawSheet(input: {
       }
       page.drawRectangle({ x, y, width: dayWidth, height: rowBandHeight, color: GREY, borderColor: LINE, borderWidth: 0.42 });
       const note = closureByDate.get(day.date);
-      if (note?.continuation) {
-        drawTextBlock({ page, font: resources.bold, text: String(note.index), x, top: rowBandTop - 2, width: dayWidth, height: Math.min(rowBandHeight - 4, 14), size: 8, color: MUTED });
-      } else if (note) {
-        const label = registerTeacherClosureLabel(day.reason);
+      if (note) {
+        const label = note.label;
         const size = 7;
         const available = Math.max(4, rowBandHeight - 4);
         const rendered = safeText(label);
@@ -349,41 +388,22 @@ function drawSheet(input: {
   }
   }
 
-  // Full closure names that could not be read in-column.
-  const continuation = sheet.closureNotes.filter((note) => note.continuation);
-  if (continuation.length) {
-    const bandHeight = sheet.closureBandHeight;
-    page.drawRectangle({ x: margin, y: y - bandHeight, width: contentWidth, height: bandHeight, color: rgb(0.985, 0.985, 0.985), borderColor: LINE, borderWidth: 0.6 });
-    let cursor = y - 6;
-    page.drawText("Governed closures - full names", { x: margin + 5, y: cursor - 7, size: 7, font: resources.bold, color: MUTED });
-    cursor -= 7 + 4;
-    for (const note of continuation) {
-      const pitch = 7 * 1.18;
-      for (const line of note.lines) {
-        cursor -= pitch;
-        page.drawText(line, { x: margin + 7, y: cursor, size: 7, font: resources.regular, color: INK });
-      }
-      cursor -= 2;
-    }
-    y -= bandHeight;
-  }
-
   // Summary rows.
   const summaryRows: Array<{ label: string; kind: "attendance" | "absence" | "possible"; fill: ReturnType<typeof rgb>; color: ReturnType<typeof rgb> }> = [
     { label: "Total number of attendances", kind: "attendance", fill: PURPLE_SOFT, color: INK },
     { label: "Total number of absentees", kind: "absence", fill: RED_SOFT, color: RED },
-    { label: "Total number of possible attendances", kind: "possible", fill: GREEN_SOFT, color: INK },
+    { label: "Total possible attendances (daily/week = observed; term = full term)", kind: "possible", fill: GREEN_SOFT, color: INK },
   ];
   const summaryRowHeight = sheet.bands.summary / 3;
   for (const row of summaryRows) {
-    x = margin;
+    x = contentX;
     drawCell(page, { x, top: y, width: identityTotal, height: summaryRowHeight, fill: row.fill });
     drawTextBlock({ page, font: resources.bold, text: row.label, x: x + 3, top: y, width: identityTotal - 6, height: summaryRowHeight, size: 7, color: row.color, align: "left" });
     x += identityTotal;
     for (const week of weeks) {
       const values = registerTeacherValuesFor(section, week, row.kind);
       values.forEach((value) => {
-        drawCell(page, { x, top: y, width: dayWidth, height: summaryRowHeight, fill: row.fill });
+        drawCell(page, { x, top: y, width: dayWidth, height: summaryRowHeight, fill: value === null ? GREY : row.fill });
         drawTextBlock({ page, font: resources.bold, text: value === null ? "" : String(value), x, top: y, width: dayWidth, height: summaryRowHeight, size: 8, color: row.color });
         x += dayWidth;
       });
@@ -402,28 +422,42 @@ function drawSheet(input: {
   }
 
   const balance = registerTeacherBalance(section);
-  const balanceLabel = `Attendance ${balance.attendance}    Absence ${balance.absence}    Possible ${balance.possible}    Balance: ${balance.accounted} / ${balance.possible}`;
+  const balanceLabel = `Present ${balance.attendance}    Absent ${balance.absence}    Projected ${balance.projected}    Observed ${balance.observed} / Full-term ${balance.possible}`;
+  const balanceLabelWidth = resources.bold.widthOfTextAtSize(balanceLabel, 7);
+  // Share a baseline; wrap the caption inside the reserved footer band.
+  const footerBaselineY = Math.max(margin, y - 11);
   page.drawText(balanceLabel, {
-    x: sheet.width - margin - resources.bold.widthOfTextAtSize(balanceLabel, 7) - 8,
-    y: Math.max(margin, y - 10),
+    x: contentRight - balanceLabelWidth - 8,
+    y: footerBaselineY,
     size: 7,
     font: resources.bold,
     color: RED,
   });
-  page.drawText(balance.balanced ? "✓" : "!", {
-    x: sheet.width - margin - 6,
-    y: Math.max(margin, y - 9),
+  page.drawText(balance.reconciled ? "✓" : "!", {
+    x: contentRight - 6,
+    y: footerBaselineY + 1,
     size: 7,
-    font: balance.balanced ? checkFont : resources.bold,
+    font: balance.reconciled ? checkFont : resources.bold,
     color: RED,
   });
-  const foot = `${FULL_TERM_PAPERS[sheet.paper].label} - ${fullTerm?.certificationNote ?? ""}`.trim();
-  page.drawText(safeText(foot), {
-    x: margin,
-    y: Math.max(margin - 4, y - 22),
-    size: 7,
-    font: resources.regular,
-    color: MUTED,
+  const foot = `${FULL_TERM_PAPERS[sheet.paper].label} - ${fullTerm?.certificationNote ?? ""} - Days = full-term possible (incl. projected)`.trim();
+  const footLines = wrapWithFont(
+    resources.regular,
+    safeText(foot),
+    7,
+    Math.max(120, contentWidth - balanceLabelWidth - 22),
+  );
+  if (footLines.length > 2 || footerBaselineY - (footLines.length - 1) * 8 < margin) {
+    throw new Error("Full-term footer exceeds the reserved print area.");
+  }
+  footLines.forEach((line, index) => {
+    page.drawText(line, {
+      x: contentX,
+      y: footerBaselineY - index * 8,
+      size: 7,
+      font: resources.regular,
+      color: MUTED,
+    });
   });
 }
 

@@ -132,6 +132,16 @@ export function calculateLearnerRegisterBalance(input: {
   enrolledFrom: string;
   enrolledTo: string | null;
   evidenceForDate: (date: string) => RegisterAttendanceEvidence | undefined;
+  /**
+   * School-local as-of boundary for *observed* attendance. Days strictly before
+   * this date are elapsed and may carry a default present mark; the as-of date
+   * itself and later days are only observed when authoritative evidence exists,
+   * so an in-progress or future day is never certified as present. Days after it
+   * still count toward the full-term possible denominator as projected. `null`/
+   * omitted means every eligible date is observed (the historical/legacy
+   * behaviour).
+   */
+  observedThrough?: string | null;
 }) {
   const activeOn = (date: string) =>
     input.enrolledFrom <= date && (!input.enrolledTo || input.enrolledTo >= date);
@@ -139,6 +149,15 @@ export function calculateLearnerRegisterBalance(input: {
   const reasonedAbsenceDates: Record<string, boolean> = {};
   let attended = 0;
   let absent = 0;
+  // Mirrors the historical `countable` rule: an elapsed day (strictly before the
+  // as-of date) is observed by default; the as-of date itself is observed only
+  // with explicit evidence; any later day is never observed, even if a stray
+  // present/absent row exists, so future attendance is never fabricated.
+  const observed = (date: string) =>
+    !input.observedThrough
+      ? true
+      : date < input.observedThrough
+        || (date === input.observedThrough && Boolean(input.evidenceForDate(date)));
 
   for (const day of input.scopeDays) {
     if (!day.eligible || !activeOn(day.date)) {
@@ -146,26 +165,36 @@ export function calculateLearnerRegisterBalance(input: {
       continue;
     }
     const evidence = input.evidenceForDate(day.date);
-    if (evidence?.status === "absent") {
+    if (observed(day.date) && evidence?.status === "absent") {
       marks[day.date] = "a";
       reasonedAbsenceDates[day.date] = Boolean(evidence.reasonId || evidence.note?.trim());
       absent += 1;
-    } else {
+    } else if (observed(day.date)) {
       marks[day.date] = "I";
       attended += 1;
+    } else {
+      // Future school day: possible but not yet observed. Never reported present.
+      marks[day.date] = "";
     }
   }
 
   let termAbsent = 0;
   let termDays = 0;
+  let elapsedEligible = 0;
   for (const date of input.termEligibleDates) {
     if (!activeOn(date)) continue;
     termDays += 1;
-    if (input.evidenceForDate(date)?.status === "absent") termAbsent += 1;
+    if (observed(date)) {
+      elapsedEligible += 1;
+      if (input.evidenceForDate(date)?.status === "absent") termAbsent += 1;
+    }
   }
 
   const possible = attended + absent;
-  const termAttended = termDays - termAbsent;
+  const termAttended = elapsedEligible - termAbsent;
+  // Future eligible learner-days: part of the full-term possible denominator but
+  // not yet observed, so they must never be conflated with certified attendance.
+  const termProjected = termDays - elapsedEligible;
   return {
     marks,
     reasonedAbsenceDates,
@@ -175,5 +204,6 @@ export function calculateLearnerRegisterBalance(input: {
     termAttended,
     termAbsent,
     termDays,
+    termProjected,
   };
 }

@@ -305,13 +305,26 @@ export function registerTeacherTermValue(
 }
 
 export function registerTeacherBalance(section: RegisterTeacherSection) {
-  const accounted = section.termAttendanceTotal + section.termAbsenceTotal;
+  // Observed = present + absent for days already elapsed. Projected = eligible
+  // future learner-days that count toward the full-term denominator but have not
+  // been observed. Observed + projected must reconcile to the possible total; the
+  // observed figure alone never equals the full-term possible mid-term.
+  const observed = section.termAttendanceTotal + section.termAbsenceTotal;
+  const projected = section.termProjectedTotal;
   return {
     attendance: section.termAttendanceTotal,
     absence: section.termAbsenceTotal,
+    observed,
+    projected,
     possible: section.termPossibleTotal,
-    accounted,
-    balanced: accounted === section.termPossibleTotal,
+    accounted: observed,
+    // Legacy observed-only reconciliation. The paginated renderers (including the
+    // full-term paginated fallback) print `accounted / possible` against this flag,
+    // so a mid-term full-term document must show "!" here rather than a false ✓.
+    balanced: observed === section.termPossibleTotal,
+    // Full-term invariant: observed + projected reconciles to the full-term
+    // denominator. Only the full-term sheet may display this as balanced.
+    reconciled: observed + projected === section.termPossibleTotal,
   };
 }
 
@@ -339,12 +352,16 @@ export function assertRegisterTeacherDocumentTotals(document: RegisterTeacherDoc
     }
     const expectedTermAttendance = section.learners.reduce((sum, learner) => sum + learner.termAttended, 0);
     const expectedTermAbsence = section.learners.reduce((sum, learner) => sum + learner.termAbsent, 0);
+    const expectedTermProjected = section.learners.reduce((sum, learner) => sum + learner.termProjected, 0);
     const expectedTermPossible = section.learners.reduce((sum, learner) => sum + learner.termDays, 0);
     if (
       section.termAttendanceTotal !== expectedTermAttendance
       || section.termAbsenceTotal !== expectedTermAbsence
+      || section.termProjectedTotal !== expectedTermProjected
       || section.termPossibleTotal !== expectedTermPossible
-      || expectedTermAttendance + expectedTermAbsence !== expectedTermPossible
+      // Observed (elapsed) attendance plus future-projected eligible days must
+      // reconcile exactly with the full-term possible denominator.
+      || expectedTermAttendance + expectedTermAbsence + expectedTermProjected !== expectedTermPossible
     ) {
       throw new Error("Register teacher term totals failed source-evidence verification.");
     }

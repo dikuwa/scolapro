@@ -63,9 +63,9 @@ async function attachBundle(bundle: Bundle, testInfo: TestInfo) {
 }
 
 test.describe("full-term single-sheet register", () => {
-  test("rejects an impossible closing date before reading register evidence", async ({ page }) => {
+  test("rejects an impossible or out-of-term closing date with 400", async ({ page }) => {
     await signInToAttendance(page, "admin");
-    for (const closingDate of ["2026-10-32", "2026-13-01"]) {
+    for (const closingDate of ["2026-10-32", "2026-13-01", "2027-01-15"]) {
       const response = await page.request.get(`${endpoint}&closingDate=${closingDate}`, { timeout: 120_000 });
       expect(response.status()).toBe(400);
       const body = await response.json() as { error?: string };
@@ -125,7 +125,70 @@ test.describe("full-term single-sheet register", () => {
     if (!bundle.notice) {
       await expect(page.locator(".full-term-sheet")).toHaveCount(2);
       await expect(page.locator(".provisional-banner").first()).toContainText("PROVISIONAL");
-      await expect(page.locator(".balance-strip").first()).toContainText("Balance:");
+
+      // Issue #1260: the strip must separate observed attendance from the future
+      // projection instead of reporting a single "Balance: n / m".
+      const balanceText = (await page.locator(".balance-strip").first().textContent()) ?? "";
+      const balanceNumber = (label: string) => {
+        const match = new RegExp(`${label}\\s*(\\d+)`).exec(balanceText);
+        expect(match, `balance strip is missing "${label}": ${balanceText}`).not.toBeNull();
+        return Number(match![1]);
+      };
+      const present = balanceNumber("Present");
+      const absent = balanceNumber("Absent");
+      const projected = balanceNumber("Projected");
+      const observed = balanceNumber("Observed");
+      const fullTerm = balanceNumber("Full-term");
+      // Attendance integrity: observed present + observed absence is the elapsed
+      // slice, and elapsed + projected is the governed whole-term denominator.
+      expect(present + absent).toBe(observed);
+      expect(observed + projected).toBe(fullTerm);
+      expect(balanceText).toContain("✓");
+      const closingDate = bundle.fileName.match(/(\d{4}-\d{2}-\d{2})\.pdf$/)![1];
+      if (Date.parse(`${closingDate}T00:00:00Z`) > Date.now()) {
+        // The term is still running, so the sheet must project the remaining
+        // eligible days rather than stopping at today.
+        expect(projected).toBeGreaterThan(0);
+        expect(fullTerm).toBeGreaterThan(observed);
+      }
+
+      // The seeded effective calendar closes Oct 5 and Oct 14; no forced 65.
+      for (const sheet of await page.locator(".full-term-sheet").all()) {
+        await expect(sheet.locator(".full-term-meta")).toContainText("63 included");
+        const holiday = sheet.locator('td.closure-column[title*="International"]');
+        await expect(holiday).toHaveCount(1);
+        await expect(holiday).toHaveClass(/non-teaching/);
+        await expect(holiday.locator(".closure-label")).not.toBeEmpty();
+        await expect(sheet.locator(".closure-index, .closure-notes-row")).toHaveCount(0);
+        const rows = await sheet.locator(".learner-row").count();
+        await expect(holiday).toHaveAttribute("rowspan", String(rows));
+        await expect(holiday.locator(".absent-mark")).toHaveCount(0);
+        await expect(sheet.locator(".possible-summary-row td.non-teaching")).toHaveCount(2);
+      }
+
+      // Issue #1260: nonzero left/right sheet padding inside the 32pt page margin.
+      const sheetPadding = await page.locator(".full-term-sheet").first().evaluate(
+        (element) => Number.parseFloat(getComputedStyle(element).paddingLeft),
+      );
+      expect(sheetPadding).toBeGreaterThan(0);
+
+      // Issue #1260 (final): the footer caption and the red totals share one
+      // rendered row, so the caption cannot sit below the balance strip.
+      const footerRow = page.locator(".sheet-footer-row").first();
+      await expect(footerRow.locator(".sheet-foot")).toHaveCount(1);
+      await expect(footerRow.locator(".balance-strip")).toHaveCount(1);
+      const footerBaselineDelta = await footerRow.evaluate((element) => {
+        const foot = element.querySelector(".sheet-foot")!.getBoundingClientRect();
+        const balance = element.querySelector(".balance-strip")!.getBoundingClientRect();
+        return Math.abs(foot.top - balance.top);
+      });
+      expect(footerBaselineDelta).toBeLessThanOrEqual(1);
+
+      // The official header is the shared school-document header, not a
+      // full-term-specific variant.
+      await expect(page.locator(".full-term-sheet .school-header .school-name").first()).not.toBeEmpty();
+      expect(Math.abs(sheetPadding - 10 * (96 / 72))).toBeLessThan(0.1);
+
       const dataFontSize = await page.locator(".full-term-sheet table").first().evaluate(
         (element) => Number.parseFloat(getComputedStyle(element).fontSize),
       );
@@ -166,6 +229,8 @@ test.describe("full-term single-sheet register", () => {
 
     const frame = page.locator('iframe[title*="Full-Term Single-Sheet Register"]');
     await expect(frame).toBeVisible({ timeout: 45_000 });
+    const gutter = await frame.evaluate(element => Number.parseFloat(getComputedStyle(element.parentElement!).marginLeft));
+    expect(gutter).toBeGreaterThanOrEqual(4);
     const documentFrame = frame.contentFrame();
     await expect(documentFrame.locator(".full-term-sheet")).toHaveCount(2, { timeout: 45_000 });
     await expect(documentFrame.locator(".full-term-sheet").first()).toBeVisible();

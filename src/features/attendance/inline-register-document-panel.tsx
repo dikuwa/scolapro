@@ -165,7 +165,7 @@ export function InlineRegisterDocumentPanel({
           Single-sheet {state.document.paper.toUpperCase()} landscape preview. Scroll or zoom the preview to inspect every date; print/PDF uses the same sheet model.
         </p>
       ) : null}
-      <div className="h-[70vh] min-h-96 overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-white shadow-[var(--shadow-xs)]">
+      <div className={`${selection?.mode === "full-term" ? "mx-1 " : ""}h-[70vh] min-h-96 overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-white shadow-[var(--shadow-xs)]`}>
         <iframe
           title={`${title} inline document`}
           srcDoc={state.document.html}

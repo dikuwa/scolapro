@@ -1,0 +1,1673 @@
+{
+  "generatedAt": "2026-11-07T03:27:09.268Z",
+  "cases": [
+    {
+      "key": "a2-roster-0",
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": false,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 64,
+      "possibleLearnerDays": 0,
+      "observedLearnerDays": 0,
+      "projectedLearnerDays": 0,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 14.135,
+      "rowHeight": 154.65,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          1683.78,
+          1190.55
+        ],
+        [
+          1683.78,
+          1190.55
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 769
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 769
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          1684.08,
+          1191.12
+        ],
+        [
+          1684.08,
+          1191.12
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 813
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 813
+        }
+      ],
+      "serverFooterBand": [
+        {
+          "left": {
+            "topPt": 775,
+            "bottomPt": 769,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 776,
+            "bottomPt": 769,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        },
+        {
+          "left": {
+            "topPt": 775,
+            "bottomPt": 769,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 776,
+            "bottomPt": 769,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        }
+      ],
+      "printFooterBand": [
+        {
+          "left": {
+            "topPt": 818,
+            "bottomPt": 813,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 813,
+            "heightPt": 238
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -232
+        },
+        {
+          "left": {
+            "topPt": 818,
+            "bottomPt": 813,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 813,
+            "heightPt": 238
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -232
+        }
+      ],
+      "serverFooterBaseline": {
+        "footerX": 42,
+        "footerY": 770.9,
+        "balanceX": 1431.935,
+        "balanceY": 770.9,
+        "deltaPt": 0,
+        "noOverlap": true
+      },
+      "printPngs": [
+        "a2-roster-0-print-boys.png",
+        "a2-roster-0-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 247.934,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 0 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 247.934,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 0 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a2-roster-1",
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": false,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 64,
+      "possibleLearnerDays": 128,
+      "observedLearnerDays": 84,
+      "projectedLearnerDays": 44,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 14.135,
+      "rowHeight": 154.65,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          1683.78,
+          1190.55
+        ],
+        [
+          1683.78,
+          1190.55
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 769
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 769
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          1684.08,
+          1191.12
+        ],
+        [
+          1684.08,
+          1191.12
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 813
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 813
+        }
+      ],
+      "serverFooterBand": [
+        {
+          "left": {
+            "topPt": 775,
+            "bottomPt": 769,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 776,
+            "bottomPt": 769,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        },
+        {
+          "left": {
+            "topPt": 775,
+            "bottomPt": 769,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 776,
+            "bottomPt": 769,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        }
+      ],
+      "printFooterBand": [
+        {
+          "left": {
+            "topPt": 818,
+            "bottomPt": 813,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 813,
+            "heightPt": 238
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -232
+        },
+        {
+          "left": {
+            "topPt": 818,
+            "bottomPt": 813,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 813,
+            "heightPt": 238
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -232
+        }
+      ],
+      "serverFooterBaseline": {
+        "footerX": 42,
+        "footerY": 770.9,
+        "balanceX": 1416.367,
+        "balanceY": 770.9,
+        "deltaPt": 0,
+        "noOverlap": true
+      },
+      "printPngs": [
+        "a2-roster-1-print-boys.png",
+        "a2-roster-1-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 247.934,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 128 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            42,
+            0,
+            22,
+            42,
+            64
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 793.688,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 247.934,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 128 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            42,
+            0,
+            22,
+            42,
+            64
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a2-roster-90",
+      "paper": "a1",
+      "paperLabel": "A1 landscape",
+      "paperSizePt": [
+        2383.94,
+        1683.78
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": false,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 64,
+      "possibleLearnerDays": 11520,
+      "observedLearnerDays": 7560,
+      "projectedLearnerDays": 3960,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 2299.94,
+      "dayWidth": 24.907,
+      "rowHeight": 14.25,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          2383.94,
+          1683.78
+        ],
+        [
+          2383.94,
+          1683.78
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 134
+        },
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 134
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          2383.92,
+          1684.08
+        ],
+        [
+          2383.92,
+          1684.08
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 178
+        },
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 178
+        }
+      ],
+      "serverFooterBand": [
+        {
+          "left": {
+            "topPt": 140,
+            "bottomPt": 134,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 141,
+            "bottomPt": 134,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        },
+        {
+          "left": {
+            "topPt": 140,
+            "bottomPt": 134,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 141,
+            "bottomPt": 134,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        }
+      ],
+      "printFooterBand": [
+        {
+          "left": {
+            "topPt": 183,
+            "bottomPt": 178,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1543,
+            "bottomPt": 178,
+            "heightPt": 1366
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1360
+        },
+        {
+          "left": {
+            "topPt": 183,
+            "bottomPt": 178,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1543,
+            "bottomPt": 178,
+            "heightPt": 1366
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1360
+        }
+      ],
+      "serverFooterBaseline": {
+        "footerX": 42,
+        "footerY": 136.28,
+        "balanceX": 2085.391,
+        "balanceY": 136.28,
+        "deltaPt": 0,
+        "noOverlap": true
+      },
+      "printPngs": [
+        "a2-roster-90-print-boys.png",
+        "a2-roster-90-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 3178.578,
+          "sheetHeight": 1966.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 11520 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            3780,
+            0,
+            1980,
+            3780,
+            5760
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 3178.578,
+          "sheetHeight": 1966.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 11520 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            3780,
+            0,
+            1980,
+            3780,
+            5760
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a2-holiday-64",
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": false,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 64,
+      "possibleLearnerDays": 4480,
+      "observedLearnerDays": 2940,
+      "projectedLearnerDays": 1540,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 14.135,
+      "rowHeight": 14.25,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          1683.78,
+          1190.55
+        ],
+        [
+          1683.78,
+          1190.55
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 425
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 425
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          1684.08,
+          1191.12
+        ],
+        [
+          1684.08,
+          1191.12
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 469
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 469
+        }
+      ],
+      "serverFooterBand": [
+        {
+          "left": {
+            "topPt": 431,
+            "bottomPt": 425,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 432,
+            "bottomPt": 425,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        },
+        {
+          "left": {
+            "topPt": 431,
+            "bottomPt": 425,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 432,
+            "bottomPt": 425,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        }
+      ],
+      "printFooterBand": [
+        {
+          "left": {
+            "topPt": 474,
+            "bottomPt": 469,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 469,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        },
+        {
+          "left": {
+            "topPt": 474,
+            "bottomPt": 469,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 469,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        }
+      ],
+      "serverFooterBaseline": {
+        "footerX": 42,
+        "footerY": 426.8,
+        "balanceX": 1389.123,
+        "balanceY": 426.8,
+        "deltaPt": 0,
+        "noOverlap": true
+      },
+      "printPngs": [
+        "a2-holiday-64-print-boys.png",
+        "a2-holiday-64-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 4480 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1470,
+            0,
+            770,
+            1470,
+            2240
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 64 school-included teaching days (1 school non-teaching day) · 4480 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 64. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1470,
+            0,
+            770,
+            1470,
+            2240
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a2-holiday-63",
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": false,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 63,
+      "possibleLearnerDays": 4410,
+      "observedLearnerDays": 2870,
+      "projectedLearnerDays": 1540,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 14.135,
+      "rowHeight": 14.25,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          1683.78,
+          1190.55
+        ],
+        [
+          1683.78,
+          1190.55
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 425
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 425
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          1684.08,
+          1191.12
+        ],
+        [
+          1684.08,
+          1191.12
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 469
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 469
+        }
+      ],
+      "serverFooterBand": [
+        {
+          "left": {
+            "topPt": 431,
+            "bottomPt": 425,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 432,
+            "bottomPt": 425,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        },
+        {
+          "left": {
+            "topPt": 431,
+            "bottomPt": 425,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 432,
+            "bottomPt": 425,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        }
+      ],
+      "printFooterBand": [
+        {
+          "left": {
+            "topPt": 474,
+            "bottomPt": 469,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 469,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        },
+        {
+          "left": {
+            "topPt": 474,
+            "bottomPt": 469,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 469,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        }
+      ],
+      "serverFooterBaseline": {
+        "footerX": 42,
+        "footerY": 426.8,
+        "balanceX": 1389.123,
+        "balanceY": 426.8,
+        "deltaPt": 0,
+        "noOverlap": true
+      },
+      "printPngs": [
+        "a2-holiday-63-print-boys.png",
+        "a2-holiday-63-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 63 school-included teaching days (2 school non-teaching days) · 4410 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 63. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1435,
+            0,
+            770,
+            1435,
+            2205
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 63 school-included teaching days (2 school non-teaching days) · 4410 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 63. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1435,
+            0,
+            770,
+            1435,
+            2205
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a2",
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": false,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 65,
+      "possibleLearnerDays": 4550,
+      "observedLearnerDays": 3010,
+      "projectedLearnerDays": 1540,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 14.135,
+      "rowHeight": 14.25,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          1683.78,
+          1190.55
+        ],
+        [
+          1683.78,
+          1190.55
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 425
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 425
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          1684.08,
+          1191.12
+        ],
+        [
+          1684.08,
+          1191.12
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 469
+        },
+        {
+          "pageWidth": 1684,
+          "pageHeight": 1191,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 469
+        }
+      ],
+      "serverFooterBand": [
+        {
+          "left": {
+            "topPt": 431,
+            "bottomPt": 425,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 432,
+            "bottomPt": 425,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        },
+        {
+          "left": {
+            "topPt": 431,
+            "bottomPt": 425,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 432,
+            "bottomPt": 425,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        }
+      ],
+      "printFooterBand": [
+        {
+          "left": {
+            "topPt": 474,
+            "bottomPt": 469,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 469,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        },
+        {
+          "left": {
+            "topPt": 474,
+            "bottomPt": 469,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1050,
+            "bottomPt": 469,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        }
+      ],
+      "serverFooterBaseline": {
+        "footerX": 42,
+        "footerY": 426.8,
+        "balanceX": 1389.123,
+        "balanceY": 426.8,
+        "deltaPt": 0,
+        "noOverlap": true
+      },
+      "printPngs": [
+        "a2-print-boys.png",
+        "a2-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 65 school-included teaching days · 4550 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 65.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1505,
+            0,
+            770,
+            1505,
+            2275
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 65 school-included teaching days · 4550 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 65.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1505,
+            0,
+            770,
+            1505,
+            2275
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a1",
+      "paper": "a1",
+      "paperLabel": "A1 landscape",
+      "paperSizePt": [
+        2383.94,
+        1683.78
+      ],
+      "term": "Term 1 2026-01-12..2026-04-28",
+      "asOf": "2026-03-31",
+      "screenOnly": false,
+      "scheduledTeachingDayCount": 77,
+      "includedTeachingDayCount": 77,
+      "possibleLearnerDays": 5390,
+      "observedLearnerDays": 3920,
+      "projectedLearnerDays": 1470,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 2299.94,
+      "dayWidth": 20.363,
+      "rowHeight": 14.25,
+      "serverPdfPages": 2,
+      "serverPdfSizes": [
+        [
+          2383.94,
+          1683.78
+        ],
+        [
+          2383.94,
+          1683.78
+        ]
+      ],
+      "serverPdfPageLabels": [
+        "BOYS/GIRLS: BOYSTERM: Te",
+        "BOYS/GIRLS: GIRLSTERM: T"
+      ],
+      "serverInkExtents": [
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 918
+        },
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 42,
+          "topPt": 35,
+          "bottomPt": 918
+        }
+      ],
+      "printPdfPages": 2,
+      "printPdfSizes": [
+        [
+          2383.92,
+          1684.08
+        ],
+        [
+          2383.92,
+          1684.08
+        ]
+      ],
+      "printInkExtents": [
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 962
+        },
+        {
+          "pageWidth": 2384,
+          "pageHeight": 1684,
+          "leftPt": 42,
+          "rightPt": 41,
+          "topPt": 38,
+          "bottomPt": 962
+        }
+      ],
+      "serverFooterBand": [
+        {
+          "left": {
+            "topPt": 924,
+            "bottomPt": 918,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 925,
+            "bottomPt": 918,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        },
+        {
+          "left": {
+            "topPt": 924,
+            "bottomPt": 918,
+            "heightPt": 7
+          },
+          "right": {
+            "topPt": 925,
+            "bottomPt": 918,
+            "heightPt": 8
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -1
+        }
+      ],
+      "printFooterBand": [
+        {
+          "left": {
+            "topPt": 967,
+            "bottomPt": 962,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1543,
+            "bottomPt": 962,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        },
+        {
+          "left": {
+            "topPt": 967,
+            "bottomPt": 962,
+            "heightPt": 6
+          },
+          "right": {
+            "topPt": 1543,
+            "bottomPt": 962,
+            "heightPt": 582
+          },
+          "deltaBottomPt": 0,
+          "deltaTopPt": -576
+        }
+      ],
+      "serverFooterBaseline": {
+        "footerX": 42,
+        "footerY": 920.03,
+        "balanceX": 2089.283,
+        "balanceY": 920.03,
+        "deltaPt": 0,
+        "noOverlap": true
+      },
+      "printPngs": [
+        "a1-print-boys.png",
+        "a1-print-girls.png"
+      ],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 3178.578,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 1 12 Jan 2026 - 28 Apr 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 28 Apr 2026 · 77 scheduled school days · 77 school-included teaching days · 5390 possible learner-days. Not a certified class register. Official published school days: 75 (audit reference). Weekday baseline: 77; governed eligible school days (whole term): 77. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1960,
+            0,
+            735,
+            1960,
+            2695
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 3178.578,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 1 12 Jan 2026 - 28 Apr 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 28 Apr 2026 · 77 scheduled school days · 77 school-included teaching days · 5390 possible learner-days. Not a certified class register. Official published school days: 75 (audit reference). Weekday baseline: 77; governed eligible school days (whole term): 77. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1960,
+            0,
+            735,
+            1960,
+            2695
+          ]
+        }
+      ]
+    },
+    {
+      "key": "a2-replacement-saturday",
+      "paper": "a2",
+      "paperLabel": "A2 landscape",
+      "paperSizePt": [
+        1683.78,
+        1190.55
+      ],
+      "term": "Term 3 2026-09-07..2026-12-04",
+      "asOf": "2026-11-05",
+      "screenOnly": true,
+      "scheduledTeachingDayCount": 65,
+      "includedTeachingDayCount": 66,
+      "possibleLearnerDays": 4620,
+      "observedLearnerDays": 3080,
+      "projectedLearnerDays": 1540,
+      "margin": 32,
+      "inset": 10,
+      "contentWidth": 1599.78,
+      "dayWidth": 13.921,
+      "rowHeight": 14.25,
+      "serverPdfPages": 0,
+      "serverPdfSizes": [],
+      "serverPdfPageLabels": [],
+      "serverInkExtents": [],
+      "printPdfPages": 0,
+      "printPdfSizes": [],
+      "printInkExtents": [],
+      "serverFooterBand": [],
+      "printFooterBand": [],
+      "serverFooterBaseline": null,
+      "printPngs": [],
+      "sheets": [
+        {
+          "label": "BOYS/GIRLS: BOYS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 66 school-included teaching days (1 school-added replacement day) · 4620 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 66. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1540,
+            0,
+            770,
+            1540,
+            2310
+          ]
+        },
+        {
+          "label": "BOYS/GIRLS: GIRLS",
+          "sheetWidth": 2245.031,
+          "sheetHeight": 921.922,
+          "paddingLeftPt": 10,
+          "paddingRightPt": 10,
+          "tableLeftOffsetPt": 9.996,
+          "tableRightGapPt": 9.996,
+          "footerGapFromSummaryPt": 2.367,
+          "footerGapFromBalancePt": -8.039,
+          "footerBalanceTopDeltaPt": 0,
+          "footerBalanceBottomDeltaPt": 0,
+          "footerRowHeightPt": 10.031,
+          "footerRowGapFromSummaryPt": 0.375,
+          "footerDistanceFromSheetBottomPt": 0,
+          "headerHasCrest": true,
+          "headerText": "Fixture Secondary School (Fixture Combined School) Address: 12 Independence Avenue, WindhoekPostal / town: Private Bag 5001, WindhoekTel: +264 61 000 0000 Fax: +264 61 000 0001Email: office@fixture-secondary.exampleEMIS: EMIS-0001 FULL-TERM REGISTER Grade 10 · Grade 10/A · 2026 Term 3 07 Sept 2026 - 04 Dec 2026",
+          "pageSeparated": true,
+          "banner": "PROVISIONAL — closing 04 Dec 2026 · 65 scheduled school days · 66 school-included teaching days (1 school-added replacement day) · 4620 possible learner-days. Not a certified class register. Official published school days: 65 (audit reference). Weekday baseline: 65; governed eligible school days (whole term): 66. Published and governed totals differ; attendance uses governed dates.",
+          "summaryLabels": [
+            "Total number of attendances",
+            "Total number of absentees",
+            "Total possible attendances (daily/week = observed; term = full term)"
+          ],
+          "balance": [
+            1540,
+            0,
+            770,
+            1540,
+            2310
+          ]
+        }
+      ]
+    }
+  ],
+  "invariants": {
+    "boysOnPageOneGirlsOnPageTwo": true,
+    "pdfPageOneIsBoysPageTwoIsGirls": true,
+    "horizontalInsetIsTenPoints": true,
+    "pdfInkStartsAtFortyTwoPoints": true,
+    "footerAndBalanceShareOneBaseline": true,
+    "pdfFooterAndBalanceShareOneBaseline": true,
+    "serverPdfFooterAndBalanceShareOneTextBaseline": true,
+    "completeSchoolHeaderOnEverySheet": true,
+    "printMatchesServerPdf": true,
+    "a2CarriesSixtyFiveGovernedDays": true,
+    "observedPlusProjectedEqualsPossible": true,
+    "summaryBasisLabelsAreExplicit": true,
+    "replacementSaturdayIsExplained": true
+  }
+}
