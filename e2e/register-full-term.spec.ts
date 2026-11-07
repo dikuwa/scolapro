@@ -70,7 +70,7 @@ test.describe("full-term single-sheet register", () => {
     const bundle = await response.json() as Bundle;
     expect(bundle.notice).toBeFalsy();
     expect(bundle.pageCount).toBe(2);
-    expect(bundle.html).toContain("09 Sep 2026");
+    expect(bundle.html).toContain("09 Sept 2026");
     expect(bundle.html).toContain("3 school-included teaching days");
     await page.setViewportSize({ width: 1600, height: 1000 });
     await page.setContent(bundle.html, { waitUntil: "load" });
