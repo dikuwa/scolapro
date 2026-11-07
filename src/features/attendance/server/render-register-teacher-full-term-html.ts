@@ -218,7 +218,19 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .report { width:${widthMm}; min-width:${widthMm}; margin:0 auto 18px; padding:0 ${FULL_TERM_INSET}pt; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
-  @media screen { body { overflow-x:auto; padding-inline:16px; } .report { width:${widthMm}; min-width:${widthMm}; } }
+  /* In the browser each gender is a distinct paper sheet, not just a flowing
+     section. The minimum height follows the real printable A2/A1 page box;
+     print media retains the approved page-break and margin geometry below. */
+  @media screen {
+    body { overflow-x:auto; padding:16px; background:#e6e9ed; }
+    .report {
+      width:${widthMm}; min-width:${widthMm};
+      min-height:calc(${paper.height}pt - ${2 * plan.margin}pt);
+      margin:0 auto 28px;
+      outline:1px solid #aab4c2;
+      box-shadow:0 4px 16px rgba(30,41,59,.18);
+    }
+  }
   .legend { margin:3pt 0 2pt; display:flex; align-items:center; flex-wrap:wrap; gap:2pt 10pt; min-height:14pt; padding:0 1pt; font-size:7pt; line-height:1; color:#555; }
   .legend > span { display:inline-flex; align-items:center; gap:2pt; white-space:nowrap; }
   .legend-note { flex:1 1 240pt; white-space:normal; }

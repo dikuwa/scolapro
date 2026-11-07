@@ -39,6 +39,7 @@ export function OfficialDocumentActions({
 }) {
   const [activeAction, setActiveAction] = useState<"preview" | "download" | "spreadsheet" | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const dialogRef = useRef<HTMLElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
@@ -94,7 +95,7 @@ export function OfficialDocumentActions({
     <>
       <div className="flex flex-wrap items-center gap-2">
         {previewHref && previewIsPageAnchor ? (
-          <Link href={previewHref} onClick={() => beginAction("preview")} aria-busy={activeAction === "preview"} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}>
+          <Link href={previewHref} onClick={() => beginAction("preview")} aria-busy={activeAction === "preview"} className={`inline-flex items-center gap-1.5 cursor-pointer bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated active:opacity-80 ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}>
             {activeAction === "preview" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" /> : <Printer aria-hidden="true" className="size-3.5" />}
             {activeAction === "preview" ? "Opening preview…" : previewLabel}
           </Link>
@@ -104,19 +105,19 @@ export function OfficialDocumentActions({
             onClick={() => void runPreview()}
             disabled={busy}
             aria-busy={activeAction === "preview"}
-            className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass}`}
+            className={`inline-flex items-center gap-1.5 cursor-pointer bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass}`}
           >
             {activeAction === "preview" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" /> : <Printer aria-hidden="true" className="size-3.5" />}
             {activeAction === "preview" ? "Opening preview…" : previewLabel}
           </button>
         ) : null}
         {onDownload ? (
-          <button type="button" onClick={() => { beginAction("download"); onDownload(); }} disabled={busy} aria-busy={activeAction === "download"} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass}`}>
+          <button type="button" onClick={() => { beginAction("download"); onDownload(); }} disabled={busy} aria-busy={activeAction === "download"} className={`inline-flex items-center gap-1.5 cursor-pointer bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated active:opacity-80 disabled:cursor-not-allowed disabled:opacity-50 ${sizeClass}`}>
             {activeAction === "download" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" /> : <Download aria-hidden="true" className="size-3.5" />}
             {activeAction === "download" ? "Preparing PDF…" : downloadLabel}
           </button>
         ) : downloadHref ? (
-          <a href={downloadHref} onClick={() => beginAction("download")} aria-busy={activeAction === "download"} className={`inline-flex items-center gap-1.5 bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}>
+          <a href={downloadHref} onClick={() => beginAction("download")} aria-busy={activeAction === "download"} className={`inline-flex items-center gap-1.5 cursor-pointer bg-surface-muted font-medium text-foreground transition hover:bg-surface-elevated active:opacity-80 ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}>
             {activeAction === "download" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" /> : <Download aria-hidden="true" className="size-3.5" />}
             {activeAction === "download" ? "Preparing PDF…" : downloadLabel}
           </a>
@@ -126,7 +127,7 @@ export function OfficialDocumentActions({
             href={spreadsheetHref}
             onClick={() => beginAction("spreadsheet")}
             aria-busy={activeAction === "spreadsheet"}
-            className={`inline-flex items-center gap-1.5 bg-brand-soft font-semibold text-brand-strong transition hover:bg-brand-soft/80 ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}
+            className={`inline-flex items-center gap-1.5 cursor-pointer bg-brand-soft font-semibold text-brand-strong transition hover:bg-brand-soft/80 active:opacity-80 ${busy ? "pointer-events-none opacity-60" : ""} ${sizeClass}`}
           >
             {activeAction === "spreadsheet" ? <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" /> : <FileSpreadsheet aria-hidden="true" className="size-3.5" />}
             {activeAction === "spreadsheet" ? "Preparing Excel…" : spreadsheetLabel}
@@ -157,11 +158,16 @@ export function OfficialDocumentActions({
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                 {previewDownloadHref ? (
                   <>
-                    <button type="button" onClick={() => iframeRef.current?.contentWindow?.print()} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-foreground transition hover:bg-surface-subtle focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><Printer className="size-3.5" aria-hidden="true" />Print</button>
-                    <a href={previewDownloadHref} download={previewDownloadName || true} className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong transition hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft"><Download className="size-3.5" aria-hidden="true" />Download PDF</a>
+                    <button type="button" className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] bg-surface-muted px-3 text-xs font-semibold text-foreground transition hover:bg-surface-subtle active:opacity-80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:cursor-not-allowed disabled:opacity-60" disabled={printing} aria-busy={printing} onClick={() => {
+                      setPrinting(true);
+                      // Keep print() in the direct user gesture for browser permission.
+                      try { iframeRef.current?.contentWindow?.print(); }
+                      finally { window.setTimeout(() => setPrinting(false), 1200); }
+                    }}>{printing ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : <Printer className="size-3.5" aria-hidden="true" />}{printing ? "Opening print…" : "Print"}</button>
+                    <a href={previewDownloadHref} download={previewDownloadName || true} onClick={() => beginAction("download")} aria-busy={activeAction === "download"} className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong transition hover:bg-surface-muted active:opacity-80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft">{activeAction === "download" ? <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" /> : <Download className="size-3.5" aria-hidden="true" />}{activeAction === "download" ? "Starting PDF…" : "Download PDF"}</a>
                   </>
                 ) : null}
-                <CloseAction variant="danger-soft" onClick={() => setPreviewOpen(false)} ariaLabel="Close document preview" />
+                <CloseAction variant="danger-soft" className="cursor-pointer active:opacity-80" onClick={() => setPreviewOpen(false)} ariaLabel="Close document preview" />
               </div>
             </div>
             <iframe
