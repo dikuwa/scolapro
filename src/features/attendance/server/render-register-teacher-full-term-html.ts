@@ -70,13 +70,14 @@ function sheetHtml(input: {
   const { sheet, document, header } = input;
   const { section, weeks } = sheet;
   const paper = FULL_TERM_PAPERS[sheet.paper];
+  const gridWidth = sheet.tableWidth;
   const columns = [
-    ...sheet.identityWidths.map((width) => `<col style="width:${pct(width / sheet.contentWidth)}">`),
+    ...sheet.identityWidths.map((width) => `<col style="width:${pct(width / gridWidth)}">`),
     ...weeks.flatMap((week) => [
-      ...week.dates.map(() => `<col style="width:${pct(sheet.dayWidth / sheet.contentWidth)}">`),
-      `<col style="width:${pct(sheet.weekTotalWidth / sheet.contentWidth)}">`,
+      ...week.dates.map(() => `<col style="width:${pct(sheet.dayWidth / gridWidth)}">`),
+      `<col style="width:${pct(sheet.weekTotalWidth / gridWidth)}">`,
     ]),
-    ...sheet.termWidths.map((width) => `<col style="width:${pct(width / sheet.contentWidth)}">`),
+    ...sheet.termWidths.map((width) => `<col style="width:${pct(width / gridWidth)}">`),
   ].join("");
   const weekHeaders = weeks.map((week) => `<th class="week-heading" colspan="${week.dates.length + 1}"><span>Week Ending</span><strong>${escapeHtml(formatDate(week.weekEnding))}</strong></th>`).join("");
   const dayHeaders = weeks.map((week) => week.dates.map((day) =>
@@ -160,7 +161,7 @@ function sheetHtml(input: {
     <div class="legend"><span><span class="mark-sample">I</span> = Present</span><span><span class="mark-sample absent-mark">a</span> = Absent</span><span><span class="mark-sample absent-mark">a<sup class="absence-reason-mark">✓</sup></span> = Absent with reason</span><span class="legend-note">Grey = non-teaching / inactive; governed holiday or closure name appears in the attendance area</span></div>
     <div class="provisional-banner" role="note">${banner}</div>
     <div class="full-term-meta">${meta.map(([label, value]) => `<div><strong>${escapeHtml(label)}</strong> ${escapeHtml(value)}</div>`).join("")}</div>
-    ${hasIncludedDays ? `<table>
+    ${hasIncludedDays ? `<table style="width:${sheet.tableWidth.toFixed(2)}pt">
       <colgroup>${columns}</colgroup>
       <thead>
         <tr>
