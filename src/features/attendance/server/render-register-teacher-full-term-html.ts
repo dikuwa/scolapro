@@ -230,8 +230,11 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .full-term-meta > div { min-width:0; background:white; padding:1.5pt 3pt; overflow-wrap:anywhere; font-size:7pt; line-height:1.1; }
   .full-term-meta strong { color:var(--register-red); }
   table { width:100%; min-width:0; border-collapse:collapse; table-layout:fixed; font-size:8pt; }
-  th,td { border:1px solid var(--grid); padding:0 1pt; text-align:center; height:var(--row-height,10pt); overflow:hidden; line-height:1.02; }
-  thead th { background:var(--register-red-soft); color:#6d0d12; font-weight:700; font-size:7pt; }
+  th,td { border:1px solid var(--grid); padding:0 1pt; text-align:center; height:10pt; overflow:hidden; line-height:1.02; }
+  .learner-row > td { height:var(--row-height,10pt); }
+  thead tr:first-child { height:24pt; }
+  thead tr:last-child { height:20pt; }
+  thead th { height:auto; background:var(--register-red-soft); color:#6d0d12; font-weight:700; font-size:7pt; }
   .identity { text-align:left; }
   .identity.admin,.identity.no,.identity.dob { text-align:center; white-space:nowrap; }
   .identity.surname,.identity.given { overflow-wrap:anywhere; }
@@ -260,7 +263,8 @@ export function renderRegisterTeacherFullTermHtml(input: {
   .absence-summary-row th,.absence-summary-row td { background:#fff1f2; color:var(--register-red); }
   .possible-summary-row th,.possible-summary-row td { background:#eef5d8; color:#263517; }
   .absence-value { color:var(--register-red) !important; }
-  .empty-row td { padding:10pt; color:#777; font-size:8pt; text-align:left; }
+  .empty-row td { padding:0; color:#777; font-size:8pt; text-align:left; }
+  .empty-row td:first-child { padding:4pt; }
   .empty-sheet { margin-top:6pt; padding:14pt; border:1px solid var(--grid); background:#fafafa; color:#555; font-size:8pt; }
   /* The caption and the red totals share one baseline row directly under the
      table. The caption takes the remaining width; if the row cannot fit them

@@ -342,8 +342,7 @@ function drawSheet(input: {
     y -= sheet.rowHeight;
   }
 
-  // Governed closure columns span the learner band. A name that cannot be read
-  // at the 7pt floor is indexed and carried in the band below.
+  // One continuous grey band carries the complete rotated closure name.
   const rowBandHeight = rowBandTop - y;
   const closureByDate = new Map(sheet.closureNotes.map((note) => [note.date, note]));
   {
