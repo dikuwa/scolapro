@@ -74,7 +74,7 @@ for (const width of [375, 768, 1440]) for (const theme of ["light", "dark"] as c
       expect(geometry.font).toBeGreaterThanOrEqual(12);
       expect(geometry.font).toBeLessThanOrEqual(14);
       // Hide fixed shell chrome only during the isolated card capture.
-      await testInfo.attach(`${width}-${theme}-${panelId}`, { body: await card.screenshot({ style: "header, nav, nextjs-portal { visibility: hidden !important; }" }), contentType: "image/png" });
+      await testInfo.attach(`${width}-${theme}-${panelId}`, { body: await card.screenshot({ style: "header, nav, nextjs-portal { opacity: 0 !important; }" }), contentType: "image/png" });
       if (card === subjectCard) {
         const save = card.locator("form").first().getByRole("button", { name: "Save", exact: true });
         const [response] = await Promise.all([
