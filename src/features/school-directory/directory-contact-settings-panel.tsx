@@ -20,7 +20,10 @@ export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPu
     if (state.success) {
       toast.success(state.message);
       router.refresh();
-      queueMicrotask(() => setOpen(false));
+      queueMicrotask(() => {
+        setOpen(false);
+        document.querySelector<HTMLButtonElement>('[aria-controls="school-directory-contact-editor"]')?.focus();
+      });
     } else {
       toast.error(state.message);
     }
