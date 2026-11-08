@@ -328,10 +328,12 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
   // closure overrides are intentionally excluded here — they reduce the
   // school-included count below, so scheduled >= included when the school closes
   // an otherwise scheduled day.
-  // Compare scheduled and governed eligible days over the SAME closing window.
-  // Using whole-term scheduled days against a partial cutoff incorrectly labels
-  // all remaining future weekdays as school non-teaching days.
-  const scheduledTeachingDayCount = rangeDates(input.termStart, fullTerm ? scopeEnd : input.termEnd).filter((date) => {
+  // An explicitly chosen cutoff has its own scheduled/eligible comparison.
+  // The default "Last eligible school day" remains a WHOLE-TERM audit: a
+  // governed school closure on the final weekday must not disappear merely
+  // because the last eligible day falls earlier.
+  const scheduledWindowEnd = fullTerm?.closingDate != null ? scopeEnd : input.termEnd;
+  const scheduledTeachingDayCount = rangeDates(input.termStart, scheduledWindowEnd).filter((date) => {
     const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
     return weekday >= 1 && weekday <= 5 && !officialClosureDates.has(date);
   }).length;
