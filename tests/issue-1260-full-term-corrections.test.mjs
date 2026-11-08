@@ -684,7 +684,7 @@ test("#1264 document preview controls show pointer and honest action feedback", 
 });
 
 
-test("#1266 an early 09 Sep closing date keeps day cells compact and leaves paper to the right", async () => {
+test("#1274 an early 09 Sep closing date fills paper without adding school days", async () => {
   const document = build({ fullTerm: { today: TODAY, closingDate: "2026-09-09" } });
   const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
   assert.equal(plan.fits, true);
@@ -693,9 +693,8 @@ test("#1266 an early 09 Sep closing date keeps day cells compact and leaves pape
   assert.deepEqual(document.weeks.flatMap(week => week.dates.map(day => day.date)),
     ["2026-09-07", "2026-09-08", "2026-09-09"]);
   for (const sheet of plan.sheets) {
-    assert.ok(sheet.dayWidth <= fullTermLayout.FULL_TERM_COMPACT_DAY_WIDTH);
     assert.ok(sheet.dayWidth >= fullTermLayout.FULL_TERM_MIN_DAY_WIDTH);
-    assert.ok(sheet.tableWidth < sheet.contentWidth * 0.65);
+    assert.ok(Math.abs(sheet.tableWidth - sheet.contentWidth) < 0.01);
     const identity = sheet.identityWidths.reduce((a, b) => a + b, 0);
     const totals = sheet.termWidths.reduce((a, b) => a + b, 0);
     assert.ok(Math.abs(sheet.tableWidth - (identity + totals + sheet.dayWidth * 3 + sheet.weekTotalWidth)) < 0.01);
@@ -716,7 +715,7 @@ test("#1266 normal full-term sheet still uses the entire planned horizontal grid
   for (const sheet of plan.sheets) assert.ok(Math.abs(sheet.tableWidth - sheet.contentWidth) < 0.01);
 });
 
-test("#1266 excluded closing-day and single-day partial term keep compact grid and governed counts", () => {
+test("#1274 excluded closing-day and single-day partial term fill the grid and preserve governed counts", () => {
   for (const closingDate of ["2026-09-07", "2026-09-09", "2026-10-05"]) {
     const document = build({
       fullTerm: { today: TODAY, closingDate },
@@ -726,7 +725,7 @@ test("#1266 excluded closing-day and single-day partial term keep compact grid a
     assert.equal(plan.fits, true);
     const dates = document.weeks.flatMap(week => week.dates);
     assert.ok(dates.every(day => day.date <= closingDate));
-    assert.ok(plan.sheets.every(sheet => sheet.dayWidth <= fullTermLayout.FULL_TERM_COMPACT_DAY_WIDTH));
+    assert.ok(plan.sheets.every(sheet => Math.abs(sheet.tableWidth - sheet.contentWidth) < 0.01));
     if (closingDate === "2026-09-09") assert.equal(document.fullTerm.includedTeachingDayCount, 2);
     if (closingDate === "2026-09-07") assert.equal(document.fullTerm.includedTeachingDayCount, 1);
   }
@@ -771,6 +770,8 @@ test("#1268 closing calendar picker and inline preview preserve cumulative view 
   assert.match(workspace, /min=\{selectedTerm\?\.startsOn \?\? undefined\}/);
   assert.match(workspace, /max=\{selectedTerm\?\.endsOn \?\? undefined\}/);
   assert.match(workspace, /Last eligible school day/);
+  assert.match(workspace, /Clear date/);
+  assert.match(workspace, /Official learner closing date/);
   assert.doesNotMatch(workspace, /const closingDateOptions =/);
   assert.match(workspace, /navigate\(\{ closingDate: value \|\| null \}\)/);
   assert.match(inline, /key=\{state\.requestKey\}/);
