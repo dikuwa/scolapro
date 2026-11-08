@@ -33,6 +33,25 @@ for (const width of [375, 768, 1440]) for (const theme of ["light", "dark"] as c
   });
 }
 
+test("directory contact Save closes the editor, refreshes the public summary and restores focus", async ({ page }) => {
+  await signIn(page, "admin");
+  await page.goto("/school/settings");
+  const card = page.locator("article").filter({ has: page.getByRole("heading", { name: "School Directory contact", exact: true }) });
+  const edit = card.getByRole("button", { name: "Edit configuration" });
+  await edit.click();
+  const cellphone = card.getByLabel("Cellphone", { exact: true });
+  const publicEmail = card.getByLabel("Principal public email", { exact: true });
+  const originalPhone = await cellphone.inputValue();
+  const originalEmail = await publicEmail.inputValue();
+  // Idempotent synthetic-local save: exercise the real action without changing
+  // shared E2E school contact values for other tests.
+  await card.getByRole("button", { name: "Save directory contact" }).click();
+  await expect(edit).toHaveAttribute("aria-expanded", "false");
+  await expect(edit).toBeFocused();
+  await expect(card).toContainText(originalPhone || "Not configured");
+  await expect(card).toContainText(originalEmail || "Not configured");
+});
+
 test("non-school roles cannot edit public school directory contact", async ({ page }) => {
   await signIn(page, "registerTeacher");
   await page.goto("/school/settings");
