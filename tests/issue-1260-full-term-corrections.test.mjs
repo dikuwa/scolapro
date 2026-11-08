@@ -695,6 +695,10 @@ test("#1274 an early 09 Sep closing date fills paper without adding school days"
   for (const sheet of plan.sheets) {
     assert.ok(sheet.dayWidth >= fullTermLayout.FULL_TERM_MIN_DAY_WIDTH);
     assert.ok(Math.abs(sheet.tableWidth - sheet.contentWidth) < 0.01);
+    // Share released paper width with identity and term columns instead of
+    // inflating each of three day cells into a giant unreadable band.
+    assert.ok(sheet.dayWidth < sheet.identityWidths[2]);
+    assert.ok(sheet.dayWidth < sheet.identityWidths[3]);
     const identity = sheet.identityWidths.reduce((a, b) => a + b, 0);
     const totals = sheet.termWidths.reduce((a, b) => a + b, 0);
     assert.ok(Math.abs(sheet.tableWidth - (identity + totals + sheet.dayWidth * 3 + sheet.weekTotalWidth)) < 0.01);
