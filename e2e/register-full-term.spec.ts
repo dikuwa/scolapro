@@ -125,11 +125,28 @@ test.describe("full-term single-sheet register", () => {
         const table = element.querySelector("table")!;
         const paper = element.getBoundingClientRect();
         const grid = table.getBoundingClientRect();
-        return { paper: paper.width, grid: grid.width, inset: grid.left - paper.left };
+        const metadata = element.querySelector(".full-term-meta")!.getBoundingClientRect();
+        const banner = element.querySelector(".provisional-banner")!.getBoundingClientRect();
+        return {
+          paper: paper.width,
+          grid: grid.width,
+          leftInset: grid.left - paper.left,
+          rightInset: paper.right - grid.right,
+          metaRightDelta: metadata.right - grid.right,
+          bannerRightDelta: banner.right - grid.right,
+          overflow: grid.right > paper.right,
+        };
       });
       expect(dimensions.grid).toBeGreaterThan(dimensions.paper * 0.90);
       expect(dimensions.grid).toBeLessThan(dimensions.paper);
-      expect(dimensions.inset).toBeGreaterThan(0);
+      // #1277: The browser sheet must represent the printable page box, not
+      // the full paper width. The former extra 64pt right band is forbidden.
+      const tenPointsInCssPixels = 10 * (96 / 72);
+      expect(Math.abs(dimensions.leftInset - tenPointsInCssPixels)).toBeLessThan(1);
+      expect(Math.abs(dimensions.rightInset - dimensions.leftInset)).toBeLessThan(2);
+      expect(Math.abs(dimensions.metaRightDelta)).toBeLessThan(2);
+      expect(Math.abs(dimensions.bannerRightDelta)).toBeLessThan(2);
+      expect(dimensions.overflow).toBe(false);
       await expect(sheet.locator(".day")).toHaveCount(3);
     }
     const printBytes = await page.pdf({ preferCSSPageSize: true, printBackground: true });
