@@ -775,3 +775,17 @@ test("#1268 closing calendar picker and inline preview preserve cumulative view 
   assert.match(workspace, /navigate\(\{ closingDate: value \|\| null \}\)/);
   assert.match(inline, /key=\{state\.requestKey\}/);
 });
+
+
+test("#1268 default last-eligible cutoff retains whole-term closure audit on trailing schoolday", () => {
+  const document = build({
+    impactRows: impactRows({ "2026-12-04": "NO_TEACHING" }),
+    overrideRows: [{ school_date: "2026-12-04", reason: "School closing holiday" }],
+  });
+  assert.equal(document.fullTerm.closingDate, "2026-12-03");
+  assert.equal(document.fullTerm.scheduledTeachingDayCount, 65);
+  assert.equal(document.fullTerm.includedTeachingDayCount, 64);
+  assert.equal(document.fullTerm.termEligibleTeachingDayCount, 64);
+  const dates = document.weeks.flatMap(week => week.dates.map(day => day.date));
+  assert.equal(dates[dates.length - 1], "2026-12-03");
+});
