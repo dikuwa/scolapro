@@ -128,7 +128,7 @@ export function RegisterTeacherWorkspace({
   return (
     <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(10rem,1fr)_minmax(10rem,.8fr)_minmax(10rem,1fr)_minmax(12rem,1.25fr)_auto] xl:items-end">
+        <div className="grid gap-x-3 gap-y-4 sm:grid-cols-2 xl:grid-cols-4 xl:items-start">
             <Picker
               label="Class"
               name="register-teacher-class"
@@ -190,7 +190,7 @@ export function RegisterTeacherWorkspace({
                 ) : null}
               </div>
             ) : mode === "full-term" ? (
-              <div className="min-w-0">
+              <div className="flex min-w-0 flex-col">
                 <DateField
                   label="Closing date"
                   name="register-teacher-closing-date"
@@ -199,17 +199,29 @@ export function RegisterTeacherWorkspace({
                   min={selectedTerm?.startsOn ?? undefined}
                   max={selectedTerm?.endsOn ?? undefined}
                 />
-                <button
-                  type="button"
-                  disabled={!selectedTerm?.startsOn || !selectedTerm?.endsOn || pending}
-                  onClick={() => navigate({ closingDate: null })}
-                  className="mt-1.5 min-h-7 cursor-pointer rounded-[var(--radius-xs)] px-1.5 text-xs font-medium text-brand-strong transition hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Last eligible school day
-                </button>
+                <div className="mt-1.5 flex min-h-7 flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  {closingDate ? (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => navigate({ closingDate: null })}
+                      className="cursor-pointer font-semibold text-brand-strong underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Clear date
+                    </button>
+                  ) : <span className="font-medium text-brand-strong">Last eligible school day (default)</span>}
+                  <span className="text-muted-foreground">{closingDate ? "Temporary display cutoff" : "Calendar-governed view"}</span>
+                </div>
               </div>
             ) : null}
-            <div className={`flex min-w-0 flex-col gap-1.5 sm:col-span-2 sm:flex-row sm:items-end sm:justify-end xl:col-span-1 ${isTerm ? "xl:col-start-4 xl:col-span-2" : ""}`}>
+          </div>
+          <div className="mt-4 grid gap-3 border-t border-border-subtle pt-3 sm:grid-cols-2">
+            <div className="min-w-0 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Official learner closing date: </span>
+              {selectedTerm?.endsOn ? formatDate(selectedTerm.endsOn) : "Not configured"}
+              {mode === "full-term" ? <span className="mt-1 block">The official date is unchanged by a register display cutoff. The last eligible school day may be earlier when the closing boundary is non-teaching.</span> : null}
+            </div>
+            <div className="flex min-w-0 flex-col gap-1.5 sm:items-end">
               {mode === "week" ? <div className="min-w-0 flex-1"><p className="text-xs font-medium text-muted-foreground">Navigate</p><WeekPicker className="mt-1.5" valueLabel={periodLabel} onPrevious={() => { const value = addDays(selectedFromWeek!, -7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} onNext={() => { const value = addDays(selectedFromWeek!, 7); navigate({ fromWeek: value, date: addDays(value, 4) }); }} previousLabel="Previous register week" nextLabel="Next register week" pending={pending} previousDisabled={selectedWeekIndex <= 0} nextDisabled={selectedWeekIndex < 0 || selectedWeekIndex >= weekOptions.length - 1} /></div> : <div className="min-w-0 flex-1"><p className="text-xs font-medium text-muted-foreground">Selected period</p><div className="mt-1.5 flex min-h-10 items-center rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-xs font-semibold shadow-[var(--shadow-xs)]"><CalendarRange className="mr-2 size-4 shrink-0 text-brand" aria-hidden="true" /><span className="truncate">{periodLabel}</span>{pending ? <Spinner className="ml-2 size-4 shrink-0 text-brand" /> : null}</div></div>}
           </div>
         </div>

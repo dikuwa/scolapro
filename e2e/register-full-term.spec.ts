@@ -63,7 +63,52 @@ async function attachBundle(bundle: Bundle, testInfo: TestInfo) {
 }
 
 test.describe("full-term single-sheet register", () => {
-  test("keeps a 09 Sep partial closing-date sheet compact with matching two-page print/PDF", async ({ page }, testInfo) => {
+  for (const width of [375, 768, 1440]) {
+    test(`#1274 register controls align without overlaps at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      await signInToAttendance(page, "admin");
+      await page.goto(`/attendance?view=register&class=${DEMO.registerClass10A}&date=${DEMO.teachingDate}&mode=full-term`);
+      const controls = [
+        page.getByRole("button", { name: "Class", exact: true }),
+        page.getByRole("button", { name: "Period", exact: true }),
+        page.getByRole("button", { name: "Academic term", exact: true }),
+        page.getByRole("textbox", { name: "Closing date", exact: true }),
+      ];
+      const boxes = [];
+      for (const control of controls) {
+        await expect(control).toBeVisible();
+        const box = await control.boundingBox();
+        expect(box).not.toBeNull();
+        boxes.push(box!);
+      }
+      if (width === 1440) {
+        // Four labels/inputs belong to one aligned selector row.
+        expect(Math.max(...boxes.map(box => box.y)) - Math.min(...boxes.map(box => box.y))).toBeLessThan(10);
+        for (let index = 1; index < boxes.length; index++) {
+          expect(boxes[index].x).toBeGreaterThan(boxes[index - 1].x + boxes[index - 1].width - 1);
+        }
+      } else {
+        // Each control must remain inside the visible viewport and never
+        // overlap a sibling at tablet/phone breakpoints.
+        for (const box of boxes) {
+          expect(box.x).toBeGreaterThanOrEqual(0);
+          expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+        }
+        for (let index = 1; index < boxes.length; index++) {
+          const previous = boxes[index - 1];
+          const current = boxes[index];
+          const separated = current.x >= previous.x + previous.width - 1
+            || current.y >= previous.y + previous.height - 1;
+          expect(separated).toBe(true);
+        }
+      }
+      await testInfo.attach(`register-controls-${width}.png`, {
+        body: await page.screenshot(),
+        contentType: "image/png",
+      });
+    });
+  }
+  test("fills the usable A2/A1 width for a 09 Sep cutoff with matching two-page print/PDF", async ({ page }, testInfo) => {
     await signInToAttendance(page, "admin");
     const response = await page.request.get(`${endpoint}&closingDate=2026-09-09&format=bundle`, { timeout: 120_000 });
     expect(response.status()).toBe(200);
@@ -82,7 +127,8 @@ test.describe("full-term single-sheet register", () => {
         const grid = table.getBoundingClientRect();
         return { paper: paper.width, grid: grid.width, inset: grid.left - paper.left };
       });
-      expect(dimensions.grid).toBeLessThan(dimensions.paper * 0.65);
+      expect(dimensions.grid).toBeGreaterThan(dimensions.paper * 0.90);
+      expect(dimensions.grid).toBeLessThan(dimensions.paper);
       expect(dimensions.inset).toBeGreaterThan(0);
       await expect(sheet.locator(".day")).toHaveCount(3);
     }
@@ -257,13 +303,15 @@ test.describe("full-term single-sheet register", () => {
     await expect(page.getByRole("button", { name: "Period", exact: true })).toContainText("Full term (single sheet)");
     const closingDate = page.getByRole("textbox", { name: "Closing date", exact: true });
     await expect(closingDate).toBeVisible();
-    await expect(page.getByRole("button", { name: "Last eligible school day" })).toBeVisible();
+    await expect(page.getByText("Last eligible school day (default)")).toBeVisible();
+    await expect(page.getByText("Official learner closing date:")).toBeVisible();
     await page.getByRole("button", { name: "Open closing date calendar" }).click();
     await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await closingDate.fill("12/10/2026");
     await closingDate.press("Enter");
     await expect(page).toHaveURL(/closingDate=2026-10-12/);
+    await expect(page.getByRole("button", { name: "Clear date" })).toBeVisible();
 
     const frame = page.locator('iframe[title*="Full-Term Single-Sheet Register"]');
     await expect(frame).toBeVisible({ timeout: 45_000 });
@@ -313,6 +361,14 @@ test.describe("full-term single-sheet register", () => {
       body: await page.screenshot(),
       contentType: "image/png",
     });
+
+    // The selected cutoff is a view override, not a calendar edit. Clearing it
+    // removes the URL parameter and restores the server-governed default.
+    await page.getByRole("button", { name: "Clear date" }).click();
+    await expect(page).not.toHaveURL(/closingDate=/);
+    await expect(page.getByText("Last eligible school day (default)")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Closing date", exact: true })).toHaveValue("");
+    await expect(page.getByText("Official learner closing date:")).toBeVisible();
   });
 
   test("the full-term PDF endpoint honours the download contract", async ({ page }) => {

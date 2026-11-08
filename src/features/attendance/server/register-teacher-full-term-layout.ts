@@ -29,8 +29,6 @@ export const FULL_TERM_MARGIN = 32;
 /** Modest nonzero horizontal inset (points) applied inside the 32pt print margin so the grid never touches the paper edge. */
 export const FULL_TERM_INSET = 10;
 export const FULL_TERM_MIN_DAY_WIDTH = 12;
-/** Short closing-date ranges keep a readable day pitch instead of stretching cells across A2/A1. */
-export const FULL_TERM_COMPACT_DAY_WIDTH = 16;
 export const FULL_TERM_MIN_ROW_HEIGHT = 10;
 export const FULL_TERM_MAX_ROW_HEIGHT = 14.25;
 
@@ -111,7 +109,7 @@ export type FullTermSheet = {
   /** Horizontal inset (points) inside the print margin; the grid is drawn between `margin + inset` and `width - margin - inset`. */
   inset: number;
   contentWidth: number;
-  /** Actual width of the learner grid. An early closing date leaves unused paper to the right. */
+  /** Actual width of the learner grid, spanning the usable paper width at every cutoff. */
   tableWidth: number;
   contentHeight: number;
   identityWidths: readonly number[];
@@ -271,22 +269,27 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
   const totalColumns = weeks.length;
   const attendanceColumns = dateColumns + totalColumns;
   const identity = identityPlan(section, contentWidth);
-  const termWidths = [46, 46, 46];
-  const weekTotalWidth = 17;
+  const baseTermWidths = [46, 46, 46];
+  const baseWeekTotalWidth = 17;
   const identityWidth = identity.widths.reduce((sum, width) => sum + width, 0);
-  const termWidth = termWidths.reduce((sum, width) => sum + width, 0);
-  const availableDateWidth = contentWidth - identityWidth - termWidth - totalColumns * weekTotalWidth;
+  const termWidth = baseTermWidths.reduce((sum, width) => sum + width, 0);
+  const availableDateWidth = contentWidth - identityWidth - termWidth - totalColumns * baseWeekTotalWidth;
   const naturalDayWidth = availableDateWidth / Math.max(1, dateColumns);
-  // A user-selected early closing day crops the full-term grid. Do not enlarge
-  // the remaining dates to occupy the released paper width. The PDF renderer
-  // already uses physical point widths; the HTML renderer must use tableWidth
-  // rather than widening this same plan back to 100% of the sheet.
-  const isShortClosingWindow = document.fullTerm != null
-    && document.fullTerm.includedTeachingDayCount < document.fullTerm.termEligibleTeachingDayCount;
-  const dayWidth = isShortClosingWindow
-    ? Math.min(naturalDayWidth, FULL_TERM_COMPACT_DAY_WIDTH)
-    : naturalDayWidth;
-  const tableWidth = identityWidth + termWidth + totalColumns * weekTotalWidth + dateColumns * dayWidth;
+  // A 1–2-week cutoff must still fill the physical sheet, but allocating *all*
+  // released width to 1–10 day cells produces absurdly oversized date columns.
+  // When the natural pitch exceeds a comfortable 20pt, share the extra width
+  // proportionally among identities, dates, weekly totals and term totals.
+  // Both HTML and PDF consume this exact physical plan; no filler dates.
+  const baseDayWidth = 20;
+  const preferredWidth = identityWidth + termWidth + totalColumns * baseWeekTotalWidth
+    + dateColumns * baseDayWidth;
+  const stretch = naturalDayWidth > baseDayWidth && preferredWidth > 0
+    ? contentWidth / preferredWidth : 1;
+  const identityWidths = identity.widths.map((width) => width * stretch);
+  const termWidths = baseTermWidths.map((width) => width * stretch);
+  const weekTotalWidth = baseWeekTotalWidth * stretch;
+  const dayWidth = stretch > 1 ? baseDayWidth * stretch : naturalDayWidth;
+  const tableWidth = contentWidth;
   const learnerCount = section.learners.length;
   const empty = learnerCount === 0;
   const rowBandCeiling = Math.max(24, contentHeight - fixedHeight);
@@ -328,7 +331,7 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
     contentWidth,
     tableWidth,
     contentHeight,
-    identityWidths: identity.widths,
+    identityWidths,
     termWidths,
     dayWidth,
     weekTotalWidth,
