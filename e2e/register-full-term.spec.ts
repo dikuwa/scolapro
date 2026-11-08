@@ -316,6 +316,14 @@ test.describe("full-term single-sheet register", () => {
       body: await page.screenshot(),
       contentType: "image/png",
     });
+
+    // The selected cutoff is a view override, not a calendar edit. Clearing it
+    // removes the URL parameter and restores the server-governed default.
+    await page.getByRole("button", { name: "Clear date" }).click();
+    await expect(page).not.toHaveURL(/closingDate=/);
+    await expect(page.getByText("Last eligible school day (default)")).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Closing date", exact: true })).toHaveValue("");
+    await expect(page.getByText("Official learner closing date:")).toBeVisible();
   });
 
   test("the full-term PDF endpoint honours the download contract", async ({ page }) => {
