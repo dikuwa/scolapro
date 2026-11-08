@@ -41,3 +41,23 @@ test("server action rechecks current-school management scope", () => {
   assert.match(action, /deputy_principal/);
   assert.match(action, /save_school_statutory_emis_profile/);
 });
+
+test("#1279 statutory configuration keeps current saved values visible before its editor", () => {
+  assert.match(panel, /<ConfigurationCard/);
+  assert.match(panel, /panelId="school-statutory-profile-editor"/);
+  assert.match(panel, /summary=\{\(/);
+  assert.match(panel, /editor=\{\(/);
+  assert.ok(panel.indexOf("profile.payPoint") < panel.indexOf("editor={("));
+  for (const property of [
+    "payPoint", "constituency", "schoolClassification", "ownership",
+    "urbanRural", "satelliteSchoolInformation", "isSatelliteSchool", "isClusterCentre",
+  ]) assert.match(panel, new RegExp(`profile\\.${property}`));
+  assert.match(panel, /Not configured/);
+  assert.match(panel, /router\.refresh\(\)/);
+  assert.match(panel, /setOpen\(false\)/);
+  assert.match(panel, /aria-controls="school-statutory-profile-editor"/);
+  assert.match(panel, />Cancel<\/button>/);
+  assert.match(panel, /disabled=\{pending\}/);
+  assert.doesNotMatch(panel, /RecordActionButton/);
+});
+
