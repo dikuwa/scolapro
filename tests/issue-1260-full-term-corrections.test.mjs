@@ -731,3 +731,61 @@ test("#1266 excluded closing-day and single-day partial term keep compact grid a
     if (closingDate === "2026-09-07") assert.equal(document.fullTerm.includedTeachingDayCount, 1);
   }
 });
+
+
+test("#1268 historical 12 Oct cutoff is cumulative and future term weekdays are not labelled closures", async () => {
+  const cutoff = "2026-10-12";
+  const first = "2026-09-07";
+  const historicAbsence = "2026-09-15";
+  const document = build({
+    fullTerm: { today: TODAY, closingDate: cutoff },
+    impactRows: impactRows({ "2026-10-05": "NO_TEACHING" }),
+    overrideRows: [{ school_date: "2026-10-05", reason: "School holiday" }],
+    currentRows: [{ enrolment_id: "b1", attendance_date: historicAbsence, status: "absent", reason_id: null, note: null }],
+  });
+  const dates = document.weeks.flatMap(week => week.dates.map(day => day.date));
+  assert.equal(dates[0], first);
+  assert.equal(dates[dates.length - 1], cutoff);
+  assert.ok(dates.includes(historicAbsence));
+  assert.ok(!dates.some(day => day > cutoff));
+  assert.equal(document.fullTerm.includedTeachingDayCount, 25);
+  assert.equal(document.fullTerm.scheduledTeachingDayCount, 26);
+  assert.equal(document.fullTerm.termEligibleTeachingDayCount, 64);
+  assert.equal(document.fullTerm.weekdayBaseline, 65);
+  assert.equal(section(document, "male").learners[0].marks[historicAbsence], "a");
+  assert.equal(section(document, "male").learners[0].termDays, 25);
+  const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+  const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+  assert.match(html, /26 scheduled school days/);
+  assert.match(html, /25 school-included teaching days \(1 school non-teaching day\)/);
+  assert.doesNotMatch(html, /40 school non-teaching days/);
+  const { pageCount } = await fullTermPdf.renderRegisterTeacherFullTermPdf({ header: HEADER_FIXTURE, document, plan });
+  assert.equal(pageCount, 2);
+});
+
+test("#1268 closing calendar picker and inline preview preserve cumulative view state", () => {
+  const workspace = readFileSync("src/features/attendance/register-teacher-workspace.tsx", "utf8");
+  const inline = readFileSync("src/features/attendance/inline-register-document-panel.tsx", "utf8");
+  assert.match(workspace, /import \{ DateField \} from "@\/components\/ui\/date-field"/);
+  assert.match(workspace, /label="Closing date"/);
+  assert.match(workspace, /min=\{selectedTerm\?\.startsOn \?\? undefined\}/);
+  assert.match(workspace, /max=\{selectedTerm\?\.endsOn \?\? undefined\}/);
+  assert.match(workspace, /Last eligible school day/);
+  assert.doesNotMatch(workspace, /const closingDateOptions =/);
+  assert.match(workspace, /navigate\(\{ closingDate: value \|\| null \}\)/);
+  assert.match(inline, /key=\{state\.requestKey\}/);
+});
+
+
+test("#1268 default last-eligible cutoff retains whole-term closure audit on trailing schoolday", () => {
+  const document = build({
+    impactRows: impactRows({ "2026-12-04": "NO_TEACHING" }),
+    overrideRows: [{ school_date: "2026-12-04", reason: "School closing holiday" }],
+  });
+  assert.equal(document.fullTerm.closingDate, "2026-12-03");
+  assert.equal(document.fullTerm.scheduledTeachingDayCount, 65);
+  assert.equal(document.fullTerm.includedTeachingDayCount, 64);
+  assert.equal(document.fullTerm.termEligibleTeachingDayCount, 64);
+  const dates = document.weeks.flatMap(week => week.dates.map(day => day.date));
+  assert.equal(dates[dates.length - 1], "2026-12-03");
+});

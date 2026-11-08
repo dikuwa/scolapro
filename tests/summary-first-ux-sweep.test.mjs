@@ -47,10 +47,11 @@ test("school settings keep detailed editors behind explicit actions", () => {
   const reporting = read("src/features/reporting/report-card-settings-panel.tsx");
 
   assert.match(finance, /Edit banking details/);
-  assert.match(directory, /Edit contact/);
+  assert.match(directory, /<ConfigurationCard/);
+  assert.match(directory, /panelId="school-directory-contact-editor"/);
   assert.match(statutory, /Edit profile/);
-  assert.match(reporting, /Edit document settings/);
-  assert.match(reporting, /Manage subject rules/);
+  assert.match(reporting, /<ConfigurationCard/);
+  assert.match(reporting, /panelId="report-card-subject-editor"/);
   assert.match(reporting, /documentOpen/);
   assert.match(reporting, /subjectsOpen/);
 });

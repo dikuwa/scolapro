@@ -255,9 +255,15 @@ test.describe("full-term single-sheet register", () => {
     );
     await expect(page.getByRole("heading", { name: "Register Teacher document" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Period", exact: true })).toContainText("Full term (single sheet)");
-    const closingDate = page.getByRole("button", { name: "Closing date", exact: true });
+    const closingDate = page.getByRole("textbox", { name: "Closing date", exact: true });
     await expect(closingDate).toBeVisible();
-    await expect(closingDate).toContainText("Last eligible school day");
+    await expect(page.getByRole("button", { name: "Last eligible school day" })).toBeVisible();
+    await page.getByRole("button", { name: "Open closing date calendar" }).click();
+    await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await closingDate.fill("12/10/2026");
+    await closingDate.press("Enter");
+    await expect(page).toHaveURL(/closingDate=2026-10-12/);
 
     const frame = page.locator('iframe[title*="Full-Term Single-Sheet Register"]');
     await expect(frame).toBeVisible({ timeout: 45_000 });
@@ -267,6 +273,12 @@ test.describe("full-term single-sheet register", () => {
     await expect(documentFrame.locator(".full-term-sheet")).toHaveCount(2, { timeout: 45_000 });
     await expect(documentFrame.locator(".full-term-sheet").first()).toBeVisible();
     await expect(documentFrame.locator(".provisional-banner").first()).toContainText("PROVISIONAL");
+    await expect(documentFrame.locator(".provisional-banner").first()).not.toContainText("40 school non-teaching days");
+    await expect(documentFrame.locator(".day").first()).toContainText("7");
+    const content = await documentFrame.locator(".full-term-sheet").first().innerText();
+    expect(content).toContain("11 Sept 2026");
+    expect(content).toContain("09 Oct 2026");
+    expect(content).not.toContain("04 Dec 2026");
     // Issue #1264: each gender occupies a visibly distinct browser sheet.
     const paperBoxes = await documentFrame.locator(".full-term-sheet").evaluateAll((elements) =>
       elements.map((element) => {
