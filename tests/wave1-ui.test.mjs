@@ -158,9 +158,9 @@ test('report-card identity fields drop raw inline labels for the shared label bo
   assert.match(source, /import \{ formFieldLabelClass \} from "@\/components\/ui\/form-field-layout";/);
   // Every field label in the identity grid shares a row with a labelled Picker.
   for (const label of ['Former / secondary school name', 'Physical address', 'Town / city', 'Telephone', 'Fax', 'School email', 'Postal address', 'Official school logo', 'Official document font', 'Remarks mode', 'Default / fallback remark']) {
-    const shared = `<label className={formFieldLabelClass}>${label}</label>`;
+    const shared = new RegExp(`<label className=\\{formFieldLabelClass\\}[^>]*>${label}</label>`);
     const sharedParagraph = `<p className={formFieldLabelClass}>${label}</p>`;
-    assert.ok(source.includes(shared) || source.includes(sharedParagraph), `expected the shared label box on "${label}"`);
+    assert.ok(shared.test(source) || source.includes(sharedParagraph), `expected the shared label box on "${label}"`);
   }
   assert.doesNotMatch(source, /<(label|p) className="text-xs font-medium">/);
 });

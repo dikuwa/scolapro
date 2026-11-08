@@ -80,6 +80,18 @@ test("document save, validation, cancel, crest validation and subject save keep 
   await edit.click();
   await documentCard.locator('input[type="file"]').setInputFiles({ name: "not-a-logo.txt", mimeType: "text/plain", buffer: Buffer.from("synthetic") });
   await expect(page.getByText("Choose a JPG or PNG school logo.", { exact: true })).toBeVisible();
+  const logoPath = documentCard.locator('input[name="logoStoragePath"]');
+  await expect(logoPath).toHaveValue("");
+  await documentCard.locator('input[type="file"]').setInputFiles({
+    name: "synthetic-crest.png", mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=", "base64"),
+  });
+  await expect(logoPath).not.toHaveValue("");
+  const storedPreview = await documentCard.getByAltText("Namib High School saved logo").getAttribute("src");
+  await documentCard.getByRole("button", { name: "Remove", exact: true }).click();
+  await expect(logoPath).toHaveValue("");
+  // Removing the current crest must preserve the append-only stored asset.
+  expect((await page.request.get(storedPreview!)).status()).toBe(200);
   await formerName.fill("Synthetic Batch A School");
   await documentCard.getByRole("button", { name: "Save document settings", exact: true }).click();
   await expect(edit).toBeVisible();
