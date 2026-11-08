@@ -158,9 +158,9 @@ test('report-card identity fields drop raw inline labels for the shared label bo
   assert.match(source, /import \{ formFieldLabelClass \} from "@\/components\/ui\/form-field-layout";/);
   // Every field label in the identity grid shares a row with a labelled Picker.
   for (const label of ['Former / secondary school name', 'Physical address', 'Town / city', 'Telephone', 'Fax', 'School email', 'Postal address', 'Official school logo', 'Official document font', 'Remarks mode', 'Default / fallback remark']) {
-    const shared = `<label className={formFieldLabelClass}>${label}</label>`;
+    const shared = new RegExp(`<label className=\\{formFieldLabelClass\\}[^>]*>${label}</label>`);
     const sharedParagraph = `<p className={formFieldLabelClass}>${label}</p>`;
-    assert.ok(source.includes(shared) || source.includes(sharedParagraph), `expected the shared label box on "${label}"`);
+    assert.ok(shared.test(source) || source.includes(sharedParagraph), `expected the shared label box on "${label}"`);
   }
   assert.doesNotMatch(source, /<(label|p) className="text-xs font-medium">/);
 });
@@ -506,7 +506,10 @@ test('school settings renders the new public directory contact fields with publi
   assert.match(html, /School Directory contact/);
   assert.match(html, /Shown to authenticated ScolaPro schools in the School Directory\./);
   assert.match(html, /does not use the principal(?:&#x27;|&#39;|')s private account email/);
-  assert.match(html, /value="\+264 81 000 0000"/);
+  // Closed configuration cards show saved public details directly; the form is mounted only when editing.
+  assert.match(html, /Public cellphone/);
+  assert.match(html, /\+264 81 000 0000/);
+  assert.match(html, /principal\.public@alpha\.test/);
   // Existing canonical fields are not duplicated inside the directory panel.
   assert.match(html, /Report card &amp; document identity/);
 });
