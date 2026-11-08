@@ -88,6 +88,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
   const [logoUrl, setLogoUrl] = useState(profile.logoUrl);
   const [logoStoragePath, setLogoStoragePath] = useState(profile.logoStoragePath);
   const [documentOpen, setDocumentOpen] = useState(false);
+  const [showDocumentErrors, setShowDocumentErrors] = useState(false);
   const [subjectsOpen, setSubjectsOpen] = useState(false);
   useEffect(() => {
     if (!state.message) return;
@@ -175,6 +176,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
         description={`These values belong to ${schoolName}. They are frozen into each generated report so historical certified cards do not change when settings are edited later.`}
         open={documentOpen}
         onToggle={() => {
+          setShowDocumentErrors(false);
           setSchoolNameFont(isNamibHigh ? profile.schoolNameFont : "default");
           setDocumentOpen((current) => !current);
         }}
@@ -201,7 +203,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
             <p className="break-words text-xs leading-5 text-muted-foreground">Manual / reviewed remarks · {report.defaultRemark || "No fallback remark configured."}</p>
           </div>
         )}
-        editor={<form action={action} className="space-y-5" noValidate>
+        editor={<form action={action} onSubmit={() => setShowDocumentErrors(true)} className="space-y-5" noValidate>
           <input type="hidden" name="schoolId" value={schoolId} />
           <input type="hidden" name="logoUrl" value={logoStoragePath ? "" : legacyLogoUrl} />
           <input type="hidden" name="logoStoragePath" value={logoStoragePath} />
@@ -253,10 +255,11 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
             <div><label className={formFieldLabelClass} htmlFor="report-card-defaultRemark">Default / fallback remark</label><textarea id="report-card-defaultRemark" name="defaultRemark" defaultValue={report.defaultRemark} rows={3} className={`${fieldClass} mt-1.5 py-2`} placeholder="Optional fallback remark" /><p className="mt-1 text-[0.68rem] leading-5 text-muted-foreground">Used when a generated snapshot has no reviewed learner-specific remark.</p></div>
           </div>
 
-          {state.message && !state.success ? <p role="alert" className="text-sm text-destructive">{state.message}</p> : null}
-          {state.fieldErrors ? <div role="alert" className="space-y-1 text-sm text-destructive">{Object.entries(state.fieldErrors).map(([field, errors]) => <p key={field}>{errors.join(" ")}</p>)}</div> : null}
+          {showDocumentErrors && !pending && state.message && !state.success ? <p role="alert" className="text-sm text-destructive">{state.message}</p> : null}
+          {showDocumentErrors && !pending && state.fieldErrors ? <div role="alert" className="space-y-1 text-sm text-destructive">{Object.entries(state.fieldErrors).map(([field, errors]) => <p key={field}>{errors.join(" ")}</p>)}</div> : null}
           <div className="flex flex-wrap justify-end gap-2 border-t border-border-subtle pt-4">
             <button type="button" disabled={pending || logoUploading || logoPending} className="scolapro-cta min-h-10 bg-surface-muted px-4 text-sm font-medium" onClick={() => {
+              setShowDocumentErrors(false);
               setSchoolNameFont(isNamibHigh ? profile.schoolNameFont : "default");
               setDocumentOpen(false);
               panelRef.current?.querySelector<HTMLButtonElement>('[aria-controls="report-card-document-editor"]')?.focus();

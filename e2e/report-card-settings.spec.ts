@@ -1,8 +1,33 @@
 import { expect, test } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+import { DEMO } from "./support/accounts.mjs";
+import { localSupabaseStatus } from "./support/local-supabase.mjs";
 import { signIn } from "./support/session";
 
 const documentTitle = "Report card & document identity";
 const subjectTitle = "Subject report rules";
+
+const subjectId = "e2e40000-0000-4000-8000-000000001199";
+function fixtureClient() {
+  const status = localSupabaseStatus({ projectRoot: process.cwd() });
+  return createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+test.beforeAll(async () => {
+  const { error } = await fixtureClient().from("subjects").upsert({
+    id: subjectId, tenant_id: DEMO.tenantId, school_id: DEMO.schoolId, subject_code: "E2E-REPORT",
+    display_name: "E2E Reporting Subject", status: "active",
+  });
+  expect(error).toBeNull();
+});
+
+test.afterAll(async () => {
+  const client = fixtureClient();
+  const { error: ruleError } = await client.from("school_settings").delete().eq("school_id", DEMO.schoolId).eq("setting_key", `report_card_subject.${subjectId}`);
+  expect(ruleError).toBeNull();
+  const { error } = await client.from("subjects").delete().eq("school_id", DEMO.schoolId).eq("id", subjectId);
+  expect(error).toBeNull();
+});
 
 async function settingsPage(page: import("@playwright/test").Page) {
   await signIn(page, "admin");
@@ -36,7 +61,7 @@ for (const width of [375, 768, 1440]) for (const theme of ["light", "dark"] as c
       await page.keyboard.press("Enter");
       const close = card.getByRole("button", { name: "Close editor", exact: true });
       await expect(close).toHaveAttribute("aria-expanded", "true");
-      await expect(summary).toHaveText(savedText);
+      await expect(summary).toHaveText(savedText, { useInnerText: true });
       const panelId = await close.getAttribute("aria-controls");
       await expect(card.locator(`[id="${panelId}"]`)).toBeVisible();
       const geometry = await card.evaluate(node => {
@@ -78,6 +103,7 @@ test("document save, validation, cancel, crest validation and subject save keep 
   await expect(documentCard.getByRole("button", { name: "Close editor", exact: true })).toBeVisible();
   await documentCard.getByRole("button", { name: "Cancel", exact: true }).click();
   await edit.click();
+  await expect(documentCard.getByRole("alert")).toHaveCount(0);
   await documentCard.locator('input[type="file"]').setInputFiles({ name: "not-a-logo.txt", mimeType: "text/plain", buffer: Buffer.from("synthetic") });
   await expect(page.getByText("Choose a JPG or PNG school logo.", { exact: true })).toBeVisible();
   const logoPath = documentCard.locator('input[name="logoStoragePath"]');
@@ -111,6 +137,8 @@ test("document save, validation, cancel, crest validation and subject save keep 
   await expect(subjectCard.locator("dl")).toContainText("47%");
   await passMark.fill(oldMark);
   await form.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(subjectCard.locator("dl > div").first()).toContainText(oldMark ? `${Number(oldMark)}%` : "Not configured");
+  await expect(form.getByRole("button", { name: "Save", exact: true })).toBeEnabled();
 });
 
 for (const role of ["registerTeacher", "hod"] as const) test(`${role} cannot open school report settings`, async ({ page }) => {
