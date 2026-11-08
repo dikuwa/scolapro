@@ -32,7 +32,7 @@ export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPu
     <ConfigurationCard
       icon={ContactRound}
       title="School Directory contact"
-      description="Shown to authenticated ScolaPro schools in the School Directory. The principal public email does not use the principal\u0027s private account email. Other school contact fields retain their canonical settings."
+      description="Shown to authenticated ScolaPro schools in the School Directory. The principal public email does not use the principal's private account email. Other school contact fields retain their canonical settings."
       open={open}
       onToggle={() => setOpen((current) => !current)}
       panelId="school-directory-contact-editor"
