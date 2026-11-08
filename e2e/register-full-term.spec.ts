@@ -63,7 +63,7 @@ async function attachBundle(bundle: Bundle, testInfo: TestInfo) {
 }
 
 test.describe("full-term single-sheet register", () => {
-  test("keeps a 09 Sep partial closing-date sheet compact with matching two-page print/PDF", async ({ page }, testInfo) => {
+  test("fills the usable A2/A1 width for a 09 Sep cutoff with matching two-page print/PDF", async ({ page }, testInfo) => {
     await signInToAttendance(page, "admin");
     const response = await page.request.get(`${endpoint}&closingDate=2026-09-09&format=bundle`, { timeout: 120_000 });
     expect(response.status()).toBe(200);
@@ -82,7 +82,8 @@ test.describe("full-term single-sheet register", () => {
         const grid = table.getBoundingClientRect();
         return { paper: paper.width, grid: grid.width, inset: grid.left - paper.left };
       });
-      expect(dimensions.grid).toBeLessThan(dimensions.paper * 0.65);
+      expect(dimensions.grid).toBeGreaterThan(dimensions.paper * 0.90);
+      expect(dimensions.grid).toBeLessThan(dimensions.paper);
       expect(dimensions.inset).toBeGreaterThan(0);
       await expect(sheet.locator(".day")).toHaveCount(3);
     }
@@ -257,13 +258,15 @@ test.describe("full-term single-sheet register", () => {
     await expect(page.getByRole("button", { name: "Period", exact: true })).toContainText("Full term (single sheet)");
     const closingDate = page.getByRole("textbox", { name: "Closing date", exact: true });
     await expect(closingDate).toBeVisible();
-    await expect(page.getByRole("button", { name: "Last eligible school day" })).toBeVisible();
+    await expect(page.getByText("Last eligible school day (default)")).toBeVisible();
+    await expect(page.getByText("Official learner closing date:")).toBeVisible();
     await page.getByRole("button", { name: "Open closing date calendar" }).click();
     await expect(page.getByRole("dialog", { name: "Choose date" })).toBeVisible();
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await closingDate.fill("12/10/2026");
     await closingDate.press("Enter");
     await expect(page).toHaveURL(/closingDate=2026-10-12/);
+    await expect(page.getByRole("button", { name: "Clear date" })).toBeVisible();
 
     const frame = page.locator('iframe[title*="Full-Term Single-Sheet Register"]');
     await expect(frame).toBeVisible({ timeout: 45_000 });
