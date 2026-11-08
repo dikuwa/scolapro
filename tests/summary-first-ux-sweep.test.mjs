@@ -49,7 +49,9 @@ test("school settings keep detailed editors behind explicit actions", () => {
   assert.match(finance, /Edit banking details/);
   assert.match(directory, /<ConfigurationCard/);
   assert.match(directory, /panelId="school-directory-contact-editor"/);
-  assert.match(statutory, /Edit profile/);
+  assert.match(statutory, /<ConfigurationCard/);
+  assert.match(statutory, /panelId="school-statutory-profile-editor"/);
+  assert.match(statutory, /profile\.payPoint/);
   assert.match(reporting, /<ConfigurationCard/);
   assert.match(reporting, /panelId="report-card-subject-editor"/);
   assert.match(reporting, /documentOpen/);

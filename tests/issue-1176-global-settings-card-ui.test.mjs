@@ -61,13 +61,12 @@ test("academic structure uses one tabbed Grade & Class card with right-anchored 
 });
 
 test("matching school settings cards use shared edit and manage action semantics", () => {
-  for (const source of [statutory, finance]) {
-    assert.match(source, /RecordActionButton/);
-  }
+  assert.match(finance, /RecordActionButton/);
+  assert.match(statutory, /<ConfigurationCard/);
   assert.match(directory, /<ConfigurationCard/);
   assert.match(directory, /panelId="school-directory-contact-editor"/);
   assert.match(directory, /Public cellphone/);
-  assert.match(statutory, /actionKind=\{open \? undefined : "edit"\}/);
+  assert.match(statutory, /panelId="school-statutory-profile-editor"/);
   assert.match(reportSettings, /<ConfigurationCard/);
   assert.match(reportSettings, /panelId="report-card-document-editor"/);
   assert.match(reportSettings, /panelId="report-card-subject-editor"/);

@@ -1,10 +1,11 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Database, LoaderCircle, Save, ShieldCheck, X } from "lucide-react";
+import { Database, LoaderCircle, Save, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { formFieldLabelClass } from "@/components/ui/form-field-layout";
-import { RecordActionButton } from "@/components/ui/record-action-button";
+import { ConfigurationCard } from "@/components/ui/configuration-card";
 import {
   saveSchoolStatutoryEmisProfile,
   type SchoolStatutoryProfileState,
@@ -53,6 +54,7 @@ export function SchoolStatutoryEmisProfilePanel({
   schoolId: string;
   data: SchoolStatutoryEmisProfile;
 }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(saveSchoolStatutoryEmisProfile, initialState);
   const [open, setOpen] = useState(false);
 
@@ -60,11 +62,15 @@ export function SchoolStatutoryEmisProfilePanel({
     if (!state.message) return;
     if (state.success) {
       toast.success(state.message);
-      queueMicrotask(() => setOpen(false));
+      router.refresh();
+      queueMicrotask(() => {
+        setOpen(false);
+        document.querySelector<HTMLButtonElement>('[aria-controls="school-statutory-profile-editor"]')?.focus();
+      });
     } else {
       toast.error(state.message);
     }
-  }, [state]);
+  }, [state, router]);
 
   const profile = data.profile;
   const address = [data.contact.physicalAddress, data.contact.postalAddress].filter(Boolean).join(" · ");
@@ -74,20 +80,19 @@ export function SchoolStatutoryEmisProfilePanel({
     : "Not configured";
 
   return (
-    <section className="mt-6 rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex items-start gap-3">
-        <span className="scolapro-tone-amber grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)]">
-          <Database className="size-4" aria-hidden="true" />
-        </span>
-        <div className="min-w-0">
-          <h2 className="scolapro-section-title">Statutory / EMIS Profile</h2>
-          <p className="scolapro-section-description">
-            Reusable school facts for future statutory reporting. Canonical EMIS, education-network, contact/address and hostel records stay in their existing sources.
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5">
+    <ConfigurationCard
+      icon={Database}
+      tone="scolapro-tone-amber"
+      title="Statutory / EMIS Profile"
+      description="Reusable school facts for future statutory reporting. Canonical EMIS, education-network, contact/address and hostel records stay in their existing sources."
+      open={open}
+      onToggle={() => setOpen((current) => !current)}
+      panelId="school-statutory-profile-editor"
+      disabled={pending}
+      className="mt-6"
+      summary={(
+        <>
+          <div>
         <div className="mb-3 flex items-start gap-2">
           <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div>
@@ -113,20 +118,27 @@ export function SchoolStatutoryEmisProfilePanel({
         </div>
       </div>
 
-      <div className="mt-4 flex justify-end">
-        <RecordActionButton
-          label={open ? "Close" : "Edit profile"}
-          icon={open ? X : undefined}
-          actionKind={open ? undefined : "edit"}
-          variant="soft"
-          compact={false}
-          expanded={open}
-          onClick={() => setOpen((current) => !current)}
-          className="min-h-9 px-3 text-xs"
-        />
-      </div>
-
-      {open ? <form action={action} className="mt-5 border-t border-border-subtle pt-5" noValidate>
+          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+            {([
+              ["Pay point", profile.payPoint],
+              ["Constituency", profile.constituency],
+              ["School classification", profile.schoolClassification],
+              ["Ownership", profile.ownership],
+              ["Urban / rural", profile.urbanRural],
+              ["Satellite school information", profile.satelliteSchoolInformation],
+            ] as const).map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+                <dd className="mt-1 break-words font-medium text-foreground">{value || "Not configured"}</dd>
+              </div>
+            ))}
+            <div><dt className="text-xs font-medium text-muted-foreground">Satellite school</dt><dd className="mt-1 font-medium">{profile.isSatelliteSchool ? "Yes" : "No"}</dd></div>
+            <div><dt className="text-xs font-medium text-muted-foreground">Cluster centre</dt><dd className="mt-1 font-medium">{profile.isClusterCentre ? "Yes" : "No"}</dd></div>
+          </dl>
+        </>
+      )}
+      editor={(
+        <form action={action} noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
         <div>
           <h3 className="text-sm font-semibold">Reusable statutory profile</h3>
@@ -170,13 +182,18 @@ export function SchoolStatutoryEmisProfilePanel({
           <Toggle name="isClusterCentre" defaultChecked={profile.isClusterCentre} label="Cluster centre" description="Marks the school as the cluster centre without duplicating the canonical cluster assignment." />
         </div>
 
-        <div className="mt-5 flex justify-end border-t border-border-subtle pt-4">
+        <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-border-subtle pt-4">
+          <button type="button" disabled={pending} onClick={() => {
+            setOpen(false);
+            document.querySelector<HTMLButtonElement>('[aria-controls="school-statutory-profile-editor"]')?.focus();
+          }} className="scolapro-cta min-h-10 bg-surface-muted px-4 text-sm font-medium hover:bg-surface-elevated disabled:opacity-60">Cancel</button>
           <button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
             {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
             {pending ? "Saving…" : "Save Statutory / EMIS Profile"}
           </button>
         </div>
-      </form> : null}
-    </section>
+        </form>
+      )}
+    />
   );
 }
