@@ -24,6 +24,7 @@ for (const width of [375, 768, 1440]) for (const theme of ["light", "dark"] as c
     await card.getByRole("button", { name: "Cancel" }).click();
     await expect(card.getByLabel("Cellphone", { exact: true })).toHaveCount(0);
     await expect(edit).toHaveAttribute("aria-expanded", "false");
+    await expect(edit).toBeFocused();
     await edit.click();
     await expect(card.getByLabel("Cellphone", { exact: true })).toHaveValue(original);
     await card.getByRole("button", { name: "Close editor" }).click();
