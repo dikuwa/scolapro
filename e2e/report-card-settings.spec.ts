@@ -2,6 +2,8 @@ import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { DEMO } from "./support/accounts.mjs";
 import { localSupabaseStatus } from "./support/local-supabase.mjs";
+import { resolveE2EEnvironment } from "./support/env-guard.mjs";
+import { mergedProjectEnv } from "../scripts/env-file.mjs";
 import { signIn } from "./support/session";
 
 const documentTitle = "Report card & document identity";
@@ -12,6 +14,13 @@ function fixtureClient() {
   const status = localSupabaseStatus({ projectRoot: process.cwd() });
   return createClient(status.API_URL, status.SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 }
+
+// This spec creates a local-only synthetic subject with the local service-role
+// key. Never seed a different stack when PLAYWRIGHT_BASE_URL targets hosted
+// staging: Playwright can test that target only through approved seed controls.
+test.describe("local-only report-card configuration fixture", () => {
+  const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
+  test.skip(target !== "local", "Reporting fixture is local Supabase only; staging must use its guarded seed.");
 
 test.beforeAll(async () => {
   const { error } = await fixtureClient().from("subjects").upsert({
@@ -166,4 +175,5 @@ test("another school sees only its own empty report configuration", async ({ pag
   await expect(card).toContainText("Configure active subjects first");
   await expect(card.getByRole("button", { name: "Edit configuration", exact: true })).toBeDisabled();
   await expect(page.getByRole("heading", { name: "School settings", exact: true })).toBeVisible();
+});
 });
