@@ -49,8 +49,8 @@ test("school settings keep detailed editors behind explicit actions", () => {
   assert.match(finance, /Edit banking details/);
   assert.match(directory, /Edit contact/);
   assert.match(statutory, /Edit profile/);
-  assert.match(reporting, /Edit document settings/);
-  assert.match(reporting, /Manage subject rules/);
+  assert.match(reporting, /<ConfigurationCard/);
+  assert.match(reporting, /panelId="report-card-subject-editor"/);
   assert.match(reporting, /documentOpen/);
   assert.match(reporting, /subjectsOpen/);
 });
