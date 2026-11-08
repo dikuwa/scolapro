@@ -768,8 +768,8 @@ test("#1268 closing calendar picker and inline preview preserve cumulative view 
   const inline = readFileSync("src/features/attendance/inline-register-document-panel.tsx", "utf8");
   assert.match(workspace, /import \{ DateField \} from "@\/components\/ui\/date-field"/);
   assert.match(workspace, /label="Closing date"/);
-  assert.match(workspace, /min=\{selectedTerm\?\.startsOn\}/);
-  assert.match(workspace, /max=\{selectedTerm\?\.endsOn\}/);
+  assert.match(workspace, /min=\{selectedTerm\?\.startsOn \?\? undefined\}/);
+  assert.match(workspace, /max=\{selectedTerm\?\.endsOn \?\? undefined\}/);
   assert.match(workspace, /Last eligible school day/);
   assert.doesNotMatch(workspace, /const closingDateOptions =/);
   assert.match(workspace, /navigate\(\{ closingDate: value \|\| null \}\)/);
