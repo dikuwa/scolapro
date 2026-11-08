@@ -173,7 +173,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
       <ConfigurationCard
         icon={FileText}
         title="Report card & document identity"
-        description={`These values belong to ${schoolName}. They are frozen into each generated report so historical certified cards do not change when settings are edited later.`}
+        description={`Document settings for ${schoolName}.`}
         open={documentOpen}
         onToggle={() => {
           setShowDocumentErrors(false);
@@ -184,7 +184,8 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
         disabled={pending || logoUploading || logoPending}
         summary={(
           <div className="space-y-3 text-sm">
-            <div className="flex items-start gap-3">
+            <p className="text-xs leading-5 text-muted-foreground">These values are frozen into each generated report so historical certified cards do not change when settings are edited later.</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
               {logoUrl ? <img src={logoUrl} alt={`${schoolName} saved logo`} className="size-12 shrink-0 object-contain" /> : <p className="text-xs text-muted-foreground">No school logo configured.</p>}
               <dl className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {[
@@ -272,7 +273,7 @@ export function ReportCardSettingsPanel({ schoolId, schoolName, settings }: { sc
         icon={School}
         tone="scolapro-tone-mint"
         title="Subject report rules"
-        description="Set each subject's minimum pass mark and whether it is promotional. A mark below its own threshold receives a small raised star beside the mark."
+        description="Minimum pass marks, promotion and report visibility."
         open={subjectsOpen}
         onToggle={() => setSubjectsOpen((current) => !current)}
         panelId="report-card-subject-editor"

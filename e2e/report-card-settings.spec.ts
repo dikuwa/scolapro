@@ -152,7 +152,7 @@ test("another school sees only its own empty report configuration", async ({ pag
   await signIn(page, "outsider");
   await page.goto("/school/settings");
   const card = page.locator("article").filter({ has: page.getByRole("heading", { name: subjectTitle, exact: true }) });
-  await expect(page.getByText("These values belong to E2E Isolation Secondary School.", { exact: false })).toBeVisible();
+  await expect(page.getByText("Document settings for E2E Isolation Secondary School.", { exact: false })).toBeVisible();
   await expect(card).toContainText("Configure active subjects first");
   await expect(card.getByRole("button", { name: "Edit configuration", exact: true })).toBeDisabled();
   await expect(page.getByRole("heading", { name: "School settings", exact: true })).toBeVisible();
