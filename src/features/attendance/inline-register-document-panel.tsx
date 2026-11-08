@@ -167,6 +167,7 @@ export function InlineRegisterDocumentPanel({
       ) : null}
       <div className={`${selection?.mode === "full-term" ? "mx-1 " : ""}h-[70vh] min-h-96 overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-white shadow-[var(--shadow-xs)]`}>
         <iframe
+          key={state.requestKey}
           title={`${title} inline document`}
           srcDoc={state.document.html}
           className="size-full border-0 bg-white"
