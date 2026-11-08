@@ -34,10 +34,6 @@ function pct(fraction: number) {
   return `${(fraction * 100).toFixed(4)}%`;
 }
 
-function paperMm(width: number) {
-  return `${((width / 72) * 25.4).toFixed(2)}mm`;
-}
-
 function learnerWeekPresent(learner: RegisterTeacherSection["learners"][number], week: RegisterTeacherWeek) {
   return week.dates.reduce((sum, day) => sum + (learner.marks[day.date] === "I" ? 1 : 0), 0);
 }
@@ -205,7 +201,11 @@ export function renderRegisterTeacherFullTermHtml(input: {
   const { header, document, plan } = input;
   if (!plan.fits) throw new Error("The full-term single-sheet plan does not fit the supported paper.");
   const paper = FULL_TERM_PAPERS[plan.sheets[0]?.paper ?? "a2"];
-  const widthMm = paperMm(paper.width);
+  // A screen sheet represents the printable page box, like @page after its
+  // physical margin. The 10pt inset is *inside* that printable box. Using the
+  // full physical paper width here left a 64pt empty band to the right of the
+  // table despite the register plan already filling its contentWidth.
+  const printableWidthPt = paper.width - 2 * plan.margin;
   return `<!doctype html>
 <html>
 <head>
@@ -216,7 +216,7 @@ export function renderRegisterTeacherFullTermHtml(input: {
   * { box-sizing:border-box; }
   html,body { margin:0; padding:0; font-family:Arial, Helvetica, sans-serif; color:var(--ink); background:#ececec; }
   body { padding:12px; }
-  .report { width:${widthMm}; min-width:${widthMm}; margin:0 auto 18px; padding:0 ${FULL_TERM_INSET}pt; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
+  .report { width:${printableWidthPt}pt; min-width:${printableWidthPt}pt; margin:0 auto 18px; padding:0 ${FULL_TERM_INSET}pt; background:white; box-shadow:0 10px 28px rgba(0,0,0,.12); position:relative; isolation:isolate; }
   ${OFFICIAL_DOCUMENT_HTML_HEADER_RULE}
   ${OFFICIAL_DOCUMENT_LANDSCAPE_SCREEN_RULE}
   /* In the browser each gender is a distinct paper sheet, not just a flowing
@@ -225,7 +225,7 @@ export function renderRegisterTeacherFullTermHtml(input: {
   @media screen {
     body { overflow-x:auto; padding:16px; background:#e6e9ed; }
     .report {
-      width:${widthMm}; min-width:${widthMm};
+      width:${printableWidthPt}pt; min-width:${printableWidthPt}pt;
       min-height:calc(${paper.height}pt - ${2 * plan.margin}pt);
       margin:0 auto 28px;
       outline:1px solid #aab4c2;

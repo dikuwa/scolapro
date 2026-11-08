@@ -684,6 +684,28 @@ test("#1264 document preview controls show pointer and honest action feedback", 
 });
 
 
+test("#1277 preview uses printable paper width with symmetric inset for any closing date", () => {
+  for (const closingDate of [null, "2026-09-09", "2026-10-12", "2026-11-19"]) {
+    const document = closingDate
+      ? build({ fullTerm: { today: TODAY, closingDate } })
+      : build();
+    const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
+    assert.equal(plan.fits, true);
+    const paper = fullTermLayout.FULL_TERM_PAPERS[plan.paper];
+    const printableWidth = paper.width - 2 * plan.margin;
+    const html = fullTermHtml.renderRegisterTeacherFullTermHtml({ header: HEADER_FIXTURE, document, plan });
+    assert.ok(html.includes(`width:${printableWidth}pt; min-width:${printableWidth}pt`),
+      "browser sheet should use printable page width, not full physical paper width");
+    assert.ok(html.includes(`padding:0 ${fullTermLayout.FULL_TERM_INSET}pt`));
+    assert.ok(html.includes(`@page { size: ${paper.width}pt ${paper.height}pt; margin:${plan.margin}pt; }`));
+    for (const sheet of plan.sheets) {
+      assert.ok(Math.abs(sheet.tableWidth - (printableWidth - 2 * sheet.inset)) < 0.01);
+      assert.ok(html.includes(`<table style="width:${sheet.tableWidth.toFixed(2)}pt">`));
+    }
+    assert.doesNotMatch(html, /paperMm\(/);
+  }
+});
+
 test("#1274 an early 09 Sep closing date fills paper without adding school days", async () => {
   const document = build({ fullTerm: { today: TODAY, closingDate: "2026-09-09" } });
   const plan = fullTermLayout.planRegisterTeacherFullTermDocument(document);
