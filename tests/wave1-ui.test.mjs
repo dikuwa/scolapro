@@ -506,7 +506,10 @@ test('school settings renders the new public directory contact fields with publi
   assert.match(html, /School Directory contact/);
   assert.match(html, /Shown to authenticated ScolaPro schools in the School Directory\./);
   assert.match(html, /does not use the principal(?:&#x27;|&#39;|')s private account email/);
-  assert.match(html, /value="\+264 81 000 0000"/);
+  // Closed configuration cards show saved public details directly; the form is mounted only when editing.
+  assert.match(html, /Public cellphone/);
+  assert.match(html, /\+264 81 000 0000/);
+  assert.match(html, /principal\.public@alpha\.test/);
   // Existing canonical fields are not duplicated inside the directory panel.
   assert.match(html, /Report card &amp; document identity/);
 });
