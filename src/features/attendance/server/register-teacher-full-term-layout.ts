@@ -269,16 +269,26 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
   const totalColumns = weeks.length;
   const attendanceColumns = dateColumns + totalColumns;
   const identity = identityPlan(section, contentWidth);
-  const termWidths = [46, 46, 46];
-  const weekTotalWidth = 17;
+  const baseTermWidths = [46, 46, 46];
+  const baseWeekTotalWidth = 17;
   const identityWidth = identity.widths.reduce((sum, width) => sum + width, 0);
-  const termWidth = termWidths.reduce((sum, width) => sum + width, 0);
-  const availableDateWidth = contentWidth - identityWidth - termWidth - totalColumns * weekTotalWidth;
-  // Every chosen cutoff uses the entire A2/A1 content width. The earlier
-  // compact-day cap left the right half of short registers empty in both HTML
-  // and PDF. Keep the same physical plan for all renderers (never CSS-stretch
-  // only the preview); no filler days or fabricated attendance are added.
-  const dayWidth = availableDateWidth / Math.max(1, dateColumns);
+  const termWidth = baseTermWidths.reduce((sum, width) => sum + width, 0);
+  const availableDateWidth = contentWidth - identityWidth - termWidth - totalColumns * baseWeekTotalWidth;
+  const naturalDayWidth = availableDateWidth / Math.max(1, dateColumns);
+  // A 1–2-week cutoff must still fill the physical sheet, but allocating *all*
+  // released width to 1–10 day cells produces absurdly oversized date columns.
+  // When the natural pitch exceeds a comfortable 20pt, share the extra width
+  // proportionally among identities, dates, weekly totals and term totals.
+  // Both HTML and PDF consume this exact physical plan; no filler dates.
+  const baseDayWidth = 20;
+  const preferredWidth = identityWidth + termWidth + totalColumns * baseWeekTotalWidth
+    + dateColumns * baseDayWidth;
+  const stretch = naturalDayWidth > baseDayWidth && preferredWidth > 0
+    ? contentWidth / preferredWidth : 1;
+  const identityWidths = identity.widths.map((width) => width * stretch);
+  const termWidths = baseTermWidths.map((width) => width * stretch);
+  const weekTotalWidth = baseWeekTotalWidth * stretch;
+  const dayWidth = stretch > 1 ? baseDayWidth * stretch : naturalDayWidth;
   const tableWidth = contentWidth;
   const learnerCount = section.learners.length;
   const empty = learnerCount === 0;
@@ -321,7 +331,7 @@ function buildSheet(document: RegisterTeacherDocument, section: RegisterTeacherS
     contentWidth,
     tableWidth,
     contentHeight,
-    identityWidths: identity.widths,
+    identityWidths,
     termWidths,
     dayWidth,
     weekTotalWidth,
