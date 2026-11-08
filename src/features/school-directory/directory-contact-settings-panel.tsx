@@ -68,7 +68,7 @@ export function DirectoryContactSettingsPanel({ schoolId, cellphone, principalPu
           {emailError ? <p className="mt-1 text-xs text-[color:var(--danger)]">{emailError}</p> : null}
         </div>
         <div className="flex flex-wrap justify-end gap-2 border-t border-border-subtle pt-4 md:col-span-2">
-          <button type="button" disabled={pending} onClick={() => setOpen(false)} className="scolapro-cta min-h-10 bg-surface-muted px-4 text-sm font-medium hover:bg-surface-elevated disabled:opacity-60">Cancel</button>
+          <button type="button" disabled={pending} onClick={() => { setOpen(false); document.querySelector<HTMLButtonElement>('[aria-controls="school-directory-contact-editor"]')?.focus(); }} className="scolapro-cta min-h-10 bg-surface-muted px-4 text-sm font-medium hover:bg-surface-elevated disabled:opacity-60">Cancel</button>
           <button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white shadow-[var(--shadow-xs)] hover:bg-brand-strong disabled:opacity-60">
             {pending ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}{pending ? "Saving…" : "Save directory contact"}
           </button>
