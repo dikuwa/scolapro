@@ -196,8 +196,8 @@ export function RegisterTeacherWorkspace({
                   name="register-teacher-closing-date"
                   value={closingDate ?? ""}
                   onChange={(value) => navigate({ closingDate: value || null })}
-                  min={selectedTerm?.startsOn}
-                  max={selectedTerm?.endsOn}
+                  min={selectedTerm?.startsOn ?? undefined}
+                  max={selectedTerm?.endsOn ?? undefined}
                 />
                 <button
                   type="button"
