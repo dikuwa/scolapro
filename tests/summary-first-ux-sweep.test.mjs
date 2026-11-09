@@ -46,7 +46,9 @@ test("school settings keep detailed editors behind explicit actions", () => {
   const statutory = read("src/features/statutory/school-statutory-profile-panel.tsx");
   const reporting = read("src/features/reporting/report-card-settings-panel.tsx");
 
-  assert.match(finance, /Edit banking details/);
+  assert.match(finance, /<ConfigurationCard/);
+  assert.match(finance, /panelId="school-payment-settings-editor"/);
+  assert.match(finance, /Published to eligible payers/);
   assert.match(directory, /<ConfigurationCard/);
   assert.match(directory, /panelId="school-directory-contact-editor"/);
   assert.match(statutory, /<ConfigurationCard/);
