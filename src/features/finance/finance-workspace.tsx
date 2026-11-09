@@ -1,12 +1,13 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Landmark } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { RecordActionButton } from "@/components/ui/record-action-button";
+import { ConfigurationCard } from "@/components/ui/configuration-card";
 import { recordPayment, savePaymentSettings, searchFinanceLearners, type FinanceActionState } from "@/features/finance/server/actions";
 import type { FinanceLearner, FinancePayment, SchoolPaymentSettings } from "@/features/finance/server/queries";
 
@@ -15,6 +16,7 @@ const field = "mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-b
 function Label({ children }: { children: React.ReactNode }) { return <span className="text-xs font-medium text-muted-foreground">{children}</span>; }
 
 export function PaymentSettingsForm({ schoolId, settings }: { schoolId: string; settings: SchoolPaymentSettings | null }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(savePaymentSettings, initial);
   const [open, setOpen] = useState(false);
 
@@ -22,32 +24,53 @@ export function PaymentSettingsForm({ schoolId, settings }: { schoolId: string; 
     if (!state.message) return;
     if (state.success) {
       toast.success(state.message);
-      queueMicrotask(() => setOpen(false));
+      router.refresh();
+      queueMicrotask(() => {
+        setOpen(false);
+        document.querySelector<HTMLButtonElement>('[aria-controls="school-payment-settings-editor"]')?.focus();
+      });
     } else {
       toast.error(state.message);
     }
-  }, [state]);
+  }, [state, router]);
+
+  const published = Boolean(settings?.active && settings.bankName && settings.accountName && settings.accountNumber);
 
   return (
-    <section className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div>
-        <h2 className="scolapro-section-title">Banking & payment details</h2>
-        <p className="scolapro-section-description">Payer-safe instructions only. Never enter banking passwords, PINs or online-banking credentials.</p>
-      </div>
-      <div className="mt-4 flex justify-end">
-        <RecordActionButton
-          label={open ? "Close" : "Edit banking details"}
-          icon={open ? X : undefined}
-          actionKind={open ? undefined : "edit"}
-          variant="soft"
-          compact={false}
-          expanded={open}
-          onClick={() => setOpen((current) => !current)}
-          className="min-h-9 px-3 text-xs"
-        />
-      </div>
-      {open ? (
-        <form action={action} className="mt-4 border-t border-border-subtle pt-4">
+    <ConfigurationCard
+      icon={Landmark}
+      title="Banking & payment details"
+      description="Payer-safe instructions only. Never enter banking passwords, PINs or online-banking credentials."
+      open={open}
+      onToggle={() => setOpen((current) => !current)}
+      panelId="school-payment-settings-editor"
+      disabled={pending}
+      summary={(
+        <div className="space-y-3">
+          <p className="text-xs font-semibold text-muted-foreground" role="status">
+            {!settings ? "Not configured" : published ? "Published to eligible payers" : "Not published"}
+          </p>
+          <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+            {([
+              ["Bank name", settings?.bankName],
+              ["Account name", settings?.accountName],
+              ["Account number", settings?.accountNumber],
+              ["Account type", settings?.accountType],
+              ["Branch name", settings?.branchName],
+              ["Branch code", settings?.branchCode],
+              ["Payment reference instructions", settings?.referenceInstructions],
+              ["Payment instructions", settings?.paymentInstructions],
+            ] as const).map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+                <dd className="mt-1 break-words font-medium text-foreground">{value || "Not configured"}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+      editor={(
+        <form action={action}>
           <input type="hidden" name="schoolId" value={schoolId}/>
           <div className="grid gap-3 sm:grid-cols-2">
             <label><Label>Bank name</Label><input className={field} name="bankName" required defaultValue={settings?.bankName ?? ""}/></label>
@@ -60,12 +83,16 @@ export function PaymentSettingsForm({ schoolId, settings }: { schoolId: string; 
             <label className="sm:col-span-2"><Label>Payment instructions</Label><textarea className={`${field} min-h-20 py-2`} name="paymentInstructions" defaultValue={settings?.paymentInstructions ?? ""}/></label>
             <Checkbox name="active" defaultChecked={settings?.active ?? true} label="Show these instructions to eligible payers" />
           </div>
-          <div className="mt-4 flex justify-start sm:justify-end">
+          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-border-subtle pt-4">
+            <Button type="button" variant="neutral" disabled={pending} onClick={() => {
+              setOpen(false);
+              document.querySelector<HTMLButtonElement>('[aria-controls="school-payment-settings-editor"]')?.focus();
+            }}>Cancel</Button>
             <Button type="submit" loading={pending} disabled={pending}>Save banking details</Button>
           </div>
         </form>
-      ) : null}
-    </section>
+      )}
+    />
   );
 }
 
