@@ -71,10 +71,24 @@ export function SubjectMaintenanceList({ subjects }: { subjects: { id: string; c
   const [editingId, setEditingId] = useState<string | null>(null);
   if (!subjects.length) return null;
   return <details className="group mt-4 border-t border-border-subtle pt-4">
-    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-[var(--radius-sm)] px-1 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]">
-      <div><p className="text-xs font-semibold">Configured subjects</p><p className="mt-0.5 text-[0.66rem] text-muted-foreground">Collapsed by default. Open to correct codes/names or archive used subjects safely.</p></div>
-      <span className="inline-flex items-center gap-2 text-[0.66rem] text-muted-foreground">{subjects.length} active <ChevronDown className="size-3.5 transition-transform duration-[var(--motion-base)] ease-[var(--ease-standard)] group-open:rotate-180" /></span>
+    <summary className="cursor-pointer list-none rounded-[var(--radius-sm)] px-1 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand)]">
+      <span className="flex items-center justify-between gap-3">
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold">Configured subjects</span>
+          <span className="mt-0.5 block text-[0.66rem] text-muted-foreground">Open to correct codes/names or archive subjects safely.</span>
+        </span>
+        <span className="inline-flex shrink-0 items-center gap-2 text-[0.66rem] text-muted-foreground">{subjects.length} active <ChevronDown className="size-3.5 transition-transform duration-[var(--motion-base)] ease-[var(--ease-standard)] group-open:rotate-180" /></span>
+      </span>
+      <span className="mt-3 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3 group-open:hidden" data-subject-preview>
+        {subjects.slice(0, 5).map((subject) => (
+          <span key={subject.id} className="flex min-w-0 items-center gap-2 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-2 text-xs">
+            <span className="shrink-0 font-semibold text-brand-strong">{subject.code}</span>
+            <span className="min-w-0 truncate text-foreground">{subject.name}</span>
+          </span>
+        ))}
+        {subjects.length > 5 ? <span className="self-center px-2.5 py-2 text-xs font-medium text-muted-foreground">+{subjects.length - 5} more subjects</span> : null}
+      </span>
     </summary>
-    <div className="mt-2 max-h-72 space-y-2 overflow-y-auto pr-1">{subjects.map((subject) => <SubjectRow key={subject.id} subject={subject} editing={editingId === subject.id} onEdit={() => setEditingId(subject.id)} onClose={() => setEditingId(null)} />)}</div>
+    <div className="mt-2 max-h-72 space-y-2 overflow-y-auto pr-1" data-subject-maintenance>{subjects.map((subject) => <SubjectRow key={subject.id} subject={subject} editing={editingId === subject.id} onEdit={() => setEditingId(subject.id)} onClose={() => setEditingId(null)} />)}</div>
   </details>;
 }
