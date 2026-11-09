@@ -21,6 +21,18 @@ test.describe("#1285 timetable subject preview (local synthetic)", () => {
       const section = page.locator("details").filter({
         has: page.getByText("Configured subjects", { exact: true }),
       });
+      // The local E2E seed may have no timetable subjects. Initialize one
+      // through the existing admin UI only in the local synthetic environment.
+      // Never mutate a hosted school's master data to satisfy visual QA.
+      if (await section.count() === 0) {
+        const createForm = page.locator("form").filter({
+          has: page.getByRole("button", { name: "Add subject", exact: true }),
+        });
+        await expect(createForm).toBeVisible();
+        await createForm.locator('input[name="code"]').fill(`QA${width}`);
+        await createForm.locator('input[name="name"]').fill(`Synthetic QA Subject ${width}`);
+        await createForm.getByRole("button", { name: "Add subject", exact: true }).click();
+      }
       await expect(section).toBeVisible();
       const preview = section.locator("[data-subject-preview]");
       const maintenance = section.locator("[data-subject-maintenance]");
