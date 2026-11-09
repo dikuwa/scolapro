@@ -61,7 +61,7 @@ test("academic structure uses one tabbed Grade & Class card with right-anchored 
 });
 
 test("matching school settings cards use shared edit and manage action semantics", () => {
-  assert.match(finance, /RecordActionButton/);
+  assert.match(finance, /<ConfigurationCard/);
   assert.match(statutory, /<ConfigurationCard/);
   assert.match(directory, /<ConfigurationCard/);
   assert.match(directory, /panelId="school-directory-contact-editor"/);
@@ -70,7 +70,7 @@ test("matching school settings cards use shared edit and manage action semantics
   assert.match(reportSettings, /<ConfigurationCard/);
   assert.match(reportSettings, /panelId="report-card-document-editor"/);
   assert.match(reportSettings, /panelId="report-card-subject-editor"/);
-  assert.match(finance, /actionKind=\{open \? undefined : "edit"\}/);
+  assert.match(finance, /panelId="school-payment-settings-editor"/);
 });
 
 test("other equivalent edit and manage surfaces use recognizable icons", () => {
