@@ -1,0 +1,614 @@
+diff --git a/e2e/sports-year-context.spec.ts b/e2e/sports-year-context.spec.ts
+new file mode 100644
+index 00000000..7ed2e056
+--- /dev/null
++++ b/e2e/sports-year-context.spec.ts
+@@ -0,0 +1,236 @@
++import { createClient, type SupabaseClient } from "@supabase/supabase-js";
++import { expect, test, type Locator, type Page } from "@playwright/test";
++import { mergedProjectEnv } from "../scripts/env-file.mjs";
++import { DEMO, OUTSIDER_TENANT } from "./support/accounts.mjs";
++import { isLoopbackHost, resolveE2EEnvironment } from "./support/env-guard.mjs";
++import { localSupabaseStatus } from "./support/local-supabase.mjs";
++import { signIn } from "./support/session";
++
++const academicYear = 2090;
++const path = `/school/sports-houses?year=${academicYear}`;
++const editorId = "sports-year-reference-date-editor";
++const draftDate = `14/05/${academicYear}`;
++const savedDate = `${academicYear}-05-14`;
++
++function yearCard(page: Page) {
++  return page.locator("section").filter({
++    has: page.getByRole("heading", { name: "Year context", exact: true }),
++  });
++}
++
++function toast(page: Page, message: string) {
++  return page.locator("[data-sonner-toast]").getByText(message, { exact: true });
++}
++
++async function expectCardLayout(card: Locator, toggle: Locator) {
++  const bounds = await card.boundingBox();
++  const button = await toggle.boundingBox();
++  const heading = await card.getByRole("heading", { name: "Year context" }).boundingBox();
++  expect(bounds).toBeTruthy();
++  expect(button).toBeTruthy();
++  expect(heading).toBeTruthy();
++  expect(button!.x + button!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width);
++  expect(button!.x).toBeGreaterThan(heading!.x + heading!.width / 2);
++  expect(Math.abs(button!.y - heading!.y)).toBeLessThanOrEqual(16);
++  const overflow = await card.evaluate((node) => ({
++    card: node.scrollWidth - node.clientWidth,
++    viewport: document.documentElement.scrollWidth - document.documentElement.clientWidth,
++  }));
++  expect(overflow.card).toBeLessThanOrEqual(1);
++  expect(overflow.viewport).toBeLessThanOrEqual(1);
++}
++
++test.describe("#1288 local-only Sports / Houses Year context", () => {
++  const env = mergedProjectEnv(process.cwd());
++  const target = resolveE2EEnvironment(env).target;
++  test.skip(target !== "local", "Sports year-context saves require local synthetic school data.");
++
++  let local: SupabaseClient;
++
++  test.beforeAll(async () => {
++    const status = localSupabaseStatus({ projectRoot: process.cwd() });
++    const app = new URL(env.NEXT_PUBLIC_SUPABASE_URL ?? "");
++    const stack = new URL(status.API_URL);
++    expect(isLoopbackHost(app.hostname)).toBe(true);
++    expect(app.port).toBe(stack.port);
++    expect(app.protocol).toBe(stack.protocol);
++    const client = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
++      auth: { autoRefreshToken: false, persistSession: false },
++    });
++
++    const { data, error } = await client.from("schools").select("id,name")
++      .in("id", [DEMO.schoolId, OUTSIDER_TENANT.schoolId]);
++    expect(error).toBeNull();
++    expect(data).toHaveLength(2);
++    expect(data).toEqual(expect.arrayContaining([
++      { id: DEMO.schoolId, name: DEMO.schoolName },
++      { id: OUTSIDER_TENANT.schoolId, name: OUTSIDER_TENANT.schoolName },
++    ]));
++    local = client;
++  });
++
++  async function clearSyntheticYear() {
++    const { error } = await local.from("sports_year_settings").delete()
++      .eq("school_id", DEMO.schoolId).eq("academic_year", academicYear);
++    expect(error).toBeNull();
++  }
++
++  async function savedSchoolYears() {
++    const { data, error } = await local.from("sports_year_settings").select("school_id,age_reference_date")
++      .in("school_id", [DEMO.schoolId, OUTSIDER_TENANT.schoolId]).eq("academic_year", academicYear);
++    expect(error).toBeNull();
++    return data;
++  }
++
++  test.beforeEach(clearSyntheticYear);
++  test.afterEach(async () => {
++    if (local) await clearSyntheticYear();
++  });
++
++  for (const width of [375, 768, 1440]) {
++    for (const theme of ["light", "dark"] as const) {
++      test(`summary, approval and save at ${width}px ${theme}`, async ({ page }, testInfo) => {
++        await page.setViewportSize({ width, height: 900 });
++        await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
++        await page.addInitScript((value) => localStorage.setItem("scolapro-theme", value), theme);
++        await signIn(page, "admin");
++        await page.goto(path);
++        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
++
++        const card = yearCard(page);
++        const yearPicker = card.getByRole("button", { name: "Academic year", exact: true });
++        const toggle = card.locator(`button[aria-controls="${editorId}"]`);
++        const editor = card.locator(`form#${editorId}`);
++        const date = editor.getByRole("textbox", { name: /^Official age reference date/ });
++        const approval = editor.getByRole("checkbox", { name: /approved by school management/ });
++        const submit = editor.getByRole("button", { name: "Save reference date", exact: true });
++        const missingDate = card.getByText("Not configured", { exact: true });
++
++        await expect(card).toBeVisible();
++        await expect(yearPicker).toHaveText(String(academicYear));
++        await expect(card.getByText("Assignment continuity", { exact: true })).toBeVisible();
++        await expect(card.getByText("No saved policy", { exact: true })).toBeVisible();
++        await expect(missingDate).toBeVisible();
++        await expect(toggle).toHaveAccessibleName("Add record");
++        await expect(toggle).toHaveAttribute("aria-expanded", "false");
++        await expect(editor).toHaveCount(0);
++        await expectCardLayout(card, toggle);
++        await card.screenshot({ path: testInfo.outputPath("closed.png") });
++
++        await toggle.press("Enter");
++        await expect(toggle).toHaveAccessibleName("Close editor");
++        await expect(toggle).toHaveAttribute("aria-expanded", "true");
++        await expect(editor).toBeVisible();
++        await expect(yearPicker).toHaveText(String(academicYear));
++        await expect(missingDate).toBeVisible();
++        await expect(date).toHaveValue("");
++        await expect(approval).not.toBeChecked();
++        await expectCardLayout(card, toggle);
++        await card.screenshot({ path: testInfo.outputPath("editor.png") });
++
++        await date.fill(draftDate);
++        await approval.check();
++        await editor.getByRole("button", { name: "Cancel", exact: true }).press("Enter");
++        await expect(editor).toHaveCount(0);
++        await expect(toggle).toBeFocused();
++        await toggle.press("Enter");
++        await expect(date).toHaveValue("");
++        await expect(approval).not.toBeChecked();
++
++        const wrongYear = `14/05/${academicYear + 1}`;
++        await date.fill(wrongYear);
++        await submit.click();
++        await expect(date).toHaveAttribute("aria-invalid", "true");
++        await expect(date).toHaveValue(wrongYear);
++        await expect(date).toBeFocused();
++        await expect(toast(page, "Choose a valid date within the academic year.")).toBeVisible();
++        await expect(missingDate).toBeVisible();
++        await expectCardLayout(card, toggle);
++        await page.screenshot({ path: testInfo.outputPath("validation.png") });
++
++        await date.fill(draftDate);
++        await submit.click();
++        await expect(toast(page, "Choose a valid date within the academic year and confirm school approval.")).toBeVisible();
++        await expect(editor).toBeVisible();
++        await expect(date).toHaveValue(draftDate);
++        await expect(missingDate).toBeVisible();
++
++        // A valid form targeting the second synthetic school must fail server authorization.
++        await approval.check();
++        const school = editor.locator('input[name="schoolId"]');
++        await school.evaluate((input: HTMLInputElement, id) => { input.value = id; }, OUTSIDER_TENANT.schoolId);
++        await submit.click();
++        await expect(toast(page, "Only an active School Admin for this school can change the approved Sports reference date.")).toBeVisible();
++        await expect(editor).toBeVisible();
++        await expect(date).toHaveValue(draftDate);
++        await expect(approval).toBeChecked();
++        await expect(missingDate).toBeVisible();
++        expect(await savedSchoolYears()).toEqual([]);
++        await page.screenshot({ path: testInfo.outputPath("server-error.png") });
++
++        await school.evaluate((input: HTMLInputElement, id) => { input.value = id; }, DEMO.schoolId);
++        // Keyboard submit leaves the year list open. Its options must lock during the real request.
++        await yearPicker.press("Enter");
++        const pendingYearOption = card.getByRole("option", { selected: false }).first();
++        await expect(pendingYearOption).toBeEnabled();
++        const save = Promise.withResolvers<void>();
++        await page.route((url) => url.pathname === "/school/sports-houses", async (route) => {
++          if (route.request().method() === "POST") await save.promise;
++          await route.continue();
++        });
++        try {
++          await submit.press("Enter");
++          await expect(yearPicker).toBeDisabled();
++          await expect(pendingYearOption).toBeDisabled();
++          await expect(toggle).toBeDisabled();
++          await expect(page).toHaveURL(new RegExp(`year=${academicYear}$`));
++        } finally {
++          save.resolve();
++        }
++        await expect(toast(page, "The school-approved reference date was saved. Age groups remain unchanged.")).toBeVisible();
++        await expect(editor).toHaveCount(0);
++        await expect(toggle).toHaveAccessibleName("Edit configuration");
++        await expect(toggle).toBeFocused();
++        await yearPicker.press("Escape");
++        await expect(card.getByRole("listbox")).toBeHidden();
++        await expect(missingDate).toHaveCount(0);
++        await expect(card.locator(`time[datetime="${savedDate}"]`)).toBeVisible();
++        await expect(card.getByText(/carry forward/i)).toBeVisible();
++        expect(await savedSchoolYears()).toEqual([{ school_id: DEMO.schoolId, age_reference_date: savedDate }]);
++        await card.screenshot({ path: testInfo.outputPath("configured.png") });
++
++        await toggle.press("Enter");
++        await expect(date).toHaveValue(draftDate);
++        await expect(approval).not.toBeChecked();
++        await toggle.press("Enter");
++        await expect(editor).toHaveCount(0);
++        await expect(toggle).toBeFocused();
++
++        await toggle.press("Enter");
++        await date.fill(`27/09/${academicYear}`);
++        await yearPicker.click();
++        const nextYear = card.getByRole("option", { selected: false }).first();
++        const nextYearLabel = await nextYear.innerText();
++        await nextYear.click();
++        await expect(yearPicker).toHaveText(nextYearLabel);
++        await expect(editor).toHaveCount(0);
++        await yearPicker.click();
++        await card.getByRole("option", { name: String(academicYear), exact: true }).click();
++        await expect(yearPicker).toHaveText(String(academicYear));
++        await expect(editor).toHaveCount(0);
++        await toggle.press("Enter");
++        await expect(date).toHaveValue(draftDate);
++      });
++    }
++  }
++
++  test("an authenticated teacher can read Year context without its editor", async ({ page }) => {
++    await signIn(page, "registerTeacher");
++    await page.goto(path);
++    const card = yearCard(page);
++    await expect(card.getByRole("button", { name: "Academic year", exact: true })).toHaveText(String(academicYear));
++    await expect(card.getByText("Not configured", { exact: true })).toBeVisible();
++    await expect(card.getByText("Assignment continuity", { exact: true })).toBeVisible();
++    await expect(card.locator(`[aria-controls="${editorId}"], #${editorId}`)).toHaveCount(0);
++  });
++});
+diff --git a/src/features/sports-houses/sports-houses-workspace.tsx b/src/features/sports-houses/sports-houses-workspace.tsx
+index 463e114e..064c9729 100644
+--- a/src/features/sports-houses/sports-houses-workspace.tsx
++++ b/src/features/sports-houses/sports-houses-workspace.tsx
+@@ -1,11 +1,12 @@
+ "use client";
+ 
+-import { useActionState, useEffect, useMemo, useState } from "react";
++import { useActionState, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+ import { ChevronDown, ChevronRight, LockKeyhole, Pencil, Plus, Settings2, ShieldCheck, UsersRound, X } from "lucide-react";
+ import { usePathname, useRouter, useSearchParams } from "next/navigation";
+ import { toast } from "sonner";
+ import { Button } from "@/components/ui/button";
+-import { Checkbox } from "@/components/ui/checkbox";
++import { CardActionToggle } from "@/components/ui/card-action-toggle";
++import { CheckboxField } from "@/components/ui/checkbox-field";
+ import { DateField } from "@/components/ui/date-field";
+ import { RecordActionButton } from "@/components/ui/record-action-button";
+ import { OfficialDocumentActions } from "@/components/documents/official-document-actions";
+@@ -64,19 +65,23 @@ function Swatch({ color }: { color: string | null }) {
+   );
+ }
+ 
+-function YearPicker({ academicYear, years }: { academicYear: number; years: number[] }) {
+-  const router = useRouter();
+-  const pathname = usePathname();
+-  const search = useSearchParams();
++function YearPicker({
++  academicYear,
++  years,
++  disabled,
++  onChange,
++}: {
++  academicYear: number;
++  years: number[];
++  disabled: boolean;
++  onChange: (year: string) => void;
++}) {
+   return (
+     <Picker
+       label="Academic year"
+       value={String(academicYear)}
+-      onChange={(next) => {
+-        const params = new URLSearchParams(search.toString());
+-        params.set("year", next);
+-        router.push(`${pathname}?${params.toString()}`);
+-      }}
++      onChange={onChange}
++      disabled={disabled}
+       placeholder="Choose year"
+       options={years.map((year) => ({ value: String(year), label: String(year) }))}
+       className="w-full sm:w-48"
+@@ -88,30 +93,44 @@ function SportsYearReferenceDateForm({
+   schoolId,
+   academicYear,
+   currentDate,
++  action,
++  pending,
++  schoolApprovalConfirmed,
++  onApprovalChange,
++  onClose,
+ }: {
+   schoolId: string;
+   academicYear: number;
+   currentDate: string | null;
++  action: (formData: FormData) => void;
++  pending: boolean;
++  schoolApprovalConfirmed: boolean;
++  onApprovalChange: (confirmed: boolean) => void;
++  onClose: () => void;
+ }) {
+-  const [state, action, pending] = useActionState(saveSportsYearReferenceDate, initialState);
+   const [ageReferenceDate, setAgeReferenceDate] = useState(currentDate ?? "");
+-  useActionToast(state);
+ 
+   return (
+     <form
++      id="sports-year-reference-date-editor"
+       action={action}
+       onSubmit={(event) => {
++        if (pending) {
++          event.preventDefault();
++          return;
++        }
+         const invalidDate = event.currentTarget.querySelector<HTMLElement>('[aria-invalid="true"]');
+         if (invalidDate) {
+           event.preventDefault();
+           invalidDate.focus();
++          toast.error("Choose a valid date within the academic year.");
+         }
+       }}
+-      className="mt-4 grid gap-3 border-t border-border-subtle pt-4 md:grid-cols-[minmax(14rem,20rem)_minmax(14rem,1fr)_auto] md:items-end"
++      className="mt-4 border-t border-border-subtle pt-4"
+     >
+       <input type="hidden" name="schoolId" value={schoolId} />
+       <input type="hidden" name="academicYear" value={academicYear} />
+-      <div>
++      <fieldset disabled={pending} className="min-w-0 space-y-2">
+         <DateField
+           label="Official age reference date"
+           name="ageReferenceDate"
+@@ -120,23 +139,159 @@ function SportsYearReferenceDateForm({
+           required
+           min={`${academicYear}-01-01`}
+           max={`${academicYear}-12-31`}
++          className="sm:max-w-xs"
+         />
+-        <p className="mt-1 text-xs text-muted-foreground">
+-          Use only the date formally approved by the school. No date is inferred or prefilled when the year is not configured.
++        <p className="text-xs text-muted-foreground">
++          Use only the date formally approved by the school.
+         </p>
++        <CheckboxField
++          key={schoolApprovalConfirmed ? "approved" : "unapproved"}
++          name="schoolApprovalConfirmed"
++          defaultChecked={schoolApprovalConfirmed}
++          onChange={(event) => onApprovalChange(event.target.checked)}
++          label="I confirm this date has been approved by school management."
++          labelClassName="min-h-10 text-xs"
++          disabled={pending}
++        />
++      </fieldset>
++      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
++        <Button type="button" variant="neutral" size="sm" disabled={pending} onClick={onClose}>
++          Cancel
++        </Button>
++        <Button type="submit" loading={pending} size="sm">
++          {currentDate ? "Update reference date" : "Save reference date"}
++        </Button>
+       </div>
+-      <Checkbox
+-        name="schoolApprovalConfirmed"
+-        label="I confirm this date has been approved by school management."
+-        className="min-h-10"
+-      />
+-      <Button type="submit" loading={pending} size="sm">
+-        {currentDate ? "Update reference date" : "Save reference date"}
+-      </Button>
+     </form>
+   );
+ }
+ 
++function SportsYearContext({
++  schoolId,
++  schoolName,
++  academicYear,
++  years,
++  yearSettings,
++  canManageYearContext,
++}: {
++  schoolId: string;
++  schoolName: string;
++  academicYear: number;
++  years: number[];
++  yearSettings: SportsYearSettings | null;
++  canManageYearContext: boolean;
++}) {
++  const router = useRouter();
++  const pathname = usePathname();
++  const search = useSearchParams();
++  const cardRef = useRef<HTMLElement>(null);
++  const restoreFocusAfterSave = useRef(false);
++  const [isYearDateEditorOpen, setIsYearDateEditorOpen] = useState(false);
++  const [schoolApprovalConfirmed, setSchoolApprovalConfirmed] = useState(false);
++  const [changingYear, startYearChange] = useTransition();
++  const [state, action, pending] = useActionState(async (previous: SportsHousesActionState, formData: FormData) => {
++    const approvalConfirmed = formData.get("schoolApprovalConfirmed") === "on";
++    setSchoolApprovalConfirmed(false);
++    try {
++      const result = await saveSportsYearReferenceDate(previous, formData);
++      if (result.success) {
++        restoreFocusAfterSave.current = true;
++        setIsYearDateEditorOpen(false);
++        setSchoolApprovalConfirmed(false);
++      } else {
++        setSchoolApprovalConfirmed(approvalConfirmed);
++      }
++      return result;
++    } catch {
++      setSchoolApprovalConfirmed(approvalConfirmed);
++      return { message: "The reference date could not be saved. Try again." };
++    }
++  }, initialState);
++  useActionToast(state);
++
++  const focusYearDateToggle = useCallback(() => {
++    cardRef.current?.querySelector<HTMLButtonElement>('[aria-controls="sports-year-reference-date-editor"]')?.focus();
++  }, []);
++
++  useEffect(() => {
++    if (pending || !restoreFocusAfterSave.current) return;
++    restoreFocusAfterSave.current = false;
++    focusYearDateToggle();
++    router.refresh();
++  }, [pending, router, focusYearDateToggle]);
++
++  const savedDate = yearSettings?.ageReferenceDate ?? null;
++
++  return (
++    <section ref={cardRef} aria-labelledby="sports-year-context-title" className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
++      <div className="flex items-start justify-between gap-3">
++        <div className="min-w-0">
++          <h2 id="sports-year-context-title" className="scolapro-section-title">Year context</h2>
++          <p className="scolapro-section-description">{schoolName} · assignments are historical and year-scoped.</p>
++        </div>
++        {canManageYearContext ? (
++          <CardActionToggle
++            open={isYearDateEditorOpen}
++            controls="sports-year-reference-date-editor"
++            action={savedDate ? "edit" : "add"}
++            disabled={pending || changingYear}
++            onClick={() => {
++              setSchoolApprovalConfirmed(false);
++              setIsYearDateEditorOpen((open) => !open);
++            }}
++          />
++        ) : null}
++      </div>
++      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
++        <dl className="grid gap-2 text-xs text-muted-foreground">
++          <div>
++            <dt className="inline font-medium">Official age reference date</dt>{" "}
++            <dd className="inline text-foreground">
++              {savedDate
++                ? <time dateTime={savedDate}>{new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${savedDate}T12:00:00`))}</time>
++                : "Not configured"}
++            </dd>
++          </div>
++          <div>
++            <dt className="inline font-medium">Assignment continuity</dt>{" "}
++            <dd className="inline text-foreground">{yearSettings?.assignmentContinuity.replaceAll("_", " ") ?? "No saved policy"}</dd>
++          </div>
++        </dl>
++        <fieldset disabled={pending || changingYear} className="min-w-0">
++          <YearPicker
++            academicYear={academicYear}
++            years={years}
++            disabled={pending || changingYear}
++            onChange={(next) => {
++              if (pending || changingYear || next === String(academicYear)) return;
++              setIsYearDateEditorOpen(false);
++              const params = new URLSearchParams(search.toString());
++              params.set("year", next);
++              startYearChange(() => router.push(`${pathname}?${params.toString()}`));
++            }}
++          />
++        </fieldset>
++      </div>
++      {canManageYearContext && isYearDateEditorOpen ? (
++        <SportsYearReferenceDateForm
++          schoolId={schoolId}
++          academicYear={academicYear}
++          currentDate={savedDate}
++          action={action}
++          pending={pending}
++          schoolApprovalConfirmed={schoolApprovalConfirmed}
++          onApprovalChange={setSchoolApprovalConfirmed}
++          onClose={() => {
++            setSchoolApprovalConfirmed(false);
++            setIsYearDateEditorOpen(false);
++            focusYearDateToggle();
++          }}
++        />
++      ) : null}
++    </section>
++  );
++}
++
+ function HouseForm({ schoolId, house, canManage }: { schoolId: string; house?: SportsHouse; canManage: boolean }) {
+   const [saveState, saveAction, saving] = useActionState(saveSportsHouse, initialState);
+   const [statusState, statusAction, changingStatus] = useActionState(changeSportsHouseStatus, initialState);
+@@ -426,28 +581,15 @@ export function SportsHousesWorkspace({
+ 
+   return (
+     <div className="space-y-5">
+-      <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+-          <div>
+-            <h2 className="scolapro-section-title">Year context</h2>
+-            <p className="scolapro-section-description">{schoolName} · assignments are historical and year-scoped.</p>
+-            {yearSettings ? (
+-              <p className="mt-2 text-xs text-muted-foreground">
+-                Age reference date {new Intl.DateTimeFormat("en-NA", { dateStyle: "medium" }).format(new Date(`${yearSettings.ageReferenceDate}T12:00:00`))} · continuity {yearSettings.assignmentContinuity.replaceAll("_", " ")}
+-              </p>
+-            ) : <p className="mt-2 text-xs text-muted-foreground">No official age reference date is configured for {academicYear}; derived ages remain unresolved.</p>}
+-          </div>
+-          <YearPicker academicYear={academicYear} years={years} />
+-        </div>
+-        {canManageYearContext ? (
+-          <SportsYearReferenceDateForm
+-            key={`${academicYear}:${yearSettings?.ageReferenceDate ?? "unconfigured"}`}
+-            schoolId={schoolId}
+-            academicYear={academicYear}
+-            currentDate={yearSettings?.ageReferenceDate ?? null}
+-          />
+-        ) : null}
+-      </section>
++      <SportsYearContext
++        key={`${schoolId}:${academicYear}:${canManageYearContext}`}
++        schoolId={schoolId}
++        schoolName={schoolName}
++        academicYear={academicYear}
++        years={years}
++        yearSettings={yearSettings}
++        canManageYearContext={canManageYearContext}
++      />
+ 
+       <div className="grid overflow-hidden rounded-[var(--radius-md)] border border-border-subtle bg-surface shadow-[var(--shadow-xs)] sm:grid-cols-2 xl:grid-cols-4">
+         {[
+diff --git a/tests/issue-1288-sports-year-context.test.mjs b/tests/issue-1288-sports-year-context.test.mjs
+new file mode 100644
+index 00000000..93360765
+--- /dev/null
++++ b/tests/issue-1288-sports-year-context.test.mjs
+@@ -0,0 +1,40 @@
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import test from "node:test";
++
++const workspace = readFileSync(
++  new URL("../src/features/sports-houses/sports-houses-workspace.tsx", import.meta.url),
++  "utf8",
++);
++const action = readFileSync(
++  new URL("../src/features/sports-houses/server/actions.ts", import.meta.url),
++  "utf8",
++).split("export async function saveSportsYearReferenceDate")[1]
++  .split("export async function changeSportsHouseStatus")[0];
++
++test("Sports Year context keeps its summary and year picker in the inline editor card", () => {
++  const card = workspace.split(">Year context</h2>")[1].split("</section>")[0];
++
++  assert.match(card, /Official age reference date/);
++  assert.match(card, /Not configured/);
++  assert.match(card, /Assignment continuity/);
++  assert.match(card, /<YearPicker\b/);
++  assert.match(workspace, /import \{ CardActionToggle \} from "@\/components\/ui\/card-action-toggle"/);
++  assert.match(card, /\{canManageYearContext \? \(\s*<CardActionToggle\b/);
++  assert.match(card, /controls="sports-year-reference-date-editor"/);
++  assert.match(card, /<SportsYearReferenceDateForm\b/);
++});
++
++test("the Sports date editor retains the academic-year bounds and the governed action", () => {
++  const editor = workspace.split("function SportsYearReferenceDateForm")[1]
++    .split("function SportsYearContext")[0];
++
++  assert.match(workspace, /saveSportsYearReferenceDate\(previous, formData\)/);
++  assert.match(editor, /action=\{action\}/);
++  assert.match(editor, /min=\{`\$\{academicYear\}-01-01`\}/);
++  assert.match(editor, /max=\{`\$\{academicYear\}-12-31`\}/);
++  assert.match(editor, /name="schoolApprovalConfirmed"/);
++  assert.match(action, /schoolApprovalConfirmed: z\.literal\("on"\)/);
++  assert.match(action, /canSetSportsYearReferenceDate\(parsed\.data\.schoolId\)/);
++  assert.match(action, /rpc\("set_sports_year_reference_date"/);
++});
+diff --git a/tests/sports-houses-operational-completion.test.mjs b/tests/sports-houses-operational-completion.test.mjs
+index e6617670..61e42973 100644
+--- a/tests/sports-houses-operational-completion.test.mjs
++++ b/tests/sports-houses-operational-completion.test.mjs
+@@ -71,9 +71,9 @@ test("sports year reference-date setup requires explicit approval and records au
+   const migration = readFileSync("supabase/migrations/20261104113000_sports_year_reference_date_setup.sql","utf8");
+   const hardening = readFileSync("supabase/migrations/20261104140000_sports_houses_authorization_privacy_hardening.sql","utf8");
+   assert.match(workspace,/Official age reference date/);
+-  assert.match(workspace,/currentDate=\{yearSettings\?\.ageReferenceDate \?\? null\}/);
+-  assert.match(workspace,/No official age reference date is configured/);
+-  assert.match(workspace,/No date is inferred or prefilled/);
++  assert.match(workspace,/const savedDate = yearSettings\?\.ageReferenceDate \?\? null/);
++  assert.match(workspace,/currentDate=\{savedDate\}/);
++  assert.match(workspace,/useState\(currentDate \?\? ""\)/);
+   assert.match(workspace,/schoolApprovalConfirmed/);
+   assert.match(sportsActions,/schoolApprovalConfirmed: z\.literal\("on"\)/);
+   assert.match(sportsActions,/ageReferenceDate\.slice\(0, 4\)/);
