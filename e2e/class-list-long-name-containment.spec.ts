@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
 // Exercise the actual HTML renderer's CSS, without touching real learner data.
-const renderer = readFileSync(new URL("../src/features/documents/server/render-official-class-list-html.ts", import.meta.url), "utf8");
+const renderer = readFileSync("src/features/documents/server/render-official-class-list-html.ts", "utf8");
 function cssRule(selector: string) {
   const line = renderer.split("\n").find((value) => value.trim().startsWith(selector + " {"));
   if (line?.includes("}")) return line;
