@@ -36,7 +36,7 @@ test("synthetic extreme names stay inside their A4 class-list cells in preview a
           ${css}
           </style>
           <table class="class-list">
-            <colgroup><col style="width:${columnWidth}px"/><col style="width:55px"/></colgroup>
+            <colgroup><col style="width:${columnWidth}px"/><col/></colgroup>
             <tbody><tr><td class="column-learner"><span class="learner-name" title="${name}">${name}</span></td><td class="column-sex">F</td></tr></tbody>
           </table>
         `);
@@ -49,6 +49,7 @@ test("synthetic extreme names stay inside their A4 class-list cells in preview a
           const adjacent = next.getBoundingClientRect();
           const height = parseFloat(getComputedStyle(span).lineHeight);
           return {
+            cellWidth: bound.width,
             cellRight: bound.right,
             adjacentLeft: adjacent.left,
             scrollWidth: cell.scrollWidth,
@@ -61,6 +62,8 @@ test("synthetic extreme names stay inside their A4 class-list cells in preview a
             adjacent: next.textContent,
           };
         });
+        expect(layout.cellWidth).toBeGreaterThanOrEqual(columnWidth - 2);
+        expect(layout.cellWidth).toBeLessThanOrEqual(columnWidth + 2);
         expect(layout.cellRight).toBeLessThanOrEqual(layout.adjacentLeft + 1);
         expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 2);
         expect(layout.spanHeight).toBeLessThanOrEqual(layout.lineHeight * 3 + 2);
