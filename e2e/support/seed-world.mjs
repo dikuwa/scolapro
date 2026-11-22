@@ -243,6 +243,56 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
   });
 
+  // Official report rendering derives cumulative term rows from *approved*
+  // official_results_current; the snapshot-enrichment trigger does not trust
+  // arbitrary results/report_terms supplied by test clients. Supply a single
+  // deterministic synthetic official result before freezing the report.
+  const publishedSubjectId = "e2ea0000-0000-4000-8000-000000000006";
+  const publishedOfferingId = "e2eb0000-0000-4000-8000-000000000006";
+  const publishedResultId = "e2ec0000-0000-4000-8000-000000000006";
+  await upsert("subjects", {
+    id: publishedSubjectId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    subject_code: "E2E-SCI",
+    display_name: "E2E Published Science",
+    status: "active",
+  });
+  await upsert("subject_offerings", {
+    id: publishedOfferingId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    subject_id: publishedSubjectId,
+    grade_id: DEMO.gradeTenId,
+    periods_per_cycle: 4,
+    status: "active",
+  });
+  const { data: existingOfficialResult, error: officialReadError } = await client
+    .from("official_results")
+    .select("id").eq("id", publishedResultId).maybeSingle();
+  if (officialReadError) throw new Error(`Unable to inspect synthetic official result: ${officialReadError.message}`);
+  if (!existingOfficialResult) {
+    await upsert("official_results", {
+      id: publishedResultId,
+      tenant_id: DEMO.tenantId,
+      school_id: DEMO.schoolId,
+      academic_year: 2026,
+      enrolment_id: DEMO.learnerTomasEnrolmentId,
+      learner_id: DEMO.publishedLearnerId,
+      subject_offering_id: publishedOfferingId,
+      term_number: 1,
+      result_value: 82,
+      symbol: "A",
+      assessment_scheme_key: "E2E_SYNTHETIC_READ_FIXTURE",
+      assessment_scheme_version: "v1",
+      calculation_snapshot: { synthetic_fixture_only: true },
+      approved_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      approved_at: "2026-10-20T11:50:00Z",
+      locked_at: "2026-10-20T11:50:00Z",
+    });
+  }
+
   // A frozen published artifact for *read-path* acceptance only. The lifecycle
   // transition and mark-approval path must be tested separately under #1309.
   // Certified/published snapshots are immutable: never upsert an existing row.
