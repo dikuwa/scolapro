@@ -44,7 +44,11 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   const columns = buildOfficialClassListColumns(input.columns ?? ["admissionNumber", "sex", "status"], input.blankColumns ?? 3);
   const rowMarkup = input.rows
     .map(
-      (row, index) => `<tr>${columns.map((column) => `<td class="${column.key === "number" ? "number-cell" : ""} column-${column.key}">${escapeOfficialDocumentHtml(column.value(row, index))}</td>`).join("")}</tr>`,
+      (row, index) => `<tr>${columns.map((column) => {
+        const text = escapeOfficialDocumentHtml(column.value(row, index));
+        const value = column.key === "learner" ? `<span class="learner-name" title="${text}">${text}</span>` : text;
+        return `<td class="${column.key === "number" ? "number-cell" : ""} column-${column.key}">${value}</td>`;
+      }).join("")}</tr>`,
     )
     .join("");
 
@@ -83,6 +87,15 @@ export function renderOfficialClassListHtml(input: OfficialClassListDocumentInpu
   .class-list th, .class-list td { border: 1px solid var(--line); padding: 2.2px 4px; vertical-align: middle; white-space: nowrap; }
   .class-list th { text-align: left; font-size: 7.2px; font-weight: 700; }
   .class-list td { font-size: 7.2px; }
+  .class-list td.column-learner { white-space: normal; overflow-wrap: anywhere; }
+  .class-list td.column-learner .learner-name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .class-list td.column-guardianAddress { min-width: 100px; max-width: 150px; white-space: pre-line; }
   .class-list .number-cell { text-align: center; font-variant-numeric: tabular-nums; }
   .class-list thead { display: table-header-group; }
