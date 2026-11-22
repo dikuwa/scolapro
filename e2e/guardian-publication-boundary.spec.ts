@@ -121,3 +121,54 @@ test("school admin publishes certified report and linked guardian receives the o
     await guardianContext.close();
   }
 });
+
+test("school renders a real digital report and guardian alone can open the private artifact", async ({ page, browser }) => {
+  test.setTimeout(150_000);
+  const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
+  test.skip(target !== "local", "Artifact rendering is restricted to isolated local Supabase.");
+
+  await signIn(page, "admin");
+  await page.goto(`/reports/report-cards?individual=${DEMO.learnerTomasEnrolmentId}&term=1`);
+  await expect(page.getByRole("heading", { name: "Report cards" })).toBeVisible();
+  const digitalButton = page.getByRole("button", { name: "Digital", exact: true });
+  if (await digitalButton.count()) {
+    await digitalButton.click();
+    await expect(page.getByText("Digital report queued and rendering will start automatically.", { exact: true })).toBeVisible();
+  }
+
+  const status = localSupabaseStatus({ projectRoot: process.cwd() });
+  const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  let documentId = "";
+  await expect.poll(async () => {
+    const { data, error } = await service.from("report_card_documents")
+      .select("id").eq("snapshot_id", DEMO.publishedSnapshotId)
+      .eq("document_format", "html").eq("status", "ready").maybeSingle();
+    if (error) throw new Error("Unable to inspect synthetic report render status.");
+    documentId = data?.id ?? "";
+    return documentId;
+  }, { timeout: 90_000, intervals: [500, 1_000, 2_000] }).not.toBe("");
+
+  const baseURL = new URL(page.url()).origin;
+  const guardianContext = await browser.newContext({ baseURL });
+  const outsiderContext = await browser.newContext({ baseURL });
+  try {
+    const guardianPage = await guardianContext.newPage();
+    await signIn(guardianPage, "publishedGuardian");
+    await guardianPage.goto("/parent");
+    const link = guardianPage.getByRole("link", { name: "Open digital report" }).first();
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", `/api/report-card-documents/${documentId}`);
+    const reportResponse = await guardianContext.request.get(new URL(await link.getAttribute("href") ?? "", baseURL).toString());
+    expect(reportResponse.status()).toBe(200);
+    expect(await reportResponse.text()).toContain("E2E Published Science");
+
+    const outsiderPage = await outsiderContext.newPage();
+    await signIn(outsiderPage, "outsider");
+    const denied = await outsiderContext.request.get(`${baseURL}/api/report-card-documents/${documentId}`);
+    expect([401, 403, 404]).toContain(denied.status());
+  } finally {
+    await Promise.all([guardianContext.close(), outsiderContext.close()]);
+  }
+});
