@@ -67,7 +67,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     await hodPage.goto(`/assessment/marks/${ids.instance}`);
     await expect(hodPage.getByRole("heading", { name: "HOD / leadership review" })).toBeVisible();
     await hodPage.getByRole("button", { name: "Verify", exact: true }).click();
-    await expect(hodPage.getByText("verified", { exact: false }).first()).toBeVisible();
+    await expect(hodPage.getByText("Marks verified. Final locking remains part of official result approval.")).toBeVisible();
 
     const adminPage = await adminContext.newPage();
     await signIn(adminPage, "admin");
