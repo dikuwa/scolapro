@@ -142,7 +142,14 @@ test("assigned teacher saves and submits a mark, then scoped HOD verifies it", a
     await hodPage.goto(`/assessment/marks/${DEMO.assessmentInstanceId}`);
     await expect(hodPage.getByRole("heading", { name: "HOD / leadership review" })).toBeVisible();
     await hodPage.getByRole("button", { name: "Verify", exact: true }).click();
-    await expect(hodPage.getByText(/Marks verified/)).toBeVisible();
+    // The review section unmounts on successful revalidation; the transient
+    // action-state message is not a durable completion signal.
+    await expect.poll(async () => {
+      const { data, error } = await service.from("assessment_instances")
+        .select("status").eq("id", DEMO.assessmentInstanceId).single();
+      if (error) throw new Error("Could not verify assessment status");
+      return data?.status;
+    }).toBe("verified");
   } finally {
     await hodContext.close();
   }
