@@ -28,6 +28,8 @@ test("server checks school, year, scheme, grade and active grading scale", () =>
   assert.ok(server.includes('.eq("school_id", schoolId)'));
   assert.ok(server.includes("scheme.academic_year !== enrolment.academic_year"));
   assert.ok(server.includes("offering.grade_id !== enrolment.grade_id"));
+  assert.ok(server.includes('db.from("learner_subject_registrations")'));
+  assert.ok(server.includes('.eq("status", "active")'));
   assert.ok(server.includes('scheme.status !== "active"'));
   assert.ok(server.includes('scale.status !== "active"'));
 });
