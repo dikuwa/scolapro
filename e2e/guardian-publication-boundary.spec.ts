@@ -93,3 +93,31 @@ test("published guardian sees one frozen result but not a certified-only term", 
   await expect(page.getByText("Synthetic Boy", { exact: false })).toHaveCount(0);
   await expect(page.getByText("E2E Isolation Secondary School")).toHaveCount(0);
 });
+
+test("school admin publishes certified report and linked guardian receives the official snapshot", async ({ page, browser }) => {
+  // This modifies only the disposable local E2E school. Publication is an
+  // irreversible governed action, so no test cleanup may unpublish history.
+  const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
+  test.skip(target !== "local", "Publication lifecycle is restricted to isolated local Supabase.");
+
+  await signIn(page, "admin");
+  await page.goto(`/reports/report-cards?individual=${DEMO.learnerTomasEnrolmentId}&term=2`);
+  await expect(page.getByRole("heading", { name: "Report cards" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByText("Report card published.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
+
+  const guardianContext = await browser.newContext();
+  try {
+    const guardianPage = await guardianContext.newPage();
+    await signIn(guardianPage, "publishedGuardian");
+    await guardianPage.goto("/parent");
+    await expect(guardianPage.getByRole("heading", { name: "Latest published results" })).toBeVisible();
+    await expect(guardianPage.getByText("E2E Confidential Science", { exact: true })).toBeVisible();
+    await expect(guardianPage.getByText("13", { exact: true })).toBeVisible();
+    await expect(guardianPage.getByText("Synthetic Boy", { exact: false })).toHaveCount(0);
+  } finally {
+    await guardianContext.close();
+  }
+});
