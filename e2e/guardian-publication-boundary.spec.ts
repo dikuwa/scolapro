@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { createClient } from "@supabase/supabase-js";
+import { DEMO, SYNTHETIC_ACCOUNTS } from "./support/accounts.mjs";
+import { localSupabaseStatus } from "./support/local-supabase.mjs";
+import { resolveE2EEnvironment } from "./support/env-guard.mjs";
+import { mergedProjectEnv } from "../scripts/env-file.mjs";
 import { signIn } from "./support/session";
 
 // #1309 Wave A: establish a real authenticated guardian and an effective,
@@ -23,4 +28,39 @@ test("unlinked outsider cannot view synthetic guardian's learner through parent 
   // name or demo school identity may be rendered from the parent's read model.
   await expect(page.getByText("Synthetic Boy", { exact: false })).toHaveCount(0);
   await expect(page.getByText("E2E Linked Guardian", { exact: false })).toHaveCount(0);
+});
+
+test("ending a guardian relationship immediately removes family and report access", async ({ page }) => {
+  const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
+  test.skip(target !== "local", "Mutable family fixture is restricted to isolated local Supabase.");
+
+  const status = localSupabaseStatus({ projectRoot: process.cwd() });
+  const client = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const relationshipId = SYNTHETIC_ACCOUNTS.guardian.learnerGuardianId;
+  const { data: original, error: readError } = await client.from("learner_guardians")
+    .select("id,effective_to").eq("id", relationshipId).eq("learner_id", DEMO.registerBoyLearnerId).single();
+  expect(readError).toBeNull();
+  expect(original?.id).toBe(relationshipId);
+  const endedOn = new Date(Date.now() - 2 * 86_400_000).toISOString().slice(0, 10);
+
+  try {
+    const { data, error } = await client.from("learner_guardians").update({ effective_to: endedOn })
+      .eq("id", relationshipId).eq("learner_id", DEMO.registerBoyLearnerId).select("id").single();
+    expect(error).toBeNull();
+    expect(data?.id).toBe(relationshipId);
+
+    await signIn(page, "guardian");
+    await page.goto("/parent");
+    await expect(page.getByRole("heading", { name: "Connect your guardian profile" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Latest published results" })).toHaveCount(0);
+    await expect(page.getByText("Synthetic Boy", { exact: false })).toHaveCount(0);
+  } finally {
+    const { data, error } = await client.from("learner_guardians")
+      .update({ effective_to: original?.effective_to ?? null })
+      .eq("id", relationshipId).eq("learner_id", DEMO.registerBoyLearnerId).select("id").single();
+    expect(error).toBeNull();
+    expect(data?.id).toBe(relationshipId);
+  }
 });
