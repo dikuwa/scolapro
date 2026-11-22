@@ -414,13 +414,23 @@ test("isolated seed is idempotent and deterministic (fake client, no network)", 
   assert.equal(first.authUsers.length, Object.keys(SYNTHETIC_ACCOUNTS).length);
   assert.equal(first.tables.tenants.length, 1);
   assert.equal(first.tables.tenants[0].id, OUTSIDER_TENANT.tenantId);
-  assert.equal(first.tables.guardian_profiles.length, 1);
-  assert.equal(first.tables.guardian_profiles[0].id, SYNTHETIC_ACCOUNTS.guardian.guardianProfileId);
-  assert.equal(first.tables.learner_guardians.length, 1);
-  assert.equal(first.tables.learner_guardians[0].learner_id, DEMO.registerBoyLearnerId);
-  assert.equal(first.tables.learner_guardians[0].guardian_id, SYNTHETIC_ACCOUNTS.guardian.guardianProfileId);
-  assert.equal(first.tables.guardian_user_links.length, 1);
-  assert.equal(first.tables.guardian_user_links[0].user_id, SYNTHETIC_ACCOUNTS.guardian.userId);
+  assert.equal(first.tables.guardian_profiles.length, 2);
+  assert.deepEqual(
+    first.tables.guardian_profiles.map((row) => row.id).sort(),
+    [SYNTHETIC_ACCOUNTS.guardian.guardianProfileId, SYNTHETIC_ACCOUNTS.publishedGuardian.guardianProfileId].sort(),
+  );
+  assert.equal(first.tables.learner_guardians.length, 2);
+  assert.equal(first.tables.learner_guardians.some((row) =>
+    row.learner_id === DEMO.registerBoyLearnerId && row.guardian_id === SYNTHETIC_ACCOUNTS.guardian.guardianProfileId), true);
+  assert.equal(first.tables.learner_guardians.some((row) =>
+    row.learner_id === DEMO.publishedLearnerId && row.guardian_id === SYNTHETIC_ACCOUNTS.publishedGuardian.guardianProfileId), true);
+  assert.deepEqual(
+    first.tables.guardian_user_links.map((row) => row.user_id).sort(),
+    [SYNTHETIC_ACCOUNTS.guardian.userId, SYNTHETIC_ACCOUNTS.publishedGuardian.userId].sort(),
+  );
+  assert.equal(first.tables.report_card_snapshots.length, 1);
+  assert.equal(first.tables.report_card_snapshots[0].id, DEMO.publishedSnapshotId);
+  assert.equal(first.tables.report_card_snapshots[0].status, "published");
 
   const membershipIds = first.tables.school_memberships.map((row) => row.id).sort();
   assert.deepEqual(
