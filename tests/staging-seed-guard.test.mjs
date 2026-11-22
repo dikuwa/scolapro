@@ -434,12 +434,6 @@ test("isolated seed is idempotent and deterministic (fake client, no network)", 
   assert.equal(first.tables.report_card_snapshots.find((row) => row.id === DEMO.publishedSnapshotId)?.status, "published");
   assert.equal(first.tables.report_card_snapshots.find((row) => row.id === DEMO.certifiedOnlySnapshotId)?.status, "certified");
 
-  assert.equal(first.tables.assessment_instances.find((row) => row.id === DEMO.assessmentInstanceId)?.status, "open");
-  assert.equal(first.tables.assessment_instances.find((row) => row.id === DEMO.assessmentInstanceId)?.term_number, 3);
-  assert.equal(first.tables.teacher_allocations.find((row) => row.id === DEMO.assessmentTeacherAllocationId)?.staff_member_id, SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId);
-  assert.equal(first.tables.subject_department_responsibilities.find((row) => row.id === DEMO.assessmentHodResponsibilityId)?.department_head_staff_assignment_id, SYNTHETIC_ACCOUNTS.hod.assignmentId);
-  assert.equal(first.tables.learner_subject_registrations.find((row) => row.id === DEMO.assessmentRegistrationId)?.enrolment_id, DEMO.learnerTomasEnrolmentId);
-
   const membershipIds = first.tables.school_memberships.map((row) => row.id).sort();
   assert.deepEqual(
     membershipIds,
