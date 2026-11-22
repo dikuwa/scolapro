@@ -264,10 +264,14 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
       template_version: "E2E_SYNTHETIC_PUBLISHED_V1",
       snapshot_version: 1,
       data_snapshot: {
+        learner: { first_names: "Tomas K.", surname: "Sample", sex: "male" },
+        enrolment: { admission_number: "DEMO-002", academic_year: 2026, grade: "Grade 10", register_class: "Grade 10/B" },
+        term: { number: 1, name: "Term 1" },
         results: [{
           official_result_id: "synthetic-read-path-only",
           subject_code: "E2E-SCI",
           subject_name: "E2E Published Science",
+          result_status: "numeric",
           result_value: 82,
           symbol: "A",
         }],
@@ -301,10 +305,14 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
       template_version: "E2E_SYNTHETIC_CERTIFIED_V1",
       snapshot_version: 1,
       data_snapshot: {
+        learner: { first_names: "Tomas K.", surname: "Sample", sex: "male" },
+        enrolment: { admission_number: "DEMO-002", academic_year: 2026, grade: "Grade 10", register_class: "Grade 10/B" },
+        term: { number: 2, name: "Term 2" },
         results: [{
           official_result_id: "synthetic-private-read-path-only",
           subject_code: "E2E-PRIVATE",
           subject_name: "E2E Confidential Science",
+          result_status: "numeric",
           result_value: 13,
           symbol: "E",
         }],
