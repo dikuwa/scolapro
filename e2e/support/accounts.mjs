@@ -21,6 +21,7 @@ export const DEMO = Object.freeze({
   learnerTomasEnrolmentId: "60000000-0000-4000-8000-000000000002",
   publishedLearnerId: "50000000-0000-4000-8000-000000000002",
   publishedSnapshotId: "e2e40000-0000-4000-8000-000000000006",
+  certifiedOnlySnapshotId: "e2e40000-0000-4000-8000-000000000007",
   registerBoyLearnerId: "e2e50000-0000-4000-8000-000000000001",
   registerBoyEnrolmentId: "e2e60000-0000-4000-8000-000000000001",
   registerVisualSubmissionId: "e2e70000-0000-4000-8000-000000000001",
