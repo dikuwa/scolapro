@@ -26,7 +26,15 @@ test.describe("#1307 school leave category management", () => {
     await expect(card.getByText(name)).toBeVisible();
     await expect(add).toBeVisible();
 
+    // An invalid attempted Add must not disable Cancel or leak errors into Edit.
+    await add.click();
+    await card.getByRole("button", { name: "Save type" }).click();
+    await expect(card.locator('input[name="code"] + p')).toBeVisible();
+    await card.getByRole("button", { name: "Cancel" }).click();
+    await expect(card.getByRole("textbox", { name: "Code" })).toHaveCount(0);
+
     await card.getByRole("button", { name: `Edit ${name}` }).click();
+    await expect(card.locator('input[name="code"] + p')).toHaveCount(0);
     const lockedCode = card.getByRole("textbox", { name: "Code" });
     await expect(lockedCode).toHaveValue(code);
     await expect(lockedCode).toHaveAttribute("readonly", "");
@@ -41,7 +49,7 @@ test.describe("#1307 school leave category management", () => {
     await page.getByRole("listbox").getByRole("option", { name: "Inactive" }).click();
     await card.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Leave type saved.")).toBeVisible();
-    await expect(card.getByText(/Inactive · No balance ledger/)).toBeVisible();
+    await expect(card.getByRole("button", { name: `Edit ${name}` }).locator("..").getByText(/Inactive · No balance ledger/)).toBeVisible();
     await expect(card.getByText(name)).toBeVisible();
 
     for (const width of [375, 768, 1440]) for (const theme of ["light", "dark"] as const) {

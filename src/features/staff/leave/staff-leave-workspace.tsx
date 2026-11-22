@@ -210,7 +210,8 @@ const emptyLeaveTypeDraft: LeaveTypeDraft = {
 
 function LeaveTypeForm({ schoolId, types }: { schoolId: string; types: StaffLeaveTypeOption[] }) {
   const router = useRouter();
-  const [state, action, pending] = useActionState(configureStaffLeaveType, initialState);
+  const [saving, setSaving] = useState(false);
+  const [editorSession, setEditorSession] = useState(0);
   const [editing, setEditing] = useState(false);
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [draft, setDraft] = useState<LeaveTypeDraft>(emptyLeaveTypeDraft);
@@ -219,7 +220,9 @@ function LeaveTypeForm({ schoolId, types }: { schoolId: string; types: StaffLeav
   const returnFocusRef = useRef<HTMLButtonElement | null>(null);
 
   function openEditor(type?: StaffLeaveTypeOption, trigger?: HTMLButtonElement | null) {
+    if (saving) return;
     returnFocusRef.current = trigger ?? addButtonRef.current;
+    setEditorSession((current) => current + 1);
     setEditingCode(type?.code ?? null);
     setDraft(type ? {
       code: type.code,
@@ -232,29 +235,29 @@ function LeaveTypeForm({ schoolId, types }: { schoolId: string; types: StaffLeav
     setEditing(true);
   }
 
-  function closeEditor() {
+  function discardEditor() {
     setEditing(false);
     setEditingCode(null);
     setDraft({ ...emptyLeaveTypeDraft });
     requestAnimationFrame(() => returnFocusRef.current?.focus());
   }
 
-  useEffect(() => {
-    if (!state.message) return;
-    if (state.success) {
-      toast.success(state.message);
-      queueMicrotask(() => {
-        closeEditor();
-        router.refresh();
-      });
-    } else toast.error(state.message);
-  }, [state, router]);
+  function closeEditor() {
+    if (saving) return;
+    discardEditor();
+  }
+
+  function savedEditor() {
+    setSaving(false);
+    discardEditor();
+    router.refresh();
+  }
 
   return (
     <section aria-label="Leave type governance" className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3"><span className="scolapro-tone-indigo grid size-9 place-items-center rounded-[var(--radius-sm)]"><Settings2 className="size-4" /></span><div><h2 className="scolapro-section-title">Leave type governance</h2><p className="scolapro-section-description">Approved local leave categories and their evidence/balance rules. No national entitlements are invented.</p></div></div>
-        {editing ? <Button type="button" size="sm" variant="neutral" onClick={closeEditor}>Close</Button> :
+        {editing ? <Button type="button" size="sm" variant="neutral" disabled={saving} onClick={closeEditor}>Close</Button> :
           <Button ref={addButtonRef} type="button" size="sm" variant="soft" onClick={() => openEditor(undefined, addButtonRef.current)}>Add leave type</Button>}
       </div>
       {types.length ? <div className="mt-4 divide-y divide-border-subtle" aria-label="Configured leave types">{types.map((type) =>
@@ -263,11 +266,55 @@ function LeaveTypeForm({ schoolId, types }: { schoolId: string; types: StaffLeav
             <p className="mt-1 text-xs text-muted-foreground">{type.status === "active" ? "Active" : "Inactive"} · {type.tracksBalance ? "Balance tracked" : "No balance ledger"} · Evidence {type.evidenceRequirement}</p>
             {type.sourceReference ? <p className="mt-1 break-words text-xs text-muted-foreground">Source: {type.sourceReference}</p> : null}
           </div>
-          <Button ref={(element) => { editButtonRefs.current[type.id] = element; }} type="button" variant="ghost" size="sm" onClick={() => openEditor(type, editButtonRefs.current[type.id])} aria-label={`Edit ${type.name}`}>Edit</Button>
+          <Button ref={(element) => { editButtonRefs.current[type.id] = element; }} type="button" variant="ghost" size="sm" disabled={saving} onClick={() => openEditor(type, editButtonRefs.current[type.id])} aria-label={`Edit ${type.name}`}>Edit</Button>
         </div>
       )}</div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border-subtle px-4 py-3 text-sm text-muted-foreground">No leave types configured. Add an approved school leave category to enable staff requests.</div>}
 
-      {editing ? <form key={editingCode ?? "new-leave-type"} action={action} className="mt-4 grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3 sm:grid-cols-2" noValidate>
+      {editing ? <LeaveTypeEditor
+        key={`${editingCode ?? "new"}:${editorSession}`}
+        schoolId={schoolId}
+        draft={draft}
+        setDraft={setDraft}
+        editingCode={editingCode}
+        onCancel={closeEditor}
+        onSubmitting={() => setSaving(true)}
+        onFinished={() => setSaving(false)}
+        onSaved={savedEditor}
+      /> : null}
+    </section>
+  );
+}
+
+
+function LeaveTypeEditor({ schoolId, draft, setDraft, editingCode, onCancel, onSubmitting, onFinished, onSaved }: {
+  schoolId: string;
+  draft: LeaveTypeDraft;
+  setDraft: React.Dispatch<React.SetStateAction<LeaveTypeDraft>>;
+  editingCode: string | null;
+  onCancel: () => void;
+  onSubmitting: () => void;
+  onFinished: () => void;
+  onSaved: () => void;
+}) {
+  // This keyed child owns the action state: opening a different editor discards
+  // all previous validation and success responses, not merely the input draft.
+  const [state, action, pending] = useActionState(configureStaffLeaveType, initialState);
+  const handledState = useRef<StaffLeaveActionState | null>(null);
+  useEffect(() => {
+    if ((!state.message && !state.fieldErrors) || handledState.current === state) return;
+    handledState.current = state;
+    if (state.success) {
+      if (state.message) toast.success(state.message);
+      queueMicrotask(onSaved);
+    } else {
+      if (state.message) toast.error(state.message);
+      // Validation-only errors also finish the request; do not leave Cancel
+      // and the rest of the leave-category manager disabled indefinitely.
+      queueMicrotask(onFinished);
+    }
+  }, [state, onFinished, onSaved]);
+  return (
+      <form action={action} onSubmit={() => onSubmitting()} className="mt-4 grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3 sm:grid-cols-2" noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
         <div><label htmlFor="leave-type-code" className="text-xs font-medium">Code</label><input id="leave-type-code" name="code" value={draft.code} readOnly={editingCode !== null} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} className={`${fieldClass} mt-1.5 uppercase ${editingCode ? "bg-surface-muted" : ""}`} placeholder="e.g. SCHOOL-LEAVE" /><ErrorText messages={state.fieldErrors?.code} /></div>
         <div><label htmlFor="leave-type-name" className="text-xs font-medium">Name</label><input id="leave-type-name" name="displayName" value={draft.displayName} onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} className={`${fieldClass} mt-1.5`} placeholder="Leave type name" /><ErrorText messages={state.fieldErrors?.displayName} /></div>
@@ -275,9 +322,8 @@ function LeaveTypeForm({ schoolId, types }: { schoolId: string; types: StaffLeav
         <Picker label="Evidence" name="evidenceRequirement" placeholder="Choose evidence rule" value={draft.evidenceRequirement} onChange={(value) => setDraft((current) => ({ ...current, evidenceRequirement: value as LeaveTypeDraft["evidenceRequirement"] }))} options={[{ value: "none", label: "None" }, { value: "optional", label: "Optional" }, { value: "required", label: "Required before approval" }]} />
         <div className="sm:col-span-2"><label htmlFor="leave-source" className="text-xs font-medium">Source reference <span className="font-normal text-muted-foreground">(required for tracked balance)</span></label><input id="leave-source" name="sourceReference" value={draft.sourceReference} onChange={(event) => setDraft((current) => ({ ...current, sourceReference: event.target.value }))} className={`${fieldClass} mt-1.5`} placeholder="Verified policy / school rule reference" /><ErrorText messages={state.fieldErrors?.sourceReference} /></div>
         <Picker label="Status" name="active" placeholder="Choose status" value={draft.active} onChange={(value) => setDraft((current) => ({ ...current, active: value as LeaveTypeDraft["active"] }))} options={[{ value: "yes", label: "Active" }, { value: "no", label: "Inactive" }]} />
-        <div className="flex items-end justify-end gap-2"><Button type="button" size="sm" variant="neutral" onClick={closeEditor}>Cancel</Button><Button type="submit" size="sm" disabled={pending} loading={pending}>{editingCode ? "Save changes" : "Save type"}</Button></div>
-      </form> : null}
-    </section>
+        <div className="flex items-end justify-end gap-2"><Button type="button" size="sm" variant="neutral" disabled={pending} onClick={onCancel}>Cancel</Button><Button type="submit" size="sm" disabled={pending} loading={pending}>{editingCode ? "Save changes" : "Save type"}</Button></div>
+      </form>
   );
 }
 

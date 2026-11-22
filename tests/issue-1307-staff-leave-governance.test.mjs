@@ -10,18 +10,24 @@ test('current leave types appear as saved values before the editing form',()=>{
   assert.match(component, /types\.map\(\(type\) =>/);
   assert.match(component, /types\.length \? <div/);
   assert.match(component, /No leave types configured/);
-  assert.match(component, /\{editing \? <form/);
+  assert.match(component, /\{editing \? <LeaveTypeEditor/);
+  assert.match(component, /key=\{`\$\{editingCode \?\? "new"\}:\$\{editorSession\}`\}/);
 });
 test('edit preloads exact canonical values, code remains immutable and Cancel discards the draft',()=>{
   for (const field of ['type.code','type.name','type.tracksBalance','type.evidenceRequirement','type.sourceReference','type.status']) assert.ok(component.includes(field),field);
   assert.match(component,/readOnly=\{editingCode !== null\}/);
   assert.match(component,/setDraft\(\{ \.\.\.emptyLeaveTypeDraft \}\)/);
   assert.match(component,/requestAnimationFrame\(\(\) => returnFocusRef.current\?\.focus\(\)\)/);
+  assert.match(component,/if \(saving\) return/);
+  assert.match(component,/disabled=\{saving\}/);
+  assert.match(component,/disabled=\{pending\} onClick=\{onCancel\}/);
 });
 test('real saved state is reloaded after successful canonical action; errors preserve draft',()=>{
   assert.match(component,/router\.refresh\(\)/);
   assert.match(component,/if \(state\.success\) \{/);
-  assert.match(component,/\} else toast\.error\(state\.message\)/);
+  assert.match(component,/toast\.error\(state\.message\)/);
+  assert.match(component,/const \[state, action, pending\] = useActionState\(configureStaffLeaveType, initialState\)/);
+  assert.match(component,/const handledState = useRef<StaffLeaveActionState \| null>\(null\)/);
   assert.match(action,/supabase\.rpc\("configure_staff_leave_type"/);
   assert.match(action,/canManageSchoolLeave\(parsed\.data\.schoolId\)/);
   assert.match(migration,/on conflict\(school_id,code\) do update set/);
