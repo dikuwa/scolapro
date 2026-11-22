@@ -70,8 +70,14 @@ export function DestructiveActionGuard() {
             const { form, submitter } = pending;
             setPending(null);
             confirmedForms.add(form);
-            if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) form.requestSubmit(submitter);
-            else form.requestSubmit();
+            try {
+              if (submitter instanceof HTMLButtonElement || submitter instanceof HTMLInputElement) form.requestSubmit(submitter);
+              else form.requestSubmit();
+            } finally {
+              // Native validation can suppress the replayed submit event.
+              // Never leave a bypass token for a later user-initiated submission.
+              confirmedForms.delete(form);
+            }
           }} className="min-h-9 rounded-[var(--radius-sm)] bg-[color:var(--danger)] px-3 text-xs font-semibold text-white transition hover:brightness-95 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--danger)]/20">Yes, continue</button>
         </div>
       </div>
