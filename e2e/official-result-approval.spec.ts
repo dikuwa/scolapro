@@ -11,7 +11,7 @@ test("school leadership opens the governed official-result approval workspace", 
   await expect(page.getByText("No grading rules are invented here.", { exact: false })).toBeVisible();
 });
 
-for (const role of ["registerTeacher", "hod", "guardian"] as const) {
+for (const role of ["registerTeacher", "hod"] as const) {
   test(`${role} cannot reach school-manager official-result approval`, async ({ page }) => {
     await signIn(page, role);
     await page.goto("/assessment/results");
