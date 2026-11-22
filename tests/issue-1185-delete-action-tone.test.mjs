@@ -6,7 +6,7 @@ const button = readFileSync(new URL('../src/components/ui/button.tsx', import.me
 const calendar = readFileSync(new URL('../src/features/calendar/teaching-impact-manager.tsx', import.meta.url), 'utf8');
 
 test('canonical danger-ghost entry stays transparent until hover', () => {
-  assert.match(button, /"danger-ghost": "bg-transparent text-\[color:var\(--danger\)\]/);
+  assert.match(button, /"danger-ghost": "bg-transparent text-\[color:var\(--danger-entry\)\]/);
   assert.match(button, /danger: "bg-danger-soft text-\[color:var\(--danger\)\]/);
 });
 
