@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import {
   CalendarOff,
   CheckCircle2,
@@ -12,6 +12,8 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -27,6 +29,7 @@ import {
 import type {
   StaffLeaveRequestRow,
   StaffLeaveWorkspace,
+  StaffLeaveTypeOption,
 } from "@/features/staff/leave/server/workspace";
 
 const initialState: StaffLeaveActionState = {};
@@ -134,7 +137,7 @@ export function StaffLeaveWorkspaceView({
 
       {canManage ? (
         <div className="grid gap-5 xl:grid-cols-2">
-          <LeaveTypeForm schoolId={schoolId} />
+          <LeaveTypeForm schoolId={schoolId} types={workspace.types} />
           <LedgerForm schoolId={schoolId} today={today} workspace={workspace} />
         </div>
       ) : null}
@@ -192,26 +195,88 @@ function LeaveRequestForm({ schoolId, today, workspace }: { schoolId: string; to
   );
 }
 
-function LeaveTypeForm({ schoolId }: { schoolId: string }) {
+type LeaveTypeDraft = {
+  code: string;
+  displayName: string;
+  tracksBalance: "yes" | "no";
+  evidenceRequirement: StaffLeaveTypeOption["evidenceRequirement"];
+  sourceReference: string;
+  active: "yes" | "no";
+};
+
+const emptyLeaveTypeDraft: LeaveTypeDraft = {
+  code: "", displayName: "", tracksBalance: "no", evidenceRequirement: "optional", sourceReference: "", active: "yes",
+};
+
+function LeaveTypeForm({ schoolId, types }: { schoolId: string; types: StaffLeaveTypeOption[] }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(configureStaffLeaveType, initialState);
-  const [tracksBalance, setTracksBalance] = useState("no");
-  const [evidenceRequirement, setEvidenceRequirement] = useState("optional");
-  const [active, setActive] = useState("yes");
-  useActionToast(state);
+  const [editing, setEditing] = useState(false);
+  const [editingCode, setEditingCode] = useState<string | null>(null);
+  const [draft, setDraft] = useState<LeaveTypeDraft>(emptyLeaveTypeDraft);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const editButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const returnFocusRef = useRef<HTMLButtonElement | null>(null);
+
+  function openEditor(type?: StaffLeaveTypeOption, trigger?: HTMLButtonElement | null) {
+    returnFocusRef.current = trigger ?? addButtonRef.current;
+    setEditingCode(type?.code ?? null);
+    setDraft(type ? {
+      code: type.code,
+      displayName: type.name,
+      tracksBalance: type.tracksBalance ? "yes" : "no",
+      evidenceRequirement: type.evidenceRequirement,
+      sourceReference: type.sourceReference ?? "",
+      active: type.status === "active" ? "yes" : "no",
+    } : { ...emptyLeaveTypeDraft });
+    setEditing(true);
+  }
+
+  function closeEditor() {
+    setEditing(false);
+    setEditingCode(null);
+    setDraft({ ...emptyLeaveTypeDraft });
+    requestAnimationFrame(() => returnFocusRef.current?.focus());
+  }
+
+  useEffect(() => {
+    if (!state.message) return;
+    if (state.success) {
+      toast.success(state.message);
+      queueMicrotask(() => {
+        closeEditor();
+        router.refresh();
+      });
+    } else toast.error(state.message);
+  }, [state, router]);
 
   return (
-    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-      <div className="flex items-start gap-3"><span className="scolapro-tone-indigo grid size-9 place-items-center rounded-[var(--radius-sm)]"><Settings2 className="size-4" /></span><div><h2 className="scolapro-section-title">Leave type governance</h2><p className="scolapro-section-description">Configure local leave categories without inventing national entitlement values.</p></div></div>
-      <form action={action} className="mt-4 grid gap-3 sm:grid-cols-2" noValidate>
+    <section aria-label="Leave type governance" className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3"><span className="scolapro-tone-indigo grid size-9 place-items-center rounded-[var(--radius-sm)]"><Settings2 className="size-4" /></span><div><h2 className="scolapro-section-title">Leave type governance</h2><p className="scolapro-section-description">Approved local leave categories and their evidence/balance rules. No national entitlements are invented.</p></div></div>
+        {editing ? <Button type="button" size="sm" variant="neutral" onClick={closeEditor}>Close</Button> :
+          <Button ref={addButtonRef} type="button" size="sm" variant="soft" onClick={() => openEditor(undefined, addButtonRef.current)}>Add leave type</Button>}
+      </div>
+      {types.length ? <div className="mt-4 divide-y divide-border-subtle" aria-label="Configured leave types">{types.map((type) =>
+        <div key={type.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+          <div className="min-w-0"><p className="text-sm font-semibold">{type.name} <span className="text-xs font-normal text-muted-foreground">({type.code})</span></p>
+            <p className="mt-1 text-xs text-muted-foreground">{type.status === "active" ? "Active" : "Inactive"} · {type.tracksBalance ? "Balance tracked" : "No balance ledger"} · Evidence {type.evidenceRequirement}</p>
+            {type.sourceReference ? <p className="mt-1 break-words text-xs text-muted-foreground">Source: {type.sourceReference}</p> : null}
+          </div>
+          <Button ref={(element) => { editButtonRefs.current[type.id] = element; }} type="button" variant="ghost" size="sm" onClick={() => openEditor(type, editButtonRefs.current[type.id])} aria-label={`Edit ${type.name}`}>Edit</Button>
+        </div>
+      )}</div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border-subtle px-4 py-3 text-sm text-muted-foreground">No leave types configured. Add an approved school leave category to enable staff requests.</div>}
+
+      {editing ? <form key={editingCode ?? "new-leave-type"} action={action} className="mt-4 grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3 sm:grid-cols-2" noValidate>
         <input type="hidden" name="schoolId" value={schoolId} />
-        <div><label htmlFor="leave-type-code" className="text-xs font-medium">Code</label><input id="leave-type-code" name="code" className={`${fieldClass} mt-1.5 uppercase`} placeholder="e.g. SCHOOL-LEAVE" /><ErrorText messages={state.fieldErrors?.code} /></div>
-        <div><label htmlFor="leave-type-name" className="text-xs font-medium">Name</label><input id="leave-type-name" name="displayName" className={`${fieldClass} mt-1.5`} placeholder="Leave type name" /><ErrorText messages={state.fieldErrors?.displayName} /></div>
-        <Picker label="Balance ledger" name="tracksBalance" placeholder="Choose balance behavior" value={tracksBalance} onChange={setTracksBalance} options={[{ value: "no", label: "Not tracked" }, { value: "yes", label: "Track balance", helper: "Balance comes only from immutable ledger entries" }]} />
-        <Picker label="Evidence" name="evidenceRequirement" placeholder="Choose evidence rule" value={evidenceRequirement} onChange={setEvidenceRequirement} options={[{ value: "none", label: "None" }, { value: "optional", label: "Optional" }, { value: "required", label: "Required before approval" }]} />
-        <div className="sm:col-span-2"><label htmlFor="leave-source" className="text-xs font-medium">Source reference <span className="font-normal text-muted-foreground">(recommended)</span></label><input id="leave-source" name="sourceReference" className={`${fieldClass} mt-1.5`} placeholder="Verified policy / school rule reference" /><p className="mt-1 text-[0.68rem] text-muted-foreground">Use a source reference when a rule is policy-derived. No Ministry entitlement is pre-seeded.</p></div>
-        <Picker label="Status" name="active" placeholder="Choose status" value={active} onChange={setActive} options={[{ value: "yes", label: "Active" }, { value: "no", label: "Inactive" }]} />
-        <div className="flex items-end justify-end"><button type="submit" disabled={pending} className="scolapro-cta inline-flex min-h-10 items-center gap-2 bg-brand px-4 text-sm font-medium text-white disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : <Settings2 className="size-4" />}{pending ? "Saving…" : "Save type"}</button></div>
-      </form>
+        <div><label htmlFor="leave-type-code" className="text-xs font-medium">Code</label><input id="leave-type-code" name="code" value={draft.code} readOnly={editingCode !== null} onChange={(event) => setDraft((current) => ({ ...current, code: event.target.value }))} className={`${fieldClass} mt-1.5 uppercase ${editingCode ? "bg-surface-muted" : ""}`} placeholder="e.g. SCHOOL-LEAVE" /><ErrorText messages={state.fieldErrors?.code} /></div>
+        <div><label htmlFor="leave-type-name" className="text-xs font-medium">Name</label><input id="leave-type-name" name="displayName" value={draft.displayName} onChange={(event) => setDraft((current) => ({ ...current, displayName: event.target.value }))} className={`${fieldClass} mt-1.5`} placeholder="Leave type name" /><ErrorText messages={state.fieldErrors?.displayName} /></div>
+        <Picker label="Balance ledger" name="tracksBalance" placeholder="Choose balance behavior" value={draft.tracksBalance} onChange={(value) => setDraft((current) => ({ ...current, tracksBalance: value as LeaveTypeDraft["tracksBalance"] }))} options={[{ value: "no", label: "Not tracked" }, { value: "yes", label: "Track balance", helper: "Balance comes only from immutable ledger entries" }]} />
+        <Picker label="Evidence" name="evidenceRequirement" placeholder="Choose evidence rule" value={draft.evidenceRequirement} onChange={(value) => setDraft((current) => ({ ...current, evidenceRequirement: value as LeaveTypeDraft["evidenceRequirement"] }))} options={[{ value: "none", label: "None" }, { value: "optional", label: "Optional" }, { value: "required", label: "Required before approval" }]} />
+        <div className="sm:col-span-2"><label htmlFor="leave-source" className="text-xs font-medium">Source reference <span className="font-normal text-muted-foreground">(required for tracked balance)</span></label><input id="leave-source" name="sourceReference" value={draft.sourceReference} onChange={(event) => setDraft((current) => ({ ...current, sourceReference: event.target.value }))} className={`${fieldClass} mt-1.5`} placeholder="Verified policy / school rule reference" /><ErrorText messages={state.fieldErrors?.sourceReference} /></div>
+        <Picker label="Status" name="active" placeholder="Choose status" value={draft.active} onChange={(value) => setDraft((current) => ({ ...current, active: value as LeaveTypeDraft["active"] }))} options={[{ value: "yes", label: "Active" }, { value: "no", label: "Inactive" }]} />
+        <div className="flex items-end justify-end gap-2"><Button type="button" size="sm" variant="neutral" onClick={closeEditor}>Cancel</Button><Button type="submit" size="sm" disabled={pending} loading={pending}>{editingCode ? "Save changes" : "Save type"}</Button></div>
+      </form> : null}
     </section>
   );
 }
