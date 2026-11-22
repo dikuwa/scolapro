@@ -108,7 +108,7 @@ test("school admin publishes certified report and linked guardian receives the o
   await expect(page.getByText("Report card published.", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
 
-  const guardianContext = await browser.newContext();
+  const guardianContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
   try {
     const guardianPage = await guardianContext.newPage();
     await signIn(guardianPage, "publishedGuardian");
