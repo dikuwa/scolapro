@@ -108,6 +108,27 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     effective_from: "2026-01-05",
     effective_to: null,
   });
+  // Separate guardian and existing synthetic learner used only for
+  // published-read acceptance. This does not create or approve official marks.
+  const publishedGuardian = SYNTHETIC_ACCOUNTS.publishedGuardian;
+  await upsert("guardian_profiles", {
+    id: publishedGuardian.guardianProfileId,
+    tenant_id: DEMO.tenantId,
+    first_names: "E2E Published",
+    surname: "Guardian",
+    status: "active",
+  });
+  await upsert("learner_guardians", {
+    id: publishedGuardian.learnerGuardianId,
+    tenant_id: DEMO.tenantId,
+    learner_id: DEMO.publishedLearnerId,
+    guardian_id: publishedGuardian.guardianProfileId,
+    relationship_type: "parent",
+    is_legal_guardian: true,
+    effective_from: "2026-01-05",
+    effective_to: null,
+  });
+
   // 3. Isolation tenant + school (never contains learner data).
   await upsert("tenants", { id: OUTSIDER_TENANT.tenantId, name: OUTSIDER_TENANT.tenantName, slug: "e2e-isolation-group" });
   await upsert("schools", {
@@ -213,6 +234,52 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     user_id: guardian.userId,
     linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
   });
+
+  await upsert("guardian_user_links", {
+    id: publishedGuardian.guardianLinkId,
+    tenant_id: DEMO.tenantId,
+    guardian_id: publishedGuardian.guardianProfileId,
+    user_id: publishedGuardian.userId,
+    linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+
+  // A frozen published artifact for *read-path* acceptance only. The lifecycle
+  // transition and mark-approval path must be tested separately under #1309.
+  // Certified/published snapshots are immutable: never upsert an existing row.
+  const { data: publishedExisting, error: publishedReadError } = await client
+    .from("report_card_snapshots")
+    .select("id")
+    .eq("id", DEMO.publishedSnapshotId)
+    .maybeSingle();
+  if (publishedReadError) throw new Error(`Unable to inspect synthetic published report: ${publishedReadError.message}`);
+  if (!publishedExisting) {
+    await upsert("report_card_snapshots", {
+      id: DEMO.publishedSnapshotId,
+      tenant_id: DEMO.tenantId,
+      school_id: DEMO.schoolId,
+      learner_id: DEMO.publishedLearnerId,
+      enrolment_id: DEMO.learnerTomasEnrolmentId,
+      academic_year: 2026,
+      term_number: 1,
+      template_version: "E2E_SYNTHETIC_PUBLISHED_V1",
+      snapshot_version: 1,
+      data_snapshot: {
+        results: [{
+          official_result_id: "synthetic-read-path-only",
+          subject_code: "E2E-SCI",
+          subject_name: "E2E Published Science",
+          result_value: 82,
+          symbol: "A",
+        }],
+        attendance: { recorded_school_days: 20, present: 18, absent: 2, late: 0, excused: 0 },
+      },
+      status: "published",
+      generated_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_at: "2026-10-20T12:00:00Z",
+      published_at: "2026-10-20T12:10:00Z",
+    });
+  }
 
   // 7. Bind Grade 10/A to the register teacher so allow/deny is meaningful.
   const { error: bindError } = await client
