@@ -48,6 +48,7 @@ export declare const SYNTHETIC_ACCOUNTS: {
   readonly unassignedTeacher: SyntheticAccount;
   readonly hod: SyntheticAccount;
   readonly guardian: SyntheticAccount;
+  readonly publishedGuardian: SyntheticAccount;
   readonly outsider: SyntheticAccount;
 };
 
