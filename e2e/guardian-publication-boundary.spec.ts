@@ -80,3 +80,16 @@ test("HOD report-card access stays read-only without certification or publicatio
   await expect(page.getByRole("button", { name: "Certify" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Publish" })).toHaveCount(0);
 });
+
+test("published guardian sees one frozen result but not a certified-only term", async ({ page }) => {
+  await signIn(page, "publishedGuardian");
+  await page.goto("/parent");
+
+  await expect(page.getByRole("heading", { name: "My children" }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Latest published results" })).toBeVisible();
+  await expect(page.getByText("E2E Published Science", { exact: true })).toBeVisible();
+  await expect(page.getByText("82", { exact: true })).toBeVisible();
+  await expect(page.getByText("E2E Confidential Science", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Synthetic Boy", { exact: false })).toHaveCount(0);
+  await expect(page.getByText("E2E Isolation Secondary School")).toHaveCount(0);
+});
