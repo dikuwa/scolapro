@@ -64,3 +64,19 @@ test("ending a guardian relationship immediately removes family and report acces
     expect(data?.id).toBe(relationshipId);
   }
 });
+
+test("guardian cannot enter school report-card management", async ({ page }) => {
+  await signIn(page, "guardian");
+  await page.goto("/reports/report-cards");
+  await expect(page).not.toHaveURL(/\/reports\/report-cards(?:\?|$)/);
+  await expect(page.getByRole("heading", { name: "Report cards" })).toHaveCount(0);
+});
+
+test("HOD report-card access stays read-only without certification or publication", async ({ page }) => {
+  await signIn(page, "hod");
+  await page.goto("/reports/report-cards");
+  await expect(page.getByRole("heading", { name: "Report cards" })).toBeVisible();
+  await expect(page.getByText("Generation, certification, publishing and printing remain with School Administration and school management.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Certify" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Publish" })).toHaveCount(0);
+});
