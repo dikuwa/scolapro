@@ -108,14 +108,6 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     effective_from: "2026-01-05",
     effective_to: null,
   });
-  await upsert("guardian_user_links", {
-    id: guardian.guardianLinkId,
-    tenant_id: DEMO.tenantId,
-    guardian_id: guardian.guardianProfileId,
-    user_id: guardian.userId,
-    linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
-  });
-
   // 3. Isolation tenant + school (never contains learner data).
   await upsert("tenants", { id: OUTSIDER_TENANT.tenantId, name: OUTSIDER_TENANT.tenantName, slug: "e2e-isolation-group" });
   await upsert("schools", {
@@ -210,6 +202,17 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
       created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
     });
   }
+
+  // Link after school membership is established: the deferred guardian actor
+  // integrity trigger requires a current authorized manager of the learner's
+  // school. Service-role access alone does not bypass provenance governance.
+  await upsert("guardian_user_links", {
+    id: guardian.guardianLinkId,
+    tenant_id: DEMO.tenantId,
+    guardian_id: guardian.guardianProfileId,
+    user_id: guardian.userId,
+    linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
 
   // 7. Bind Grade 10/A to the register teacher so allow/deny is meaningful.
   const { error: bindError } = await client
