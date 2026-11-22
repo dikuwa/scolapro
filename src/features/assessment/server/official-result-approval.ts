@@ -234,6 +234,18 @@ export async function approveOfficialResult(
     return { message: "The learner is not in the selected subject offering's grade." };
   }
 
+  const { data: registration, error: registrationError } = await db.from("learner_subject_registrations")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("enrolment_id", enrolmentId)
+    .eq("subject_offering_id", scheme.subject_offering_id)
+    .eq("status", "active")
+    .limit(1)
+    .maybeSingle();
+  if (registrationError || !registration) {
+    return { message: "The learner has no active registration for this subject offering. No result was approved." };
+  }
+
   const { error } = await db.rpc("approve_official_subject_result", {
     p_assessment_scheme_id: schemeId,
     p_enrolment_id: enrolmentId,
