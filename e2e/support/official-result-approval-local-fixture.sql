@@ -14,7 +14,7 @@ on conflict (id) do nothing;
 insert into public.assessment_schemes(
   id,tenant_id,school_id,subject_offering_id,scheme_key,version,capture_mode,effective_from,status,created_by_user_id
 ) values('e2f30000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-'e2f20000-0000-4000-8000-000000000001','E2E-APP','v1','detailed','2026-01-05','active','e2e00000-0000-4000-8000-000000000000')
+'e2f20000-0000-4000-8000-000000000001','E2E-APP','v1','detailed','2026-01-05','active','70000000-0000-4000-8000-000000000001')
 on conflict (id) do nothing;
 
 insert into public.assessment_components(
@@ -33,7 +33,7 @@ insert into public.learner_subject_registrations(
  id,tenant_id,school_id,academic_year,enrolment_id,learner_id,subject_offering_id,status,source,registered_by_user_id
 ) values('e2f70000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,
 '60000000-0000-4000-8000-000000000002','50000000-0000-4000-8000-000000000002','e2f20000-0000-4000-8000-000000000001','active','test',
-'e2e00000-0000-4000-8000-000000000000')
+'70000000-0000-4000-8000-000000000001')
 on conflict (id) do nothing;
 
 insert into public.assessment_instances(
@@ -42,20 +42,20 @@ insert into public.assessment_instances(
 ) values('e2f60000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,
 'e2f30000-0000-4000-8000-000000000001','e2f40000-0000-4000-8000-000000000001','e2f20000-0000-4000-8000-000000000001',
 '40000000-0000-4000-8000-00000000001b','e2f50000-0000-4000-8000-000000000001',1,'E2E Approval Task',100,'open',
-'e2e00000-0000-4000-8000-000000000000')
+'70000000-0000-4000-8000-000000000001')
 on conflict (id) do nothing;
 
 insert into public.subject_department_responsibilities(
  id,tenant_id,school_id,subject_id,department_head_staff_assignment_id,effective_from,created_by_user_id
 ) values('e2fa0000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
 'e2f10000-0000-4000-8000-000000000001','e2e30000-0000-4000-8000-000000000003','2026-01-05',
-'e2e00000-0000-4000-8000-000000000000')
+'70000000-0000-4000-8000-000000000001')
 on conflict (id) do nothing;
 
 insert into public.grading_scales(
  id,tenant_id,school_id,scale_key,version,display_name,effective_from,status,created_by_user_id
 ) values('e2f80000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-'E2E-ONLY','v1','E2E Synthetic Approval Scale','2026-01-05','active','e2e00000-0000-4000-8000-000000000000')
+'E2E-ONLY','v1','E2E Synthetic Approval Scale','2026-01-05','active','70000000-0000-4000-8000-000000000001')
 on conflict (id) do nothing;
 
 insert into public.grading_scale_bands(
