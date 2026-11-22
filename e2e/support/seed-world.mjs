@@ -293,6 +293,86 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     });
   }
 
+  // SYNTHETIC MARK ENTRY: isolated Grade 10/B Term 3 subject workflow.
+  // Reuses the existing E2E-SCI offering, but never touches its Term 1
+  // published official result or the Term 1/2 report-card acceptance cases.
+  await upsert("assessment_schemes", {
+    id: DEMO.assessmentSchemeId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    subject_offering_id: publishedOfferingId,
+    scheme_key: "E2E_TERM3_MARK_CAPTURE",
+    version: "v1",
+    capture_mode: "detailed",
+    effective_from: "2026-01-05",
+    status: "active",
+    created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+  await upsert("assessment_components", {
+    id: DEMO.assessmentComponentId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    assessment_scheme_id: DEMO.assessmentSchemeId,
+    component_code: "TASK",
+    display_name: "E2E Term Three Task",
+    component_type: "task",
+    raw_max: 100,
+    weight: 100,
+    contributes_to_report: true,
+    required: true,
+    sort_order: 1,
+  });
+  await upsert("teacher_allocations", {
+    id: DEMO.assessmentTeacherAllocationId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    subject_offering_id: publishedOfferingId,
+    register_class_id: DEMO.registerClass10B,
+    staff_member_id: SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId,
+    active_from: "2026-01-05",
+  });
+  await upsert("subject_department_responsibilities", {
+    id: DEMO.assessmentHodResponsibilityId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    subject_id: publishedSubjectId,
+    department_head_staff_assignment_id: SYNTHETIC_ACCOUNTS.hod.assignmentId,
+    department_label: "E2E Science",
+    effective_from: "2026-01-05",
+    created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+  await upsert("learner_subject_registrations", {
+    id: DEMO.assessmentRegistrationId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    learner_id: DEMO.publishedLearnerId,
+    enrolment_id: DEMO.learnerTomasEnrolmentId,
+    subject_offering_id: publishedOfferingId,
+    status: "active",
+    source: "e2e_synthetic",
+    registered_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+    registered_at: "2026-01-12T08:00:00Z",
+  });
+  await upsert("assessment_instances", {
+    id: DEMO.assessmentInstanceId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    assessment_scheme_id: DEMO.assessmentSchemeId,
+    assessment_component_id: DEMO.assessmentComponentId,
+    subject_offering_id: publishedOfferingId,
+    register_class_id: DEMO.registerClass10B,
+    teacher_allocation_id: DEMO.assessmentTeacherAllocationId,
+    term_number: 3,
+    assessment_date: "2026-10-13",
+    display_name: "E2E Term Three Science Task",
+    raw_max: 100,
+    status: "open",
+    created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+
   // A frozen published artifact for *read-path* acceptance only. The lifecycle
   // transition and mark-approval path must be tested separately under #1309.
   // Certified/published snapshots are immutable: never upsert an existing row.
