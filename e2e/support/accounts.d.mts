@@ -29,6 +29,12 @@ export declare const DEMO: {
   readonly publishedLearnerId: string;
   readonly publishedSnapshotId: string;
   readonly certifiedOnlySnapshotId: string;
+  readonly assessmentSchemeId: string;
+  readonly assessmentComponentId: string;
+  readonly assessmentTeacherAllocationId: string;
+  readonly assessmentHodResponsibilityId: string;
+  readonly assessmentRegistrationId: string;
+  readonly assessmentInstanceId: string;
   readonly registerBoyLearnerId: string;
   readonly registerBoyEnrolmentId: string;
   readonly registerVisualSubmissionId: string;
