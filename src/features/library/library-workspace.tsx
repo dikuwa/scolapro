@@ -14,7 +14,7 @@ import { LibraryImport } from "@/features/library/library-import";
 import { issueLibraryResource, returnLibraryResource, type LibraryActionState } from "@/features/library/server/actions";
 import { cacheLibraryCirculationSnapshot, queueLibraryCirculation } from "@/features/library/offline/circulation-queue";
 import type { OfflineScope } from "@/lib/offline/db";
-import type { LibraryBorrower, LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibrarySubject, LibraryTitle } from "@/features/library/server/queries";
+import type { LibraryBooklistItem, LibraryBorrower, LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibrarySubject, LibraryTitle } from "@/features/library/server/queries";
 
 const initialState: LibraryActionState = {};
 const returnConditions = ["good", "new", "fair", "poor", "damaged", "lost"].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }));

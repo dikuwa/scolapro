@@ -8,7 +8,7 @@ import { DateField } from "@/components/ui/date-field";
 import { BooklistRequirements } from "@/features/library/booklist-requirements";
 import { Picker } from "@/components/ui/picker";
 import { bulkIssueLibraryResources, bulkReturnLibraryResources, type LibraryActionState } from "@/features/library/server/actions";
-import type { LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibraryTitle } from "@/features/library/server/queries";
+import type { LibraryBooklistItem, LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibraryTitle } from "@/features/library/server/queries";
 
 const initialState: LibraryActionState = {};
 const returnConditions = ["new", "good", "fair", "poor", "damaged", "lost"].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }));
