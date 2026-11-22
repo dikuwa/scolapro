@@ -140,6 +140,14 @@ test("school renders a real digital report and guardian alone can open the priva
   const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  const { data: frozen, error: frozenError } = await service.from("report_card_snapshots")
+    .select("data_snapshot").eq("id", DEMO.publishedSnapshotId).single();
+  expect(frozenError).toBeNull();
+  const frozenResults = frozen?.data_snapshot?.results;
+  expect(Array.isArray(frozenResults)).toBe(true);
+  expect(frozenResults?.[0]?.subject_name).toBe("E2E Published Science");
+  expect(frozenResults?.[0]?.result_status).toBe("numeric");
+
   let documentId = "";
   await expect.poll(async () => {
     const { data, error } = await service.from("report_card_documents")
@@ -162,7 +170,9 @@ test("school renders a real digital report and guardian alone can open the priva
     await expect(link).toHaveAttribute("href", `/api/report-card-documents/${documentId}`);
     const reportResponse = await guardianContext.request.get(new URL(await link.getAttribute("href") ?? "", baseURL).toString());
     expect(reportResponse.status()).toBe(200);
-    expect(await reportResponse.text()).toContain("E2E Published Science");
+    const html = await reportResponse.text();
+    expect(html.includes("No approved results in this snapshot.")).toBe(false);
+    expect(html.includes("E2E Published Science")).toBe(true);
 
     const outsiderPage = await outsiderContext.newPage();
     await signIn(outsiderPage, "outsider");
