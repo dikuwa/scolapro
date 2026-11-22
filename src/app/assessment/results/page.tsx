@@ -25,7 +25,7 @@ export default async function OfficialResultsPage({ searchParams }: { searchPara
     <header>
       <h1 className="scolapro-page-title">Official result approval</h1>
       <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
-        Approve verified subject results for {workspace.academicYear} using the school's configured scheme and grading scale. Results remain unpublished until a separate report-card certification and publication.
+        Approve verified subject results for {workspace.academicYear} using the school&apos;s configured scheme and grading scale. Results remain unpublished until a separate report-card certification and publication.
       </p>
     </header>
     <OfficialResultApprovalView workspace={workspace} />
