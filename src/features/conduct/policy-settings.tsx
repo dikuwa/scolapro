@@ -304,7 +304,7 @@ export function ConductPolicySettings({
             <ConductForm action={confirmDelete.kind === "group" ? deleteConductGroup : deleteConductPolicyItem} onSaved={() => setConfirmDelete(null)}>
               <input type="hidden" name="schoolId" value={schoolId} />
               <input type="hidden" name={confirmDelete.kind === "group" ? "groupId" : "categoryId"} value={confirmDelete.id} />
-              <div className="flex justify-end gap-2"><Button type="button" variant="neutral" onClick={() => setConfirmDelete(null)}>Cancel</Button><Button type="submit" variant="danger">Delete if unused</Button></div>
+              <div className="flex justify-end gap-2"><Button type="button" variant="neutral" onClick={() => setConfirmDelete(null)}>Cancel</Button><Button type="submit" variant="danger-confirm">Delete if unused</Button></div>
             </ConductForm>
           </div>
         </ConductDialog>

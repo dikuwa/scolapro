@@ -664,7 +664,7 @@ export function OperationalCalendarManager({
                   {canManageSchool && event.canMutate ? <>
                     <RecordActionButton icon={Pencil} label="Edit" actionKind="edit" expanded={false} onClick={() => setEditingEventId((current) => current === event.id ? null : event.id)} />
                     {confirmCancelId === event.id ? <>
-                      <form action={cancelAction}><input type="hidden" name="eventId" value={event.id} /><Button type="submit" size="sm" variant="danger" loading={cancelPending}><Trash2 className="size-3.5" />Cancel event</Button></form>
+                      <form action={cancelAction}><input type="hidden" name="eventId" value={event.id} /><Button type="submit" size="sm" variant="danger-confirm" loading={cancelPending}><Trash2 className="size-3.5" />Cancel event</Button></form>
                       <Button type="button" size="sm" variant="ghost" onClick={() => setConfirmCancelId(null)}>Keep</Button>
                     </> : <Button type="button" size="sm" variant="danger-ghost" onClick={() => setConfirmCancelId(event.id)}><Trash2 className="size-3.5" />Delete</Button>}
                   </> : null}

@@ -5,14 +5,14 @@ import test from 'node:test';
 const button = readFileSync(new URL('../src/components/ui/button.tsx', import.meta.url), 'utf8');
 const calendar = readFileSync(new URL('../src/features/calendar/teaching-impact-manager.tsx', import.meta.url), 'utf8');
 
-test('canonical danger-ghost entry uses soft danger background at rest', () => {
-  assert.match(button, /"danger-ghost": "bg-danger-soft text-\[color:var\(--danger\)\]/);
+test('canonical danger-ghost entry stays transparent until hover', () => {
+  assert.match(button, /"danger-ghost": "bg-transparent text-\[color:var\(--danger-entry\)\]/);
   assert.match(button, /danger: "bg-danger-soft text-\[color:var\(--danger\)\]/);
 });
 
 test('Calendar uses danger-toned Delete entries and confirmation', () => {
   assert.match(calendar, /type="button" size="sm" variant="danger-ghost" onClick=\{\(\) => setConfirmDeleteId\(item\.id\)\}/);
-  assert.match(calendar, /type="submit" size="sm" variant="danger" loading=\{deletePending\}/);
+  assert.match(calendar, /type="submit" size="sm" variant="danger-confirm" loading=\{deletePending\}/);
   assert.match(calendar, /confirmDeleteId === item\.id/);
   assert.match(calendar, /setConfirmDeleteId\(null\)/);
 });
@@ -22,7 +22,7 @@ const conduct = readFileSync(new URL('../src/features/conduct/policy-settings.ts
 test('conduct policy Delete entries remain danger-toned until explicit confirmation', () => {
   assert.match(conduct, /variant="danger-ghost" size="sm" onClick=\{\(\) => setConfirmDelete\(\{ kind: "group"/);
   assert.match(conduct, /variant="danger-ghost" size="sm" onClick=\{\(\) => setConfirmDelete\(\{ kind: "item"/);
-  assert.match(conduct, /variant="danger">Delete if unused<\/Button>/);
+  assert.match(conduct, /variant="danger-confirm">Delete if unused<\/Button>/);
 });
 
 const offline = readFileSync(new URL('../src/components/offline/offline-sync-center.tsx', import.meta.url), 'utf8');
