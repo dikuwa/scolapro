@@ -19,6 +19,7 @@ test("assigned teacher saves and submits a mark, then scoped HOD verifies it", a
   // The DB's term-array CHECK helper is callable by authenticated actors,
   // not the service-role REST client. Establish the fixture through the real
   // school-admin identity rather than bypassing database permissions.
+  if (!status.ANON_KEY) throw new Error("Local Supabase publishable key is missing.");
   const admin = createClient(status.API_URL, status.ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
