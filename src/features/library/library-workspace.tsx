@@ -54,9 +54,10 @@ function ReturnLoanForm({ loan, title, copy, offlineScope }: { loan: LibraryLoan
   </form>;
 }
 
-export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, subjects, grades, classes, learners, today, offlineScope, view }: {
+export function LibraryWorkspace({ schoolId, titles, booklists, copies, loans, borrowers, subjects, grades, classes, learners, today, offlineScope, view }: {
   schoolId: string;
   titles: LibraryTitle[];
+  booklists: LibraryBooklistItem[];
   copies: LibraryCopy[];
   loans: LibraryLoan[];
   borrowers: LibraryBorrower[];
@@ -133,7 +134,7 @@ export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, s
     </section> : null}
 
     {view === "manage" ? <CatalogManager schoolId={schoolId} titles={titles} subjects={subjects} grades={grades} /> : null}
-    {view === "class" ? <ClassOperations schoolId={schoolId} today={today} grades={grades} classes={classes} learners={learners} titles={titles} copies={copies} loans={loans} /> : null}
+    {view === "class" ? <ClassOperations schoolId={schoolId} today={today} grades={grades} classes={classes} learners={learners} titles={titles} booklists={booklists} copies={copies} loans={loans} /> : null}
     {view === "circulation" ? <Circulation today={today} titles={titles} copies={copies} loans={loans} borrowers={borrowers} grades={latestGrades} classes={classes} offlineScope={offlineScope} /> : null}
     {view === "import" ? <LibraryImport schoolId={schoolId} titles={titles} subjects={subjects} grades={grades} existingBarcodes={copies.map((copy) => copy.barcode).filter((value): value is string => Boolean(value))} existingAssets={copies.map((copy) => copy.assetNumber).filter((value): value is string => Boolean(value))} /> : null}
   </div>;
