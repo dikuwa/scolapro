@@ -281,6 +281,42 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     });
   }
 
+  // A certified-only version in the same family must remain private even
+  // while the other term's published report is visible in the parent portal.
+  const { data: certifiedExisting, error: certifiedReadError } = await client
+    .from("report_card_snapshots")
+    .select("id")
+    .eq("id", DEMO.certifiedOnlySnapshotId)
+    .maybeSingle();
+  if (certifiedReadError) throw new Error(`Unable to inspect certified-only report: ${certifiedReadError.message}`);
+  if (!certifiedExisting) {
+    await upsert("report_card_snapshots", {
+      id: DEMO.certifiedOnlySnapshotId,
+      tenant_id: DEMO.tenantId,
+      school_id: DEMO.schoolId,
+      learner_id: DEMO.publishedLearnerId,
+      enrolment_id: DEMO.learnerTomasEnrolmentId,
+      academic_year: 2026,
+      term_number: 2,
+      template_version: "E2E_SYNTHETIC_CERTIFIED_V1",
+      snapshot_version: 1,
+      data_snapshot: {
+        results: [{
+          official_result_id: "synthetic-private-read-path-only",
+          subject_code: "E2E-PRIVATE",
+          subject_name: "E2E Confidential Science",
+          result_value: 13,
+          symbol: "E",
+        }],
+        attendance: { recorded_school_days: 10, present: 7, absent: 3 },
+      },
+      status: "certified",
+      generated_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_at: "2026-10-20T12:00:00Z",
+    });
+  }
+
   // 7. Bind Grade 10/A to the register teacher so allow/deny is meaningful.
   const { error: bindError } = await client
     .from("register_classes")
