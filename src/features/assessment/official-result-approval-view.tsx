@@ -8,9 +8,9 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Picker } from "@/components/ui/picker";
-import { approveOfficialResult, type OfficialResultApprovalRow, type OfficialResultApprovalWorkspace } from "@/features/assessment/server/official-result-approval";
+import { approveOfficialResult, type OfficialResultApprovalRow, type OfficialResultApprovalWorkspace, type OfficialResultApprovalState } from "@/features/assessment/server/official-result-approval";
 
-const initialState = { message: "" };
+const initialState: OfficialResultApprovalState = { message: "" };
 
 function ApprovalRow({ row, schemeId, termNumber, scaleId, verified, confirmed }: {
   row: OfficialResultApprovalRow;
