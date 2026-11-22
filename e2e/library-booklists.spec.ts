@@ -10,11 +10,12 @@ test.describe("#1304 grade booklist functionality (synthetic school only)", () =
   test.beforeAll(() => { expect(localSupabaseStatus({ projectRoot: process.cwd() }).API_URL).toBeTruthy(); });
 
   test("school admin can save, revise and deactivate a governed grade textbook requirement", async ({ page }, testInfo) => {
+    const textbookName = `Synthetic Booklist 1304 ${crypto.randomUUID()}`;
     await signIn(page, "admin");
     await page.goto("/library?view=manage");
     await expect(page.getByRole("heading", { name: "Library / Textbooks" })).toBeVisible();
     const createTitle = page.locator("form").filter({ has: page.getByRole("heading", { name: "Add catalog title" }) });
-    await createTitle.locator('input[name="title"]').fill("Synthetic Booklist Textbook 1304");
+    await createTitle.locator('input[name="title"]').fill(textbookName);
     await createTitle.getByRole("button", { name: "Create title" }).click();
     await expect(page.getByText("Catalog title created.")).toBeVisible();
 
@@ -26,11 +27,11 @@ test.describe("#1304 grade booklist functionality (synthetic school only)", () =
     await expect(card.getByText("Not configured.", { exact: false })).toBeVisible();
     await card.getByRole("button", { name: "Add requirement" }).click();
     await card.getByRole("button", { name: "Textbook", exact: true }).click();
-    await page.getByRole("listbox").getByRole("option", { name: "Synthetic Booklist Textbook 1304" }).click();
+    await page.getByRole("listbox").getByRole("option", { name: textbookName }).click();
     await card.getByRole("spinbutton", { name: "Copies per learner" }).fill("2");
     await card.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByText("Textbook requirement saved.")).toBeVisible();
-    await expect(card.getByText("Synthetic Booklist Textbook 1304")).toBeVisible();
+    await expect(card.getByText(textbookName)).toBeVisible();
     await expect(card.getByText(/2 per learner/)).toBeVisible();
     await expect(card.getByText("Not configured.", { exact: false })).toHaveCount(0);
 
@@ -49,7 +50,7 @@ test.describe("#1304 grade booklist functionality (synthetic school only)", () =
     await card.getByRole("button", { name: "Remove", exact: true }).click();
     await expect(card.getByRole("button", { name: "Confirm removal" })).toBeVisible();
     await card.getByRole("button", { name: "Keep", exact: true }).click();
-    await expect(card.getByText("Synthetic Booklist Textbook 1304")).toBeVisible();
+    await expect(card.getByText(textbookName)).toBeVisible();
     await card.getByRole("button", { name: "Remove", exact: true }).click();
     await card.getByRole("button", { name: "Confirm removal" }).click();
     // The global destructive-submit guard may require a second explicit confirmation.

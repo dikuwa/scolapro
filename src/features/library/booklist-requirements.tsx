@@ -30,6 +30,7 @@ export function BooklistRequirements({ schoolId, gradeId, grades, titles, bookli
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [titleId, setTitleId] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export function BooklistRequirements({ schoolId, gradeId, grades, titles, bookli
   }, [removeState, router]);
 
   function edit(item?: LibraryBooklistItem) {
+    setEditingTitleId(item?.titleId ?? null);
     setTitleId(item?.titleId ?? "");
     setQuantity(String(item?.copiesPerLearner ?? 1));
     setEditing(true);
@@ -104,7 +106,7 @@ export function BooklistRequirements({ schoolId, gradeId, grades, titles, bookli
     {editing ? <form action={saveAction} className="mt-4 grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-end">
       <input type="hidden" name="schoolId" value={schoolId} />
       <input type="hidden" name="gradeId" value={gradeId} />
-      <Picker label="Textbook" name="titleId" value={titleId} onChange={(next) => { setTitleId(next); const current = booklists.find((item) => item.gradeId === gradeId && item.titleId === next); setQuantity(String(current?.copiesPerLearner ?? 1)); }} searchable placeholder="Choose textbook" options={activeTitles.map((title) => ({ value: title.id, label: title.title, helper: title.subjectCode ?? undefined }))} />
+      {editingTitleId ? <div className="min-w-0"><p className="text-xs font-medium">Textbook (unchanged while editing)</p><p className="mt-1.5 flex min-h-10 items-center truncate rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-sm">{titles.find((item) => item.id === editingTitleId)?.title ?? "Textbook"}</p><input type="hidden" name="titleId" value={editingTitleId} /></div> : <Picker label="Textbook" name="titleId" value={titleId} onChange={(next) => { setTitleId(next); const current = booklists.find((item) => item.gradeId === gradeId && item.titleId === next); setQuantity(String(current?.copiesPerLearner ?? 1)); }} searchable placeholder="Choose textbook" options={activeTitles.map((title) => ({ value: title.id, label: title.title, helper: title.subjectCode ?? undefined }))} />}
       <label className="block text-xs font-medium">Copies per learner<input type="number" name="copiesPerLearner" min="1" max="10" step="1" required value={quantity} onChange={(event) => setQuantity(event.target.value)} className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm" /></label>
       <Button type="submit" size="sm" disabled={!titleId || savePending} loading={savePending}>Save</Button>
       {!activeTitles.length ? <p className="text-xs text-muted-foreground sm:col-span-3">Create an active textbook in Manage catalog before adding its requirement.</p> : null}

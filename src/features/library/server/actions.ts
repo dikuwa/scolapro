@@ -342,12 +342,12 @@ export async function saveLibraryBooklistRequirement(_state: LibraryActionState,
   }
   const update = { copies_per_learner: copiesPerLearner, status: "active", updated_by_user_id: context.user.id };
   const result = previous.data
-    ? await supabase.from("learning_resource_booklist_items").update(update).eq("id", previous.data.id).eq("school_id", schoolId)
+    ? await supabase.from("learning_resource_booklist_items").update(update).eq("id", previous.data.id).eq("school_id", schoolId).select("id").maybeSingle()
     : await supabase.from("learning_resource_booklist_items").insert({
         ...update, tenant_id: school.data.tenant_id, school_id: schoolId,
         grade_id: gradeId, title_id: titleId, created_by_user_id: context.user.id,
-      });
-  if (result.error) return operationFailure("Unable to save this booklist requirement. Refresh and try again.");
+      }).select("id").maybeSingle();
+  if (result.error || !result.data) return operationFailure("Unable to save this booklist requirement. Refresh and try again.");
   revalidatePath("/library");
   return { success: true, message: "Textbook requirement saved." };
 }

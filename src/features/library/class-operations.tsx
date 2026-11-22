@@ -91,7 +91,7 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
       })}</tbody></table></div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-sm text-muted-foreground">Choose a grade and class to review learner allocations.</div>}
     </section>
 
-    <BooklistRequirements schoolId={schoolId} gradeId={gradeId} grades={grades} titles={titles} booklists={booklists} learners={learners} copies={copies} loans={loans} />
+    <BooklistRequirements key={`${schoolId}:${gradeId}`} schoolId={schoolId} gradeId={gradeId} grades={grades} titles={titles} booklists={booklists} learners={learners} copies={copies} loans={loans} />
 
     {classId && titleId ? <section className="grid gap-5 xl:grid-cols-2">
       <form action={issueAction} className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
