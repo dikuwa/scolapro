@@ -87,6 +87,35 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     enrolled_from: "2026-01-12",
   });
 
+  // Synthetic guardian for published-report acceptance (#1309).
+  // Linking to the local-only E2E learner avoids altering any production roster
+  // and provides one deterministic family relationship for browser isolation.
+  const guardian = SYNTHETIC_ACCOUNTS.guardian;
+  await upsert("guardian_profiles", {
+    id: guardian.guardianProfileId,
+    tenant_id: DEMO.tenantId,
+    first_names: "E2E Linked",
+    surname: "Guardian",
+    status: "active",
+  });
+  await upsert("learner_guardians", {
+    id: guardian.learnerGuardianId,
+    tenant_id: DEMO.tenantId,
+    learner_id: DEMO.registerBoyLearnerId,
+    guardian_id: guardian.guardianProfileId,
+    relationship_type: "parent",
+    is_legal_guardian: true,
+    effective_from: "2026-01-05",
+    effective_to: null,
+  });
+  await upsert("guardian_user_links", {
+    id: guardian.guardianLinkId,
+    tenant_id: DEMO.tenantId,
+    guardian_id: guardian.guardianProfileId,
+    user_id: guardian.userId,
+    linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+
   // 3. Isolation tenant + school (never contains learner data).
   await upsert("tenants", { id: OUTSIDER_TENANT.tenantId, name: OUTSIDER_TENANT.tenantName, slug: "e2e-isolation-group" });
   await upsert("schools", {
