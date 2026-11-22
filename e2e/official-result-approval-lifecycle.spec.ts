@@ -51,7 +51,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
 
   await signIn(page, "registerTeacher");
   await page.goto(`/assessment/marks/${ids.instance}`);
-  await expect(page.getByRole("heading", { name: "Mark grid" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mark grid" }).first()).toBeVisible();
   const mark = page.getByRole("textbox", { name: "Mark for Sample, Tomas" });
   await expect(mark).toBeEnabled();
   await mark.fill("82");
