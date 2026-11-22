@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-import { DEMO, SYNTHETIC_ACCOUNTS } from "./support/accounts.mjs";
+import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
+import { DEMO } from "./support/accounts.mjs";
 import { localSupabaseStatus } from "./support/local-supabase.mjs";
 import { resolveE2EEnvironment } from "./support/env-guard.mjs";
 import { mergedProjectEnv } from "../scripts/env-file.mjs";
@@ -28,24 +30,24 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
   const service = createClient(local.API_URL, local.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const core = { tenant_id: DEMO.tenantId, school_id: DEMO.schoolId };
-  const adminId = SYNTHETIC_ACCOUNTS.admin.userId;
-  async function seed(table: string, row: Record<string, unknown>) {
-    const { error } = await service.from(table).upsert(row);
-    if (error) throw new Error(`Synthetic ${table} fixture rejected: ${error.message}`);
-  }
-
-  // Local-only synthetic curriculum and grading scale. Never national defaults.
-  await seed("subjects", { id: ids.subject, ...core, subject_code: "E2E-APP", display_name: "E2E Approval Science", status: "active" });
-  await seed("subject_offerings", { id: ids.offering, ...core, academic_year: 2026, subject_id: ids.subject, grade_id: DEMO.gradeTenId, periods_per_cycle: 4, status: "active" });
-  await seed("assessment_schemes", { id: ids.scheme, ...core, subject_offering_id: ids.offering, scheme_key: "E2E-APP", version: "v1", capture_mode: "detailed", effective_from: "2026-01-05", status: "active", created_by_user_id: adminId });
-  await seed("assessment_components", { id: ids.component, ...core, assessment_scheme_id: ids.scheme, component_code: "TASK", display_name: "E2E Approval Task", component_type: "task", raw_max: 100, weight: 100, required: true, contributes_to_report: true, sort_order: 1 });
-  await seed("teacher_allocations", { id: ids.allocation, ...core, academic_year: 2026, subject_offering_id: ids.offering, register_class_id: DEMO.registerClass10B, staff_member_id: SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId, active_from: "2026-01-05" });
-  await seed("learner_subject_registrations", { id: ids.registration, ...core, academic_year: 2026, enrolment_id: DEMO.learnerTomasEnrolmentId, learner_id: "50000000-0000-4000-8000-000000000002", subject_offering_id: ids.offering, status: "active", source: "test", registered_by_user_id: adminId });
-  await seed("assessment_instances", { id: ids.instance, ...core, academic_year: 2026, assessment_scheme_id: ids.scheme, assessment_component_id: ids.component, subject_offering_id: ids.offering, register_class_id: DEMO.registerClass10B, teacher_allocation_id: ids.allocation, term_number: 1, display_name: "E2E Approval Task", raw_max: 100, status: "open", created_by_user_id: adminId });
-  await seed("subject_department_responsibilities", { id: ids.hodResponsibility, ...core, subject_id: ids.subject, department_head_staff_assignment_id: SYNTHETIC_ACCOUNTS.hod.assignmentId, effective_from: "2026-01-05", created_by_user_id: adminId });
-  await seed("grading_scales", { id: ids.scale, ...core, scale_key: "E2E-ONLY", version: "v1", display_name: "E2E Synthetic Approval Scale", effective_from: "2026-01-05", status: "active", created_by_user_id: adminId });
-  await seed("grading_scale_bands", { id: ids.band, ...core, grading_scale_id: ids.scale, minimum_value: 0, maximum_value: 100, symbol: "A", sort_order: 1 });
+  const dbUrl = new URL(local.DB_URL);
+  expect(["127.0.0.1", "localhost", "::1"]).toContain(dbUrl.hostname);
+  // Trusted fixture setup uses the disposable local database owner, not an
+  // application/service-role grant to private SQL validators. All user
+  // operations below still execute through authenticated school roles.
+  execFileSync("psql", ["-X", "-v", "ON_ERROR_STOP=1", "-f",
+    resolve(process.cwd(), "e2e/support/official-result-approval-local-fixture.sql")], {
+    cwd: process.cwd(),
+    stdio: "pipe",
+    env: {
+      ...process.env,
+      PGHOST: dbUrl.hostname,
+      PGPORT: dbUrl.port,
+      PGDATABASE: dbUrl.pathname.slice(1),
+      PGUSER: decodeURIComponent(dbUrl.username),
+      PGPASSWORD: decodeURIComponent(dbUrl.password),
+    },
+  });
 
   await signIn(page, "registerTeacher");
   await page.goto(`/assessment/marks/${ids.instance}`);
