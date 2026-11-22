@@ -34,7 +34,10 @@ export const buttonVariants = cva(
          */
         "danger-soft":
           "bg-[color:var(--danger-soft)] text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15 hover:text-[color:var(--danger)]",
-        "danger-ghost": "bg-danger-soft text-[color:var(--danger)] hover:bg-[color:var(--danger)]/15 hover:text-[color:var(--danger)]",
+        /** Destructive entry: danger text/icon, no tinted fill until hover. */
+        "danger-ghost": "bg-transparent text-[color:var(--danger)] hover:bg-[color:var(--danger)]/10 hover:text-[color:var(--danger)]",
+        /** Explicit final destructive confirmation, with theme-aware foreground contrast. */
+        "danger-confirm": "bg-[color:var(--danger)] text-[color:var(--on-danger)] hover:brightness-95",
       },
       size: {
         md: "min-h-10 px-4 text-sm",
