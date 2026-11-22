@@ -267,6 +267,18 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
         learner: { first_names: "Tomas K.", surname: "Sample", sex: "male" },
         enrolment: { admission_number: "DEMO-002", academic_year: 2026, grade: "Grade 10", register_class: "Grade 10/B" },
         term: { number: 1, name: "Term 1" },
+        report_terms: [{
+          number: 1,
+          name: "Term 1",
+          results: [{
+            official_result_id: "synthetic-read-path-only",
+            subject_code: "E2E-SCI",
+            subject_name: "E2E Published Science",
+            result_status: "numeric",
+            result_value: 82,
+            symbol: "A",
+          }],
+        }],
         results: [{
           official_result_id: "synthetic-read-path-only",
           subject_code: "E2E-SCI",
