@@ -118,7 +118,7 @@ export function OfficialResultApprovalView({ workspace }: { workspace: OfficialR
           <Picker label="Grading scale and version" value={scaleId} onChange={(value) => { setScaleId(value); setConfirmed(false); }} options={workspace.scales} placeholder="Select configured grading scale" searchable />
           <CheckboxField label="I confirm these verified results may become official and locked" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} disabled={!scaleId || !workspace.ready} />
         </div>
-        {!workspace.scales.length ? <p className="mt-3 text-xs text-warning">No active grading scale is configured for this school. Configure and verify a grading scale before approving results.</p> : null}
+        {!workspace.scales.length ? <p className="mt-3 text-xs text-warning">No active grading scale is configured for this school. <Link href="/assessment/grading-scales" className="font-semibold underline underline-offset-2">Configure school grading scales</Link> before approving results.</p> : null}
         <p className="mt-3 text-xs text-muted-foreground">The server independently checks scheme, learner, school, term, grading bands, completeness and correction authority. Approval never publishes a report card automatically.</p>
       </section>
 
