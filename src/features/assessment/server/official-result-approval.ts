@@ -189,31 +189,31 @@ export async function getOfficialResultApprovalWorkspace(params: {
       .map((row) => row.id);
     if (candidateEnrolments.length && instanceIds.length && required === verifiedRequired
       && required > 0 && !pendingContributing) {
-      const { data: marks, error: marksError } = await db.from("learner_marks")
-        .select("enrolment_id,assessment_instance_id,recorded_at,correction_authorization_id")
-        .in("enrolment_id", candidateEnrolments)
-        .in("assessment_instance_id", instanceIds)
-        .not("correction_authorization_id", "is", null)
-        .order("recorded_at", { ascending: false }).limit(1000);
-      errorIfPresent(marksError, "governed corrections");
-      const relevantMarks = (marks ?? []).filter((mark) => {
-        const prior = officialMap.get(mark.enrolment_id);
-        return Boolean(prior?.approved_at && mark.recorded_at &&
-          Date.parse(mark.recorded_at) > Date.parse(prior.approved_at));
-      });
-      // Never offer reapproval if a response cap could have hidden some
-      // evidence. The canonical RPC is the only way to approve replacements.
-      if ((marks ?? []).length < 1000 && relevantMarks.length) {
-        // correction_authorization_id is a foreign key into the governed
-        // authorization table. Its requires_reverification column is
-        // NOT NULL CHECK (requires_reverification=true). Re-querying those
-        // rows through complex mark-authorization RLS caused a 500 after
-        // correction on the otherwise authorized school-admin workspace.
-        // The authoritative approval RPC still verifies the authorization,
-        // full contributing-instance readiness and the supersession lock.
-        for (const mark of relevantMarks) {
-          if (mark.correction_authorization_id) corrected.add(mark.enrolment_id);
+      // Search the eligible version history in bounded PostgREST pages. A
+      // full response page does not invalidate corrections already proven.
+      // The authoritative RPC still validates authorization, locks the
+      // contributing instances, and checks finality at mutation time.
+      const unresolved = new Set(candidateEnrolments);
+      const pageSize = 500;
+      for (let offset = 0; unresolved.size > 0; offset += pageSize) {
+        const { data: marks, error: marksError } = await db.from("learner_marks")
+          .select("enrolment_id,recorded_at,correction_authorization_id")
+          .in("enrolment_id", [...unresolved])
+          .in("assessment_instance_id", instanceIds)
+          .not("correction_authorization_id", "is", null)
+          .order("recorded_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        errorIfPresent(marksError, "governed corrections");
+        for (const mark of marks ?? []) {
+          const prior = officialMap.get(mark.enrolment_id);
+          if (mark.correction_authorization_id && prior?.approved_at && mark.recorded_at
+            && Date.parse(mark.recorded_at) > Date.parse(prior.approved_at)) {
+            corrected.add(mark.enrolment_id);
+            unresolved.delete(mark.enrolment_id);
+          }
         }
+        if (!marks || marks.length < pageSize) break;
       }
     }
     rows = enrolments.map((row) => {
