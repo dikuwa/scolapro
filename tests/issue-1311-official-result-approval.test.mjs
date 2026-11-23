@@ -39,7 +39,11 @@ test("readiness checks required components, verification and corrections", () =>
   assert.ok(server.includes('["verified", "locked"].includes(row.status)'));
   assert.ok(server.includes("!row.correction_pending"));
   assert.ok(server.includes("ready: required > 0 && required === verifiedRequired"));
-  assert.ok(view.includes("!row.approved && verified && Boolean(scaleId) && confirmed"));
+  assert.ok(view.includes("row.registered && verified && Boolean(scaleId) && confirmed"));
+  assert.ok(view.includes("Reapprove corrected"));
+  assert.ok(server.includes("Existing official result requires"));
+  assert.ok(!view.includes("row.registered && !row.approved"));
+
 });
 
 test("grading scale and explicit confirmation are user-selected, never defaulted", () => {
