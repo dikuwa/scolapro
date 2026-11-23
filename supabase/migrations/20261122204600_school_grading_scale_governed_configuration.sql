@@ -81,7 +81,9 @@ create trigger grading_band_finality_guard
 before insert or update or delete on public.grading_scale_bands
 for each row execute function app_private.enforce_grading_band_finality();
 
--- Mutations are SECURITY INVOKER: the caller must satisfy existing RLS.
+-- Draft creation and band revision are SECURITY INVOKER and obey RLS.
+-- Activation is a narrowly checked SECURITY DEFINER RPC because direct
+-- authenticated scale UPDATE is revoked to enforce reviewed-band finality.
 -- Every write is one Postgres transaction; partial bands never persist.
 create or replace function public.create_school_grading_scale(
   p_school_id uuid,
@@ -198,7 +200,7 @@ grant execute on function public.replace_school_grading_scale_draft_bands(uuid,j
   to authenticated;
 
 create or replace function public.activate_school_grading_scale(p_scale_id uuid, p_reviewed_bands jsonb)
-returns boolean language plpgsql security invoker
+returns boolean language plpgsql security definer
 set search_path = pg_catalog, public, app_private as $$
 declare v_scale public.grading_scales%rowtype;
   v_current_bands jsonb;
@@ -272,11 +274,10 @@ with check (
   and created_by_user_id = (select auth.uid())
   and app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal'])
 );
+-- Status activation is RPC-only. A direct UPDATE would bypass the
+-- reviewed-bands compare even if the actor holds management authority.
 drop policy if exists "academic leaders can update grading scales" on public.grading_scales;
-create policy "academic leaders can update grading scales"
-on public.grading_scales for update to authenticated
-using (app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal']))
-with check (app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal']));
+revoke update on public.grading_scales from public,anon,authenticated;
 drop policy if exists "academic leaders can manage grading bands" on public.grading_scale_bands;
 create policy "academic leaders can manage grading bands"
 on public.grading_scale_bands for all to authenticated
