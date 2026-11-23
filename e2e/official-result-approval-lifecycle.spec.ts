@@ -137,11 +137,14 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     await expect(adminPage.getByText("Official subject result approved and locked.", { exact: false })).toBeVisible();
 
     const { data: result, error } = await service.from("official_results_current")
-      .select("result_value,symbol").eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+      .select("result_value,symbol,calculation_snapshot").eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
       .eq("subject_offering_id", ids.offering).eq("term_number", 1).single();
     expect(error).toBeNull();
     expect(Number(result?.result_value)).toBe(82);
     expect(result?.symbol).toBe("A");
+    const gradingProvenance = result?.calculation_snapshot as Record<string, unknown> | null;
+    expect(gradingProvenance?.grading_scale_reference_date).toBe("2026-04-28");
+    expect(gradingProvenance?.grading_scale_reference_basis).toBe("academic_term_end");
 
     // The UI must expose the governed correction path without silently
     // changing an official result. No correction authorization exists here.
@@ -235,7 +238,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
       return Number(data?.result_value);
     }).toBe(94);
     const { data: history, error: historyError } = await service.from("official_results")
-      .select("id,result_value,superseded_at,supersedes_result_id,correction_authorization_id")
+      .select("id,result_value,superseded_at,supersedes_result_id,correction_authorization_id,calculation_snapshot")
       .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
       .eq("subject_offering_id", ids.offering).eq("term_number", 1);
     expect(historyError).toBeNull();
@@ -245,6 +248,11 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     expect(oldResult?.superseded_at).toBeTruthy();
     expect(replacementResult?.supersedes_result_id).toBe(oldResult?.id);
     expect(replacementResult?.correction_authorization_id).toBeTruthy();
+    for (const immutable of [oldResult, replacementResult]) {
+      const snapshot = immutable?.calculation_snapshot as Record<string, unknown> | null;
+      expect(snapshot?.grading_scale_reference_date).toBe("2026-04-28");
+      expect(snapshot?.grading_scale_reference_basis).toBe("academic_term_end");
+    }
 
   } finally {
     await Promise.all([hodContext.close(), adminContext.close()]);
