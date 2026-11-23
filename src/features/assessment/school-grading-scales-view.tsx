@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, LockKeyhole, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -72,6 +72,8 @@ function validBands(bands: BandDraft[]): GradingBandInput[] | null {
 function CreateScale() {
   const router = useRouter();
   const [state, action, pending] = useActionState(createSchoolGradingScale, initialState);
+  const [open, setOpen] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
   const [key, setKey] = useState("");
   const [version, setVersion] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -80,17 +82,33 @@ function CreateScale() {
   const [precision, setPrecision] = useState("0");
   const [bands, setBands] = useState<BandDraft[]>([newBand()]);
   const converted = validBands(bands);
+  const closeEditor = useCallback(() => {
+    setOpen(false);
+    setKey("");
+    setVersion("");
+    setDisplayName("");
+    setEffectiveFrom("");
+    setEffectiveTo("");
+    setPrecision("0");
+    setBands([newBand()]);
+    openButtonRef.current?.focus();
+  }, []);
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) { toast.success(state.message); router.refresh(); }
+    if (state.success) { toast.success(state.message); closeEditor(); router.refresh(); }
     else toast.error(state.message);
-  }, [router, state]);
+  }, [closeEditor, router, state]);
 
   return <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
-    <h2 className="scolapro-section-title">Create a draft school scale</h2>
-    <p className="scolapro-section-description">No symbols, cutoffs or national grading rules are supplied automatically. Enter only school-authorized values. A draft cannot be used for official approval until separately activated.</p>
-    <form action={action} className="mt-4 space-y-4">
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0 flex-1">
+        <h2 className="scolapro-section-title">School grading scale setup</h2>
+        <p className="scolapro-section-description">No national rules are provided automatically. Create a school-authorized draft, then explicitly review and activate it.</p>
+      </div>
+      <Button ref={openButtonRef} type="button" variant="neutral" size="sm" disabled={pending} onClick={() => open ? closeEditor() : setOpen(true)}>{open ? "Close" : "Add scale"}</Button>
+    </div>
+    {open ? <form action={action} className="mt-4 space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="space-y-1 text-xs font-medium">Scale key
           <input className={control} name="key" value={key} onChange={(e) => setKey(e.target.value)} maxLength={80} placeholder="School-specific key" required />
@@ -109,10 +127,11 @@ function CreateScale() {
       </div>
       <BandFields bands={bands} setBands={setBands} />
       <input type="hidden" name="bands" value={JSON.stringify(converted ?? [])} />
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="neutral" disabled={pending} onClick={closeEditor}>Cancel</Button>
         <Button type="submit" loading={pending} disabled={!key || !version || !displayName || !effectiveFrom || (Boolean(effectiveTo) && effectiveTo < effectiveFrom) || !converted}><Plus className="size-4" />Save draft scale</Button>
       </div>
-    </form>
+    </form> : null}
   </section>;
 }
 
