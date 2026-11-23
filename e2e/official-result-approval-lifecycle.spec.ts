@@ -69,7 +69,14 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     await hodPage.goto(`/assessment/marks/${ids.instance}`);
     await expect(hodPage.getByRole("heading", { name: "HOD / leadership review" })).toBeVisible();
     await hodPage.getByRole("button", { name: "Verify", exact: true }).click();
-    await expect(hodPage.getByText("Marks verified. Final locking remains part of official result approval.")).toBeVisible();
+    // The review form unmounts on revalidation after verification; assert
+    // the durable DB transition instead of an ephemeral action-state message.
+    await expect.poll(async () => {
+      const { data, error } = await service.from("assessment_instances")
+        .select("status").eq("id", ids.instance).single();
+      if (error) throw new Error("Could not inspect HOD-verified assessment");
+      return data?.status;
+    }).toBe("verified");
 
     const adminPage = await adminContext.newPage();
     await signIn(adminPage, "admin");
