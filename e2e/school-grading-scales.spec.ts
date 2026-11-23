@@ -53,7 +53,9 @@ test.describe.serial("#1313 school grading scale governance", () => {
     await version.getByRole("button", { name: "Save draft bands" }).click();
     await expect(page.getByText("Draft grading bands updated.")).toBeVisible();
     await version.getByRole("button", { name: "Activate and freeze" }).click();
-    await expect(page.getByText("Grading scale activated and frozen.", { exact: false })).toBeVisible();
+    // The server refresh can unmount the transient Sonner toast before an
+    // assertion observes it. Verify the persisted active version instead.
+    await expect(page.getByText("Active versions").locator("..")).toContainText("1");
     await expect(version).toContainText("active");
     await expect(version).toContainText("This version is frozen.");
     await expect(version.getByRole("button", { name: "Save draft bands" })).toHaveCount(0);
