@@ -56,6 +56,14 @@ test("readiness checks required components, verification and corrections", () =>
 
 });
 
+test("reapproval eligibility uses stable bounded pagination without losing proven corrections", () => {
+  assert.ok(server.includes("for (let offset = 0; corrected.size < candidateEnrolments.length; offset += pageSize)"));
+  assert.ok(server.includes('.in("enrolment_id", candidateEnrolments)'));
+  assert.ok(server.includes(".range(offset, offset + pageSize - 1)"));
+  assert.ok(server.includes("corrected.add(mark.enrolment_id)"));
+  assert.ok(!server.includes("(marks ?? []).length < 1000"));
+});
+
 test("grading scale and explicit confirmation are user-selected, never defaulted", () => {
   assert.ok(view.includes('useState("")'));
   assert.ok(view.includes("useState(false)"));
