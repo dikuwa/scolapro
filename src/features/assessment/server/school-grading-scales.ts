@@ -55,6 +55,19 @@ function parseBands(form: FormData) {
   return bandsSchema.safeParse(raw);
 }
 
+function readBackMatches(
+  saved: Array<{ minimum_value: number | string; maximum_value: number | string | null; symbol: string; pass_classification: string | null }> | null,
+  expected: GradingBandInput[],
+) {
+  return saved?.length === expected.length && expected.every((band, index) => {
+    const row = saved[index];
+    return Number(row.minimum_value) === band.minimum
+      && Number(row.maximum_value) === band.maximum
+      && row.symbol === band.symbol
+      && row.pass_classification === band.classification;
+  });
+}
+
 function refresh() {
   revalidatePath("/assessment/grading-scales");
   revalidatePath("/assessment/results");
@@ -118,6 +131,12 @@ export async function createSchoolGradingScale(
   const { data: saved, error: readError } = await scope.db.from("grading_scales")
     .select("id,status").eq("school_id", scope.schoolId).eq("id", String(id)).single();
   if (readError || !saved || saved.status !== "draft") return { message: "Draft scale could not be verified after saving." };
+  const { data: savedBands, error: bandReadError } = await scope.db.from("grading_scale_bands")
+    .select("minimum_value,maximum_value,symbol,pass_classification")
+    .eq("school_id", scope.schoolId).eq("grading_scale_id", String(id)).order("sort_order");
+  if (bandReadError || !readBackMatches(savedBands, value.bands)) {
+    return { message: "Draft was created but its saved bands could not be verified. Review version history before retrying." };
+  }
   refresh();
   return { success: true, message: "Draft grading scale saved. Review and activate it separately." };
 }
@@ -133,10 +152,16 @@ export async function replaceSchoolGradingScaleDraftBands(
   const { data: scale, error: readError } = await scope.db.from("grading_scales")
     .select("status").eq("id", parsed.data.scaleId).eq("school_id", scope.schoolId).maybeSingle();
   if (readError || !scale || scale.status !== "draft") return { message: "Only an existing draft scale can be edited." };
-  const { error } = await scope.db.rpc("replace_school_grading_scale_draft_bands", {
+  const { data: updated, error } = await scope.db.rpc("replace_school_grading_scale_draft_bands", {
     p_scale_id: parsed.data.scaleId, p_bands: parsed.data.bands,
   });
-  if (error) return { message: "Draft band replacement was refused; no partial revision was saved." };
+  if (error || updated !== true) return { message: "Draft band replacement was refused; no partial revision was saved." };
+  const { data: savedBands, error: verifyError } = await scope.db.from("grading_scale_bands")
+    .select("minimum_value,maximum_value,symbol,pass_classification")
+    .eq("school_id", scope.schoolId).eq("grading_scale_id", parsed.data.scaleId).order("sort_order");
+  if (verifyError || !readBackMatches(savedBands, parsed.data.bands)) {
+    return { message: "Band revision could not be verified. Review version history before retrying." };
+  }
   refresh();
   return { success: true, message: "Draft grading bands updated." };
 }
