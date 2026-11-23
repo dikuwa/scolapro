@@ -146,7 +146,16 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     await expect(correctedMark).toBeEnabled();
     await correctedMark.fill("94");
     await correctedMark.blur();
-    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+    await expect.poll(async () => {
+      const { data, error } = await service.from("learner_marks_current")
+        .select("numeric_mark").eq("assessment_instance_id", ids.instance)
+        .eq("enrolment_id", DEMO.learnerTomasEnrolmentId).single();
+      if (error) throw new Error("Could not verify the governed corrected mark");
+      return Number(data?.numeric_mark);
+    }).toBe(94);
+    // The mark-insert trigger moves the instance from locked to returned;
+    // the mark-grid UI refreshes its server workflow before submission.
+    await expect(page.getByRole("button", { name: "Submit for review" })).toBeEnabled();
     await page.getByRole("button", { name: "Submit for review" }).click();
     await expect.poll(async () => {
       const { data, error } = await service.from("assessment_instances")
