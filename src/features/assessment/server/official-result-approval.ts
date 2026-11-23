@@ -24,6 +24,7 @@ export type OfficialResultApprovalRow = {
   admissionNumber: string | null;
   registered: boolean;
   approved: boolean;
+  replacementEligible: boolean;
   resultValue: number | null;
   symbol: string | null;
 };
@@ -132,6 +133,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
   const pageSize = 50;
   let required = 0;
   let verifiedRequired = 0;
+  let pendingContributing = false;
   let total = 0;
   let rows: OfficialResultApprovalRow[] = [];
 
@@ -150,9 +152,14 @@ export async function getOfficialResultApprovalWorkspace(params: {
     errorIfPresent(componentsResult.error, "assessment components");
     errorIfPresent(instancesResult.error, "assessment verification");
     errorIfPresent(enrolmentsResult.error, "class learners");
-    const relevant = new Set((componentsResult.data ?? [])
-      .filter((row) => row.required && row.contributes_to_report && (row.term_numbers ?? [1, 2, 3]).includes(termNumber))
+    const contributing = new Set((componentsResult.data ?? [])
+      .filter((row) => row.contributes_to_report && (row.term_numbers ?? [1, 2, 3]).includes(termNumber))
       .map((row) => row.id));
+    const relevant = new Set((componentsResult.data ?? [])
+      .filter((row) => row.required && contributing.has(row.id))
+      .map((row) => row.id));
+    pendingContributing = (instancesResult.data ?? []).some((row) =>
+      contributing.has(row.assessment_component_id) && row.correction_pending);
     const requiredInstances = (instancesResult.data ?? []).filter((row) => relevant.has(row.assessment_component_id));
     required = requiredInstances.length;
     verifiedRequired = requiredInstances.filter((row) => ["verified", "locked"].includes(row.status) && !row.correction_pending).length;
@@ -163,7 +170,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
     const [learnersResult, registrationsResult, approvedResult] = await Promise.all([
       learnerIds.length ? db.from("learners").select("id,first_names,surname,preferred_name").in("id", learnerIds) : Promise.resolve({ data: [], error: null }),
       ids.length ? db.from("learner_subject_registrations").select("enrolment_id").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("status", "active") : Promise.resolve({ data: [], error: null }),
-      ids.length ? db.from("official_results_current").select("enrolment_id,result_value,symbol").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("term_number", termNumber) : Promise.resolve({ data: [], error: null }),
+      ids.length ? db.from("official_results_current").select("enrolment_id,result_value,symbol,approved_at").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("term_number", termNumber) : Promise.resolve({ data: [], error: null }),
     ]);
     errorIfPresent(learnersResult.error, "learner identities");
     errorIfPresent(registrationsResult.error, "subject registrations");
@@ -171,6 +178,42 @@ export async function getOfficialResultApprovalWorkspace(params: {
     const learnerMap = new Map((learnersResult.data ?? []).map((row) => [row.id, row]));
     const registered = new Set((registrationsResult.data ?? []).map((row) => row.enrolment_id));
     const officialMap = new Map((approvedResult.data ?? []).map((row) => [row.enrolment_id, row]));
+    // Mirror the canonical RPC's evidence predicate for the *UI affordance*.
+    // The RPC still owns the locked/atomic replacement decision and can deny
+    // access if approval or correction state changes after this read.
+    const corrected = new Set<string>();
+    const candidateEnrolments = [...officialMap.keys()];
+    const instanceIds = (instancesResult.data ?? [])
+      .filter((row) => contributing.has(row.assessment_component_id)
+        && ["verified", "locked"].includes(row.status) && !row.correction_pending)
+      .map((row) => row.id);
+    if (candidateEnrolments.length && instanceIds.length && required === verifiedRequired
+      && required > 0 && !pendingContributing) {
+      // Search the eligible version history in bounded PostgREST pages. A
+      // full response page does not invalidate corrections already proven.
+      // The authoritative RPC still validates authorization, locks the
+      // contributing instances, and checks finality at mutation time.
+      const pageSize = 500;
+      for (let offset = 0; corrected.size < candidateEnrolments.length; offset += pageSize) {
+        const { data: marks, error: marksError } = await db.from("learner_marks")
+          .select("enrolment_id,recorded_at,correction_authorization_id")
+          .in("enrolment_id", candidateEnrolments)
+          .in("assessment_instance_id", instanceIds)
+          .not("correction_authorization_id", "is", null)
+          .order("recorded_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(offset, offset + pageSize - 1);
+        errorIfPresent(marksError, "governed corrections");
+        for (const mark of marks ?? []) {
+          const prior = officialMap.get(mark.enrolment_id);
+          if (mark.correction_authorization_id && prior?.approved_at && mark.recorded_at
+            && Date.parse(mark.recorded_at) > Date.parse(prior.approved_at)) {
+            corrected.add(mark.enrolment_id);
+          }
+        }
+        if (!marks || marks.length < pageSize) break;
+      }
+    }
     rows = enrolments.map((row) => {
       const learner = learnerMap.get(row.learner_id);
       const official = officialMap.get(row.id);
@@ -180,6 +223,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
         admissionNumber: row.admission_number,
         registered: registered.has(row.id),
         approved: Boolean(official),
+        replacementEligible: Boolean(official) && corrected.has(row.id),
         resultValue: official?.result_value == null ? null : Number(official.result_value),
         symbol: official?.symbol ?? null,
       };
@@ -190,7 +234,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
     academicYear, offerings: offeringOptions, schemes: schemeOptions, classes: classOptions,
     scales: scaleOptions, offeringId, schemeId, classId, termNumber,
     rows, page, pageCount: Math.max(1, Math.ceil(total / pageSize)), total,
-    required, verifiedRequired, ready: required > 0 && required === verifiedRequired,
+    required, verifiedRequired, ready: required > 0 && required === verifiedRequired && !pendingContributing,
   };
 }
 
@@ -256,6 +300,7 @@ export async function approveOfficialResult(
     if (error.message.includes("All required contributing assessments")) return { message: "Required assessments must be verified before official approval." };
     if (error.message.includes("incomplete")) return { message: "This learner's assessment result is incomplete." };
     if (error.message.includes("grading band")) return { message: "The selected grading scale has no band for the calculated result." };
+    if (error.message.includes("Contributing assessment corrections require")) return { message: "All contributing mark corrections, including optional components, require HOD re-verification before official approval." };
     if (error.message.includes("Existing official result requires")) return { message: "This result is already official. A corrected mark and re-verification are required before replacement." };
     return { message: "Official result approval was refused by academic governance. No result was changed." };
   }
