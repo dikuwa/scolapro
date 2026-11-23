@@ -80,11 +80,31 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
 
     const adminPage = await adminContext.newPage();
     await signIn(adminPage, "admin");
+    // Verify that leadership can create and activate a school-local scale
+    // through the real UI and immediately consume it for official approval.
+    const scaleLabel = `E2E Combined Scale ${crypto.randomUUID().slice(0, 8)}`;
+    await adminPage.goto("/assessment/grading-scales");
+    await adminPage.getByRole("button", { name: "Add scale" }).click();
+    await adminPage.locator('input[name="key"]').fill(`E2E-1315-${crypto.randomUUID().slice(0, 8)}`);
+    await adminPage.locator('input[name="version"]').fill("synthetic-v1");
+    await adminPage.locator('input[name="displayName"]').fill(scaleLabel);
+    await adminPage.locator("#effectiveFrom-typed").fill("05/01/2026");
+    await adminPage.locator("#effectiveFrom-typed").blur();
+    await adminPage.getByRole("textbox", { name: "Band 1 minimum" }).fill("0");
+    await adminPage.getByRole("textbox", { name: "Band 1 maximum" }).fill("100");
+    await adminPage.getByRole("textbox", { name: "Band 1 symbol" }).fill("A");
+    await adminPage.getByRole("button", { name: "Save draft scale" }).click();
+    const newScale = adminPage.locator("article").filter({ hasText: scaleLabel });
+    await expect(newScale).toContainText("draft");
+    await newScale.getByRole("checkbox", { name: /I confirm this scale covers 0–100/ }).check();
+    await newScale.getByRole("button", { name: "Activate and freeze" }).click();
+    await expect(newScale).toContainText("This version is frozen.");
+
     await adminPage.goto(`/assessment/results?offering=${ids.offering}&scheme=${ids.scheme}&class=${DEMO.registerClass10B}&term=1`);
     await expect(adminPage.getByRole("heading", { name: "Official result approval" })).toBeVisible();
     await expect(adminPage.getByText("Verified — learner completeness checked on approval")).toBeVisible();
     await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
-    await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
+    await adminPage.getByRole("option", { name: scaleLabel }).click();
     await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
     await adminPage.getByRole("button", { name: "Approve result" }).click();
     await expect(adminPage.getByText("Official subject result approved and locked.", { exact: false })).toBeVisible();
