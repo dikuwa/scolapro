@@ -48,6 +48,9 @@ test("band replacement is transactional and historical actions are auditable", (
   assert.match(migration, /actor_user_id/);
   assert.match(server, /Draft scale could not be verified after saving/);
   assert.match(server, /Activation status could not be verified/);
+  assert.match(server, /readBackMatches\(savedBands, value.bands\)/);
+  assert.match(server, /readBackMatches\(savedBands, parsed.data.bands\)/);
+  assert.match(server, /updated !== true/);
   assert.match(migration, /p_effective_to date default null/);
   assert.match(migration, /p_effective_to < p_effective_from/);
   assert.match(server, /effectiveTo: z.iso.date\(\).optional\(\)/);
