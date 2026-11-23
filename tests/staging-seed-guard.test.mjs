@@ -428,11 +428,12 @@ test("isolated seed is idempotent and deterministic (fake client, no network)", 
     first.tables.guardian_user_links.map((row) => row.user_id).sort(),
     [SYNTHETIC_ACCOUNTS.guardian.userId, SYNTHETIC_ACCOUNTS.publishedGuardian.userId].sort(),
   );
-  assert.equal(first.tables.official_results.length, 1);
-  assert.equal(first.tables.official_results[0].result_value, 82);
-  assert.equal(first.tables.report_card_snapshots.length, 2);
+  assert.equal(first.tables.official_results.length, 3);
+  assert.deepEqual(first.tables.official_results.map((row) => Number(row.result_value)).sort((a, b) => a - b), [13, 27, 82]);
+  assert.equal(first.tables.report_card_snapshots.length, 3);
   assert.equal(first.tables.report_card_snapshots.find((row) => row.id === DEMO.publishedSnapshotId)?.status, "published");
   assert.equal(first.tables.report_card_snapshots.find((row) => row.id === DEMO.certifiedOnlySnapshotId)?.status, "certified");
+  assert.equal(first.tables.report_card_snapshots.find((row) => row.id === DEMO.publicationCandidateSnapshotId)?.status, "certified");
 
   const membershipIds = first.tables.school_memberships.map((row) => row.id).sort();
   assert.deepEqual(
