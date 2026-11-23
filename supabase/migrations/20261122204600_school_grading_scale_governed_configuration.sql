@@ -90,7 +90,8 @@ create or replace function public.create_school_grading_scale(
   p_display_name text,
   p_effective_from date,
   p_decimal_places smallint,
-  p_bands jsonb
+  p_bands jsonb,
+  p_effective_to date default null
 ) returns uuid language plpgsql security invoker
 set search_path = pg_catalog, public, app_private as $$
 declare
@@ -109,19 +110,20 @@ begin
      or length(btrim(coalesce(p_version,''))) not between 1 and 40
      or length(btrim(coalesce(p_display_name,''))) not between 2 and 160
      or p_effective_from is null
-     or p_decimal_places not between 0 and 4 then
-    raise exception 'Invalid grading scale identification or precision';
+     or p_decimal_places not between 0 and 4
+     or (p_effective_to is not null and p_effective_to < p_effective_from) then
+    raise exception 'Invalid grading scale identification, effective period or precision';
   end if;
   if jsonb_typeof(p_bands) <> 'array'
      or jsonb_array_length(p_bands) not between 1 and 30 then
     raise exception 'Provide between 1 and 30 explicit grading bands';
   end if;
   insert into public.grading_scales(
-    tenant_id,school_id,scale_key,version,display_name,effective_from,
+    tenant_id,school_id,scale_key,version,display_name,effective_from,effective_to,
     decimal_places,status,created_by_user_id
   ) values(
     v_tenant_id,p_school_id,btrim(p_scale_key),btrim(p_version),
-    btrim(p_display_name),p_effective_from,p_decimal_places,'draft',auth.uid()
+    btrim(p_display_name),p_effective_from,p_effective_to,p_decimal_places,'draft',auth.uid()
   ) returning id into v_id;
 
   for v_row in select value from jsonb_array_elements(p_bands) loop
@@ -145,9 +147,9 @@ begin
   return v_id;
 end;
 $$;
-revoke all on function public.create_school_grading_scale(uuid,text,text,text,date,smallint,jsonb)
+revoke all on function public.create_school_grading_scale(uuid,text,text,text,date,smallint,jsonb,date)
   from public,anon;
-grant execute on function public.create_school_grading_scale(uuid,text,text,text,date,smallint,jsonb)
+grant execute on function public.create_school_grading_scale(uuid,text,text,text,date,smallint,jsonb,date)
   to authenticated;
 
 create or replace function public.replace_school_grading_scale_draft_bands(
