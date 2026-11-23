@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(10);
 
 select ok(
   not has_function_privilege('authenticated','app_private.enforce_grading_scale_creator_integrity()','EXECUTE')
@@ -12,6 +12,11 @@ select trigger_is(
   'public','grading_scales','grading_scale_creator_integrity_trg',
   'app_private','enforce_grading_scale_creator_integrity',
   'grading-scale creator trigger is installed'
+);
+
+select ok(
+  not has_table_privilege('authenticated','public.grading_scales','UPDATE'),
+  'authenticated callers cannot bypass reviewed-band activation through direct grading-scale updates'
 );
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
