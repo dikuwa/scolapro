@@ -35,7 +35,8 @@ test("server checks school, year, scheme, grade and active grading scale", () =>
 });
 
 test("readiness checks required components, verification and corrections", () => {
-  assert.ok(server.includes("row.required && row.contributes_to_report"));
+  assert.ok(server.includes("row.contributes_to_report && (row.term_numbers ?? [1, 2, 3]).includes(termNumber)"));
+  assert.ok(server.includes("row.required && contributing.has(row.id)"));
   assert.ok(server.includes('["verified", "locked"].includes(row.status)'));
   assert.ok(server.includes("!row.correction_pending"));
   assert.ok(server.includes("ready: required > 0 && required === verifiedRequired && !pendingContributing"));
