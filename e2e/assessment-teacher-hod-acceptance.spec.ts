@@ -137,7 +137,7 @@ test("assigned teacher saves and submits a mark, then scoped HOD verifies it", a
 
   await signIn(page, "registerTeacher");
   await page.goto(`/assessment/marks/${DEMO.assessmentInstanceId}`);
-  await expect(page.getByRole("heading", { name: "Mark grid" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Mark grid" }).first()).toBeVisible();
 
   const mark = page.locator('input[aria-label^="Mark for "]');
   await expect(mark).toHaveCount(1);
