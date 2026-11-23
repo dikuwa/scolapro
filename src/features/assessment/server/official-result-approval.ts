@@ -133,6 +133,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
   const pageSize = 50;
   let required = 0;
   let verifiedRequired = 0;
+  let pendingContributing = false;
   let total = 0;
   let rows: OfficialResultApprovalRow[] = [];
 
@@ -151,9 +152,14 @@ export async function getOfficialResultApprovalWorkspace(params: {
     errorIfPresent(componentsResult.error, "assessment components");
     errorIfPresent(instancesResult.error, "assessment verification");
     errorIfPresent(enrolmentsResult.error, "class learners");
-    const relevant = new Set((componentsResult.data ?? [])
-      .filter((row) => row.required && row.contributes_to_report && (row.term_numbers ?? [1, 2, 3]).includes(termNumber))
+    const contributing = new Set((componentsResult.data ?? [])
+      .filter((row) => row.contributes_to_report && (row.term_numbers ?? [1, 2, 3]).includes(termNumber))
       .map((row) => row.id));
+    const relevant = new Set((componentsResult.data ?? [])
+      .filter((row) => row.required && contributing.has(row.id))
+      .map((row) => row.id));
+    pendingContributing = (instancesResult.data ?? []).some((row) =>
+      contributing.has(row.assessment_component_id) && row.correction_pending);
     const requiredInstances = (instancesResult.data ?? []).filter((row) => relevant.has(row.assessment_component_id));
     required = requiredInstances.length;
     verifiedRequired = requiredInstances.filter((row) => ["verified", "locked"].includes(row.status) && !row.correction_pending).length;
@@ -177,8 +183,12 @@ export async function getOfficialResultApprovalWorkspace(params: {
     // access if approval or correction state changes after this read.
     const corrected = new Set<string>();
     const candidateEnrolments = [...officialMap.keys()];
-    const instanceIds = (instancesResult.data ?? []).map((row) => row.id);
-    if (candidateEnrolments.length && instanceIds.length && required === verifiedRequired && required > 0) {
+    const instanceIds = (instancesResult.data ?? [])
+      .filter((row) => contributing.has(row.assessment_component_id)
+        && ["verified", "locked"].includes(row.status) && !row.correction_pending)
+      .map((row) => row.id);
+    if (candidateEnrolments.length && instanceIds.length && required === verifiedRequired
+      && required > 0 && !pendingContributing) {
       const { data: marks, error: marksError } = await db.from("learner_marks")
         .select("enrolment_id,assessment_instance_id,recorded_at,correction_authorization_id")
         .in("enrolment_id", candidateEnrolments)
@@ -232,7 +242,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
     academicYear, offerings: offeringOptions, schemes: schemeOptions, classes: classOptions,
     scales: scaleOptions, offeringId, schemeId, classId, termNumber,
     rows, page, pageCount: Math.max(1, Math.ceil(total / pageSize)), total,
-    required, verifiedRequired, ready: required > 0 && required === verifiedRequired,
+    required, verifiedRequired, ready: required > 0 && required === verifiedRequired && !pendingContributing,
   };
 }
 
@@ -298,6 +308,7 @@ export async function approveOfficialResult(
     if (error.message.includes("All required contributing assessments")) return { message: "Required assessments must be verified before official approval." };
     if (error.message.includes("incomplete")) return { message: "This learner's assessment result is incomplete." };
     if (error.message.includes("grading band")) return { message: "The selected grading scale has no band for the calculated result." };
+    if (error.message.includes("Contributing assessment corrections require")) return { message: "All contributing mark corrections, including optional components, require HOD re-verification before official approval." };
     if (error.message.includes("Existing official result requires")) return { message: "This result is already official. A corrected mark and re-verification are required before replacement." };
     return { message: "Official result approval was refused by academic governance. No result was changed." };
   }
