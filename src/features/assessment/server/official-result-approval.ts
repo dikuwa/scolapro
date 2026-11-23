@@ -300,6 +300,8 @@ export async function approveOfficialResult(
     if (error.message.includes("All required contributing assessments")) return { message: "Required assessments must be verified before official approval." };
     if (error.message.includes("incomplete")) return { message: "This learner's assessment result is incomplete." };
     if (error.message.includes("grading band")) return { message: "The selected grading scale has no band for the calculated result." };
+    if (error.message.includes("Configure the academic term end date")) return { message: "Configure the school term's closing date before approving official grading." };
+    if (error.message.includes("outside the academic term effective period")) return { message: "The selected grading-scale version does not apply to this academic term. Choose an applicable approved version." };
     if (error.message.includes("Contributing assessment corrections require")) return { message: "All contributing mark corrections, including optional components, require HOD re-verification before official approval." };
     if (error.message.includes("Existing official result requires")) return { message: "This result is already official. A corrected mark and re-verification are required before replacement." };
     return { message: "Official result approval was refused by academic governance. No result was changed." };
