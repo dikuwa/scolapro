@@ -204,21 +204,15 @@ export async function getOfficialResultApprovalWorkspace(params: {
       // Never offer reapproval if a response cap could have hidden some
       // evidence. The canonical RPC is the only way to approve replacements.
       if ((marks ?? []).length < 1000 && relevantMarks.length) {
-        const authorizationIds = [...new Set(relevantMarks.map((mark) => mark.correction_authorization_id)
-          .filter((id): id is string => typeof id === "string"))];
-        if (authorizationIds.length) {
-          const { data: authorizations, error: authorizationError } = await db
-            .from("assessment_mark_reopen_authorizations")
-            .select("id,requires_reverification")
-            .eq("school_id", schoolId).in("id", authorizationIds);
-          errorIfPresent(authorizationError, "correction authorizations");
-          const permittedIds = new Set((authorizations ?? [])
-            .filter((row) => row.requires_reverification).map((row) => row.id));
-          for (const mark of relevantMarks) {
-            if (mark.correction_authorization_id && permittedIds.has(mark.correction_authorization_id)) {
-              corrected.add(mark.enrolment_id);
-            }
-          }
+        // correction_authorization_id is a foreign key into the governed
+        // authorization table. Its requires_reverification column is
+        // NOT NULL CHECK (requires_reverification=true). Re-querying those
+        // rows through complex mark-authorization RLS caused a 500 after
+        // correction on the otherwise authorized school-admin workspace.
+        // The authoritative approval RPC still verifies the authorization,
+        // full contributing-instance readiness and the supersession lock.
+        for (const mark of relevantMarks) {
+          if (mark.correction_authorization_id) corrected.add(mark.enrolment_id);
         }
       }
     }
