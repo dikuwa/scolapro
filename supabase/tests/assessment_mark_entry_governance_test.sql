@@ -1,6 +1,6 @@
 begin;
 
-select plan(32);
+select plan(33);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -285,6 +285,16 @@ select ok(
     'app_private.enrich_report_card_snapshot_template_profile()'::regprocedure
   ) ilike '%from public.official_results_current r%',
   'cumulative report terms include only the current non-superseded official result'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
+  ) ilike '%then ''returned'' else%'
+  and pg_get_functiondef(
+    'public.submit_assessment_for_review(uuid,text)'::regprocedure
+  ) ilike '%Correction requires at least one governed mark revision%',
+  'authorized correction opens a returned assessment for mandatory re-submission and HOD re-verification'
 );
 
 select * from finish();
