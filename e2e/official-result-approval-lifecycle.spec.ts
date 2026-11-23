@@ -120,7 +120,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     // changing an official result. No correction authorization exists here.
     await adminPage.reload();
     await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
-    await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
+    await adminPage.getByRole("option", { name: scaleLabel }).click();
     await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
     // No authorized mark correction exists: the UI must not offer a
     // misleading submit path, and the immutable official row is unchanged.
@@ -195,7 +195,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
 
     await adminPage.goto(`/assessment/results?offering=${ids.offering}&scheme=${ids.scheme}&class=${DEMO.registerClass10B}&term=1`);
     await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
-    await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
+    await adminPage.getByRole("option", { name: scaleLabel }).click();
     await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
     const reapprove = adminPage.getByRole("button", { name: "Reapprove corrected" });
     await expect(reapprove).toBeEnabled();
