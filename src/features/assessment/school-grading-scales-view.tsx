@@ -146,11 +146,15 @@ function DraftScaleActions({ scale }: { scale: SchoolGradingScale }) {
   const [confirmed, setConfirmed] = useState(false);
   const converted = validBands(bands);
   useEffect(() => {
-    const state = activateState.message ? activateState : editState;
-    if (!state.message) return;
-    if (state.success) { toast.success(state.message); router.refresh(); }
-    else toast.error(state.message);
-  }, [activateState, editState, router]);
+    if (!editState.message) return;
+    if (editState.success) { toast.success(editState.message); router.refresh(); }
+    else toast.error(editState.message);
+  }, [editState, router]);
+  useEffect(() => {
+    if (!activateState.message) return;
+    if (activateState.success) { toast.success(activateState.message); router.refresh(); }
+    else toast.error(activateState.message);
+  }, [activateState, router]);
 
   return <div className="mt-4 space-y-4 border-t border-border-subtle pt-4">
     <form action={editAction} className="space-y-3">
