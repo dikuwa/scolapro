@@ -32,14 +32,16 @@ function ApprovalRow({ row, schemeId, termNumber, scaleId, verified, confirmed }
     }
   }, [router, state]);
 
-  const allowed = row.registered && !row.approved && verified && Boolean(scaleId) && confirmed;
+  // Already-official rows are not silently overwritten: the canonical RPC
+  // accepts a reissue only with authorized corrected marks and re-verification.
+  const allowed = row.registered && verified && Boolean(scaleId) && confirmed;
   return <article className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
     <div className="min-w-0">
       <p className="truncate text-sm font-semibold text-foreground">{row.name}</p>
       <p className="mt-1 text-xs text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p>
       <p className="mt-1.5 text-xs">
         {row.approved
-          ? <span className="inline-flex items-center gap-1 text-success"><BadgeCheck className="size-3.5" />Official · {row.resultValue ?? "—"} {row.symbol ?? ""}</span>
+          ? <span className="inline-flex items-center gap-1 text-success"><BadgeCheck className="size-3.5" />Official · {row.resultValue ?? "—"} {row.symbol ?? ""} · Correction reapproval requires governed evidence</span>
           : !row.registered ? <span className="text-warning">Not registered for this offering</span>
             : verified ? <span className="text-muted-foreground">Verified scheme · awaiting official approval</span>
               : <span className="text-warning">Required assessments not yet verified</span>}
@@ -53,7 +55,7 @@ function ApprovalRow({ row, schemeId, termNumber, scaleId, verified, confirmed }
       <input type="hidden" name="confirmed" value={confirmed ? "yes" : "no"} />
       <Button type="submit" size="sm" loading={pending} disabled={!allowed}>
         <LockKeyhole className="size-3.5" />
-        {row.approved ? "Approved" : "Approve result"}
+        {row.approved ? "Reapprove corrected" : "Approve result"}
       </Button>
     </form>
   </article>;
