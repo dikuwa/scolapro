@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { execFileSync } from "node:child_process";
 import { DEMO, SYNTHETIC_ACCOUNTS, syntheticPassword } from "./support/accounts.mjs";
 import { signIn } from "./support/session";
 import { localSupabaseStatus } from "./support/local-supabase.mjs";
@@ -76,15 +77,38 @@ test("assigned teacher saves and submits a mark, then scoped HOD verifies it", a
     staff_member_id: SYNTHETIC_ACCOUNTS.registerTeacher.staffMemberId,
     active_from: "2026-01-05",
   });
-  await insertAsAdmin("subject_department_responsibilities", {
-    id: DEMO.assessmentHodResponsibilityId,
-    tenant_id: DEMO.tenantId,
-    school_id: DEMO.schoolId,
-    subject_id: subjectId,
-    department_head_staff_assignment_id: SYNTHETIC_ACCOUNTS.hod.assignmentId,
-    department_label: "E2E Science",
-    effective_from: "2026-01-05",
-    created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  // The current HOD-responsibility INSERT policy calls a private helper
+  // unavailable to authenticated roles. Prepare only this fixed synthetic
+  // authority row through the local database owner (never change grants or
+  // production policy). The actual HOD review remains authenticated via UI/RPC.
+  const dbUrlValue = status.DB_URL;
+  if (!dbUrlValue) throw new Error("Disposable local Supabase DB URL is missing.");
+  const dbUrl = new URL(dbUrlValue);
+  if (!["localhost", "127.0.0.1", "::1"].includes(dbUrl.hostname)) {
+    throw new Error("Refusing non-loopback database for synthetic HOD fixture.");
+  }
+  execFileSync("psql", [
+    "-X", "-v", "ON_ERROR_STOP=1",
+    "-c",
+    `INSERT INTO public.subject_department_responsibilities
+       (id,tenant_id,school_id,subject_id,department_head_staff_assignment_id,
+        department_label,effective_from,created_by_user_id)
+       VALUES ('${DEMO.assessmentHodResponsibilityId}',
+               '${DEMO.tenantId}', '${DEMO.schoolId}', '${subjectId}',
+               '${SYNTHETIC_ACCOUNTS.hod.assignmentId}', 'E2E Science',
+               '2026-01-05', '${SYNTHETIC_ACCOUNTS.admin.userId}')
+       ON CONFLICT(id) DO NOTHING;`,
+  ], {
+    cwd: process.cwd(),
+    stdio: "pipe",
+    env: {
+      ...process.env,
+      PGHOST: dbUrl.hostname,
+      PGPORT: dbUrl.port,
+      PGDATABASE: dbUrl.pathname.slice(1),
+      PGUSER: decodeURIComponent(dbUrl.username),
+      PGPASSWORD: decodeURIComponent(dbUrl.password),
+    },
   });
 
   const { error: registerError } = await admin.rpc("register_learner_subject", {
