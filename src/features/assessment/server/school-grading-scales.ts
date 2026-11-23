@@ -109,7 +109,7 @@ export async function getSchoolGradingScales(): Promise<SchoolGradingScale[] | n
     const list = grouped.get(row.grading_scale_id) ?? [];
     list.push({
       id: row.id, minimum: Number(row.minimum_value), maximum: Number(row.maximum_value),
-      symbol: row.symbol, classification: row.pass_classification ?? "neutral",
+      symbol: row.symbol, classification: row.pass_classification === "pass" || row.pass_classification === "fail" ? row.pass_classification : "neutral",
     });
     grouped.set(row.grading_scale_id, list);
   }
