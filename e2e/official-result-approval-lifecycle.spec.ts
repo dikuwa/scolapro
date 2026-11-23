@@ -84,6 +84,18 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     await expect(adminPage.getByRole("heading", { name: "Official result approval" })).toBeVisible();
     await expect(adminPage.getByText("Verified — learner completeness checked on approval")).toBeVisible();
     await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
+    await adminPage.getByRole("option", { name: /E2E Future-Only Scale/ }).click();
+    await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
+    await adminPage.getByRole("button", { name: "Approve result" }).click();
+    await expect(adminPage.getByText("The selected grading-scale version does not apply to this academic term. Choose an applicable approved version.")).toBeVisible();
+    const { count: rejectedCount, error: rejectedError } = await service.from("official_results")
+      .select("id", { count: "exact", head: true })
+      .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+      .eq("subject_offering_id", ids.offering).eq("term_number", 1);
+    expect(rejectedError).toBeNull();
+    expect(rejectedCount).toBe(0);
+
+    await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
     await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
     await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
     await adminPage.getByRole("button", { name: "Approve result" }).click();
