@@ -49,4 +49,5 @@ test("grading scale and explicit confirmation are user-selected, never defaulted
   assert.ok(view.includes('name="confirmed"'));
   assert.ok(view.includes("CheckboxField"));
   assert.ok(view.includes('label="Grading scale and version"'));
+  assert.ok(view.includes('href="/assessment/grading-scales"'));
 });
