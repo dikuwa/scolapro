@@ -41,7 +41,7 @@ function ApprovalRow({ row, schemeId, termNumber, scaleId, verified, confirmed }
       <p className="mt-1 text-xs text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p>
       <p className="mt-1.5 text-xs">
         {row.approved && !row.replacementEligible
-          ? <p className="mt-1 text-xs text-muted-foreground">Reapproval requires an authorized corrected mark and completed re-verification.</p>
+          ? <span className="mt-1 block text-xs text-muted-foreground">Reapproval requires an authorized corrected mark and completed re-verification.</span>
           : null}
         {row.approved
           ? <span className="inline-flex items-center gap-1 text-success"><BadgeCheck className="size-3.5" />Official · {row.resultValue ?? "—"} {row.symbol ?? ""} · Correction reapproval requires governed evidence</span>
