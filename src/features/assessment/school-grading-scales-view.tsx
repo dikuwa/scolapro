@@ -104,7 +104,7 @@ function CreateScale() {
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 flex-1">
         <h2 className="scolapro-section-title">School grading scale setup</h2>
-        <p className="scolapro-section-description">No national rules are provided automatically. Create a school-authorized draft, then explicitly review and activate it.</p>
+        <p className="scolapro-section-description">No symbols, cutoffs or national grading rules are supplied automatically. Enter only school-authorized values. Drafts require explicit review and activation.</p>
       </div>
       <Button ref={openButtonRef} type="button" variant="neutral" size="sm" disabled={pending} onClick={() => open ? closeEditor() : setOpen(true)}>{open ? "Close" : "Add scale"}</Button>
     </div>
