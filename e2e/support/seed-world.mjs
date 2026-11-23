@@ -87,6 +87,48 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     enrolled_from: "2026-01-12",
   });
 
+  // Synthetic guardian for published-report acceptance (#1309).
+  // Linking to the local-only E2E learner avoids altering any production roster
+  // and provides one deterministic family relationship for browser isolation.
+  const guardian = SYNTHETIC_ACCOUNTS.guardian;
+  await upsert("guardian_profiles", {
+    id: guardian.guardianProfileId,
+    tenant_id: DEMO.tenantId,
+    first_names: "E2E Linked",
+    surname: "Guardian",
+    status: "active",
+  });
+  await upsert("learner_guardians", {
+    id: guardian.learnerGuardianId,
+    tenant_id: DEMO.tenantId,
+    learner_id: DEMO.registerBoyLearnerId,
+    guardian_id: guardian.guardianProfileId,
+    relationship_type: "parent",
+    is_legal_guardian: true,
+    effective_from: "2026-01-05",
+    effective_to: null,
+  });
+  // Separate guardian and existing synthetic learner used only for
+  // published-read acceptance. This does not create or approve official marks.
+  const publishedGuardian = SYNTHETIC_ACCOUNTS.publishedGuardian;
+  await upsert("guardian_profiles", {
+    id: publishedGuardian.guardianProfileId,
+    tenant_id: DEMO.tenantId,
+    first_names: "E2E Published",
+    surname: "Guardian",
+    status: "active",
+  });
+  await upsert("learner_guardians", {
+    id: publishedGuardian.learnerGuardianId,
+    tenant_id: DEMO.tenantId,
+    learner_id: DEMO.publishedLearnerId,
+    guardian_id: publishedGuardian.guardianProfileId,
+    relationship_type: "parent",
+    is_legal_guardian: true,
+    effective_from: "2026-01-05",
+    effective_to: null,
+  });
+
   // 3. Isolation tenant + school (never contains learner data).
   await upsert("tenants", { id: OUTSIDER_TENANT.tenantId, name: OUTSIDER_TENANT.tenantName, slug: "e2e-isolation-group" });
   await upsert("schools", {
@@ -179,6 +221,169 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
       position_title: "Teacher",
       effective_from: "2026-01-05",
       created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+    });
+  }
+
+  // Link after school membership is established: the deferred guardian actor
+  // integrity trigger requires a current authorized manager of the learner's
+  // school. Service-role access alone does not bypass provenance governance.
+  await upsert("guardian_user_links", {
+    id: guardian.guardianLinkId,
+    tenant_id: DEMO.tenantId,
+    guardian_id: guardian.guardianProfileId,
+    user_id: guardian.userId,
+    linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+
+  await upsert("guardian_user_links", {
+    id: publishedGuardian.guardianLinkId,
+    tenant_id: DEMO.tenantId,
+    guardian_id: publishedGuardian.guardianProfileId,
+    user_id: publishedGuardian.userId,
+    linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  });
+
+  // Official report rendering derives cumulative term rows from *approved*
+  // official_results_current; the snapshot-enrichment trigger does not trust
+  // arbitrary results/report_terms supplied by test clients. Supply a single
+  // deterministic synthetic official result before freezing the report.
+  const publishedSubjectId = "e2ea0000-0000-4000-8000-000000000006";
+  const publishedOfferingId = "e2eb0000-0000-4000-8000-000000000006";
+  const publishedResultId = "e2ec0000-0000-4000-8000-000000000006";
+  await upsert("subjects", {
+    id: publishedSubjectId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    subject_code: "E2E-SCI",
+    display_name: "E2E Published Science",
+    status: "active",
+  });
+  await upsert("subject_offerings", {
+    id: publishedOfferingId,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    subject_id: publishedSubjectId,
+    grade_id: DEMO.gradeTenId,
+    periods_per_cycle: 4,
+    status: "active",
+  });
+  const { data: existingOfficialResult, error: officialReadError } = await client
+    .from("official_results")
+    .select("id").eq("id", publishedResultId).maybeSingle();
+  if (officialReadError) throw new Error(`Unable to inspect synthetic official result: ${officialReadError.message}`);
+  if (!existingOfficialResult) {
+    await upsert("official_results", {
+      id: publishedResultId,
+      tenant_id: DEMO.tenantId,
+      school_id: DEMO.schoolId,
+      academic_year: 2026,
+      enrolment_id: DEMO.learnerTomasEnrolmentId,
+      learner_id: DEMO.publishedLearnerId,
+      subject_offering_id: publishedOfferingId,
+      term_number: 1,
+      result_value: 82,
+      symbol: "A",
+      assessment_scheme_key: "E2E_SYNTHETIC_READ_FIXTURE",
+      assessment_scheme_version: "v1",
+      calculation_snapshot: { synthetic_fixture_only: true },
+      approved_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      approved_at: "2026-10-20T11:50:00Z",
+      locked_at: "2026-10-20T11:50:00Z",
+    });
+  }
+
+  // A frozen published artifact for *read-path* acceptance only. The lifecycle
+  // transition and mark-approval path must be tested separately under #1309.
+  // Certified/published snapshots are immutable: never upsert an existing row.
+  const { data: publishedExisting, error: publishedReadError } = await client
+    .from("report_card_snapshots")
+    .select("id")
+    .eq("id", DEMO.publishedSnapshotId)
+    .maybeSingle();
+  if (publishedReadError) throw new Error(`Unable to inspect synthetic published report: ${publishedReadError.message}`);
+  if (!publishedExisting) {
+    await upsert("report_card_snapshots", {
+      id: DEMO.publishedSnapshotId,
+      tenant_id: DEMO.tenantId,
+      school_id: DEMO.schoolId,
+      learner_id: DEMO.publishedLearnerId,
+      enrolment_id: DEMO.learnerTomasEnrolmentId,
+      academic_year: 2026,
+      term_number: 1,
+      template_version: "E2E_SYNTHETIC_PUBLISHED_V1",
+      snapshot_version: 1,
+      data_snapshot: {
+        learner: { first_names: "Tomas K.", surname: "Sample", sex: "male" },
+        enrolment: { admission_number: "DEMO-002", academic_year: 2026, grade: "Grade 10", register_class: "Grade 10/B" },
+        term: { number: 1, name: "Term 1" },
+        report_terms: [{
+          number: 1,
+          name: "Term 1",
+          results: [{
+            official_result_id: "synthetic-read-path-only",
+            subject_code: "E2E-SCI",
+            subject_name: "E2E Published Science",
+            result_status: "numeric",
+            result_value: 82,
+            symbol: "A",
+          }],
+        }],
+        results: [{
+          official_result_id: "synthetic-read-path-only",
+          subject_code: "E2E-SCI",
+          subject_name: "E2E Published Science",
+          result_status: "numeric",
+          result_value: 82,
+          symbol: "A",
+        }],
+        attendance: { recorded_school_days: 20, present: 18, absent: 2, late: 0, excused: 0 },
+      },
+      status: "published",
+      generated_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_at: "2026-10-20T12:00:00Z",
+      published_at: "2026-10-20T12:10:00Z",
+    });
+  }
+
+  // A certified-only version in the same family must remain private even
+  // while the other term's published report is visible in the parent portal.
+  const { data: certifiedExisting, error: certifiedReadError } = await client
+    .from("report_card_snapshots")
+    .select("id")
+    .eq("id", DEMO.certifiedOnlySnapshotId)
+    .maybeSingle();
+  if (certifiedReadError) throw new Error(`Unable to inspect certified-only report: ${certifiedReadError.message}`);
+  if (!certifiedExisting) {
+    await upsert("report_card_snapshots", {
+      id: DEMO.certifiedOnlySnapshotId,
+      tenant_id: DEMO.tenantId,
+      school_id: DEMO.schoolId,
+      learner_id: DEMO.publishedLearnerId,
+      enrolment_id: DEMO.learnerTomasEnrolmentId,
+      academic_year: 2026,
+      term_number: 2,
+      template_version: "E2E_SYNTHETIC_CERTIFIED_V1",
+      snapshot_version: 1,
+      data_snapshot: {
+        learner: { first_names: "Tomas K.", surname: "Sample", sex: "male" },
+        enrolment: { admission_number: "DEMO-002", academic_year: 2026, grade: "Grade 10", register_class: "Grade 10/B" },
+        term: { number: 2, name: "Term 2" },
+        results: [{
+          official_result_id: "synthetic-private-read-path-only",
+          subject_code: "E2E-PRIVATE",
+          subject_name: "E2E Confidential Science",
+          result_status: "numeric",
+          result_value: 13,
+          symbol: "E",
+        }],
+        attendance: { recorded_school_days: 10, present: 7, absent: 3 },
+      },
+      status: "certified",
+      generated_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_at: "2026-10-20T12:00:00Z",
     });
   }
 
