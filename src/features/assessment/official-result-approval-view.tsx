@@ -125,7 +125,7 @@ export function OfficialResultApprovalView({ workspace }: { workspace: OfficialR
         </div>
         {!workspace.termEnd ? <p className="mt-3 text-xs text-warning">The official term-end date is not configured. <Link href="/school/setup" className="font-semibold underline underline-offset-2">Configure the school academic calendar</Link> before approving subject results.</p>
           : !workspace.scales.length ? <p className="mt-3 text-xs text-warning">No active grading scale covers the configured term end ({workspace.termEnd}). <Link href="/assessment/grading-scales" className="font-semibold underline underline-offset-2">Configure a school grading scale</Link> with the correct effective period.</p>
-            : <p className="mt-3 text-xs text-muted-foreground">The selected grading scale must cover the academic term end ({workspace.termEnd}). A later correction uses the same term date, not today's date.</p>}
+            : <p className="mt-3 text-xs text-muted-foreground">The selected grading scale must cover the academic term end ({workspace.termEnd}). A later correction uses the same term date, not the date of approval.</p>}
         <p className="mt-3 text-xs text-muted-foreground">The server independently checks scheme, learner, school, term, grading bands, completeness and correction authority. Approval never publishes a report card automatically.</p>
       </section>
 
