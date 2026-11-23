@@ -409,11 +409,30 @@ test("isolated seed is idempotent and deterministic (fake client, no network)", 
   assert.equal(first.tables.school_memberships.length, 5);
   assert.equal(first.tables.staff_members.length, 3);
   assert.equal(first.tables.staff_school_assignments.length, 3);
-  assert.equal(first.tables.user_profiles.length, 5);
+  assert.equal(first.tables.user_profiles.length, Object.keys(SYNTHETIC_ACCOUNTS).length);
   assert.equal(first.tables.school_day_overrides.length, 3);
-  assert.equal(first.authUsers.length, 5);
+  assert.equal(first.authUsers.length, Object.keys(SYNTHETIC_ACCOUNTS).length);
   assert.equal(first.tables.tenants.length, 1);
   assert.equal(first.tables.tenants[0].id, OUTSIDER_TENANT.tenantId);
+  assert.equal(first.tables.guardian_profiles.length, 2);
+  assert.deepEqual(
+    first.tables.guardian_profiles.map((row) => row.id).sort(),
+    [SYNTHETIC_ACCOUNTS.guardian.guardianProfileId, SYNTHETIC_ACCOUNTS.publishedGuardian.guardianProfileId].sort(),
+  );
+  assert.equal(first.tables.learner_guardians.length, 2);
+  assert.equal(first.tables.learner_guardians.some((row) =>
+    row.learner_id === DEMO.registerBoyLearnerId && row.guardian_id === SYNTHETIC_ACCOUNTS.guardian.guardianProfileId), true);
+  assert.equal(first.tables.learner_guardians.some((row) =>
+    row.learner_id === DEMO.publishedLearnerId && row.guardian_id === SYNTHETIC_ACCOUNTS.publishedGuardian.guardianProfileId), true);
+  assert.deepEqual(
+    first.tables.guardian_user_links.map((row) => row.user_id).sort(),
+    [SYNTHETIC_ACCOUNTS.guardian.userId, SYNTHETIC_ACCOUNTS.publishedGuardian.userId].sort(),
+  );
+  assert.equal(first.tables.official_results.length, 1);
+  assert.equal(first.tables.official_results[0].result_value, 82);
+  assert.equal(first.tables.report_card_snapshots.length, 2);
+  assert.equal(first.tables.report_card_snapshots.find((row) => row.id === DEMO.publishedSnapshotId)?.status, "published");
+  assert.equal(first.tables.report_card_snapshots.find((row) => row.id === DEMO.certifiedOnlySnapshotId)?.status, "certified");
 
   const membershipIds = first.tables.school_memberships.map((row) => row.id).sort();
   assert.deepEqual(
