@@ -96,7 +96,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     const adminPage = await adminContext.newPage();
     await signIn(adminPage, "admin");
     const anonKey = local.ANON_KEY;
-    expect(anonKey).toBeTruthy();
+    if (!anonKey) throw new Error("Local synthetic Supabase anon key is required.");
     const approver = createClient(local.API_URL, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
