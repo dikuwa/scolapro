@@ -418,6 +418,64 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     });
   }
 
+  // Dedicated certification-to-publication candidate. Never publish the
+  // term-two certified-only privacy fixture: tests must not consume each
+  // other's immutable lifecycle evidence.
+  const candidateSubjectId = "e2ea0000-0000-4000-8000-000000000008";
+  const candidateOfferingId = "e2eb0000-0000-4000-8000-000000000008";
+  const candidateResultId = "e2ec0000-0000-4000-8000-000000000008";
+  await upsert("subjects", {
+    id: candidateSubjectId, tenant_id: DEMO.tenantId, school_id: DEMO.schoolId,
+    subject_code: "E2E-READY", display_name: "E2E Candidate Science", status: "active",
+  });
+  await upsert("subject_offerings", {
+    id: candidateOfferingId, tenant_id: DEMO.tenantId, school_id: DEMO.schoolId,
+    academic_year: 2026, subject_id: candidateSubjectId, grade_id: DEMO.gradeTenId,
+    periods_per_cycle: 4, status: "active",
+  });
+  const { data: candidateResult, error: candidateResultError } = await client
+    .from("official_results").select("id").eq("id", candidateResultId).maybeSingle();
+  if (candidateResultError) throw new Error(`Unable to inspect candidate result: ${candidateResultError.message}`);
+  if (!candidateResult) {
+    await upsert("official_results", {
+      id: candidateResultId, tenant_id: DEMO.tenantId, school_id: DEMO.schoolId,
+      academic_year: 2026, enrolment_id: DEMO.learnerTomasEnrolmentId,
+      learner_id: DEMO.publishedLearnerId, subject_offering_id: candidateOfferingId,
+      term_number: 3, result_value: 27, symbol: "D",
+      assessment_scheme_key: "E2E_SYNTHETIC_CANDIDATE_FIXTURE", assessment_scheme_version: "v1",
+      calculation_snapshot: { synthetic_fixture_only: true },
+      approved_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      approved_at: "2026-10-20T11:52:00Z", locked_at: "2026-10-20T11:52:00Z",
+    });
+  }
+  const { data: existingCandidate, error: candidateReadError } = await client
+    .from("report_card_snapshots").select("id")
+    .eq("id", DEMO.publicationCandidateSnapshotId).maybeSingle();
+  if (candidateReadError) throw new Error(`Unable to inspect candidate snapshot: ${candidateReadError.message}`);
+  if (!existingCandidate) {
+    await upsert("report_card_snapshots", {
+      id: DEMO.publicationCandidateSnapshotId, tenant_id: DEMO.tenantId,
+      school_id: DEMO.schoolId, learner_id: DEMO.publishedLearnerId,
+      enrolment_id: DEMO.learnerTomasEnrolmentId, academic_year: 2026,
+      term_number: 3, template_version: "E2E_SYNTHETIC_CANDIDATE_V1",
+      snapshot_version: 1,
+      data_snapshot: {
+        learner: { first_names: "Tomas K.", surname: "Sample", sex: "male" },
+        enrolment: { admission_number: "DEMO-002", academic_year: 2026, grade: "Grade 10", register_class: "Grade 10/B" },
+        term: { number: 3, name: "Term 3" },
+        results: [{
+          official_result_id: "synthetic-candidate-only", subject_code: "E2E-READY",
+          subject_name: "E2E Candidate Science", result_status: "numeric",
+          result_value: 27, symbol: "D",
+        }],
+        attendance: { recorded_school_days: 15, present: 14, absent: 1 },
+      },
+      status: "certified", generated_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      certified_at: "2026-10-20T12:00:00Z",
+    });
+  }
+
   // 7. Bind Grade 10/A to the register teacher so allow/deny is meaningful.
   const { error: bindError } = await client
     .from("register_classes")
