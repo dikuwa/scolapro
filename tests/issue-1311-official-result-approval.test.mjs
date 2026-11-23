@@ -73,6 +73,8 @@ test("official approval resolves school term end and excludes inapplicable scale
   assert.ok(migration.includes("and t.term_number=p_term_number"));
   assert.ok(migration.includes("v_scale.effective_from>v_term_end"));
   assert.ok(migration.includes("v_scale.effective_to<v_term_end"));
+  assert.ok(migration.includes("'grading_scale_reference_date',v_term_end"));
+  assert.ok(migration.includes("'grading_scale_reference_basis','academic_term_end'"));
   assert.ok(migration.includes("Configure the academic term end date before approving official results"));
   assert.ok(server.includes('db.from("academic_terms")'));
   assert.ok(server.includes("row.effective_from <= termEnd"));
