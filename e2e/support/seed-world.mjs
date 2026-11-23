@@ -293,6 +293,37 @@ export async function seedSyntheticWorld({ client, password, log = () => {} }) {
     });
   }
 
+  // Term 2's certified-only snapshot is enriched from canonical approved
+  // official results, not from the caller-provided report JSON. Seed this
+  // private result before the snapshot so publication can verify real data.
+  const privateSubjectId = "e2ea0000-0000-4000-8000-000000000007";
+  const privateOfferingId = "e2eb0000-0000-4000-8000-000000000007";
+  const privateResultId = "e2ec0000-0000-4000-8000-000000000007";
+  await upsert("subjects", {
+    id: privateSubjectId, tenant_id: DEMO.tenantId, school_id: DEMO.schoolId,
+    subject_code: "E2E-PRIVATE", display_name: "E2E Confidential Science", status: "active",
+  });
+  await upsert("subject_offerings", {
+    id: privateOfferingId, tenant_id: DEMO.tenantId, school_id: DEMO.schoolId,
+    academic_year: 2026, subject_id: privateSubjectId, grade_id: DEMO.gradeTenId,
+    periods_per_cycle: 4, status: "active",
+  });
+  const { data: privateResult, error: privateReadError } = await client
+    .from("official_results").select("id").eq("id", privateResultId).maybeSingle();
+  if (privateReadError) throw new Error(`Unable to inspect private synthetic result: ${privateReadError.message}`);
+  if (!privateResult) {
+    await upsert("official_results", {
+      id: privateResultId, tenant_id: DEMO.tenantId, school_id: DEMO.schoolId,
+      academic_year: 2026, enrolment_id: DEMO.learnerTomasEnrolmentId,
+      learner_id: DEMO.publishedLearnerId, subject_offering_id: privateOfferingId,
+      term_number: 2, result_value: 13, symbol: "E",
+      assessment_scheme_key: "E2E_SYNTHETIC_PRIVATE_FIXTURE", assessment_scheme_version: "v1",
+      calculation_snapshot: { synthetic_fixture_only: true },
+      approved_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+      approved_at: "2026-10-20T11:51:00Z", locked_at: "2026-10-20T11:51:00Z",
+    });
+  }
+
   // A frozen published artifact for *read-path* acceptance only. The lifecycle
   // transition and mark-approval path must be tested separately under #1309.
   // Certified/published snapshots are immutable: never upsert an existing row.
