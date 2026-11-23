@@ -3,6 +3,22 @@
 -- production seed, official curriculum, or default grading scheme.
 begin;
 
+-- Isolated synthetic school-year governance: the term closing date is the
+-- fixed reference date even if approval or correction happens months later.
+insert into public.academic_years(tenant_id,school_id,year,starts_on,ends_on)
+values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',2026,'2026-01-05','2026-12-15')
+on conflict (school_id,year) do nothing;
+
+insert into public.academic_terms(
+ tenant_id,school_id,academic_year_id,term_number,display_name,starts_on,ends_on
+)
+select '11111111-1111-4111-8111-111111111111',
+       '22222222-2222-4222-8222-222222222222',year.id,1,
+       'Synthetic Term 1','2026-01-05','2026-04-10'
+from public.academic_years year
+where year.school_id='22222222-2222-4222-8222-222222222222' and year.year=2026
+on conflict (academic_year_id,term_number) do nothing;
+
 insert into public.subjects(id,tenant_id,school_id,subject_code,display_name,status)
 values('e2f10000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','E2E-APP','E2E Approval Science','active')
 on conflict (id) do nothing;
