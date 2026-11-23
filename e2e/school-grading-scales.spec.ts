@@ -72,14 +72,14 @@ test.describe.serial("#1313 school grading scale governance", () => {
     }
   });
 
-  test("unauthorized roles cannot configure school grading rules", async ({ page }) => {
-    for (const role of ["registerTeacher", "hod"] as const) {
+  for (const role of ["registerTeacher", "hod"] as const) {
+    test(`${role} cannot configure school grading rules`, async ({ page }) => {
       await signIn(page, role);
       await page.goto("/assessment/grading-scales");
       await expect(page).not.toHaveURL(/\/assessment\/grading-scales(?:\?|$)/);
       await expect(page.getByRole("heading", { name: "School grading scales" })).toHaveCount(0);
-    }
-  });
+    });
+  }
 
   test("another school's manager cannot see the first school's configured scale", async ({ page }) => {
     await signIn(page, "outsider");
