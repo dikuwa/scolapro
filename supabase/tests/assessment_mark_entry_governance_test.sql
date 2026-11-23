@@ -1,6 +1,6 @@
 begin;
 
-select plan(32);
+select plan(33);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -285,6 +285,19 @@ select ok(
     'app_private.enrich_report_card_snapshot_template_profile()'::regprocedure
   ) ilike '%from public.official_results_current r%',
   'cumulative report terms include only the current non-superseded official result'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%Contributing assessment corrections require re-verification before official result approval%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%instance.correction_pending=false%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%corrected_component.contributes_to_report=true%',
+  'official-result reapproval refuses unverified contributing corrections, even for optional components'
 );
 
 select * from finish();

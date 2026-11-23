@@ -22,7 +22,7 @@ const ids = {
 };
 
 test("assigned teacher mark, portfolio HOD verification and school-managed official approval", async ({ page, browser }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(240_000);
   const environment = resolveE2EEnvironment(mergedProjectEnv(process.cwd()));
   test.skip(environment.target !== "local", "Governed mark lifecycle changes require disposable local Supabase.");
 
@@ -115,6 +115,110 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     expect(error).toBeNull();
     expect(Number(result?.result_value)).toBe(82);
     expect(result?.symbol).toBe("A");
+
+    // The UI must expose the governed correction path without silently
+    // changing an official result. No correction authorization exists here.
+    await adminPage.reload();
+    await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
+    await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
+    await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
+    // No authorized mark correction exists: the UI must not offer a
+    // misleading submit path, and the immutable official row is unchanged.
+    await expect(adminPage.getByRole("button", { name: "Reapprove corrected" })).toBeDisabled();
+    await expect(adminPage.getByText("Reapproval requires an authorized corrected mark and completed re-verification.")).toBeVisible();
+    const { count: officialCount, error: countError } = await service.from("official_results")
+      .select("id", { count: "exact", head: true })
+      .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+      .eq("subject_offering_id", ids.offering).eq("term_number", 1);
+    expect(countError).toBeNull();
+    expect(officialCount).toBe(1);
+    
+    // Governed correction: school management grants a bounded component
+    // window, the assigned teacher corrects the mark, the portfolio HOD
+    // re-verifies, and management can reapprove without erasing history.
+    await adminPage.goto(`/assessment/marks/${ids.instance}`);
+    await expect(adminPage.getByRole("heading", { name: "Governed correction" })).toBeVisible();
+    const localDate = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Windhoek", day: "2-digit", month: "2-digit", year: "numeric",
+    });
+    const start = localDate.format(new Date(Date.now() - 24 * 60 * 60 * 1000));
+    const expiry = localDate.format(new Date(Date.now() + 24 * 60 * 60 * 1000));
+    for (const [id, value] of [
+      ["#startDate-typed", start], ["#startTime-typed", "00:01"],
+      ["#expiryDate-typed", expiry], ["#expiryTime-typed", "23:59"],
+    ]) {
+      await adminPage.locator(id).fill(value);
+      await adminPage.locator(id).blur();
+    }
+    await adminPage.getByPlaceholder("Why must these marks be corrected?").fill(
+      "Synthetic verification of audited result reissue",
+    );
+    await adminPage.getByRole("button", { name: "Authorise correction" }).click();
+    await expect.poll(async () => {
+      const { data, error } = await service.from("assessment_instances")
+        .select("correction_pending").eq("id", ids.instance).single();
+      if (error) throw new Error("Unable to inspect correction authorization");
+      return data?.correction_pending;
+    }).toBe(true);
+
+    await page.reload();
+    const correctedMark = page.getByRole("textbox", { name: "Mark for Sample, Tomas" });
+    await expect(correctedMark).toBeEnabled();
+    await correctedMark.fill("94");
+    await correctedMark.blur();
+    await expect.poll(async () => {
+      const { data, error } = await service.from("learner_marks_current")
+        .select("numeric_mark").eq("assessment_instance_id", ids.instance)
+        .eq("enrolment_id", DEMO.learnerTomasEnrolmentId).single();
+      if (error) throw new Error("Could not verify the governed corrected mark");
+      return Number(data?.numeric_mark);
+    }).toBe(94);
+    // The mark-insert trigger moves the instance from locked to returned;
+    // the mark-grid UI refreshes its server workflow before submission.
+    await expect(page.getByRole("button", { name: "Submit for review" })).toBeEnabled();
+    await page.getByRole("button", { name: "Submit for review" }).click();
+    await expect.poll(async () => {
+      const { data, error } = await service.from("assessment_instances")
+        .select("status").eq("id", ids.instance).single();
+      if (error) throw new Error("Unable to inspect corrected assessment submission");
+      return data?.status;
+    }).toBe("review");
+
+    await hodPage.reload();
+    await hodPage.getByRole("button", { name: "Verify", exact: true }).click();
+    await expect.poll(async () => {
+      const { data, error } = await service.from("assessment_instances")
+        .select("status,correction_pending").eq("id", ids.instance).single();
+      if (error) throw new Error("Unable to inspect corrected assessment verification");
+      return data?.status === "verified" && !data?.correction_pending;
+    }).toBe(true);
+
+    await adminPage.goto(`/assessment/results?offering=${ids.offering}&scheme=${ids.scheme}&class=${DEMO.registerClass10B}&term=1`);
+    await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
+    await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
+    await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
+    const reapprove = adminPage.getByRole("button", { name: "Reapprove corrected" });
+    await expect(reapprove).toBeEnabled();
+    await reapprove.click();
+    await expect.poll(async () => {
+      const { data, error } = await service.from("official_results_current")
+        .select("result_value").eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+        .eq("subject_offering_id", ids.offering).eq("term_number", 1).single();
+      if (error) throw new Error("Unable to inspect current corrected official result");
+      return Number(data?.result_value);
+    }).toBe(94);
+    const { data: history, error: historyError } = await service.from("official_results")
+      .select("id,result_value,superseded_at,supersedes_result_id,correction_authorization_id")
+      .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+      .eq("subject_offering_id", ids.offering).eq("term_number", 1);
+    expect(historyError).toBeNull();
+    expect(history).toHaveLength(2);
+    const oldResult = history?.find((row) => Number(row.result_value) === 82);
+    const replacementResult = history?.find((row) => Number(row.result_value) === 94);
+    expect(oldResult?.superseded_at).toBeTruthy();
+    expect(replacementResult?.supersedes_result_id).toBe(oldResult?.id);
+    expect(replacementResult?.correction_authorization_id).toBeTruthy();
+
   } finally {
     await Promise.all([hodContext.close(), adminContext.close()]);
   }
