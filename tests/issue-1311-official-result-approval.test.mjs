@@ -39,7 +39,11 @@ test("readiness checks required components, verification and corrections", () =>
   assert.ok(server.includes('["verified", "locked"].includes(row.status)'));
   assert.ok(server.includes("!row.correction_pending"));
   assert.ok(server.includes("ready: required > 0 && required === verifiedRequired"));
-  assert.ok(view.includes("row.registered && verified && Boolean(scaleId) && confirmed"));
+  assert.ok(view.includes("row.registered && (!row.approved || row.replacementEligible) && verified && Boolean(scaleId) && confirmed"));
+  assert.ok(server.includes("replacementEligible: Boolean(official) && corrected.has(row.id)"));
+  assert.ok(server.includes("assessment_mark_reopen_authorizations"));
+  assert.ok(server.includes("mark.recorded_at"));
+
   assert.ok(view.includes("Reapprove corrected"));
   assert.ok(server.includes("Existing official result requires"));
   assert.ok(!view.includes("row.registered && !row.approved"));
