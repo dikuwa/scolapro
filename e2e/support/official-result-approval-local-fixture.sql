@@ -80,4 +80,19 @@ insert into public.grading_scale_bands(
 'e2f80000-0000-4000-8000-000000000001',0,100,'A',1)
 on conflict (id) do nothing;
 
+
+-- An active but future-effective synthetic version must be refused for
+-- Term 1 2026 even if management can see/select it.
+insert into public.grading_scales(
+ id,tenant_id,school_id,scale_key,version,display_name,effective_from,status,created_by_user_id
+) values('e2f80000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+'E2E-FUTURE','v1','E2E Future-Only Scale','2027-01-01','active','70000000-0000-4000-8000-000000000001')
+on conflict (id) do nothing;
+
+insert into public.grading_scale_bands(
+ id,tenant_id,school_id,grading_scale_id,minimum_value,maximum_value,symbol,sort_order
+) values('e2f90000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
+'e2f80000-0000-4000-8000-000000000002',0,100,'Z',1)
+on conflict (id) do nothing;
+
 commit;
