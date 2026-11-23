@@ -161,7 +161,7 @@ export function SchoolGradingScalesView({ scales }: { scales: SchoolGradingScale
       <h2 className="scolapro-section-title">Version history</h2>
       {scales.length ? scales.map((scale) => <article key={scale.id} className="rounded-[var(--radius-md)] border border-border-subtle bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0"><p className="font-semibold text-foreground">{scale.displayName}</p><p className="mt-1 text-xs text-muted-foreground">{scale.key} · {scale.version} · Effective {scale.effectiveFrom} · {scale.decimalPlaces} decimal places</p></div>
+          <div className="min-w-0"><p className="font-semibold text-foreground">{scale.displayName}</p><p className="mt-1 text-xs text-muted-foreground">{scale.key} · {scale.version} · Effective {scale.effectiveFrom}{scale.effectiveTo ? ` to ${scale.effectiveTo}` : " onward"} · {scale.decimalPlaces} decimal places</p></div>
           <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1 text-xs font-semibold capitalize text-foreground">{scale.status}</span>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">{scale.bands.map((band) => <span key={band.id} className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-xs">{band.minimum}–{band.maximum}: <strong>{band.symbol}</strong> ({band.classification})</span>)}</div>
