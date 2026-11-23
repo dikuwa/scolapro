@@ -24,6 +24,7 @@ export type OfficialResultApprovalRow = {
   admissionNumber: string | null;
   registered: boolean;
   approved: boolean;
+  replacementEligible: boolean;
   resultValue: number | null;
   symbol: string | null;
 };
@@ -163,7 +164,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
     const [learnersResult, registrationsResult, approvedResult] = await Promise.all([
       learnerIds.length ? db.from("learners").select("id,first_names,surname,preferred_name").in("id", learnerIds) : Promise.resolve({ data: [], error: null }),
       ids.length ? db.from("learner_subject_registrations").select("enrolment_id").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("status", "active") : Promise.resolve({ data: [], error: null }),
-      ids.length ? db.from("official_results_current").select("enrolment_id,result_value,symbol").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("term_number", termNumber) : Promise.resolve({ data: [], error: null }),
+      ids.length ? db.from("official_results_current").select("enrolment_id,result_value,symbol,approved_at").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("term_number", termNumber) : Promise.resolve({ data: [], error: null }),
     ]);
     errorIfPresent(learnersResult.error, "learner identities");
     errorIfPresent(registrationsResult.error, "subject registrations");
@@ -171,6 +172,46 @@ export async function getOfficialResultApprovalWorkspace(params: {
     const learnerMap = new Map((learnersResult.data ?? []).map((row) => [row.id, row]));
     const registered = new Set((registrationsResult.data ?? []).map((row) => row.enrolment_id));
     const officialMap = new Map((approvedResult.data ?? []).map((row) => [row.enrolment_id, row]));
+    // Mirror the canonical RPC's evidence predicate for the *UI affordance*.
+    // The RPC still owns the locked/atomic replacement decision and can deny
+    // access if approval or correction state changes after this read.
+    const corrected = new Set<string>();
+    const candidateEnrolments = [...officialMap.keys()];
+    const instanceIds = (instancesResult.data ?? []).map((row) => row.id);
+    if (candidateEnrolments.length && instanceIds.length && required === verifiedRequired && required > 0) {
+      const { data: marks, error: marksError } = await db.from("learner_marks")
+        .select("enrolment_id,assessment_instance_id,recorded_at,correction_authorization_id")
+        .in("enrolment_id", candidateEnrolments)
+        .in("assessment_instance_id", instanceIds)
+        .not("correction_authorization_id", "is", null)
+        .order("recorded_at", { ascending: false }).limit(1000);
+      errorIfPresent(marksError, "governed corrections");
+      const relevantMarks = (marks ?? []).filter((mark) => {
+        const prior = officialMap.get(mark.enrolment_id);
+        return Boolean(prior?.approved_at && mark.recorded_at &&
+          Date.parse(mark.recorded_at) > Date.parse(prior.approved_at));
+      });
+      // Never offer reapproval if a response cap could have hidden some
+      // evidence. The canonical RPC is the only way to approve replacements.
+      if ((marks ?? []).length < 1000 && relevantMarks.length) {
+        const authorizationIds = [...new Set(relevantMarks.map((mark) => mark.correction_authorization_id)
+          .filter((id): id is string => typeof id === "string"))];
+        if (authorizationIds.length) {
+          const { data: authorizations, error: authorizationError } = await db
+            .from("assessment_mark_reopen_authorizations")
+            .select("id,requires_reverification")
+            .eq("school_id", schoolId).in("id", authorizationIds);
+          errorIfPresent(authorizationError, "correction authorizations");
+          const permittedIds = new Set((authorizations ?? [])
+            .filter((row) => row.requires_reverification).map((row) => row.id));
+          for (const mark of relevantMarks) {
+            if (mark.correction_authorization_id && permittedIds.has(mark.correction_authorization_id)) {
+              corrected.add(mark.enrolment_id);
+            }
+          }
+        }
+      }
+    }
     rows = enrolments.map((row) => {
       const learner = learnerMap.get(row.learner_id);
       const official = officialMap.get(row.id);
@@ -180,6 +221,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
         admissionNumber: row.admission_number,
         registered: registered.has(row.id),
         approved: Boolean(official),
+        replacementEligible: Boolean(official) && corrected.has(row.id),
         resultValue: official?.result_value == null ? null : Number(official.result_value),
         symbol: official?.symbol ?? null,
       };
