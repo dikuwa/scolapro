@@ -81,9 +81,11 @@ create trigger grading_band_finality_guard
 before insert or update or delete on public.grading_scale_bands
 for each row execute function app_private.enforce_grading_band_finality();
 
--- Draft creation and band revision are SECURITY INVOKER and obey RLS.
--- Activation is a narrowly checked SECURITY DEFINER RPC because direct
--- authenticated scale UPDATE is revoked to enforce reviewed-band finality.
+-- Draft creation is SECURITY INVOKER and obeys RLS. Draft-band replacement
+-- and activation are bounded SECURITY DEFINER RPCs: SELECT FOR UPDATE on the
+-- scale needs the UPDATE privilege deliberately revoked from direct clients.
+-- Both RPCs verify caller identity, exact school role and row status; activation
+-- also compares the reviewed band content under the same lock.
 -- Every write is one Postgres transaction; partial bands never persist.
 create or replace function public.create_school_grading_scale(
   p_school_id uuid,
@@ -156,7 +158,7 @@ grant execute on function public.create_school_grading_scale(uuid,text,text,text
 
 create or replace function public.replace_school_grading_scale_draft_bands(
   p_scale_id uuid,p_bands jsonb
-) returns boolean language plpgsql security invoker
+) returns boolean language plpgsql security definer
 set search_path = pg_catalog, public, app_private as $$
 declare
   v_scale public.grading_scales%rowtype;

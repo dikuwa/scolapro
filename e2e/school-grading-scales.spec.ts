@@ -34,9 +34,10 @@ test.describe.serial("#1313 school grading scale governance", () => {
     await page.locator("#effectiveTo-typed").blur();
     await expect(page.locator('input[name="effectiveFrom"]')).toHaveValue(startDate);
     await expect(page.locator('input[name="effectiveTo"]')).toHaveValue(endDate);
-    await page.getByRole("textbox", { name: "Band 1 minimum" }).fill("0");
-    await page.getByRole("textbox", { name: "Band 1 maximum" }).fill("99");
-    await page.getByRole("textbox", { name: "Band 1 symbol" }).fill("SYN");
+    const createForm = page.locator("form").filter({ has: page.locator('input[name="key"]') });
+    await createForm.getByRole("textbox", { name: "Band 1 minimum" }).fill("0");
+    await createForm.getByRole("textbox", { name: "Band 1 maximum" }).fill("99");
+    await createForm.getByRole("textbox", { name: "Band 1 symbol" }).fill("SYN");
     await page.getByRole("button", { name: "Save draft scale" }).click();
     await expect(page.getByText("Draft grading scale saved. Review and activate it separately.")).toBeVisible();
     await expect(add).toBeVisible();
@@ -55,7 +56,7 @@ test.describe.serial("#1313 school grading scale governance", () => {
     await version.getByRole("textbox", { name: "Band 1 maximum" }).fill("100");
     await expect(version.getByRole("button", { name: "Activate and freeze" })).toBeDisabled();
     await version.getByRole("button", { name: "Save draft bands" }).click();
-    await expect(page.getByText("Draft grading bands updated.")).toBeVisible();
+    await expect(version.getByText(/0–100: SYN/)).toBeVisible();
     await expect(version.getByRole("button", { name: "Activate and freeze" })).toBeDisabled();
     await version.getByRole("checkbox", { name: /I confirm this scale covers 0–100/ }).check();
     await version.getByRole("button", { name: "Activate and freeze" }).click();
