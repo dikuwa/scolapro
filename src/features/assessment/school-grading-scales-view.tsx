@@ -96,7 +96,7 @@ function CreateScale() {
 
   useEffect(() => {
     if (!state.message) return;
-    if (state.success) { toast.success(state.message); closeEditor(); router.refresh(); }
+    if (state.success) { toast.success(state.message); queueMicrotask(closeEditor); router.refresh(); }
     else toast.error(state.message);
   }, [closeEditor, router, state]);
 
