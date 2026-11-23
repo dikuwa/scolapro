@@ -201,7 +201,7 @@ grant execute on function public.replace_school_grading_scale_draft_bands(uuid,j
 
 create or replace function public.activate_school_grading_scale(p_scale_id uuid, p_reviewed_bands jsonb)
 returns boolean language plpgsql security definer
-set search_path = pg_catalog, public, app_private as $
+set search_path = pg_catalog, public, app_private as $$
 declare v_scale public.grading_scales%rowtype;
   v_current_bands jsonb;
 begin
