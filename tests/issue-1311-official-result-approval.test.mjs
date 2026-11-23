@@ -46,7 +46,7 @@ test("readiness checks required components, verification and corrections", () =>
 
   assert.ok(view.includes("row.registered && (!row.approved || row.replacementEligible) && verified && Boolean(scaleId) && confirmed"));
   assert.ok(server.includes("replacementEligible: Boolean(official) && corrected.has(row.id)"));
-  assert.ok(server.includes("correction_authorization_id is a foreign key"));
+  assert.ok(server.includes('not("correction_authorization_id", "is", null)'));
   assert.ok(!server.includes('db.from("assessment_mark_reopen_authorizations")'));
   assert.ok(server.includes("mark.recorded_at"));
 
@@ -54,6 +54,14 @@ test("readiness checks required components, verification and corrections", () =>
   assert.ok(server.includes("Existing official result requires"));
   assert.ok(!view.includes("row.registered && !row.approved"));
 
+});
+
+test("reapproval eligibility uses stable bounded pagination without losing proven corrections", () => {
+  assert.ok(server.includes("for (let offset = 0; corrected.size < candidateEnrolments.length; offset += pageSize)"));
+  assert.ok(server.includes('.in("enrolment_id", candidateEnrolments)'));
+  assert.ok(server.includes(".range(offset, offset + pageSize - 1)"));
+  assert.ok(server.includes("corrected.add(mark.enrolment_id)"));
+  assert.ok(!server.includes("(marks ?? []).length < 1000"));
 });
 
 test("grading scale and explicit confirmation are user-selected, never defaulted", () => {
