@@ -132,7 +132,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
       .eq("subject_offering_id", ids.offering).eq("term_number", 1);
     expect(countError).toBeNull();
     expect(officialCount).toBe(1);
-    
+
     // Governed correction: school management grants a bounded component
     // window, the assigned teacher corrects the mark, the portfolio HOD
     // re-verifies, and management can reapprove without erasing history.
