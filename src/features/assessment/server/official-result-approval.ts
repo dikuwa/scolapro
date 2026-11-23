@@ -38,6 +38,7 @@ export type OfficialResultApprovalWorkspace = {
   schemeId: string;
   classId: string;
   termNumber: number;
+  termEnd: string | null;
   rows: OfficialResultApprovalRow[];
   page: number;
   pageCount: number;
@@ -75,7 +76,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
     db.from("subject_offerings").select("id,subject_id,grade_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("id").limit(1000),
     db.from("assessment_schemes").select("id,subject_offering_id,scheme_key,version,term_numbers").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("version", { ascending: false }).limit(1000),
     db.from("register_classes").select("id,display_name,grade_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name").limit(500),
-    db.from("grading_scales").select("id,scale_key,version,display_name").eq("school_id", schoolId).eq("status", "active").order("display_name").limit(100),
+    db.from("grading_scales").select("id,scale_key,version,display_name,effective_from,effective_to").eq("school_id", schoolId).eq("status", "active").order("display_name").limit(100),
   ]);
   errorIfPresent(offeringsResult.error, "subject offerings");
   errorIfPresent(schemesResult.error, "active assessment schemes");
@@ -113,12 +114,6 @@ export async function getOfficialResultApprovalWorkspace(params: {
     gradeId: row.grade_id,
     label: row.display_name,
   }));
-  const scaleOptions = scales.map((row) => ({
-    value: row.id,
-    label: row.display_name,
-    helper: `${row.scale_key} · ${row.version}`,
-  }));
-
   const offeringId = offeringOptions.some((row) => row.value === params.offering) ? params.offering! : "";
   const selectedOffering = offeringOptions.find((row) => row.value === offeringId);
   const validSchemes = schemeOptions.filter((row) => row.offeringId === offeringId);
@@ -127,6 +122,27 @@ export async function getOfficialResultApprovalWorkspace(params: {
     ? params.classId! : "";
   const parsedTerm = Number(params.term ?? 1);
   const termNumber = Number.isInteger(parsedTerm) && parsedTerm >= 1 && parsedTerm <= 3 ? parsedTerm : 1;
+  // The grade version is applicable at the school-configured term end,
+  // never at the later calendar date of approval or correction.
+  const { data: academicYearRow, error: yearError } = await db.from("academic_years")
+    .select("id").eq("school_id", schoolId).eq("year", academicYear).maybeSingle();
+  errorIfPresent(yearError, "academic year");
+  let termEnd: string | null = null;
+  if (academicYearRow) {
+    const { data: term, error: termError } = await db.from("academic_terms")
+      .select("ends_on").eq("school_id", schoolId).eq("academic_year_id", academicYearRow.id)
+      .eq("term_number", termNumber).maybeSingle();
+    errorIfPresent(termError, "academic term");
+    termEnd = term?.ends_on ?? null;
+  }
+  const scaleOptions = termEnd ? scales
+    .filter((row) => row.effective_from <= termEnd &&
+      (row.effective_to == null || row.effective_to >= termEnd))
+    .map((row) => ({
+      value: row.id,
+      label: row.display_name,
+      helper: `${row.scale_key} · ${row.version} · effective on ${termEnd}`,
+    })) : [];
   const selectedScheme = validSchemes.find((row) => row.value === schemeId);
   const pageRaw = Number(params.page ?? 1);
   const page = Number.isInteger(pageRaw) && pageRaw > 0 ? Math.min(pageRaw, 1000) : 1;
@@ -234,9 +250,9 @@ export async function getOfficialResultApprovalWorkspace(params: {
 
   return {
     academicYear, offerings: offeringOptions, schemes: schemeOptions, classes: classOptions,
-    scales: scaleOptions, offeringId, schemeId, classId, termNumber,
+    scales: scaleOptions, offeringId, schemeId, classId, termNumber, termEnd,
     rows, page, pageCount: Math.max(1, Math.ceil(total / pageSize)), total,
-    required, verifiedRequired, ready: required > 0 && required === verifiedRequired && !pendingContributing,
+    required, verifiedRequired, ready: required > 0 && required === verifiedRequired && !pendingContributing && Boolean(termEnd),
   };
 }
 
@@ -299,6 +315,12 @@ export async function approveOfficialResult(
     p_grading_scale_id: gradingScaleId,
   });
   if (error) {
+    if (error.message.includes("Configure the academic term end date")) {
+      return { message: "Configure the school academic term end date before approving official results." };
+    }
+    if (error.message.includes("The selected grading scale does not cover")) {
+      return { message: "The selected grading scale is not effective on this academic term's end date." };
+    }
     if (error.message.includes("All required contributing assessments")) return { message: "Required assessments must be verified before official approval." };
     if (error.message.includes("incomplete")) return { message: "This learner's assessment result is incomplete." };
     if (error.message.includes("grading band")) return { message: "The selected grading scale has no band for the calculated result." };
