@@ -57,6 +57,24 @@ begin
     raise exception 'Assessment scheme is not applicable to term %',p_term_number;
   end if;
 
+  -- Serialize approval with mark corrections and new correction grants.
+  -- Both submit_offline_assessment_mark() and
+  -- authorize_assessment_mark_correction() acquire FOR UPDATE on the
+  -- assessment_instances parent before writing corrections. Holding the
+  -- same lock through readiness, calculation and result insertion ensures
+  -- that no contributing mark can change between those steps.
+  perform ai.id
+  from public.assessment_instances ai
+  join public.assessment_components ac on ac.id=ai.assessment_component_id
+  where ai.assessment_scheme_id=v_scheme.id
+    and ai.register_class_id=v_enrolment.register_class_id
+    and ai.term_number=p_term_number
+    and ai.status<>'cancelled'
+    and ac.contributes_to_report=true
+    and p_term_number=any(ac.term_numbers)
+  order by ai.id
+  for update of ai;
+
   select count(*) into v_required
   from public.assessment_instances ai
   join public.assessment_components ac on ac.id=ai.assessment_component_id
