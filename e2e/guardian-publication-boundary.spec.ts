@@ -101,11 +101,24 @@ test("school admin publishes certified report and linked guardian receives the o
   test.skip(target !== "local", "Publication lifecycle is restricted to isolated local Supabase.");
 
   await signIn(page, "admin");
-  await page.goto(`/reports/report-cards?individual=${DEMO.learnerTomasEnrolmentId}&term=2`);
+  await page.goto(`/reports/report-cards?individual=${DEMO.learnerTomasEnrolmentId}&term=3`);
   await expect(page.getByRole("heading", { name: "Report cards" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Publish", exact: true }).click();
-  await expect(page.getByText("Report card published.", { exact: true })).toBeVisible();
+  // The candidate is separate from the certified-only term-two privacy fixture.
+  // An immutable prior publication must not be reversed on a retry or reseed.
+  const publish = page.getByRole("button", { name: "Publish", exact: true });
+  if (await publish.count()) {
+    await publish.click();
+  }
+  const local = localSupabaseStatus({ projectRoot: process.cwd() });
+  const inspector = createClient(local.API_URL, local.SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  await expect.poll(async () => {
+    const { data, error } = await inspector.from("report_card_snapshots")
+      .select("status").eq("id", DEMO.publicationCandidateSnapshotId).single();
+    if (error) throw new Error("Could not verify the candidate publication");
+    return data?.status;
+  }).toBe("published");
   await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
 
   const guardianContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
@@ -114,8 +127,9 @@ test("school admin publishes certified report and linked guardian receives the o
     await signIn(guardianPage, "publishedGuardian");
     await guardianPage.goto("/parent");
     await expect(guardianPage.getByRole("heading", { name: "Latest published results" })).toBeVisible();
-    await expect(guardianPage.getByText("E2E Confidential Science", { exact: true })).toBeVisible();
-    await expect(guardianPage.getByText("13", { exact: true })).toBeVisible();
+    await expect(guardianPage.getByText("E2E Candidate Science", { exact: true })).toBeVisible();
+    await expect(guardianPage.getByText("27", { exact: true })).toBeVisible();
+    await expect(guardianPage.getByText("E2E Confidential Science", { exact: true })).toHaveCount(0);
     await expect(guardianPage.getByText("Synthetic Boy", { exact: false })).toHaveCount(0);
   } finally {
     await guardianContext.close();
