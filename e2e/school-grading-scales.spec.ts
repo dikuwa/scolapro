@@ -8,6 +8,9 @@ const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
 const suffix = crypto.randomUUID().slice(0, 8).toUpperCase();
 const scaleKey = `E2E-G1313-${suffix}`;
 const displayName = `Synthetic Grading Scale ${suffix}`;
+const currentYear = new Date().getUTCFullYear();
+const startDate = `${currentYear}-01-01`;
+const endDate = `${currentYear}-12-31`;
 
 test.describe.serial("#1313 school grading scale governance", () => {
   test.skip(target !== "local", "Grading scale mutations require disposable local synthetic school data.");
@@ -25,12 +28,12 @@ test.describe.serial("#1313 school grading scale governance", () => {
     await page.locator('input[name="key"]').fill(scaleKey);
     await page.locator('input[name="version"]').fill("synthetic-v1");
     await page.locator('input[name="displayName"]').fill(displayName);
-    await page.locator("#effectiveFrom-typed").fill("01/01/2026");
+    await page.locator("#effectiveFrom-typed").fill(`01/01/${currentYear}`);
     await page.locator("#effectiveFrom-typed").blur();
-    await page.locator("#effectiveTo-typed").fill("31/12/2026");
+    await page.locator("#effectiveTo-typed").fill(`31/12/${currentYear}`);
     await page.locator("#effectiveTo-typed").blur();
-    await expect(page.locator('input[name="effectiveFrom"]')).toHaveValue("2026-01-01");
-    await expect(page.locator('input[name="effectiveTo"]')).toHaveValue("2026-12-31");
+    await expect(page.locator('input[name="effectiveFrom"]')).toHaveValue(startDate);
+    await expect(page.locator('input[name="effectiveTo"]')).toHaveValue(endDate);
     await page.getByRole("textbox", { name: "Band 1 minimum" }).fill("0");
     await page.getByRole("textbox", { name: "Band 1 maximum" }).fill("99");
     await page.getByRole("textbox", { name: "Band 1 symbol" }).fill("SYN");
@@ -41,7 +44,7 @@ test.describe.serial("#1313 school grading scale governance", () => {
 
     const version = page.locator("article").filter({ hasText: displayName });
     await expect(version).toContainText("synthetic-v1");
-    await expect(version).toContainText("Effective 2026-01-01 to 2026-12-31");
+    await expect(version).toContainText(`Effective ${startDate} to ${endDate}`);
     await expect(version).toContainText("draft");
 
     await version.getByRole("checkbox", { name: /I confirm this scale covers 0–100/ }).check();
@@ -50,12 +53,15 @@ test.describe.serial("#1313 school grading scale governance", () => {
     await expect(version).toContainText("draft");
 
     await version.getByRole("textbox", { name: "Band 1 maximum" }).fill("100");
+    await expect(version.getByRole("button", { name: "Activate and freeze" })).toBeDisabled();
     await version.getByRole("button", { name: "Save draft bands" }).click();
     await expect(page.getByText("Draft grading bands updated.")).toBeVisible();
+    await expect(version.getByRole("button", { name: "Activate and freeze" })).toBeDisabled();
+    await version.getByRole("checkbox", { name: /I confirm this scale covers 0–100/ }).check();
     await version.getByRole("button", { name: "Activate and freeze" }).click();
     // The server refresh can unmount the transient Sonner toast before an
     // assertion observes it. Verify the persisted active version instead.
-    await expect(page.getByText("Active versions").locator("..")).toContainText("1");
+    // Active-count totals are shared across synthetic scales; assert this version only.
     await expect(version).toContainText("active");
     await expect(version).toContainText("This version is frozen.");
     await expect(version.getByRole("button", { name: "Save draft bands" })).toHaveCount(0);
