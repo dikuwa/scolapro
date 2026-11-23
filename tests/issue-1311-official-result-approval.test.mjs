@@ -39,7 +39,7 @@ test("readiness checks required components, verification and corrections", () =>
   assert.ok(server.includes("row.required && contributing.has(row.id)"));
   assert.ok(server.includes('["verified", "locked"].includes(row.status)'));
   assert.ok(server.includes("!row.correction_pending"));
-  assert.ok(server.includes("ready: required > 0 && required === verifiedRequired && !pendingContributing"));
+  assert.ok(server.includes("ready: required > 0 && required === verifiedRequired && !pendingContributing && Boolean(termEnd)"));
   assert.ok(server.includes("contributing.has(row.assessment_component_id) && row.correction_pending"));
   assert.ok(server.includes("&& !pendingContributing)"));
   assert.ok(server.includes("All contributing mark corrections, including optional components"));
@@ -64,4 +64,19 @@ test("grading scale and explicit confirmation are user-selected, never defaulted
   assert.ok(view.includes("CheckboxField"));
   assert.ok(view.includes('label="Grading scale and version"'));
   assert.ok(view.includes('href="/assessment/grading-scales"'));
+});
+
+test("official approval resolves school term end and excludes inapplicable scale versions", () => {
+  const migration = readFileSync("supabase/migrations/20261123171000_official_result_term_grading_scale_applicability.sql", "utf8");
+  assert.ok(migration.includes("join public.academic_years y on y.id=t.academic_year_id"));
+  assert.ok(migration.includes("and y.year=v_scheme.academic_year"));
+  assert.ok(migration.includes("and t.term_number=p_term_number"));
+  assert.ok(migration.includes("v_scale.effective_from>v_term_end"));
+  assert.ok(migration.includes("v_scale.effective_to<v_term_end"));
+  assert.ok(migration.includes("Configure the academic term end date before approving official results"));
+  assert.ok(server.includes('db.from("academic_terms")'));
+  assert.ok(server.includes("row.effective_from <= termEnd"));
+  assert.ok(server.includes("row.effective_to >= termEnd"));
+  assert.ok(view.includes("A later correction uses the same term date"));
+  assert.ok(view.includes('href="/school/setup"'));
 });
