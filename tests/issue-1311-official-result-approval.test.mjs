@@ -41,7 +41,7 @@ test("readiness checks required components, verification and corrections", () =>
   assert.ok(server.includes("ready: required > 0 && required === verifiedRequired && !pendingContributing"));
   assert.ok(server.includes("contributing.has(row.assessment_component_id) && row.correction_pending"));
   assert.ok(server.includes("&& !pendingContributing)"));
-  assert.ok(server.includes("including optional components")) === false;
+  assert.ok(server.includes("All contributing mark corrections, including optional components"));
 
   assert.ok(view.includes("row.registered && (!row.approved || row.replacementEligible) && verified && Boolean(scaleId) && confirmed"));
   assert.ok(server.includes("replacementEligible: Boolean(official) && corrected.has(row.id)"));
