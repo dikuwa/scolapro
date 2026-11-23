@@ -19,9 +19,10 @@ const createSchema = z.object({
   version: z.string().trim().min(1).max(40),
   displayName: z.string().trim().min(2).max(160),
   effectiveFrom: z.iso.date(),
+  effectiveTo: z.iso.date().optional(),
   precision: z.coerce.number().int().min(0).max(4),
   bands: bandsSchema,
-});
+}).refine((value) => !value.effectiveTo || value.effectiveTo >= value.effectiveFrom);
 const editSchema = z.object({ scaleId: uuid, bands: bandsSchema });
 const activationSchema = z.object({ scaleId: uuid, confirmed: z.literal("yes") });
 
@@ -101,6 +102,7 @@ export async function createSchoolGradingScale(
   const parsed = createSchema.safeParse({
     key: form.get("key"), version: form.get("version"),
     displayName: form.get("displayName"), effectiveFrom: form.get("effectiveFrom"),
+    effectiveTo: String(form.get("effectiveTo") ?? "") || undefined,
     precision: form.get("precision"), bands: parsedBands.data,
   });
   if (!parsed.success) return { message: "Enter the scale identity, version, effective date, precision, and valid bands." };
@@ -108,7 +110,8 @@ export async function createSchoolGradingScale(
   const { data: id, error } = await scope.db.rpc("create_school_grading_scale", {
     p_school_id: scope.schoolId, p_scale_key: value.key,
     p_version: value.version, p_display_name: value.displayName,
-    p_effective_from: value.effectiveFrom, p_decimal_places: value.precision,
+    p_effective_from: value.effectiveFrom, p_effective_to: value.effectiveTo ?? null,
+    p_decimal_places: value.precision,
     p_bands: value.bands,
   });
   if (error) return { message: error.code === "23505" ? "This school already has that grading scale key and version." : "Draft scale creation was refused. Review band values, school permissions and version." };
