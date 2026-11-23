@@ -1,6 +1,6 @@
 begin;
 
-select plan(33);
+select plan(34);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -298,6 +298,19 @@ select ok(
     'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
   ) ilike '%corrected_component.contributes_to_report=true%',
   'official-result reapproval refuses unverified contributing corrections, even for optional components'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%for update of ai%'
+  and pg_get_functiondef(
+    'public.submit_offline_assessment_mark(uuid,uuid,uuid,numeric,text,text,uuid,uuid)'::regprocedure
+  ) ilike '%for update%'
+  and pg_get_functiondef(
+    'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
+  ) ilike '%for update%',
+  'official approval serializes contributing instance state with authorized mark revisions and reopen grants'
 );
 
 select * from finish();
