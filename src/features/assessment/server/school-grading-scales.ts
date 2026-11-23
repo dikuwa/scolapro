@@ -24,7 +24,7 @@ const createSchema = z.object({
   bands: bandsSchema,
 }).refine((value) => !value.effectiveTo || value.effectiveTo >= value.effectiveFrom);
 const editSchema = z.object({ scaleId: uuid, bands: bandsSchema });
-const activationSchema = z.object({ scaleId: uuid, confirmed: z.literal("yes") });
+const activationSchema = z.object({ scaleId: uuid, confirmed: z.literal("yes"), reviewedBands: bandsSchema });
 
 export type GradingBandInput = z.infer<typeof band>;
 export type GradingScaleActionState = { success?: boolean; message: string };
@@ -77,23 +77,39 @@ function refresh() {
 export async function getSchoolGradingScales(): Promise<SchoolGradingScale[] | null> {
   const scope = await manager();
   if (!scope) return null;
-  const { data: scales, error } = await scope.db.from("grading_scales")
-    .select("id,scale_key,version,display_name,effective_from,effective_to,decimal_places,status")
-    .eq("school_id", scope.schoolId).order("created_at", { ascending: false }).limit(100);
-  if (error) throw new Error("Unable to load school grading scales.");
-  const ids = (scales ?? []).map((item) => item.id);
-  const { data: rows, error: bandsError } = ids.length
-    ? await scope.db.from("grading_scale_bands")
+  // Retrieve every version, including drafts older than the first 100.
+  // Each band batch covers <=25 scales × 30 bands = 750 rows, below the
+  // configured PostgREST 1,000-row response cap.
+  type ScaleRow = { id: string; scale_key: string; version: string; display_name: string; effective_from: string; effective_to: string | null; decimal_places: number; status: string };
+  const scales: ScaleRow[] = [];
+  for (let offset = 0; ; offset += 100) {
+    const { data, error } = await scope.db.from("grading_scales")
+      .select("id,scale_key,version,display_name,effective_from,effective_to,decimal_places,status")
+      .eq("school_id", scope.schoolId).order("created_at", { ascending: false })
+      .order("id").range(offset, offset + 99);
+    if (error) throw new Error("Unable to load school grading scales.");
+    scales.push(...(data ?? []));
+    if (!data || data.length < 100) break;
+  }
+  const ids = scales.map((item) => item.id);
+  type BandRow = { id: string; grading_scale_id: string; minimum_value: number | string; maximum_value: number | string; symbol: string; pass_classification: string | null };
+  const rows: BandRow[] = [];
+  for (let offset = 0; offset < ids.length; offset += 25) {
+    const { data, error } = await scope.db.from("grading_scale_bands")
       .select("id,grading_scale_id,minimum_value,maximum_value,symbol,pass_classification")
-      .eq("school_id", scope.schoolId).in("grading_scale_id", ids).order("minimum_value")
-    : { data: [], error: null };
-  if (bandsError) throw new Error("Unable to load grading scale bands.");
+      .eq("school_id", scope.schoolId).in("grading_scale_id", ids.slice(offset, offset + 25))
+      .order("sort_order");
+    if (error) throw new Error("Unable to load grading scale bands.");
+    // Do not expose a partially fetched definition for editing.
+    if ((data ?? []).length >= 1000) throw new Error("Grading band response exceeded the safe page size.");
+    rows.push(...(data ?? []));
+  }
   const grouped = new Map<string, SchoolGradingScale["bands"]>();
   for (const row of rows ?? []) {
     const list = grouped.get(row.grading_scale_id) ?? [];
     list.push({
       id: row.id, minimum: Number(row.minimum_value), maximum: Number(row.maximum_value),
-      symbol: row.symbol, classification: row.pass_classification ?? "neutral",
+      symbol: row.symbol, classification: row.pass_classification === "pass" || row.pass_classification === "fail" ? row.pass_classification : "neutral",
     });
     grouped.set(row.grading_scale_id, list);
   }
@@ -171,17 +187,26 @@ export async function activateSchoolGradingScale(
 ): Promise<GradingScaleActionState> {
   const scope = await manager();
   if (!scope) return { message: "Only current school management can activate a grading scale." };
+  let reviewedBands: unknown;
+  try { reviewedBands = JSON.parse(String(form.get("reviewedBands") ?? "")); }
+  catch { return { message: "Reload and review the current grading bands before activation." }; }
   const parsed = activationSchema.safeParse({
-    scaleId: form.get("scaleId"), confirmed: form.get("confirmed"),
+    scaleId: form.get("scaleId"), confirmed: form.get("confirmed"), reviewedBands,
   });
   if (!parsed.success) return { message: "Choose a draft grading scale and explicitly confirm activation." };
   const { data: scale, error: readError } = await scope.db.from("grading_scales")
     .select("status").eq("id", parsed.data.scaleId).eq("school_id", scope.schoolId).maybeSingle();
   if (readError || !scale || scale.status !== "draft") return { message: "Only an existing draft scale can be activated." };
-  const { error } = await scope.db.rpc("activate_school_grading_scale", { p_scale_id: parsed.data.scaleId });
+  const { error } = await scope.db.rpc("activate_school_grading_scale", { p_scale_id: parsed.data.scaleId, p_reviewed_bands: parsed.data.reviewedBands });
   if (error) {
     if (error.message.includes("overlaps or gaps") || error.message.includes("completely cover")) {
       return { message: "Bands must exactly cover 0–100, without gaps or overlaps, at the configured decimal precision." };
+    }
+    if (error.message.includes("Reviewed grading bands changed")) {
+      return { message: "The saved grading bands changed after review. Reload and confirm the latest version." };
+    }
+    if (error.message.includes("effective period")) {
+      return { message: "This grading scale is outside its effective period." };
     }
     return { message: "Scale activation was refused. Verify numeric coverage and school authority." };
   }

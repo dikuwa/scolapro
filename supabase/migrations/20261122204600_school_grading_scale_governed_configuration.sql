@@ -114,7 +114,7 @@ begin
      or (p_effective_to is not null and p_effective_to < p_effective_from) then
     raise exception 'Invalid grading scale identification, effective period or precision';
   end if;
-  if jsonb_typeof(p_bands) <> 'array'
+  if p_bands is null or jsonb_typeof(p_bands) is distinct from 'array'
      or jsonb_array_length(p_bands) not between 1 and 30 then
     raise exception 'Provide between 1 and 30 explicit grading bands';
   end if;
@@ -167,7 +167,7 @@ begin
     raise exception 'School management authority is required';
   end if;
   if v_scale.status <> 'draft' then raise exception 'Activated grading bands are immutable'; end if;
-  if jsonb_typeof(p_bands) <> 'array' or jsonb_array_length(p_bands) not between 1 and 30 then
+  if p_bands is null or jsonb_typeof(p_bands) is distinct from 'array' or jsonb_array_length(p_bands) not between 1 and 30 then
     raise exception 'Provide between 1 and 30 explicit grading bands';
   end if;
   delete from public.grading_scale_bands where grading_scale_id=v_scale.id;
@@ -197,10 +197,11 @@ revoke all on function public.replace_school_grading_scale_draft_bands(uuid,json
 grant execute on function public.replace_school_grading_scale_draft_bands(uuid,jsonb)
   to authenticated;
 
-create or replace function public.activate_school_grading_scale(p_scale_id uuid)
+create or replace function public.activate_school_grading_scale(p_scale_id uuid, p_reviewed_bands jsonb)
 returns boolean language plpgsql security invoker
 set search_path = pg_catalog, public, app_private as $$
 declare v_scale public.grading_scales%rowtype;
+  v_current_bands jsonb;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
   select * into v_scale from public.grading_scales where id=p_scale_id for update;
@@ -208,16 +209,25 @@ begin
     raise exception 'School management authority is required';
   end if;
   if v_scale.status <> 'draft' then raise exception 'Only draft grading scales may be activated'; end if;
-  if v_scale.effective_to is not null and v_scale.effective_to < current_date then
-    raise exception 'Expired grading scale cannot be activated';
+  if v_scale.effective_from > current_date
+     or (v_scale.effective_to is not null and v_scale.effective_to < current_date) then
+    raise exception 'Grading scale is outside its effective period';
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'minimum',minimum_value,'maximum',maximum_value,'symbol',symbol,
+    'classification',coalesce(pass_classification,'neutral')
+  ) order by sort_order),'[]'::jsonb) into v_current_bands
+  from public.grading_scale_bands where grading_scale_id=v_scale.id;
+  if p_reviewed_bands is null or p_reviewed_bands is distinct from v_current_bands then
+    raise exception 'Reviewed grading bands changed; reload and confirm the current draft';
   end if;
   update public.grading_scales set status='active' where id=v_scale.id;
   if not found then raise exception 'Grading scale status did not persist'; end if;
   return true;
 end;
 $$;
-revoke all on function public.activate_school_grading_scale(uuid) from public,anon;
-grant execute on function public.activate_school_grading_scale(uuid) to authenticated;
+revoke all on function public.activate_school_grading_scale(uuid,jsonb) from public,anon;
+grant execute on function public.activate_school_grading_scale(uuid,jsonb) to authenticated;
 
 -- Audit authoritative version creation/activation separately from ordinary
 -- school operations. The trigger is private and has a fixed search path.
@@ -248,3 +258,27 @@ drop trigger if exists grading_scale_lifecycle_audit_trg on public.grading_scale
 create trigger grading_scale_lifecycle_audit_trg
 after insert or update of status on public.grading_scales
 for each row execute function app_private.audit_grading_scale_lifecycle();
+
+-- Tighten the older academic-leadership policies. HODs may read active
+-- grading definitions, but only school management may draft, revise or
+-- activate them; anonymous and unrelated school actors cannot mutate them.
+-- Direct authenticated INSERT is draft-only, closing the bypass that could
+-- create an active scale without any validated bands.
+drop policy if exists "academic leaders can create grading scales" on public.grading_scales;
+create policy "academic leaders can create grading scales"
+on public.grading_scales for insert to authenticated
+with check (
+  status = 'draft'
+  and created_by_user_id = (select auth.uid())
+  and app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal'])
+);
+drop policy if exists "academic leaders can update grading scales" on public.grading_scales;
+create policy "academic leaders can update grading scales"
+on public.grading_scales for update to authenticated
+using (app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal']))
+with check (app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal']));
+drop policy if exists "academic leaders can manage grading bands" on public.grading_scale_bands;
+create policy "academic leaders can manage grading bands"
+on public.grading_scale_bands for all to authenticated
+using (app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal']))
+with check (app_private.has_school_role(school_id,array['school_admin','principal','deputy_principal']));
