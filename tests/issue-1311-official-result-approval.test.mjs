@@ -46,7 +46,7 @@ test("readiness checks required components, verification and corrections", () =>
 
   assert.ok(view.includes("row.registered && (!row.approved || row.replacementEligible) && verified && Boolean(scaleId) && confirmed"));
   assert.ok(server.includes("replacementEligible: Boolean(official) && corrected.has(row.id)"));
-  assert.ok(server.includes("correction_authorization_id is a foreign key"));
+  assert.ok(server.includes('not("correction_authorization_id", "is", null)'));
   assert.ok(!server.includes('db.from("assessment_mark_reopen_authorizations")'));
   assert.ok(server.includes("mark.recorded_at"));
 
