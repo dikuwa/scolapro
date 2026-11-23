@@ -76,6 +76,7 @@ function CreateScale() {
   const [version, setVersion] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [effectiveFrom, setEffectiveFrom] = useState("");
+  const [effectiveTo, setEffectiveTo] = useState("");
   const [precision, setPrecision] = useState("0");
   const [bands, setBands] = useState<BandDraft[]>([newBand()]);
   const converted = validBands(bands);
@@ -101,6 +102,7 @@ function CreateScale() {
           <input className={control} name="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} maxLength={160} placeholder="School approval scale" required />
         </label>
         <DateField label="Effective from" name="effectiveFrom" value={effectiveFrom} onChange={setEffectiveFrom} required />
+        <DateField label="Effective to (optional)" name="effectiveTo" value={effectiveTo} onChange={setEffectiveTo} />
       </div>
       <div className="max-w-[16rem]">
         <Picker label="Decimal places" name="precision" value={precision} onChange={setPrecision} placeholder="Precision" options={[0, 1, 2, 3, 4].map((item) => ({ value: String(item), label: String(item) }))} />
@@ -108,7 +110,7 @@ function CreateScale() {
       <BandFields bands={bands} setBands={setBands} />
       <input type="hidden" name="bands" value={JSON.stringify(converted ?? [])} />
       <div className="flex justify-end">
-        <Button type="submit" loading={pending} disabled={!key || !version || !displayName || !effectiveFrom || !converted}><Plus className="size-4" />Save draft scale</Button>
+        <Button type="submit" loading={pending} disabled={!key || !version || !displayName || !effectiveFrom || (Boolean(effectiveTo) && effectiveTo < effectiveFrom) || !converted}><Plus className="size-4" />Save draft scale</Button>
       </div>
     </form>
   </section>;
