@@ -95,6 +95,21 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     expect(error).toBeNull();
     expect(Number(result?.result_value)).toBe(82);
     expect(result?.symbol).toBe("A");
+
+    // The UI must expose the governed correction path without silently
+    // changing an official result. No correction authorization exists here.
+    await adminPage.reload();
+    await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
+    await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
+    await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
+    await adminPage.getByRole("button", { name: "Reapprove corrected" }).click();
+    await expect(adminPage.getByText("This result is already official. A corrected mark and re-verification are required before replacement.")).toBeVisible();
+    const { count: officialCount, error: countError } = await service.from("official_results")
+      .select("id", { count: "exact", head: true })
+      .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+      .eq("subject_offering_id", ids.offering).eq("term_number", 1);
+    expect(countError).toBeNull();
+    expect(officialCount).toBe(1);
   } finally {
     await Promise.all([hodContext.close(), adminContext.close()]);
   }
