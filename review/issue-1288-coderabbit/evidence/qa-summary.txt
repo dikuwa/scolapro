@@ -1,0 +1,23 @@
+Issue #1288 review evidence summary (sanitized)
+
+Repository: dikuwa/scolapro
+Issue: https://github.com/dikuwa/scolapro/issues/1288
+Branch: codex/issue-1288-sports-year-context
+Approved base: 876e4afcb63caf131aec18f0dd4d05b0b3a83c8e
+HEAD: ba2d63fafeda52abed433a8cd66b6400ea044630
+HEAD tree: 13c1ebcf81e19ac0727d052b4c6acb89e39b7ef7
+Working tree: two modified files; no other untracked files. The four baseline-to-worktree paths are listed in README.md.
+
+Final checks on the final worktree content:
+- Authenticated local synthetic Playwright: 7 passed, 0 failed; responsive/theme cases at 375/768/1440 in light/dark, plus authenticated teacher read-only scenario. Exit 0.
+- Full Node suite: 1,741 total, 1,740 passed, 0 failed, 1 skipped. Exit 0.
+- ESLint: exit 0, 0 errors, 41 warnings.
+- TypeScript typecheck: exit 0.
+- Report-font and navigation validators: both passed, exit 0.
+- Production build: exit 0. Build emitted an existing dynamic-filesystem tracing warning in official-document-fonts.ts.
+
+Screenshots: 30 PNGs, five states (closed/editor/validation/server-error/configured) for each of six viewport/theme combinations. OCR review found only synthetic seeded school context and UI labels; no learner names/contact details, credentials or authentication state. Screenshots are from disposable local synthetic data only.
+
+Database: dedicated synthetic Supabase project was stopped with project-scoped teardown after testing. The package contains no DB dump, environment file, credential, token, storage state, or full unfiltered test output.
+
+No independent CodeRabbit review verdict is included. No remote branch or PR existed at package creation; this package is for external source and visual review only.
