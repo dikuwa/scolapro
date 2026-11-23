@@ -25,10 +25,10 @@ test.describe.serial("#1313 school grading scale governance", () => {
     await page.locator('input[name="key"]').fill(scaleKey);
     await page.locator('input[name="version"]').fill("synthetic-v1");
     await page.locator('input[name="displayName"]').fill(displayName);
-    await page.getByLabel("Effective from", { exact: true }).fill("01/01/2026");
-    await page.getByLabel("Effective from", { exact: true }).blur();
-    await page.getByLabel("Effective to (optional)", { exact: true }).fill("31/12/2026");
-    await page.getByLabel("Effective to (optional)", { exact: true }).blur();
+    await page.locator("#effectiveFrom-typed").fill("01/01/2026");
+    await page.locator("#effectiveFrom-typed").blur();
+    await page.locator("#effectiveTo-typed").fill("31/12/2026");
+    await page.locator("#effectiveTo-typed").blur();
     await expect(page.locator('input[name="effectiveFrom"]')).toHaveValue("2026-01-01");
     await expect(page.locator('input[name="effectiveTo"]')).toHaveValue("2026-12-31");
     await page.getByRole("textbox", { name: "Band 1 minimum" }).fill("0");
