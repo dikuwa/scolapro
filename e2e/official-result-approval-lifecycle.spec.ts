@@ -102,8 +102,10 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
     await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
     await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
-    await adminPage.getByRole("button", { name: "Reapprove corrected" }).click();
-    await expect(adminPage.getByText("This result is already official. A corrected mark and re-verification are required before replacement.")).toBeVisible();
+    // No authorized mark correction exists: the UI must not offer a
+    // misleading submit path, and the immutable official row is unchanged.
+    await expect(adminPage.getByRole("button", { name: "Reapprove corrected" })).toBeDisabled();
+    await expect(adminPage.getByText("Reapproval requires an authorized corrected mark and completed re-verification.")).toBeVisible();
     const { count: officialCount, error: countError } = await service.from("official_results")
       .select("id", { count: "exact", head: true })
       .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
