@@ -193,12 +193,11 @@ export async function getOfficialResultApprovalWorkspace(params: {
       // full response page does not invalidate corrections already proven.
       // The authoritative RPC still validates authorization, locks the
       // contributing instances, and checks finality at mutation time.
-      const unresolved = new Set(candidateEnrolments);
       const pageSize = 500;
-      for (let offset = 0; unresolved.size > 0; offset += pageSize) {
+      for (let offset = 0; corrected.size < candidateEnrolments.length; offset += pageSize) {
         const { data: marks, error: marksError } = await db.from("learner_marks")
           .select("enrolment_id,recorded_at,correction_authorization_id")
-          .in("enrolment_id", [...unresolved])
+          .in("enrolment_id", candidateEnrolments)
           .in("assessment_instance_id", instanceIds)
           .not("correction_authorization_id", "is", null)
           .order("recorded_at", { ascending: false })
@@ -210,7 +209,6 @@ export async function getOfficialResultApprovalWorkspace(params: {
           if (mark.correction_authorization_id && prior?.approved_at && mark.recorded_at
             && Date.parse(mark.recorded_at) > Date.parse(prior.approved_at)) {
             corrected.add(mark.enrolment_id);
-            unresolved.delete(mark.enrolment_id);
           }
         }
         if (!marks || marks.length < pageSize) break;
