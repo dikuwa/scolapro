@@ -22,6 +22,7 @@ export const DEMO = Object.freeze({
   publishedLearnerId: "50000000-0000-4000-8000-000000000002",
   publishedSnapshotId: "e2e40000-0000-4000-8000-000000000006",
   certifiedOnlySnapshotId: "e2e40000-0000-4000-8000-000000000007",
+  publicationCandidateSnapshotId: "e2e40000-0000-4000-8000-000000000008",
   assessmentSchemeId: "e2ed0000-0000-4000-8000-000000000008",
   assessmentComponentId: "e2ed0000-0000-4000-8000-000000000009",
   assessmentTeacherAllocationId: "e2ed0000-0000-4000-8000-00000000000a",
