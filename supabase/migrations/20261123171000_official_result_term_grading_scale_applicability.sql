@@ -205,6 +205,8 @@ begin
     v_calc||jsonb_build_object(
       'rounded_result',v_result,
       'symbol',v_symbol,
+      'grading_scale_reference_date',v_term_end,
+      'grading_scale_reference_basis','academic_term_end',
       'correction_authorization_id',v_correction_authorization_id,
       'supersedes_result_id',v_previous.id
     ),
@@ -253,6 +255,8 @@ begin
       'symbol',v_symbol,
       'scheme_version',v_scheme.version,
       'grading_scale_version',v_scale.version,
+      'grading_scale_reference_date',v_term_end,
+      'grading_scale_reference_basis','academic_term_end',
       'supersedes_result_id',v_previous.id,
       'correction_authorization_id',v_correction_authorization_id,
       'report_reissue_required',v_reissue_required
