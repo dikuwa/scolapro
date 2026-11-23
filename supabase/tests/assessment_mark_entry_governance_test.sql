@@ -1,6 +1,6 @@
 begin;
 
-select plan(34);
+select plan(35);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -311,6 +311,19 @@ select ok(
     'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
   ) ilike '%for update%',
   'official approval serializes contributing instance state with authorized mark revisions and reopen grants'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%term.ends_on%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%v_governing_date < v_scale.effective_from%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%v_governing_date > v_scale.effective_to%',
+  'official grading uses the immutable school term closing date to select an effective-dated scale'
 );
 
 select * from finish();
