@@ -145,6 +145,14 @@ function DraftScaleActions({ scale }: { scale: SchoolGradingScale }) {
   const [activateState, activateAction, activatePending] = useActionState(activateSchoolGradingScale, initialState);
   const [confirmed, setConfirmed] = useState(false);
   const converted = validBands(bands);
+  const savedBands: GradingBandInput[] = scale.bands.map(({ minimum, maximum, symbol, classification }) => ({
+    minimum, maximum, symbol, classification,
+  }));
+  const unsavedChanges = !converted || JSON.stringify(converted) !== JSON.stringify(savedBands);
+  const changeBands = (next: BandDraft[]) => {
+    setBands(next);
+    setConfirmed(false);
+  };
   useEffect(() => {
     if (!editState.message) return;
     if (editState.success) { toast.success(editState.message); router.refresh(); }
@@ -160,14 +168,16 @@ function DraftScaleActions({ scale }: { scale: SchoolGradingScale }) {
     <form action={editAction} className="space-y-3">
       <input type="hidden" name="scaleId" value={scale.id} />
       <input type="hidden" name="bands" value={JSON.stringify(converted ?? [])} />
-      <BandFields bands={bands} setBands={setBands} />
+      <BandFields bands={bands} setBands={changeBands} />
       <div className="flex justify-end"><Button type="submit" size="sm" variant="neutral" loading={editPending} disabled={!converted}>Save draft bands</Button></div>
     </form>
     <form action={activateAction} className="flex flex-col gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:flex-row sm:items-center sm:justify-between">
       <input type="hidden" name="scaleId" value={scale.id} />
       <input type="hidden" name="confirmed" value={confirmed ? "yes" : "no"} />
-      <CheckboxField label="I confirm this scale covers 0–100 with the school's approved symbols and precision. Activation freezes this version." checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-      <Button type="submit" size="sm" loading={activatePending} disabled={!confirmed || editPending}><LockKeyhole className="size-3.5" />Activate and freeze</Button>
+      <input type="hidden" name="reviewedBands" value={JSON.stringify(savedBands)} />
+      {unsavedChanges ? <p className="text-xs text-[color:var(--warning)]">Save these band changes before confirming activation.</p> : null}
+      <CheckboxField label="I confirm this scale covers 0–100 with the school's approved symbols and precision. Activation freezes this version." checked={confirmed} disabled={unsavedChanges || editPending} onChange={(event) => setConfirmed(event.target.checked)} />
+      <Button type="submit" size="sm" loading={activatePending} disabled={!confirmed || editPending || unsavedChanges}><LockKeyhole className="size-3.5" />Activate and freeze</Button>
     </form>
   </div>;
 }
