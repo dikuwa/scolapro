@@ -64,6 +64,15 @@ test("reapproval eligibility uses stable bounded pagination without losing prove
   assert.ok(!server.includes("(marks ?? []).length < 1000"));
 });
 
+test("canonical scale applicability uses configured term date, not the current approval clock", () => {
+  const migration = readFileSync("supabase/migrations/20261123185000_official_result_term_scale_period_guard.sql", "utf8");
+  assert.ok(migration.includes("term.ends_on"));
+  assert.ok(migration.includes("v_governing_date < v_scale.effective_from"));
+  assert.ok(migration.includes("v_governing_date > v_scale.effective_to"));
+  assert.ok(migration.includes("grading_scale_governing_date"));
+  assert.ok(server.includes("outside the academic term effective period"));
+});
+
 test("grading scale and explicit confirmation are user-selected, never defaulted", () => {
   assert.ok(view.includes('useState("")'));
   assert.ok(view.includes("useState(false)"));
