@@ -223,8 +223,15 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
       return data?.status === "verified" && !data?.correction_pending;
     }).toBe(true);
 
+    // This is a disposable synthetic fixture: the version governing the
+    // already-approved term may be superseded before an authorized correction.
+    const { error: supersedeError } = await service.from("grading_scales")
+      .update({ status: "superseded" }).eq("id", ids.scale);
+    expect(supersedeError).toBeNull();
+
     await adminPage.goto(`/assessment/results?offering=${ids.offering}&scheme=${ids.scheme}&class=${DEMO.registerClass10B}&term=1`);
     await adminPage.getByRole("button", { name: "Grading scale and version" }).click();
+    await expect(adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ })).toBeVisible();
     await adminPage.getByRole("option", { name: /E2E Synthetic Approval Scale/ }).click();
     await adminPage.getByLabel("I confirm these verified results may become official and locked").check();
     const reapprove = adminPage.getByRole("button", { name: "Reapprove corrected" });
