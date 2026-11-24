@@ -121,8 +121,13 @@ test("accepted enrolment is an explicit school-admin-only governed transition", 
   assert.match(enrolmentEditor, /item\.academic_year === academicYear && item\.grade_id === requestedGradeId/);
   assert.match(enrolmentEditor, /name="registerClassId"/);
   assert.match(enrolmentEditor, /checked=\{confirmed\}/);
-  assert.match(enrolmentEditor, /disabled=\{!classId \|\| !enrolledFrom \|\| !confirmed\}/);
-  assert.match(enrolmentEditor, /type="button" onClick=\{reset\}/);
+  assert.match(enrolmentEditor, /canSubmit=\{Boolean\(classId && enrolledFrom && confirmed\)\}/);
+  assert.match(enrolmentEditor, /disabled=\{pending \|\| !canSubmit\}/);
+  assert.match(enrolmentEditor, /onClick=\{onCancel\} disabled=\{pending\}/);
+  assert.match(enrolmentEditor, /onCancel=\{reset\}/);
+  assert.match(enrolmentEditor, /name="enrolledFrom" value=\{enrolledFrom\}/);
+  assert.match(enrolmentEditor, /name=\{\`enrolledFrom-\$\{applicationId\}\`\}/);
+  assert.match(enrolmentEditor, /!reuseExistingLearner \? \( /);
   assert.match(actions, /item\.roleKey === "school_admin"/);
   assert.match(actions, /application\.status !== "accepted"/);
   assert.match(actions, /\.eq\("school_id", membership\.schoolId\)/);
