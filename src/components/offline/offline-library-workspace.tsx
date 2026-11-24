@@ -96,13 +96,14 @@ export function OfflineLibraryWorkspace() {
   const loans = useMemo(() => snapshot?.payload.loans ?? [], [snapshot]);
   const copyMap = useMemo(() => new Map(copies.map((copy) => [copy.id, copy])), [copies]);
   const availableCopies = useMemo(() => copies.filter((copy) => copy.availability === "available" && !["damaged", "lost"].includes(copy.condition)), [copies]);
+  const eligibleCopyId = availableCopies.some((copy) => copy.id === copyId) ? copyId : "";
   const borrowerOptions = useMemo(() => borrowers.filter((borrower) => borrower.type === borrowerType), [borrowers, borrowerType]);
   const selectedLoan = loans.find((loan) => loan.id === loanId) ?? null;
   const pending = queued.filter((record) => record.status === "pending" || record.status === "syncing");
   const attention = queued.filter((record) => record.status === "conflicted" || record.status === "rejected");
 
   async function queueIssue() {
-    if (!scope || !copyId || !borrowerId) return;
+    if (!scope || !eligibleCopyId || !borrowerId) return;
     if (typeof navigator !== "undefined" && navigator.onLine) {
       setMessage("This fallback is for offline work. Reopen Library / Textbooks while online to make a server-backed issue.");
       return;
@@ -112,7 +113,7 @@ export function OfflineLibraryWorkspace() {
     try {
       await queueLibraryCirculation(scope, {
         action: "issue",
-        copyId,
+        copyId: eligibleCopyId,
         borrowerType,
         borrowerId,
         dueOn: dueOn || null,
@@ -206,11 +207,11 @@ export function OfflineLibraryWorkspace() {
           <div className="flex items-center gap-2"><BookOpenText className="size-4 text-brand-strong" aria-hidden="true" /><h3 className="scolapro-section-title">Queue one issue intent</h3></div>
           <p className="scolapro-section-description">Choose from cached available copies and borrowers. This does not allocate the copy until the server accepts sync.</p>
           <div className="mt-4 space-y-3">
-            <Picker label="Cached available copy" value={copyId} onChange={setCopyId} options={availableCopies.map((copy) => ({ value: copy.id, label: copyLabel(copy) }))} placeholder="Choose copy" searchable searchPlaceholder="Search cached copies" />
+            <Picker label="Cached available copy" value={eligibleCopyId} onChange={setCopyId} options={availableCopies.map((copy) => ({ value: copy.id, label: copyLabel(copy) }))} placeholder="Choose copy" searchable searchPlaceholder="Search cached copies" />
             <Picker label="Borrower type" value={borrowerType} onChange={(value) => { setBorrowerType(value as "learner" | "staff"); setBorrowerId(""); }} options={[{ value: "learner", label: "Learner" }, { value: "staff", label: "Staff member" }]} placeholder="Learner" />
             <Picker label="Cached borrower" value={borrowerId} onChange={setBorrowerId} options={borrowerOptions.map((borrower) => ({ value: borrower.id, label: borrower.name, helper: borrower.helper }))} placeholder="Choose borrower" searchable searchPlaceholder="Search cached borrowers" />
             <DateField label="Due date (optional)" name="offline-library-due-on" value={dueOn} onChange={setDueOn} />
-            <Button type="button" onClick={() => void queueIssue()} loading={saving} disabled={!copyId || !borrowerId}><BookOpenText className="size-4" aria-hidden="true" />Save issue intent</Button>
+            <Button type="button" onClick={() => void queueIssue()} loading={saving} disabled={!eligibleCopyId || !borrowerId}><BookOpenText className="size-4" aria-hidden="true" />Save issue intent</Button>
           </div>
         </section>
 
