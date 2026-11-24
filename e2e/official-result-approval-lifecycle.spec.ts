@@ -223,6 +223,28 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
       return data?.status === "verified" && !data?.correction_pending;
     }).toBe(true);
 
+    // A different active scale with a valid effective period must not
+    // silently regrade an already-official term, even after correction.
+    const { error: alternateDateError } = await service.from("grading_scales")
+      .update({ effective_from: "2026-01-01" })
+      .eq("id", "e2f80000-0000-4000-8000-000000000009");
+    expect(alternateDateError).toBeNull();
+    const { error: alternateScaleError } = await approver.rpc("approve_official_subject_result", {
+      p_assessment_scheme_id: ids.scheme,
+      p_enrolment_id: DEMO.learnerTomasEnrolmentId,
+      p_term_number: 1,
+      p_grading_scale_id: "e2f80000-0000-4000-8000-000000000009",
+    });
+    expect(alternateScaleError?.message).toContain(
+      "Corrected official result must reuse its original grading scale version",
+    );
+    const { count: unalteredCount, error: unalteredCountError } = await service.from("official_results")
+      .select("id", { count: "exact", head: true })
+      .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+      .eq("subject_offering_id", ids.offering).eq("term_number", 1);
+    expect(unalteredCountError).toBeNull();
+    expect(unalteredCount).toBe(1);
+
     // This is a disposable synthetic fixture: the version governing the
     // already-approved term may be superseded before an authorized correction.
     const { error: supersedeError } = await service.from("grading_scales")
