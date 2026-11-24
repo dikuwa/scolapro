@@ -94,7 +94,7 @@ export function LibraryWorkspace({ schoolId, titles, copies, loans, borrowers, s
     for (const copy of copies) {
       const current = counts.get(copy.titleId) ?? { total: 0, available: 0, issued: 0, repair: 0, lost: 0 };
       current.total += 1;
-      if (copy.availability === "available") current.available += 1;
+      if (copy.availability === "available" && !["damaged", "lost"].includes(copy.condition)) current.available += 1;
       if (copy.availability === "on_loan") current.issued += 1;
       if (copy.availability === "repair") current.repair += 1;
       if (copy.availability === "lost") current.lost += 1;
