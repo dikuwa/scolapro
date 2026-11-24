@@ -9,6 +9,7 @@ const printPage = readFileSync("src/app/school/admissions/application-form/page.
 const printDocument = readFileSync("src/features/admissions/server/render-admission-application-pdf.ts","utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
 const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
+const queries = readFileSync("src/features/admissions/server/queries.ts","utf8");
 
 test("shared intake is staged and cannot directly mutate authoritative learner domains", () => {
   assert.match(migration,/document_intake_jobs/);
@@ -84,4 +85,21 @@ test("admissions navigation is limited to enrolment workflow leaders", () => {
   assert.match(navigation,/principal:[^\n]*"admissions"/);
   assert.match(navigation,/deputy_principal:[^\n]*"admissions"/);
   assert.doesNotMatch(navigation,/teacher:[^\n]*"admissions"/);
+});
+
+test("historical intake grade choices are derived from the selected same-school job year", () => {
+  const gradeQuery = queries.slice(queries.indexOf("const gradesResult = await supabase"), queries.indexOf("if (gradesResult.error)"));
+  assert.match(gradeQuery, /\.from\("grades"\)/);
+  assert.match(gradeQuery, /\.eq\("school_id", schoolId\)/);
+  assert.match(queries, /const selectedJob = jobs\.find\(\(job\) => job\.id === selectedJobId\) \?\? null/);
+  assert.match(queries, /const reviewAcademicYear = selectedJob\?\.academic_year \?\? academicYear/);
+  assert.match(gradeQuery, /\.eq\("academic_year", reviewAcademicYear\)/);
+  assert.ok(queries.indexOf("const selectedJob = jobs.find") < queries.indexOf('eq("academic_year", reviewAcademicYear)'));
+  assert.match(queries, /reviewAcademicYear,/);
+
+  assert.match(page, /academicYear=\{workspace\.reviewAcademicYear\}/);
+  assert.match(page, /item\.academic_year/);
+  assert.match(page, /job\.academic_year/);
+  assert.match(page, /application\.academic_year/);
+  assert.match(candidateForm, /label=\{`Intended grade · \$\{academicYear\}`\}/);
 });
