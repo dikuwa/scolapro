@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -91,11 +92,13 @@ export function AcceptedAdmissionEnrolment({
             <input name="admissionNumber" maxLength={120} autoComplete="off"
               className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm" />
           </label>
-          <label className="block space-y-1">
-            <span className="block text-xs font-medium">Preferred name (optional)</span>
-            <input name="preferredName" maxLength={120}
-              className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm" />
-          </label>
+          {!reuseExistingLearner ? (
+            <label className="block space-y-1">
+              <span className="block text-xs font-medium">Preferred name (optional)</span>
+              <input name="preferredName" maxLength={120}
+                className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm" />
+            </label>
+          ) : null}
           {reuseExistingLearner ? (
             <div className="self-center text-xs text-muted-foreground">Existing reviewed learner identity will be reused.</div>
           ) : (
@@ -103,24 +106,36 @@ export function AcceptedAdmissionEnrolment({
               placeholder="Choose gender" />
           )}
           {reuseExistingLearner ? <input type="hidden" name="gender" value="unspecified" /> : null}
-          <DateField label="Enrolled from" name="enrolledFrom" value={enrolledFrom} onChange={setEnrolledFrom} required />
+          <input type="hidden" name="enrolledFrom" value={enrolledFrom} />
+          <DateField label="Enrolled from" name={`enrolledFrom-${applicationId}`} value={enrolledFrom} onChange={setEnrolledFrom} required />
         </div>
         <label className="flex items-start gap-2 text-xs leading-5">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}
             className="mt-1 size-4 accent-[color:var(--brand)]" />
           <span>I have verified the applicant, class and enrolment date. Create the official enrolment.</span>
         </label>
-        <div className="flex flex-wrap gap-2">
-          <button type="submit" disabled={!classId || !enrolledFrom || !confirmed}
-            className="min-h-10 rounded-[var(--radius-sm)] bg-brand px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
-            Confirm enrolment
-          </button>
-          <button type="button" onClick={reset}
-            className="min-h-10 rounded-[var(--radius-sm)] bg-surface px-4 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)]">
-            Cancel
-          </button>
-        </div>
+        <EnrolmentFormActions canSubmit={Boolean(classId && enrolledFrom && confirmed)} onCancel={reset} />
       </form>
+    </div>
+  );
+}
+
+function EnrolmentFormActions({ canSubmit, onCancel }: { canSubmit: boolean; onCancel: () => void }) {
+  // This child is inside the form; its status tracks the server action.
+  const { pending } = useFormStatus();
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" disabled={pending || !canSubmit}
+          className="min-h-10 rounded-[var(--radius-sm)] bg-brand px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+          {pending ? "Enrolling…" : "Confirm enrolment"}
+        </button>
+        <button type="button" onClick={onCancel} disabled={pending}
+          className="min-h-10 rounded-[var(--radius-sm)] bg-surface px-4 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)] disabled:cursor-not-allowed disabled:opacity-50">
+          Cancel
+        </button>
+      </div>
+      {pending ? <p role="status" className="text-xs text-muted-foreground">Saving the official enrolment…</p> : null}
     </div>
   );
 }
