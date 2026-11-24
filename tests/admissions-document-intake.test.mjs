@@ -13,6 +13,8 @@ const enrolmentEditor = readFileSync("src/features/admissions/accepted-admission
 const dateField = readFileSync("src/components/ui/date-field.tsx","utf8");
 const admissionsQueries = readFileSync("src/features/admissions/server/queries.ts","utf8");
 const decisionEditor = readFileSync("src/features/admissions/admission-decision-editor.tsx","utf8");
+const decisionRevisionMigration = readFileSync("supabase/migrations/20261124043000_admission_same_status_decision_note_revision.sql","utf8");
+const decisionRevisionPgTap = readFileSync("supabase/tests/admission_same_status_decision_note_revision_test.sql","utf8");
 
 test("shared intake is staged and cannot directly mutate authoritative learner domains", () => {
   assert.match(migration,/document_intake_jobs/);
@@ -141,4 +143,18 @@ test("accepted enrolment is an explicit school-admin-only governed transition", 
   assert.match(actions, /supabase\.rpc\("enrol_accepted_admission"/);
   assert.doesNotMatch(enrolmentEditor, /\.from\("learners"\)/);
   assert.doesNotMatch(enrolmentEditor, /\.from\("enrolments"\)/);
+});
+
+test("same-status note-only revisions retain original reviewer provenance and audited edit history", () => {
+  assert.match(decisionRevisionMigration,/create or replace function public\.decide_admission_application/);
+  assert.match(decisionRevisionMigration,/v_application\.status is distinct from p_status/);
+  assert.match(decisionRevisionMigration,/else v_application\.reviewed_by_user_id end/);
+  assert.match(decisionRevisionMigration,/else v_application\.reviewed_at end/);
+  assert.match(decisionRevisionMigration,/'note_revision',v_application\.status is not distinct from p_status/);
+  assert.match(decisionRevisionMigration,/char_length\(coalesce\(p_decision_note,''\)\) > 1000/);
+  assert.match(decisionRevisionPgTap,/select plan\(14\);/);
+  assert.match(decisionRevisionPgTap,/same-status reviewer note revision is allowed/);
+  assert.match(decisionRevisionPgTap,/clearing an existing note without changing decision is allowed/);
+  assert.match(decisionRevisionPgTap,/direct attempted reviewer forgery remains forbidden/);
+  assert.match(decisionRevisionPgTap,/unassigned outsider cannot revise school admission decision/);
 });
