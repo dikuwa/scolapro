@@ -160,6 +160,7 @@ export async function decideAdmissionApplication(formData: FormData) {
   const applicationId = String(formData.get("applicationId") ?? "");
   const status = String(formData.get("status") ?? "");
   const note = String(formData.get("decisionNote") ?? "").trim();
+  if (note.length > 1000) redirect("/school/admissions?error=Decision+note+must+be+1000+characters+or+fewer");
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.rpc("decide_admission_application", {
     p_application_id: applicationId,
