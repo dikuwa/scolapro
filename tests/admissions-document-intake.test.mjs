@@ -9,9 +9,6 @@ const printPage = readFileSync("src/app/school/admissions/application-form/page.
 const printDocument = readFileSync("src/features/admissions/server/render-admission-application-pdf.ts","utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
 const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
-const enrolmentEditor = readFileSync("src/features/admissions/accepted-admission-enrolment.tsx","utf8");
-const dateField = readFileSync("src/components/ui/date-field.tsx","utf8");
-const admissionsQueries = readFileSync("src/features/admissions/server/queries.ts","utf8");
 const decisionEditor = readFileSync("src/features/admissions/admission-decision-editor.tsx","utf8");
 const decisionRevisionMigration = readFileSync("supabase/migrations/20261124043000_admission_same_status_decision_note_revision.sql","utf8");
 const decisionRevisionPgTap = readFileSync("supabase/tests/admission_same_status_decision_note_revision_test.sql","utf8");
@@ -97,12 +94,18 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(decisionEditor,/name="status"/);
   assert.match(decisionEditor,/currentNote \?\? ""/);
   assert.match(decisionEditor,/setNote\(currentNote \?\? ""\)/);
-  assert.match(decisionEditor,/type="button" onClick=\{reset\}/);
+  assert.match(decisionEditor,/type="button" onClick=\{onCancel\} disabled=\{pending\}/);
   assert.match(decisionEditor,/maxLength=\{1000\}/);
   assert.match(decisionEditor,/action=\{decideAdmissionApplication\}/);
   assert.match(actions,/formData\.get\("decisionNote"\)/);
   assert.match(actions,/note\.length > 1000/);
   assert.match(actions,/p_decision_note: note \|\| null/);
+  assert.match(actions,/supabase\.rpc\("decide_admission_application_checked"/);
+  assert.match(actions,/p_expected_reviewed_at: expectedReviewedAt \|\| null/);
+  assert.match(decisionEditor,/name="expectedDecisionNote"/);
+  assert.match(decisionEditor,/name="expectedReviewedAt"/);
+  assert.match(decisionEditor,/useFormStatus\(\)/);
+  assert.match(decisionEditor,/disabled=\{pending \|\| !status\}/);
   assert.match(actions,/revision=\$\{Date\.now\(\)\}/);
   assert.match(page,/AdmissionDecisionEditor/);
   assert.match(page,/currentNote=\{application\.decision_note\}/);
@@ -110,6 +113,24 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(page,/application\.reviewed_at/);
   assert.doesNotMatch(decisionEditor,/\.from\("admission_applications"\)/);
   assert.doesNotMatch(page,/\["accepted","waitlisted","declined"\]\.map/);
+});
+
+test("same-status note-only revisions retain original reviewer provenance and audited edit history", () => {
+  assert.match(decisionRevisionMigration,/create or replace function public\.decide_admission_application/);
+  assert.match(decisionRevisionMigration,/v_application\.status is distinct from p_status/);
+  assert.match(decisionRevisionMigration,/else v_application\.reviewed_by_user_id end/);
+  assert.match(decisionRevisionMigration,/else v_application\.reviewed_at end/);
+  assert.match(decisionRevisionMigration,/'note_revision',v_application\.status is not distinct from p_status/);
+  assert.match(decisionRevisionMigration,/char_length\(coalesce\(p_decision_note,''\)\) > 1000/);
+  assert.match(decisionRevisionPgTap,/select plan\(18\);/);
+  assert.match(decisionRevisionPgTap,/same-status reviewer note revision is allowed/);
+  assert.match(decisionRevisionPgTap,/clearing an existing note without changing decision is allowed/);
+  assert.match(decisionRevisionPgTap,/direct attempted reviewer forgery remains forbidden/);
+  assert.match(decisionRevisionPgTap,/unassigned outsider cannot revise school admission decision/);
+  assert.match(decisionRevisionMigration,/create or replace function public\.decide_admission_application_checked/);
+  assert.match(decisionRevisionMigration,/for update;/);
+  assert.match(decisionRevisionMigration,/Admission decision changed; reload before saving/);
+  assert.match(decisionRevisionPgTap,/stale editor cannot overwrite another reviewer note/);
 });
 
 test("accepted enrolment is an explicit school-admin-only governed transition", () => {
