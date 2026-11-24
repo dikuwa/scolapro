@@ -73,9 +73,13 @@ begin
     raise exception 'The selected grading scale does not cover the academic term end date';
   end if;
 
-  if v_scheme.status not in ('active','superseded') or v_scale.status<>'active' then
-    raise exception 'Assessment scheme must be active or historical in-flight, and grading scale must be active';
+  if v_scheme.status not in ('active','superseded') then
+    raise exception 'Assessment scheme must be active or historical in-flight';
   end if;
+  -- The historical scale decision is checked after locking the current official
+  -- result below. Only a version already recorded for this learner and term
+  -- can be reused after it is superseded or archived; new approvals require active.
+  -- This never authorizes changing the scheme's original grading version.
   if not (p_term_number=any(v_scheme.term_numbers)) then
     raise exception 'Assessment scheme is not applicable to term %',p_term_number;
   end if;
@@ -167,6 +171,20 @@ begin
     and term_number=p_term_number
     and superseded_at is null
   for update;
+
+  -- Never silently regrade an already-official term using another scale.
+  -- Use the immutable published result's school-unique (key, version) pair.
+  -- Even archived or superseded versions can be reused for a legitimate
+  -- correction only when their effective dates cover this term's end.
+  if v_previous.id is null then
+    if v_scale.status <> 'active' then
+      raise exception 'Initial official approval requires an active grading scale';
+    end if;
+  elsif v_scale.status not in ('active','superseded','archived')
+     or v_scale.scale_key is distinct from v_previous.grading_scale_key
+     or v_scale.version is distinct from v_previous.grading_scale_version then
+    raise exception 'Corrected official result must reuse its original grading scale version';
+  end if;
 
   if found then
     select reopen.id
