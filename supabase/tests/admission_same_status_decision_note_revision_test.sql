@@ -111,15 +111,15 @@ select throws_ok(
 
 select set_config('request.jwt.claim.sub','f1324000-0000-4000-8000-000000000011',true);
 select lives_ok(
- $select public.decide_admission_application_checked(
+ $$select public.decide_admission_application_checked(
  'f1324000-0000-4000-8000-000000000014','accepted','Versioned note',
- 'accepted',null,current_setting('test.admission_original_reviewed_at')::timestamptz)$,
+ 'accepted',null,current_setting('test.admission_original_reviewed_at')::timestamptz)$$,
  'checked RPC accepts a current expected decision version'
 );
 select throws_ok(
- $select public.decide_admission_application_checked(
+ $$select public.decide_admission_application_checked(
  'f1324000-0000-4000-8000-000000000014','accepted','Stale overwrite',
- 'accepted',null,current_setting('test.admission_original_reviewed_at')::timestamptz)$,
+ 'accepted',null,current_setting('test.admission_original_reviewed_at')::timestamptz)$$,
  'Admission decision changed; reload before saving',
  'stale editor cannot overwrite another reviewer note'
 );
