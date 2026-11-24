@@ -102,6 +102,7 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(actions,/p_decision_note: note \|\| null/);
   assert.match(page,/AdmissionDecisionEditor/);
   assert.match(page,/currentNote=\{application\.decision_note\}/);
+  assert.match(page,/key=\{.*application\.reviewed_at/);
   assert.match(page,/application\.reviewed_at/);
   assert.doesNotMatch(decisionEditor,/\.from\("admission_applications"\)/);
   assert.doesNotMatch(page,/\["accepted","waitlisted","declined"\]\.map/);
