@@ -10,6 +10,7 @@ const printDocument = readFileSync("src/features/admissions/server/render-admiss
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
 const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
 const enrolmentEditor = readFileSync("src/features/admissions/accepted-admission-enrolment.tsx","utf8");
+const dateField = readFileSync("src/components/ui/date-field.tsx","utf8");
 const admissionsQueries = readFileSync("src/features/admissions/server/queries.ts","utf8");
 const decisionEditor = readFileSync("src/features/admissions/admission-decision-editor.tsx","utf8");
 
@@ -121,7 +122,10 @@ test("accepted enrolment is an explicit school-admin-only governed transition", 
   assert.match(enrolmentEditor, /item\.academic_year === academicYear && item\.grade_id === requestedGradeId/);
   assert.match(enrolmentEditor, /name="registerClassId"/);
   assert.match(enrolmentEditor, /checked=\{confirmed\}/);
-  assert.match(enrolmentEditor, /canSubmit=\{Boolean\(classId && enrolledFrom && confirmed\)\}/);
+  assert.match(enrolmentEditor, /canSubmit=\{Boolean\(classId && enrolledFrom && dateCommitted && confirmed\)\}/);
+  assert.match(enrolmentEditor, /onDraftValidityChange=\{setDateCommitted\}/);
+  assert.match(dateField, /onDraftValidityChange\?\.\(false\)/);
+  assert.match(dateField, /onDraftValidityChange\?\.\(true\)/);
   assert.match(enrolmentEditor, /disabled=\{pending \|\| !canSubmit\}/);
   assert.match(enrolmentEditor, /onClick=\{onCancel\} disabled=\{pending\}/);
   assert.match(enrolmentEditor, /onCancel=\{reset\}/);
