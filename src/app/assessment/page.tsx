@@ -18,8 +18,8 @@ export default async function AssessmentPage() {
   const academicYear = getNamibiaCalendarYear();
   const overview = await getAssessmentWorkspaceOverview(membership.schoolId, academicYear);
   const canReview = ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey);
-  const canManageGrading = ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey);
   const canApprove = ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey);
+  const canManageGrading = canApprove;
 
   const metrics = [
     { label: "Assessment schemes", value: overview.schemes, icon: Layers3 },
