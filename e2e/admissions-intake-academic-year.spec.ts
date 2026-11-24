@@ -37,7 +37,7 @@ test.describe("admission intake academic-year context (#1322)", () => {
       status: "staged",
       extraction_status: "not_required",
       created_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
-      candidate_payload: { first_names: "Historic", surname: "Synthetic", requested_grade_id: HISTORICAL_GRADE_ID },
+      candidate_payload: { first_names: "Historic", surname: "Synthetic" },
     }, { onConflict: "id" });
     expect(jobError).toBeNull();
   });
@@ -50,6 +50,7 @@ test.describe("admission intake academic-year context (#1322)", () => {
     await expect(page.getByText(`Job ${HISTORICAL_JOB_ID.slice(0, 8)} · 2025`, { exact: false })).toBeVisible();
     const gradePicker = page.getByRole("button", { name: "Intended grade · 2025" });
     await expect(gradePicker).toBeVisible();
+    await expect(gradePicker).toContainText("Choose intended grade");
     await gradePicker.click();
     await expect(page.getByRole("option", { name: HISTORICAL_LABEL })).toBeVisible();
     await page.getByRole("option", { name: HISTORICAL_LABEL }).click();
