@@ -27,3 +27,11 @@ test('other grades, staff loans, returned loans, lost copies and inactive requir
   assert.deepEqual([m.required,m.allocated,m.available,m.potentialShortage],[2,0,0,2]);
   assert.deepEqual(deriveGradeBooklistDemand([{...item[0],status:'inactive'}],['a'],[],[]),[]);
 });
+
+test('available-but-damaged catalog copies do not reduce textbook shortages', () => {
+  // Bulk catalog imports can contain availability=available alongside damaged
+  // condition. The physical copy is not a usable fulfilment source.
+  const [m] = deriveGradeBooklistDemand(item,['a'],
+    [c('damaged','available','damaged'),c('good'),c('lost','available','lost')],[]);
+  assert.deepEqual([m.required,m.allocated,m.available,m.potentialShortage],[2,0,1,1]);
+});
