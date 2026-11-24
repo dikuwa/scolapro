@@ -80,6 +80,10 @@ test.describe("admissions decision note integrity (#1324)", () => {
     await row.getByRole("button", { name: "Edit decision" }).click();
     await row.getByRole("textbox", { name: "Reviewer note (optional)" }).fill("");
     await row.getByRole("button", { name: "Save decision" }).click();
+    // The submit button can resolve before the server action's redirect commits.
+    // Unlike replacement, clearing a note has no new text to await.
+    await expect(row.getByText(amendedNote)).toHaveCount(0);
+    await expect(row.getByRole("button", { name: "Edit decision" })).toBeVisible();
     ({ data: saved, error } = await localService().from("admission_applications")
       .select("status,decision_note").eq("id", APPLICATION_ID).single());
     expect(error).toBeNull();
