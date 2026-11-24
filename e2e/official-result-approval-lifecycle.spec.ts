@@ -225,15 +225,13 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
 
     // A different active scale with a valid effective period must not
     // silently regrade an already-official term, even after correction.
-    const { error: alternateDateError } = await service.from("grading_scales")
-      .update({ effective_from: "2026-01-01" })
-      .eq("id", "e2f80000-0000-4000-8000-000000000009");
-    expect(alternateDateError).toBeNull();
+    // Test the separate, valid, active scale configured in the local fixture.
+    // Once a version is activated, its period and bands are immutable.
     const { error: alternateScaleError } = await approver.rpc("approve_official_subject_result", {
       p_assessment_scheme_id: ids.scheme,
       p_enrolment_id: DEMO.learnerTomasEnrolmentId,
       p_term_number: 1,
-      p_grading_scale_id: "e2f80000-0000-4000-8000-000000000009",
+      p_grading_scale_id: "e2f80000-0000-4000-8000-00000000000b",
     });
     expect(alternateScaleError?.message).toContain(
       "Corrected official result must reuse its original grading scale version",
@@ -250,6 +248,12 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     const { error: supersedeError } = await service.from("grading_scales")
       .update({ status: "superseded" }).eq("id", ids.scale);
     expect(supersedeError).toBeNull();
+    const { error: changedBandError } = await service.from("grading_scale_bands")
+      .update({ symbol: "CHANGED" }).eq("id", ids.band);
+    expect(changedBandError?.message).toContain("Activated grading scale bands are immutable");
+    const { error: changedPrecisionError } = await service.from("grading_scales")
+      .update({ decimal_places: 2 }).eq("id", ids.scale);
+    expect(changedPrecisionError?.message).toContain("Activated grading scale definition is immutable");
 
     await adminPage.goto(`/assessment/results?offering=${ids.offering}&scheme=${ids.scheme}&class=${DEMO.registerClass10B}&term=1`);
     await adminPage.getByRole("button", { name: "Grading scale and version" }).click();

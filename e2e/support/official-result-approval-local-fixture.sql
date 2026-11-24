@@ -55,7 +55,7 @@ on conflict (id) do nothing;
 insert into public.grading_scales(
  id,tenant_id,school_id,scale_key,version,display_name,effective_from,status,created_by_user_id
 ) values('e2f80000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
-'E2E-ONLY','v1','E2E Synthetic Approval Scale','2026-01-05','active','70000000-0000-4000-8000-000000000001')
+'E2E-ONLY','v1','E2E Synthetic Approval Scale','2026-01-05','draft','70000000-0000-4000-8000-000000000001')
 on conflict (id) do nothing;
 
 insert into public.grading_scale_bands(
@@ -63,5 +63,8 @@ insert into public.grading_scale_bands(
 ) values('e2f90000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222',
 'e2f80000-0000-4000-8000-000000000001',0,100,'A',1)
 on conflict (id) do nothing;
+
+update public.grading_scales set status='active'
+where id='e2f80000-0000-4000-8000-000000000001' and status='draft';
 
 commit;
