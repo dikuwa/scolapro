@@ -59,6 +59,16 @@ test.describe("accepted admissions become governed enrolments (#1326)", () => {
     await row.getByRole("option", { name: "Female" }).click();
     await row.getByRole("checkbox").check();
     await expect(submit).toBeEnabled();
+    const dateInput = row.locator('input[id^="enrolledFrom-"][id$="-typed"]');
+    const isoDate = await row.locator('input[name="enrolledFrom"]').inputValue();
+    const [year, month, day] = isoDate.split("-");
+    await dateInput.fill("99/99/2026");
+    await dateInput.blur();
+    await expect(submit).toBeDisabled();
+    await expect(row.getByText("Use DD/MM/YYYY, for example 14/05/2010.")).toBeVisible();
+    await dateInput.fill(`${day}/${month}/${year}`);
+    await dateInput.blur();
+    await expect(submit).toBeEnabled();
     await submit.click();
 
     await expect(page).toHaveURL(/success=Accepted\+admission\+enrolled/);
