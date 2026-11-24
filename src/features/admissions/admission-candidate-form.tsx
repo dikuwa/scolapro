@@ -10,10 +10,12 @@ export function AdmissionCandidateForm({
   jobId,
   candidate,
   grades,
+  academicYear,
 }: {
   jobId: string;
   candidate: Record<string, string>;
   grades: Array<{ id: string; grade_code: string; display_name: string }>;
+  academicYear: number;
 }) {
   const [requestedGradeId, setRequestedGradeId] = useState(candidate.requested_grade_id ?? "");
 
@@ -31,7 +33,7 @@ export function AdmissionCandidateForm({
         <Field label="Previous school" name="previous_school" defaultValue={candidate.previous_school} />
         <Field label="Last/current grade" name="last_grade" defaultValue={candidate.last_grade} />
         <SearchableSelect
-          label="Intended grade"
+          label={`Intended grade · ${academicYear}`}
           name="requested_grade_id"
           value={requestedGradeId}
           onChange={setRequestedGradeId}
