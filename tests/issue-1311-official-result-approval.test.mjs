@@ -108,3 +108,18 @@ test("term-end scale governance fails closed across schools and uses inclusive e
   assert.ok(migration.includes("v_scale.school_id<>v_scheme.school_id"));
   assert.ok(migration.includes("app_private.can_manage_current_assessment_school"));
 });
+
+test("historical correction reuses only the originally approved grading scale", () => {
+  const migration = readFileSync("supabase/migrations/20261123171000_official_result_term_grading_scale_applicability.sql", "utf8");
+  assert.ok(migration.includes("v_scale.scale_key is distinct from v_previous.grading_scale_key"));
+  assert.ok(migration.includes("v_scale.version is distinct from v_previous.grading_scale_version"));
+  assert.ok(migration.includes("v_scale.status not in ('active','superseded','archived')"));
+  assert.ok(migration.includes("Initial official approval requires an active grading scale"));
+  assert.ok(migration.includes("Corrected official result must reuse its original grading scale version"));
+  assert.ok(server.includes('select("enrolment_id,result_value,symbol,approved_at,grading_scale_key,grading_scale_version")'));
+  assert.ok(server.includes("historicVersions.has(JSON.stringify([scale.scale_key, scale.version]))"));
+  assert.ok(server.includes("scale.status === \"active\""));
+  assert.ok(view.includes("selectedScale.scaleKey === row.gradingScaleKey"));
+  assert.ok(view.includes("selectedScale.scaleVersion === row.gradingScaleVersion"));
+  assert.ok(view.includes("!selectedScale.historical"));
+});
