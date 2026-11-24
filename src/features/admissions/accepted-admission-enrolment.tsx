@@ -1,0 +1,126 @@
+"use client";
+
+import { useState } from "react";
+import { DateField } from "@/components/ui/date-field";
+import { Picker } from "@/components/ui/picker";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { completeAcceptedAdmission } from "@/features/admissions/server/actions";
+
+type RegisterClass = {
+  id: string;
+  grade_id: string;
+  academic_year: number;
+  class_code: string;
+  display_name: string;
+};
+
+const genders = [
+  { value: "unspecified", label: "Not specified" },
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+  { value: "other", label: "Other" },
+];
+
+export function AcceptedAdmissionEnrolment({
+  applicationId,
+  academicYear,
+  requestedGradeId,
+  reuseExistingLearner,
+  registerClasses,
+  today,
+}: {
+  applicationId: string;
+  academicYear: number;
+  requestedGradeId: string | null;
+  reuseExistingLearner: boolean;
+  registerClasses: RegisterClass[];
+  today: string;
+}) {
+  const eligibleClasses = registerClasses.filter(
+    (item) => item.academic_year === academicYear && item.grade_id === requestedGradeId,
+  );
+  const [editing, setEditing] = useState(false);
+  const [classId, setClassId] = useState("");
+  const [gender, setGender] = useState("unspecified");
+  const [enrolledFrom, setEnrolledFrom] = useState(String(academicYear) === today.slice(0, 4) ? today : "");
+  const [confirmed, setConfirmed] = useState(false);
+
+  function reset() {
+    setEditing(false);
+    setClassId("");
+    setGender("unspecified");
+    setEnrolledFrom(String(academicYear) === today.slice(0, 4) ? today : "");
+    setConfirmed(false);
+  }
+
+  if (!requestedGradeId) {
+    return <p className="text-xs text-muted-foreground">Set an intended grade before enrolment.</p>;
+  }
+  if (!eligibleClasses.length) {
+    return <p className="text-xs text-muted-foreground">No register class configured for this admission grade and year.</p>;
+  }
+  if (!editing) {
+    return <button type="button" onClick={() => setEditing(true)}
+      className="min-h-9 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
+      Complete enrolment
+    </button>;
+  }
+
+  return (
+    <div className="min-w-0 lg:col-span-4">
+      <form action={completeAcceptedAdmission} className="w-full max-w-2xl space-y-4 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-4">
+        <input type="hidden" name="applicationId" value={applicationId} />
+        <p className="text-sm font-semibold">Complete accepted admission · {academicYear}</p>
+        <p className="text-xs text-muted-foreground">This creates a learner enrolment and marks the accepted application as enrolled. The operation is final.</p>
+        <SearchableSelect
+          label="Register class"
+          name="registerClassId"
+          value={classId}
+          onChange={setClassId}
+          options={eligibleClasses.map((item) => ({
+            value: item.id,
+            label: item.display_name,
+            helper: item.class_code,
+          }))}
+          placeholder="Choose register class"
+          searchPlaceholder="Search classes"
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium">Admission number (optional)</span>
+            <input name="admissionNumber" maxLength={120} autoComplete="off"
+              className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm" />
+          </label>
+          <label className="block space-y-1">
+            <span className="block text-xs font-medium">Preferred name (optional)</span>
+            <input name="preferredName" maxLength={120}
+              className="scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm" />
+          </label>
+          {reuseExistingLearner ? (
+            <div className="self-center text-xs text-muted-foreground">Existing reviewed learner identity will be reused.</div>
+          ) : (
+            <Picker label="Gender" name="gender" value={gender} onChange={setGender} options={genders}
+              placeholder="Choose gender" />
+          )}
+          {reuseExistingLearner ? <input type="hidden" name="gender" value="unspecified" /> : null}
+          <DateField label="Enrolled from" name="enrolledFrom" value={enrolledFrom} onChange={setEnrolledFrom} required />
+        </div>
+        <label className="flex items-start gap-2 text-xs leading-5">
+          <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}
+            className="mt-1 size-4 accent-[color:var(--brand)]" />
+          <span>I have verified the applicant, class and enrolment date. Create the official enrolment.</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <button type="submit" disabled={!classId || !enrolledFrom || !confirmed}
+            className="min-h-10 rounded-[var(--radius-sm)] bg-brand px-4 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+            Confirm enrolment
+          </button>
+          <button type="button" onClick={reset}
+            className="min-h-10 rounded-[var(--radius-sm)] bg-surface px-4 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)]">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
