@@ -24,13 +24,21 @@ test("online class, single and offline issue selectors exclude physically unlend
     assert.ok(source.includes('!["damaged", "lost"].includes(copy.condition)'));
   }
   assert.ok(offline.includes("copy.availability === \"available\" && ![\"damaged\", \"lost\"].includes(copy.condition)"));
+  assert.ok(classOps.includes("availableCopyIds.has(id) ? id : \"\""));
+  assert.ok(classOps.includes("value={selectedPairing(learner.id)}"));
+  assert.ok(circulation.includes("name=\"copyId\" value={eligibleCopyId}"));
+  assert.ok(circulation.includes("disabled={issuePending || !eligibleCopyId || !borrowerId}"));
+  assert.ok(offline.includes("disabled={!eligibleCopyId || !borrowerId}"));
   assert.ok(circulation.includes('if (copy.availability === "available" && !["damaged", "lost"].includes(copy.condition)) current.available += 1;'));
 });
 
 test("database regression tests direct, bulk and offline issue and failed receipt rollback", () => {
-  assert.ok(pgtap.includes("select plan(10);"));
+  assert.ok(pgtap.includes("select plan(13);"));
   assert.ok(pgtap.includes("public.bulk_issue_learning_resources("));
   assert.ok(pgtap.includes("public.issue_learning_resource_idempotent("));
   assert.ok(pgtap.includes("public.client_operation_receipts"));
   assert.ok(pgtap.includes("good available copy remains lendable"));
+  assert.ok(pgtap.includes("failed second bulk item rolls back the earlier good loan"));
+  assert.ok(pgtap.includes("failed bulk batch restores availability"));
+  assert.ok(pgtap.includes("failed bulk batch rolls back audit"));
 });
