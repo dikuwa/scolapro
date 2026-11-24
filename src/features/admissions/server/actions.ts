@@ -169,7 +169,7 @@ export async function decideAdmissionApplication(formData: FormData) {
     p_decision_note: note || null,
   });
   revalidatePath("/school/admissions");
-  redirect(`/school/admissions${error ? "?error=Admission+decision+could+not+be+saved" : "?success=Admission+decision+saved"}`);
+  redirect(`/school/admissions${error ? "?error=Admission+decision+could+not+be+saved" : `?success=Admission+decision+saved&revision=${Date.now()}`}`);
 }
 
 const acceptedEnrolmentSchema = z.object({

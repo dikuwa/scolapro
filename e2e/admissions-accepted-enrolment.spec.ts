@@ -8,7 +8,7 @@ import { signIn } from "./support/session";
 // Never rewind an audited, enrolled synthetic application on a repeated local run.
 const APPLICATION_ID = randomUUID();
 const SURNAME = "AcceptedEnrolmentSynthetic";
-const ADMISSION_NUMBER = `E2E-ADM-1326-${APPLICATION_ID.slice(0, 8)}`;
+const ADMISSION_NUMBER = `E2E-ADM-1326-${APPLICATION_ID.slice(0, 8)}`.toUpperCase();
 
 function localService() {
   const local = localSupabaseStatus({ projectRoot: process.cwd() });
