@@ -9,6 +9,8 @@ const printPage = readFileSync("src/app/school/admissions/application-form/page.
 const printDocument = readFileSync("src/features/admissions/server/render-admission-application-pdf.ts","utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
 const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
+const enrolmentEditor = readFileSync("src/features/admissions/accepted-admission-enrolment.tsx","utf8");
+const admissionsQueries = readFileSync("src/features/admissions/server/queries.ts","utf8");
 const decisionEditor = readFileSync("src/features/admissions/admission-decision-editor.tsx","utf8");
 
 test("shared intake is staged and cannot directly mutate authoritative learner domains", () => {
@@ -103,4 +105,29 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(page,/application\.reviewed_at/);
   assert.doesNotMatch(decisionEditor,/\.from\("admission_applications"\)/);
   assert.doesNotMatch(page,/\["accepted","waitlisted","declined"\]\.map/);
+});
+
+test("accepted enrolment is an explicit school-admin-only governed transition", () => {
+  assert.match(page, /canEnrol && application\.status === "accepted"/);
+  assert.match(page, /AcceptedAdmissionEnrolment/);
+  assert.match(page, /requestedGradeId=\{application\.requested_grade_id\}/);
+  assert.match(page, /registerClasses=\{workspace\.enrolmentClasses\}/);
+  assert.match(admissionsQueries, /\.from\("register_classes"\)/);
+  const scope = admissionsQueries.slice(admissionsQueries.indexOf('const result = await supabase\n      .from("register_classes")'), admissionsQueries.indexOf('if (result.error)'));
+  assert.match(scope, /\.eq\("school_id", schoolId\)/);
+  assert.match(scope, /\.in\("academic_year", years\)/);
+  assert.match(scope, /\.in\("grade_id", gradeIds\)/);
+  assert.match(enrolmentEditor, /item\.academic_year === academicYear && item\.grade_id === requestedGradeId/);
+  assert.match(enrolmentEditor, /name="registerClassId"/);
+  assert.match(enrolmentEditor, /checked=\{confirmed\}/);
+  assert.match(enrolmentEditor, /disabled=\{!classId \|\| !enrolledFrom \|\| !confirmed\}/);
+  assert.match(enrolmentEditor, /type="button" onClick=\{reset\}/);
+  assert.match(actions, /item\.roleKey === "school_admin"/);
+  assert.match(actions, /application\.status !== "accepted"/);
+  assert.match(actions, /\.eq\("school_id", membership\.schoolId\)/);
+  assert.match(actions, /\.eq\("academic_year", application\.academic_year\)/);
+  assert.match(actions, /\.eq\("grade_id", application\.requested_grade_id\)/);
+  assert.match(actions, /supabase\.rpc\("enrol_accepted_admission"/);
+  assert.doesNotMatch(enrolmentEditor, /\.from\("learners"\)/);
+  assert.doesNotMatch(enrolmentEditor, /\.from\("enrolments"\)/);
 });
