@@ -179,7 +179,7 @@ function Circulation({ today, titles, copies, loans, borrowers, grades, classes,
   }
   const titleMap = useMemo(() => new Map(titles.map((item) => [item.id, item])), [titles]);
   const copyMap = useMemo(() => new Map(copies.map((item) => [item.id, item])), [copies]);
-  const availableCopies = copies.filter((copy) => copy.availability === "available" && titleMap.get(copy.titleId)?.status === "active");
+  const availableCopies = copies.filter((copy) => copy.availability === "available" && !["damaged", "lost"].includes(copy.condition) && titleMap.get(copy.titleId)?.status === "active");
   const borrowerOptions = borrowers.filter((borrower) => borrower.type === borrowerType);
   const visibleClasses = classes.filter((item) => !gradeId || item.gradeId === gradeId);
   const filteredLoans = loans.filter((loan) => {
