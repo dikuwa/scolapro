@@ -47,7 +47,7 @@ select throws_ok(
 select throws_ok(
  $$select public.bulk_issue_learning_resources(
  '[{"copy_id":"f3220000-0000-4000-8000-000000000004","learner_id":"50000000-0000-4000-8000-000000000002"},
- {"copy_id":"f3220000-0000-4000-8000-000000000001","learner_id":"50000000-0000-4000-8000-000000000001"}]'::jsonb,current_date+14,null)$,
+ {"copy_id":"f3220000-0000-4000-8000-000000000001","learner_id":"50000000-0000-4000-8000-000000000001"}]'::jsonb,current_date+14,null)$$,
  'Damaged or lost resource copy cannot be issued',
  'class bulk issue rolls back an earlier valid issue when a later damaged copy is rejected'
 );
