@@ -131,4 +131,5 @@ test("same-status note-only revisions retain original reviewer provenance and au
   assert.match(decisionRevisionMigration,/for update;/);
   assert.match(decisionRevisionMigration,/Admission decision changed; reload before saving/);
   assert.match(decisionRevisionPgTap,/stale editor cannot overwrite another reviewer note/);
+  assert.match(decisionRevisionPgTap,/\$\$select public\.decide_admission_application_checked\(/);
 });
