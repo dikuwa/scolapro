@@ -91,3 +91,20 @@ test("official approval resolves school term end and excludes inapplicable scale
   assert.ok(view.includes("A later correction uses the same term date"));
   assert.ok(view.includes('href="/school/setup"'));
 });
+
+test("term-end scale governance fails closed across schools and uses inclusive effective dates", () => {
+  const migration = readFileSync("supabase/migrations/20261123171000_official_result_term_grading_scale_applicability.sql", "utf8");
+  assert.ok(migration.includes("t.school_id=v_scheme.school_id"));
+  assert.ok(migration.includes("y.school_id=v_scheme.school_id"));
+  assert.ok(migration.includes("y.year=v_scheme.academic_year"));
+  assert.ok(migration.includes("if v_term_end is null then"));
+  assert.ok(migration.includes("v_scale.effective_from>v_term_end"));
+  assert.ok(migration.includes("v_scale.effective_to<v_term_end"));
+  assert.ok(!migration.includes("v_scale.effective_from>=v_term_end"));
+  assert.ok(!migration.includes("v_scale.effective_to<=v_term_end"));
+  assert.ok(server.includes("row.effective_from <= termEnd"));
+  assert.ok(server.includes("row.effective_to == null || row.effective_to >= termEnd"));
+  assert.ok(migration.includes("for update of ai"));
+  assert.ok(migration.includes("v_scale.school_id<>v_scheme.school_id"));
+  assert.ok(migration.includes("app_private.can_manage_current_assessment_school"));
+});
