@@ -9,6 +9,7 @@ const printPage = readFileSync("src/app/school/admissions/application-form/page.
 const printDocument = readFileSync("src/features/admissions/server/render-admission-application-pdf.ts","utf8");
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
 const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
+const decisionEditor = readFileSync("src/features/admissions/admission-decision-editor.tsx","utf8");
 
 test("shared intake is staged and cannot directly mutate authoritative learner domains", () => {
   assert.match(migration,/document_intake_jobs/);
@@ -84,4 +85,22 @@ test("admissions navigation is limited to enrolment workflow leaders", () => {
   assert.match(navigation,/principal:[^\n]*"admissions"/);
   assert.match(navigation,/deputy_principal:[^\n]*"admissions"/);
   assert.doesNotMatch(navigation,/teacher:[^\n]*"admissions"/);
+});
+
+test("admissions reviewer can persist and revise notes without direct table writes", () => {
+  assert.match(decisionEditor,/name="decisionNote"/);
+  assert.match(decisionEditor,/name="status"/);
+  assert.match(decisionEditor,/currentNote \?\? ""/);
+  assert.match(decisionEditor,/setNote\(currentNote \?\? ""\)/);
+  assert.match(decisionEditor,/type="button" onClick=\{reset\}/);
+  assert.match(decisionEditor,/maxLength=\{1000\}/);
+  assert.match(decisionEditor,/action=\{decideAdmissionApplication\}/);
+  assert.match(actions,/formData\.get\("decisionNote"\)/);
+  assert.match(actions,/note\.length > 1000/);
+  assert.match(actions,/p_decision_note: note \|\| null/);
+  assert.match(page,/AdmissionDecisionEditor/);
+  assert.match(page,/currentNote=\{application\.decision_note\}/);
+  assert.match(page,/application\.reviewed_at/);
+  assert.doesNotMatch(decisionEditor,/\.from\("admission_applications"\)/);
+  assert.doesNotMatch(page,/\["accepted","waitlisted","declined"\]\.map/);
 });
