@@ -72,7 +72,7 @@ export function OfflineLibraryWorkspace() {
       setSnapshot(current);
       setQueued(mutations);
       if (current) {
-        const copies = current.payload.copies.filter((copy) => copy.availability === "available");
+        const copies = current.payload.copies.filter((copy) => copy.availability === "available" && !["damaged", "lost"].includes(copy.condition));
         const borrowers = current.payload.borrowers.filter((borrower) => borrower.type === borrowerType);
         setCopyId((currentValue) => currentValue && copies.some((copy) => copy.id === currentValue) ? currentValue : copies[0]?.id ?? "");
         setBorrowerId((currentValue) => currentValue && borrowers.some((borrower) => borrower.id === currentValue) ? currentValue : borrowers[0]?.id ?? "");
@@ -95,7 +95,7 @@ export function OfflineLibraryWorkspace() {
   const borrowers = useMemo(() => snapshot?.payload.borrowers ?? [], [snapshot]);
   const loans = useMemo(() => snapshot?.payload.loans ?? [], [snapshot]);
   const copyMap = useMemo(() => new Map(copies.map((copy) => [copy.id, copy])), [copies]);
-  const availableCopies = useMemo(() => copies.filter((copy) => copy.availability === "available"), [copies]);
+  const availableCopies = useMemo(() => copies.filter((copy) => copy.availability === "available" && !["damaged", "lost"].includes(copy.condition)), [copies]);
   const borrowerOptions = useMemo(() => borrowers.filter((borrower) => borrower.type === borrowerType), [borrowers, borrowerType]);
   const selectedLoan = loans.find((loan) => loan.id === loanId) ?? null;
   const pending = queued.filter((record) => record.status === "pending" || record.status === "syncing");
