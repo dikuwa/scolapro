@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(18);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at)
 values
@@ -107,6 +107,32 @@ select throws_ok(
  'f1324000-0000-4000-8000-000000000014','accepted','Cross school edit')$$,
  'Permission denied',
  'unassigned outsider cannot revise school admission decision'
+);
+
+select set_config('request.jwt.claim.sub','f1324000-0000-4000-8000-000000000011',true);
+select lives_ok(
+ $select public.decide_admission_application_checked(
+ 'f1324000-0000-4000-8000-000000000014','accepted','Versioned note',
+ 'accepted',null,current_setting('test.admission_original_reviewed_at')::timestamptz)$,
+ 'checked RPC accepts a current expected decision version'
+);
+select throws_ok(
+ $select public.decide_admission_application_checked(
+ 'f1324000-0000-4000-8000-000000000014','accepted','Stale overwrite',
+ 'accepted',null,current_setting('test.admission_original_reviewed_at')::timestamptz)$,
+ 'Admission decision changed; reload before saving',
+ 'stale editor cannot overwrite another reviewer note'
+);
+select is(
+ (select decision_note from public.admission_applications
+  where id='f1324000-0000-4000-8000-000000000014'),
+ 'Versioned note','rejected stale edit leaves latest reviewer note intact'
+);
+select is(
+ (select count(*)::integer from public.audit_events
+  where entity_id='f1324000-0000-4000-8000-000000000014'
+    and event_type='admission.decided'),4,
+ 'only successful checked revision adds an audit event'
 );
 
 select * from finish();

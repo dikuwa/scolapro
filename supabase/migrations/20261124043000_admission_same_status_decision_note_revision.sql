@@ -85,3 +85,44 @@ grant execute on function public.decide_admission_application(uuid,text,text) to
 
 comment on function public.decide_admission_application(uuid,text,text) is
   'Governed admission decision boundary. Reviewer identity and timestamp are derived from the authenticated session.';
+
+-- Optimistic concurrency for the UI: a second administrator cannot overwrite
+-- an out-of-date note/status after the first has saved. This wrapper locks the
+-- row and delegates the actual mutation/audit to the canonical RPC under the
+-- same transaction. Existing legacy callers retain their earlier signature.
+create or replace function public.decide_admission_application_checked(
+  p_application_id uuid,
+  p_status text,
+  p_decision_note text,
+  p_expected_status text,
+  p_expected_decision_note text,
+  p_expected_reviewed_at timestamptz
+)
+returns boolean
+language plpgsql
+security definer
+set search_path=pg_catalog,public,app_private
+as $$
+declare
+  v_application public.admission_applications%rowtype;
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  select * into v_application
+  from public.admission_applications where id=p_application_id for update;
+  if not found then raise exception 'Admission application not found'; end if;
+  if not app_private.can_manage_enrolment_workflow(v_application.school_id) then
+    raise exception 'Permission denied';
+  end if;
+  if v_application.status is distinct from p_expected_status
+    or v_application.decision_note is distinct from nullif(btrim(coalesce(p_expected_decision_note,'')),'')
+    or v_application.reviewed_at is distinct from p_expected_reviewed_at then
+    raise exception 'Admission decision changed; reload before saving';
+  end if;
+  return public.decide_admission_application(p_application_id,p_status,p_decision_note);
+end;
+$$;
+
+revoke all on function public.decide_admission_application_checked(uuid,text,text,text,text,timestamptz)
+from public,anon;
+grant execute on function public.decide_admission_application_checked(uuid,text,text,text,text,timestamptz)
+to authenticated;

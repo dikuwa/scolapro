@@ -161,15 +161,28 @@ export async function decideAdmissionApplication(formData: FormData) {
   const applicationId = String(formData.get("applicationId") ?? "");
   const status = String(formData.get("status") ?? "");
   const note = String(formData.get("decisionNote") ?? "").trim();
+  const expectedStatus = String(formData.get("expectedStatus") ?? "").trim();
+  const expectedDecisionNote = String(formData.get("expectedDecisionNote") ?? "");
+  const expectedReviewedAt = String(formData.get("expectedReviewedAt") ?? "").trim();
   if (note.length > 1000) redirect("/school/admissions?error=Decision+note+must+be+1000+characters+or+fewer");
+  if (!expectedStatus || (expectedReviewedAt && Number.isNaN(Date.parse(expectedReviewedAt)))) {
+    redirect("/school/admissions?error=Decision+review+state+is+invalid.+Reload+and+retry");
+  }
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("decide_admission_application", {
+  const { error } = await supabase.rpc("decide_admission_application_checked", {
     p_application_id: applicationId,
     p_status: status,
     p_decision_note: note || null,
+    p_expected_status: expectedStatus,
+    p_expected_decision_note: expectedDecisionNote || null,
+    p_expected_reviewed_at: expectedReviewedAt || null,
   });
   revalidatePath("/school/admissions");
-  redirect(`/school/admissions${error ? "?error=Admission+decision+could+not+be+saved" : `?success=Admission+decision+saved&revision=${Date.now()}`}`);
+  const outcome = error?.message?.includes("Admission decision changed; reload")
+    ? "?error=Admission+decision+changed.+Reload+before+saving"
+    : error ? "?error=Admission+decision+could+not+be+saved"
+    : `?success=Admission+decision+saved&revision=${Date.now()}`;
+  redirect(`/school/admissions${outcome}`);
 }
 
 const acceptedEnrolmentSchema = z.object({
