@@ -22,7 +22,7 @@ export function deriveGradeBooklistDemand(
   return requirements.filter((requirement) => requirement.status === "active").map((requirement) => {
     const required = learners.size * requirement.copiesPerLearner;
     const allocated = activeLoans.filter((loan) => byCopyId.get(loan.copyId)?.titleId === requirement.titleId).length;
-    const available = copies.filter((copy) => copy.titleId === requirement.titleId && copy.availability === "available" && copy.condition !== "lost").length;
+    const available = copies.filter((copy) => copy.titleId === requirement.titleId && copy.availability === "available" && copy.condition !== "lost" && copy.condition !== "damaged").length;
     const unallocated = Math.max(0, required - allocated);
     return {
       ...requirement,
