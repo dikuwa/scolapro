@@ -24,6 +24,7 @@ test("online class, single and offline issue selectors exclude physically unlend
     assert.ok(source.includes('!["damaged", "lost"].includes(copy.condition)'));
   }
   assert.ok(offline.includes("copy.availability === \"available\" && ![\"damaged\", \"lost\"].includes(copy.condition)"));
+  assert.ok(circulation.includes('if (copy.availability === "available" && !["damaged", "lost"].includes(copy.condition)) current.available += 1;'));
 });
 
 test("database regression tests direct, bulk and offline issue and failed receipt rollback", () => {
