@@ -60,10 +60,10 @@ export function AcceptedAdmissionEnrolment({
     return <p className="text-xs text-muted-foreground">No register class configured for this admission grade and year.</p>;
   }
   if (!editing) {
-    return <button type="button" onClick={() => setEditing(true)}
+    return <div className="min-w-0 lg:col-span-4"><button type="button" onClick={() => setEditing(true)}
       className="min-h-9 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
       Complete enrolment
-    </button>;
+    </button></div>;
   }
 
   return (
