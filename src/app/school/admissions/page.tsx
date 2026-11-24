@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ImportDropField, ImportStageButton } from "@/features/imports/import-drop-field";
 import { AdmissionCandidateForm } from "@/features/admissions/admission-candidate-form";
+import { AdmissionDecisionEditor } from "@/features/admissions/admission-decision-editor";
 import {
   commitAdmissionIntake,
-  decideAdmissionApplication,
   reviewAdmissionIntakeCandidate,
   stageScannedAdmissionApplication,
   startOnlineAdmissionApplication,
@@ -132,9 +132,9 @@ export default async function AdmissionsPage({
           {workspace.applications.length ? <div className="divide-y divide-border-subtle">{workspace.applications.map((application) => (
             <div key={application.id} className="grid gap-3 px-4 py-3 sm:px-5 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
               <div><p className="text-sm font-semibold">{application.applicant_surname}, {application.applicant_first_names}</p><p className="text-[0.68rem] text-muted-foreground">{application.previous_school || "Previous school not captured"} · {application.date_of_birth || "DOB not captured"}</p></div>
-              <p className="text-xs capitalize">{application.status.replaceAll("_"," ")}</p>
+              <div className="space-y-1"><p className="text-xs font-semibold capitalize">{application.status.replaceAll("_"," ")}</p>{application.decision_note ? <p className="max-w-sm whitespace-pre-wrap break-words text-xs text-muted-foreground">{application.decision_note}</p> : null}{application.reviewed_at ? <p className="text-[0.68rem] text-muted-foreground">Reviewed {new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Windhoek",dateStyle:"medium"}).format(new Date(application.reviewed_at))}</p> : null}</div>
               <p className="text-xs text-muted-foreground">{application.guardian_name || "Guardian pending"}{application.guardian_contact ? ` · ${application.guardian_contact}` : ""}</p>
-              {!["enrolled","withdrawn"].includes(application.status) ? <div className="flex flex-wrap gap-1.5">{["accepted","waitlisted","declined"].map((status) => <form key={status} action={decideAdmissionApplication}><input type="hidden" name="applicationId" value={application.id} /><input type="hidden" name="status" value={status} /><button className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-[0.68rem] font-semibold capitalize">{status}</button></form>)}</div> : <span className="text-xs text-muted-foreground">Final</span>}
+              {!["enrolled","withdrawn"].includes(application.status) ? <AdmissionDecisionEditor applicationId={application.id} currentStatus={application.status} currentNote={application.decision_note} /> : <span className="text-xs text-muted-foreground">Final</span>}
             </div>
           ))}</div> : <p className="px-5 py-8 text-center text-xs text-muted-foreground">No admission applications yet.</p>}
         </section>
