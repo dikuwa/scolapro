@@ -271,7 +271,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
       return Number(data?.result_value);
     }).toBe(94);
     const { data: history, error: historyError } = await service.from("official_results")
-      .select("id,result_value,superseded_at,supersedes_result_id,correction_authorization_id,calculation_snapshot")
+      .select("id,result_value,symbol,superseded_at,supersedes_result_id,correction_authorization_id,calculation_snapshot")
       .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
       .eq("subject_offering_id", ids.offering).eq("term_number", 1);
     expect(historyError).toBeNull();
@@ -281,6 +281,8 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     expect(oldResult?.superseded_at).toBeTruthy();
     expect(replacementResult?.supersedes_result_id).toBe(oldResult?.id);
     expect(replacementResult?.correction_authorization_id).toBeTruthy();
+    expect(oldResult?.symbol).toBe("A");
+    expect(replacementResult?.symbol).toBe("A");
     for (const immutable of [oldResult, replacementResult]) {
       const snapshot = immutable?.calculation_snapshot as Record<string, unknown> | null;
       expect(snapshot?.grading_scale_reference_date).toBe("2026-04-28");
