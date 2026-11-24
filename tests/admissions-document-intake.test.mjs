@@ -127,7 +127,7 @@ test("accepted enrolment is an explicit school-admin-only governed transition", 
   assert.match(enrolmentEditor, /onCancel=\{reset\}/);
   assert.match(enrolmentEditor, /name="enrolledFrom" value=\{enrolledFrom\}/);
   assert.match(enrolmentEditor, /name=\{\`enrolledFrom-\$\{applicationId\}\`\}/);
-  assert.match(enrolmentEditor, /!reuseExistingLearner \? \( /);
+  assert.match(enrolmentEditor, /!reuseExistingLearner \? \(/);
   assert.match(actions, /item\.roleKey === "school_admin"/);
   assert.match(actions, /application\.status !== "accepted"/);
   assert.match(actions, /\.eq\("school_id", membership\.schoolId\)/);
