@@ -98,6 +98,7 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(actions,/formData\.get\("decisionNote"\)/);
   assert.match(actions,/note\.length > 1000/);
   assert.match(actions,/p_decision_note: note \|\| null/);
+  assert.match(actions,/revision=\$\{Date\.now\(\)\}/);
   assert.match(page,/AdmissionDecisionEditor/);
   assert.match(page,/currentNote=\{application\.decision_note\}/);
   assert.match(page,/key=\{.*application\.reviewed_at/);
