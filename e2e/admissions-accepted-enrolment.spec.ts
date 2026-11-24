@@ -1,12 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 import { DEMO, OUTSIDER_TENANT, SYNTHETIC_ACCOUNTS, syntheticPassword } from "./support/accounts.mjs";
 import { localSupabaseStatus } from "./support/local-supabase.mjs";
 import { signIn } from "./support/session";
 
-const APPLICATION_ID = "f1326000-0000-4000-8000-000000000001";
+// Never rewind an audited, enrolled synthetic application on a repeated local run.
+const APPLICATION_ID = randomUUID();
 const SURNAME = "AcceptedEnrolmentSynthetic";
-const ADMISSION_NUMBER = "E2E-ADM-1326";
+const ADMISSION_NUMBER = `E2E-ADM-1326-${APPLICATION_ID.slice(0, 8)}`;
 
 function localService() {
   const local = localSupabaseStatus({ projectRoot: process.cwd() });
@@ -17,7 +19,7 @@ function localService() {
 
 test.describe("accepted admissions become governed enrolments (#1326)", () => {
   test.beforeAll(async () => {
-    const { error } = await localService().from("admission_applications").upsert({
+    const { error } = await localService().from("admission_applications").insert({
       id: APPLICATION_ID,
       tenant_id: DEMO.tenantId,
       school_id: DEMO.schoolId,
@@ -29,7 +31,7 @@ test.describe("accepted admissions become governed enrolments (#1326)", () => {
       status: "received",
       decision_note: null,
       submitted_at: new Date().toISOString(),
-    }, { onConflict: "id" });
+    });
     expect(error).toBeNull();
   });
 
