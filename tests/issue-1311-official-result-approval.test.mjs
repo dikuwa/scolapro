@@ -125,3 +125,13 @@ test("historical correction reuses only the originally approved grading scale", 
   assert.ok(view.includes("selectedScale.scaleVersion === row.gradingScaleVersion"));
   assert.ok(view.includes("!selectedScale.historical"));
 });
+
+test("synthetic grading fixtures skip existing bands before immutable insert triggers", () => {
+  const initial = readFileSync("e2e/support/official-result-approval-local-fixture.sql", "utf8");
+  const negative = readFileSync("e2e/support/official-result-term-grading-negative-local-fixture.sql", "utf8");
+  assert.ok(initial.includes("where not exists ("));
+  assert.ok(initial.includes("where id='e2f90000-0000-4000-8000-000000000001'::uuid"));
+  assert.ok(negative.includes("where not exists ("));
+  assert.ok(negative.includes("where b.id=v.id"));
+  assert.ok(negative.includes("e2f90000-0000-4000-8000-00000000000b"));
+});
