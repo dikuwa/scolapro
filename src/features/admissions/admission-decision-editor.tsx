@@ -30,14 +30,15 @@ export function AdmissionDecisionEditor({
   }
 
   if (!editing) {
-    return <button type="button" onClick={() => setEditing(true)}
+    return <div className="min-w-0"><button type="button" onClick={() => setEditing(true)}
       className="min-h-9 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
       {decisions.some((item) => item.value === currentStatus) ? "Edit decision" : "Review decision"}
-    </button>;
+    </button></div>;
   }
 
   return (
-    <form action={decideAdmissionApplication} className="w-full min-w-0 space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3">
+    <div className="min-w-0 lg:col-span-4">
+    <form action={decideAdmissionApplication} className="w-full max-w-xl min-w-0 space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3">
       <input type="hidden" name="applicationId" value={applicationId} />
       <SearchableSelect
         label="Admission decision"
@@ -67,5 +68,6 @@ export function AdmissionDecisionEditor({
         </button>
       </div>
     </form>
+    </div>
   );
 }
