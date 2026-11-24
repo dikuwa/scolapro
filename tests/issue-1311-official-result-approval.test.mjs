@@ -24,14 +24,15 @@ test("server action delegates only to the canonical governed RPC", () => {
   assert.ok(server.includes("termNumber: z.coerce.number().int().min(1).max(3)"));
 });
 
-test("server checks school, year, scheme, grade and active grading scale", () => {
+test("server checks school, year, scheme, grade and governed grading scale statuses", () => {
   assert.ok(server.includes('.eq("school_id", schoolId)'));
   assert.ok(server.includes("scheme.academic_year !== enrolment.academic_year"));
   assert.ok(server.includes("offering.grade_id !== enrolment.grade_id"));
   assert.ok(server.includes('db.from("learner_subject_registrations")'));
   assert.ok(server.includes('.eq("status", "active")'));
   assert.ok(server.includes('scheme.status !== "active"'));
-  assert.ok(server.includes('scale.status !== "active"'));
+  assert.ok(server.includes('!["active", "superseded", "archived"].includes(scale.status)'));
+  assert.ok(server.includes("Corrections must use the original official grading scale version"));
 });
 
 test("readiness checks required components, verification and corrections", () => {
@@ -44,7 +45,8 @@ test("readiness checks required components, verification and corrections", () =>
   assert.ok(server.includes("&& !pendingContributing)"));
   assert.ok(server.includes("All contributing mark corrections, including optional components"));
 
-  assert.ok(view.includes("row.registered && (!row.approved || row.replacementEligible) && verified && Boolean(scaleId) && confirmed"));
+  assert.ok(view.includes("row.registered && (!row.approved || row.replacementEligible) && verified"));
+  assert.ok(view.includes("&& Boolean(scaleId) && Boolean(compatibleScale) && confirmed"));
   assert.ok(server.includes("replacementEligible: Boolean(official) && corrected.has(row.id)"));
   assert.ok(server.includes('not("correction_authorization_id", "is", null)'));
   assert.ok(!server.includes('db.from("assessment_mark_reopen_authorizations")'));
