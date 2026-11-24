@@ -45,6 +45,7 @@ export function AcceptedAdmissionEnrolment({
   const [gender, setGender] = useState("unspecified");
   const [enrolledFrom, setEnrolledFrom] = useState(String(academicYear) === today.slice(0, 4) ? today : "");
   const [confirmed, setConfirmed] = useState(false);
+  const [dateCommitted, setDateCommitted] = useState(true);
 
   function reset() {
     setEditing(false);
@@ -52,6 +53,7 @@ export function AcceptedAdmissionEnrolment({
     setGender("unspecified");
     setEnrolledFrom(String(academicYear) === today.slice(0, 4) ? today : "");
     setConfirmed(false);
+    setDateCommitted(true);
   }
 
   if (!requestedGradeId) {
@@ -107,14 +109,14 @@ export function AcceptedAdmissionEnrolment({
           )}
           {reuseExistingLearner ? <input type="hidden" name="gender" value="unspecified" /> : null}
           <input type="hidden" name="enrolledFrom" value={enrolledFrom} />
-          <DateField label="Enrolled from" name={`enrolledFrom-${applicationId}`} value={enrolledFrom} onChange={setEnrolledFrom} required />
+          <DateField label="Enrolled from" name={`enrolledFrom-${applicationId}`} value={enrolledFrom} onChange={setEnrolledFrom} onDraftValidityChange={setDateCommitted} required />
         </div>
         <label className="flex items-start gap-2 text-xs leading-5">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}
             className="mt-1 size-4 accent-[color:var(--brand)]" />
           <span>I have verified the applicant, class and enrolment date. Create the official enrolment.</span>
         </label>
-        <EnrolmentFormActions canSubmit={Boolean(classId && enrolledFrom && confirmed)} onCancel={reset} />
+        <EnrolmentFormActions canSubmit={Boolean(classId && enrolledFrom && dateCommitted && confirmed)} onCancel={reset} />
       </form>
     </div>
   );
