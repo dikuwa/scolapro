@@ -88,10 +88,12 @@ test("admissions navigation is limited to enrolment workflow leaders", () => {
 });
 
 test("historical intake grade choices are derived from the selected same-school job year", () => {
-  assert.match(queries, /\.eq\("school_id", schoolId\)/);
+  const gradeQuery = queries.slice(queries.indexOf("const gradesResult = await supabase"), queries.indexOf("if (gradesResult.error)"));
+  assert.match(gradeQuery, /\.from\("grades"\)/);
+  assert.match(gradeQuery, /\.eq\("school_id", schoolId\)/);
   assert.match(queries, /const selectedJob = jobs\.find\(\(job\) => job\.id === selectedJobId\) \?\? null/);
   assert.match(queries, /const reviewAcademicYear = selectedJob\?\.academic_year \?\? academicYear/);
-  assert.match(queries, /\.eq\("academic_year", reviewAcademicYear\)/);
+  assert.match(gradeQuery, /\.eq\("academic_year", reviewAcademicYear\)/);
   assert.ok(queries.indexOf("const selectedJob = jobs.find") < queries.indexOf('eq("academic_year", reviewAcademicYear)'));
   assert.match(queries, /reviewAcademicYear,/);
 
