@@ -78,7 +78,7 @@ export default async function AdmissionsPage({
           </div>
           {workspace.jobs.length ? <div className="divide-y divide-border-subtle">{workspace.jobs.map((item) => (
             <a key={item.id} href={`/school/admissions?job=${item.id}`} className={`grid gap-2 px-4 py-3 text-sm transition hover:bg-surface-muted sm:grid-cols-[1.4fr_1fr_1fr_auto] sm:items-center sm:px-5 ${item.id===job?.id ? "bg-brand-soft/40" : ""}`}>
-              <span className="font-semibold capitalize">{item.source_kind.replaceAll("_"," ")} application</span>
+              <span className="font-semibold capitalize">{item.source_kind.replaceAll("_"," ")} application · {item.academic_year}</span>
               <span className="text-xs capitalize text-muted-foreground">{item.extraction_status.replaceAll("_"," ")}</span>
               <span className="text-xs capitalize text-muted-foreground">{item.status.replaceAll("_"," ")} · {item.match_status.replaceAll("_"," ")}</span>
               <span className="text-xs text-muted-foreground">{new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Windhoek",dateStyle:"medium"}).format(new Date(item.created_at))}</span>
@@ -88,7 +88,7 @@ export default async function AdmissionsPage({
 
         {job ? <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div><h2 className="scolapro-section-title">Review staged application</h2><p className="scolapro-section-description">Job {job.id.slice(0,8)} · {job.status.replaceAll("_"," ")} · {job.source_kind.replaceAll("_"," ")}</p></div>
+            <div><h2 className="scolapro-section-title">Review staged application</h2><p className="scolapro-section-description">Job {job.id.slice(0,8)} · {job.academic_year} · {job.status.replaceAll("_"," ")} · {job.source_kind.replaceAll("_"," ")}</p></div>
             <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1 text-xs font-semibold capitalize">{job.review_decision.replaceAll("_"," ")}</span>
           </div>
 
@@ -100,7 +100,7 @@ export default async function AdmissionsPage({
             </div>
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Extracted / corrected candidate</p>
-              {job.status !== "committed" && job.status !== "cancelled" ? <AdmissionCandidateForm jobId={job.id} candidate={candidate} grades={workspace.grades} /> : <CandidateSummary candidate={candidate} />}
+              {job.status !== "committed" && job.status !== "cancelled" ? <AdmissionCandidateForm jobId={job.id} candidate={candidate} grades={workspace.grades} academicYear={workspace.reviewAcademicYear} /> : <CandidateSummary candidate={candidate} />}
             </div>
           </div>
 
@@ -134,7 +134,7 @@ export default async function AdmissionsPage({
           <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><h2 className="scolapro-section-title">Admission applications</h2><p className="scolapro-section-description">Admission decision remains separate from enrolment.</p></div>
           {workspace.applications.length ? <div className="divide-y divide-border-subtle">{workspace.applications.map((application) => (
             <div key={application.id} data-testid={`admission-application-${application.id}`} className="grid gap-3 px-4 py-3 sm:px-5 lg:grid-cols-[1.4fr_1fr_1fr_auto] lg:items-center">
-              <div><p className="text-sm font-semibold">{application.applicant_surname}, {application.applicant_first_names}</p><p className="text-[0.68rem] text-muted-foreground">{application.previous_school || "Previous school not captured"} · {application.date_of_birth || "DOB not captured"}</p></div>
+              <div><p className="text-sm font-semibold">{application.applicant_surname}, {application.applicant_first_names}</p><p className="text-[0.68rem] text-muted-foreground">{application.academic_year} · {application.previous_school || "Previous school not captured"} · {application.date_of_birth || "DOB not captured"}</p></div>
               <div className="space-y-1"><p className="text-xs font-semibold capitalize">{application.status.replaceAll("_"," ")}</p>{application.decision_note ? <p className="max-w-sm whitespace-pre-wrap break-words text-xs text-muted-foreground">{application.decision_note}</p> : null}{application.reviewed_at ? <p className="text-[0.68rem] text-muted-foreground">Reviewed {new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Windhoek",dateStyle:"medium"}).format(new Date(application.reviewed_at))}</p> : null}</div>
               <p className="text-xs text-muted-foreground">{application.guardian_name || "Guardian pending"}{application.guardian_contact ? ` · ${application.guardian_contact}` : ""}</p>
               {!["enrolled","withdrawn"].includes(application.status) ? <AdmissionDecisionEditor key={`${application.id}:${application.status}:${application.reviewed_at}`} applicationId={application.id} currentStatus={application.status} currentNote={application.decision_note} /> : <span className="text-xs text-muted-foreground">Final</span>}
