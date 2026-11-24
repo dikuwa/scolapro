@@ -36,7 +36,7 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
   const classLearners = useMemo(() => learners.filter((learner) => learner.classId === classId), [learners, classId]);
   const titleMap = useMemo(() => new Map(titles.map((title) => [title.id, title])), [titles]);
   const copyMap = useMemo(() => new Map(copies.map((copy) => [copy.id, copy])), [copies]);
-  const availableCopies = useMemo(() => copies.filter((copy) => copy.titleId === titleId && copy.availability === "available"), [copies, titleId]);
+  const availableCopies = useMemo(() => copies.filter((copy) => copy.titleId === titleId && copy.availability === "available" && !["damaged", "lost"].includes(copy.condition)), [copies, titleId]);
   const activeLoans = useMemo(() => loans.filter((loan) => ["open", "overdue"].includes(loan.status)), [loans]);
   const classActiveLoans = useMemo(() => activeLoans.filter((loan) => loan.classId === classId && (!titleId || copyMap.get(loan.copyId)?.titleId === titleId)), [activeLoans, classId, titleId, copyMap]);
   const historyByLearner = useMemo(() => {
