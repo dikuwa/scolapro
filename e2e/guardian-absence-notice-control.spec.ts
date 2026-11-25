@@ -164,8 +164,12 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     await signIn(adminPage, "admin");
     await adminPage.goto("/school/absence-reviews");
     await expect(adminPage.getByRole("heading", { name: "Absence reviews" })).toBeVisible();
-    await adminPage.getByRole("button", { name: "Start review" }).first().click();
+    const firstReview = adminPage.getByRole("button", { name: "Start review" }).first();
+    await firstReview.click();
     await expect.poll(() => currentStatus(service), { timeout: 20_000 }).toBe("under_review");
+    // The queue refreshes itself; wait for the re-rendered control before acting
+    // again, otherwise the next submit carries the pre-transition baseline.
+    await expect(adminPage.getByRole("button", { name: "Start review" })).toHaveCount(0, { timeout: 20_000 });
     await adminPage.locator('input[name="reviewNote"]').first().fill("Please provide appointment evidence.");
     await adminPage.getByRole("button", { name: "Return" }).first().click();
     await expect.poll(() => currentStatus(service), { timeout: 20_000 }).toBe("returned");
@@ -192,6 +196,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   try {
     await signIn(reviewerPage, "admin");
     await reviewerPage.goto("/school/absence-reviews");
+    await expect(reviewerPage.locator('input[name="reviewNote"]').first()).toBeVisible();
     await reviewerPage.locator('input[name="reviewNote"]').first().fill("Accepted after appointment evidence.");
     await reviewerPage.getByRole("button", { name: "Accept" }).first().click();
     await expect.poll(() => currentStatus(service), { timeout: 20_000 }).toBe("accepted");
@@ -239,10 +244,13 @@ test("guardian withdraws a notice and the school can no longer review it", async
     await signIn(adminPage, "admin");
     await adminPage.goto("/school/absence-reviews");
     await expect(adminPage.getByText(noteText).first()).toBeVisible();
-    // The withdrawn notice offers no review action at all.
-    await expect(adminPage.getByRole("button", { name: "Accept" })).toHaveCount(0);
-    await expect(adminPage.getByRole("button", { name: "Start review" })).toHaveCount(0);
-    await expect(adminPage.getByRole("button", { name: "Return" })).toHaveCount(0);
+    // Scope to the withdrawn notice's own entry: other entries on the page may
+    // still legitimately offer review actions.
+    const withdrawnEntry = adminPage.locator("div").filter({ has: adminPage.getByText(noteText).first() }).last();
+    await expect(withdrawnEntry.getByText("withdrawn", { exact: false }).first()).toBeVisible();
+    await expect(withdrawnEntry.getByRole("button", { name: "Accept" })).toHaveCount(0);
+    await expect(withdrawnEntry.getByRole("button", { name: "Start review" })).toHaveCount(0);
+    await expect(withdrawnEntry.getByRole("button", { name: "Return" })).toHaveCount(0);
   } finally {
     await adminContext.close();
   }
@@ -327,8 +335,9 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
   }
   await signIn(page, "admin");
   await page.goto("/school/absence-reviews");
-  await expect(page.getByText("Absence notices")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Absence notices" })).toBeVisible();
   const list = page.locator("section").filter({ hasText: "Absence notices" }).first();
+  await expect(list.locator("div").filter({ hasText: "Visual acceptance" }).first()).toBeVisible();
   for (const width of [390, 768, 1440]) {
     for (const theme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 950 });
