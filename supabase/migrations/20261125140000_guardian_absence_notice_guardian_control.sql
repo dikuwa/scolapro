@@ -64,11 +64,10 @@ begin
   end if;
 
   if tg_op = 'DELETE' then
-    -- Events may only disappear with their notice (cascade). A direct delete of
-    -- an event while its notice still exists is refused.
-    if exists(
-      select 1 from public.guardian_absence_notices n where n.id = old.notice_id
-    ) then
+    -- Events may only disappear with their notice. `pg_trigger_depth()` is 1 for a
+    -- user-issued DELETE and greater inside a cascading FK action, which is the
+    -- one case where the append-only rule must yield. A direct delete is refused.
+    if pg_trigger_depth() <= 1 then
       raise exception 'Guardian absence notice events are append-only';
     end if;
     return old;

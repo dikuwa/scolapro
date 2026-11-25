@@ -1,6 +1,6 @@
 begin;
 
-select plan(16);
+select plan(17);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fe700000-0000-4000-8000-000000000001','control-guardian@example.test','authenticated','authenticated',now(),now()),
@@ -121,7 +121,15 @@ select ok(
   'event history exists before notice deletion'
 );
 
+-- Direct event deletion stays forbidden; the notice cascade is the only path.
+select set_config('request.jwt.claim.sub','fe700000-0000-4000-8000-000000000002',true);
 reset role;
+select throws_ok(
+  format('delete from public.guardian_absence_notice_events where notice_id=%L',
+    current_setting('test.control_notice_one')::uuid),
+  'Guardian absence notice events are append-only',
+  'direct event deletion remains forbidden'
+);
 delete from public.guardian_absence_notices where id=current_setting('test.control_notice_one')::uuid;
 select is(
   (select count(*)::integer from public.guardian_absence_notice_events where notice_id=current_setting('test.control_notice_one')::uuid),
