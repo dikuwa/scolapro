@@ -169,7 +169,7 @@ function LearnerRow({
         <input type="hidden" name="enrolmentId" value={learner.enrolmentId} />
         <input type="hidden" name="ruleSetId" value={learner.ruleSetId ?? ""} />
         <button type="submit" disabled={pending.generate || !learner.ruleSetId}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong disabled:cursor-not-allowed disabled:opacity-50">
+          className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong disabled:cursor-not-allowed disabled:opacity-50">
           {pending.generate ? <Spinner className="size-3.5" /> : <UserRoundCheck className="size-3.5" aria-hidden="true" />}
           {pending.generate ? "Generating…" : "Generate recommendation"}
         </button>
@@ -184,7 +184,7 @@ function LearnerRow({
         {canApprove ? <form action={approveAction}>
           <input type="hidden" name="progressionId" value={progression.id} />
           <button type="submit" disabled={pending.approve}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
+            className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
             {pending.approve ? <Spinner className="size-3.5 text-white" /> : <ArrowRight className="size-3.5" aria-hidden="true" />}
             {pending.approve ? "Approving…" : "Approve decision"}
           </button>
@@ -195,7 +195,7 @@ function LearnerRow({
         <input type="hidden" name="progressionId" value={progression.id} />
         <input type="hidden" name="confirmation" value="confirmed" />
         <button type="submit" disabled={pending.lock}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
+          className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-9 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
           {pending.lock ? <Spinner className="size-3.5 text-white" /> : <LockKeyhole className="size-3.5" aria-hidden="true" />}
           {pending.lock ? "Locking…" : "Lock decision"}
         </button>
@@ -215,7 +215,7 @@ function LearnerRow({
       </label>
       <div className="flex gap-2 sm:col-span-2">
         <button type="submit" disabled={pending.override || overrideOutcome === progression.outcome}
-          className="inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
+          className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
           {pending.override ? "Saving…" : "Save override"}
         </button>
         <button type="button" onClick={() => setOverriding(false)} className="min-h-9 rounded-[var(--radius-sm)] bg-surface px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)]">Cancel</button>
@@ -237,7 +237,7 @@ function LearnerRow({
       </div>
       <div className="flex flex-wrap gap-2 sm:col-span-2">
         <button type="submit" disabled={pending.publish || !canPublish}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
+          className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-10 items-center gap-1.5 rounded-[var(--radius-sm)] bg-brand px-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">
           {pending.publish ? <Spinner className="size-4 text-white" /> : <Send className="size-4" aria-hidden="true" />}
           {pending.publish ? "Publishing…" : "Publish rollover"}
         </button>
