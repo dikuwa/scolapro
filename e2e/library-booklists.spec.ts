@@ -1,13 +1,42 @@
+import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 import { localSupabaseStatus } from "./support/local-supabase.mjs";
 import { resolveE2EEnvironment } from "./support/env-guard.mjs";
 import { mergedProjectEnv } from "../scripts/env-file.mjs";
+import { DEMO } from "./support/accounts.mjs";
 import { signIn } from "./support/session";
 
 const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
+/** Known fixture owned by the demo school; provisioned by this spec, not by test order. */
+const ISOLATION_TITLE = "Synthetic Booklist Isolation 1304";
+
+async function provisionIsolationTitle() {
+  const local = localSupabaseStatus({ projectRoot: process.cwd() });
+  const service = createClient(local.API_URL, local.SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error: deleteError } = await service
+    .from("learning_resource_titles")
+    .delete()
+    .eq("school_id", DEMO.schoolId)
+    .eq("title", ISOLATION_TITLE);
+  expect(deleteError).toBeNull();
+  const { error } = await service.from("learning_resource_titles").insert({
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    resource_type: "textbook",
+    title: ISOLATION_TITLE,
+    status: "active",
+  });
+  expect(error).toBeNull();
+}
+
 test.describe("#1304 grade booklist functionality (synthetic school only)", () => {
   test.skip(target !== "local", "Changing booklist requirements is permitted only against a local synthetic database.");
-  test.beforeAll(() => { expect(localSupabaseStatus({ projectRoot: process.cwd() }).API_URL).toBeTruthy(); });
+  test.beforeAll(async () => {
+    expect(localSupabaseStatus({ projectRoot: process.cwd() }).API_URL).toBeTruthy();
+    await provisionIsolationTitle();
+  });
 
   test("school admin can save, revise and deactivate a governed grade textbook requirement", async ({ page }, testInfo) => {
     const textbookName = `Synthetic Booklist 1304 ${crypto.randomUUID()}`;
@@ -62,11 +91,26 @@ test.describe("#1304 grade booklist functionality (synthetic school only)", () =
     await expect(card.getByText("Not configured.", { exact: false })).toBeVisible();
   });
 
-  test("administrator of another school cannot see demo school's library titles or requirements", async ({ page }) => {
-    await signIn(page, "outsider");
-    await page.goto("/library?view=class");
+  test("administrator of another school cannot see demo school's library titles or requirements", async ({ page, browser }) => {
+    // The owning school can see the provisioned title...
+    await signIn(page, "admin");
+    await page.goto("/library?view=manage");
     await expect(page.getByRole("heading", { name: "Library / Textbooks" })).toBeVisible();
-    await expect(page.getByText("Synthetic Booklist Textbook 1304")).toHaveCount(0);
+    await expect(page.getByText(ISOLATION_TITLE)).toBeVisible();
+
+    // ...and a separate tenant's administrator cannot, in either view.
+    const outsiderContext = await browser.newContext();
+    try {
+      const outsiderPage = await outsiderContext.newPage();
+      await signIn(outsiderPage, "outsider");
+      await outsiderPage.goto("/library?view=class");
+      await expect(outsiderPage.getByRole("heading", { name: "Library / Textbooks" })).toBeVisible();
+      await expect(outsiderPage.getByText(ISOLATION_TITLE)).toHaveCount(0);
+      await outsiderPage.goto("/library?view=manage");
+      await expect(outsiderPage.getByText(ISOLATION_TITLE)).toHaveCount(0);
+    } finally {
+      await outsiderContext.close();
+    }
   });
 
   test("ordinary teacher cannot access privileged library configuration", async ({ page }) => {

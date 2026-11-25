@@ -21,7 +21,19 @@ export function deriveGradeBooklistDemand(
   const byCopyId = new Map(copies.map((copy) => [copy.id, copy]));
   return requirements.filter((requirement) => requirement.status === "active").map((requirement) => {
     const required = learners.size * requirement.copiesPerLearner;
-    const allocated = activeLoans.filter((loan) => byCopyId.get(loan.copyId)?.titleId === requirement.titleId).length;
+    // A learner can hold more copies than the requirement asks for, because the
+    // issue path only checks copy availability. Count at most `copiesPerLearner`
+    // per learner so surplus copies held by one learner cannot mask another
+    // learner's genuine shortage.
+    const perLearner = new Map<string, number>();
+    for (const loan of activeLoans) {
+      if (byCopyId.get(loan.copyId)?.titleId !== requirement.titleId) continue;
+      perLearner.set(loan.borrowerId, (perLearner.get(loan.borrowerId) ?? 0) + 1);
+    }
+    const allocated = Array.from(perLearner.values()).reduce(
+      (sum, count) => sum + Math.min(count, requirement.copiesPerLearner),
+      0,
+    );
     const available = copies.filter((copy) => copy.titleId === requirement.titleId && copy.availability === "available" && copy.condition !== "lost" && copy.condition !== "damaged").length;
     const unallocated = Math.max(0, required - allocated);
     return {

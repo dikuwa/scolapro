@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpenCheck, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,6 +36,12 @@ export function BooklistRequirements({ schoolId, gradeId, grades, titles, bookli
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [saveState, saveAction, savePending] = useActionState(saveLibraryBooklistRequirement, initialState);
   const [removeState, removeAction, removePending] = useActionState(removeLibraryBooklistRequirement, initialState);
+  // A completed save must close only the editor it was submitted from. The
+  // submitted requirement is captured at submit time so a refresh that lands
+  // after the user opened a different requirement cannot discard that draft.
+  const editingTitleIdRef = useRef<string | null>(null);
+  const submittedTitleIdRef = useRef<string | null>(null);
+  useEffect(() => { editingTitleIdRef.current = editingTitleId; }, [editingTitleId]);
   const grade = grades.find((item) => item.id === gradeId);
   const activeRequirements = useMemo(() => booklists.filter((item) => item.gradeId === gradeId && item.status === "active"), [booklists, gradeId]);
   const enrolledLearners = useMemo(() => learners.filter((item) => item.gradeId === gradeId).map((item) => item.id), [learners, gradeId]);
@@ -49,7 +55,9 @@ export function BooklistRequirements({ schoolId, gradeId, grades, titles, bookli
     if (!saveState.message) return;
     if (saveState.success) {
       toast.success(saveState.message);
-      queueMicrotask(() => setEditing(false));
+      // Close only the editor that was actually submitted; a different open
+      // requirement keeps its unsaved draft.
+      if (submittedTitleIdRef.current === editingTitleIdRef.current) queueMicrotask(() => setEditing(false));
       router.refresh();
     } else toast.error(saveState.message);
   }, [saveState, router]);
@@ -77,7 +85,7 @@ export function BooklistRequirements({ schoolId, gradeId, grades, titles, bookli
         <h2 className="scolapro-section-title">Official textbook requirements</h2>
         <p className="scolapro-section-description">{grade.name} · {grade.academicYear}. Set the approved textbooks and copies required per enrolled learner.</p>
       </div></div>
-      <Button type="button" size="sm" variant={editing ? "neutral" : "soft"} onClick={() => editing ? setEditing(false) : edit()}>
+      <Button type="button" size="sm" variant={editing ? "neutral" : "soft"} disabled={savePending} onClick={() => editing ? setEditing(false) : edit()}>
         {editing ? "Close" : <><Plus className="size-3.5" aria-hidden="true" />Add requirement</>}
       </Button>
     </div>
@@ -95,15 +103,15 @@ export function BooklistRequirements({ schoolId, gradeId, grades, titles, bookli
             <form action={removeAction}><input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="booklistId" value={item.id} /><Button type="submit" variant="danger" size="sm" loading={removePending} disabled={removePending}>Confirm removal</Button></form>
             <Button type="button" size="sm" variant="neutral" onClick={() => setConfirmRemoveId(null)}>Keep</Button>
           </> : <>
-            <Button type="button" variant="ghost" size="sm" onClick={() => edit(item)}><Pencil className="size-3" aria-hidden="true" />Edit</Button>
-            <Button type="button" variant="danger-ghost" size="sm" onClick={() => setConfirmRemoveId(item.id)}><Trash2 className="size-3" aria-hidden="true" />Remove</Button>
+            <Button type="button" variant="ghost" size="sm" disabled={savePending} onClick={() => edit(item)}><Pencil className="size-3" aria-hidden="true" />Edit</Button>
+            <Button type="button" variant="danger-ghost" size="sm" disabled={savePending} onClick={() => setConfirmRemoveId(item.id)}><Trash2 className="size-3" aria-hidden="true" />Remove</Button>
           </>}</div>
         </div>;
       })}</div>
       <p className="mt-2 text-[0.68rem] leading-5 text-muted-foreground">Potential shortages count this grade’s current allocations and free school copies; shared free copies may also be needed by other grades. Lost and withdrawn stock is excluded.</p>
     </>}
 
-    {editing ? <form action={saveAction} className="mt-4 grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-end">
+    {editing ? <form action={saveAction} onSubmit={() => { submittedTitleIdRef.current = editingTitleId; }} className="mt-4 grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-end">
       <input type="hidden" name="schoolId" value={schoolId} />
       <input type="hidden" name="gradeId" value={gradeId} />
       {editingTitleId ? <div className="min-w-0"><p className="text-xs font-medium">Textbook (unchanged while editing)</p><p className="mt-1.5 flex min-h-10 items-center truncate rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-sm">{titles.find((item) => item.id === editingTitleId)?.title ?? "Textbook"}</p><input type="hidden" name="titleId" value={editingTitleId} /></div> : <Picker label="Textbook" name="titleId" value={titleId} onChange={(next) => { setTitleId(next); const current = booklists.find((item) => item.gradeId === gradeId && item.titleId === next); setQuantity(String(current?.copiesPerLearner ?? 1)); }} searchable placeholder="Choose textbook" options={activeTitles.map((title) => ({ value: title.id, label: title.title, helper: title.subjectCode ?? undefined }))} />}
