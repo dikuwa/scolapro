@@ -17,8 +17,12 @@ export default async function AssessmentPage() {
 
   const academicYear = getNamibiaCalendarYear();
   const overview = await getAssessmentWorkspaceOverview(membership.schoolId, academicYear);
-  const canReview = ["school_admin", "principal", "deputy_principal", "hod"].includes(membership.roleKey);
-  const canApprove = ["school_admin", "principal", "deputy_principal"].includes(membership.roleKey);
+  // Gate on the deterministic current-school role, which ranks management roles
+  // first. The raw membership list is ordered by active_from, so a principal who
+  // also holds a later-starting teacher membership must not lose approval links.
+  const roleKey = context.currentSchoolMembership?.roleKey ?? membership.roleKey;
+  const canReview = ["school_admin", "principal", "deputy_principal", "hod"].includes(roleKey);
+  const canApprove = ["school_admin", "principal", "deputy_principal"].includes(roleKey);
   const canManageGrading = canApprove;
 
   const metrics = [
