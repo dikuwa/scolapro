@@ -10,6 +10,9 @@ const printDocument = readFileSync("src/features/admissions/server/render-admiss
 const navigation = readFileSync("src/components/shell/navigation.tsx","utf8");
 const candidateForm = readFileSync("src/features/admissions/admission-candidate-form.tsx","utf8");
 const decisionEditor = readFileSync("src/features/admissions/admission-decision-editor.tsx","utf8");
+const enrolmentEditor = readFileSync("src/features/admissions/accepted-admission-enrolment.tsx","utf8");
+const admissionsQueries = readFileSync("src/features/admissions/server/queries.ts","utf8");
+const dateField = readFileSync("src/components/ui/date-field.tsx","utf8");
 const decisionRevisionMigration = readFileSync("supabase/migrations/20261124043000_admission_same_status_decision_note_revision.sql","utf8");
 const decisionRevisionPgTap = readFileSync("supabase/tests/admission_same_status_decision_note_revision_test.sql","utf8");
 
@@ -150,4 +153,37 @@ test("same-status note-only revisions retain original reviewer provenance and au
   assert.match(decisionRevisionMigration,/Admission decision changed; reload before saving/);
   assert.match(decisionRevisionPgTap,/stale editor cannot overwrite another reviewer note/);
   assert.match(decisionRevisionPgTap,/\$\$select public\.decide_admission_application_checked\(/);
+});
+
+test("accepted enrolment is an explicit school-admin-only governed transition", () => {
+  assert.match(page, /canEnrol && application\.status === "accepted"/);
+  assert.match(page, /AcceptedAdmissionEnrolment/);
+  assert.match(page, /requestedGradeId=\{application\.requested_grade_id\}/);
+  assert.match(page, /registerClasses=\{workspace\.enrolmentClasses\}/);
+  assert.match(admissionsQueries, /\.from\("register_classes"\)/);
+  const scope = admissionsQueries.slice(admissionsQueries.indexOf('const result = await supabase\n      .from("register_classes")'), admissionsQueries.indexOf('if (result.error)'));
+  assert.match(scope, /\.eq\("school_id", schoolId\)/);
+  assert.match(scope, /\.in\("academic_year", years\)/);
+  assert.match(scope, /\.in\("grade_id", gradeIds\)/);
+  assert.match(enrolmentEditor, /item\.academic_year === academicYear && item\.grade_id === requestedGradeId/);
+  assert.match(enrolmentEditor, /name="registerClassId"/);
+  assert.match(enrolmentEditor, /checked=\{confirmed\}/);
+  assert.match(enrolmentEditor, /canSubmit=\{Boolean\(classId && enrolledFrom && dateCommitted && confirmed\)\}/);
+  assert.match(enrolmentEditor, /onDraftValidityChange=\{setDateCommitted\}/);
+  assert.match(dateField, /onDraftValidityChange\?\.\(false\)/);
+  assert.match(dateField, /onDraftValidityChange\?\.\(true\)/);
+  assert.match(enrolmentEditor, /disabled=\{pending \|\| !canSubmit\}/);
+  assert.match(enrolmentEditor, /onClick=\{onCancel\} disabled=\{pending\}/);
+  assert.match(enrolmentEditor, /onCancel=\{reset\}/);
+  assert.match(enrolmentEditor, /name="enrolledFrom" value=\{enrolledFrom\}/);
+  assert.match(enrolmentEditor, /name=\{\`enrolledFrom-\$\{applicationId\}\`\}/);
+  assert.match(enrolmentEditor, /!reuseExistingLearner \? \(/);
+  assert.match(actions, /item\.roleKey === "school_admin"/);
+  assert.match(actions, /application\.status !== "accepted"/);
+  assert.match(actions, /\.eq\("school_id", membership\.schoolId\)/);
+  assert.match(actions, /\.eq\("academic_year", application\.academic_year\)/);
+  assert.match(actions, /\.eq\("grade_id", application\.requested_grade_id\)/);
+  assert.match(actions, /supabase\.rpc\("enrol_accepted_admission"/);
+  assert.doesNotMatch(enrolmentEditor, /\.from\("learners"\)/);
+  assert.doesNotMatch(enrolmentEditor, /\.from\("enrolments"\)/);
 });

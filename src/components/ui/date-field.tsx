@@ -133,7 +133,7 @@ export function CalendarPanel({ value, min, max, rangeStart, rangeEnd, getDateSt
   );
 }
 
-export function DateField({ label, name, value, onChange, required = false, error, min, max, className }: { label: string; name: string; value: string; onChange: (value: string) => void; required?: boolean; error?: string; min?: string; max?: string; className?: string }) {
+export function DateField({ label, name, value, onChange, onDraftValidityChange, required = false, error, min, max, className }: { label: string; name: string; value: string; onChange: (value: string) => void; onDraftValidityChange?: (valid: boolean) => void; required?: boolean; error?: string; min?: string; max?: string; className?: string }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -153,12 +153,12 @@ export function DateField({ label, name, value, onChange, required = false, erro
 
   function commitTyped(raw: string) {
     const trimmed = raw.trim();
-    if (!trimmed) { onChange(""); setDraft(null); setLocalError(null); return; }
+    if (!trimmed) { onChange(""); setDraft(null); setLocalError(null); onDraftValidityChange?.(false); return; }
     const date = parseTyped(trimmed);
-    if (!date) { setLocalError("Use DD/MM/YYYY, for example 14/05/2010."); return; }
+    if (!date) { setLocalError("Use DD/MM/YYYY, for example 14/05/2010."); onDraftValidityChange?.(false); return; }
     const iso = toIso(date);
-    if ((min && iso < min) || (max && iso > max)) { setLocalError("This date is outside the allowed range."); return; }
-    onChange(iso); setDraft(null); setLocalError(null);
+    if ((min && iso < min) || (max && iso > max)) { setLocalError("This date is outside the allowed range."); onDraftValidityChange?.(false); return; }
+    onChange(iso); setDraft(null); setLocalError(null); onDraftValidityChange?.(true);
   }
 
   return (
@@ -170,10 +170,10 @@ export function DateField({ label, name, value, onChange, required = false, erro
             not repeat min-h-10 or py-2: either one makes this control taller than Picker,
             SearchableSelect and plain inputs, so it stops aligning with them in a shared row. */}
         <div className={cn("scolapro-control-surface flex min-h-10 w-full items-center overflow-hidden rounded-[var(--radius-sm)]", visibleError ? "border-[color:var(--danger)]/45 focus-within:border-[color:var(--danger)]/55 focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--danger)_10%,transparent),var(--shadow-sm)]" : "hover:border-border")}>
-          <input id={`${name}-typed`} type="text" inputMode="numeric" autoComplete="off" value={visibleValue} onChange={(event) => { setDraft(event.target.value); setLocalError(null); }} onBlur={() => commitTyped(visibleValue)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitTyped(visibleValue); } }} placeholder="DD/MM/YYYY" aria-invalid={Boolean(visibleError)} aria-describedby={visibleError ? errorId : undefined} className="min-w-0 flex-1 border-0 bg-transparent px-3 text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground/65 focus:outline-none focus:ring-0 focus-visible:outline-none" />
+          <input id={`${name}-typed`} type="text" inputMode="numeric" autoComplete="off" value={visibleValue} onChange={(event) => { setDraft(event.target.value); setLocalError(null); onDraftValidityChange?.(false); }} onBlur={() => commitTyped(visibleValue)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); commitTyped(visibleValue); } }} placeholder="DD/MM/YYYY" aria-invalid={Boolean(visibleError)} aria-describedby={visibleError ? errorId : undefined} className="min-w-0 flex-1 border-0 bg-transparent px-3 text-sm text-foreground outline-none ring-0 placeholder:text-muted-foreground/65 focus:outline-none focus:ring-0 focus-visible:outline-none" />
           <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)} aria-label={`Open ${label.toLowerCase()} calendar`} aria-expanded={open} className={cn("mr-1 grid size-8 shrink-0 place-items-center rounded-[var(--radius-xs)] text-muted-foreground transition hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/45", open && "bg-brand-soft text-brand-strong")}><CalendarDays aria-hidden="true" className="size-4" /></button>
         </div>
-        {open ? <CalendarPanel value={value} min={min} max={max} onSelect={(next) => { onChange(next); setDraft(null); setLocalError(null); }} onClose={() => setOpen(false)} /> : null}
+        {open ? <CalendarPanel value={value} min={min} max={max} onSelect={(next) => { onChange(next); setDraft(null); setLocalError(null); onDraftValidityChange?.(true); }} onClose={() => setOpen(false)} /> : null}
       </div>
       <FormFieldFeedback
         error={visibleError}

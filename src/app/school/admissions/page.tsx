@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
 import { ImportDropField, ImportStageButton } from "@/features/imports/import-drop-field";
 import { AdmissionCandidateForm } from "@/features/admissions/admission-candidate-form";
+import { AcceptedAdmissionEnrolment } from "@/features/admissions/accepted-admission-enrolment";
 import { AdmissionDecisionEditor } from "@/features/admissions/admission-decision-editor";
 import {
   commitAdmissionIntake,
@@ -12,7 +13,7 @@ import {
 } from "@/features/admissions/server/actions";
 import { getAdmissionsIntakeWorkspace } from "@/features/admissions/server/queries";
 import { getUserContext } from "@/lib/auth/get-user-context";
-import { getNamibiaCalendarYear } from "@/lib/namibia-date";
+import { getNamibiaCalendarYear, getNamibiaDateKey } from "@/lib/namibia-date";
 
 const managerRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 
@@ -25,6 +26,8 @@ export default async function AdmissionsPage({
   if (!context.user) redirect("/login");
   const membership = context.memberships.find((item) => managerRoles.has(item.roleKey));
   if (!membership) redirect("/");
+  const canEnrol = context.memberships.some((item) => item.roleKey === "school_admin" && item.schoolId === membership.schoolId);
+  const today = getNamibiaDateKey();
 
   const search = await searchParams;
   const year = getNamibiaCalendarYear();
@@ -135,6 +138,7 @@ export default async function AdmissionsPage({
               <div className="space-y-1"><p className="text-xs font-semibold capitalize">{application.status.replaceAll("_"," ")}</p>{application.decision_note ? <p className="max-w-sm whitespace-pre-wrap break-words text-xs text-muted-foreground">{application.decision_note}</p> : null}{application.reviewed_at ? <p className="text-[0.68rem] text-muted-foreground">Reviewed {new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Windhoek",dateStyle:"medium"}).format(new Date(application.reviewed_at))}</p> : null}</div>
               <p className="text-xs text-muted-foreground">{application.guardian_name || "Guardian pending"}{application.guardian_contact ? ` · ${application.guardian_contact}` : ""}</p>
               {!["enrolled","withdrawn"].includes(application.status) ? <AdmissionDecisionEditor key={`${application.id}:${application.status}:${application.reviewed_at}:${search.decided === application.id ? search.revision ?? "" : ""}`} applicationId={application.id} currentStatus={application.status} currentNote={application.decision_note} currentReviewedAt={application.reviewed_at} /> : <span className="text-xs text-muted-foreground">Final</span>}
+              {canEnrol && application.status === "accepted" ? <AcceptedAdmissionEnrolment applicationId={application.id} academicYear={application.academic_year} requestedGradeId={application.requested_grade_id} reuseExistingLearner={Boolean(application.learner_id)} registerClasses={workspace.enrolmentClasses} today={today} /> : null}
             </div>
           ))}</div> : <p className="px-5 py-8 text-center text-xs text-muted-foreground">No admission applications yet.</p>}
         </section>
