@@ -57,8 +57,28 @@ export default async function AbsenceReviewsPage({ searchParams }: { searchParam
     { roleKey: membership.roleKey, staffMemberId: membership.staffMemberId },
     filters,
   );
-  const allNotices = workspace.canReviewNotices ? await getSchoolAbsenceNotices(membership.schoolId) : [];
-  const notices = allNotices.filter((notice) => notice.absenceFrom <= to && notice.absenceTo >= from);
+  const NOTICE_PAGE_SIZE = 50;
+  const noticePageParam = Number(scalar(params.noticePage));
+  const noticePage = Number.isFinite(noticePageParam) && noticePageParam > 0 ? Math.floor(noticePageParam) : 0;
+  const noticePageResult = workspace.canReviewNotices
+    ? await getSchoolAbsenceNotices(membership.schoolId, {
+      offset: noticePage * NOTICE_PAGE_SIZE,
+      limit: NOTICE_PAGE_SIZE,
+      from,
+      to,
+    })
+    : { notices: [], hasMore: false };
+  const noticeQuery = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const single = scalar(value);
+    if (single && key !== "noticePage") noticeQuery.set(key, single);
+  }
+  const noticeHref = (page: number) => {
+    const next = new URLSearchParams(noticeQuery);
+    if (page > 0) next.set("noticePage", String(page));
+    const query = next.toString();
+    return `/school/absence-reviews${query ? `?${query}` : ""}`;
+  };
 
   return (
     <AppShell>
@@ -69,7 +89,18 @@ export default async function AbsenceReviewsPage({ searchParams }: { searchParam
             Review official daily absences and subject-period absenteeism as separate records. Parent explanations provide context and review evidence but never rewrite the official register automatically.
           </p>
         </div>
-        <AbsenceReviewWorkspace workspace={workspace} filters={filters} view={view} notices={notices} />
+        <AbsenceReviewWorkspace
+          workspace={workspace}
+          filters={filters}
+          view={view}
+          notices={noticePageResult.notices}
+          noticePagination={{
+            page: noticePage,
+            hasMore: noticePageResult.hasMore,
+            newerHref: noticePage > 0 ? noticeHref(noticePage - 1) : null,
+            olderHref: noticePageResult.hasMore ? noticeHref(noticePage + 1) : null,
+          }}
+        />
       </section>
     </AppShell>
   );

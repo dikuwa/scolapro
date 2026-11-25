@@ -91,13 +91,18 @@ export async function submitAbsenceNotice(_state: AbsenceActionState, formData: 
   }
 
   revalidatePath("/parent");
+  // The staff queue is a separate route; refresh it too so a new notice is not
+  // invisible until an unrelated navigation happens.
+  revalidatePath("/school/absence-reviews");
   return { success: true, message: file ? "Absence notice and supporting document submitted. The school will review them." : "Absence notice submitted. The school will review it." };
 }
 
 const reviewAbsenceSchema = z.object({
   noticeId: z.string().uuid(),
-  status: z.enum(["accepted", "returned", "closed"]),
+  status: z.enum(["under_review", "accepted", "returned", "closed"]),
   reviewNote: z.string().max(2000).optional(),
+  expectedStatus: z.string().trim().min(1),
+  expectedReviewedAt: z.string().trim().optional(),
 });
 
 export async function reviewAbsenceNotice(_state: AbsenceActionState, formData: FormData): Promise<AbsenceActionState> {
@@ -105,19 +110,71 @@ export async function reviewAbsenceNotice(_state: AbsenceActionState, formData: 
     noticeId: formData.get("noticeId"),
     status: formData.get("status"),
     reviewNote: formData.get("reviewNote") || undefined,
+    expectedStatus: formData.get("expectedStatus"),
+    expectedReviewedAt: formData.get("expectedReviewedAt") || undefined,
   });
 
   if (!parsed.success) return { message: "Invalid review data." };
+  if (parsed.data.expectedReviewedAt && Number.isNaN(Date.parse(parsed.data.expectedReviewedAt))) {
+    return { message: "Invalid review state. Reload before retrying." };
+  }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("review_guardian_absence_notice", {
+  const { error } = await supabase.rpc("review_guardian_absence_notice_checked", {
     p_notice_id: parsed.data.noticeId,
     p_status: parsed.data.status,
     p_review_note: parsed.data.reviewNote || null,
+    p_expected_status: parsed.data.expectedStatus,
+    p_expected_reviewed_at: parsed.data.expectedReviewedAt || null,
   });
 
-  if (error) return { message: error.message || "Could not review absence notice." };
+  if (error) {
+    const changed = error.message?.includes("Absence notice review changed");
+    return { message: changed ? "This notice was reviewed by someone else. Reload before saving." : error.message || "Could not review absence notice." };
+  }
 
   revalidatePath("/school/absence-reviews");
   return { success: true, message: `Notice ${parsed.data.status}.` };
+}
+
+const noticeControlSchema = z.object({ noticeId: z.string().uuid() });
+
+export async function withdrawAbsenceNotice(_state: AbsenceActionState, formData: FormData): Promise<AbsenceActionState> {
+  const parsed = noticeControlSchema.safeParse({ noticeId: formData.get("noticeId") });
+  if (!parsed.success) return { message: "Choose an absence notice to withdraw." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("withdraw_guardian_absence_notice", { p_notice_id: parsed.data.noticeId });
+  if (error) return { message: error.message || "The absence notice could not be withdrawn." };
+
+  revalidatePath("/parent");
+  revalidatePath("/school/absence-reviews");
+  return { success: true, message: "Absence notice withdrawn. It no longer counts as an active explanation." };
+}
+
+const resubmitAbsenceSchema = z.object({
+  noticeId: z.string().uuid(),
+  reasonCategory: z.enum(reasonCategories),
+  message: z.string().max(2000).optional(),
+});
+
+export async function resubmitAbsenceNotice(_state: AbsenceActionState, formData: FormData): Promise<AbsenceActionState> {
+  const parsed = resubmitAbsenceSchema.safeParse({
+    noticeId: formData.get("noticeId"),
+    reasonCategory: formData.get("reasonCategory"),
+    message: formData.get("message") || undefined,
+  });
+  if (!parsed.success) return { message: "Choose a reason before resubmitting the notice." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("resubmit_guardian_absence_notice", {
+    p_notice_id: parsed.data.noticeId,
+    p_reason_category: parsed.data.reasonCategory,
+    p_message: parsed.data.message || null,
+  });
+  if (error) return { message: error.message || "The absence notice could not be resubmitted." };
+
+  revalidatePath("/parent");
+  revalidatePath("/school/absence-reviews");
+  return { success: true, message: "Absence notice resubmitted for review." };
 }

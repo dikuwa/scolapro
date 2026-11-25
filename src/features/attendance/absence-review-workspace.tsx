@@ -17,11 +17,13 @@ export function AbsenceReviewWorkspace({
   filters,
   view,
   notices,
+  noticePagination,
 }: {
   workspace: Workspace;
   filters: AbsenceReviewFilters;
   view: View;
   notices: AbsenceNoticeSummary[];
+  noticePagination: { page: number; hasMore: boolean; newerHref: string | null; olderHref: string | null };
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -82,6 +84,13 @@ export function AbsenceReviewWorkspace({
         <section>
           <div className="mb-3"><h2 className="scolapro-section-title">Parent explanations</h2><p className="scolapro-section-description">Review guardian notices separately from the official register. Accepted notices do not alter attendance.</p></div>
           <AbsenceReviewList notices={notices} />
+          {noticePagination.page > 0 || noticePagination.hasMore ? <nav aria-label="Absence notice pages" className="flex flex-wrap items-center justify-between gap-2 border-t border-border-subtle px-4 py-3 sm:px-5">
+            <span className="text-[0.68rem] text-muted-foreground">Page {noticePagination.page + 1}</span>
+            <div className="flex gap-2">
+              {noticePagination.newerHref ? <a href={noticePagination.newerHref} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground">Newer notices</a> : null}
+              {noticePagination.olderHref ? <a href={noticePagination.olderHref} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground">Older notices</a> : null}
+            </div>
+          </nav> : null}
         </section>
       ) : null}
     </div>
