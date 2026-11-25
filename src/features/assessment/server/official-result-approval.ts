@@ -181,7 +181,10 @@ export async function getOfficialResultApprovalWorkspace(params: {
     pendingContributing = (instancesResult.data ?? []).some((row) =>
       contributing.has(row.assessment_component_id) && row.correction_pending);
     const requiredInstances = (instancesResult.data ?? []).filter((row) => relevant.has(row.assessment_component_id));
-    required = requiredInstances.length;
+    // Count the required component set, not only components that already have an
+    // instance: a missing required component must make readiness false instead of
+    // disagreeing with the canonical approval calculation.
+    required = relevant.size;
     verifiedRequired = requiredInstances.filter((row) => ["verified", "locked"].includes(row.status) && !row.correction_pending).length;
     const enrolments = enrolmentsResult.data ?? [];
     total = enrolmentsResult.count ?? 0;
