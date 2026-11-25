@@ -1,6 +1,6 @@
 begin;
 
-select plan(34);
+select plan(36);
 
 select has_table(
   'public','assessment_mark_entry_windows',
@@ -311,6 +311,35 @@ select ok(
     'public.authorize_assessment_mark_correction(uuid,text,uuid,text,timestamp with time zone,timestamp with time zone,boolean)'::regprocedure
   ) ilike '%for update%',
   'official approval serializes contributing instance state with authorized mark revisions and reopen grants'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%t.ends_on into v_term_end%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%v_scale.effective_from>v_term_end%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%v_scale.effective_to<v_term_end%',
+  'official approval and historical correction enforce configured academic term-end grading scale applicability'
+);
+
+select ok(
+  pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%v_scale.scale_key is distinct from v_previous.grading_scale_key%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%v_scale.version is distinct from v_previous.grading_scale_version%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%v_scale.status not in (''active'',''superseded'',''archived'')%'
+  and pg_get_functiondef(
+    'public.approve_official_subject_result(uuid,uuid,smallint,uuid)'::regprocedure
+  ) ilike '%Initial official approval requires an active grading scale%',
+  'historical correction reuses its original school version but new approvals require active grading scales'
 );
 
 select * from finish();

@@ -17,7 +17,7 @@ const approvalSchema = z.object({
 });
 
 export type OfficialResultApprovalState = { success?: boolean; message: string };
-export type ApprovalOption = { value: string; label: string; helper?: string };
+export type ApprovalOption = { value: string; label: string; helper?: string; scaleKey?: string; scaleVersion?: string; historical?: boolean };
 export type OfficialResultApprovalRow = {
   enrolmentId: string;
   name: string;
@@ -25,6 +25,8 @@ export type OfficialResultApprovalRow = {
   registered: boolean;
   approved: boolean;
   replacementEligible: boolean;
+  gradingScaleKey: string | null;
+  gradingScaleVersion: string | null;
   resultValue: number | null;
   symbol: string | null;
 };
@@ -38,6 +40,7 @@ export type OfficialResultApprovalWorkspace = {
   schemeId: string;
   classId: string;
   termNumber: number;
+  termEnd: string | null;
   rows: OfficialResultApprovalRow[];
   page: number;
   pageCount: number;
@@ -75,7 +78,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
     db.from("subject_offerings").select("id,subject_id,grade_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("id").limit(1000),
     db.from("assessment_schemes").select("id,subject_offering_id,scheme_key,version,term_numbers").eq("school_id", schoolId).eq("academic_year", academicYear).eq("status", "active").order("version", { ascending: false }).limit(1000),
     db.from("register_classes").select("id,display_name,grade_id").eq("school_id", schoolId).eq("academic_year", academicYear).order("display_name").limit(500),
-    db.from("grading_scales").select("id,scale_key,version,display_name").eq("school_id", schoolId).eq("status", "active").order("display_name").limit(100),
+    db.from("grading_scales").select("id,scale_key,version,display_name,effective_from,effective_to,status").eq("school_id", schoolId).in("status", ["active", "superseded", "archived"]).order("display_name").limit(1000),
   ]);
   errorIfPresent(offeringsResult.error, "subject offerings");
   errorIfPresent(schemesResult.error, "active assessment schemes");
@@ -113,12 +116,6 @@ export async function getOfficialResultApprovalWorkspace(params: {
     gradeId: row.grade_id,
     label: row.display_name,
   }));
-  const scaleOptions = scales.map((row) => ({
-    value: row.id,
-    label: row.display_name,
-    helper: `${row.scale_key} · ${row.version}`,
-  }));
-
   const offeringId = offeringOptions.some((row) => row.value === params.offering) ? params.offering! : "";
   const selectedOffering = offeringOptions.find((row) => row.value === offeringId);
   const validSchemes = schemeOptions.filter((row) => row.offeringId === offeringId);
@@ -127,6 +124,29 @@ export async function getOfficialResultApprovalWorkspace(params: {
     ? params.classId! : "";
   const parsedTerm = Number(params.term ?? 1);
   const termNumber = Number.isInteger(parsedTerm) && parsedTerm >= 1 && parsedTerm <= 3 ? parsedTerm : 1;
+  // The grade version is applicable at the school-configured term end,
+  // never at the later calendar date of approval or correction.
+  const { data: academicYearRow, error: yearError } = await db.from("academic_years")
+    .select("id").eq("school_id", schoolId).eq("year", academicYear).maybeSingle();
+  errorIfPresent(yearError, "academic year");
+  let termEnd: string | null = null;
+  if (academicYearRow) {
+    const { data: term, error: termError } = await db.from("academic_terms")
+      .select("ends_on").eq("school_id", schoolId).eq("academic_year_id", academicYearRow.id)
+      .eq("term_number", termNumber).maybeSingle();
+    errorIfPresent(termError, "academic term");
+    termEnd = term?.ends_on ?? null;
+  }
+  const scaleOptions: ApprovalOption[] = termEnd ? scales
+    .filter((row) => row.status === "active" && row.effective_from <= termEnd &&
+      (row.effective_to == null || row.effective_to >= termEnd))
+    .map((row) => ({
+      value: row.id,
+      label: row.display_name,
+      helper: `${row.scale_key} · ${row.version} · effective on ${termEnd}`,
+      scaleKey: row.scale_key,
+      scaleVersion: row.version,
+    })) : [];
   const selectedScheme = validSchemes.find((row) => row.value === schemeId);
   const pageRaw = Number(params.page ?? 1);
   const page = Number.isInteger(pageRaw) && pageRaw > 0 ? Math.min(pageRaw, 1000) : 1;
@@ -170,7 +190,7 @@ export async function getOfficialResultApprovalWorkspace(params: {
     const [learnersResult, registrationsResult, approvedResult] = await Promise.all([
       learnerIds.length ? db.from("learners").select("id,first_names,surname,preferred_name").in("id", learnerIds) : Promise.resolve({ data: [], error: null }),
       ids.length ? db.from("learner_subject_registrations").select("enrolment_id").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("status", "active") : Promise.resolve({ data: [], error: null }),
-      ids.length ? db.from("official_results_current").select("enrolment_id,result_value,symbol,approved_at").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("term_number", termNumber) : Promise.resolve({ data: [], error: null }),
+      ids.length ? db.from("official_results_current").select("enrolment_id,result_value,symbol,approved_at,grading_scale_key,grading_scale_version").in("enrolment_id", ids).eq("subject_offering_id", offeringId).eq("term_number", termNumber) : Promise.resolve({ data: [], error: null }),
     ]);
     errorIfPresent(learnersResult.error, "learner identities");
     errorIfPresent(registrationsResult.error, "subject registrations");
@@ -178,6 +198,24 @@ export async function getOfficialResultApprovalWorkspace(params: {
     const learnerMap = new Map((learnersResult.data ?? []).map((row) => [row.id, row]));
     const registered = new Set((registrationsResult.data ?? []).map((row) => row.enrolment_id));
     const officialMap = new Map((approvedResult.data ?? []).map((row) => [row.enrolment_id, row]));
+    // Historical versions are selectable only when a current result on this
+    // page already references their immutable school-unique key and version.
+    // The row UI and canonical RPC independently prevent changing versions.
+    if (termEnd) {
+      const historicVersions = new Set((approvedResult.data ?? []).map(
+        (row) => JSON.stringify([row.grading_scale_key, row.grading_scale_version]),
+      ));
+      for (const scale of scales) {
+        if (scale.status === "active" || scale.effective_from > termEnd ||
+          (scale.effective_to != null && scale.effective_to < termEnd) ||
+          !historicVersions.has(JSON.stringify([scale.scale_key, scale.version]))) continue;
+        scaleOptions.push({
+          value: scale.id, label: scale.display_name,
+          helper: `${scale.scale_key} · ${scale.version} · historical term version`,
+          scaleKey: scale.scale_key, scaleVersion: scale.version, historical: true,
+        });
+      }
+    }
     // Mirror the canonical RPC's evidence predicate for the *UI affordance*.
     // The RPC still owns the locked/atomic replacement decision and can deny
     // access if approval or correction state changes after this read.
@@ -224,6 +262,8 @@ export async function getOfficialResultApprovalWorkspace(params: {
         registered: registered.has(row.id),
         approved: Boolean(official),
         replacementEligible: Boolean(official) && corrected.has(row.id),
+        gradingScaleKey: official?.grading_scale_key ?? null,
+        gradingScaleVersion: official?.grading_scale_version ?? null,
         resultValue: official?.result_value == null ? null : Number(official.result_value),
         symbol: official?.symbol ?? null,
       };
@@ -232,9 +272,9 @@ export async function getOfficialResultApprovalWorkspace(params: {
 
   return {
     academicYear, offerings: offeringOptions, schemes: schemeOptions, classes: classOptions,
-    scales: scaleOptions, offeringId, schemeId, classId, termNumber,
+    scales: scaleOptions, offeringId, schemeId, classId, termNumber, termEnd,
     rows, page, pageCount: Math.max(1, Math.ceil(total / pageSize)), total,
-    required, verifiedRequired, ready: required > 0 && required === verifiedRequired && !pendingContributing,
+    required, verifiedRequired, ready: required > 0 && required === verifiedRequired && !pendingContributing && Boolean(termEnd),
   };
 }
 
@@ -267,7 +307,7 @@ export async function approveOfficialResult(
   const scheme = schemeResult.data;
   const enrolment = enrolmentResult.data;
   const scale = scaleResult.data;
-  if (!scheme || !enrolment || !scale || scheme.status !== "active" || scale.status !== "active"
+  if (!scheme || !enrolment || !scale || scheme.status !== "active" || !["active", "superseded", "archived"].includes(scale.status)
     || enrolment.status !== "current" || enrolment.academic_year !== getNamibiaCalendarYear()
     || scheme.academic_year !== enrolment.academic_year || !(scheme.term_numbers ?? []).includes(termNumber)) {
     return { message: "Scheme, term, learner or grading scale is not active in this school and year." };
@@ -297,6 +337,18 @@ export async function approveOfficialResult(
     p_grading_scale_id: gradingScaleId,
   });
   if (error) {
+    if (error.message.includes("Configure the academic term end date")) {
+      return { message: "Configure the school academic term end date before approving official results." };
+    }
+    if (error.message.includes("Corrected official result must reuse")) {
+      return { message: "Corrections must use the original official grading scale version; changing grading policy requires a separate approved process." };
+    }
+    if (error.message.includes("Initial official approval requires")) {
+      return { message: "New official results require an active grading scale." };
+    }
+    if (error.message.includes("The selected grading scale does not cover")) {
+      return { message: "The selected grading scale is not effective on this academic term's end date." };
+    }
     if (error.message.includes("All required contributing assessments")) return { message: "Required assessments must be verified before official approval." };
     if (error.message.includes("incomplete")) return { message: "This learner's assessment result is incomplete." };
     if (error.message.includes("grading band")) return { message: "The selected grading scale has no band for the calculated result." };

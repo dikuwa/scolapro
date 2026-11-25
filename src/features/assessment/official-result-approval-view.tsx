@@ -8,15 +8,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { Picker } from "@/components/ui/picker";
-import { approveOfficialResult, type OfficialResultApprovalRow, type OfficialResultApprovalWorkspace, type OfficialResultApprovalState } from "@/features/assessment/server/official-result-approval";
+import { approveOfficialResult, type ApprovalOption, type OfficialResultApprovalRow, type OfficialResultApprovalWorkspace, type OfficialResultApprovalState } from "@/features/assessment/server/official-result-approval";
 
 const initialState: OfficialResultApprovalState = { message: "" };
 
-function ApprovalRow({ row, schemeId, termNumber, scaleId, verified, confirmed }: {
+function ApprovalRow({ row, schemeId, termNumber, scaleId, selectedScale, verified, confirmed }: {
   row: OfficialResultApprovalRow;
   schemeId: string;
   termNumber: number;
   scaleId: string;
+  selectedScale: ApprovalOption | undefined;
   verified: boolean;
   confirmed: boolean;
 }) {
@@ -34,12 +35,19 @@ function ApprovalRow({ row, schemeId, termNumber, scaleId, verified, confirmed }
 
   // Already-official rows are not silently overwritten: the canonical RPC
   // accepts a reissue only with authorized corrected marks and re-verification.
-  const allowed = row.registered && (!row.approved || row.replacementEligible) && verified && Boolean(scaleId) && confirmed;
+  const compatibleScale = selectedScale && (row.approved
+    ? selectedScale.scaleKey === row.gradingScaleKey && selectedScale.scaleVersion === row.gradingScaleVersion
+    : !selectedScale.historical);
+  const allowed = row.registered && (!row.approved || row.replacementEligible) && verified
+    && Boolean(scaleId) && Boolean(compatibleScale) && confirmed;
   return <article className="grid gap-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
     <div className="min-w-0">
       <p className="truncate text-sm font-semibold text-foreground">{row.name}</p>
       <p className="mt-1 text-xs text-muted-foreground">{row.admissionNumber ?? "No admission number"}</p>
       <p className="mt-1.5 text-xs">
+        {row.approved && row.replacementEligible && selectedScale && !compatibleScale
+          ? <span className="mt-1 block text-xs text-warning">Choose the original official grading scale version to reapprove a corrected result.</span>
+          : null}
         {row.approved && !row.replacementEligible
           ? <span className="mt-1 block text-xs text-muted-foreground">Reapproval requires an authorized corrected mark and completed re-verification.</span>
           : null}
@@ -123,7 +131,10 @@ export function OfficialResultApprovalView({ workspace }: { workspace: OfficialR
           <Picker label="Grading scale and version" value={scaleId} onChange={(value) => { setScaleId(value); setConfirmed(false); }} options={workspace.scales} placeholder="Select configured grading scale" searchable />
           <CheckboxField label="I confirm these verified results may become official and locked" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} disabled={!scaleId || !workspace.ready} />
         </div>
-        {!workspace.scales.length ? <p className="mt-3 text-xs text-warning">No active grading scale is configured for this school. <Link href="/assessment/grading-scales" className="font-semibold underline underline-offset-2">Configure school grading scales</Link> before approving results.</p> : null}
+        {workspace.scales.some((scale) => scale.historical) ? <p className="mt-3 text-xs text-muted-foreground">Historical grading versions are available only for authorized corrections to results originally approved using that same version. They cannot be used for new approvals.</p> : null}
+        {!workspace.termEnd ? <p className="mt-3 text-xs text-warning">The official term-end date is not configured. <Link href="/school/setup" className="font-semibold underline underline-offset-2">Configure the school academic calendar</Link> before approving subject results.</p>
+          : !workspace.scales.some((scale) => !scale.historical) ? <p className="mt-3 text-xs text-warning">No active grading scale covers the configured term end for new approvals ({workspace.termEnd}). <Link href="/assessment/grading-scales" className="font-semibold underline underline-offset-2">Configure a school grading scale</Link> with the correct effective period.</p>
+            : <p className="mt-3 text-xs text-muted-foreground">The selected grading scale must cover the academic term end ({workspace.termEnd}). A later correction uses the same term date, not the date of approval.</p>}
         <p className="mt-3 text-xs text-muted-foreground">The server independently checks scheme, learner, school, term, grading bands, completeness and correction authority. Approval never publishes a report card automatically.</p>
       </section>
 
@@ -132,7 +143,7 @@ export function OfficialResultApprovalView({ workspace }: { workspace: OfficialR
           <div><h2 className="scolapro-section-title">Learners</h2><p className="scolapro-section-description">Current class enrolments · {workspace.total} total · Page {workspace.page} of {workspace.pageCount}</p></div>
           <Link href="/reports/report-cards" className="text-xs font-semibold text-brand-strong">Open report cards</Link>
         </div>
-        {workspace.rows.length ? <div className="grid gap-2">{workspace.rows.map((row) => <ApprovalRow key={row.enrolmentId} row={row} schemeId={workspace.schemeId} termNumber={workspace.termNumber} scaleId={scaleId} verified={workspace.ready} confirmed={confirmed} />)}</div>
+        {workspace.rows.length ? <div className="grid gap-2">{workspace.rows.map((row) => <ApprovalRow key={row.enrolmentId} row={row} schemeId={workspace.schemeId} termNumber={workspace.termNumber} scaleId={scaleId} selectedScale={workspace.scales.find((scale) => scale.value === scaleId)} verified={workspace.ready} confirmed={confirmed} />)}</div>
           : <p className="rounded-[var(--radius-sm)] bg-surface-muted p-5 text-sm text-muted-foreground">No current learners in this class for the selected school year.</p>}
         {workspace.pageCount > 1 ? <div className="mt-4 flex items-center justify-end gap-2">
           <Link aria-disabled={workspace.page <= 1} href={pageHref(Math.max(1, workspace.page - 1))} className={`inline-flex min-h-9 items-center gap-1 rounded-[var(--radius-xs)] px-3 text-xs font-medium ${workspace.page <= 1 ? "pointer-events-none opacity-40" : "bg-surface-muted"}`}><ChevronLeft className="size-4" />Previous</Link>
