@@ -35,11 +35,33 @@ test("server checks school, year, scheme, grade and active grading scale", () =>
 });
 
 test("readiness checks required components, verification and corrections", () => {
-  assert.ok(server.includes("row.required && row.contributes_to_report"));
+  assert.ok(server.includes("row.contributes_to_report && (row.term_numbers ?? [1, 2, 3]).includes(termNumber)"));
+  assert.ok(server.includes("row.required && contributing.has(row.id)"));
   assert.ok(server.includes('["verified", "locked"].includes(row.status)'));
   assert.ok(server.includes("!row.correction_pending"));
-  assert.ok(server.includes("ready: required > 0 && required === verifiedRequired"));
-  assert.ok(view.includes("!row.approved && verified && Boolean(scaleId) && confirmed"));
+  assert.ok(server.includes("ready: required > 0 && required === verifiedRequired && !pendingContributing"));
+  assert.ok(server.includes("contributing.has(row.assessment_component_id) && row.correction_pending"));
+  assert.ok(server.includes("&& !pendingContributing)"));
+  assert.ok(server.includes("All contributing mark corrections, including optional components"));
+
+  assert.ok(view.includes("row.registered && (!row.approved || row.replacementEligible) && verified && Boolean(scaleId) && confirmed"));
+  assert.ok(server.includes("replacementEligible: Boolean(official) && corrected.has(row.id)"));
+  assert.ok(server.includes('not("correction_authorization_id", "is", null)'));
+  assert.ok(!server.includes('db.from("assessment_mark_reopen_authorizations")'));
+  assert.ok(server.includes("mark.recorded_at"));
+
+  assert.ok(view.includes("Reapprove corrected"));
+  assert.ok(server.includes("Existing official result requires"));
+  assert.ok(!view.includes("row.registered && !row.approved"));
+
+});
+
+test("reapproval eligibility uses stable bounded pagination without losing proven corrections", () => {
+  assert.ok(server.includes("for (let offset = 0; corrected.size < candidateEnrolments.length; offset += pageSize)"));
+  assert.ok(server.includes('.in("enrolment_id", candidateEnrolments)'));
+  assert.ok(server.includes(".range(offset, offset + pageSize - 1)"));
+  assert.ok(server.includes("corrected.add(mark.enrolment_id)"));
+  assert.ok(!server.includes("(marks ?? []).length < 1000"));
 });
 
 test("grading scale and explicit confirmation are user-selected, never defaulted", () => {
