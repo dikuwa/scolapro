@@ -22,7 +22,7 @@ export type AdmissionIntakeJob = {
 
 export async function getAdmissionsIntakeWorkspace(schoolId: string, academicYear: number, selectedJobId?: string) {
   const supabase = await createSupabaseServerClient();
-  const [jobsResult, applicationsResult, gradesResult] = await Promise.all([
+  const [jobsResult, applicationsResult] = await Promise.all([
     supabase
       .from("document_intake_jobs")
       .select("id,academic_year,source_kind,document_type,status,extraction_status,candidate_payload,field_confidence,match_status,match_candidates,review_decision,selected_learner_id,committed_entity_id,created_at")
@@ -36,19 +36,23 @@ export async function getAdmissionsIntakeWorkspace(schoolId: string, academicYea
       .eq("school_id", schoolId)
       .order("submitted_at", { ascending: false })
       .limit(40),
-    supabase
-      .from("grades")
-      .select("id,grade_code,display_name")
-      .eq("school_id", schoolId)
-      .eq("academic_year", academicYear)
-      .order("display_name"),
   ]);
-  if (jobsResult.error || applicationsResult.error || gradesResult.error) {
+  if (jobsResult.error || applicationsResult.error) {
     throw new Error("Unable to load admissions workspace.");
   }
 
   const jobs = (jobsResult.data ?? []) as AdmissionIntakeJob[];
+  // Only a job resolved from this school's bounded intake result may supply
+  // the academic-year context. A guessed job ID cannot change grade scope.
   const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? null;
+  const reviewAcademicYear = selectedJob?.academic_year ?? academicYear;
+  const gradesResult = await supabase
+    .from("grades")
+    .select("id,grade_code,display_name")
+    .eq("school_id", schoolId)
+    .eq("academic_year", reviewAcademicYear)
+    .order("display_name");
+  if (gradesResult.error) throw new Error("Unable to load grades for the selected admission year.");
   let artifacts: Array<{ id: string; artifact_kind: string; storage_path: string; file_name: string; mime_type: string; file_size_bytes: number }> = [];
   let signedSourceUrl: string | null = null;
 
@@ -70,6 +74,7 @@ export async function getAdmissionsIntakeWorkspace(schoolId: string, academicYea
   return {
     jobs,
     selectedJob,
+    reviewAcademicYear,
     artifacts,
     signedSourceUrl,
     applications: applicationsResult.data ?? [],
