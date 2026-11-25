@@ -172,7 +172,7 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
   const progressionIds = (progressionsResult.data ?? []).map((row) => str(row.id)).filter(Boolean);
   const publicationsResult = progressionIds.length
     ? await supabase.from("year_end_progression_publications")
-      .select("id,progression_id,destination_academic_year,destination_grade_code,destination_enrolment_id,published_at")
+      .select("id,progression_id,destination_academic_year,destination_grade_id,destination_enrolment_id,published_at")
       .in("progression_id", progressionIds)
     : { data: [], error: null };
   // Publications are a read-only receipt lookup; losing it must not hide the
@@ -227,7 +227,8 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
         ? {
           id: str(publication.id),
           destinationAcademicYear: Number(publication.destination_academic_year),
-          destinationGradeCode: strOrNull(publication.destination_grade_code),
+          // Publications store the destination grade identity, not its code.
+          destinationGradeCode: strOrNull(gradeById.get(str(publication.destination_grade_id))?.grade_code),
           destinationEnrolmentId: str(publication.destination_enrolment_id),
           publishedAt: str(publication.published_at),
         }
