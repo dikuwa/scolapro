@@ -32,6 +32,10 @@ test.describe("admission intake academic-year context (#1322)", () => {
       school_id: DEMO.schoolId,
       academic_year: 2025,
       intake_type: "admission",
+      // The workspace loads only the newest jobs for the school. Refresh the
+      // timestamp on every run so this historical fixture stays discoverable
+      // when other test runs have queued newer intake jobs.
+      created_at: new Date().toISOString(),
       document_type: "application_form",
       source_kind: "online_form",
       status: "staged",

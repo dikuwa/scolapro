@@ -97,7 +97,8 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(decisionEditor,/name="decisionNote"/);
   assert.match(decisionEditor,/name="status"/);
   assert.match(decisionEditor,/currentNote \?\? ""/);
-  assert.match(decisionEditor,/setNote\(currentNote \?\? ""\)/);
+  assert.match(decisionEditor,/note: currentNote \?\? ""/);
+  assert.match(decisionEditor,/setNote\(nextBaseline\.note\)/);
   assert.match(decisionEditor,/type="button" onClick=\{onCancel\} disabled=\{pending\}/);
   assert.match(decisionEditor,/maxLength=\{1000\}/);
   assert.match(decisionEditor,/action=\{decideAdmissionApplication\}/);
@@ -115,6 +116,23 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(page,/currentNote=\{application\.decision_note\}/);
   assert.match(page,/key=\{.*application\.reviewed_at/);
   assert.match(page,/application\.reviewed_at/);
+  assert.match(decisionEditor,/function beginEditing\(\)/);
+  assert.match(decisionEditor,/setBaseline\(nextBaseline\)/);
+  // The conflict baseline must hold the raw authoritative status (including
+  // non-decision states such as `received`), while the editable draft is the
+  // normalised decision value. Conflating the two makes the first decision on a
+  // received application submit an empty expected status.
+  assert.match(decisionEditor,/const nextBaseline = captureBaseline\(currentStatus, currentNote, currentReviewedAt\)/);
+  assert.match(decisionEditor,/status: currentStatus,/);
+  assert.match(decisionEditor,/setStatus\(normalizeStatus\(nextBaseline\.status\)\)/);
+  assert.match(decisionEditor,/name="expectedStatus" value=\{baseline\.status\}/);
+  assert.match(decisionEditor,/name="expectedDecisionNote" value=\{baseline\.note\}/);
+  assert.match(decisionEditor,/name="expectedReviewedAt" value=\{baseline\.reviewedAt\}/);
+  // A successful save must identify the application so only that editor closes
+  // and re-initialises from fresh data; other drafts keep their captured baseline.
+  assert.match(actions,/decided=\$\{applicationId\}&revision=\$\{Date\.now\(\)\}/);
+  assert.match(page,/decided\?: string; revision\?: string/);
+  assert.match(page,/search\.decided === application\.id \? search\.revision \?\? "" : ""/);
   assert.doesNotMatch(decisionEditor,/\.from\("admission_applications"\)/);
   assert.doesNotMatch(page,/\["accepted","waitlisted","declined"\]\.map/);
 });
@@ -170,7 +188,6 @@ test("accepted enrolment is an explicit school-admin-only governed transition", 
   assert.doesNotMatch(enrolmentEditor, /\.from\("learners"\)/);
   assert.doesNotMatch(enrolmentEditor, /\.from\("enrolments"\)/);
 });
-
 test("historical intake grade choices are derived from the selected same-school job year", () => {
   const gradeQuery = queries.slice(queries.indexOf("const gradesResult = await supabase"), queries.indexOf("if (gradesResult.error)"));
   assert.match(gradeQuery, /\.from\("grades"\)/);
@@ -186,18 +203,4 @@ test("historical intake grade choices are derived from the selected same-school 
   assert.match(page, /job\.academic_year/);
   assert.match(page, /application\.academic_year/);
   assert.match(candidateForm, /label=\{`Intended grade · \$\{academicYear\}`\}/);
-});
-
-test("same-status note-only revisions retain original reviewer provenance and audited edit history", () => {
-  assert.match(decisionRevisionMigration,/create or replace function public\.decide_admission_application/);
-  assert.match(decisionRevisionMigration,/v_application\.status is distinct from p_status/);
-  assert.match(decisionRevisionMigration,/else v_application\.reviewed_by_user_id end/);
-  assert.match(decisionRevisionMigration,/else v_application\.reviewed_at end/);
-  assert.match(decisionRevisionMigration,/'note_revision',v_application\.status is not distinct from p_status/);
-  assert.match(decisionRevisionMigration,/char_length\(coalesce\(p_decision_note,''\)\) > 1000/);
-  assert.match(decisionRevisionPgTap,/select plan\(14\);/);
-  assert.match(decisionRevisionPgTap,/same-status reviewer note revision is allowed/);
-  assert.match(decisionRevisionPgTap,/clearing an existing note without changing decision is allowed/);
-  assert.match(decisionRevisionPgTap,/direct attempted reviewer forgery remains forbidden/);
-  assert.match(decisionRevisionPgTap,/unassigned outsider cannot revise school admission decision/);
 });

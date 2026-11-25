@@ -8,6 +8,7 @@ const APPLICATION_ID = "f1324000-0000-4000-8000-000000000001";
 const APPLICANT_SURNAME = "DecisionNotesSynthetic";
 const firstNote = "Reviewed evidence: awaiting document follow-up";
 const amendedNote = "Placement accepted after reviewed documents";
+const concurrentNote = "Concurrent reviewer retained this newer note";
 
 function localService() {
   const local = localSupabaseStatus({ projectRoot: process.cwd() });
@@ -16,21 +17,33 @@ function localService() {
   });
 }
 
+async function resetDecisionFixture(service: ReturnType<typeof localService>) {
+  // Provenance is server-managed, so reset the synthetic application by
+  // replacing it rather than clearing reviewer identity/timestamp in place.
+  // This keeps repeated local runs deterministic regardless of prior state.
+  const { error: deleteError } = await service
+    .from("admission_applications")
+    .delete()
+    .eq("id", APPLICATION_ID);
+  expect(deleteError).toBeNull();
+  const { error } = await service.from("admission_applications").insert({
+    id: APPLICATION_ID,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    applicant_first_names: "E2E Admission",
+    applicant_surname: APPLICANT_SURNAME,
+    source: "school",
+    status: "received",
+    decision_note: null,
+    submitted_at: new Date().toISOString(),
+  });
+  expect(error).toBeNull();
+}
+
 test.describe("admissions decision note integrity (#1324)", () => {
   test.beforeAll(async () => {
-    const { error } = await localService().from("admission_applications").upsert({
-      id: APPLICATION_ID,
-      tenant_id: DEMO.tenantId,
-      school_id: DEMO.schoolId,
-      academic_year: 2026,
-      applicant_first_names: "E2E Admission",
-      applicant_surname: APPLICANT_SURNAME,
-      source: "school",
-      status: "received",
-      decision_note: null,
-      submitted_at: new Date().toISOString(),
-    }, { onConflict: "id" });
-    expect(error).toBeNull();
+    await resetDecisionFixture(localService());
   });
 
   test("manager can record, retain, revise and clear an audited decision note; Cancel never saves", async ({ page }) => {
@@ -89,6 +102,49 @@ test.describe("admissions decision note integrity (#1324)", () => {
     expect(error).toBeNull();
     expect(saved?.status).toBe("accepted");
     expect(saved?.decision_note).toBeNull();
+  });
+
+  test("stale editor cannot overwrite a newer note recorded by another reviewer", async ({ page }) => {
+    const service = localService();
+    await resetDecisionFixture(service);
+    await signIn(page, "admin");
+    await page.goto("/school/admissions");
+    const row = page.getByTestId(`admission-application-${APPLICATION_ID}`);
+    await expect(row).toBeVisible();
+
+    await row.getByRole("button", { name: "Review decision" }).click();
+    await row.getByRole("button", { name: "Admission decision" }).click();
+    await row.getByRole("option", { name: "Waitlisted" }).click();
+    await row.getByRole("textbox", { name: "Reviewer note (optional)" }).fill(firstNote);
+    await row.getByRole("button", { name: "Save decision" }).click();
+    await expect(page).toHaveURL(/success=Admission\+decision\+saved/);
+
+    // An editor opens against the current decision, then another reviewer
+    // records a newer same-status note before it is submitted. Same-status note
+    // revisions preserve the original review timestamp, so the open editor does
+    // not re-key: its captured baseline must still reject the stale write.
+    await row.getByRole("button", { name: "Edit decision" }).click();
+    await row.getByRole("textbox", { name: "Reviewer note (optional)" }).fill("Stale draft from the first reviewer");
+    const { error } = await service
+      .from("admission_applications")
+      .update({ decision_note: concurrentNote })
+      .eq("id", APPLICATION_ID);
+    expect(error).toBeNull();
+
+    await row.getByRole("button", { name: "Save decision" }).click();
+    await expect(page.getByText("Admission decision changed. Reload before saving")).toBeVisible();
+
+    const { data: saved } = await service
+      .from("admission_applications")
+      .select("status,decision_note")
+      .eq("id", APPLICATION_ID)
+      .single();
+    expect(saved?.status).toBe("waitlisted");
+    expect(saved?.decision_note).toBe(concurrentNote);
+
+    await page.reload();
+    await expect(row.getByText(concurrentNote)).toBeVisible();
+    await expect(row.getByRole("button", { name: "Edit decision" })).toBeVisible();
   });
 
   test("other school's manager cannot see decision notes or mutate a foreign application", async ({ page }) => {
