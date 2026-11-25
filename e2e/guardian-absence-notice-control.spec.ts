@@ -16,6 +16,78 @@ function serviceClient() {
   });
 }
 
+const GUARDIAN_ACCOUNT = Object.freeze({
+  userId: "e2e00000-0000-4000-8000-0000000000c1",
+  email: "e2e-absence-guardian@scolapro.test",
+  password: process.env.SCOLAPRO_E2E_PASSWORD ?? "",
+  guardianProfileId: "e2e10000-0000-4000-8000-0000000000c1",
+  learnerGuardianId: "e2e20000-0000-4000-8000-0000000000c1",
+  guardianLinkId: "e2e30000-0000-4000-8000-0000000000c1",
+});
+
+/**
+ * This spec seeds its own guardian so it never depends on QA-only fixtures.
+ * The account is local-only and uses the shared synthetic password.
+ */
+async function ensureGuardian(service: ReturnType<typeof serviceClient>) {
+  const existing = await service.auth.admin.getUserById(GUARDIAN_ACCOUNT.userId);
+  const authResult = existing.data?.user
+    ? await service.auth.admin.updateUserById(GUARDIAN_ACCOUNT.userId, {
+      email: GUARDIAN_ACCOUNT.email,
+      password: GUARDIAN_ACCOUNT.password,
+      email_confirm: true,
+    })
+    : await service.auth.admin.createUser({
+      id: GUARDIAN_ACCOUNT.userId,
+      email: GUARDIAN_ACCOUNT.email,
+      password: GUARDIAN_ACCOUNT.password,
+      email_confirm: true,
+    });
+  expect(authResult.error).toBeNull();
+
+  const { error: profileError } = await service.from("user_profiles").upsert({
+    user_id: GUARDIAN_ACCOUNT.userId,
+    display_name: "E2E Absence Guardian",
+    must_change_password: false,
+  }, { onConflict: "user_id" });
+  expect(profileError).toBeNull();
+
+  const { error: guardianProfileError } = await service.from("guardian_profiles").upsert({
+    id: GUARDIAN_ACCOUNT.guardianProfileId,
+    tenant_id: DEMO.tenantId,
+    first_names: "E2E",
+    surname: "Absence Guardian",
+  }, { onConflict: "id" });
+  expect(guardianProfileError).toBeNull();
+
+  const { error: relationshipError } = await service.from("learner_guardians").upsert({
+    id: GUARDIAN_ACCOUNT.learnerGuardianId,
+    tenant_id: DEMO.tenantId,
+    learner_id: DEMO.registerBoyLearnerId,
+    guardian_id: GUARDIAN_ACCOUNT.guardianProfileId,
+    priority: 1,
+    effective_from: "2020-01-01",
+  }, { onConflict: "id" });
+  expect(relationshipError).toBeNull();
+
+  const { error: linkError } = await service.from("guardian_user_links").upsert({
+    id: GUARDIAN_ACCOUNT.guardianLinkId,
+    tenant_id: DEMO.tenantId,
+    guardian_id: GUARDIAN_ACCOUNT.guardianProfileId,
+    user_id: GUARDIAN_ACCOUNT.userId,
+    linked_by_user_id: SYNTHETIC_ACCOUNTS.admin.userId,
+  }, { onConflict: "id" });
+  expect(linkError).toBeNull();
+}
+
+async function signInGuardian(page: import("@playwright/test").Page) {
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.locator("#email").fill(GUARDIAN_ACCOUNT.email);
+  await page.locator("#password").fill(GUARDIAN_ACCOUNT.password);
+  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
+}
+
 async function resetNotices(service: ReturnType<typeof serviceClient>) {
   const { error } = await service.from("guardian_absence_notices").delete().eq("learner_id", DEMO.registerBoyLearnerId);
   expect(error).toBeNull();
@@ -29,7 +101,8 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   const noteText = `E2E guardian acceptance ${run}`;
 
   // Guardian submits with a supporting document.
-  await signIn(page, "guardian");
+  await ensureGuardian(service);
+  await signInGuardian(page);
   await page.goto("/parent");
   await expect(page.getByRole("heading", { name: "Absence notice history" })).toBeVisible();
   await page.getByRole("button", { name: "Reason", exact: true }).click();
@@ -105,7 +178,8 @@ test("guardian withdraws a notice and the school can no longer review it", async
   const run = crypto.randomUUID().slice(0, 8);
   const noteText = `E2E withdrawal ${run}`;
 
-  await signIn(page, "guardian");
+  await ensureGuardian(service);
+  await signInGuardian(page);
   await page.goto("/parent");
   await page.locator("#absence-message").fill(noteText);
   await page.getByRole("button", { name: "Submit absence notice" }).click();
@@ -138,13 +212,19 @@ test("review queue paginates over the date-overlapping set", async ({ page }) =>
   const service = serviceClient();
   await resetNotices(service);
 
-  const guardianUserId = SYNTHETIC_ACCOUNTS.guardian.userId;
+  await ensureGuardian(service);
+  const guardianUserId = GUARDIAN_ACCOUNT.userId;
   const { data: link, error: linkError } = await service.from("guardian_user_links")
     .select("guardian_id").eq("user_id", guardianUserId).single();
   expect(linkError).toBeNull();
   const { data: enrolment, error: enrolmentError } = await service.from("enrolments")
     .select("id").eq("learner_id", DEMO.registerBoyLearnerId).eq("status", "current").single();
   expect(enrolmentError).toBeNull();
+  const guardianId = link?.guardian_id;
+  const enrolmentId = enrolment?.id;
+  expect(guardianId).toBeTruthy();
+  expect(enrolmentId).toBeTruthy();
+  if (!guardianId || !enrolmentId) throw new Error("Guardian pagination fixture is incomplete.");
 
   const today = new Date();
   const rows = Array.from({ length: 55 }, (_, index) => {
@@ -153,8 +233,8 @@ test("review queue paginates over the date-overlapping set", async ({ page }) =>
       tenant_id: DEMO.tenantId,
       school_id: DEMO.schoolId,
       learner_id: DEMO.registerBoyLearnerId,
-      enrolment_id: enrolment?.id,
-      guardian_id: link?.guardian_id,
+      enrolment_id: enrolmentId,
+      guardian_id: guardianId,
       submitted_by_user_id: guardianUserId,
       absence_from: date,
       absence_to: date,
@@ -181,7 +261,8 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
   test.setTimeout(180_000);
   const service = serviceClient();
   await resetNotices(service);
-  await signIn(page, "guardian");
+  await ensureGuardian(service);
+  await signInGuardian(page);
   await page.goto("/parent");
   await page.locator("#absence-message").fill(`Visual acceptance ${crypto.randomUUID().slice(0, 6)}`);
   await page.getByRole("button", { name: "Submit absence notice" }).click();
