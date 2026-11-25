@@ -160,6 +160,10 @@ migration.
   applicable.
 - Local: source-contract tests per lane, `tsc --noEmit`, `eslint` on changed files,
   `validate:navigation`, and `next build` for the progression workspace.
+- One authenticated-E2E attempt on the progression branch failed
+  `e2e/destructive-confirmation-replay.spec.ts` (synthetic DOM guard dialog did not open).
+  A rerun of the **same head** passed with no code change; treat as runner flake, not a
+  code defect.
 - NOT verified: browser/device visual acceptance at 390/768/1440 light/dark for the new
   screens; populated real-data progression; evidence download against live storage; the
   guardian notification copy in a real inbox UI; production migration execution (out of
