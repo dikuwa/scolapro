@@ -64,14 +64,13 @@ test("school leadership completes generate, override, approve, lock and publish"
   const learnerId = crypto.randomUUID();
   const enrolmentId = crypto.randomUUID();
   const ruleSetId = crypto.randomUUID();
-  const learnerName = `Progression ${run.toUpperCase()}`;
   const adminUserId = SYNTHETIC_ACCOUNTS.admin.userId;
 
   const { error: learnerError } = await service.from("learners").insert({
     id: learnerId,
     tenant_id: DEMO.tenantId,
     first_names: "Progression",
-    surname: run,
+    surname: run.toUpperCase(),
   });
   expect(learnerError).toBeNull();
 
