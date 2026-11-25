@@ -5,16 +5,17 @@ import { BookCopy, RotateCcw, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
+import { BooklistRequirements } from "@/features/library/booklist-requirements";
 import { Picker } from "@/components/ui/picker";
 import { bulkIssueLibraryResources, bulkReturnLibraryResources, type LibraryActionState } from "@/features/library/server/actions";
-import type { LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibraryTitle } from "@/features/library/server/queries";
+import type { LibraryBooklistItem, LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibraryTitle } from "@/features/library/server/queries";
 
 const initialState: LibraryActionState = {};
 const returnConditions = ["new", "good", "fair", "poor", "damaged", "lost"].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }));
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function copyIdentity(copy: LibraryCopy) { return copy.barcode || copy.assetNumber || `Copy ${copy.id.slice(0, 8)}`; }
 
-export function ClassOperations({ schoolId, today, grades, classes, learners, titles, copies, loans }: { schoolId: string; today: string; grades: LibraryGrade[]; classes: LibraryClass[]; learners: LibraryLearner[]; titles: LibraryTitle[]; copies: LibraryCopy[]; loans: LibraryLoan[] }) {
+export function ClassOperations({ schoolId, today, grades, classes, learners, titles, booklists, copies, loans }: { schoolId: string; today: string; grades: LibraryGrade[]; classes: LibraryClass[]; learners: LibraryLearner[]; titles: LibraryTitle[]; booklists: LibraryBooklistItem[]; copies: LibraryCopy[]; loans: LibraryLoan[] }) {
   const [gradeId, setGradeId] = useState("");
   const [classId, setClassId] = useState("");
   const [titleId, setTitleId] = useState("");
@@ -81,7 +82,7 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
       {gradeId ? <div className="mt-4 grid overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-surface sm:grid-cols-3 xl:grid-cols-6">
         {[{ label: "Learners", value: selectedGradeLearners.length }, { label: "Stock", value: gradeStock.length }, { label: "Issued", value: gradeActive.length }, { label: "Overdue", value: gradeOverdue.length }, { label: "Lost", value: gradeLost.length }, { label: "Damaged", value: gradeDamaged.length }].map((item, index) => <div key={item.label} className={`px-3 py-3 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}><p className="text-[0.68rem] font-medium text-muted-foreground">{item.label}</p><p className="mt-1 text-lg font-semibold">{item.value}</p></div>)}
       </div> : null}
-      {gradeId ? <p className="mt-2 text-[0.68rem] text-muted-foreground">No configured allocation requirement/booklist exists in the current model, so “required copies” and shortage totals are not fabricated.</p> : null}
+
 
       {classId ? <div className="mt-4 overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle"><table className="min-w-full text-left text-xs"><thead className="bg-surface-muted text-muted-foreground"><tr><th className="px-3 py-2.5 font-semibold">Learner</th><th className="px-3 py-2.5 font-semibold">Current allocation</th><th className="px-3 py-2.5 font-semibold">Overdue</th><th className="px-3 py-2.5 font-semibold">Returned / lost / damaged history</th></tr></thead><tbody className="divide-y divide-border-subtle">{classLearners.map((learner) => {
         const current = activeLoans.filter((loan) => loan.borrowerId === learner.id && (!titleId || copyMap.get(loan.copyId)?.titleId === titleId));
@@ -89,6 +90,8 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
         return <tr key={learner.id}><td className="px-3 py-3 align-top"><p className="font-semibold text-foreground">{learner.name}</p><p className="mt-0.5 text-muted-foreground">{learner.admissionNumber ?? "No admission number"}</p></td><td className="px-3 py-3 align-top">{current.length ? current.map((loan) => { const copy = copyMap.get(loan.copyId); const title = copy ? titleMap.get(copy.titleId) : null; return <p key={loan.id}>{title?.title ?? "Resource"} · {copy ? copyIdentity(copy) : "copy"}</p>; }) : <span className="text-muted-foreground">{titleId ? "Missing / unallocated" : "No active allocation"}</span>}</td><td className="px-3 py-3 align-top">{current.some((loan) => loan.status === "overdue" || Boolean(loan.dueOn && loan.dueOn < today)) ? <span className="font-semibold text-[color:var(--warning)]">Overdue</span> : "—"}</td><td className="px-3 py-3 align-top text-muted-foreground">{history.length ? history.slice(0, 3).map((loan) => <p key={loan.id}>{pretty(loan.status)}{loan.returnedCondition ? ` · ${pretty(loan.returnedCondition)}` : ""}</p>) : "—"}</td></tr>;
       })}</tbody></table></div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-sm text-muted-foreground">Choose a grade and class to review learner allocations.</div>}
     </section>
+
+    <BooklistRequirements key={`${schoolId}:${gradeId}`} schoolId={schoolId} gradeId={gradeId} grades={grades} titles={titles} booklists={booklists} learners={learners} copies={copies} loans={loans} />
 
     {classId && titleId ? <section className="grid gap-5 xl:grid-cols-2">
       <form action={issueAction} className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
