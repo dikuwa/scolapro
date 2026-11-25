@@ -178,10 +178,14 @@ export async function decideAdmissionApplication(formData: FormData) {
     p_expected_reviewed_at: expectedReviewedAt || null,
   });
   revalidatePath("/school/admissions");
+  // The redirect identifies the saved application so only that editor closes and
+  // re-initialises from fresh server data. Other in-progress editors keep their
+  // captured baseline, so a background revalidation can never silently replace
+  // an unsaved draft or allow it to overwrite a newer decision.
   const outcome = error?.message?.includes("Admission decision changed; reload")
     ? "?error=Admission+decision+changed.+Reload+before+saving"
     : error ? "?error=Admission+decision+could+not+be+saved"
-    : `?success=Admission+decision+saved&revision=${Date.now()}`;
+    : `?success=Admission+decision+saved&decided=${applicationId}&revision=${Date.now()}`;
   redirect(`/school/admissions${outcome}`);
 }
 

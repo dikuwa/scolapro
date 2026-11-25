@@ -23,17 +23,28 @@ export function AdmissionDecisionEditor({
   currentReviewedAt: string | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [status, setStatus] = useState(decisions.some((item) => item.value === currentStatus) ? currentStatus : "");
+  // The authoritative server state captured the moment editing begins. It is
+  // never refreshed from props while editing, so a background revalidation
+  // cannot silently re-point this editor at another reviewer's newer decision:
+  // the server compares these values and rejects the stale write instead.
+  const [baseline, setBaseline] = useState(() => captureBaseline(currentStatus, currentNote, currentReviewedAt));
+  const [status, setStatus] = useState(() => normalizeStatus(currentStatus));
   const [note, setNote] = useState(currentNote ?? "");
 
   function reset() {
     setEditing(false);
-    setStatus(decisions.some((item) => item.value === currentStatus) ? currentStatus : "");
-    setNote(currentNote ?? "");
+  }
+
+  function beginEditing() {
+    const nextBaseline = captureBaseline(currentStatus, currentNote, currentReviewedAt);
+    setBaseline(nextBaseline);
+    setStatus(normalizeStatus(nextBaseline.status));
+    setNote(nextBaseline.note);
+    setEditing(true);
   }
 
   if (!editing) {
-    return <div className="min-w-0"><button type="button" onClick={() => setEditing(true)}
+    return <div className="min-w-0"><button type="button" onClick={beginEditing}
       className="min-h-9 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
       {decisions.some((item) => item.value === currentStatus) ? "Edit decision" : "Review decision"}
     </button></div>;
@@ -43,14 +54,33 @@ export function AdmissionDecisionEditor({
     <div className="min-w-0 lg:col-span-4">
       <form action={decideAdmissionApplication} className="w-full max-w-xl min-w-0 space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3">
         <input type="hidden" name="applicationId" value={applicationId} />
-        <input type="hidden" name="expectedStatus" value={currentStatus} />
-        <input type="hidden" name="expectedDecisionNote" value={currentNote ?? ""} />
-        <input type="hidden" name="expectedReviewedAt" value={currentReviewedAt ?? ""} />
+        <input type="hidden" name="expectedStatus" value={baseline.status} />
+        <input type="hidden" name="expectedDecisionNote" value={baseline.note} />
+        <input type="hidden" name="expectedReviewedAt" value={baseline.reviewedAt} />
         <DecisionFormFields status={status} setStatus={setStatus}
           note={note} setNote={setNote} onCancel={reset} />
       </form>
     </div>
   );
+}
+
+function captureBaseline(
+  currentStatus: string,
+  currentNote: string | null,
+  currentReviewedAt: string | null,
+) {
+  return {
+    // The raw authoritative status, including non-decision states such as
+    // `received`, is the concurrency token. The editable draft is separately
+    // normalised because only real decisions are selectable.
+    status: currentStatus,
+    note: currentNote ?? "",
+    reviewedAt: currentReviewedAt ?? "",
+  };
+}
+
+function normalizeStatus(value: string) {
+  return decisions.some((item) => item.value === value) ? value : "";
 }
 
 function DecisionFormFields({
