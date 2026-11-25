@@ -45,31 +45,29 @@ create or replace function app_private.enforce_official_result_integrity()
 returns trigger
 language plpgsql
 security definer
-set search_path = pg_catalog, public, app_private
+set search_path=pg_catalog,public,app_private
 as $$
 declare
   v_school_tenant uuid;
   v_enrolment record;
   v_offering record;
+  v_previous public.official_results%rowtype;
 begin
-  if tg_op = 'DELETE' then
+  if tg_op='DELETE' then
     raise exception 'Official result cannot be deleted; use governed correction workflow';
   end if;
 
   select tenant_id into v_school_tenant
   from public.schools
-  where id = new.school_id;
-
-  if v_school_tenant is null
-     or new.tenant_id is distinct from v_school_tenant then
+  where id=new.school_id;
+  if v_school_tenant is null or new.tenant_id is distinct from v_school_tenant then
     raise exception 'Official result scope mismatch: school does not belong to tenant';
   end if;
 
   select tenant_id,school_id,academic_year,learner_id
     into v_enrolment
   from public.enrolments
-  where id = new.enrolment_id;
-
+  where id=new.enrolment_id;
   if not found
      or (new.tenant_id,new.school_id,new.academic_year,new.learner_id)
         is distinct from
@@ -80,8 +78,7 @@ begin
   select tenant_id,school_id,academic_year
     into v_offering
   from public.subject_offerings
-  where id = new.subject_offering_id;
-
+  where id=new.subject_offering_id;
   if not found
      or (new.tenant_id,new.school_id,new.academic_year)
         is distinct from
@@ -89,17 +86,39 @@ begin
     raise exception 'Official result scope mismatch: subject offering differs';
   end if;
 
-  if tg_op = 'INSERT' then
+  if tg_op='INSERT' then
     if auth.uid() is not null
        and new.approved_by_user_id is distinct from auth.uid() then
       raise exception 'Official result approver must match authenticated actor';
     end if;
-
+    if auth.uid() is not null
+       and not app_private.can_manage_current_assessment_school(new.school_id) then
+      raise exception 'Official result approver is not currently authorized for school';
+    end if;
     if not app_private.user_is_academic_leader(
-      new.approved_by_user_id,
-      new.school_id
+      new.approved_by_user_id,new.school_id
     ) then
       raise exception 'Official result approver is not authorized for school';
+    end if;
+    if new.superseded_at is not null or new.superseded_by_result_id is not null then
+      raise exception 'A newly approved official result cannot already be superseded';
+    end if;
+
+    if new.supersedes_result_id is not null then
+      select * into v_previous
+      from public.official_results
+      where id=new.supersedes_result_id;
+      if not found
+         or v_previous.enrolment_id is distinct from new.enrolment_id
+         or v_previous.subject_offering_id is distinct from new.subject_offering_id
+         or v_previous.term_number is distinct from new.term_number then
+        raise exception 'Corrected official result must supersede the same learner subject term';
+      end if;
+      if new.correction_authorization_id is null then
+        raise exception 'Corrected official result requires correction authorization provenance';
+      end if;
+    elsif new.correction_authorization_id is not null then
+      raise exception 'Initial official result cannot carry correction authorization provenance';
     end if;
 
     return new;
@@ -127,8 +146,23 @@ begin
      or new.grading_scale_version is distinct from old.grading_scale_version
      or new.grading_definition_snapshot is distinct from old.grading_definition_snapshot
      or new.grading_definition_fingerprint is distinct from old.grading_definition_fingerprint
-     or new.created_at is distinct from old.created_at then
+     or new.created_at is distinct from old.created_at
+     or new.supersedes_result_id is distinct from old.supersedes_result_id
+     or new.correction_authorization_id is distinct from old.correction_authorization_id then
     raise exception 'Official result calculation and approval provenance are immutable';
+  end if;
+
+  if old.superseded_at is not null
+     and new.superseded_at is distinct from old.superseded_at then
+    raise exception 'Official result supersession time is immutable once recorded';
+  end if;
+  if old.superseded_by_result_id is not null
+     and new.superseded_by_result_id is distinct from old.superseded_by_result_id then
+    raise exception 'Official result supersession target is immutable once recorded';
+  end if;
+  if old.superseded_at is null and new.superseded_at is null
+     and old.superseded_by_result_id is distinct from new.superseded_by_result_id then
+    raise exception 'Official result cannot name a superseding result before supersession';
   end if;
 
   return new;
