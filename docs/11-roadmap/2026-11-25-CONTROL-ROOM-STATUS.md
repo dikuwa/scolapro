@@ -79,7 +79,7 @@ policy.
 ### C — parent notices / guardian workflows (PR #1329) — DONE; CI GREEN
 
 - Branch: `lane-c/parent-notice-completion-20261125`
-- Head: `b63ce459`.
+- Head: `782e2183`.
 - CI: quality pass, Database validate pass, authenticated E2E pass.
 - Security correction (pre-existing defect): guardian absence evidence storage reads used
   `can_view_operational_learners`, so `teacher`, `hod` and `librarian` could enumerate and
@@ -94,15 +94,19 @@ policy.
   - reviewer notification on submission and guardian notification on outcome, with fixed
     copy (no learner name, reason, message or evidence);
   - guardian submission revalidates the staff review queue.
+- Reviewer actions now include `Start review` (submitted → under_review) and
+  `Close notice` (accepted → closed), both of which the database and badges already
+  modelled but no control could reach.
 - Not implemented in this slice (honest gap, not a regression): guardian withdrawal,
-  editing/resubmission of a `returned` notice, per-notice detail/audit view, review-queue
-  pagination, and the explicit `under_review`/`close` buttons. The database permits some of
-  these; they remain product-facing follow-up.
+  editing/resubmission of a `returned` notice, per-notice detail/audit view, and
+  review-queue pagination. These need a deliberate product decision; the database permits
+  some of them but the actor-integrity trigger currently binds review transitions to
+  reviewers.
 
 ### D — learner progression / promotion (PR #1331) — DONE; CI GREEN
 
 - Branch: `lane-d/progression-workspace-20261125`
-- Head: `7e59ac5d`.
+- Head: `bd0d2993`.
 - CI: quality pass (build + typecheck + source tests), authenticated E2E pass.
 - The backend was complete but had **no operator UI**: generate/override/approve/lock/
   publish had no caller in `src/`, there was no navigation entry and no promotion UI test.
@@ -114,8 +118,13 @@ policy.
   and the bulk readiness projection. Navigation visibility is now asserted by the
   validator for leadership and denied for HOD/teacher/class_teacher/counsellor/parent/
   librarian.
+- The workspace is bounded to one grade at a time (defaulting to the first configured
+  grade) with a searchable grade picker, and renders an explicit reload message if the
+  workspace cannot load.
 - Not verified: populated-cohort browser acceptance and HOD preparation UI (deliberately
-  not exposed because bulk readiness and publish exclude HOD).
+  not exposed because bulk readiness and publish exclude HOD). The canonical bulk readiness
+  projection still evaluates the whole school in one request; the UI bound limits rendering
+  and action scope, not the projection's internal work.
 
 ### E — library and staff leave (#1305, #1321, #1308) — DONE
 
@@ -128,6 +137,11 @@ policy.
 `#1305` and `#1321` both touch `src/features/library/class-operations.tsx` and
 `library-workspace.tsx`. Merge and re-verify one after the other; neither adds a conflicting
 migration.
+
+### Documentation record (PR #1332)
+
+- Branch: `control-room/1306-execution-20261125`; head `1bd50880` plus this follow-up.
+- Docs only: this file and the `IMPLEMENTATION-STATUS.md` pointer.
 
 ## 2. Recommended integration sequence
 
