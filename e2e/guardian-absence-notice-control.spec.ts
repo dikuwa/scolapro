@@ -230,7 +230,7 @@ test("guardian withdraws a notice and the school can no longer review it", async
   try {
     await signIn(adminPage, "admin");
     await adminPage.goto("/school/absence-reviews");
-    await expect(adminPage.getByText(noteText)).toBeVisible();
+    await expect(adminPage.getByText(noteText).first()).toBeVisible();
     await expect(adminPage.getByText("withdrawn", { exact: false }).first()).toBeVisible();
     await expect(adminPage.getByRole("button", { name: "Accept" })).toHaveCount(0);
     await expect(adminPage.getByRole("button", { name: "Start review" })).toHaveCount(0);
