@@ -16,6 +16,15 @@ function serviceClient() {
   });
 }
 
+/**
+ * Locates the notice card that contains the given note. Cards are stable rows, so
+ * this avoids whole-page counts that include other learners' notices.
+ */
+function noticeCard(page: import("@playwright/test").Page, text: string) {
+  return page.locator('[data-testid^="absence-notice-"], [data-testid^="parent-absence-notice-"]')
+    .filter({ hasText: text }).first();
+}
+
 /** Authoritative status of the single notice under test. */
 async function currentStatus(service: ReturnType<typeof serviceClient>) {
   const { data } = await service.from("guardian_absence_notices")
@@ -149,7 +158,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   // The action refreshes the server component itself; waiting for the row is the
   // real assertion. A manual reload here would race the in-flight refresh.
   // The note appears both in the notice body and in the history entry.
-  await expect(page.getByText(noteText).first()).toBeVisible({ timeout: 30_000 });
+  await expect(noticeCard(page, noteText)).toBeVisible({ timeout: 30_000 });
   const evidenceLink = page.getByRole("link", { name: `evidence-${run}.pdf` });
   await expect(evidenceLink).toBeVisible();
   const evidenceHref = await evidenceLink.getAttribute("href");
@@ -164,15 +173,21 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     await signIn(adminPage, "admin");
     await adminPage.goto("/school/absence-reviews");
     await expect(adminPage.getByRole("heading", { name: "Absence reviews" })).toBeVisible();
-    const firstReview = adminPage.getByRole("button", { name: "Start review" }).first();
-    await firstReview.click();
-    await expect.poll(() => currentStatus(service), { timeout: 20_000 }).toBe("under_review");
-    // The queue refreshes itself; wait for the re-rendered control before acting
-    // again, otherwise the next submit carries the pre-transition baseline.
-    await expect(adminPage.getByRole("button", { name: "Start review" })).toHaveCount(0, { timeout: 20_000 });
-    await adminPage.locator('input[name="reviewNote"]').first().fill("Please provide appointment evidence.");
-    await adminPage.getByRole("button", { name: "Return" }).first().click();
-    await expect.poll(() => currentStatus(service), { timeout: 20_000 }).toBe("returned");
+    const card = noticeCard(adminPage, noteText);
+    await expect(card).toBeVisible();
+    // The queue refreshes after each transition, so retry the interaction until
+    // the persisted state matches. This waits on the real contract, not a timer.
+    await expect(async () => {
+      if ((await currentStatus(service)) !== "submitted") return;
+      await card.getByRole("button", { name: "Start review" }).click();
+      await expect.poll(() => currentStatus(service), { timeout: 5_000 }).toBe("under_review");
+    }).toPass({ timeout: 40_000 });
+
+    await expect(async () => {
+      await noticeCard(adminPage, noteText).locator('input[name="reviewNote"]').fill("Please provide appointment evidence.");
+      await noticeCard(adminPage, noteText).getByRole("button", { name: "Return" }).click();
+      await expect.poll(() => currentStatus(service), { timeout: 5_000 }).toBe("returned");
+    }).toPass({ timeout: 40_000 });
   } finally {
     await adminContext.close();
   }
@@ -196,19 +211,21 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   try {
     await signIn(reviewerPage, "admin");
     await reviewerPage.goto("/school/absence-reviews");
-    await expect(reviewerPage.locator('input[name="reviewNote"]').first()).toBeVisible();
-    await reviewerPage.locator('input[name="reviewNote"]').first().fill("Accepted after appointment evidence.");
-    await reviewerPage.getByRole("button", { name: "Accept" }).first().click();
-    await expect.poll(() => currentStatus(service), { timeout: 20_000 }).toBe("accepted");
+    await expect(noticeCard(reviewerPage, noteText)).toBeVisible();
+    await expect(async () => {
+      const card = noticeCard(reviewerPage, noteText);
+      await card.locator('input[name="reviewNote"]').fill("Accepted after appointment evidence.");
+      await card.getByRole("button", { name: "Accept" }).click();
+      await expect.poll(() => currentStatus(service), { timeout: 5_000 }).toBe("accepted");
+    }).toPass({ timeout: 40_000 });
     await reviewerPage.goto("/school/absence-reviews");
-    await expect(reviewerPage.getByText("Notice history ·", { exact: false }).first()).toBeVisible();
+    await expect(noticeCard(reviewerPage, noteText).getByText("Notice history ·", { exact: false })).toBeVisible();
   } finally {
     await reviewerContext.close();
   }
 
   await page.goto("/parent");
-  await page.getByText(noteText, { exact: false }).first().scrollIntoViewIfNeeded();
-  await expect(page.getByText("Accepted after appointment evidence.")).toBeVisible();
+  await expect(noticeCard(page, noteText).getByText("Accepted after appointment evidence.")).toBeVisible();
 });
 
 test("guardian withdraws a notice and the school can no longer review it", async ({ page, browser }) => {
@@ -229,9 +246,9 @@ test("guardian withdraws a notice and the school can no longer review it", async
       .eq("learner_id", DEMO.registerBoyLearnerId);
     return count ?? 0;
   }, { timeout: 20_000 }).toBeGreaterThan(0);
-  await expect(page.getByText(noteText).first()).toBeVisible({ timeout: 30_000 });
+  await expect(noticeCard(page, noteText)).toBeVisible({ timeout: 30_000 });
 
-  await page.getByRole("button", { name: "Withdraw notice" }).first().click();
+  await noticeCard(page, noteText).getByRole("button", { name: "Withdraw notice" }).click();
   const dialog = page.getByRole("alertdialog", { name: "Confirm destructive action" });
   if (await dialog.isVisible().catch(() => false)) {
     await dialog.getByRole("button", { name: "Yes, continue" }).click();
@@ -243,14 +260,12 @@ test("guardian withdraws a notice and the school can no longer review it", async
   try {
     await signIn(adminPage, "admin");
     await adminPage.goto("/school/absence-reviews");
-    await expect(adminPage.getByText(noteText).first()).toBeVisible();
-    // Scope to the withdrawn notice's own entry: other entries on the page may
-    // still legitimately offer review actions.
-    const withdrawnEntry = adminPage.locator("div").filter({ has: adminPage.getByText(noteText).first() }).last();
-    await expect(withdrawnEntry.getByText("withdrawn", { exact: false }).first()).toBeVisible();
-    await expect(withdrawnEntry.getByRole("button", { name: "Accept" })).toHaveCount(0);
-    await expect(withdrawnEntry.getByRole("button", { name: "Start review" })).toHaveCount(0);
-    await expect(withdrawnEntry.getByRole("button", { name: "Return" })).toHaveCount(0);
+    const withdrawnCard = noticeCard(adminPage, noteText);
+    await expect(withdrawnCard).toBeVisible();
+    await expect(withdrawnCard.getByText("withdrawn", { exact: false })).toBeVisible();
+    await expect(withdrawnCard.getByRole("button", { name: "Accept" })).toHaveCount(0);
+    await expect(withdrawnCard.getByRole("button", { name: "Start review" })).toHaveCount(0);
+    await expect(withdrawnCard.getByRole("button", { name: "Return" })).toHaveCount(0);
   } finally {
     await adminContext.close();
   }
