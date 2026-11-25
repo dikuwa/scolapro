@@ -41,6 +41,10 @@ test("workspace reads canonical enrolment, readiness and next-year configuration
   assert.match(workspace, /get_academic_analysis_promotion_readiness/);
   assert.match(workspace, /from\("year_end_progressions"\)/);
   assert.match(workspace, /from\("year_end_progression_publications"\)/);
+  // Publications store destination_grade_id; destination_grade_code does not exist
+  // on that table and made the read fail with 42703.
+  assert.match(workspace, /destination_academic_year,destination_grade_id,destination_enrolment_id/);
+  assert.doesNotMatch(workspace, /publication\.destination_grade_code/);
   assert.match(workspace, /from\("promotion_rule_sets"\)/);
   assert.match(workspace, /academic_years/);
   assert.match(workspace, /nextYearConfigured/);
