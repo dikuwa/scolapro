@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2, FileText, RotateCcw, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { reasonLabels } from "@/features/parents/absence-reasons";
@@ -23,6 +24,7 @@ function statusBadge(status: string) {
 }
 
 function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(reviewAbsenceNotice, initialState);
   const [note, setNote] = useState("");
 
@@ -30,7 +32,10 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
     if (!state.message) return;
     if (state.success) toast.success(state.message);
     else toast.error(state.message);
-  }, [state]);
+    // Refresh so the next review action submits the *new* rendered baseline
+    // instead of the status/timestamp captured before this transition.
+    if (state.success) router.refresh();
+  }, [state, router]);
 
   if (notice.status === "closed" || notice.status === "withdrawn") return null;
 
