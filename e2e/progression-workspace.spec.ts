@@ -164,19 +164,26 @@ test("school leadership completes generate, override, approve, lock and publish"
   await page.goto(`/school/progression?grade=${DEMO.gradeTenId}`);
   await expect(page.getByRole("heading", { name: "Year-end progression" })).toBeVisible();
 
-  // Display formatting title-cases uniform-lowercase words, so anchor on the
-  // unformatted admission number instead of the composed display name.
-  const row = page.locator("article", { hasText: `PROG-${run}` }).first();
+  // Stable row identity; display formatting may normalise the composed name.
+  const row = page.getByTestId(`progression-learner-${enrolmentId}`);
   await expect(row).toBeVisible();
 
-  // Generate
+  // Generate. The row re-renders from the canonical decision, so wait for the
+  // next step rather than for a transient toast.
   await row.getByRole("button", { name: "Generate recommendation" }).click();
-  await expect(page.getByText("Recommendation generated for review.")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Override outcome" })).toBeVisible({ timeout: 30_000 });
 
   // Reasoned override: promoted into Grade 11.
-  await row.getByRole("button", { name: "Override outcome" }).click();
+  await expect(async () => {
+    if (!(await row.getByRole("button", { name: "Override outcome" }).isVisible().catch(() => false))) {
+      // A previously opened editor may still be showing.
+      await row.getByRole("button", { name: "Close override" }).click().catch(() => {});
+    }
+    await row.getByRole("button", { name: "Override outcome" }).click();
+    await expect(row.getByLabel("Reason for override")).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 30_000 });
+
   await row.getByRole("button", { name: "Outcome", exact: true }).click();
-  // Options live inside the open listbox; scope and close each before the next.
   const outcomeList = page.getByRole("listbox");
   await outcomeList.getByRole("option", { name: "Promoted", exact: true }).click();
   await expect(outcomeList).toHaveCount(0);
@@ -186,21 +193,21 @@ test("school leadership completes generate, override, approve, lock and publish"
   await expect(gradeList).toHaveCount(0);
   await row.getByLabel("Reason for override").fill("Synthetic approved promotion");
   await row.getByRole("button", { name: "Save override" }).click();
-  await expect(page.getByText("Progression override recorded with its reason.")).toBeVisible();
+  // The row re-renders with the approved-state actions when the override persists.
+  await expect(row.getByRole("button", { name: "Approve decision" })).toBeVisible({ timeout: 30_000 });
 
   // Approve and lock.
   await row.getByRole("button", { name: "Approve decision" }).click();
-  await expect(page.getByText("Progression approved.")).toBeVisible();
+  await expect(row.getByRole("button", { name: "Lock decision" })).toBeVisible({ timeout: 30_000 });
   await row.getByRole("button", { name: "Lock decision" }).click();
-  await expect(page.getByText("Progression locked. It can now be published.")).toBeVisible();
+  await expect(row.getByRole("button", { name: /Destination class/ })).toBeVisible({ timeout: 30_000 });
 
   // Publish to the next year's class with explicit confirmation.
   await row.getByRole("button", { name: /Destination class/ }).click();
   await page.getByRole("listbox").getByRole("option", { name: "Grade 11/A", exact: true }).click();
   await row.getByRole("checkbox").check();
   await row.getByRole("button", { name: "Publish rollover" }).click();
-  await expect(page.getByText("Rollover published.", { exact: false })).toBeVisible();
-  await expect(row.getByText(`Published into ${NEXT_YEAR}`, { exact: false })).toBeVisible();
+  await expect(row.getByText(`Published into ${NEXT_YEAR}`, { exact: false })).toBeVisible({ timeout: 30_000 });
 
   // Canonical evidence: source closed, one destination enrolment, append-only receipt.
   const { data: source, error: sourceError } = await service.from("enrolments")

@@ -44,12 +44,18 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
   const [publishState, publishAction, publishPending] = useActionState(publishProgression, initialState);
 
   useEffect(() => {
+    let changed = false;
     for (const state of [generateState, overrideState, approveState, lockState, publishState]) {
       if (!state.message) continue;
-      if (state.success) toast.success(state.message);
-      else toast.error(state.message);
+      if (state.success) {
+        toast.success(state.message);
+        changed = true;
+      } else toast.error(state.message);
     }
-  }, [generateState, overrideState, approveState, lockState, publishState]);
+    // Each decision changes the rendered row and may open the next step, so the
+    // server-rendered workspace must be re-read after a successful action.
+    if (changed) router.refresh();
+  }, [generateState, overrideState, approveState, lockState, publishState, router]);
 
   const { counts } = workspace;
   const metrics = [
@@ -147,7 +153,7 @@ function LearnerRow({
   const recommendation = learner.recommendation;
   const progression = learner.progression;
 
-  return <article className="px-4 py-4 sm:px-5">
+  return <article data-testid={`progression-learner-${learner.enrolmentId}`} className="px-4 py-4 sm:px-5">
     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
       <div className="min-w-0">
         <p className="scolapro-record-title">{learner.learnerName}</p>
