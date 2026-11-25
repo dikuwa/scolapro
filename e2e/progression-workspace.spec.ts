@@ -175,10 +175,15 @@ test("school leadership completes generate, override, approve, lock and publish"
 
   // Reasoned override: promoted into Grade 11.
   await row.getByRole("button", { name: "Override outcome" }).click();
-  await row.getByRole("button", { name: "Outcome" }).click();
-  await row.getByRole("option", { name: "Promoted" }).click();
+  await row.getByRole("button", { name: "Outcome", exact: true }).click();
+  // Options live inside the open listbox; scope and close each before the next.
+  const outcomeList = page.getByRole("listbox");
+  await outcomeList.getByRole("option", { name: "Promoted", exact: true }).click();
+  await expect(outcomeList).toHaveCount(0);
   await row.getByRole("button", { name: /Destination grade/ }).click();
-  await row.getByRole("option", { name: "11" }).click();
+  const gradeList = page.getByRole("listbox");
+  await gradeList.getByRole("option", { name: "11", exact: true }).click();
+  await expect(gradeList).toHaveCount(0);
   await row.getByLabel("Reason for override").fill("Synthetic approved promotion");
   await row.getByRole("button", { name: "Save override" }).click();
   await expect(page.getByText("Progression override recorded with its reason.")).toBeVisible();
@@ -191,7 +196,7 @@ test("school leadership completes generate, override, approve, lock and publish"
 
   // Publish to the next year's class with explicit confirmation.
   await row.getByRole("button", { name: /Destination class/ }).click();
-  await row.getByRole("option", { name: "Grade 11/A" }).click();
+  await page.getByRole("listbox").getByRole("option", { name: "Grade 11/A", exact: true }).click();
   await row.getByRole("checkbox").check();
   await row.getByRole("button", { name: "Publish rollover" }).click();
   await expect(page.getByText("Rollover published.", { exact: false })).toBeVisible();
