@@ -52,6 +52,22 @@ test("per-notice history is append-only and visible only to participants", () =>
   assert.match(reviewList, /Notice history/);
 });
 
+test("a notice is never dropped because its learner row is not independently readable", () => {
+  // `learners!inner` removed the whole notice from the guardian history when the
+  // joined learner row was not readable through RLS. The relationship must be a
+  // left join with a neutral label fallback.
+  assert.doesNotMatch(queries, /learners!inner/);
+  assert.match(queries, /learners\(id, first_names, surname\)/);
+  assert.match(queries, /\|\| "Linked learner"/);
+});
+
+test("a successful guardian action refreshes the server-rendered notice list", () => {
+  const form = readFileSync(new URL("../src/features/parents/absence-notice-form.tsx", import.meta.url), "utf8");
+  assert.match(form, /useRouter/);
+  assert.match(form, /if \(state\.success\) router\.refresh\(\)/);
+  assert.match(parentPortal, /if \(state\.success\) router\.refresh\(\)/);
+});
+
 test("review queue is paginated over the date-overlapping set", () => {
   assert.match(queries, /options\.offset/);
   assert.match(queries, /\.range\(offset, offset \+ limit\)/);
