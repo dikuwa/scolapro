@@ -81,15 +81,36 @@ test("HOD report-card access stays read-only without certification or publicatio
   await expect(page.getByRole("button", { name: "Publish" })).toHaveCount(0);
 });
 
-test("published guardian sees one frozen result but not a certified-only term", async ({ page }) => {
+test("published guardian sees the current frozen result but not a certified-only term", async ({ page }) => {
+  // Earlier lifecycle runs may have published a later term. Assert against the
+  // latest *published* snapshot rather than a fixed term, and separately prove
+  // the term-one history row remains available.
+  const status = localSupabaseStatus({ projectRoot: process.cwd() });
+  const client = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: snapshots, error: snapshotError } = await client.from("report_card_snapshots")
+    .select("id,term_number,data_snapshot")
+    .eq("status", "published")
+    .eq("learner_id", DEMO.publishedLearnerId)
+    .order("term_number", { ascending: false })
+    .limit(1);
+  expect(snapshotError).toBeNull();
+  const latest = snapshots?.[0];
+  const latestData = (latest?.data_snapshot ?? {}) as { results?: Array<{ subject_name?: string; result_value?: number | string }> };
+  const latestResult = latestData.results?.[0];
+  expect(latestResult?.subject_name).toBeTruthy();
+  const latestSubject = latestResult?.subject_name ?? "";
+
   await signIn(page, "publishedGuardian");
   await page.goto("/parent");
 
   await expect(page.getByRole("heading", { name: "My children" }).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Latest published results" })).toBeVisible();
-  await expect(page.getByText("E2E Published Science", { exact: true })).toBeVisible();
-  await expect(page.getByText("82", { exact: true })).toBeVisible();
+  await expect(page.getByText(latestSubject, { exact: true })).toBeVisible();
+  await expect(page.getByText(String(latestResult?.result_value), { exact: true })).toBeVisible();
   await expect(page.getByText("E2E Confidential Science", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Term 1 · Version 1", { exact: true })).toBeVisible();
   await expect(page.getByText("Synthetic Boy", { exact: false })).toHaveCount(0);
   await expect(page.getByText("E2E Isolation Secondary School")).toHaveCount(0);
 });
@@ -100,25 +121,30 @@ test("school admin publishes certified report and linked guardian receives the o
   const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
   test.skip(target !== "local", "Publication lifecycle is restricted to isolated local Supabase.");
 
+  const startedAt = new Date().toISOString();
   await signIn(page, "admin");
   await page.goto(`/reports/report-cards?individual=${DEMO.learnerTomasEnrolmentId}&term=3`);
   await expect(page.getByRole("heading", { name: "Report cards" })).toBeVisible();
   // The candidate is separate from the certified-only term-two privacy fixture.
-  // An immutable prior publication must not be reversed on a retry or reseed.
+  // Require this run to perform the action: a prior publication must not satisfy
+  // the acceptance evidence.
   const publish = page.getByRole("button", { name: "Publish", exact: true });
-  if (await publish.count()) {
-    await publish.click();
-  }
+  await expect(publish).toBeVisible();
+  await publish.click();
   const local = localSupabaseStatus({ projectRoot: process.cwd() });
   const inspector = createClient(local.API_URL, local.SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   await expect.poll(async () => {
     const { data, error } = await inspector.from("report_card_snapshots")
-      .select("status").eq("id", DEMO.publicationCandidateSnapshotId).single();
+      .select("status,published_at").eq("id", DEMO.publicationCandidateSnapshotId).single();
     if (error) throw new Error("Could not verify the candidate publication");
     return data?.status;
   }).toBe("published");
+  const { data: publishedRow, error: publishedError } = await inspector.from("report_card_snapshots")
+    .select("published_at").eq("id", DEMO.publicationCandidateSnapshotId).single();
+  expect(publishedError).toBeNull();
+  expect(publishedRow?.published_at ? new Date(publishedRow.published_at).getTime() : 0).toBeGreaterThanOrEqual(new Date(startedAt).getTime() - 5_000);
   await expect(page.getByRole("button", { name: "Publish", exact: true })).toHaveCount(0);
 
   const guardianContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
@@ -141,14 +167,16 @@ test("school renders a real digital report and guardian alone can open the priva
   const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
   test.skip(target !== "local", "Artifact rendering is restricted to isolated local Supabase.");
 
+  const startedAt = new Date().toISOString();
   await signIn(page, "admin");
   await page.goto(`/reports/report-cards?individual=${DEMO.learnerTomasEnrolmentId}&term=1`);
   await expect(page.getByRole("heading", { name: "Report cards" })).toBeVisible();
+  // Require this run to request the artifact and to observe a document created
+  // during this run, so a prior run cannot satisfy the acceptance evidence.
   const digitalButton = page.getByRole("button", { name: "Digital", exact: true });
-  if (await digitalButton.count()) {
-    await digitalButton.click();
-    await expect(page.getByText("Digital report queued and rendering will start automatically.", { exact: true })).toBeVisible();
-  }
+  await expect(digitalButton).toBeVisible();
+  await digitalButton.click();
+  await expect(page.getByText("Digital report queued and rendering will start automatically.", { exact: true })).toBeVisible();
 
   const status = localSupabaseStatus({ projectRoot: process.cwd() });
   const service = createClient(status.API_URL, status.SERVICE_ROLE_KEY, {
@@ -163,14 +191,17 @@ test("school renders a real digital report and guardian alone can open the priva
   expect(frozenResults?.[0]?.result_status).toBe("numeric");
 
   let documentId = "";
+  let documentCreatedAt = "";
   await expect.poll(async () => {
     const { data, error } = await service.from("report_card_documents")
-      .select("id").eq("snapshot_id", DEMO.publishedSnapshotId)
+      .select("id,created_at").eq("snapshot_id", DEMO.publishedSnapshotId)
       .eq("document_format", "html").eq("status", "ready").maybeSingle();
     if (error) throw new Error("Unable to inspect synthetic report render status.");
     documentId = data?.id ?? "";
+    documentCreatedAt = data?.created_at ?? "";
     return documentId;
   }, { timeout: 90_000, intervals: [500, 1_000, 2_000] }).not.toBe("");
+  expect(documentCreatedAt ? new Date(documentCreatedAt).getTime() : 0).toBeGreaterThanOrEqual(new Date(startedAt).getTime() - 5_000);
 
   const baseURL = new URL(page.url()).origin;
   const guardianContext = await browser.newContext({ baseURL });
@@ -179,9 +210,10 @@ test("school renders a real digital report and guardian alone can open the priva
     const guardianPage = await guardianContext.newPage();
     await signIn(guardianPage, "publishedGuardian");
     await guardianPage.goto("/parent");
-    const link = guardianPage.getByRole("link", { name: "Open digital report" }).first();
+    // Scope the link to the exact term-one document: later published terms also
+    // expose "Open digital report" links.
+    const link = guardianPage.locator(`a[href="/api/report-card-documents/${documentId}"]`);
     await expect(link).toBeVisible();
-    await expect(link).toHaveAttribute("href", `/api/report-card-documents/${documentId}`);
     const reportResponse = await guardianContext.request.get(new URL(await link.getAttribute("href") ?? "", baseURL).toString());
     expect(reportResponse.status()).toBe(200);
     const html = await reportResponse.text();

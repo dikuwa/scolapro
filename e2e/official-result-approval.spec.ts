@@ -24,6 +24,14 @@ test("independent school admin can open only their own empty approval scope", as
   await signIn(page, "outsider");
   await page.goto("/assessment/results");
   await expect(page.getByRole("heading", { name: "Official result approval" })).toBeVisible();
+  // Picker labels only mount when open: a workspace that leaked another
+  // school's offerings would otherwise pass this isolation check.
+  const subjectPicker = page.getByRole("button", { name: "Subject and grade" });
+  await expect(subjectPicker).toBeVisible();
+  await subjectPicker.click();
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await expect(page.getByRole("option")).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(page.getByText("E2E Published Science")).toHaveCount(0);
   await expect(page.getByText("Namib High School")).toHaveCount(0);
 });
