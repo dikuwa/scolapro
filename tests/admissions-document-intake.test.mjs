@@ -114,9 +114,21 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(page,/application\.reviewed_at/);
   assert.match(decisionEditor,/function beginEditing\(\)/);
   assert.match(decisionEditor,/setBaseline\(nextBaseline\)/);
+  // The conflict baseline must hold the raw authoritative status (including
+  // non-decision states such as `received`), while the editable draft is the
+  // normalised decision value. Conflating the two makes the first decision on a
+  // received application submit an empty expected status.
+  assert.match(decisionEditor,/const nextBaseline = captureBaseline\(currentStatus, currentNote, currentReviewedAt\)/);
+  assert.match(decisionEditor,/status: currentStatus,/);
+  assert.match(decisionEditor,/setStatus\(normalizeStatus\(nextBaseline\.status\)\)/);
   assert.match(decisionEditor,/name="expectedStatus" value=\{baseline\.status\}/);
   assert.match(decisionEditor,/name="expectedDecisionNote" value=\{baseline\.note\}/);
   assert.match(decisionEditor,/name="expectedReviewedAt" value=\{baseline\.reviewedAt\}/);
+  // A successful save must identify the application so only that editor closes
+  // and re-initialises from fresh data; other drafts keep their captured baseline.
+  assert.match(actions,/decided=\$\{applicationId\}&revision=\$\{Date\.now\(\)\}/);
+  assert.match(page,/decided\?: string; revision\?: string/);
+  assert.match(page,/search\.decided === application\.id \? search\.revision \?\? "" : ""/);
   assert.doesNotMatch(decisionEditor,/\.from\("admission_applications"\)/);
   assert.doesNotMatch(page,/\["accepted","waitlisted","declined"\]\.map/);
 });

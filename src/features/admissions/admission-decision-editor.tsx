@@ -23,26 +23,22 @@ export function AdmissionDecisionEditor({
   currentReviewedAt: string | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [baseline, setBaseline] = useState(() => ({
-    status: normalizeStatus(currentStatus),
-    note: currentNote ?? "",
-    reviewedAt: currentReviewedAt ?? "",
-  }));
-  const [status, setStatus] = useState(baseline.status);
-  const [note, setNote] = useState(baseline.note);
+  // The authoritative server state captured the moment editing begins. It is
+  // never refreshed from props while editing, so a background revalidation
+  // cannot silently re-point this editor at another reviewer's newer decision:
+  // the server compares these values and rejects the stale write instead.
+  const [baseline, setBaseline] = useState(() => captureBaseline(currentStatus, currentNote, currentReviewedAt));
+  const [status, setStatus] = useState(() => normalizeStatus(currentStatus));
+  const [note, setNote] = useState(currentNote ?? "");
 
   function reset() {
     setEditing(false);
   }
 
   function beginEditing() {
-    const nextBaseline = {
-      status: normalizeStatus(currentStatus),
-      note: currentNote ?? "",
-      reviewedAt: currentReviewedAt ?? "",
-    };
+    const nextBaseline = captureBaseline(currentStatus, currentNote, currentReviewedAt);
     setBaseline(nextBaseline);
-    setStatus(nextBaseline.status);
+    setStatus(normalizeStatus(nextBaseline.status));
     setNote(nextBaseline.note);
     setEditing(true);
   }
@@ -66,6 +62,21 @@ export function AdmissionDecisionEditor({
       </form>
     </div>
   );
+}
+
+function captureBaseline(
+  currentStatus: string,
+  currentNote: string | null,
+  currentReviewedAt: string | null,
+) {
+  return {
+    // The raw authoritative status, including non-decision states such as
+    // `received`, is the concurrency token. The editable draft is separately
+    // normalised because only real decisions are selectable.
+    status: currentStatus,
+    note: currentNote ?? "",
+    reviewedAt: currentReviewedAt ?? "",
+  };
 }
 
 function normalizeStatus(value: string) {
