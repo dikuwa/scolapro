@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BadgeCheck, CalendarCheck2, ExternalLink, FileText, GraduationCap, Link2, Mail, ReceiptText, School, ShieldCheck, Users, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
@@ -74,6 +75,7 @@ function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) 
 }
 
 function ParentNoticeActions({ notice }: { notice: AbsenceNoticeSummary }) {
+  const router = useRouter();
   const [withdrawState, withdrawAction, withdrawPending] = useActionState(withdrawAbsenceNotice, {} as AbsenceActionState);
   const [resubmitState, resubmitAction, resubmitPending] = useActionState(resubmitAbsenceNotice, {} as AbsenceActionState);
   const [resubmitting, setResubmitting] = useState(false);
@@ -85,8 +87,10 @@ function ParentNoticeActions({ notice }: { notice: AbsenceNoticeSummary }) {
       if (!state.message) continue;
       if (state.success) toast.success(state.message);
       else toast.error(state.message);
+      // The notice list and its history are server-rendered.
+      if (state.success) router.refresh();
     }
-  }, [withdrawState, resubmitState]);
+  }, [withdrawState, resubmitState, router]);
 
   const canWithdraw = ["submitted", "under_review", "returned"].includes(notice.status);
   if (!canWithdraw && notice.status !== "returned") return null;
