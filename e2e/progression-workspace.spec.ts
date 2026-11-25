@@ -10,6 +10,8 @@ const target = resolveE2EEnvironment(mergedProjectEnv(process.cwd())).target;
 test.skip(target !== "local", "Progression lifecycle acceptance is restricted to isolated local Supabase.");
 
 const NEXT_YEAR = 2027;
+const RESULT_SUBJECT_ID = "e2e93000-0000-4000-8000-000000000001";
+const RESULT_OFFERING_ID = "e2e94000-0000-4000-8000-000000000001";
 const DESTINATION_GRADE_ID = "e2e91000-0000-4000-8000-000000000001";
 const DESTINATION_CLASS_ID = "e2e92000-0000-4000-8000-000000000001";
 
@@ -87,14 +89,36 @@ test("school leadership completes generate, override, approve, lock and publish"
   });
   expect(enrolmentError).toBeNull();
 
-  // A canonical approved result supplies the engine's evidence term.
+  // A canonical approved result supplies the engine's evidence term. Create the
+  // subject and offering in this spec so it does not depend on QA-only fixtures.
+  const { error: subjectError } = await service.from("subjects").upsert({
+    id: RESULT_SUBJECT_ID,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    subject_code: `PROG${run}`,
+    display_name: "E2E Progression Evidence",
+    status: "active",
+  }, { onConflict: "id" });
+  expect(subjectError).toBeNull();
+  const { error: offeringError } = await service.from("subject_offerings").upsert({
+    id: RESULT_OFFERING_ID,
+    tenant_id: DEMO.tenantId,
+    school_id: DEMO.schoolId,
+    academic_year: 2026,
+    subject_id: RESULT_SUBJECT_ID,
+    grade_id: DEMO.gradeTenId,
+    periods_per_cycle: 4,
+    status: "active",
+  }, { onConflict: "id" });
+  expect(offeringError).toBeNull();
+
   const { error: resultError } = await service.from("official_results").insert({
     tenant_id: DEMO.tenantId,
     school_id: DEMO.schoolId,
     academic_year: 2026,
     enrolment_id: enrolmentId,
     learner_id: learnerId,
-    subject_offering_id: "e2eb0000-0000-4000-8000-000000000006",
+    subject_offering_id: RESULT_OFFERING_ID,
     term_number: 1,
     result_value: 82,
     symbol: "A",
