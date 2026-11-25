@@ -136,3 +136,45 @@ export async function reviewAbsenceNotice(_state: AbsenceActionState, formData: 
   revalidatePath("/school/absence-reviews");
   return { success: true, message: `Notice ${parsed.data.status}.` };
 }
+
+const noticeControlSchema = z.object({ noticeId: z.string().uuid() });
+
+export async function withdrawAbsenceNotice(_state: AbsenceActionState, formData: FormData): Promise<AbsenceActionState> {
+  const parsed = noticeControlSchema.safeParse({ noticeId: formData.get("noticeId") });
+  if (!parsed.success) return { message: "Choose an absence notice to withdraw." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("withdraw_guardian_absence_notice", { p_notice_id: parsed.data.noticeId });
+  if (error) return { message: error.message || "The absence notice could not be withdrawn." };
+
+  revalidatePath("/parent");
+  revalidatePath("/school/absence-reviews");
+  return { success: true, message: "Absence notice withdrawn. It no longer counts as an active explanation." };
+}
+
+const resubmitAbsenceSchema = z.object({
+  noticeId: z.string().uuid(),
+  reasonCategory: z.enum(reasonCategories),
+  message: z.string().max(2000).optional(),
+});
+
+export async function resubmitAbsenceNotice(_state: AbsenceActionState, formData: FormData): Promise<AbsenceActionState> {
+  const parsed = resubmitAbsenceSchema.safeParse({
+    noticeId: formData.get("noticeId"),
+    reasonCategory: formData.get("reasonCategory"),
+    message: formData.get("message") || undefined,
+  });
+  if (!parsed.success) return { message: "Choose a reason before resubmitting the notice." };
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.rpc("resubmit_guardian_absence_notice", {
+    p_notice_id: parsed.data.noticeId,
+    p_reason_category: parsed.data.reasonCategory,
+    p_message: parsed.data.message || null,
+  });
+  if (error) return { message: error.message || "The absence notice could not be resubmitted." };
+
+  revalidatePath("/parent");
+  revalidatePath("/school/absence-reviews");
+  return { success: true, message: "Absence notice resubmitted for review." };
+}

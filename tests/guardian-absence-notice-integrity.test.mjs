@@ -40,7 +40,7 @@ test("a stale reviewer form cannot overwrite an intervening decision", () => {
   assert.match(reviewList, /Start review/);
   assert.match(reviewList, /name="status" value="closed"/);
   assert.match(reviewList, /Close notice/);
-  assert.match(reviewList, /if \(notice\.status === "closed"\) return null;/);
+  assert.match(reviewList, /if \(notice\.status === "closed" \|\| notice\.status === "withdrawn"\) return null;/);
 });
 
 test("notice lifecycle notifies authorized reviewers and the submitting guardian without copying sensitive detail", () => {

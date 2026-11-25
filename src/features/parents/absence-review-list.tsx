@@ -17,6 +17,7 @@ function statusBadge(status: string) {
     accepted: "bg-success-soft text-[color:var(--success)]",
     returned: "bg-info-soft text-[color:var(--info)]",
     closed: "bg-surface-muted text-muted-foreground",
+    withdrawn: "bg-surface-muted text-muted-foreground",
   };
   return styles[status] ?? "bg-surface-muted text-muted-foreground";
 }
@@ -31,7 +32,7 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
     else toast.error(state.message);
   }, [state]);
 
-  if (notice.status === "closed") return null;
+  if (notice.status === "closed" || notice.status === "withdrawn") return null;
 
   const canReview = notice.status === "submitted" || notice.status === "under_review" || notice.status === "returned";
 
@@ -47,7 +48,7 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
           <input type="hidden" name="reviewNote" value={note} />
           <input type="hidden" name="expectedStatus" value={notice.status} />
           <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
-          <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground disabled:opacity-60">
+          <button type="submit" disabled={pending} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground disabled:opacity-60">
             {pending ? <Spinner className="size-3" /> : <Search className="size-3.5" />}
             Start review
           </button>
@@ -59,7 +60,7 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
           <input type="hidden" name="reviewNote" value={note} />
           <input type="hidden" name="expectedStatus" value={notice.status} />
           <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
-          <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)] disabled:opacity-60">
+          <button type="submit" disabled={pending} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)] disabled:opacity-60">
             {pending ? <Spinner className="size-3" /> : <CheckCircle2 className="size-3.5" />}
             Accept
           </button>
@@ -70,7 +71,7 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
           <input type="hidden" name="reviewNote" value={note} />
           <input type="hidden" name="expectedStatus" value={notice.status} />
           <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
-          <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-warning-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--warning)] disabled:opacity-60">
+          <button type="submit" disabled={pending} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-warning-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--warning)] disabled:opacity-60">
             <RotateCcw className="size-3.5" />
             Return
           </button>
@@ -82,7 +83,7 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
           <input type="hidden" name="reviewNote" value={note} />
           <input type="hidden" name="expectedStatus" value={notice.status} />
           <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
-          <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground disabled:opacity-60">
+          <button type="submit" disabled={pending} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground disabled:opacity-60">
             {pending ? <Spinner className="size-3" /> : null}
             Close notice
           </button>
@@ -113,7 +114,7 @@ export function AbsenceReviewList({ notices }: { notices: AbsenceNoticeSummary[]
           {query ? <button type="button" onClick={() => setQuery("")} className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}
         </label>
         <div className="flex flex-wrap gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">
-          {["all", "submitted", "under_review", "accepted", "returned"].map((s) => (
+          {["all", "submitted", "under_review", "accepted", "returned", "closed", "withdrawn"].map((s) => (
             <button key={s} type="button" onClick={() => setStatusFilter(s)}
               className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium transition ${statusFilter === s ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>
               {s === "all" ? "All" : s.replace("_", " ")}
@@ -125,7 +126,7 @@ export function AbsenceReviewList({ notices }: { notices: AbsenceNoticeSummary[]
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle px-4 py-3 sm:px-5">
           <h2 className="scolapro-section-title">Absence notices</h2>
-          <p className="scolapro-section-description">Parent-submitted absence documentation. Accepting does not automatically rewrite the official attendance register.</p>
+          <p className="scolapro-section-description">Parent-submitted absence documentation. Accepting does not automatically rewrite the official attendance register. Search and status filters apply to the current page.</p>
         </div>
 
         {filtered.length ? (
@@ -166,6 +167,17 @@ export function AbsenceReviewList({ notices }: { notices: AbsenceNoticeSummary[]
                   </p>
                 ) : null}
                 <ReviewActions notice={notice} />
+                {notice.history.length ? <details className="mt-2">
+                  <summary className="cursor-pointer text-[0.68rem] font-semibold text-muted-foreground">Notice history · {notice.history.length} event{notice.history.length === 1 ? "" : "s"}</summary>
+                  <ol className="mt-1.5 space-y-1">
+                    {notice.history.map((event) => <li key={event.id} className="text-[0.68rem] text-muted-foreground">
+                      <span className="font-medium capitalize text-foreground">{event.eventType}</span>
+                      {" · "}{new Date(event.createdAt).toLocaleString()}
+                      {event.fromStatus && event.toStatus ? ` · ${event.fromStatus.replaceAll("_", " ")} → ${event.toStatus.replaceAll("_", " ")}` : event.toStatus ? ` · ${event.toStatus.replaceAll("_", " ")}` : ""}
+                      {event.note ? ` · ${event.note}` : ""}
+                    </li>)}
+                  </ol>
+                </details> : null}
               </div>
             ))}
           </div>
