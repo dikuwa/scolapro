@@ -47,7 +47,7 @@ export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]>
     .select(`
       id, learner_id, absence_from, absence_to, reason_category, message,
       status, review_note, reviewed_at, created_at,
-      learners!inner(id, first_names, surname),
+      learners(id, first_names, surname),
       guardian_absence_notice_attachments(id, file_name, mime_type),
       guardian_absence_notice_events(id, event_type, from_status, to_status, note, created_at)
     `)
@@ -62,7 +62,9 @@ export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]>
     return {
       id: row.id,
       learnerId: row.learner_id,
-      learnerName: formatLearnerName(learner?.first_names, learner?.surname),
+      // A notice must never disappear from its own list because the joined
+      // learner row is not independently readable; fall back to a neutral label.
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname) || "Linked learner",
       absenceFrom: row.absence_from,
       absenceTo: row.absence_to,
       reasonCategory: row.reason_category,
@@ -105,7 +107,7 @@ export async function getSchoolAbsenceNotices(
     .select(`
       id, learner_id, absence_from, absence_to, reason_category, message,
       status, review_note, reviewed_at, created_at,
-      learners!inner(id, first_names, surname),
+      learners(id, first_names, surname),
       guardian_absence_notice_attachments(id, file_name, mime_type),
       guardian_absence_notice_events(id, event_type, from_status, to_status, note, created_at)
     `)
@@ -129,7 +131,9 @@ export async function getSchoolAbsenceNotices(
       return {
         id: row.id,
         learnerId: row.learner_id,
-        learnerName: formatLearnerName(learner?.first_names, learner?.surname),
+        // A notice must never disappear from its own list because the joined
+      // learner row is not independently readable; fall back to a neutral label.
+      learnerName: formatLearnerName(learner?.first_names, learner?.surname) || "Linked learner",
         absenceFrom: row.absence_from,
         absenceTo: row.absence_to,
         reasonCategory: row.reason_category,
