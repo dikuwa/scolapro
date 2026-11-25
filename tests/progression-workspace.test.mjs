@@ -1,0 +1,61 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const actions = readFileSync(new URL("../src/features/progression/server/actions.ts", import.meta.url), "utf8");
+const workspace = readFileSync(new URL("../src/features/progression/server/workspace.ts", import.meta.url), "utf8");
+const component = readFileSync(new URL("../src/features/progression/progression-workspace.tsx", import.meta.url), "utf8");
+const page = readFileSync(new URL("../src/app/school/progression/page.tsx", import.meta.url), "utf8");
+const navigation = readFileSync(new URL("../src/components/shell/navigation.tsx", import.meta.url), "utf8");
+
+test("progression actions use only the canonical governed RPCs", () => {
+  for (const rpc of [
+    "generate_year_end_progression",
+    "override_year_end_progression",
+    "approve_year_end_progression",
+    "lock_year_end_progression",
+    "publish_year_end_progression",
+  ]) {
+    assert.match(actions, new RegExp(`supabase\\.rpc\\("${rpc}"`));
+  }
+  // No parallel source of truth and no pass/promotion rules in application code.
+  assert.doesNotMatch(actions, /\.from\("year_end_progressions"\)/);
+  assert.doesNotMatch(actions, /\.update\(\{ status: "approved"/);
+  assert.doesNotMatch(actions, /\.insert\(/);
+  assert.doesNotMatch(component, /overall_average\s*[<>]=?\s*\d/);
+  assert.doesNotMatch(component, /\bpass(?:ed)?\s*=\s*/i);
+});
+
+test("workspace reads canonical enrolment, readiness and next-year configuration", () => {
+  assert.match(workspace, /get_academic_analysis_promotion_readiness/);
+  assert.match(workspace, /from\("year_end_progressions"\)/);
+  assert.match(workspace, /from\("year_end_progression_publications"\)/);
+  assert.match(workspace, /from\("promotion_rule_sets"\)/);
+  assert.match(workspace, /academic_years/);
+  assert.match(workspace, /nextYearConfigured/);
+  assert.match(workspace, /destinationChoices/);
+});
+
+test("consequential actions require explicit confirmation and show pending state", () => {
+  assert.match(actions, /confirmation: z\.literal\("confirmed"\)/);
+  assert.match(actions, /publish_year_end_progression/);
+  assert.match(component, /Publish rollover/);
+  assert.match(component, /Lock decision/);
+  assert.match(component, /checked=\{confirmed\}/);
+  assert.match(component, /pending\.publish/);
+  assert.match(component, /pending\.publish \? "Publishing…"/);
+  assert.match(component, /!workspace\.nextYearConfigured/);
+  assert.match(component, /Generate recommendation/);
+  assert.match(component, /Override outcome/);
+  assert.match(component, /Approval requires school leadership/);
+});
+
+test("the route is limited to school leadership and discoverable for them", () => {
+  assert.match(page, /progressionRoles = new Set\(\["school_admin", "principal", "deputy_principal"\]\)/);
+  assert.match(page, /if \(!progressionRoles\.has\(role\)\) redirect\("\/"\)/);
+  assert.match(navigation, /\{ key: "progression", label: "Year-end progression", href: "\/school\/progression"/);
+  assert.match(navigation, /school_admin: \[[^\]]*"progression"/);
+  assert.match(navigation, /principal: \[[^\]]*"progression"/);
+  assert.match(navigation, /deputy_principal: \[[^\]]*"progression"/);
+  assert.doesNotMatch(navigation, /hod: \[[^\]]*"progression"/);
+});
