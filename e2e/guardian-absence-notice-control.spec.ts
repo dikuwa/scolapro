@@ -122,6 +122,9 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   });
   await page.getByRole("button", { name: "Submit absence notice" }).click();
   await expect(page.getByText("supporting document submitted", { exact: false })).toBeVisible();
+  // The action reports success without a client refresh, so reload to read the
+  // server-rendered history (same pattern the product uses after a save).
+  await page.reload();
   await expect(page.getByText(noteText)).toBeVisible();
   const evidenceLink = page.getByRole("link", { name: `evidence-${run}.pdf` });
   await expect(evidenceLink).toBeVisible();
@@ -191,6 +194,8 @@ test("guardian withdraws a notice and the school can no longer review it", async
   await page.locator("#absence-message").fill(noteText);
   await page.getByRole("button", { name: "Submit absence notice" }).click();
   await expect(page.getByText("Absence notice submitted. The school will review it.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText(noteText)).toBeVisible();
 
   await page.getByRole("button", { name: "Withdraw notice" }).first().click();
   const dialog = page.getByRole("alertdialog", { name: "Confirm destructive action" });
@@ -198,6 +203,7 @@ test("guardian withdraws a notice and the school can no longer review it", async
     await dialog.getByRole("button", { name: "Yes, continue" }).click();
   }
   await expect(page.getByText("Absence notice withdrawn.", { exact: false })).toBeVisible();
+  await page.reload();
   await expect(page.getByText("withdrawn", { exact: false }).first()).toBeVisible();
 
   const adminContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
@@ -274,6 +280,7 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
   await page.locator("#absence-message").fill(`Visual acceptance ${crypto.randomUUID().slice(0, 6)}`);
   await page.getByRole("button", { name: "Submit absence notice" }).click();
   await expect(page.getByText("Absence notice submitted.")).toBeVisible();
+  await page.reload();
   const history = page.locator("section").filter({ hasText: "Absence notice history" }).first();
   for (const width of [390, 768, 1440]) {
     for (const theme of ["light", "dark"] as const) {

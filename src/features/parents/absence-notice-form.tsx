@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { FileText, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { DateField } from "@/components/ui/date-field";
@@ -13,6 +14,7 @@ const initialState: AbsenceActionState = {};
 const categories = Object.entries(reasonLabels).map(([value, label]) => ({ value, label }));
 
 export function AbsenceNoticeForm({ learnerId, learnerName, today }: { learnerId: string; learnerName: string; today: string }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(submitAbsenceNotice, initialState);
   const [reasonCategory, setReasonCategory] = useState("illness");
   const [absenceFrom, setAbsenceFrom] = useState(today);
@@ -23,7 +25,10 @@ export function AbsenceNoticeForm({ learnerId, learnerName, today }: { learnerId
     if (state.warning) toast.warning(state.message);
     else if (state.success) toast.success(state.message);
     else toast.error(state.message);
-  }, [state]);
+    // The history list is server-rendered; refresh it so a saved notice appears
+    // immediately instead of only after a manual reload.
+    if (state.success) router.refresh();
+  }, [state, router]);
 
   return (
     <form action={action} className="space-y-3">
