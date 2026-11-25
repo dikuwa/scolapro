@@ -175,7 +175,11 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
       .select("id,progression_id,destination_academic_year,destination_grade_code,destination_enrolment_id,published_at")
       .in("progression_id", progressionIds)
     : { data: [], error: null };
-  if (publicationsResult.error) throw new Error("Unable to load progression publications.");
+  // Publications are a read-only receipt lookup; losing it must not hide the
+  // decisions themselves.
+  if (publicationsResult.error) {
+    console.error("progression.workspace.publications_read_failure", { code: publicationsResult.error.code });
+  }
   const publicationByProgression = new Map((publicationsResult.data ?? []).map((row) => [str(row.progression_id), row]));
 
   const learners: ProgressionLearner[] = enrolments.map((enrolment) => {

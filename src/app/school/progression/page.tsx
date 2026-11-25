@@ -22,7 +22,12 @@ export default async function ProgressionPage({ searchParams }: { searchParams: 
   let workspace: ProgressionWorkspaceData;
   try {
     workspace = await getProgressionWorkspace(schoolId, academicYear, params.grade ?? null);
-  } catch {
+  } catch (error) {
+    // Diagnose the cause without learner-identifying detail. The workspace shows a
+    // neutral reload message so no partial or fabricated progression state leaks.
+    console.error("progression.workspace.load_failure", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
     return (
       <AppShell>
         <div className="rounded-[var(--radius-md)] bg-surface p-5 shadow-[var(--shadow-xs)]">
