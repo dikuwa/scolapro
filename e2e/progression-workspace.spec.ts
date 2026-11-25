@@ -64,14 +64,13 @@ test("school leadership completes generate, override, approve, lock and publish"
   const learnerId = crypto.randomUUID();
   const enrolmentId = crypto.randomUUID();
   const ruleSetId = crypto.randomUUID();
-  const learnerName = `Progression ${run}`;
   const adminUserId = SYNTHETIC_ACCOUNTS.admin.userId;
 
   const { error: learnerError } = await service.from("learners").insert({
     id: learnerId,
     tenant_id: DEMO.tenantId,
     first_names: "Progression",
-    surname: run,
+    surname: run.toUpperCase(),
   });
   expect(learnerError).toBeNull();
 
@@ -165,7 +164,9 @@ test("school leadership completes generate, override, approve, lock and publish"
   await page.goto(`/school/progression?grade=${DEMO.gradeTenId}`);
   await expect(page.getByRole("heading", { name: "Year-end progression" })).toBeVisible();
 
-  const row = page.locator("article", { hasText: learnerName }).first();
+  // Display formatting title-cases uniform-lowercase words, so anchor on the
+  // unformatted admission number instead of the composed display name.
+  const row = page.locator("article", { hasText: `PROG-${run}` }).first();
   await expect(row).toBeVisible();
 
   // Generate
