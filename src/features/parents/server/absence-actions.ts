@@ -99,7 +99,7 @@ export async function submitAbsenceNotice(_state: AbsenceActionState, formData: 
 
 const reviewAbsenceSchema = z.object({
   noticeId: z.string().uuid(),
-  status: z.enum(["accepted", "returned", "closed"]),
+  status: z.enum(["under_review", "accepted", "returned", "closed"]),
   reviewNote: z.string().max(2000).optional(),
   expectedStatus: z.string().trim().min(1),
   expectedReviewedAt: z.string().trim().optional(),

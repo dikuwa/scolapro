@@ -31,14 +31,28 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
     else toast.error(state.message);
   }, [state]);
 
-  if (notice.status === "accepted" || notice.status === "closed") return null;
+  if (notice.status === "closed") return null;
+
+  const canReview = notice.status === "submitted" || notice.status === "under_review" || notice.status === "returned";
 
   return (
     <div className="mt-3 space-y-2">
       <label className="text-xs font-medium" htmlFor={`review-note-${notice.id}`}>Review note</label>
       <input id={`review-note-${notice.id}`} name="reviewNote" value={note} onChange={(e) => setNote(e.target.value)}
         placeholder="Optional note to parent" className="w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2 text-xs outline-none" />
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
+        {notice.status === "submitted" ? <form action={action}>
+          <input type="hidden" name="noticeId" value={notice.id} />
+          <input type="hidden" name="status" value="under_review" />
+          <input type="hidden" name="reviewNote" value={note} />
+          <input type="hidden" name="expectedStatus" value={notice.status} />
+          <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
+          <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground disabled:opacity-60">
+            {pending ? <Spinner className="size-3" /> : <Search className="size-3.5" />}
+            Start review
+          </button>
+        </form> : null}
+        {canReview ? <>
         <form action={action}>
           <input type="hidden" name="noticeId" value={notice.id} />
           <input type="hidden" name="status" value="accepted" />
@@ -61,6 +75,18 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
             Return
           </button>
         </form>
+        </> : null}
+        {notice.status === "accepted" ? <form action={action}>
+          <input type="hidden" name="noticeId" value={notice.id} />
+          <input type="hidden" name="status" value="closed" />
+          <input type="hidden" name="reviewNote" value={note} />
+          <input type="hidden" name="expectedStatus" value={notice.status} />
+          <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
+          <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground disabled:opacity-60">
+            {pending ? <Spinner className="size-3" /> : null}
+            Close notice
+          </button>
+        </form> : null}
       </div>
     </div>
   );
