@@ -45,10 +45,15 @@ async function ensureGuardian(service: ReturnType<typeof serviceClient>) {
     });
   expect(authResult.error).toBeNull();
 
+  // `must_change_password: true` routes the signed-in account to the governed
+  // security-cleared workspace instead of the parent portal, so the profile must
+  // be cleared exactly as the shared seed does for its synthetic accounts.
   const { error: profileError } = await service.from("user_profiles").upsert({
     user_id: GUARDIAN_ACCOUNT.userId,
     display_name: "E2E Absence Guardian",
+    preferred_name: "E2E Absence Guardian",
     must_change_password: false,
+    password_rotation_expires_at: null,
   }, { onConflict: "user_id" });
   expect(profileError).toBeNull();
 
