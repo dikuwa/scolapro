@@ -76,6 +76,9 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
     {!workspace.nextYearConfigured ? <div role="status" className="rounded-[var(--radius-sm)] bg-warning-soft p-3 text-xs font-medium text-[color:var(--warning)]">
       The {workspace.nextAcademicYear} academic year is not configured. Publishing is blocked until the next year, its grades and register classes exist.
     </div> : null}
+    {workspace.readinessFailed ? <div role="status" className="rounded-[var(--radius-sm)] bg-warning-soft p-3 text-xs font-medium text-[color:var(--warning)]">
+      Recommendations could not be evaluated for this grade. Check that each active promotion rule version has every condition fully configured. Learner decisions and actions remain available.
+    </div> : null}
     {counts.missingRuleSet ? <div role="status" className="rounded-[var(--radius-sm)] bg-surface-muted p-3 text-xs text-muted-foreground">
       {counts.missingRuleSet} learner{counts.missingRuleSet === 1 ? "" : "s"} have no active promotion rule set for their grade. Configure one in Academic setup before generating recommendations.
     </div> : null}

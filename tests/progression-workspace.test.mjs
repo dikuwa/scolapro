@@ -26,6 +26,15 @@ test("progression actions use only the canonical governed RPCs", () => {
   assert.doesNotMatch(component, /\bpass(?:ed)?\s*=\s*/i);
 });
 
+test("a readiness failure surfaces instead of blanking the workspace", () => {
+  assert.match(workspace, /const readinessFailed = Boolean\(readinessResult\.error\)/);
+  assert.match(workspace, /readinessFailed,/);
+  // The fatal-error loop must not include the readiness projection.
+  assert.doesNotMatch(workspace, /for \(const result of \[[^\]]*readinessResult[^\]]*\]\) \{\s*if \(result\.error\) throw/);
+  assert.match(component, /workspace\.readinessFailed/);
+  assert.match(component, /Recommendations could not be evaluated for this grade/);
+});
+
 test("workspace reads canonical enrolment, readiness and next-year configuration", () => {
   assert.match(workspace, /get_academic_analysis_promotion_readiness/);
   assert.match(workspace, /from\("year_end_progressions"\)/);

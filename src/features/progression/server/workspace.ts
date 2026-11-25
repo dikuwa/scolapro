@@ -53,6 +53,8 @@ export type ProgressionDestinationChoice = {
 
 export type ProgressionWorkspace = {
   academicYear: number;
+  /** True when the canonical readiness projection could not be evaluated. */
+  readinessFailed: boolean;
   grades: Array<{ id: string; label: string }>;
   selectedGradeId: string | null;
   nextAcademicYear: number;
@@ -141,9 +143,12 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
       .eq("status", "active"),
     supabase.rpc("get_academic_analysis_promotion_readiness", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
-  for (const result of [learnersResult, registerClassesResult, progressionsResult, ruleSetsResult, readinessResult]) {
+  for (const result of [learnersResult, registerClassesResult, progressionsResult, ruleSetsResult]) {
     if (result.error) throw new Error("Unable to load the year-end progression workspace.");
   }
+  // Recommendations are advisory previews. A single misconfigured rule version in
+  // this grade must not make the whole workspace unreachable: surface it instead.
+  const readinessFailed = Boolean(readinessResult.error);
 
   const learnerById = new Map((learnersResult.data ?? []).map((row) => [str(row.id), row]));
   const registerClassById = new Map((registerClassesResult.data ?? []).map((row) => [str(row.id), row]));
@@ -241,6 +246,7 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
 
   return {
     academicYear,
+    readinessFailed,
     grades: currentYearGrades.map((row) => ({
       id: str(row.id),
       label: `${str(row.display_name) || str(row.grade_code)}`,
