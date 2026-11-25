@@ -1,6 +1,6 @@
 begin;
 
-select plan(9);
+select plan(10);
 
 select ok(
   not has_function_privilege('authenticated','app_private.enforce_grading_scale_creator_integrity()','EXECUTE')
@@ -12,6 +12,11 @@ select trigger_is(
   'public','grading_scales','grading_scale_creator_integrity_trg',
   'app_private','enforce_grading_scale_creator_integrity',
   'grading-scale creator trigger is installed'
+);
+
+select ok(
+  not has_table_privilege('authenticated','public.grading_scales','UPDATE'),
+  'authenticated callers cannot bypass reviewed-band activation through direct grading-scale updates'
 );
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
@@ -47,21 +52,23 @@ select throws_ok(
   'creator cannot later be rewritten to another authorized academic leader'
 );
 
-select set_config('request.jwt.claim.sub','f6e00000-0000-4000-8000-000000000001',true);
+-- The new school-grading configuration contract allows only school management
+-- to mutate grading scales; HOD creator provenance may still exist in historic rows.
+select set_config('request.jwt.claim.sub','f6e00000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 set local role authenticated;
 
 select throws_ok(
   $$insert into public.grading_scales(tenant_id,school_id,scale_key,version,display_name,effective_from,status,created_by_user_id)
-    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','client-forged','1','Client forged scale',current_date,'draft','f6e00000-0000-4000-8000-000000000002')$$,
+    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','client-forged','1','Client forged scale',current_date,'draft','f6e00000-0000-4000-8000-000000000001')$$,
   'Grading scale creator must match authenticated actor',
-  'authenticated academic leader cannot claim another manager as creator'
+  'authenticated school manager cannot claim another member as creator'
 );
 
 select lives_ok(
   $$insert into public.grading_scales(tenant_id,school_id,scale_key,version,display_name,effective_from,status,created_by_user_id)
-    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','client-own','1','Client own scale',current_date,'draft','f6e00000-0000-4000-8000-000000000001')$$,
-  'authenticated academic leader can create grading scale under own identity'
+    values('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','client-own','1','Client own scale',current_date,'draft','f6e00000-0000-4000-8000-000000000002')$$,
+  'authenticated school manager can create grading scale under own identity'
 );
 
 reset role;

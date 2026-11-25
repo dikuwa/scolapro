@@ -10,6 +10,9 @@ export type SyntheticAccount = {
   staffMemberId?: string;
   membershipId?: string;
   assignmentId?: string;
+  guardianProfileId?: string;
+  learnerGuardianId?: string;
+  guardianLinkId?: string;
 };
 
 export declare const DEMO: {
@@ -23,6 +26,16 @@ export declare const DEMO: {
   readonly registerClass10BName: string;
   readonly learnerAmaraEnrolmentId: string;
   readonly learnerTomasEnrolmentId: string;
+  readonly publishedLearnerId: string;
+  readonly publishedSnapshotId: string;
+  readonly certifiedOnlySnapshotId: string;
+  readonly publicationCandidateSnapshotId: string;
+  readonly assessmentSchemeId: string;
+  readonly assessmentComponentId: string;
+  readonly assessmentTeacherAllocationId: string;
+  readonly assessmentHodResponsibilityId: string;
+  readonly assessmentRegistrationId: string;
+  readonly assessmentInstanceId: string;
   readonly registerBoyLearnerId: string;
   readonly registerBoyEnrolmentId: string;
   readonly registerVisualSubmissionId: string;
@@ -44,6 +57,8 @@ export declare const SYNTHETIC_ACCOUNTS: {
   readonly registerTeacher: SyntheticAccount;
   readonly unassignedTeacher: SyntheticAccount;
   readonly hod: SyntheticAccount;
+  readonly guardian: SyntheticAccount;
+  readonly publishedGuardian: SyntheticAccount;
   readonly outsider: SyntheticAccount;
 };
 
