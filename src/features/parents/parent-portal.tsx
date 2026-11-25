@@ -36,7 +36,7 @@ function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) 
       <h2 className="scolapro-section-title">Absence notice history</h2>
       <p className="scolapro-section-description">These are your submitted notices and school review outcomes. A notice never changes the official attendance register by itself.</p>
     </div>
-    {notices.length ? <div className="divide-y divide-border-subtle">{notices.map((notice) => <article key={notice.id} className="px-4 py-4 sm:px-5">
+    {notices.length ? <div className="divide-y divide-border-subtle">{notices.map((notice) => <article key={notice.id} data-testid={`parent-absence-notice-${notice.id}`} className="px-4 py-4 sm:px-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-foreground">{notice.learnerName}</p>

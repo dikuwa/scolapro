@@ -137,7 +137,7 @@ export function AbsenceReviewList({ notices }: { notices: AbsenceNoticeSummary[]
         {filtered.length ? (
           <div className="divide-y divide-border-subtle">
             {filtered.map((notice) => (
-              <div key={notice.id} className="px-4 py-4 sm:px-5">
+              <div key={notice.id} data-testid={`absence-notice-${notice.id}`} className="px-4 py-4 sm:px-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="scolapro-record-title">{notice.learnerName}</p>
