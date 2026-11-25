@@ -140,7 +140,8 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
 
   // The action refreshes the server component itself; waiting for the row is the
   // real assertion. A manual reload here would race the in-flight refresh.
-  await expect(page.getByText(noteText)).toBeVisible({ timeout: 30_000 });
+  // The note appears both in the notice body and in the history entry.
+  await expect(page.getByText(noteText).first()).toBeVisible({ timeout: 30_000 });
   const evidenceLink = page.getByRole("link", { name: `evidence-${run}.pdf` });
   await expect(evidenceLink).toBeVisible();
   const evidenceHref = await evidenceLink.getAttribute("href");
@@ -215,7 +216,7 @@ test("guardian withdraws a notice and the school can no longer review it", async
       .eq("learner_id", DEMO.registerBoyLearnerId);
     return count ?? 0;
   }, { timeout: 20_000 }).toBeGreaterThan(0);
-  await expect(page.getByText(noteText)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(noteText).first()).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole("button", { name: "Withdraw notice" }).first().click();
   const dialog = page.getByRole("alertdialog", { name: "Confirm destructive action" });
