@@ -28,8 +28,15 @@ test("a validation-suppressed destructive replay never authorizes a later click"
   const deleteButton = form.getByRole("button", { name: "Delete synthetic record" });
   const dialog = page.getByRole("alertdialog", { name: "Confirm destructive action" });
 
-  await deleteButton.click();
-  await expect(dialog).toBeVisible();
+  // The guard attaches in a client effect. A server-rendered page can accept the
+  // synthetic click before hydration, in which case the one-shot submit event is
+  // never observed. Retry the click until the guard intercepts it instead of
+  // assuming the first post-navigation click is hydrated.
+  await expect(async () => {
+    if (await dialog.isVisible().catch(() => false)) return;
+    await deleteButton.click();
+    await expect(dialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
   await form.locator("input").fill(""); // becomes invalid while dialog is open
   await dialog.getByRole("button", { name: "Yes, continue" }).click();
   await expect(dialog).toHaveCount(0);
