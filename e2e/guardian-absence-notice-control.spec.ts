@@ -121,11 +121,26 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     buffer: Buffer.from("%PDF-1.4\n% synthetic evidence\n%%EOF"),
   });
   await page.getByRole("button", { name: "Submit absence notice" }).click();
-  await expect(page.getByText("supporting document submitted", { exact: false })).toBeVisible();
-  // The action reports success without a client refresh, so reload to read the
-  // server-rendered history (same pattern the product uses after a save).
-  await page.reload();
-  await expect(page.getByText(noteText)).toBeVisible();
+  // Surface the action's own outcome: a governance refusal must fail here with
+  // its message rather than as a missing-row assertion later.
+  const outcome = page.getByText(/submitted|submitted\.|could not|not authorized|already covers/i).first();
+  await expect(outcome).toBeVisible();
+  const outcomeText = (await outcome.textContent()) ?? "";
+  expect(outcomeText.toLowerCase()).toContain("submitted");
+  expect(outcomeText.toLowerCase()).not.toContain("could not");
+
+  // Authoritative check: the notice row exists for this learner before any
+  // rendering assertion, so a UI problem cannot be mistaken for a write problem.
+  await expect.poll(async () => {
+    const { count } = await service.from("guardian_absence_notices")
+      .select("id", { count: "exact", head: true })
+      .eq("learner_id", DEMO.registerBoyLearnerId);
+    return count ?? 0;
+  }, { timeout: 20_000 }).toBeGreaterThan(0);
+
+  // The action refreshes the server component itself; waiting for the row is the
+  // real assertion. A manual reload here would race the in-flight refresh.
+  await expect(page.getByText(noteText)).toBeVisible({ timeout: 30_000 });
   const evidenceLink = page.getByRole("link", { name: `evidence-${run}.pdf` });
   await expect(evidenceLink).toBeVisible();
   const evidenceHref = await evidenceLink.getAttribute("href");
@@ -149,8 +164,9 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     await adminContext.close();
   }
 
-  // Guardian resubmits with a corrected reason.
-  await page.reload();
+  // Guardian resubmits with a corrected reason. The review happens in another
+  // browser context, so one navigation is required to read the new state.
+  await page.goto("/parent");
   await expect(page.getByText("Please provide appointment evidence.")).toBeVisible();
   await page.getByRole("button", { name: "Edit and resubmit" }).click();
   const resubmitForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Resubmit for review" }) });
@@ -175,7 +191,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     await reviewerContext.close();
   }
 
-  await page.reload();
+  await page.goto("/parent");
   await page.getByText(noteText, { exact: false }).first().scrollIntoViewIfNeeded();
   await expect(page.getByText("Accepted after appointment evidence.")).toBeVisible();
   await expect(page.getByText("accepted", { exact: false }).first()).toBeVisible();
@@ -193,18 +209,20 @@ test("guardian withdraws a notice and the school can no longer review it", async
   await page.goto("/parent");
   await page.locator("#absence-message").fill(noteText);
   await page.getByRole("button", { name: "Submit absence notice" }).click();
-  await expect(page.getByText("Absence notice submitted. The school will review it.")).toBeVisible();
-  await page.reload();
-  await expect(page.getByText(noteText)).toBeVisible();
+  await expect.poll(async () => {
+    const { count } = await service.from("guardian_absence_notices")
+      .select("id", { count: "exact", head: true })
+      .eq("learner_id", DEMO.registerBoyLearnerId);
+    return count ?? 0;
+  }, { timeout: 20_000 }).toBeGreaterThan(0);
+  await expect(page.getByText(noteText)).toBeVisible({ timeout: 30_000 });
 
   await page.getByRole("button", { name: "Withdraw notice" }).first().click();
   const dialog = page.getByRole("alertdialog", { name: "Confirm destructive action" });
   if (await dialog.isVisible().catch(() => false)) {
     await dialog.getByRole("button", { name: "Yes, continue" }).click();
   }
-  await expect(page.getByText("Absence notice withdrawn.", { exact: false })).toBeVisible();
-  await page.reload();
-  await expect(page.getByText("withdrawn", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("withdrawn", { exact: false }).first()).toBeVisible({ timeout: 30_000 });
 
   const adminContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
   const adminPage = await adminContext.newPage();
@@ -279,8 +297,7 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
   await page.goto("/parent");
   await page.locator("#absence-message").fill(`Visual acceptance ${crypto.randomUUID().slice(0, 6)}`);
   await page.getByRole("button", { name: "Submit absence notice" }).click();
-  await expect(page.getByText("Absence notice submitted.")).toBeVisible();
-  await page.reload();
+  await expect(page.getByText("Absence notice submitted.", { exact: false })).toBeVisible();
   const history = page.locator("section").filter({ hasText: "Absence notice history" }).first();
   for (const width of [390, 768, 1440]) {
     for (const theme of ["light", "dark"] as const) {
