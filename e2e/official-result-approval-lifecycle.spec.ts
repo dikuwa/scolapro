@@ -137,7 +137,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     await expect(adminPage.getByText("Official subject result approved and locked.", { exact: false })).toBeVisible();
 
     const { data: result, error } = await service.from("official_results_current")
-      .select("result_value,symbol,calculation_snapshot").eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
+      .select("result_value,symbol,calculation_snapshot,grading_definition_snapshot,grading_definition_fingerprint").eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
       .eq("subject_offering_id", ids.offering).eq("term_number", 1).single();
     expect(error).toBeNull();
     expect(Number(result?.result_value)).toBe(82);
@@ -145,6 +145,13 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
     const gradingProvenance = result?.calculation_snapshot as Record<string, unknown> | null;
     expect(gradingProvenance?.grading_scale_reference_date).toBe("2026-04-28");
     expect(gradingProvenance?.grading_scale_reference_basis).toBe("academic_term_end");
+    // The exact grading definition used is retained, not just the version text.
+    expect(result?.grading_definition_fingerprint).toBeTruthy();
+    expect(gradingProvenance?.grading_definition_fingerprint).toBe(result?.grading_definition_fingerprint);
+    const approvedDefinition = result?.grading_definition_snapshot as Record<string, unknown> | null;
+    expect(approvedDefinition?.version).toBeTruthy();
+    expect(approvedDefinition?.decimal_places).toBeGreaterThanOrEqual(0);
+    expect(Array.isArray(approvedDefinition?.bands)).toBe(true);
 
     // The UI must expose the governed correction path without silently
     // changing an official result. No correction authorization exists here.
@@ -271,7 +278,7 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
       return Number(data?.result_value);
     }).toBe(94);
     const { data: history, error: historyError } = await service.from("official_results")
-      .select("id,result_value,symbol,superseded_at,supersedes_result_id,correction_authorization_id,calculation_snapshot")
+      .select("id,result_value,symbol,superseded_at,supersedes_result_id,correction_authorization_id,calculation_snapshot,grading_definition_snapshot,grading_definition_fingerprint")
       .eq("enrolment_id", DEMO.learnerTomasEnrolmentId)
       .eq("subject_offering_id", ids.offering).eq("term_number", 1);
     expect(historyError).toBeNull();
@@ -287,7 +294,16 @@ test("assigned teacher mark, portfolio HOD verification and school-managed offic
       const snapshot = immutable?.calculation_snapshot as Record<string, unknown> | null;
       expect(snapshot?.grading_scale_reference_date).toBe("2026-04-28");
       expect(snapshot?.grading_scale_reference_basis).toBe("academic_term_end");
+      expect(immutable?.grading_definition_fingerprint).toBeTruthy();
+      expect((immutable?.grading_definition_snapshot as Record<string, unknown> | null)?.bands).toBeTruthy();
     }
+    // The correction reused the exact original definition; both rows carry the
+    // same fingerprint even though the scale was superseded in between.
+    expect(oldResult?.grading_definition_fingerprint).toBe(replacementResult?.grading_definition_fingerprint);
+    // A scale used by an approved result can never be returned to draft.
+    const { error: draftReturnError } = await service.from("grading_scales")
+      .update({ status: "draft" }).eq("id", ids.scale);
+    expect(draftReturnError?.message).toMatch(/cannot return to draft|immutable/i);
 
   } finally {
     await Promise.all([hodContext.close(), adminContext.close()]);
