@@ -2,6 +2,7 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { getNamibiaCalendarYear } from "@/lib/namibia-date";
@@ -160,12 +161,91 @@ export async function decideAdmissionApplication(formData: FormData) {
   const applicationId = String(formData.get("applicationId") ?? "");
   const status = String(formData.get("status") ?? "");
   const note = String(formData.get("decisionNote") ?? "").trim();
+  const expectedStatus = String(formData.get("expectedStatus") ?? "").trim();
+  const expectedDecisionNote = String(formData.get("expectedDecisionNote") ?? "");
+  const expectedReviewedAt = String(formData.get("expectedReviewedAt") ?? "").trim();
+  if (note.length > 1000) redirect("/school/admissions?error=Decision+note+must+be+1000+characters+or+fewer");
+  if (!expectedStatus || (expectedReviewedAt && Number.isNaN(Date.parse(expectedReviewedAt)))) {
+    redirect("/school/admissions?error=Decision+review+state+is+invalid.+Reload+and+retry");
+  }
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("decide_admission_application", {
+  const { error } = await supabase.rpc("decide_admission_application_checked", {
     p_application_id: applicationId,
     p_status: status,
     p_decision_note: note || null,
+    p_expected_status: expectedStatus,
+    p_expected_decision_note: expectedDecisionNote || null,
+    p_expected_reviewed_at: expectedReviewedAt || null,
   });
   revalidatePath("/school/admissions");
-  redirect(`/school/admissions${error ? "?error=Admission+decision+could+not+be+saved" : "?success=Admission+decision+saved"}`);
+  // The redirect identifies the saved application so only that editor closes and
+  // re-initialises from fresh server data. Other in-progress editors keep their
+  // captured baseline, so a background revalidation can never silently replace
+  // an unsaved draft or allow it to overwrite a newer decision.
+  const outcome = error?.message?.includes("Admission decision changed; reload")
+    ? "?error=Admission+decision+changed.+Reload+before+saving"
+    : error ? "?error=Admission+decision+could+not+be+saved"
+    : `?success=Admission+decision+saved&decided=${applicationId}&revision=${Date.now()}`;
+  redirect(`/school/admissions${outcome}`);
+}
+
+const acceptedEnrolmentSchema = z.object({
+  applicationId: z.string().uuid(),
+  registerClassId: z.string().uuid(),
+  admissionNumber: z.string().trim().max(120).optional(),
+  preferredName: z.string().trim().max(120).optional(),
+  gender: z.enum(["female", "male", "other", "unspecified"]),
+  enrolledFrom: z.string().date(),
+});
+
+export async function completeAcceptedAdmission(formData: FormData) {
+  const parsed = acceptedEnrolmentSchema.safeParse({
+    applicationId: formData.get("applicationId"),
+    registerClassId: formData.get("registerClassId"),
+    admissionNumber: formData.get("admissionNumber") ?? "",
+    preferredName: formData.get("preferredName") ?? "",
+    gender: formData.get("gender"),
+    enrolledFrom: formData.get("enrolledFrom"),
+  });
+  if (!parsed.success) redirect("/school/admissions?error=Complete+all+required+enrolment+fields");
+
+  const context = await getUserContext();
+  // Canonical enrol_accepted_admission permits school_admin only.
+  const membership = context.memberships.find((item) => item.roleKey === "school_admin");
+  if (!context.user || !membership) redirect("/school/admissions?error=School+admin+access+required+for+enrolment");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: application, error: applicationError } = await supabase
+    .from("admission_applications")
+    .select("id,school_id,academic_year,requested_grade_id,status")
+    .eq("id", parsed.data.applicationId)
+    .eq("school_id", membership.schoolId)
+    .maybeSingle();
+
+  if (applicationError || !application || application.status !== "accepted" || !application.requested_grade_id) {
+    redirect("/school/admissions?error=Accepted+application+with+a+grade+is+required");
+  }
+
+  const { data: registerClass, error: classError } = await supabase
+    .from("register_classes")
+    .select("id")
+    .eq("id", parsed.data.registerClassId)
+    .eq("school_id", membership.schoolId)
+    .eq("academic_year", application.academic_year)
+    .eq("grade_id", application.requested_grade_id)
+    .maybeSingle();
+  if (classError || !registerClass) redirect("/school/admissions?error=Choose+a+class+for+the+accepted+grade+and+year");
+
+  const { error, data } = await supabase.rpc("enrol_accepted_admission", {
+    p_application_id: application.id,
+    p_register_class_id: registerClass.id,
+    p_admission_number: parsed.data.admissionNumber || null,
+    p_preferred_name: parsed.data.preferredName || null,
+    p_sex: parsed.data.gender,
+    p_enrolled_from: parsed.data.enrolledFrom,
+  });
+  if (error || !data) redirect("/school/admissions?error=Admission+enrolment+could+not+be+completed");
+
+  revalidatePath("/school/admissions");
+  redirect("/school/admissions?success=Accepted+admission+enrolled");
 }
