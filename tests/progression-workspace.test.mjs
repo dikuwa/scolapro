@@ -27,7 +27,9 @@ test("progression actions use only the canonical governed RPCs", () => {
 });
 
 test("a readiness failure surfaces instead of blanking the workspace", () => {
-  assert.match(workspace, /const readinessFailed = Boolean\(readinessResult\.error\)/);
+  assert.match(workspace, /const readinessFailed = partialFailure/);
+  assert.match(workspace, /\[learnersResult, registerClassesResult, progressionsResult, ruleSetsResult, readinessResult\]/);
+  assert.match(workspace, /progression\.workspace\.partial_read_failure/);
   assert.match(workspace, /readinessFailed,/);
   // The fatal-error loop must not include the readiness projection.
   assert.doesNotMatch(workspace, /for \(const result of \[[^\]]*readinessResult[^\]]*\]\) \{\s*if \(result\.error\) throw/);

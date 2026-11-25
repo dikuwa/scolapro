@@ -143,12 +143,23 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
       .eq("status", "active"),
     supabase.rpc("get_academic_analysis_promotion_readiness", { p_school_id: schoolId, p_academic_year: academicYear }),
   ]);
-  for (const result of [learnersResult, registerClassesResult, progressionsResult, ruleSetsResult]) {
-    if (result.error) throw new Error("Unable to load the year-end progression workspace.");
+  // Only the structural reads (year, grades, classes, enrolments) are essential.
+  // Learner names, rule sets, existing decisions, publications and advisory
+  // recommendations degrade gracefully: losing one of them must not blank the
+  // whole grade workspace or block a legitimate decision.
+  const partialFailure = [learnersResult, registerClassesResult, progressionsResult, ruleSetsResult, readinessResult]
+    .some((result) => Boolean(result.error));
+  const readinessFailed = partialFailure;
+  if (partialFailure) {
+    // Diagnose without learner-identifying detail: which optional read failed.
+    console.error("progression.workspace.partial_read_failure", {
+      learners: Boolean(learnersResult.error),
+      registerClasses: Boolean(registerClassesResult.error),
+      progressions: Boolean(progressionsResult.error),
+      ruleSets: Boolean(ruleSetsResult.error),
+      readiness: Boolean(readinessResult.error),
+    });
   }
-  // Recommendations are advisory previews. A single misconfigured rule version in
-  // this grade must not make the whole workspace unreachable: surface it instead.
-  const readinessFailed = Boolean(readinessResult.error);
 
   const learnerById = new Map((learnersResult.data ?? []).map((row) => [str(row.id), row]));
   const registerClassById = new Map((registerClassesResult.data ?? []).map((row) => [str(row.id), row]));
