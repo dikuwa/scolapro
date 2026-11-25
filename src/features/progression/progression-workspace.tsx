@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, LockKeyhole, Send, UserRoundCheck } from "lucide-react";
 import { toast } from "sonner";
 import { CheckboxField } from "@/components/ui/checkbox-field";
@@ -35,6 +36,7 @@ function StatusChip({ status }: { status: string | null }) {
 }
 
 export function ProgressionWorkspace({ workspace, canApprove, today }: { workspace: ProgressionWorkspace; canApprove: boolean; today: string }) {
+  const router = useRouter();
   const [generateState, generateAction, generatePending] = useActionState(generateProgression, initialState);
   const [overrideState, overrideAction, overridePending] = useActionState(overrideProgression, initialState);
   const [approveState, approveAction, approvePending] = useActionState(approveProgression, initialState);
@@ -65,6 +67,10 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
         <h1 className="scolapro-page-title text-xl">Year-end progression</h1>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Review the governed promotion recommendation, record a reasoned override, approve and lock the decision, then publish the rollover into {workspace.nextAcademicYear}. Historical enrolments are preserved; nothing is hardcoded by grade or year.</p>
       </div>
+      <div className="w-full sm:w-64">
+        <Picker label="Grade" value={workspace.selectedGradeId ?? ""} onChange={(gradeId) => router.push(gradeId ? `/school/progression?grade=${gradeId}` : "/school/progression")}
+          options={workspace.grades.map((grade) => ({ value: grade.id, label: grade.label }))} placeholder="Choose grade" searchable disabled={!workspace.grades.length} />
+      </div>
     </div>
 
     {!workspace.nextYearConfigured ? <div role="status" className="rounded-[var(--radius-sm)] bg-warning-soft p-3 text-xs font-medium text-[color:var(--warning)]">
@@ -87,7 +93,7 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
 
     <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
       <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
-        <h2 className="scolapro-section-title">Learners · {workspace.academicYear}</h2>
+        <h2 className="scolapro-section-title">Learners · {workspace.academicYear}{workspace.selectedGradeId ? ` · ${workspace.grades.find((grade) => grade.id === workspace.selectedGradeId)?.label ?? ""}` : ""}</h2>
         <p className="scolapro-section-description">Reviewed decisions can be overridden with a reason. Approval, locking and publication are separate governed steps.</p>
       </div>
       {workspace.learners.length ? <div className="divide-y divide-border-subtle">{workspace.learners.map((learner) => <LearnerRow

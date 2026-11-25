@@ -53,6 +53,8 @@ export type ProgressionDestinationChoice = {
 
 export type ProgressionWorkspace = {
   academicYear: number;
+  grades: Array<{ id: string; label: string }>;
+  selectedGradeId: string | null;
   nextAcademicYear: number;
   nextYearConfigured: boolean;
   destinationChoices: ProgressionDestinationChoice[];
@@ -88,27 +90,38 @@ function numOrNull(value: unknown): number | null {
  * grade, class and progression records and uses the canonical bulk readiness RPC
  * for recommendations. No promotion rule is evaluated in application code.
  */
-export async function getProgressionWorkspace(schoolId: string, academicYear: number): Promise<ProgressionWorkspace> {
+export async function getProgressionWorkspace(schoolId: string, academicYear: number, requestedGradeId?: string | null): Promise<ProgressionWorkspace> {
   const supabase = await createSupabaseServerClient();
   const nextAcademicYear = academicYear + 1;
 
-  const [enrolmentsResult, yearsResult, gradesResult, classesResult] = await Promise.all([
-    supabase.from("enrolments")
+  // Bound the progression engine to one grade at a time. A whole-school run would
+  // evaluate every learner's marks and attendance in one request.
+  const [yearsResult, gradesResult, classesResult] = await Promise.all([
+    supabase.from("academic_years").select("year,status").eq("school_id", schoolId).eq("year", nextAcademicYear).maybeSingle(),
+    supabase.from("grades").select("id,grade_code,display_name,academic_year").eq("school_id", schoolId).in("academic_year", [academicYear, nextAcademicYear]).order("grade_code"),
+    supabase.from("register_classes").select("id,grade_id,academic_year,display_name,class_code").eq("school_id", schoolId).eq("academic_year", nextAcademicYear).order("display_name"),
+  ]);
+  for (const result of [yearsResult, gradesResult, classesResult]) {
+    if (result.error) throw new Error("Unable to load the year-end progression workspace.");
+  }
+  const gradeById = new Map((gradesResult.data ?? []).map((row) => [str(row.id), row]));
+  const currentYearGrades = (gradesResult.data ?? []).filter((row) => Number(row.academic_year) === academicYear);
+  const selectedGradeId = requestedGradeId && gradeById.has(requestedGradeId)
+    ? requestedGradeId
+    : currentYearGrades[0] ? str(currentYearGrades[0].id) : null;
+
+  const enrolmentsResult = selectedGradeId
+    ? await supabase.from("enrolments")
       .select("id,learner_id,academic_year,grade_id,register_class_id,admission_number")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
+      .eq("grade_id", selectedGradeId)
       .eq("status", "current")
-      .order("admission_number"),
-    supabase.from("academic_years").select("year,status").eq("school_id", schoolId).eq("year", nextAcademicYear).maybeSingle(),
-    supabase.from("grades").select("id,grade_code,display_name,academic_year").eq("school_id", schoolId).in("academic_year", [academicYear, nextAcademicYear]),
-    supabase.from("register_classes").select("id,grade_id,academic_year,display_name,class_code").eq("school_id", schoolId).eq("academic_year", nextAcademicYear).order("display_name"),
-  ]);
-  for (const result of [enrolmentsResult, yearsResult, gradesResult, classesResult]) {
-    if (result.error) throw new Error("Unable to load the year-end progression workspace.");
-  }
+      .order("admission_number")
+    : { data: [], error: null };
+  if (enrolmentsResult.error) throw new Error("Unable to load the year-end progression workspace.");
 
   const enrolments = (enrolmentsResult.data ?? []) as Row[];
-  const gradeById = new Map((gradesResult.data ?? []).map((row) => [str(row.id), row]));
   const enrolmentIds = enrolments.map((row) => str(row.id));
   const learnerIds = [...new Set(enrolments.map((row) => str(row.learner_id)).filter(Boolean))];
   const registerClassIds = [...new Set(enrolments.map((row) => str(row.register_class_id)).filter(Boolean))];
@@ -228,6 +241,11 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
 
   return {
     academicYear,
+    grades: currentYearGrades.map((row) => ({
+      id: str(row.id),
+      label: `${str(row.display_name) || str(row.grade_code)}`,
+    })),
+    selectedGradeId,
     nextAcademicYear,
     nextYearConfigured: Boolean(yearsResult.data),
     destinationChoices,
