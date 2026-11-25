@@ -43,6 +43,8 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
           <input type="hidden" name="noticeId" value={notice.id} />
           <input type="hidden" name="status" value="accepted" />
           <input type="hidden" name="reviewNote" value={note} />
+          <input type="hidden" name="expectedStatus" value={notice.status} />
+          <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
           <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--success)] disabled:opacity-60">
             {pending ? <Spinner className="size-3" /> : <CheckCircle2 className="size-3.5" />}
             Accept
@@ -52,6 +54,8 @@ function ReviewActions({ notice }: { notice: AbsenceNoticeSummary }) {
           <input type="hidden" name="noticeId" value={notice.id} />
           <input type="hidden" name="status" value="returned" />
           <input type="hidden" name="reviewNote" value={note} />
+          <input type="hidden" name="expectedStatus" value={notice.status} />
+          <input type="hidden" name="expectedReviewedAt" value={notice.reviewedAt ?? ""} />
           <button type="submit" disabled={pending} className="inline-flex min-h-8 items-center gap-1.5 rounded-[var(--radius-xs)] bg-warning-soft px-2.5 text-[0.7rem] font-semibold text-[color:var(--warning)] disabled:opacity-60">
             <RotateCcw className="size-3.5" />
             Return
@@ -123,6 +127,13 @@ export function AbsenceReviewList({ notices }: { notices: AbsenceNoticeSummary[]
                     <span className={`rounded-[var(--radius-xs)] px-2 py-1 text-[0.64rem] font-medium capitalize ${statusBadge(notice.status)}`}>{notice.status.replace("_", " ")}</span>
                   </div>
                 </div>
+                {notice.attachments.length ? <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                  {notice.attachments.map((attachment) => <li key={attachment.id}>
+                    <a href={`/api/guardian-absence-evidence/${attachment.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[0.68rem] font-medium text-brand-strong hover:underline">
+                      <FileText className="size-3" aria-hidden="true" />{attachment.fileName}
+                    </a>
+                  </li>)}
+                </ul> : null}
                 {notice.reviewNote ? (
                   <p className="mt-2 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-[0.68rem] text-muted-foreground">
                     Review: {notice.reviewNote}

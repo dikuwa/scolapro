@@ -91,6 +91,9 @@ export async function submitAbsenceNotice(_state: AbsenceActionState, formData: 
   }
 
   revalidatePath("/parent");
+  // The staff queue is a separate route; refresh it too so a new notice is not
+  // invisible until an unrelated navigation happens.
+  revalidatePath("/school/absence-reviews");
   return { success: true, message: file ? "Absence notice and supporting document submitted. The school will review them." : "Absence notice submitted. The school will review it." };
 }
 
@@ -98,6 +101,8 @@ const reviewAbsenceSchema = z.object({
   noticeId: z.string().uuid(),
   status: z.enum(["accepted", "returned", "closed"]),
   reviewNote: z.string().max(2000).optional(),
+  expectedStatus: z.string().trim().min(1),
+  expectedReviewedAt: z.string().trim().optional(),
 });
 
 export async function reviewAbsenceNotice(_state: AbsenceActionState, formData: FormData): Promise<AbsenceActionState> {
@@ -105,18 +110,28 @@ export async function reviewAbsenceNotice(_state: AbsenceActionState, formData: 
     noticeId: formData.get("noticeId"),
     status: formData.get("status"),
     reviewNote: formData.get("reviewNote") || undefined,
+    expectedStatus: formData.get("expectedStatus"),
+    expectedReviewedAt: formData.get("expectedReviewedAt") || undefined,
   });
 
   if (!parsed.success) return { message: "Invalid review data." };
+  if (parsed.data.expectedReviewedAt && Number.isNaN(Date.parse(parsed.data.expectedReviewedAt))) {
+    return { message: "Invalid review state. Reload before retrying." };
+  }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("review_guardian_absence_notice", {
+  const { error } = await supabase.rpc("review_guardian_absence_notice_checked", {
     p_notice_id: parsed.data.noticeId,
     p_status: parsed.data.status,
     p_review_note: parsed.data.reviewNote || null,
+    p_expected_status: parsed.data.expectedStatus,
+    p_expected_reviewed_at: parsed.data.expectedReviewedAt || null,
   });
 
-  if (error) return { message: error.message || "Could not review absence notice." };
+  if (error) {
+    const changed = error.message?.includes("Absence notice review changed");
+    return { message: changed ? "This notice was reviewed by someone else. Reload before saving." : error.message || "Could not review absence notice." };
+  }
 
   revalidatePath("/school/absence-reviews");
   return { success: true, message: `Notice ${parsed.data.status}.` };

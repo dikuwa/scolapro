@@ -14,6 +14,7 @@ export type AbsenceNoticeSummary = {
   reviewedAt: string | null;
   createdAt: string;
   attachmentCount: number;
+  attachments: AbsenceAttachment[];
 };
 
 export type AbsenceAttachment = {
@@ -21,7 +22,6 @@ export type AbsenceAttachment = {
   noticeId: string;
   fileName: string;
   mimeType: string;
-  storagePath: string;
 };
 
 export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]> {
@@ -33,7 +33,7 @@ export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]>
       id, learner_id, absence_from, absence_to, reason_category, message,
       status, review_note, reviewed_at, created_at,
       learners!inner(id, first_names, surname),
-      guardian_absence_notice_attachments(id)
+      guardian_absence_notice_attachments(id, file_name, mime_type)
     `)
     .order("created_at", { ascending: false })
     .limit(50);
@@ -56,6 +56,12 @@ export async function getParentAbsenceNotices(): Promise<AbsenceNoticeSummary[]>
       reviewedAt: row.reviewed_at,
       createdAt: row.created_at,
       attachmentCount: row.guardian_absence_notice_attachments?.length ?? 0,
+      attachments: (row.guardian_absence_notice_attachments ?? []).map((attachment) => ({
+        id: attachment.id,
+        noticeId: row.id,
+        fileName: attachment.file_name,
+        mimeType: attachment.mime_type,
+      })),
     };
   });
 }
@@ -69,7 +75,7 @@ export async function getSchoolAbsenceNotices(schoolId: string): Promise<Absence
       id, learner_id, absence_from, absence_to, reason_category, message,
       status, review_note, reviewed_at, created_at,
       learners!inner(id, first_names, surname),
-      guardian_absence_notice_attachments(id)
+      guardian_absence_notice_attachments(id, file_name, mime_type)
     `)
     .eq("school_id", schoolId)
     .order("created_at", { ascending: false })
@@ -92,6 +98,12 @@ export async function getSchoolAbsenceNotices(schoolId: string): Promise<Absence
       reviewedAt: row.reviewed_at,
       createdAt: row.created_at,
       attachmentCount: row.guardian_absence_notice_attachments?.length ?? 0,
+      attachments: (row.guardian_absence_notice_attachments ?? []).map((attachment) => ({
+        id: attachment.id,
+        noticeId: row.id,
+        fileName: attachment.file_name,
+        mimeType: attachment.mime_type,
+      })),
     };
   });
 }

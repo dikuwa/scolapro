@@ -46,7 +46,16 @@ function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) 
       </div>
       {notice.message ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/90">{notice.message}</p> : null}
       {notice.reviewNote ? <p className="mt-2 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-xs text-muted-foreground">School feedback: {notice.reviewNote}</p> : null}
-      {notice.attachmentCount ? <p className="mt-2 text-[0.68rem] text-muted-foreground">{notice.attachmentCount} supporting file{notice.attachmentCount === 1 ? "" : "s"} attached</p> : null}
+      {notice.attachments.length ? <div className="mt-2 space-y-1">
+        <p className="text-[0.68rem] text-muted-foreground">{notice.attachments.length} supporting file{notice.attachments.length === 1 ? "" : "s"} attached</p>
+        <ul className="flex flex-wrap gap-x-3 gap-y-1">
+          {notice.attachments.map((attachment) => <li key={attachment.id}>
+            <a href={`/api/guardian-absence-evidence/${attachment.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong hover:underline">
+              <FileText className="size-3" aria-hidden="true" />{attachment.fileName}
+            </a>
+          </li>)}
+        </ul>
+      </div> : null}
     </article>)}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No absence notices submitted for this learner yet.</div>}
   </section>;
 }
