@@ -89,6 +89,18 @@ async function signInGuardian(page: import("@playwright/test").Page) {
 }
 
 async function resetNotices(service: ReturnType<typeof serviceClient>) {
+  // Remove dependent rows explicitly so the reset is deterministic regardless of
+  // cascade behaviour, then remove the notices for this learner only.
+  const { data: existing, error: readError } = await service.from("guardian_absence_notices")
+    .select("id").eq("learner_id", DEMO.registerBoyLearnerId);
+  expect(readError).toBeNull();
+  const ids = (existing ?? []).map((row) => row.id);
+  if (ids.length) {
+    const { error: attachmentError } = await service.from("guardian_absence_notice_attachments").delete().in("notice_id", ids);
+    expect(attachmentError).toBeNull();
+    const { error: eventError } = await service.from("guardian_absence_notice_events").delete().in("notice_id", ids);
+    expect(eventError).toBeNull();
+  }
   const { error } = await service.from("guardian_absence_notices").delete().eq("learner_id", DEMO.registerBoyLearnerId);
   expect(error).toBeNull();
 }
