@@ -83,7 +83,7 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
       {counts.missingRuleSet} learner{counts.missingRuleSet === 1 ? "" : "s"} have no active promotion rule set for their grade. Configure one in Academic setup before generating recommendations.
     </div> : null}
 
-    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5" aria-label="Progression summary">
+    <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5" role="region" aria-label="Progression summary">
       <h2 className="scolapro-section-title">Progress summary</h2>
       <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
         {metrics.map((metric) => <div key={metric.label} className="rounded-[var(--radius-xs)] bg-surface-muted px-3 py-2.5">
