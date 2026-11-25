@@ -93,7 +93,8 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(decisionEditor,/name="decisionNote"/);
   assert.match(decisionEditor,/name="status"/);
   assert.match(decisionEditor,/currentNote \?\? ""/);
-  assert.match(decisionEditor,/setNote\(currentNote \?\? ""\)/);
+  assert.match(decisionEditor,/note: currentNote \?\? ""/);
+  assert.match(decisionEditor,/setNote\(nextBaseline\.note\)/);
   assert.match(decisionEditor,/type="button" onClick=\{onCancel\} disabled=\{pending\}/);
   assert.match(decisionEditor,/maxLength=\{1000\}/);
   assert.match(decisionEditor,/action=\{decideAdmissionApplication\}/);
@@ -111,6 +112,11 @@ test("admissions reviewer can persist and revise notes without direct table writ
   assert.match(page,/currentNote=\{application\.decision_note\}/);
   assert.match(page,/key=\{.*application\.reviewed_at/);
   assert.match(page,/application\.reviewed_at/);
+  assert.match(decisionEditor,/function beginEditing\(\)/);
+  assert.match(decisionEditor,/setBaseline\(nextBaseline\)/);
+  assert.match(decisionEditor,/name="expectedStatus" value=\{baseline\.status\}/);
+  assert.match(decisionEditor,/name="expectedDecisionNote" value=\{baseline\.note\}/);
+  assert.match(decisionEditor,/name="expectedReviewedAt" value=\{baseline\.reviewedAt\}/);
   assert.doesNotMatch(decisionEditor,/\.from\("admission_applications"\)/);
   assert.doesNotMatch(page,/\["accepted","waitlisted","declined"\]\.map/);
 });

@@ -23,17 +23,32 @@ export function AdmissionDecisionEditor({
   currentReviewedAt: string | null;
 }) {
   const [editing, setEditing] = useState(false);
-  const [status, setStatus] = useState(decisions.some((item) => item.value === currentStatus) ? currentStatus : "");
-  const [note, setNote] = useState(currentNote ?? "");
+  const [baseline, setBaseline] = useState(() => ({
+    status: normalizeStatus(currentStatus),
+    note: currentNote ?? "",
+    reviewedAt: currentReviewedAt ?? "",
+  }));
+  const [status, setStatus] = useState(baseline.status);
+  const [note, setNote] = useState(baseline.note);
 
   function reset() {
     setEditing(false);
-    setStatus(decisions.some((item) => item.value === currentStatus) ? currentStatus : "");
-    setNote(currentNote ?? "");
+  }
+
+  function beginEditing() {
+    const nextBaseline = {
+      status: normalizeStatus(currentStatus),
+      note: currentNote ?? "",
+      reviewedAt: currentReviewedAt ?? "",
+    };
+    setBaseline(nextBaseline);
+    setStatus(nextBaseline.status);
+    setNote(nextBaseline.note);
+    setEditing(true);
   }
 
   if (!editing) {
-    return <div className="min-w-0"><button type="button" onClick={() => setEditing(true)}
+    return <div className="min-w-0"><button type="button" onClick={beginEditing}
       className="min-h-9 rounded-[var(--radius-sm)] bg-brand-soft px-3 text-xs font-semibold text-brand-strong">
       {decisions.some((item) => item.value === currentStatus) ? "Edit decision" : "Review decision"}
     </button></div>;
@@ -43,14 +58,18 @@ export function AdmissionDecisionEditor({
     <div className="min-w-0 lg:col-span-4">
       <form action={decideAdmissionApplication} className="w-full max-w-xl min-w-0 space-y-3 rounded-[var(--radius-sm)] border border-border-subtle bg-surface-muted p-3">
         <input type="hidden" name="applicationId" value={applicationId} />
-        <input type="hidden" name="expectedStatus" value={currentStatus} />
-        <input type="hidden" name="expectedDecisionNote" value={currentNote ?? ""} />
-        <input type="hidden" name="expectedReviewedAt" value={currentReviewedAt ?? ""} />
+        <input type="hidden" name="expectedStatus" value={baseline.status} />
+        <input type="hidden" name="expectedDecisionNote" value={baseline.note} />
+        <input type="hidden" name="expectedReviewedAt" value={baseline.reviewedAt} />
         <DecisionFormFields status={status} setStatus={setStatus}
           note={note} setNote={setNote} onCancel={reset} />
       </form>
     </div>
   );
+}
+
+function normalizeStatus(value: string) {
+  return decisions.some((item) => item.value === value) ? value : "";
 }
 
 function DecisionFormFields({
