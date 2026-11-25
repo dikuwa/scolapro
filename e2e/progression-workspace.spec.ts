@@ -226,7 +226,9 @@ test("progression workspace has no horizontal overflow at 390, 768 and 1440 in b
   await signIn(page, "admin");
   await page.goto(`/school/progression?grade=${DEMO.gradeTenId}`);
   await expect(page.getByRole("heading", { name: "Year-end progression" })).toBeVisible();
-  const surface = page.getByRole("region", { name: "Progression summary" }).locator("..");
+  // Measure the whole page surface so any overflowing control is caught, not
+  // only the summary block.
+  const surface = page.locator("main").first();
   for (const width of [390, 768, 1440]) {
     for (const theme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 950 });
