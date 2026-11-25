@@ -1,7 +1,19 @@
 # ScolaPro Implementation Status
 
-> **Current Control Room status:** see `docs/11-roadmap/2026-10-01-CONTROL-ROOM-STATUS.md`.  
-> The dated 20 September detail below remains useful historical/domain evidence, but its issue/PR/migration-parity status is superseded by the 1 October Control Room status.
+> **Current Control Room status:** see `docs/11-roadmap/2026-11-25-CONTROL-ROOM-STATUS.md` for the
+> #1306 completion wave (admissions decision baseline, accepted enrolment, grading-definition
+> provenance, guardian evidence/review lifecycle, year-end progression workspace, library
+> booklist corrections). The dated 1 October/20 September detail below remains useful
+> historical/domain evidence; its issue/PR/migration-parity status is superseded by the
+> 25 November status.
+
+> **25 November 2026 wave (pending merge):** PR #1325 fixes the decision-editor conflict
+> baseline; #1327 completes accepted-application enrolment; #1330 binds historical official
+> results to their exact grading definition; #1329 completes guardian evidence access,
+> bounded review and notifications; #1331 adds the missing `/school/progression` operator
+> workspace; #1305 corrects booklist demand/editor isolation. Several rows below that say
+> COMPLETE describe the data layer only — in particular `Promotion/progression` had no
+> operator UI until #1331, which is not yet merged.
 
 > Living handoff document. Read with `ARCHITECTURE-ROADMAP.md`, `CONTROL-ROOM.md`, the coordinated delivery ledger and relevant domain/design documents before proposing new architecture or duplicate work.
 
