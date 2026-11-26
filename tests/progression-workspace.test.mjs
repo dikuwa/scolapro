@@ -57,6 +57,10 @@ test("consequential actions require explicit confirmation and show pending state
   assert.match(component, /Publish rollover/);
   assert.match(component, /Lock decision/);
   assert.match(component, /checked=\{confirmed\}/);
+  // The governed publish action requires an explicit confirmation token; the
+  // checkbox alone does not submit one.
+  assert.match(component, /<input type="hidden" name="confirmation" value=\{confirmed \? "confirmed" : ""\} \/>/);
+  assert.match(component, /publishState\.message && !publishState\.success/);
   assert.match(component, /pending\.publish/);
   // Changing only the destination grade is a valid override and must be saveable.
   assert.match(component, /const initialGradeCode = learner\.progression\?\.destinationGradeCode \?\? ""/);
