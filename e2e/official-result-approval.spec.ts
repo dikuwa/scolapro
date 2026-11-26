@@ -24,6 +24,18 @@ test("independent school admin can open only their own empty approval scope", as
   await signIn(page, "outsider");
   await page.goto("/assessment/results");
   await expect(page.getByRole("heading", { name: "Official result approval" })).toBeVisible();
-  await expect(page.getByText("E2E Published Science")).toHaveCount(0);
-  await expect(page.getByText("Namib High School")).toHaveCount(0);
+  // The Picker mounts its options only when open, so asserting page text would
+  // pass even if the other tenant's offerings were present in the workspace.
+  await page.getByRole("button", { name: "Subject and grade" }).click();
+  const listbox = page.getByRole("listbox");
+  await expect(listbox).toBeVisible();
+  // Options mount only when the Picker is open, so this is the first point where
+  // cross-tenant leakage would actually be observable. Assert on the opened list
+  // itself and avoid depending on whether this tenant has its own fixtures.
+  await expect(listbox.getByRole("option").filter({ hasText: "E2E Published Science" })).toHaveCount(0);
+  await expect(listbox.getByText("Namib High School")).toHaveCount(0);
+  const optionCount = await listbox.getByRole("option").count();
+  if (optionCount === 0) {
+    await expect(listbox.getByText("No options available yet.", { exact: false })).toBeVisible();
+  }
 });
