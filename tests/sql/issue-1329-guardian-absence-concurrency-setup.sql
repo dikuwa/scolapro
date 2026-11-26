@@ -6,7 +6,9 @@ CREATE TABLE public.issue_1329_guardian_absence_results (
 GRANT INSERT ON public.issue_1329_guardian_absence_results TO authenticated;
 
 INSERT INTO auth.users(id,email,email_confirmed_at,aud,role,created_at,updated_at)
-VALUES ('73000000-0000-4000-8000-000000001329','qa1329-guardian@example.test',now(),'authenticated','authenticated',now(),now());
+VALUES
+  ('73000000-0000-4000-8000-000000001329','qa1329-guardian@example.test',now(),'authenticated','authenticated',now(),now()),
+  ('73000000-0000-4000-8000-000000001336','qa1329-admin@example.test',now(),'authenticated','authenticated',now(),now());
 
 INSERT INTO public.schools(id,tenant_id,name,emis_number,status)
 VALUES ('73000000-0000-4000-8000-000000001330','11111111-1111-4111-8111-111111111111','QA 1329 School','TST-1329','active');
@@ -23,8 +25,11 @@ VALUES ('73000000-0000-4000-8000-000000001333','11111111-1111-4111-8111-11111111
 INSERT INTO public.learner_guardians(id,tenant_id,learner_id,guardian_id,priority,effective_from)
 VALUES ('73000000-0000-4000-8000-000000001334','11111111-1111-4111-8111-111111111111','73000000-0000-4000-8000-000000001331','73000000-0000-4000-8000-000000001333',1,current_date-30);
 
-SELECT set_config('request.jwt.claim.sub','73000000-0000-4000-8000-000000001329',true);
+INSERT INTO public.school_memberships(tenant_id,school_id,user_id,role_key,active_from)
+VALUES ('11111111-1111-4111-8111-111111111111','73000000-0000-4000-8000-000000001330','73000000-0000-4000-8000-000000001336','school_admin',current_date-30);
+
+SELECT set_config('request.jwt.claim.sub','73000000-0000-4000-8000-000000001336',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
-SELECT set_config('request.jwt.claims',jsonb_build_object('sub','73000000-0000-4000-8000-000000001329','role','authenticated','email','qa1329-guardian@example.test')::text,true);
-INSERT INTO public.guardian_user_links(id,tenant_id,guardian_id,user_id)
-VALUES ('73000000-0000-4000-8000-000000001335','11111111-1111-4111-8111-111111111111','73000000-0000-4000-8000-000000001333','73000000-0000-4000-8000-000000001329');
+SELECT set_config('request.jwt.claims',jsonb_build_object('sub','73000000-0000-4000-8000-000000001336','role','authenticated','email','qa1329-admin@example.test')::text,true);
+INSERT INTO public.guardian_user_links(id,tenant_id,guardian_id,user_id,linked_by_user_id)
+VALUES ('73000000-0000-4000-8000-000000001335','11111111-1111-4111-8111-111111111111','73000000-0000-4000-8000-000000001333','73000000-0000-4000-8000-000000001329','73000000-0000-4000-8000-000000001336');
