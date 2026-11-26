@@ -234,8 +234,10 @@ test("school leadership completes generate, override, approve, lock and publish"
   // after the source enrolment closes.
   await page.goto(`/school/progression?grade=${DEMO.gradeTenId}`);
   const receiptsRegion = page.getByRole("region", { name: "Published rollovers" });
-  await expect(receiptsRegion.getByText(`Progression ${run.toUpperCase()}`, { exact: false })).toBeVisible({ timeout: 30_000 });
-  await expect(receiptsRegion.getByText(`${NEXT_YEAR}`, { exact: false }).first()).toBeVisible();
+  // Display normalization title-cases uniform-case words, so the uppercase hex
+  // surname renders lowercased; match case-insensitively.
+  await expect(receiptsRegion.getByText(new RegExp(`Progression ${run}`, "i"))).toBeVisible({ timeout: 30_000 });
+  await expect(receiptsRegion.getByText(new RegExp(`→ ${NEXT_YEAR}`))).toBeVisible();
 
   // Canonical evidence: source closed, one destination enrolment, append-only receipt.
   const { data: source, error: sourceError } = await service.from("enrolments")
