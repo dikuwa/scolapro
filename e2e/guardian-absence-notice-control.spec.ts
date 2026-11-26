@@ -227,7 +227,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   }
 
   await page.goto("/parent");
-  await expect(noticeCard(page, noteText).getByText("Accepted after appointment evidence.")).toBeVisible();
+  await expect(noticeCard(page, noteText).getByText("Accepted after appointment evidence.").first()).toBeVisible();
 });
 
 test("guardian withdraws a notice and the school can no longer review it", async ({ page, browser }) => {
@@ -332,7 +332,7 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
   await page.goto("/parent");
   await page.locator("#absence-message").fill(`Visual acceptance ${crypto.randomUUID().slice(0, 6)}`);
   await page.getByRole("button", { name: "Submit absence notice" }).click();
-  await expect(page.getByText("Absence notice history")).toBeVisible();
+  await expect(page.getByText("Absence notice history").first()).toBeVisible();
   await expect.poll(async () => {
     const { count } = await service.from("guardian_absence_notices")
       .select("id", { count: "exact", head: true })
