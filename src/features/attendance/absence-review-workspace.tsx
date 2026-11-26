@@ -39,6 +39,11 @@ export function AbsenceReviewWorkspace({
     startTransition(() => router.push(`/school/absence-reviews?${query}`));
   }
 
+  function clearFilters() {
+    const query = new URLSearchParams({ from: filters.from, to: filters.to, view });
+    startTransition(() => router.push(`/school/absence-reviews?${query}`));
+  }
+
   const gradeOptions = [...new Map(workspace.classes.filter((item) => item.gradeId).map((item) => [item.gradeId!, { value: item.gradeId!, label: item.gradeName }])).values()];
   const visibleClasses = filters.gradeId ? workspace.classes.filter((item) => item.gradeId === filters.gradeId) : workspace.classes;
   const rows = view === "daily" ? workspace.daily : workspace.subjectPeriod;
@@ -52,7 +57,8 @@ export function AbsenceReviewWorkspace({
         <button type="button" role="tab" aria-selected={view === "subject"} onClick={() => navigate({ view: "subject" })} className={`min-h-9 rounded-[var(--radius-xs)] px-3 text-xs font-medium transition-colors duration-[var(--motion-fast)] ${view === "subject" ? "bg-surface text-foreground shadow-[var(--shadow-xs)]" : "text-muted-foreground hover:text-foreground"}`}>Subject-period absences</button>
       </div>
 
-      <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5">
+      <section className="rounded-[var(--radius-md)] bg-surface-muted p-4 sm:p-5" aria-busy={pending}>
+        <div className="mb-3 flex items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Filter the authoritative absence records and related review state.</p><button type="button" onClick={clearFilters} disabled={pending} aria-label="Clear absence filters" className="min-h-9 rounded-[var(--radius-xs)] px-2.5 text-xs font-semibold text-brand-strong hover:bg-brand-soft disabled:cursor-wait disabled:opacity-50">Clear filters</button></div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <DateField label="From" name="absenceFrom" value={filters.from} onChange={(from) => from && navigate({ from })} max={filters.to} />
           <DateField label="To" name="absenceTo" value={filters.to} onChange={(to) => to && navigate({ to })} min={filters.from} />
@@ -64,9 +70,9 @@ export function AbsenceReviewWorkspace({
         </div>
       </section>
 
-      {pending ? <div className="flex justify-center py-2"><Spinner /></div> : null}
+      {pending ? <div className="flex items-center justify-center gap-2 py-2 text-xs text-muted-foreground" role="status" aria-live="polite"><Spinner />Updating absence results…</div> : null}
 
-      <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
+      <section id="absence-review-results" className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]" aria-busy={pending}>
         <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
           <h2 className="scolapro-section-title">{view === "daily" ? "Official daily absences" : "Subject-period absences"}</h2>
           <p className="scolapro-section-description">{view === "daily" ? "Official register records remain authoritative. Parent explanations are correlated for review but never change attendance automatically." : "Lesson attendance stays independent from the official daily register. Daily status and parent explanations are contextual only."}</p>
