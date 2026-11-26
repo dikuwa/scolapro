@@ -242,7 +242,9 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
       const learner = receiptLearnerById.get(str(row.learner_id));
       return {
         id: str(row.id),
-        learnerName: formatLearnerName(str(learner?.first_names), str(learner?.surname)) || "Linked learner",
+        // The closed source enrolment can make the learner row unreadable to this
+        // actor. Show a neutral label rather than hiding the receipt.
+        learnerName: formatLearnerName(str(learner?.first_names), str(learner?.surname)) || "Learner record restricted",
         admissionNumber: null,
         sourceAcademicYear: Number(row.source_academic_year),
         outcome: str(row.outcome),
