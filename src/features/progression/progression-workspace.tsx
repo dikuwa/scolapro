@@ -118,6 +118,7 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
         lockAction={lockAction}
         publishAction={publishAction}
         pending={{ generate: generatePending, override: overridePending, approve: approvePending, lock: lockPending, publish: publishPending }}
+        publishError={publishState.message && !publishState.success ? publishState.message : null}
       />)}</div> : <p className="px-5 py-10 text-center text-sm text-muted-foreground">No current enrolments were found for {workspace.academicYear}.</p>}
     </section>
   </div>;
@@ -125,7 +126,7 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
 
 function LearnerRow({
   learner, canApprove, destinationChoices, nextAcademicYear, today,
-  generateAction, overrideAction, approveAction, lockAction, publishAction, pending,
+  generateAction, overrideAction, approveAction, lockAction, publishAction, pending, publishError,
 }: {
   learner: ProgressionLearner;
   canApprove: boolean;
@@ -138,6 +139,7 @@ function LearnerRow({
   lockAction: (formData: FormData) => void;
   publishAction: (formData: FormData) => void;
   pending: { generate: boolean; override: boolean; approve: boolean; lock: boolean; publish: boolean };
+  publishError: string | null;
 }) {
   const [overriding, setOverriding] = useState(false);
   const [overrideOutcome, setOverrideOutcome] = useState(learner.progression?.outcome ?? "promoted");
@@ -257,7 +259,7 @@ function LearnerRow({
         <button type="button" onClick={() => { setDestinationClassId(""); setConfirmed(false); setEffectiveOn(today); }} className="min-h-10 rounded-[var(--radius-sm)] bg-surface px-3 text-sm font-semibold text-foreground shadow-[var(--shadow-xs)]">Cancel</button>
       </div>
       {!workspaceNextYearNote(classChoices.length) ? null : <p className="text-[0.68rem] text-muted-foreground sm:col-span-2">{workspaceNextYearNote(classChoices.length)}</p>}
-      {publishState.message && !publishState.success ? <p role="alert" className="text-[0.68rem] font-medium text-[color:var(--danger)] sm:col-span-2">{publishState.message}</p> : null}
+      {publishError ? <p role="alert" className="text-[0.68rem] font-medium text-[color:var(--danger)] sm:col-span-2">{publishError}</p> : null}
     </form> : null}
   </article>;
 }
