@@ -272,22 +272,42 @@ test("school leadership completes generate, override, approve, lock and publish"
   expect(receipts).toBe(1);
 });
 
+/** Fails with the widest offending elements when the document scrolls sideways. */
+async function expectNoDocumentOverflow(page: import("@playwright/test").Page) {
+  const report = await page.evaluate(() => {
+    const root = document.documentElement;
+    if (root.scrollWidth <= root.clientWidth + 1) return null;
+    const offenders: string[] = [];
+    for (const element of Array.from(document.querySelectorAll("body *"))) {
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      if (rect.right > root.clientWidth + 1 || rect.left < -1) {
+        const cls = typeof element.className === "string" ? element.className.slice(0, 90) : "";
+        offenders.push(`${element.tagName.toLowerCase()}.${cls} [${Math.round(rect.left)}..${Math.round(rect.right)}]`);
+        if (offenders.length >= 6) break;
+      }
+    }
+    return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, offenders };
+  });
+  expect(report, `Horizontal document overflow: ${JSON.stringify(report)}`).toBeNull();
+}
+
 test("progression workspace has no horizontal overflow at 390, 768 and 1440 in both themes", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await signIn(page, "admin");
   await page.goto(`/school/progression?grade=${DEMO.gradeTenId}`);
   await expect(page.getByRole("heading", { name: "Year-end progression" })).toBeVisible();
-  // Measure the whole page surface so any overflowing control is caught, not
-  // only the summary block.
-  const surface = page.locator("main").first();
+  // Measure the document, not one container: a clipped sticky shell can hide
+  // sidebar-induced overflow from a section-level scrollWidth check.
   for (const width of [390, 768, 1440]) {
     for (const theme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 950 });
       await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
       await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
-      const overflow = await surface.evaluate((element) => element.scrollWidth > element.clientWidth + 1);
-      expect(overflow).toBe(false);
-      await testInfo.attach(`progression-${width}-${theme}.png`, { body: await surface.screenshot(), contentType: "image/png" });
+      await expectNoDocumentOverflow(page);
+      // Full-page capture: an element screenshot of `main` is clipped by the
+      // sticky top and bottom chrome and cannot evidence the real layout.
+      await testInfo.attach(`progression-${width}-${theme}.png`, { body: await page.screenshot({ fullPage: true }), contentType: "image/png" });
     }
   }
 });
