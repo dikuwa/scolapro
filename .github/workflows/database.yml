@@ -72,3 +72,18 @@ jobs:
           cat /tmp/issue1202-accept-a.log
           cat /tmp/issue1202-accept-b.log
           $PSQL -f tests/sql/issue-1202-staff-preinvitation-concurrency-verify.sql
+
+      - name: Verify concurrent guardian absence submission (Issue 1329)
+        run: |
+          export PGPASSWORD=postgres
+          PSQL="psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1"
+          $PSQL -f tests/sql/issue-1329-guardian-absence-concurrency-setup.sql
+          $PSQL -v runner=a -f tests/sql/issue-1329-guardian-absence-concurrency-submit.sql > /tmp/issue1329-submit-a.log 2>&1 &
+          pid_a=$!
+          $PSQL -v runner=b -f tests/sql/issue-1329-guardian-absence-concurrency-submit.sql > /tmp/issue1329-submit-b.log 2>&1 &
+          pid_b=$!
+          wait $pid_a
+          wait $pid_b
+          cat /tmp/issue1329-submit-a.log
+          cat /tmp/issue1329-submit-b.log
+          $PSQL -f tests/sql/issue-1329-guardian-absence-concurrency-verify.sql
