@@ -13,7 +13,7 @@ candidate. It does not merge, deploy or migrate anything. QA-only branches #1315
 | --- | --- |
 | Branch | `release-candidate/1306-20261125` |
 | PR | #1333 — https://github.com/dikuwa/scolapro/pull/1333 |
-| Head SHA | `9f5c1d48` (see CI table below for the exact accepted run) |
+| Head SHA | `5f62fcc3` (code head `9f5c1d48` + this handback document) |
 | Commits ahead of `main` | 310 |
 | Diff vs `main` | 83 files, +9284 / −136 |
 | Migrations added | 10 |
@@ -41,15 +41,15 @@ combined candidate, which is the authoritative ordering proof.
 
 ## Gate results (combined candidate)
 
-Exact accepted HEAD: `9f5c1d48` — except the last two rows, which are the same code
-plus acceptance-spec-only changes described below.
+Exact accepted HEAD: `5f62fcc3`. Gates below were run at `9f5c1d48` and again at
+`5f62fcc3`, whose only change is this documentation file; both runs are green.
 
 | Gate | Result | Run |
 | --- | --- | --- |
-| Application tests (`node --test`) | pass — 1806 tests (1805 pass, 0 fail, 1 pre-existing skip) | CI `45764017153` |
-| Typecheck / lint / UI regression | pass | CI `45764017153` |
-| Database (`db reset` + pgTAP) | pass — 521 files / 6365 tests | Database `45764017137` |
-| Authenticated E2E | pass — **102 tests**, 0 failed, 0 flaky | E2E `45764017180` |
+| Application tests (`node --test`) | pass — 1806 tests (1805 pass, 0 fail, 1 pre-existing skip) | CI `45764017153`, `45765789308` |
+| Typecheck / lint / UI regression | pass | CI `45764017153`, `45765789308` |
+| Database (`db reset` + pgTAP) | pass — 521 files / 6365 tests | Database `45764017137`, `45765789414` |
+| Authenticated E2E | pass — **102 tests**, 0 failed, 0 flaky | E2E `45764017180`, `45765789472` |
 
 `destructive-confirmation-replay` passes on first attempt (1.5 s) on the candidate; the
 fix lives on this branch and the previously observed 16.4 s first-attempt failure is
@@ -178,7 +178,7 @@ STATUS: IN PROGRESS
 WORKSTREAM: #1306 combined acceptance (admissions, assessment/grading, guardian notices, progression, library, staff leave)
 BRANCH: release-candidate/1306-20261125
 BASE MAIN: 298a8c7de48dec957dc4b9c1d769d571b351eb3c
-HEAD SHA: 9f5c1d48fa2ae8a698d011b4eeb86a3b0b41db3c
+HEAD SHA: 5f62fcc3b65124c7dd8fe3d5949dc7bf6d6ee4f9
 PR: #1333 https://github.com/dikuwa/scolapro/pull/1333
 CI: application pass (1806 tests, 1805 pass, 0 fail) · database pass (pgTAP 521 files / 6365 tests) · authenticated E2E pass (102 tests, 0 flaky)
 MIGRATIONS: 10 added; ordering verified by Database CI on the combined candidate
