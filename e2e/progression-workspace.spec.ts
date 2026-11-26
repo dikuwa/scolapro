@@ -192,7 +192,9 @@ test("school leadership completes generate, override, approve, lock and publish"
   await gradeList.getByRole("option", { name: "11", exact: true }).click();
   await expect(gradeList).toHaveCount(0);
   await row.getByLabel("Reason for override").fill("Synthetic approved promotion");
-  await row.getByRole("button", { name: "Save override" }).click();
+  const saveOverride = row.getByRole("button", { name: "Save override" });
+  await expect(saveOverride).toBeEnabled();
+  await saveOverride.click();
   // The row re-renders with the approved-state actions when the override persists.
   await expect(row.getByRole("button", { name: "Approve decision" })).toBeVisible({ timeout: 30_000 });
 

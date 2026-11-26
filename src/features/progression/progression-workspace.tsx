@@ -142,6 +142,7 @@ function LearnerRow({
   const [overriding, setOverriding] = useState(false);
   const [overrideOutcome, setOverrideOutcome] = useState(learner.progression?.outcome ?? "promoted");
   const [destinationGradeCode, setDestinationGradeCode] = useState(learner.progression?.destinationGradeCode ?? "");
+  const initialGradeCode = learner.progression?.destinationGradeCode ?? "";
   const [destinationClassId, setDestinationClassId] = useState("");
   const [effectiveOn, setEffectiveOn] = useState(today);
   const [confirmed, setConfirmed] = useState(false);
@@ -223,7 +224,7 @@ function LearnerRow({
           className="mt-1.5 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2 text-sm outline-none focus-visible:ring-4 focus-visible:ring-brand-soft" />
       </label>
       <div className="flex gap-2 sm:col-span-2">
-        <button type="submit" disabled={pending.override || overrideOutcome === progression.outcome}
+        <button type="submit" disabled={pending.override || (overrideOutcome === progression.outcome && destinationGradeCode === initialGradeCode)}
           className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
           {pending.override ? "Saving…" : "Save override"}
         </button>
