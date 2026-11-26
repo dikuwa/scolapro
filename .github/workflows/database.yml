@@ -84,8 +84,14 @@ jobs:
           pid_a=$!
           $PSQL -v runner=b -f tests/sql/issue-1329-guardian-absence-concurrency-submit.sql > /tmp/issue1329-submit-b.log 2>&1 &
           pid_b=$!
+          set +e
           wait $pid_a
+          status_a=$?
           wait $pid_b
+          status_b=$?
+          set -e
           cat /tmp/issue1329-submit-a.log
           cat /tmp/issue1329-submit-b.log
+          test "$status_a" -eq 0
+          test "$status_b" -eq 0
           $PSQL -f tests/sql/issue-1329-guardian-absence-concurrency-verify.sql
