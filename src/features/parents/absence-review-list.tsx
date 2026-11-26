@@ -76,15 +76,16 @@ export function AbsenceReviewList({ notices }: { notices: AbsenceNoticeSummary[]
   return (
     <div className="space-y-4">
       <div className="grid gap-2 rounded-[var(--radius-md)] bg-surface-muted/55 p-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <label className="scolapro-control-surface flex min-h-10 min-w-0 items-center gap-2 rounded-[var(--radius-sm)] px-3">
-          <Search className="size-4 text-muted-foreground" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by learner, reason…"
+        <label htmlFor="absence-notice-search" className="scolapro-control-surface flex min-h-10 min-w-0 items-center gap-2 rounded-[var(--radius-sm)] px-3">
+          <Search className="size-4 text-muted-foreground" aria-hidden="true" />
+          <span className="sr-only">Search absence notices</span>
+          <input id="absence-notice-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by learner, reason…"
             className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground/70" />
-          {query ? <button type="button" onClick={() => setQuery("")} className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" /></button> : null}
+          {query ? <button type="button" onClick={() => setQuery("")} aria-label="Clear absence notice search" className="grid size-7 place-items-center text-muted-foreground"><X className="size-3.5" aria-hidden="true" /></button> : null}
         </label>
         <div className="flex flex-wrap gap-1 rounded-[var(--radius-sm)] bg-surface p-1 shadow-[var(--shadow-xs)]">
           {["all", "submitted", "under_review", "accepted", "returned"].map((s) => (
-            <button key={s} type="button" onClick={() => setStatusFilter(s)}
+            <button key={s} type="button" aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}
               className={`min-h-7 rounded-[var(--radius-xs)] px-2.5 text-[0.7rem] font-medium transition ${statusFilter === s ? "bg-brand-soft text-brand-strong" : "text-muted-foreground hover:text-foreground"}`}>
               {s === "all" ? "All" : s.replace("_", " ")}
             </button>
