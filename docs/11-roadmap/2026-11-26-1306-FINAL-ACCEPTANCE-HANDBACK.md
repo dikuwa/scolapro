@@ -13,7 +13,7 @@ candidate. It does not merge, deploy or migrate anything. QA-only branches #1315
 | --- | --- |
 | Branch | `release-candidate/1306-20261125` |
 | PR | #1333 — https://github.com/dikuwa/scolapro/pull/1333 |
-| Head SHA | `5f62fcc3` (code head `9f5c1d48` + this handback document) |
+| Code head SHA | `9f5c1d48` — all gates below are green at this commit |
 | Commits ahead of `main` | 310 |
 | Diff vs `main` | 83 files, +9284 / −136 |
 | Migrations added | 10 |
@@ -41,8 +41,9 @@ combined candidate, which is the authoritative ordering proof.
 
 ## Gate results (combined candidate)
 
-Exact accepted HEAD: `5f62fcc3`. Gates below were run at `9f5c1d48` and again at
-`5f62fcc3`, whose only change is this documentation file; both runs are green.
+Exact accepted code head: `9f5c1d48`. Every commit above it on this branch is a
+documentation-only change to this file, so the gate results apply to the branch head
+as well; CI is green on each.
 
 | Gate | Result | Run |
 | --- | --- | --- |
@@ -178,7 +179,7 @@ STATUS: IN PROGRESS
 WORKSTREAM: #1306 combined acceptance (admissions, assessment/grading, guardian notices, progression, library, staff leave)
 BRANCH: release-candidate/1306-20261125
 BASE MAIN: 298a8c7de48dec957dc4b9c1d769d571b351eb3c
-HEAD SHA: 5f62fcc3b65124c7dd8fe3d5949dc7bf6d6ee4f9
+HEAD SHA: 9f5c1d48fa2ae8a698d011b4eeb86a3b0b41db3c (code head; commits above it are documentation-only)
 PR: #1333 https://github.com/dikuwa/scolapro/pull/1333
 CI: application pass (1806 tests, 1805 pass, 0 fail) · database pass (pgTAP 521 files / 6365 tests) · authenticated E2E pass (102 tests, 0 flaky)
 MIGRATIONS: 10 added; ordering verified by Database CI on the combined candidate
