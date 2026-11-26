@@ -5,10 +5,12 @@ on:
     branches: [main]
     paths:
       - "supabase/**"
+      - "tests/sql/**"
       - ".github/workflows/database.yml"
   pull_request:
     paths:
       - "supabase/**"
+      - "tests/sql/**"
       - ".github/workflows/database.yml"
 
 permissions:
