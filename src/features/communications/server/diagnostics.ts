@@ -17,6 +17,8 @@ export type CommunicationDeliveryDiagnostic = {
   latestErrorCode: string | null;
 };
 
+type CommunicationDeliveryDiagnosticRow = Record<string, unknown>;
+
 export async function getCommunicationDeliveryDiagnostics(
   schoolId: string,
 ): Promise<CommunicationDeliveryDiagnostic[]> {
@@ -27,7 +29,7 @@ export async function getCommunicationDeliveryDiagnostics(
   });
   if (error) throw new Error("Unable to load communication delivery diagnostics.");
 
-  return (data ?? []).map((row) => ({
+  return (data ?? []).map((row: CommunicationDeliveryDiagnosticRow) => ({
     deliveryJobId: String(row.delivery_job_id),
     channel: String(row.channel),
     providerKey: row.provider_key ? String(row.provider_key) : null,
