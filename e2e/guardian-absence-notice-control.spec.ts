@@ -21,8 +21,10 @@ function serviceClient() {
  * this avoids whole-page counts that include other learners' notices.
  */
 function noticeCard(page: import("@playwright/test").Page, text: string) {
-  return page.locator('[data-testid^="absence-notice-"], [data-testid^="parent-absence-notice-"]')
-    .filter({ hasText: text }).first();
+  const prefix = new URL(page.url()).pathname.startsWith("/parent")
+    ? "parent-absence-notice-"
+    : "absence-notice-";
+  return page.locator(`[data-testid^="${prefix}"]`).filter({ hasText: text }).first();
 }
 
 /** Authoritative status of the single notice under test. */
@@ -184,7 +186,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     }).toPass({ timeout: 40_000 });
 
     await expect(async () => {
-      await noticeCard(adminPage, noteText).locator('input[name="reviewNote"]').fill("Please provide appointment evidence.");
+      await noticeCard(adminPage, noteText).locator('input[name="reviewNote"]').first().fill("Please provide appointment evidence.");
       await noticeCard(adminPage, noteText).getByRole("button", { name: "Return" }).click();
       await expect.poll(() => currentStatus(service), { timeout: 5_000 }).toBe("returned");
     }).toPass({ timeout: 40_000 });
@@ -214,7 +216,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     await expect(noticeCard(reviewerPage, noteText)).toBeVisible();
     await expect(async () => {
       const card = noticeCard(reviewerPage, noteText);
-      await card.locator('input[name="reviewNote"]').fill("Accepted after appointment evidence.");
+      await card.locator('input[name="reviewNote"]').first().fill("Accepted after appointment evidence.");
       await card.getByRole("button", { name: "Accept" }).click();
       await expect.poll(() => currentStatus(service), { timeout: 5_000 }).toBe("accepted");
     }).toPass({ timeout: 40_000 });
@@ -262,7 +264,7 @@ test("guardian withdraws a notice and the school can no longer review it", async
     await adminPage.goto("/school/absence-reviews");
     const withdrawnCard = noticeCard(adminPage, noteText);
     await expect(withdrawnCard).toBeVisible();
-    await expect(withdrawnCard.getByText("withdrawn", { exact: false })).toBeVisible();
+    await expect(withdrawnCard.getByText("withdrawn", { exact: false }).first()).toBeVisible();
     await expect(withdrawnCard.getByRole("button", { name: "Accept" })).toHaveCount(0);
     await expect(withdrawnCard.getByRole("button", { name: "Start review" })).toHaveCount(0);
     await expect(withdrawnCard.getByRole("button", { name: "Return" })).toHaveCount(0);
