@@ -204,7 +204,7 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
   // this school and source year so they remain visible after the source
   // enrolment closes (and even if that closed row is not readable to this actor).
   const receiptsResult = await supabase.from("year_end_progression_publications")
-    .select("id,learner_id,source_academic_year,outcome,destination_academic_year,destination_grade_id,destination_enrolment_id,published_at")
+    .select("id,progression_id,learner_id,source_academic_year,outcome,destination_academic_year,destination_grade_id,destination_enrolment_id,published_at")
     .eq("school_id", schoolId)
     .eq("source_academic_year", academicYear)
     .order("published_at", { ascending: false });
@@ -217,14 +217,26 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
     ? await supabase.from("learners").select("id,first_names,surname").in("id", receiptLearnerIds)
     : { data: [], error: null };
   const receiptLearnerById = new Map((receiptLearnersResult.data ?? []).map((row) => [str(row.id), row]));
-  // Only receipts whose destination grade is the grade this page is showing.
-  const receiptGradeIds = new Set(currentYearGrades.map((row) => str(row.id)));
+  // Scope receipts to the grade this page is showing using the progression's
+  // *source* grade. The destination grade belongs to the next academic year, so
+  // comparing it with this year's grades would drop every receipt.
+  const receiptProgressionIds = [...new Set(receiptRows.map((row) => str(row.progression_id)).filter(Boolean))];
+  const receiptProgressionsResult = receiptProgressionIds.length
+    ? await supabase.from("year_end_progressions").select("id,source_grade_id").in("id", receiptProgressionIds)
+    : { data: [], error: null };
+  if (receiptProgressionsResult.error) {
+    console.error("progression.workspace.receipt_progressions_read_failure", { code: receiptProgressionsResult.error.code });
+  }
+  const receiptSourceGrade = new Map(
+    (receiptProgressionsResult.data ?? []).map((row) => [str(row.id), str(row.source_grade_id)]),
+  );
   const publications: ProgressionRolloverReceipt[] = receiptRows
     .filter((row) => {
-      const destinationGrade = str(row.destination_grade_id);
-      // A completed-only receipt has no destination grade; keep it visible too.
-      return !destinationGrade || receiptGradeIds.has(destinationGrade)
-        || currentYearGrades.some((grade) => str(grade.id) === destinationGrade);
+      if (!selectedGradeId) return true;
+      const sourceGradeId = receiptSourceGrade.get(str(row.progression_id));
+      // A receipt whose progression grade is not readable is kept: hiding a
+      // published receipt is worse than showing one in a mixed list.
+      return !sourceGradeId || sourceGradeId === selectedGradeId;
     })
     .map((row) => {
       const learner = receiptLearnerById.get(str(row.learner_id));

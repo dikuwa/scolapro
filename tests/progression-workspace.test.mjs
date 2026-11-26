@@ -52,6 +52,10 @@ test("workspace reads canonical enrolment, readiness and next-year configuration
   // visible after the source enrolment closes.
   assert.match(workspace, /source_academic_year", academicYear/);
   assert.match(workspace, /publications,/);
+  // Receipts are scoped by the progression's source grade, never by destination.
+  assert.match(workspace, /source_grade_id"\).in\("id", receiptProgressionIds\)/);
+  assert.match(workspace, /sourceGradeId === selectedGradeId/);
+  assert.doesNotMatch(workspace, /receiptGradeIds/);
   assert.match(component, /role="region" aria-label="Published rollovers"/);
   assert.match(workspace, /destinationChoices/);
 });
