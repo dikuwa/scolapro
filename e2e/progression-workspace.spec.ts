@@ -264,7 +264,7 @@ test("school leadership completes generate, override, approve, lock and publish"
   // still recorded: assert it in the governed audit trail instead.
   const { data: overrideAudit, error: overrideAuditError } = await service.from("audit_events")
     .select("metadata").eq("entity_id", progression?.id ?? "").eq("event_type", "progression.overridden")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    .order("occurred_at", { ascending: false }).limit(1).maybeSingle();
   expect(overrideAuditError).toBeNull();
   expect(JSON.stringify(overrideAudit?.metadata ?? {})).toContain("Synthetic approved promotion");
   const { count: receipts } = await service.from("year_end_progression_publications")
