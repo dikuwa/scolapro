@@ -527,12 +527,15 @@ test('navigation exposes School Directory to every authenticated role without ne
 });
 
 
-test('academic setup uses governed year while timetable retains Namibia-local fallback', () => {
+test('academic setup uses governed year with bounded requested-year override while timetable retains Namibia-local fallback', () => {
   const setupSource = fs.readFileSync(path.join(root, 'src/app/school/setup/page.tsx'), 'utf8');
   const timetableSource = fs.readFileSync(path.join(root, 'src/app/timetable/page.tsx'), 'utf8');
 
   assert.match(setupSource, /import \{ getGovernedAcademicYear \} from "@\/features\/calendar\/server\/calendar";/);
-  assert.match(setupSource, /const academicYear = await getGovernedAcademicYear\(membership\.schoolId\);/);
+  assert.match(setupSource, /const currentAcademicYear = await getGovernedAcademicYear\(membership\.schoolId\);/);
+  assert.match(setupSource, /const requestedYear = Number\(\(await searchParams\)\.year\);/);
+  assert.match(setupSource, /requestedYear >= currentAcademicYear && requestedYear <= currentAcademicYear \+ 1/);
+  assert.match(setupSource, /: currentAcademicYear;/);
   assert.doesNotMatch(setupSource, /new Date\(\)\.getFullYear\(\)/);
 
   assert.match(timetableSource, /import \{ getNamibiaCalendarYear \} from "@\/lib\/namibia-date";/);
