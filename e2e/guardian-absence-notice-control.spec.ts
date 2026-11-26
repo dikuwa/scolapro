@@ -205,7 +205,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   await resubmitForm.locator('textarea[name="message"]').fill(`${noteText} — appointment letter attached`);
   await resubmitForm.getByRole("button", { name: "Resubmit for review" }).click();
   await expect(page.getByText("Absence notice resubmitted for review.")).toBeVisible();
-  await expect(page.getByText("Notice history")).toBeVisible();
+  await expect(page.getByText("Notice history").first()).toBeVisible();
 
   // Reviewer accepts the corrected notice.
   const reviewerContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
@@ -339,7 +339,8 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
       .eq("learner_id", DEMO.registerBoyLearnerId);
     return count ?? 0;
   }, { timeout: 20_000 }).toBeGreaterThan(0);
-  const history = page.locator("section").filter({ hasText: "Absence notice history" }).first();
+  const history = page.locator('[data-testid^="parent-absence-notice-"]').filter({ hasText: "Visual acceptance" }).first();
+  await expect(history).toBeVisible({ timeout: 30_000 });
   for (const width of [390, 768, 1440]) {
     for (const theme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 950 });
