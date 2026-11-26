@@ -55,6 +55,9 @@ test("workspace reads canonical enrolment, readiness and next-year configuration
   // Receipts are scoped by the progression's source grade, never by destination.
   assert.match(workspace, /source_grade_id"\).in\("id", receiptProgressionIds\)/);
   assert.match(workspace, /sourceGradeId === selectedGradeId/);
+  // A truthy default fallback would silently defeat the neutral receipt label.
+  assert.match(workspace, /formatLearnerName\(str\(learner\?\.first_names\), str\(learner\?\.surname\), ""\)/);
+  assert.match(workspace, /\|\| "Learner record restricted"/);
   assert.doesNotMatch(workspace, /receiptGradeIds/);
   assert.match(component, /role="region" aria-label="Published rollovers"/);
   assert.match(workspace, /destinationChoices/);

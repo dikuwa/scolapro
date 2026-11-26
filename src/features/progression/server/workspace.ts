@@ -243,8 +243,10 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
       return {
         id: str(row.id),
         // The closed source enrolment can make the learner row unreadable to this
-        // actor. Show a neutral label rather than hiding the receipt.
-        learnerName: formatLearnerName(str(learner?.first_names), str(learner?.surname)) || "Learner record restricted",
+        // actor. Pass an empty fallback so the neutral label is actually used:
+        // formatLearnerName's own default ("Learner") is truthy and would win.
+        learnerName: formatLearnerName(str(learner?.first_names), str(learner?.surname), "")
+          || "Learner record restricted",
         admissionNumber: null,
         sourceAcademicYear: Number(row.source_academic_year),
         outcome: str(row.outcome),
