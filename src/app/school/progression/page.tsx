@@ -5,6 +5,8 @@ import { getProgressionWorkspace, type ProgressionWorkspace as ProgressionWorksp
 import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { getNamibiaDateKey } from "@/lib/namibia-date";
+import { getRolloverReadiness } from "@/features/progression/server/rollover-readiness";
+import { RolloverReadinessPanel } from "@/features/progression/rollover-readiness-panel";
 
 const progressionRoles = new Set(["school_admin", "principal", "deputy_principal"]);
 const approvalRoles = new Set(["school_admin", "principal", "deputy_principal"]);
@@ -20,8 +22,10 @@ export default async function ProgressionPage({ searchParams }: { searchParams: 
   const academicYear = await getGovernedAcademicYear(schoolId);
   const params = await searchParams;
   let workspace: ProgressionWorkspaceData;
+  let readiness;
   try {
     workspace = await getProgressionWorkspace(schoolId, academicYear, params.grade ?? null);
+    readiness = await getRolloverReadiness(schoolId, academicYear);
   } catch (error) {
     // Diagnose the cause without learner-identifying detail. The workspace shows a
     // neutral reload message so no partial or fabricated progression state leaks.
@@ -40,6 +44,7 @@ export default async function ProgressionPage({ searchParams }: { searchParams: 
 
   return (
     <AppShell>
+      <div className="mb-5"><RolloverReadinessPanel rows={readiness} setupHref={`/school/setup?year=${academicYear + 1}`} /></div>
       <ProgressionWorkspace workspace={workspace} canApprove={approvalRoles.has(role)} today={getNamibiaDateKey()} />
     </AppShell>
   );
