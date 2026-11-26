@@ -1,9 +1,11 @@
 import { BookOpenCheck, CalendarRange, Network, UsersRound } from "lucide-react";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { AcademicCalendarSetup } from "@/features/academics/academic-calendar-setup";
 import { AcademicSetupCore } from "@/features/academics/academic-setup-core";
 import { AcademicStructureForms } from "@/features/academics/structure-forms";
 import { HodScopeConfiguration } from "@/features/academics/hod-scope-configuration";
+import { getAcademicCalendarWorkspace } from "@/features/academics/server/academic-calendar";
 import { getHodScopeConfiguration } from "@/features/academics/server/hod-scope";
 import { getRegisterTeacherCandidates, getSchoolStructure } from "@/features/academics/server/structure";
 import { DepartmentActivitiesManager } from "@/features/calendar/department-activities-manager";
@@ -35,12 +37,13 @@ export default async function SchoolSetupPage() {
   const canManageAcademicStructure = schoolRoleKeys.has("school_admin");
   const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const [structure, rooms, hodScope, registerTeacherCandidates, departmentCalendar] = await Promise.all([
+  const [structure, rooms, hodScope, registerTeacherCandidates, departmentCalendar, academicCalendar] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
     getHodScopeConfiguration(membership.schoolId),
     getRegisterTeacherCandidates(membership.schoolId, today),
     getOperationalCalendarWorkspace({ schoolId: membership.schoolId, academicYear, staffMemberId: membership.staffMemberId, canManageSchool: true, canManageDepartment: true, scopeKind: "department" }),
+    getAcademicCalendarWorkspace(membership.schoolId),
   ]);
   const activeHodScopeCount = hodScope.activeHodScopeCount;
   const rotating = structure.timetableCycleMode === "rotating";
@@ -139,6 +142,16 @@ export default async function SchoolSetupPage() {
         <div className="mt-5">
           <DepartmentActivitiesManager schoolId={membership.schoolId} year={academicYear} terms={departmentCalendar.terms} events={departmentCalendar.events} departments={departmentCalendar.departments} canManage title="Department activities" />
         </div>
+
+        {canManageAcademicStructure ? (
+          <div className="mt-5">
+            <AcademicCalendarSetup
+              schoolId={membership.schoolId}
+              workspace={academicCalendar}
+              today={today}
+            />
+          </div>
+        ) : null}
 
         <div className={`mt-5 grid gap-5 ${canManageAcademicStructure ? "xl:grid-cols-2" : ""} xl:items-start`}>
           <AcademicStructureForms
