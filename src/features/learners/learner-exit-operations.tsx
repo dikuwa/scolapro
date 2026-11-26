@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState, useState } from "react";
+import { CheckboxField } from "@/components/ui/checkbox-field";
 import { DateField } from "@/components/ui/date-field";
 import { Picker } from "@/components/ui/picker";
 import { Spinner } from "@/components/ui/spinner";
@@ -17,8 +18,8 @@ function Feedback({ state }: { state: LearnerExitActionState }) {
   if (!state.message) return null;
   return <p role={state.success ? "status" : "alert"} className={state.success ? "text-xs text-[color:var(--success)]" : "text-xs text-[color:var(--danger)]"}>{state.message}</p>;
 }
-function ConfirmField() {
-  return <label className="flex items-start gap-2 text-xs text-muted-foreground"><input className="mt-0.5 size-4 accent-[var(--brand)]" type="checkbox" name="confirmation" value="confirmed" required /><span>I confirm this operational action and its effective date.</span></label>;
+function ConfirmField({ label = "I confirm this operational action and its effective date." }: { label?: string }) {
+  return <CheckboxField name="confirmation" value="confirmed" required label={label} labelClassName="text-xs text-muted-foreground" />;
 }
 
 export function LearnerExitOperations({ learnerId, schoolId, enrolmentId, currentStatus, transfers, completion, destinations }: { learnerId: string; schoolId: string; enrolmentId: string; currentStatus: string; transfers: LearnerTransferHistory[]; completion: LearnerCompletionCandidate | null; destinations: LearnerTransferDestination[] }) {
@@ -80,7 +81,7 @@ export function LearnerExitOperations({ learnerId, schoolId, enrolmentId, curren
         {["approved","completed"].includes(transfer.status) ? <div className="mt-3 flex flex-wrap items-center gap-2"><Link href={`/school/crc-custody/transfer-form/${transfer.id}`} className="inline-flex min-h-9 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 font-semibold">{transfer.status === "approved" ? "Open transfer form" : "Review transfer form"}</Link>{transfer.status === "approved" ? (transfer.effectiveOn && transfer.effectiveOn > today ? <span className="rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-2 text-[0.68rem] text-muted-foreground">Complete on or after {transfer.effectiveOn}</span> : <TransferLifecycleForm learnerId={learnerId} transferId={transfer.id} action="complete" pending={lifecyclePending} actionFn={lifecycleAction} label="Complete transfer" />) : null}<span className="text-[0.68rem] text-muted-foreground">CRC handoff: {transfer.crcHandoffStatus.replaceAll("_"," ")}</span></div> : null}
       </div>)}</div> : <p className="mt-2 text-xs text-muted-foreground">No transfer requests are recorded for this enrolment.</p>}
       <Feedback state={lifecycleState} />
-      {completion ? <div className="mt-5 rounded-[var(--radius-sm)] border border-border-subtle p-3"><div><h3 className="text-sm font-semibold">Completed school-leaving outcome</h3><p className="mt-1 text-xs text-muted-foreground">A locked completed progression is ready for the existing publication lifecycle.</p></div><form action={completionAction} className="mt-3 flex flex-wrap items-end gap-3"><input type="hidden" name="progressionId" value={completion.id} /><input type="hidden" name="learnerId" value={learnerId} /><DateField label="Effective date" name="effectiveOn" value={completionDate} onChange={setCompletionDate} max={today} required /><ConfirmField /><button type="submit" disabled={completionPending} className="inline-flex min-h-10 items-center rounded-[var(--radius-sm)] bg-brand px-3 text-sm font-semibold text-white disabled:opacity-50">{completionPending ? <><Spinner className="mr-2 size-4" />Publishing…</> : "Publish completed outcome"}</button></form><Feedback state={completionState} /></div> : null}
+      {completion ? <div className="mt-5 rounded-[var(--radius-sm)] border border-border-subtle p-3"><div><h3 className="text-sm font-semibold">Completed school-leaving outcome</h3><p className="mt-1 text-xs text-muted-foreground">A locked completed progression is ready for the existing publication lifecycle.</p></div><form action={completionAction} className="mt-3 flex flex-wrap items-end gap-3"><input type="hidden" name="progressionId" value={completion.id} /><input type="hidden" name="learnerId" value={learnerId} /><DateField label="Effective date" name="effectiveOn" value={completionDate} onChange={setCompletionDate} max={today} required /><ConfirmField label="I confirm this completed progression is ready to publish as a locked outcome." /><button type="submit" disabled={completionPending} className="inline-flex min-h-10 items-center rounded-[var(--radius-sm)] bg-brand px-3 text-sm font-semibold text-white disabled:opacity-50">{completionPending ? <><Spinner className="mr-2 size-4" />Publishing…</> : "Publish completed outcome"}</button></form><Feedback state={completionState} /></div> : null}
     </div>
   </section>;
 }

@@ -283,12 +283,15 @@ function LeaveRequestCard({ row, schoolId, viewerStaffId, canManage }: { row: St
 
 function EvidenceForm({ schoolId, requestId }: { schoolId: string; requestId: string }) {
   const [state, action, pending] = useActionState(uploadStaffLeaveEvidence, initialState);
+  const [fileName, setFileName] = useState("");
   useActionToast(state);
   return (
     <form action={action} className="rounded-[var(--radius-sm)] bg-surface-muted p-3">
       <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="requestId" value={requestId} />
       <div className="flex items-center gap-2"><FileLock2 className="size-4 text-brand" /><p className="text-xs font-semibold">Private evidence</p></div>
-      <input name="evidence" type="file" accept=".pdf,image/jpeg,image/png,image/webp" className="mt-2 block w-full text-xs text-muted-foreground file:mr-3 file:rounded-[var(--radius-xs)] file:border-0 file:bg-surface-elevated file:px-3 file:py-2 file:text-xs file:font-medium file:text-foreground" />
+      <input id={`leave-evidence-${requestId}`} name="evidence" type="file" accept=".pdf,image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => setFileName(event.target.files?.[0]?.name ?? "")} />
+      <label htmlFor={`leave-evidence-${requestId}`} className="mt-2 flex min-h-10 cursor-pointer items-center rounded-[var(--radius-sm)] border border-dashed border-border bg-surface-elevated px-3 text-xs font-medium text-foreground hover:bg-surface">{fileName || "Choose evidence file"}</label>
+      <p className="mt-1 text-[0.68rem] text-muted-foreground">PDF, JPG, PNG or WebP up to 10 MB.</p>
       <ErrorText messages={state.fieldErrors?.evidence} />
       <button type="submit" disabled={pending} className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-[var(--radius-sm)] bg-surface-elevated px-3 text-xs font-medium shadow-[var(--shadow-xs)] disabled:opacity-60">{pending ? <Spinner className="size-3.5" /> : <FileLock2 className="size-3.5" />}{pending ? "Uploading…" : "Upload evidence"}</button>
     </form>

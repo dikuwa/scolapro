@@ -1,10 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Spinner } from "@/components/ui/spinner";
 import { saveAdmissionIntakeCandidate } from "@/features/admissions/server/actions";
 
 const fieldClass = "scolapro-control-surface min-h-10 w-full rounded-[var(--radius-sm)] px-3 text-sm outline-none transition focus-visible:border-[color:var(--brand)]/45 focus-visible:ring-4 focus-visible:ring-brand-soft";
+
+function SaveCandidateButton() {
+  const { pending } = useFormStatus();
+  return <button type="submit" disabled={pending} aria-busy={pending} className="inline-flex min-h-10 items-center gap-2 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white transition hover:brightness-95 disabled:cursor-wait disabled:opacity-60">{pending ? <Spinner className="size-4 text-white" /> : null}{pending ? "Saving candidate…" : "Save candidate for review"}</button>;
+}
 
 export function AdmissionCandidateForm({
   jobId,
@@ -70,9 +77,7 @@ export function AdmissionCandidateForm({
       <div className="rounded-[var(--radius-sm)] bg-brand-soft p-3 text-xs leading-5 text-brand-strong">
         Save creates or replaces the staged candidate only. It does not create a learner, guardian or enrolment.
       </div>
-      <button type="submit" className="min-h-10 rounded-[var(--radius-sm)] bg-brand px-4 text-sm font-semibold text-white transition hover:brightness-95">
-        Save candidate for review
-      </button>
+      <SaveCandidateButton />
     </form>
   );
 }
