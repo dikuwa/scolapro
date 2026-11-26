@@ -13,13 +13,15 @@ import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getOperationalCalendarWorkspace } from "@/features/calendar/server/operational-calendar";
 import { listSchoolRooms } from "@/features/timetable/server/rooms";
 import { RoomManagement } from "@/features/timetable/room-management";
+import { PromotionRuleManager } from "@/features/assessment/promotion-rule-manager";
+import { listPromotionRuleVersions } from "@/features/assessment/server/promotion-rules";
 import {
   TimetableCycleSettings,
 } from "@/features/timetable/timetable-cycle-settings";
 import { getUserContext } from "@/lib/auth/get-user-context";
 import { hasAnySchoolRole, schoolLeadershipRoles } from "@/lib/auth/school-capabilities";
 
-export default async function SchoolSetupPage() {
+export default async function SchoolSetupPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/school/setup");
 
@@ -35,15 +37,20 @@ export default async function SchoolSetupPage() {
 
   const schoolRoleKeys = new Set(schoolMemberships.map((item) => item.roleKey));
   const canManageAcademicStructure = schoolRoleKeys.has("school_admin");
-  const academicYear = await getGovernedAcademicYear(membership.schoolId);
+  const currentAcademicYear = await getGovernedAcademicYear(membership.schoolId);
+  const requestedYear = Number((await searchParams).year);
+  const academicYear = Number.isInteger(requestedYear) && requestedYear >= currentAcademicYear && requestedYear <= currentAcademicYear + 1
+    ? requestedYear
+    : currentAcademicYear;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-  const [structure, rooms, hodScope, registerTeacherCandidates, departmentCalendar, academicCalendar] = await Promise.all([
+  const [structure, rooms, hodScope, registerTeacherCandidates, departmentCalendar, academicCalendar, promotionRules] = await Promise.all([
     getSchoolStructure(membership.schoolId, academicYear),
     canManageAcademicStructure ? listSchoolRooms(membership.schoolId) : Promise.resolve([]),
     getHodScopeConfiguration(membership.schoolId),
     getRegisterTeacherCandidates(membership.schoolId, today),
     getOperationalCalendarWorkspace({ schoolId: membership.schoolId, academicYear, staffMemberId: membership.staffMemberId, canManageSchool: true, canManageDepartment: true, scopeKind: "department" }),
     getAcademicCalendarWorkspace(membership.schoolId),
+    listPromotionRuleVersions(membership.schoolId, academicYear),
   ]);
   const activeHodScopeCount = hodScope.activeHodScopeCount;
   const rotating = structure.timetableCycleMode === "rotating";
@@ -53,12 +60,13 @@ export default async function SchoolSetupPage() {
     <AppShell>
       <section>
         <div className="mb-6">
-          <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Academic setup</h1>
+          <h1 className="scolapro-page-title text-[clamp(1.25rem,1.08rem+0.45vw,1.65rem)]">Academic setup · {academicYear}</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">
             {canManageAcademicStructure
               ? `Configure ${membership.schoolName}'s academic structure and rules used by enrolment, registers, attendance, timetable, assessment and reporting workflows for ${academicYear}. School document identity and report-card presentation live in School settings.`
               : `Review ${membership.schoolName}'s register structure and configure the timetable day workflow for ${academicYear}. Grade, class and room structure remains administered by the School Admin.`}
           </p>
+          {academicYear !== currentAcademicYear ? <p role="status" className="mt-3 rounded-[var(--radius-sm)] bg-brand-soft px-3 py-2 text-xs font-medium text-brand-strong">Editing next-year structure for {academicYear}. This is the configuration used by rollover destinations.</p> : null}
         </div>
 
         <div className="grid gap-3 overflow-hidden sm:grid-cols-2 xl:grid-cols-4">
@@ -142,6 +150,8 @@ export default async function SchoolSetupPage() {
         <div className="mt-5">
           <DepartmentActivitiesManager schoolId={membership.schoolId} year={academicYear} terms={departmentCalendar.terms} events={departmentCalendar.events} departments={departmentCalendar.departments} canManage title="Department activities" />
         </div>
+
+        {canManageAcademicStructure ? <div className="mt-5"><PromotionRuleManager schoolId={membership.schoolId} academicYear={academicYear} grades={structure.grades.map((grade) => ({ id: grade.id, name: grade.name }))} rules={promotionRules} /></div> : null}
 
         {canManageAcademicStructure ? (
           <div className="mt-5">
