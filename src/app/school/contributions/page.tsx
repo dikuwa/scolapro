@@ -4,6 +4,7 @@ import { AppShell } from "@/components/shell/app-shell";
 import { ContributionSetup } from "@/features/contributions/contribution-setup";
 import { ContributionWorkspace } from "@/features/contributions/contribution-workspace";
 import { getContributionWorkspace } from "@/features/contributions/server/queries";
+import { getGovernedAcademicYear } from "@/features/calendar/server/calendar";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 const allowedRoles = new Set(["school_admin", "principal", "deputy_principal", "class_teacher"]);
@@ -15,7 +16,7 @@ export default async function ContributionsPage() {
   const membership = context.memberships.find((candidate) => allowedRoles.has(candidate.roleKey));
   if (!membership) redirect("/");
 
-  const academicYear = new Date().getFullYear();
+  const academicYear = await getGovernedAcademicYear(membership.schoolId);
   const workspace = await getContributionWorkspace(membership.schoolId, academicYear);
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Windhoek", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
