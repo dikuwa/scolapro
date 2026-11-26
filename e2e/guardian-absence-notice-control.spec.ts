@@ -323,7 +323,7 @@ test("review queue paginates over the date-overlapping set", async ({ page }) =>
   expect(await page.getByRole("button", { name: "Start review" }).count()).toBe(5);
 });
 
-test("guardian evidence and review surfaces have no horizontal overflow at 390, 768 and 1440 in both themes", async ({ page }, testInfo) => {
+test("guardian evidence and review surfaces have no horizontal overflow at 390, 768 and 1440 in both themes", async ({ page, browser }, testInfo) => {
   test.setTimeout(180_000);
   const service = serviceClient();
   await resetNotices(service);
@@ -351,20 +351,29 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
       await testInfo.attach(`guardian-history-${width}-${theme}.png`, { body: await history.screenshot(), contentType: "image/png" });
     }
   }
-  await signIn(page, "admin");
-  await page.goto("/school/absence-reviews");
-  await expect(page.getByRole("heading", { name: "Absence notices" })).toBeVisible();
-  const list = page.locator("section").filter({ hasText: "Absence notices" }).first();
-  // Wait for the persisted notice's own card so measurements run on real content.
-  await expect(page.locator('[data-testid^="absence-notice-"]').filter({ hasText: "Visual acceptance" }).first()).toBeVisible({ timeout: 30_000 });
-  for (const width of [390, 768, 1440]) {
-    for (const theme of ["light", "dark"] as const) {
-      await page.setViewportSize({ width, height: 950 });
-      await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
-      await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
-      const overflow = await list.evaluate((element) => element.scrollWidth > element.clientWidth + 1);
-      expect(overflow).toBe(false);
-      await testInfo.attach(`absence-review-${width}-${theme}.png`, { body: await list.screenshot(), contentType: "image/png" });
+  // Staff review is a different role in a different session. Reusing this page
+  // would carry the guardian session and sign-in would never resolve.
+  const staffContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  try {
+    const staffPage = await staffContext.newPage();
+    await signIn(staffPage, "admin");
+    await staffPage.goto("/school/absence-reviews");
+    await expect(staffPage.getByRole("heading", { name: "Absence notices" })).toBeVisible();
+    const list = staffPage.locator("section").filter({ hasText: "Absence notices" }).first();
+    // Wait for the persisted notice's own card so measurements run on real content.
+    await expect(staffPage.locator('[data-testid^="absence-notice-"]').filter({ hasText: "Visual acceptance" }).first())
+      .toBeVisible({ timeout: 30_000 });
+    for (const width of [390, 768, 1440]) {
+      for (const theme of ["light", "dark"] as const) {
+        await staffPage.setViewportSize({ width, height: 950 });
+        await staffPage.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
+        await staffPage.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+        const overflow = await list.evaluate((element) => element.scrollWidth > element.clientWidth + 1);
+        expect(overflow).toBe(false);
+        await testInfo.attach(`absence-review-${width}-${theme}.png`, { body: await list.screenshot(), contentType: "image/png" });
+      }
     }
+  } finally {
+    await staffContext.close();
   }
 });
