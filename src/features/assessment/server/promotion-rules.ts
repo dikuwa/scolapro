@@ -44,7 +44,7 @@ export async function createPromotionRuleVersion(_previous: PromotionRuleActionS
   return { success: true, message: "Draft promotion rule version and condition saved." };
 }
 
-export async function activatePromotionRuleVersion(formData: FormData): Promise<PromotionRuleActionState> {
+export async function activatePromotionRuleVersion(_previous: PromotionRuleActionState, formData: FormData): Promise<PromotionRuleActionState> {
   const ruleSetId = String(formData.get("ruleSetId") ?? "");
   if (!z.string().uuid().safeParse(ruleSetId).success) return { message: "This promotion rule version could not be identified." };
   const supabase = await createSupabaseServerClient();
