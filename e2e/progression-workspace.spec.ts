@@ -218,6 +218,18 @@ test("school leadership completes generate, override, approve, lock and publish"
   await classOptions.filter({ hasText: "Grade 11/A" }).first().click();
   await row.getByRole("checkbox").check();
   await row.getByRole("button", { name: "Publish rollover" }).click();
+  // Surface the governed outcome: poll the canonical receipt and, if it never
+  // appears, fail with whatever message the workspace actually showed.
+  let receiptPublished = false;
+  await expect.poll(async () => {
+    const { count } = await service.from("year_end_progression_publications")
+      .select("id", { count: "exact", head: true }).eq("source_enrolment_id", enrolmentId);
+    receiptPublished = (count ?? 0) === 1;
+    return receiptPublished;
+  }, { timeout: 45_000 }).toBe(true).catch(async () => {
+    const messages = await page.locator('[role="status"], [role="alert"]').allInnerTexts();
+    throw new Error(`Publish did not create a receipt. Visible messages: ${JSON.stringify(messages)}`);
+  });
   await expect(row.getByText(`Published into ${NEXT_YEAR}`, { exact: false })).toBeVisible({ timeout: 30_000 });
 
   // Canonical evidence: source closed, one destination enrolment, append-only receipt.
