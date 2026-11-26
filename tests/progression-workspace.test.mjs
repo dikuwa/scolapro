@@ -48,6 +48,9 @@ test("workspace reads canonical enrolment, readiness and next-year configuration
   assert.match(workspace, /from\("promotion_rule_sets"\)/);
   assert.match(workspace, /academic_years/);
   assert.match(workspace, /nextYearConfigured/);
+  // A published rollover closes the source enrolment; the receipt must stay visible.
+  assert.match(workspace, /\.in\("status", \["current", "completed"\]\)/);
+  assert.match(workspace, /item\.enrolmentStatus === "current" \|\| item\.publication !== null/);
   assert.match(workspace, /destinationChoices/);
 });
 

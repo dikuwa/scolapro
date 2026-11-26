@@ -21,6 +21,7 @@ export type ProgressionLearner = {
   gradeName: string;
   registerClassId: string;
   registerClassName: string;
+  enrolmentStatus: string;
   ruleSetId: string | null;
   ruleSetLabel: string | null;
   recommendation: {
@@ -114,11 +115,14 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
 
   const enrolmentsResult = selectedGradeId
     ? await supabase.from("enrolments")
-      .select("id,learner_id,academic_year,grade_id,register_class_id,admission_number")
+      // Current learners plus ones already rolled over this year. A published
+      // rollover closes the source enrolment, and the operator still needs to see
+      // the receipt for what was published rather than the row silently vanishing.
+      .select("id,learner_id,academic_year,grade_id,register_class_id,admission_number,status")
       .eq("school_id", schoolId)
       .eq("academic_year", academicYear)
       .eq("grade_id", selectedGradeId)
-      .eq("status", "current")
+      .in("status", ["current", "completed"])
       .order("admission_number")
     : { data: [], error: null };
   if (enrolmentsResult.error) throw new Error("Unable to load the year-end progression workspace.");
@@ -200,6 +204,7 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
       gradeName: str(grade?.display_name),
       registerClassId: str(enrolment.register_class_id),
       registerClassName: str(registerClass?.display_name),
+      enrolmentStatus: str(enrolment.status),
       ruleSetId: ruleSet ? str(ruleSet.id) : null,
       ruleSetLabel: ruleSet ? `${str(ruleSet.rule_set_key)} v${str(ruleSet.version)}` : null,
       recommendation: readiness
@@ -249,15 +254,23 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
     })
     .filter((row) => row.gradeCode);
 
+  // A completed enrolment with no publication is awaiting another workflow (exit,
+  // withdrawal); only published rollovers belong in this workspace's list.
+  const visibleLearners = learners.filter(
+    (item) => item.enrolmentStatus === "current" || item.publication !== null,
+  );
+  const visibleIds = new Set(visibleLearners.map((item) => item.enrolmentId));
+  const scoped = learners.filter((item) => visibleIds.has(item.enrolmentId));
+
   const counts = {
-    learners: learners.length,
-    notStarted: learners.filter((item) => !item.progression).length,
-    reviewed: learners.filter((item) => item.progression?.status === "reviewed").length,
-    approved: learners.filter((item) => item.progression?.status === "approved").length,
-    locked: learners.filter((item) => item.progression?.status === "locked").length,
-    published: learners.filter((item) => item.publication).length,
-    missingRuleSet: learners.filter((item) => !item.ruleSetId).length,
-    notPublished: learners.filter((item) => !item.publication).length,
+    learners: visibleLearners.length,
+    notStarted: visibleLearners.filter((item) => !item.progression).length,
+    reviewed: visibleLearners.filter((item) => item.progression?.status === "reviewed").length,
+    approved: visibleLearners.filter((item) => item.progression?.status === "approved").length,
+    locked: visibleLearners.filter((item) => item.progression?.status === "locked").length,
+    published: visibleLearners.filter((item) => item.publication).length,
+    missingRuleSet: visibleLearners.filter((item) => !item.ruleSetId).length,
+    notPublished: visibleLearners.filter((item) => !item.publication).length,
   };
 
   return {
@@ -271,7 +284,7 @@ export async function getProgressionWorkspace(schoolId: string, academicYear: nu
     nextAcademicYear,
     nextYearConfigured: Boolean(yearsResult.data),
     destinationChoices,
-    learners,
+    learners: scoped,
     counts,
   };
 }
