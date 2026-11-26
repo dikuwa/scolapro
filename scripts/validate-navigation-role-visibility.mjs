@@ -46,6 +46,9 @@ function expectHidden(role, key) {
 for (const role of ["school_admin", "principal", "deputy_principal", "class_teacher"]) expectVisible(role, "contributions");
 for (const role of ["school_admin", "principal", "deputy_principal", "class_teacher", "counsellor"]) expectVisible(role, "absence_reviews");
 for (const role of ["school_admin", "principal", "deputy_principal"]) expectVisible(role, "data_corrections");
+for (const role of ["school_admin", "principal", "deputy_principal"]) expectVisible(role, "progression");
+for (const role of ["hod", "teacher", "class_teacher", "counsellor", "parent", "librarian"]) expectHidden(role, "progression");
+
 for (const role of ["school_admin", "principal", "deputy_principal"]) expectVisible(role, "correspondence");
 for (const role of ["school_admin", "principal", "deputy_principal", "emis_officer"]) expectVisible(role, "statutory");
 for (const role of ["school_admin", "principal", "deputy_principal", "librarian", "ltsm"]) expectVisible(role, "library");
