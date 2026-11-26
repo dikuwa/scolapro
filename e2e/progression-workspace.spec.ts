@@ -197,6 +197,13 @@ test("school leadership completes generate, override, approve, lock and publish"
   await saveOverride.click();
   // The row re-renders with the approved-state actions when the override persists.
   await expect(row.getByRole("button", { name: "Approve decision" })).toBeVisible({ timeout: 30_000 });
+  // Authoritative check that the override persisted the promoted outcome and the
+  // Grade 11 destination; without this the publish step has no valid class.
+  await expect.poll(async () => {
+    const { data } = await service.from("year_end_progressions")
+      .select("outcome,destination_grade_code").eq("enrolment_id", enrolmentId).single();
+    return `${data?.outcome}:${data?.destination_grade_code}`;
+  }, { timeout: 20_000 }).toBe("promoted:11");
 
   // Approve and lock.
   await row.getByRole("button", { name: "Approve decision" }).click();
@@ -206,7 +213,9 @@ test("school leadership completes generate, override, approve, lock and publish"
 
   // Publish to the next year's class with explicit confirmation.
   await row.getByRole("button", { name: /Destination class/ }).click();
-  await page.getByRole("listbox").getByRole("option", { name: "Grade 11/A", exact: true }).click();
+  const classOptions = page.getByRole("listbox").getByRole("option");
+  await expect(classOptions.first()).toBeVisible({ timeout: 20_000 });
+  await classOptions.filter({ hasText: "Grade 11/A" }).first().click();
   await row.getByRole("checkbox").check();
   await row.getByRole("button", { name: "Publish rollover" }).click();
   await expect(row.getByText(`Published into ${NEXT_YEAR}`, { exact: false })).toBeVisible({ timeout: 30_000 });
