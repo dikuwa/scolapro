@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BadgeCheck, CalendarCheck2, ExternalLink, FileText, GraduationCap, Link2, Mail, ReceiptText, School, ShieldCheck, Users, WalletCards } from "lucide-react";
 import { toast } from "sonner";
 import { Picker } from "@/components/ui/picker";
@@ -9,6 +10,7 @@ import { AbsenceNoticeForm } from "@/features/parents/absence-notice-form";
 import { reasonLabels } from "@/features/parents/absence-reasons";
 import type { AbsenceNoticeSummary } from "@/features/parents/server/absence-queries";
 import { claimGuardianProfile, type ParentPortalActionState } from "@/features/parents/server/actions";
+import { resubmitAbsenceNotice, withdrawAbsenceNotice, type AbsenceActionState } from "@/features/parents/server/absence-actions";
 import type { ClaimableGuardianProfile, ParentChildSummary, ParentCorrectionRequest, ParentInvoice, ParentMessage, ParentPayment, ParentPublishedReport, ParentReportDocument } from "@/features/parents/server/portal";
 import { LearnerChangeRequestForm } from "@/features/profile-changes/learner-change-request-form";
 
@@ -28,16 +30,18 @@ function money(currency: string, value: number): string {
   return `${currency} ${value.toFixed(2)}`;
 }
 
-function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) {
+function ParentAbsenceHistory({ notices, learnerName }: { notices: AbsenceNoticeSummary[]; learnerName: string }) {
   return <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
     <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
       <h2 className="scolapro-section-title">Absence notice history</h2>
       <p className="scolapro-section-description">These are your submitted notices and school review outcomes. A notice never changes the official attendance register by itself.</p>
     </div>
-    {notices.length ? <div className="divide-y divide-border-subtle">{notices.map((notice) => <article key={notice.id} className="px-4 py-4 sm:px-5">
+    {notices.length ? <div className="divide-y divide-border-subtle">{notices.map((notice) => <article key={notice.id} data-testid={`parent-absence-notice-${notice.id}`} className="px-4 py-4 sm:px-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">{notice.learnerName}</p>
+          {/* The guardian's own child name comes from the canonical family
+              overview; the notice's joined learner row may not be readable. */}
+          <p className="text-sm font-semibold text-foreground">{notice.learnerName === "Linked learner" ? learnerName : notice.learnerName}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {notice.absenceFrom === notice.absenceTo ? new Date(`${notice.absenceFrom}T12:00:00`).toLocaleDateString() : `${new Date(`${notice.absenceFrom}T12:00:00`).toLocaleDateString()} – ${new Date(`${notice.absenceTo}T12:00:00`).toLocaleDateString()}`} · {reasonLabels[notice.reasonCategory] ?? notice.reasonCategory}
           </p>
@@ -46,9 +50,82 @@ function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) 
       </div>
       {notice.message ? <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground/90">{notice.message}</p> : null}
       {notice.reviewNote ? <p className="mt-2 rounded-[var(--radius-xs)] bg-surface-muted px-2.5 py-1.5 text-xs text-muted-foreground">School feedback: {notice.reviewNote}</p> : null}
-      {notice.attachmentCount ? <p className="mt-2 text-[0.68rem] text-muted-foreground">{notice.attachmentCount} supporting file{notice.attachmentCount === 1 ? "" : "s"} attached</p> : null}
+      <ParentNoticeActions notice={notice} />
+      {notice.history.length ? <details className="mt-2">
+        <summary className="cursor-pointer text-[0.68rem] font-semibold text-muted-foreground">Notice history</summary>
+        <ol className="mt-1.5 space-y-1">
+          {notice.history.map((event) => <li key={event.id} className="text-[0.68rem] text-muted-foreground">
+            <span className="font-medium capitalize text-foreground">{event.eventType}</span>
+            {" · "}{new Date(event.createdAt).toLocaleString()}
+            {event.toStatus ? ` · ${event.toStatus.replaceAll("_", " ")}` : ""}
+            {event.note ? ` · ${event.note}` : ""}
+          </li>)}
+        </ol>
+      </details> : null}
+      {notice.attachments.length ? <div className="mt-2 space-y-1">
+        <p className="text-[0.68rem] text-muted-foreground">{notice.attachments.length} supporting file{notice.attachments.length === 1 ? "" : "s"} attached</p>
+        <ul className="flex flex-wrap gap-x-3 gap-y-1">
+          {notice.attachments.map((attachment) => <li key={attachment.id}>
+            <a href={`/api/guardian-absence-evidence/${attachment.id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong hover:underline">
+              <FileText className="size-3" aria-hidden="true" />{attachment.fileName}
+            </a>
+          </li>)}
+        </ul>
+      </div> : null}
     </article>)}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No absence notices submitted for this learner yet.</div>}
   </section>;
+}
+
+function ParentNoticeActions({ notice }: { notice: AbsenceNoticeSummary }) {
+  const router = useRouter();
+  const [withdrawState, withdrawAction, withdrawPending] = useActionState(withdrawAbsenceNotice, {} as AbsenceActionState);
+  const [resubmitState, resubmitAction, resubmitPending] = useActionState(resubmitAbsenceNotice, {} as AbsenceActionState);
+  const [resubmitting, setResubmitting] = useState(false);
+  const [reason, setReason] = useState(notice.reasonCategory);
+  const [message, setMessage] = useState(notice.message ?? "");
+
+  useEffect(() => {
+    for (const state of [withdrawState, resubmitState]) {
+      if (!state.message) continue;
+      if (state.success) toast.success(state.message);
+      else toast.error(state.message);
+      // The notice list and its history are server-rendered.
+      if (state.success) router.refresh();
+    }
+  }, [withdrawState, resubmitState, router]);
+
+  const canWithdraw = ["submitted", "under_review", "returned"].includes(notice.status);
+  if (!canWithdraw && notice.status !== "returned") return null;
+
+  return <div className="mt-2 space-y-2">
+    <div className="flex flex-wrap gap-2">
+      {canWithdraw ? <form action={withdrawAction}>
+        <input type="hidden" name="noticeId" value={notice.id} />
+        <button type="submit" disabled={withdrawPending || resubmitPending} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-surface-muted px-2.5 text-[0.7rem] font-semibold text-foreground disabled:opacity-50">
+          {withdrawPending ? <><Spinner className="mr-1.5 size-3" />Withdrawing…</> : "Withdraw notice"}
+        </button>
+      </form> : null}
+      {notice.status === "returned" ? <button type="button" onClick={() => setResubmitting((current) => !current)} disabled={resubmitPending}
+        className="inline-flex min-h-8 items-center rounded-[var(--radius-xs)] bg-brand-soft px-2.5 text-[0.7rem] font-semibold text-brand-strong disabled:opacity-50">
+        {resubmitting ? "Close editor" : "Edit and resubmit"}
+      </button> : null}
+    </div>
+    {resubmitting && notice.status === "returned" ? <form action={resubmitAction} className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:grid-cols-2">
+      <input type="hidden" name="noticeId" value={notice.id} />
+      <Picker label="Reason" value={reason} onChange={setReason} options={Object.entries(reasonLabels).map(([value, label]) => ({ value, label }))} placeholder="Choose reason" />
+      <input type="hidden" name="reasonCategory" value={reason} />
+      <label className="block text-xs font-medium sm:col-span-2">Note
+        <textarea name="message" rows={3} maxLength={2000} value={message} onChange={(event) => setMessage(event.target.value)}
+          className="mt-1.5 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 py-2 text-sm outline-none focus-visible:ring-4 focus-visible:ring-brand-soft" />
+      </label>
+      <div className="flex gap-2 sm:col-span-2">
+        <button type="submit" disabled={resubmitPending} className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-9 items-center rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white disabled:opacity-50">
+          {resubmitPending ? <><Spinner className="mr-1.5 size-3" />Resubmitting…</> : "Resubmit for review"}
+        </button>
+        <button type="button" onClick={() => setResubmitting(false)} className="min-h-9 rounded-[var(--radius-sm)] bg-surface px-3 text-xs font-semibold text-foreground shadow-[var(--shadow-xs)]">Cancel</button>
+      </div>
+    </form> : null}
+  </div>;
 }
 
 function ParentMessages({ messages }: { messages: ParentMessage[] }) {
@@ -102,7 +179,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
     return <div className="space-y-5">
       <section className="rounded-[var(--radius-md)] bg-surface p-5 shadow-[var(--shadow-xs)]">
         <div className="flex items-start gap-3"><span className="scolapro-tone-brand grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)]"><Link2 className="size-4" /></span><div><h2 className="scolapro-section-title">Connect your guardian profile</h2><p className="scolapro-section-description">ScolaPro only offers profiles whose active guardian email exactly matches the email on your signed-in account.</p></div></div>
-        {claimable.length ? <div className="mt-4 space-y-2">{claimable.map((profile) => <form key={profile.guardianId} action={claimAction} className="flex flex-col gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:flex-row sm:items-center sm:justify-between"><input type="hidden" name="guardianId" value={profile.guardianId} /><div><p className="text-sm font-semibold text-foreground">{profile.displayName}</p><p className="mt-0.5 text-xs text-muted-foreground">Verified exact-email guardian match</p></div><button disabled={pending} type="submit" className="scolapro-cta inline-flex min-h-9 items-center justify-center gap-2 bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60">{pending ? <Spinner className="size-3.5 text-white" /> : <BadgeCheck className="size-3.5" />}Link profile</button></form>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted p-4 text-sm text-muted-foreground">No guardian profile currently matches this account email. Ask the school to confirm the guardian email recorded on the learner profile.</div>}
+        {claimable.length ? <div className="mt-4 space-y-2">{claimable.map((profile) => <form key={profile.guardianId} action={claimAction} className="flex flex-col gap-3 rounded-[var(--radius-sm)] bg-surface-muted p-3 sm:flex-row sm:items-center sm:justify-between"><input type="hidden" name="guardianId" value={profile.guardianId} /><div><p className="text-sm font-semibold text-foreground">{profile.displayName}</p><p className="mt-0.5 text-xs text-muted-foreground">Verified exact-email guardian match</p></div><button disabled={pending} type="submit" className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft scolapro-cta inline-flex min-h-9 items-center justify-center gap-2 bg-brand px-3 text-xs font-semibold text-white disabled:opacity-60">{pending ? <Spinner className="size-3.5 text-white" /> : <BadgeCheck className="size-3.5" />}Link profile</button></form>)}</div> : <div className="mt-4 rounded-[var(--radius-sm)] bg-surface-muted p-4 text-sm text-muted-foreground">No guardian profile currently matches this account email. Ask the school to confirm the guardian email recorded on the learner profile.</div>}
       </section>
       <ParentMessages messages={messages} />
     </div>;
@@ -141,7 +218,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
           </div>
           <AbsenceNoticeForm learnerId={child.learnerId} learnerName={child.name} today={today} />
         </div>
-        <ParentAbsenceHistory notices={childAbsenceNotices} />
+        <ParentAbsenceHistory notices={childAbsenceNotices} learnerName={child.name} />
       </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
@@ -167,7 +244,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
 
       <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
         <div className="border-b border-border-subtle px-4 py-4 sm:px-5"><h2 className="scolapro-section-title">Published report history</h2><p className="scolapro-section-description">Historical published snapshots remain separate versions so later mark or rule changes never rewrite the report you received.</p></div>
-        {childReports.length ? <div className="divide-y divide-border-subtle">{childReports.map((report) => { const document=documentsBySnapshot.get(report.id); return <div key={report.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"><div><p className="text-sm font-semibold">Term {report.termNumber} · Version {report.snapshotVersion}</p><p className="mt-0.5 text-xs text-muted-foreground">Published {report.publishedAt ? new Date(report.publishedAt).toLocaleDateString() : "by school"}</p></div>{document ? <a href={`/api/report-card-documents/${document.id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-brand"><FileText className="size-3.5" />Open digital report<ExternalLink className="size-3" /></a> : <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[color:var(--success)]"><BadgeCheck className="size-3.5" />Official published snapshot</span>}</div>; })}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No published reports yet.</div>}
+        {childReports.length ? <div className="divide-y divide-border-subtle">{childReports.map((report) => { const document=documentsBySnapshot.get(report.id); return <div key={report.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"><div><p className="text-sm font-semibold">Term {report.termNumber} · Version {report.snapshotVersion}</p><p className="mt-0.5 text-xs text-muted-foreground">Published {report.publishedAt ? new Date(report.publishedAt).toLocaleDateString() : "by school"}</p></div>{document ? <a href={`/api/report-card-documents/${document.id}`} target="_blank" rel="noreferrer" className="focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft inline-flex min-h-8 items-center gap-1.5 text-xs font-semibold text-brand"><FileText className="size-3.5" />Open digital report<ExternalLink className="size-3" /></a> : <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[color:var(--success)]"><BadgeCheck className="size-3.5" />Official published snapshot</span>}</div>; })}</div> : <div className="px-4 py-8 text-center text-sm text-muted-foreground">No published reports yet.</div>}
       </section>
     </> : null}
 
