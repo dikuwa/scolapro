@@ -1,6 +1,6 @@
 begin;
 
-select plan(17);
+select plan(20);
 
 insert into auth.users(id,email,aud,role,created_at,updated_at) values
   ('fe700000-0000-4000-8000-000000000001','control-guardian@example.test','authenticated','authenticated',now(),now()),
@@ -81,6 +81,26 @@ select throws_ok(
     'fe720000-0000-4000-8000-000000000001', current_date-2, current_date-2, 'family', 'Retry'),
   'An active absence notice already covers these dates',
   'resubmitted notice still blocks a duplicate submission'
+);
+
+-- The pgTAP harness is single-session, so it cannot hold two transactions at a
+-- barrier. This deterministic check exercises the same unique boundary and the
+-- failed RPC's atomicity: no second history/audit row is committed.
+select has_index(
+  'public',
+  'guardian_absence_notices',
+  'guardian_absence_notices_active_submission_uniq',
+  'active guardian absence submissions have a database uniqueness boundary'
+);
+select is(
+  (select count(*)::integer from public.guardian_absence_notice_events where notice_id=current_setting('test.control_notice_two')::uuid and event_type='submitted'),
+  1,
+  'duplicate submission failure leaves the existing notice history unchanged'
+);
+select is(
+  (select count(*)::integer from public.audit_events where entity_type='guardian_absence_notice' and event_type='guardian.absence_notice.submitted' and entity_id=current_setting('test.control_notice_two')::uuid),
+  1,
+  'duplicate submission failure does not add a second submission audit event'
 );
 
 -- A second returned notice proves only the submitter can resubmit.
