@@ -30,7 +30,7 @@ function money(currency: string, value: number): string {
   return `${currency} ${value.toFixed(2)}`;
 }
 
-function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) {
+function ParentAbsenceHistory({ notices, learnerName }: { notices: AbsenceNoticeSummary[]; learnerName: string }) {
   return <section className="overflow-hidden rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
     <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
       <h2 className="scolapro-section-title">Absence notice history</h2>
@@ -39,7 +39,9 @@ function ParentAbsenceHistory({ notices }: { notices: AbsenceNoticeSummary[] }) 
     {notices.length ? <div className="divide-y divide-border-subtle">{notices.map((notice) => <article key={notice.id} data-testid={`parent-absence-notice-${notice.id}`} className="px-4 py-4 sm:px-5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-foreground">{notice.learnerName}</p>
+          {/* The guardian's own child name comes from the canonical family
+              overview; the notice's joined learner row may not be readable. */}
+          <p className="text-sm font-semibold text-foreground">{notice.learnerName === "Linked learner" ? learnerName : notice.learnerName}</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {notice.absenceFrom === notice.absenceTo ? new Date(`${notice.absenceFrom}T12:00:00`).toLocaleDateString() : `${new Date(`${notice.absenceFrom}T12:00:00`).toLocaleDateString()} – ${new Date(`${notice.absenceTo}T12:00:00`).toLocaleDateString()}`} · {reasonLabels[notice.reasonCategory] ?? notice.reasonCategory}
           </p>
@@ -216,7 +218,7 @@ export function ParentPortal({ familyChildren, reports, documents, invoices, pay
           </div>
           <AbsenceNoticeForm learnerId={child.learnerId} learnerName={child.name} today={today} />
         </div>
-        <ParentAbsenceHistory notices={childAbsenceNotices} />
+        <ParentAbsenceHistory notices={childAbsenceNotices} learnerName={child.name} />
       </section>
 
       <section className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">

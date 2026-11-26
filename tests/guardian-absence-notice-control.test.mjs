@@ -59,6 +59,11 @@ test("a notice is never dropped because its learner row is not independently rea
   assert.doesNotMatch(queries, /learners!inner/);
   assert.match(queries, /learners\(id, first_names, surname\)/);
   assert.match(queries, /\|\| "Linked learner"/);
+  // The history must name the guardian's own child from the canonical family
+  // overview, because the joined learner row is not readable to this role.
+  assert.match(parentPortal, /function ParentAbsenceHistory\(\{ notices, learnerName \}/);
+  assert.match(parentPortal, /notice\.learnerName === "Linked learner" \? learnerName : notice\.learnerName/);
+  assert.match(parentPortal, /<ParentAbsenceHistory notices=\{childAbsenceNotices\} learnerName=\{child\.name\} \/>/);
 });
 
 test("a successful guardian action refreshes the server-rendered notice list", () => {
