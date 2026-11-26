@@ -58,6 +58,9 @@ test("consequential actions require explicit confirmation and show pending state
   assert.match(component, /Lock decision/);
   assert.match(component, /checked=\{confirmed\}/);
   assert.match(component, /pending\.publish/);
+  // Changing only the destination grade is a valid override and must be saveable.
+  assert.match(component, /const initialGradeCode = learner\.progression\?\.destinationGradeCode \?\? ""/);
+  assert.match(component, /overrideOutcome === progression\.outcome && destinationGradeCode === initialGradeCode/);
   assert.match(component, /pending\.publish \? "Publishing…"/);
   assert.match(component, /!workspace\.nextYearConfigured/);
   assert.match(component, /Generate recommendation/);
