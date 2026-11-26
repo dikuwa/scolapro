@@ -17,6 +17,30 @@ function serviceClient() {
 }
 
 /**
+ * Fails with the widest offending element when the page can scroll horizontally.
+ * Measuring one section's scrollWidth misses overflow caused by the shell.
+ */
+async function expectNoPageOverflow(page: import("@playwright/test").Page) {
+  const report = await page.evaluate(() => {
+    const root = document.documentElement;
+    if (root.scrollWidth <= root.clientWidth + 1) return null;
+    const offenders: string[] = [];
+    for (const element of Array.from(document.querySelectorAll("body *"))) {
+      const rect = element.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+      if (rect.right > root.clientWidth + 1 || rect.left < -1) {
+        const tag = element.tagName.toLowerCase();
+        const cls = typeof element.className === "string" ? element.className.slice(0, 90) : "";
+        offenders.push(`${tag}.${cls} [${Math.round(rect.left)}..${Math.round(rect.right)}]`);
+        if (offenders.length >= 6) break;
+      }
+    }
+    return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, offenders };
+  });
+  expect(report, `Horizontal page overflow: ${JSON.stringify(report)}`).toBeNull();
+}
+
+/**
  * Locates the notice card that contains the given note. Cards are stable rows, so
  * this avoids whole-page counts that include other learners' notices.
  */
@@ -346,6 +370,7 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
       await page.setViewportSize({ width, height: 950 });
       await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
       await page.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+      await expectNoPageOverflow(page);
       const overflow = await history.evaluate((element) => element.scrollWidth > element.clientWidth + 1);
       expect(overflow).toBe(false);
       await testInfo.attach(`guardian-history-${width}-${theme}.png`, { body: await history.screenshot(), contentType: "image/png" });
@@ -368,6 +393,7 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
         await staffPage.setViewportSize({ width, height: 950 });
         await staffPage.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
         await staffPage.evaluate((value) => { document.documentElement.dataset.theme = value; }, theme);
+        await expectNoPageOverflow(staffPage);
         const overflow = await list.evaluate((element) => element.scrollWidth > element.clientWidth + 1);
         expect(overflow).toBe(false);
         await testInfo.attach(`absence-review-${width}-${theme}.png`, { body: await list.screenshot(), contentType: "image/png" });
