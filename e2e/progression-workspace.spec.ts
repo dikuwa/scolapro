@@ -233,9 +233,9 @@ test("school leadership completes generate, override, approve, lock and publish"
   // Receipts come from the append-only publication table, so they remain visible
   // after the source enrolment closes.
   await page.goto(`/school/progression?grade=${DEMO.gradeTenId}`);
-  const receipts = page.getByRole("region", { name: "Published rollovers" });
-  await expect(receipts.getByText(`Progression ${run.toUpperCase()}`, { exact: false })).toBeVisible({ timeout: 30_000 });
-  await expect(receipts.getByText(`${NEXT_YEAR}`, { exact: false }).first()).toBeVisible();
+  const receiptsRegion = page.getByRole("region", { name: "Published rollovers" });
+  await expect(receiptsRegion.getByText(`Progression ${run.toUpperCase()}`, { exact: false })).toBeVisible({ timeout: 30_000 });
+  await expect(receiptsRegion.getByText(`${NEXT_YEAR}`, { exact: false }).first()).toBeVisible();
 
   // Canonical evidence: source closed, one destination enrolment, append-only receipt.
   const { data: source, error: sourceError } = await service.from("enrolments")
