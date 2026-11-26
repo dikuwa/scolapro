@@ -100,6 +100,24 @@ export function ProgressionWorkspace({ workspace, canApprove, today }: { workspa
       <p className="mt-3 text-[0.68rem] leading-5 text-muted-foreground">Recommendations come from the canonical promotion engine and the active rule set for each grade. Application code does not compute pass, repetition or condonation thresholds.</p>
     </section>
 
+    {workspace.publications.length ? <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]" role="region" aria-label="Published rollovers">
+      <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
+        <h2 className="scolapro-section-title">Published rollovers</h2>
+        <p className="scolapro-section-description">Append-only receipts of decisions rolled into the next academic year. The source enrolment is closed; the receipt remains authoritative.</p>
+      </div>
+      <div className="divide-y divide-border-subtle">
+        {workspace.publications.map((receipt) => <div key={receipt.id} data-testid={`progression-receipt-${receipt.id}`} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="min-w-0">
+            <p className="scolapro-record-title">{receipt.learnerName}</p>
+            <p className="mt-0.5 text-[0.68rem] text-muted-foreground">{receipt.sourceAcademicYear} → {receipt.destinationAcademicYear ?? "—"}{receipt.destinationGradeCode ? ` · ${receipt.destinationGradeCode}` : ""} · {receipt.outcome.replaceAll("_", " ")}</p>
+          </div>
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--radius-xs)] bg-success-soft px-2.5 py-1.5 text-[0.68rem] font-medium text-[color:var(--success)]">
+            <CheckCircle2 className="size-3" aria-hidden="true" />Published {new Date(receipt.publishedAt).toLocaleDateString()}
+          </span>
+        </div>)}
+      </div>
+    </section> : null}
+
     <section className="rounded-[var(--radius-md)] bg-surface shadow-[var(--shadow-xs)]">
       <div className="border-b border-border-subtle px-4 py-4 sm:px-5">
         <h2 className="scolapro-section-title">Learners · {workspace.academicYear}{workspace.selectedGradeId ? ` · ${workspace.grades.find((grade) => grade.id === workspace.selectedGradeId)?.label ?? ""}` : ""}</h2>
