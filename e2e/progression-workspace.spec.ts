@@ -237,7 +237,7 @@ test("school leadership completes generate, override, approve, lock and publish"
   // The receipt is the authoritative evidence. Its learner name may be withheld
   // from this actor once the source enrolment closes, so assert the canonical
   // transition and outcome, which operators must always see.
-  await expect(receiptsRegion.getByText(new RegExp(`2026 → ${NEXT_YEAR}`))).toBeVisible({ timeout: 30_000 });
+  await expect(receiptsRegion.getByText(new RegExp(`2026 → ${NEXT_YEAR}`)).first()).toBeVisible({ timeout: 30_000 });
   await expect(receiptsRegion.getByText(/Published \d{2}\/\d{2}\/\d{4}/).first()).toBeVisible();
   await expect(receiptsRegion.getByText(/promoted/i).first()).toBeVisible();
 
@@ -259,7 +259,14 @@ test("school leadership completes generate, override, approve, lock and publish"
   expect(progression?.status).toBe("locked");
   expect(progression?.outcome).toBe("promoted");
   expect(progression?.destination_grade_code).toBe("11");
-  expect(progression?.override_reason).toContain("Synthetic approved promotion");
+  // The canonical override nulls the row-level reason whenever the outcome matches
+  // the engine recommendation (a destination-grade-only change). The reason is
+  // still recorded: assert it in the governed audit trail instead.
+  const { data: overrideAudit, error: overrideAuditError } = await service.from("audit_events")
+    .select("metadata").eq("entity_id", progression?.id ?? "").eq("event_type", "progression.overridden")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  expect(overrideAuditError).toBeNull();
+  expect(JSON.stringify(overrideAudit?.metadata ?? {})).toContain("Synthetic approved promotion");
   const { count: receipts } = await service.from("year_end_progression_publications")
     .select("id", { count: "exact", head: true }).eq("progression_id", progression?.id);
   expect(receipts).toBe(1);
