@@ -5,6 +5,8 @@ import { AppShell } from "@/components/shell/app-shell";
 import { NewCorrespondenceButton } from "@/features/correspondence/new-correspondence-button";
 import { getCorrespondenceDocuments } from "@/features/correspondence/server/queries";
 import { CORRESPONDENCE_TEMPLATES } from "@/features/correspondence/templates";
+import { DeliveryDiagnosticsPanel } from "@/features/communications/delivery-diagnostics-panel";
+import { getCommunicationDeliveryDiagnostics } from "@/features/communications/server/diagnostics";
 import { getUserContext } from "@/lib/auth/get-user-context";
 
 const roles = new Set(["school_admin", "principal", "deputy_principal"]);
@@ -19,7 +21,10 @@ export default async function CorrespondencePage() {
   if (!context.user) redirect("/login?next=/correspondence");
   const membership = context.memberships.find((candidate) => roles.has(candidate.roleKey));
   if (!membership || context.platformMemberships.length > 0) redirect("/");
-  const documents = await getCorrespondenceDocuments(membership.schoolId);
+  const [documents, deliveryJobs] = await Promise.all([
+    getCorrespondenceDocuments(membership.schoolId),
+    getCommunicationDeliveryDiagnostics(membership.schoolId),
+  ]);
   const drafts = documents.filter((document) => document.status === "draft").length;
   const finalized = documents.length - drafts;
 
@@ -37,5 +42,6 @@ export default async function CorrespondencePage() {
         return <Link key={document.id} href={`/correspondence/${document.id}`} className="scolapro-cta grid gap-2 py-4 transition hover:bg-surface-muted/60 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-2"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="scolapro-record-title truncate">{document.subject || template}</p><span className={`rounded-[var(--radius-xs)] px-2 py-0.5 text-[0.68rem] font-medium ${document.status === "finalized" ? "bg-success-soft text-[color:var(--success)]" : "bg-warning-soft text-[color:var(--warning)]"}`}>{document.status === "finalized" ? "Finalized" : "Draft"}</span></div><p className="mt-1 text-xs text-muted-foreground">{template} · To: {document.recipient || "Not entered"} · Revision {document.revisionNumber}</p></div><div className="text-left text-xs text-muted-foreground sm:text-right"><p>{dateLabel(document.documentDate)}</p><p className="mt-1">{document.referenceNumber ?? "No reference yet"}</p></div></Link>;
       })}</div> : <div className="py-12 text-center"><span className="mx-auto grid size-10 place-items-center rounded-[var(--radius-sm)] bg-surface-muted text-muted-foreground"><FileText className="size-5" /></span><h3 className="mt-3 text-sm font-semibold">No correspondence yet</h3><p className="mx-auto mt-1 max-w-md text-xs leading-5 text-muted-foreground">Create the first governed letter, notice, invitation, vacancy or memo for this school.</p></div>}
     </section>
+    <DeliveryDiagnosticsPanel jobs={deliveryJobs} />
   </div></AppShell>;
 }
