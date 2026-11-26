@@ -244,6 +244,9 @@ function LearnerRow({
       <div className="sm:col-span-2">
         <CheckboxField checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)}
           label={`Create the ${nextAcademicYear} enrolment and close the ${learner.gradeName || learner.gradeCode} enrolment.`} />
+        {/* The governed action requires an explicit confirmation token; the
+            checkbox is the operator's affordance and this carries its value. */}
+        <input type="hidden" name="confirmation" value={confirmed ? "confirmed" : ""} />
       </div>
       <div className="flex flex-wrap gap-2 sm:col-span-2">
         <button type="submit" disabled={pending.publish || !canPublish}
@@ -254,6 +257,7 @@ function LearnerRow({
         <button type="button" onClick={() => { setDestinationClassId(""); setConfirmed(false); setEffectiveOn(today); }} className="min-h-10 rounded-[var(--radius-sm)] bg-surface px-3 text-sm font-semibold text-foreground shadow-[var(--shadow-xs)]">Cancel</button>
       </div>
       {!workspaceNextYearNote(classChoices.length) ? null : <p className="text-[0.68rem] text-muted-foreground sm:col-span-2">{workspaceNextYearNote(classChoices.length)}</p>}
+      {publishState.message && !publishState.success ? <p role="alert" className="text-[0.68rem] font-medium text-[color:var(--danger)] sm:col-span-2">{publishState.message}</p> : null}
     </form> : null}
   </article>;
 }
