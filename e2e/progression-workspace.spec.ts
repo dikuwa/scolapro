@@ -230,11 +230,12 @@ test("school leadership completes generate, override, approve, lock and publish"
     const messages = await page.locator('[role="status"], [role="alert"]').allInnerTexts();
     throw new Error(`Publish did not create a receipt. Visible messages: ${JSON.stringify(messages)}`);
   });
-  // Read the canonical server state: the client refresh may lag the write, so a
-  // fresh render proves the published receipt is actually presented to operators.
+  // Receipts come from the append-only publication table, so they remain visible
+  // after the source enrolment closes.
   await page.goto(`/school/progression?grade=${DEMO.gradeTenId}`);
-  const publishedRow = page.getByTestId(`progression-learner-${enrolmentId}`);
-  await expect(publishedRow.getByText(`Published into ${NEXT_YEAR}`, { exact: false })).toBeVisible({ timeout: 30_000 });
+  const receipts = page.getByRole("region", { name: "Published rollovers" });
+  await expect(receipts.getByText(`Progression ${run.toUpperCase()}`, { exact: false })).toBeVisible({ timeout: 30_000 });
+  await expect(receipts.getByText(`${NEXT_YEAR}`, { exact: false }).first()).toBeVisible();
 
   // Canonical evidence: source closed, one destination enrolment, append-only receipt.
   const { data: source, error: sourceError } = await service.from("enrolments")
