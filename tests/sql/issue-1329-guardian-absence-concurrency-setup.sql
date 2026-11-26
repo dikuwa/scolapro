@@ -25,5 +25,6 @@ VALUES ('73000000-0000-4000-8000-000000001334','11111111-1111-4111-8111-11111111
 
 SELECT set_config('request.jwt.claim.sub','73000000-0000-4000-8000-000000001329',true);
 SELECT set_config('request.jwt.claim.role','authenticated',true);
+SELECT set_config('request.jwt.claims',jsonb_build_object('sub','73000000-0000-4000-8000-000000001329','role','authenticated','email','qa1329-guardian@example.test')::text,true);
 INSERT INTO public.guardian_user_links(id,tenant_id,guardian_id,user_id)
 VALUES ('73000000-0000-4000-8000-000000001335','11111111-1111-4111-8111-111111111111','73000000-0000-4000-8000-000000001333','73000000-0000-4000-8000-000000001329');
