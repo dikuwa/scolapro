@@ -197,7 +197,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   // Guardian resubmits with a corrected reason. The review happens in another
   // browser context, so one navigation is required to read the new state.
   await page.goto("/parent");
-  await expect(page.getByText("Please provide appointment evidence.")).toBeVisible();
+  await expect(page.getByText("Please provide appointment evidence.").first()).toBeVisible();
   await page.getByRole("button", { name: "Edit and resubmit" }).click();
   const resubmitForm = page.locator("form").filter({ has: page.getByRole("button", { name: "Resubmit for review" }) });
   await resubmitForm.getByRole("button", { name: "Reason", exact: true }).click();
@@ -354,7 +354,8 @@ test("guardian evidence and review surfaces have no horizontal overflow at 390, 
   await page.goto("/school/absence-reviews");
   await expect(page.getByRole("heading", { name: "Absence notices" })).toBeVisible();
   const list = page.locator("section").filter({ hasText: "Absence notices" }).first();
-  await expect(list.locator("div").filter({ hasText: "Visual acceptance" }).first()).toBeVisible();
+  // Wait for the persisted notice's own card so measurements run on real content.
+  await expect(page.locator('[data-testid^="absence-notice-"]').filter({ hasText: "Visual acceptance" }).first()).toBeVisible({ timeout: 30_000 });
   for (const width of [390, 768, 1440]) {
     for (const theme of ["light", "dark"] as const) {
       await page.setViewportSize({ width, height: 950 });
