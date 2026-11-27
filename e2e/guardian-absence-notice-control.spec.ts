@@ -214,8 +214,8 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   const local = localSupabaseStatus({ projectRoot: process.cwd() });
   const anonKey = local.ANON_KEY;
   if (!anonKey) throw new Error("Disposable Supabase did not report an anonymous key.");
-  async function authenticatedStorage(email: string, password: string) {
-    const client = createClient(local.API_URL, anonKey, {
+  async function authenticatedStorage(email: string, password: string, key: string) {
+    const client = createClient(local.API_URL, key, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data, error } = await client.auth.signInWithPassword({ email, password });
@@ -223,8 +223,8 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     expect(data.session).toBeTruthy();
     return client.storage.from("guardian-absence-evidence");
   }
-  const guardianStorage = await authenticatedStorage(GUARDIAN_ACCOUNT.email, GUARDIAN_ACCOUNT.password);
-  const reviewerStorage = await authenticatedStorage(SYNTHETIC_ACCOUNTS.admin.email, GUARDIAN_ACCOUNT.password);
+  const guardianStorage = await authenticatedStorage(GUARDIAN_ACCOUNT.email, GUARDIAN_ACCOUNT.password, anonKey);
+  const reviewerStorage = await authenticatedStorage(SYNTHETIC_ACCOUNTS.admin.email, GUARDIAN_ACCOUNT.password, anonKey);
   for (const storage of [guardianStorage, reviewerStorage]) {
     const { data, error } = await storage.download(attachment.storage_path);
     expect(error).toBeNull();
@@ -247,7 +247,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     return response.status;
   }, { timeout: 15_000, intervals: [1000] }).toBeGreaterThanOrEqual(400);
   for (const account of [SYNTHETIC_ACCOUNTS.unassignedTeacher, SYNTHETIC_ACCOUNTS.outsider]) {
-    const storage = await authenticatedStorage(account.email, GUARDIAN_ACCOUNT.password);
+    const storage = await authenticatedStorage(account.email, GUARDIAN_ACCOUNT.password, anonKey);
     const denied = await storage.download(attachment.storage_path);
     expect(denied.data).toBeNull();
     expect(denied.error).toBeTruthy();
