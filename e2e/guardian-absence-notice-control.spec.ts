@@ -212,8 +212,10 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   expect(await evidenceResponse.body()).toEqual(expectedBytes);
 
   const local = localSupabaseStatus({ projectRoot: process.cwd() });
+  const anonKey = local.ANON_KEY;
+  if (!anonKey) throw new Error("Disposable Supabase did not report an anonymous key.");
   async function authenticatedStorage(email: string, password: string) {
-    const client = createClient(local.API_URL, local.ANON_KEY, {
+    const client = createClient(local.API_URL, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
     const { data, error } = await client.auth.signInWithPassword({ email, password });
@@ -253,7 +255,7 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     expect(deniedSign.data).toBeNull();
     expect(deniedSign.error).toBeTruthy();
   }
-  const anonymous = createClient(local.API_URL, local.ANON_KEY, {
+  const anonymous = createClient(local.API_URL, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   }).storage.from("guardian-absence-evidence");
   const deniedAnonymous = await anonymous.download(attachment.storage_path);
