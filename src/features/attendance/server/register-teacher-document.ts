@@ -372,6 +372,9 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
   }
   const weeks = [...weekMap.values()];
 
+  const submittedDates = new Set(
+    input.submissionRows.map((row) => String(row.attendance_date).slice(0, 10)),
+  );
   const currentByKey = new Map<string, { status: string; reasonId: string | null; note: string | null }>();
   for (const row of input.currentRows) {
     const attendanceDate = String(row.attendance_date).slice(0, 10);
@@ -394,6 +397,15 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     invalidSubmissionCount += 1;
     invalidSubmissionDates.add(attendanceDate);
   }
+  if (fullTerm?.projectionConfirmed) {
+    const todayDecision = governedDays.decisionFor(fullTerm.today);
+    if ((!closingDate || fullTerm.today <= closingDate) && todayDecision.eligible && !submittedDates.has(fullTerm.today)) {
+      throw new RegisterTeacherFullTermError(
+        422,
+        `Actual attendance is incomplete for ${fullTerm.today}. Complete today's attendance in the Day register before treating the remaining school days as present.`,
+      );
+    }
+  }
 
   const sections: RegisterTeacherSection[] = (["male", "female"] as RegisterTeacherSex[]).map((sex) => {
     const learners: RegisterTeacherLearner[] = [];
@@ -402,7 +414,10 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       if (!learner || validSex(learner.sex) !== sex) continue;
       const enrolledFrom = String(item.enrolled_from).slice(0, 10);
       const enrolledTo = item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null;
-      const evidenceForDate = (date: string) => currentByKey.get(`${item.id}:${date}`);
+      const evidenceForDate = (date: string) => currentByKey.get(`${item.id}:${date}`)
+        ?? (fullTerm?.today === date && submittedDates.has(date)
+          ? { status: "present", reasonId: null, note: null }
+          : undefined);
       if (fullTerm && !termActualDates.some((date) => enrolledFrom <= date && (!enrolledTo || enrolledTo >= date))) {
         // The learner was not enrolled on any included eligible day, so they are
         // not part of this closing-date register.
