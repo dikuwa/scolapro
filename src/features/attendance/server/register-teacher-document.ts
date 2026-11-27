@@ -263,7 +263,11 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     throw new RegisterTeacherFullTermError(400, "Full-term sheets require term mode.");
   }
   const fullTerm = input.fullTerm
-    ? { today: input.fullTerm.today, closingDate: input.fullTerm.closingDate ?? null }
+    ? {
+        today: input.fullTerm.today,
+        closingDate: input.fullTerm.closingDate ?? null,
+        projectionConfirmed: Boolean(input.fullTerm.projectionConfirmed),
+      }
     : null;
   // The full-term sheet spans the entire official learner term, not a partial
   // as-of cutoff. The closing date therefore defaults to the governed term end
@@ -368,6 +372,9 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
   }
   const weeks = [...weekMap.values()];
 
+  const submittedDates = new Set(
+    input.submissionRows.map((row) => String(row.attendance_date).slice(0, 10)),
+  );
   const currentByKey = new Map<string, { status: string; reasonId: string | null; note: string | null }>();
   for (const row of input.currentRows) {
     const attendanceDate = String(row.attendance_date).slice(0, 10);
@@ -390,6 +397,15 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     invalidSubmissionCount += 1;
     invalidSubmissionDates.add(attendanceDate);
   }
+  if (fullTerm?.projectionConfirmed) {
+    const todayDecision = governedDays.decisionFor(fullTerm.today);
+    if ((!closingDate || fullTerm.today <= closingDate) && todayDecision.eligible && !submittedDates.has(fullTerm.today)) {
+      throw new RegisterTeacherFullTermError(
+        422,
+        `Actual attendance is incomplete for ${fullTerm.today}. Complete today's attendance in the Day register before treating the remaining school days as present.`,
+      );
+    }
+  }
 
   const sections: RegisterTeacherSection[] = (["male", "female"] as RegisterTeacherSex[]).map((sex) => {
     const learners: RegisterTeacherLearner[] = [];
@@ -398,24 +414,28 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       if (!learner || validSex(learner.sex) !== sex) continue;
       const enrolledFrom = String(item.enrolled_from).slice(0, 10);
       const enrolledTo = item.enrolled_to ? String(item.enrolled_to).slice(0, 10) : null;
-      const evidenceForDate = (date: string) => currentByKey.get(`${item.id}:${date}`);
+      const evidenceForDate = (date: string) => currentByKey.get(`${item.id}:${date}`)
+        ?? (fullTerm?.today === date && submittedDates.has(date)
+          ? { status: "present", reasonId: null, note: null }
+          : undefined);
       if (fullTerm && !termActualDates.some((date) => enrolledFrom <= date && (!enrolledTo || enrolledTo >= date))) {
         // The learner was not enrolled on any included eligible day, so they are
         // not part of this closing-date register.
         continue;
       }
-      // Default-present applies only to eligible dates that are already past in
-      // the school-local calendar. Today and later contribute nothing unless
-      // authoritative evidence exists, so a future day is never certified.
+      // Default-present applies only to eligible dates already past in the
+      // school-local calendar. The explicit full-term projection choice may add
+      // provisional present marks without changing authoritative evidence.
       const balance = calculateLearnerRegisterBalance({
         scopeDays: dayModels.map((day) => ({ date: day.date, eligible: day.teaching })),
         termEligibleDates: termActualDates,
         enrolledFrom,
         enrolledTo,
         evidenceForDate,
-        // Full-term registers project future school days: they count toward the
-        // possible denominator but are never reported as observed present.
+        // Full-term registers keep future days separate from observed evidence;
+        // the explicit projection choice only changes their presentation marks.
         observedThrough: fullTerm ? fullTerm.today : null,
+        projectFuture: Boolean(fullTerm?.projectionConfirmed),
       });
 
       learners.push({
@@ -506,7 +526,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
     : null;
   if (fullTerm && certification) {
     const observedLearnerDays = sections.reduce(
-      (sum, section) => sum + section.termAttendanceTotal + section.termAbsenceTotal,
+      (sum, section) => sum + section.termAttendanceTotal + section.termAbsenceTotal - (fullTerm.projectionConfirmed ? section.termProjectedTotal : 0),
       0,
     );
     const projectedLearnerDays = sections.reduce((sum, section) => sum + section.termProjectedTotal, 0);
@@ -526,6 +546,7 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       projectedLearnerDays,
       status: certification.status,
       certificationNote: certification.certificationNote,
+      projectionConfirmed: Boolean(fullTerm?.projectionConfirmed),
     } satisfies RegisterTeacherFullTermMetadata;
   }
   assertRegisterTeacherDocumentTotals(document);
@@ -535,9 +556,9 @@ export function buildRegisterTeacherDocument(input: RegisterTeacherBuildInput): 
       if (sum(section.attendanceByDate) !== section.termAttendanceTotal
         || sum(section.absenceByDate) !== section.termAbsenceTotal
         || sum(section.possibleByDate) !== section.possibleTotal
-        || section.learners.some(
-          (learner) => learner.termAttended + learner.termAbsent + learner.termProjected !== learner.termDays,
-        )) {
+        || section.learners.some((learner) => document.fullTerm?.projectionConfirmed
+          ? learner.termAttended + learner.termAbsent !== learner.termDays
+          : learner.termAttended + learner.termAbsent + learner.termProjected !== learner.termDays)) {
         throw new Error("Full-term register row and column balances disagree.");
       }
     }
@@ -552,7 +573,7 @@ export async function getRegisterTeacherDocument(input: {
   mode: RegisterTeacherMode;
   selectedDate: string;
   requestedTermId?: string | null;
-  fullTerm?: { closingDate?: string | null } | null;
+  fullTerm?: { closingDate?: string | null; projectionConfirmed?: boolean } | null;
   fromWeek?: string | null;
   toWeek?: string | null;
 }): Promise<RegisterTeacherDocument> {
@@ -623,7 +644,11 @@ export async function getRegisterTeacherDocument(input: {
   }
 
   const fullTerm = input.fullTerm
-    ? { today: getNamibiaDateKey(), closingDate: input.fullTerm.closingDate ?? null }
+    ? {
+        today: getNamibiaDateKey(),
+        closingDate: input.fullTerm.closingDate ?? null,
+        projectionConfirmed: Boolean(input.fullTerm.projectionConfirmed),
+      }
     : null;
   if (fullTerm && input.mode !== "term") {
     throw new RegisterTeacherFullTermError(400, "Full-term sheets require term mode.");

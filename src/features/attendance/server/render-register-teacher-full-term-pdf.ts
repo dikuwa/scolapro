@@ -421,7 +421,7 @@ function drawSheet(input: {
     y -= summaryRowHeight;
   }
 
-  const balance = registerTeacherBalance(section);
+  const balance = registerTeacherBalance(section, Boolean(document.fullTerm?.projectionConfirmed));
   const balanceLabel = `Present ${balance.attendance}    Absent ${balance.absence}    Projected ${balance.projected}    Observed ${balance.observed} / Full-term ${balance.possible}`;
   const balanceLabelWidth = resources.bold.widthOfTextAtSize(balanceLabel, 7);
   // Share a baseline; wrap the caption inside the reserved footer band.
@@ -440,7 +440,10 @@ function drawSheet(input: {
     font: balance.reconciled ? checkFont : resources.bold,
     color: RED,
   });
-  const foot = `${FULL_TERM_PAPERS[sheet.paper].label} - ${fullTerm?.certificationNote ?? ""} - Days = full-term possible (incl. projected)`.trim();
+  const projectionNote = fullTerm?.projectionConfirmed
+    ? "Remaining eligible school days are provisional present marks for this submission only; actual attendance records are unchanged."
+    : "Remaining eligible school days are not yet marked present.";
+  const foot = `${FULL_TERM_PAPERS[sheet.paper].label} - ${fullTerm?.certificationNote ?? ""} - ${projectionNote} - Days = full-term possible (incl. projected)`.trim();
   const footLines = wrapWithFont(
     resources.regular,
     safeText(foot),
