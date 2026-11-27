@@ -19,6 +19,7 @@ export type RegisterTeacherFullTermRequest = {
   /** Server-resolved school-local date. Never trust a browser clock. */
   today: string;
   closingDate?: string | null;
+  projectionConfirmed?: boolean;
 };
 
 export type RegisterTeacherFullTermMetadata = {
@@ -40,6 +41,7 @@ export type RegisterTeacherFullTermMetadata = {
   projectedLearnerDays: number;
   status: "provisional" | "certified";
   certificationNote: string;
+  projectionConfirmed: boolean;
 };
 
 export class RegisterTeacherFullTermError extends Error {
