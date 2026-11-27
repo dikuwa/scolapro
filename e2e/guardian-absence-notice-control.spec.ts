@@ -192,6 +192,75 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
   const evidenceResponse = await page.request.get(evidenceHref ?? "");
   expect(evidenceResponse.status()).toBe(200);
 
+  // Exercise Storage itself with real Auth-issued sessions, not service-role
+  // credentials or simulated JWT claims. The service client only reads fixture
+  // metadata and cleans up the disposable object after the lifecycle completes.
+  const attachmentId = (evidenceHref ?? "").split("/").pop();
+  const { data: attachment, error: attachmentError } = await service
+    .from("guardian_absence_notice_attachments")
+    .select("id,storage_bucket,storage_path,file_name,mime_type,file_size_bytes")
+    .eq("id", attachmentId).single();
+  expect(attachmentError).toBeNull();
+  expect(attachment).toBeTruthy();
+  if (!attachment) throw new Error("Synthetic evidence metadata missing.");
+  const expectedBytes = Buffer.from("%PDF-1.4\n% synthetic evidence\n%%EOF");
+  expect(attachment.storage_bucket).toBe("guardian-absence-evidence");
+  expect(attachment.file_name).toBe(`evidence-${run}.pdf`);
+  expect(attachment.mime_type).toBe("application/pdf");
+  expect(Number(attachment.file_size_bytes)).toBe(expectedBytes.length);
+  expect(attachment.storage_path).toContain(`${DEMO.schoolId}/${GUARDIAN_ACCOUNT.userId}/`);
+  expect(await evidenceResponse.body()).toEqual(expectedBytes);
+
+  const local = localSupabaseStatus({ projectRoot: process.cwd() });
+  async function authenticatedStorage(email: string, password: string) {
+    const client = createClient(local.API_URL, local.ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    expect(error).toBeNull();
+    expect(data.session).toBeTruthy();
+    return client.storage.from("guardian-absence-evidence");
+  }
+  const guardianStorage = await authenticatedStorage(GUARDIAN_ACCOUNT.email, GUARDIAN_ACCOUNT.password);
+  const reviewerStorage = await authenticatedStorage(SYNTHETIC_ACCOUNTS.admin.email, GUARDIAN_ACCOUNT.password);
+  for (const storage of [guardianStorage, reviewerStorage]) {
+    const { data, error } = await storage.download(attachment.storage_path);
+    expect(error).toBeNull();
+    expect(data).toBeTruthy();
+    expect(Buffer.from(await data!.arrayBuffer())).toEqual(expectedBytes);
+  }
+  // A short-lived real signed URL tests expiry without changing the production
+  // route's 90-second policy. Redirects are refused to avoid accidental egress.
+  const { data: shortUrl, error: signError } = await reviewerStorage.createSignedUrl(attachment.storage_path, 2);
+  expect(signError).toBeNull();
+  expect(shortUrl?.signedUrl).toBeTruthy();
+  if (!shortUrl) throw new Error("Synthetic signed URL missing.");
+  expect(new URL(shortUrl.signedUrl).origin).toBe(new URL(local.API_URL).origin);
+  const initial = await fetch(shortUrl.signedUrl, { redirect: "error", cache: "no-store" });
+  expect(initial.status).toBe(200);
+  expect(Buffer.from(await initial.arrayBuffer())).toEqual(expectedBytes);
+  await expect.poll(async () => {
+    const response = await fetch(shortUrl.signedUrl, { redirect: "error", cache: "no-store" });
+    await response.arrayBuffer();
+    return response.status;
+  }, { timeout: 15_000, intervals: [1000] }).toBeGreaterThanOrEqual(400);
+  for (const account of [SYNTHETIC_ACCOUNTS.unassignedTeacher, SYNTHETIC_ACCOUNTS.outsider]) {
+    const storage = await authenticatedStorage(account.email, GUARDIAN_ACCOUNT.password);
+    const denied = await storage.download(attachment.storage_path);
+    expect(denied.data).toBeNull();
+    expect(denied.error).toBeTruthy();
+    const deniedSign = await storage.createSignedUrl(attachment.storage_path, 90);
+    expect(deniedSign.data).toBeNull();
+    expect(deniedSign.error).toBeTruthy();
+  }
+  const anonymous = createClient(local.API_URL, local.ANON_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  }).storage.from("guardian-absence-evidence");
+  const deniedAnonymous = await anonymous.download(attachment.storage_path);
+  expect(deniedAnonymous.data).toBeNull();
+  expect(deniedAnonymous.error).toBeTruthy();
+
+
   // Reviewer starts and returns the notice.
   const adminContext = await browser.newContext({ baseURL: new URL(page.url()).origin });
   const adminPage = await adminContext.newPage();
@@ -252,6 +321,14 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
 
   await page.goto("/parent");
   await expect(noticeCard(page, noteText).getByText("Accepted after appointment evidence.").first()).toBeVisible();
+
+  // Cleanup uses the privileged fixture client, not a broadened user policy.
+  const { error: cleanupError } = await service.storage.from("guardian-absence-evidence").remove([attachment.storage_path]);
+  expect(cleanupError).toBeNull();
+  const removed = await service.storage.from("guardian-absence-evidence").download(attachment.storage_path);
+  expect(removed.data).toBeNull();
+  expect(removed.error).toBeTruthy();
+
 });
 
 test("guardian withdraws a notice and the school can no longer review it", async ({ page, browser }) => {
