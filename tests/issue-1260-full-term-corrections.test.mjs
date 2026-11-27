@@ -154,6 +154,7 @@ test("full-term projection confirmation marks remaining eligible days without ch
       { enrolment_id: "b1", attendance_date: TODAY, status: "present", reason_id: null, note: null },
       { enrolment_id: "b1", attendance_date: "2026-11-30", status: "absent", reason_id: null, note: "Authoritative absence" },
     ],
+    submissionRows: [{ attendance_date: TODAY }],
   });
   const learner = section(projected, "male").learners[0];
   assert.equal(learner.marks["2026-11-05"], "I", "today is present only because authoritative evidence exists");
@@ -163,6 +164,52 @@ test("full-term projection confirmation marks remaining eligible days without ch
   assert.equal(learner.termProjected, weekdaysBetween("2026-11-06", END).length - 1);
   assert.equal(projected.fullTerm.projectionConfirmed, true);
   assert.equal(projected.fullTerm.observedLearnerDays, learner.termDays - learner.termProjected);
+});
+
+test("a submitted daily register supplies default-present today evidence when learner exception rows are absent", () => {
+  const projected = build({
+    fullTerm: { today: TODAY, projectionConfirmed: true },
+    currentRows: [],
+    submissionRows: [{ attendance_date: TODAY }],
+  });
+  const learner = section(projected, "male").learners[0];
+  assert.equal(learner.marks[TODAY], "I");
+  assert.equal(learner.marks["2026-11-30"], "I");
+  assert.equal(learner.termAttended + learner.termAbsent, learner.termDays);
+  assert.equal(projected.fullTerm.projectionConfirmed, true);
+});
+
+test("5/5 class submissions reconcile both gender sheets when today's learner exceptions are absent", () => {
+  const projected = build({
+    fullTerm: { today: TODAY, projectionConfirmed: true },
+    enrolments: [
+      learnerRow({ id: "b1", learner_id: "b1", sex: "male" }),
+      learnerRow({ id: "g1", learner_id: "g1", sex: "female" }),
+    ],
+    currentRows: [],
+    submissionRows: weekdaysBetween("2026-11-02", "2026-11-06").map((attendance_date) => ({ attendance_date })),
+  });
+  for (const sex of ["male", "female"]) {
+    const sheet = section(projected, sex);
+    assert.equal(sheet.learners[0].marks[TODAY], "I");
+    assert.equal(sheet.attendanceByDate[TODAY], 1);
+    assert.equal(sheet.termAttendanceTotal + sheet.termAbsenceTotal, sheet.termPossibleTotal);
+  }
+});
+
+test("projection confirmation identifies an unsaved current register instead of returning a generic failure", () => {
+  assert.throws(
+    () => build({ fullTerm: { today: TODAY, projectionConfirmed: true }, submissionRows: [] }),
+    /Actual attendance is incomplete for 2026-11-05.*Day register/,
+  );
+});
+
+test("projection confirmation does not require a current register outside the selected closing date", () => {
+  const document = build({
+    fullTerm: { today: TODAY, closingDate: "2026-11-04", projectionConfirmed: true },
+    submissionRows: [],
+  });
+  assert.equal(document.fullTerm.projectionConfirmed, true);
 });
 
 test("#1260 paginated fallback flags an unelapsed full-term balance instead of a false tick", () => {
