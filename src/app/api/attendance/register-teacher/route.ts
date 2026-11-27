@@ -53,6 +53,7 @@ export async function GET(request: Request) {
       : "week";
   const termId = url.searchParams.get("term") || null;
   const closingDate = url.searchParams.get("closingDate") || null;
+  const projectionConfirmed = url.searchParams.get("projectRemaining") === "1";
   const fromWeek = url.searchParams.get("fromWeek") || null;
   const toWeek = url.searchParams.get("toWeek") || null;
   const requestedFormat = url.searchParams.get("format");
@@ -100,7 +101,7 @@ export async function GET(request: Request) {
         mode,
         selectedDate: date,
         requestedTermId: termId,
-        fullTerm: fullTermRequested ? { closingDate } : null,
+        fullTerm: fullTermRequested ? { closingDate, projectionConfirmed } : null,
         fromWeek,
         toWeek,
       }),
