@@ -99,7 +99,7 @@ function sheetHtml(input: {
     const term = `<td class="term-actual">${learner.termAttended}</td><td class="term-absent absence-value">${learner.termAbsent}</td><td class="term-days">${learner.termDays}</td>`;
     return `<tr class="learner-row">${identity}${marks}${term}</tr>`;
   }).join("");
-  const balance = registerTeacherBalance(section);
+  const balance = registerTeacherBalance(section, Boolean(document.fullTerm?.projectionConfirmed));
   const emptyRow = sheet.empty
     ? `<tr class="learner-row empty-row"><td colspan="5">No learners in this section.</td>${weeks.map(week => week.dates.map(day => day.teaching ? '<td></td>' : `<td class="non-teaching closure-column"><span class="closure-label">${escapeHtml(day.reason?.trim() || "Non-teaching day")}</span></td>`).join("") + '<td class="week-total"></td>').join("")}<td></td><td></td><td></td></tr>`
     : "";
@@ -132,8 +132,11 @@ function sheetHtml(input: {
     fullTerm?.includedTeachingDayCount ?? document.teachingDayCount,
   );
   const dayBasisNote = dayBasis.detail ? ` (${dayBasis.detail})` : "";
+  const projectionNote = fullTerm?.projectionConfirmed
+    ? " Remaining eligible school days are provisional present marks for this submission only; actual attendance records are unchanged."
+    : " Remaining eligible school days are not yet marked present."
   const banner = hasIncludedDays
-    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate!))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} · ${fullTerm!.possibleLearnerDays} possible learner-days. Not a certified class register. ${escapeHtml(fullTermCalendarAudit(fullTerm!))}`
+    ? `PROVISIONAL — closing ${escapeHtml(formatDate(includedClosingDate!))} · ${fullTerm!.scheduledTeachingDayCount} scheduled school days · ${fullTerm!.includedTeachingDayCount} school-included teaching days${dayBasisNote} · ${fullTerm!.possibleLearnerDays} possible learner-days.${escapeHtml(projectionNote)} Not a certified class register. ${escapeHtml(fullTermCalendarAudit(fullTerm!))}`
     : `NO ELIGIBLE SCHOOL DAY — ${emptyCopy.charAt(0).toLowerCase()}${emptyCopy.slice(1)} The sheet is intentionally empty.`;
   const meta = [
     ["BOYS/GIRLS:", section.label],

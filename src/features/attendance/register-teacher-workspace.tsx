@@ -25,6 +25,7 @@ export function RegisterTeacherWorkspace({
   fromWeek,
   toWeek,
   closingDate,
+  projectionConfirmed,
   today,
 }: {
   schoolId: string;
@@ -39,12 +40,14 @@ export function RegisterTeacherWorkspace({
   fromWeek: string | null;
   toWeek: string | null;
   closingDate: string | null;
+  projectionConfirmed: boolean;
   today: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const selectedClass = classes.find((item) => item.id === selectedClassId) ?? null;
   const selectedTerm = terms.find((item) => item.id === selectedTermId) ?? null;
+  const projectionAvailable = mode === "full-term" && today < (closingDate ?? selectedTerm?.endsOn ?? today);
 
   function mondayFor(value: string) {
     const current = new Date(`${value}T12:00:00`);
@@ -81,7 +84,7 @@ export function RegisterTeacherWorkspace({
   const selectedWeekIndex = weekOptions.findIndex((item) => item.value === selectedFromWeek);
 
 
-  function navigate(next: { classId?: string; mode?: RegisterTeacherViewMode; termId?: string | null; date?: string; fromWeek?: string | null; toWeek?: string | null; closingDate?: string | null }) {
+  function navigate(next: { classId?: string; mode?: RegisterTeacherViewMode; termId?: string | null; date?: string; fromWeek?: string | null; toWeek?: string | null; closingDate?: string | null; projectionConfirmed?: boolean }) {
     const params = new URLSearchParams();
     params.set("view", "register");
     params.set("date", next.date ?? date);
@@ -96,6 +99,8 @@ export function RegisterTeacherWorkspace({
     if (nextTo && nextMode === "range") params.set("toWeek", nextTo);
     const nextClosing = next.closingDate === undefined ? closingDate : next.closingDate;
     if (nextMode === "full-term" && nextClosing) params.set("closingDate", nextClosing);
+    const nextProjection = next.projectionConfirmed ?? (nextMode === "full-term" ? projectionConfirmed : false);
+    if (nextMode === "full-term" && nextProjection) params.set("projectRemaining", "1");
     startTransition(() => router.replace(`/attendance?${params.toString()}`, { scroll: false }));
   }
 
@@ -122,8 +127,9 @@ export function RegisterTeacherWorkspace({
       fromWeek: selectedFromWeek,
       toWeek: selectedToWeek,
       closingDate: mode === "full-term" ? closingDate : null,
+      projectionConfirmed: mode === "full-term" && projectionConfirmed,
     };
-  }, [closingDate, date, isTerm, mode, schoolId, selectedClassId, selectedFromWeek, selectedTermId, selectedToWeek]);
+  }, [closingDate, date, isTerm, mode, projectionConfirmed, schoolId, selectedClassId, selectedFromWeek, selectedTermId, selectedToWeek]);
 
   return (
     <div className="space-y-5">
@@ -133,7 +139,7 @@ export function RegisterTeacherWorkspace({
               label="Class"
               name="register-teacher-class"
               value={selectedClassId ?? ""}
-              onChange={(classId) => navigate({ classId })}
+              onChange={(classId) => navigate({ classId, projectionConfirmed: false })}
               placeholder="Choose register class"
               options={classes.map((item) => ({ value: item.id, label: item.name, helper: item.grade }))}
             />
@@ -146,6 +152,7 @@ export function RegisterTeacherWorkspace({
                 fromWeek: null,
                 toWeek: null,
                 closingDate: null,
+                projectionConfirmed: false,
               })}
               placeholder="Specific week"
               options={[
@@ -159,7 +166,7 @@ export function RegisterTeacherWorkspace({
               label="Academic term"
               name="register-teacher-term"
               value={selectedTermId ?? ""}
-              onChange={(value) => navigate({ termId: value || null, fromWeek: null, toWeek: null, closingDate: null })}
+              onChange={(value) => navigate({ termId: value || null, fromWeek: null, toWeek: null, closingDate: null, projectionConfirmed: false })}
               placeholder="Choose term"
               options={terms.map((term) => ({ value: term.id, label: term.displayName, helper: term.startsOn && term.endsOn ? `${term.startsOn} – ${term.endsOn}` : `Term ${term.termNumber} · Calendar dates required` }))}
             />
@@ -195,7 +202,7 @@ export function RegisterTeacherWorkspace({
                   label="Closing date"
                   name="register-teacher-closing-date"
                   value={closingDate ?? ""}
-                  onChange={(value) => navigate({ closingDate: value || null })}
+                  onChange={(value) => navigate({ closingDate: value || null, projectionConfirmed: false })}
                   min={selectedTerm?.startsOn ?? undefined}
                   max={selectedTerm?.endsOn ?? undefined}
                 />
@@ -204,7 +211,7 @@ export function RegisterTeacherWorkspace({
                     <button
                       type="button"
                       disabled={pending}
-                      onClick={() => navigate({ closingDate: null })}
+                      onClick={() => navigate({ closingDate: null, projectionConfirmed: false })}
                       className="cursor-pointer font-semibold text-brand-strong underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Clear date
@@ -246,6 +253,20 @@ export function RegisterTeacherWorkspace({
           <span className="hidden h-4 w-px bg-border-subtle sm:block" aria-hidden="true" />
           <div className="flex min-w-0 items-center gap-2"><CalendarRange className="size-4 shrink-0 text-brand" aria-hidden="true" /><UsersRound className="size-4 shrink-0 text-brand" aria-hidden="true" /><span className="text-muted-foreground">Attendance + absence = possible; governed days, closures and enrolment dates are applied automatically.</span></div>
         </div>
+        {projectionAvailable ? (
+          <div className="border-t border-border-subtle bg-surface-muted/55 px-4 py-3 text-sm sm:px-5">
+            <p className="max-w-3xl text-xs leading-5 text-muted-foreground">The term has not ended. Do you want to treat the remaining school days as present for this register submission? Actual attendance records will remain unchanged.</p>
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => navigate({ projectionConfirmed: !projectionConfirmed })}
+              className="mt-2 min-h-9 rounded-[var(--radius-sm)] bg-brand px-3 text-xs font-semibold text-white shadow-[var(--shadow-xs)] transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-soft disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {projectionConfirmed ? "Remove projected days" : "Treat remaining school days as present"}
+            </button>
+            {projectionConfirmed ? <p className="mt-1.5 text-xs font-medium text-muted-foreground">Projected days are shown as provisional present marks on both Boys and Girls sheets.</p> : null}
+          </div>
+        ) : null}
         <InlineRegisterDocumentPanel
           selection={documentSelection}
           title={`${selectedClass?.name ?? "Register"} · ${title}`}

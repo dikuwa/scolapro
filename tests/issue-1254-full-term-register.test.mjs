@@ -587,7 +587,7 @@ test("full-term deduplicates identical enrolment evidence and keeps two-line nam
 test("full-term route exposes the opt-in mode, closing date and explicit paginated fallback", () => {
   const route = readFileSync("src/app/api/attendance/register-teacher/route.ts", "utf8");
   assert.match(route, /requestedMode === "full-term"/);
-  assert.match(route, /fullTerm: fullTermRequested \? \{ closingDate \} : null/);
+  assert.match(route, /fullTerm: fullTermRequested \? \{ closingDate, projectionConfirmed \} : null/);
   assert.match(route, /planRegisterTeacherFullTermDocument\(document\)/);
   assert.match(route, /The unchanged paginated term register is shown instead/);
   assert.match(route, /RegisterTeacherFullTermError/);

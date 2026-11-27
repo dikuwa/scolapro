@@ -147,6 +147,24 @@ test("#1260 ignores future-dated evidence so a future day is never observed pres
   assert.ok(learner.termProjected > 0);
 });
 
+test("full-term projection confirmation marks remaining eligible days without changing actual evidence", () => {
+  const projected = build({
+    fullTerm: { today: TODAY, projectionConfirmed: true },
+    currentRows: [
+      { enrolment_id: "b1", attendance_date: TODAY, status: "present", reason_id: null, note: null },
+      { enrolment_id: "b1", attendance_date: "2026-11-30", status: "absent", reason_id: null, note: "Authoritative absence" },
+    ],
+  });
+  const learner = section(projected, "male").learners[0];
+  assert.equal(learner.marks["2026-11-05"], "I", "today is present only because authoritative evidence exists");
+  assert.equal(learner.marks["2026-11-30"], "a", "actual evidence supersedes a projection");
+  assert.equal(learner.marks[END], "I", "the final eligible day is projected");
+  assert.equal(learner.termAttended + learner.termAbsent, learner.termDays);
+  assert.equal(learner.termProjected, weekdaysBetween("2026-11-06", END).length - 1);
+  assert.equal(projected.fullTerm.projectionConfirmed, true);
+  assert.equal(projected.fullTerm.observedLearnerDays, learner.termDays - learner.termProjected);
+});
+
 test("#1260 paginated fallback flags an unelapsed full-term balance instead of a false tick", () => {
   const document = build();
   const balance = layout.registerTeacherBalance(section(document, "male"));
@@ -799,7 +817,7 @@ test("#1268 closing calendar picker and inline preview preserve cumulative view 
   assert.match(workspace, /Clear date/);
   assert.match(workspace, /Official learner closing date/);
   assert.doesNotMatch(workspace, /const closingDateOptions =/);
-  assert.match(workspace, /navigate\(\{ closingDate: value \|\| null \}\)/);
+  assert.match(workspace, /navigate\(\{ closingDate: value \|\| null, projectionConfirmed: false \}\)/);
   assert.match(inline, /key=\{state\.requestKey\}/);
 });
 

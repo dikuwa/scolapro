@@ -31,7 +31,7 @@ function safeSchoolDate(value?: string) {
   return attendanceWeekday(date) >= 0 ? date : windhoekDate();
 }
 
-export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; sex?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[]; closingDate?: string | string[] }> }) {
+export default async function AttendancePage({ searchParams }: { searchParams: Promise<{ class?: string | string[]; date?: string | string[]; view?: string | string[]; sort?: string | string[]; sex?: string | string[]; term?: string | string[]; mode?: string | string[]; fromWeek?: string | string[]; toWeek?: string | string[]; closingDate?: string | string[]; projectRemaining?: string | string[] }> }) {
   const context = await getUserContext();
   if (!context.user) redirect("/login?next=/attendance");
 
@@ -51,6 +51,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const requestedFromWeek = Array.isArray(params.fromWeek) ? params.fromWeek[0] : params.fromWeek;
   const requestedToWeek = Array.isArray(params.toWeek) ? params.toWeek[0] : params.toWeek;
   const requestedClosingDate = Array.isArray(params.closingDate) ? params.closingDate[0] : params.closingDate;
+  const projectionConfirmed = (Array.isArray(params.projectRemaining) ? params.projectRemaining[0] : params.projectRemaining) === "1";
   const view = requestedView === "week" ? "week" : requestedView === "register" ? "register" : requestedView === "official" ? "official" : requestedView === "absences" ? "absences" : "day";
   const mode: "week" | "range" | "term" | "full-term" = requestedMode === "full-term" ? "full-term" : requestedMode === "term" ? "term" : requestedMode === "range" ? "range" : "week";
   const sort: AttendanceSortDirection = requestedSort === "desc" ? "desc" : "asc";
@@ -76,6 +77,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           requestedFromWeek={requestedFromWeek}
           requestedToWeek={requestedToWeek}
           closingDate={requestedClosingDate}
+          projectionConfirmed={mode === "full-term" && projectionConfirmed}
           canFinalize={canFinalize}
         />
       </Suspense>
@@ -98,6 +100,7 @@ async function AttendanceWorkspaceData({
   requestedFromWeek,
   requestedToWeek,
   closingDate,
+  projectionConfirmed,
   canFinalize,
 }: {
   schoolId: string;
@@ -114,6 +117,7 @@ async function AttendanceWorkspaceData({
   requestedFromWeek?: string;
   requestedToWeek?: string;
   closingDate?: string;
+  projectionConfirmed: boolean;
   canFinalize: boolean;
 }) {
 if (view === "register") {
@@ -140,6 +144,7 @@ if (view === "register") {
         fromWeek={requestedFromWeek ?? null}
         toWeek={requestedToWeek ?? null}
         closingDate={closingDate ?? null}
+        projectionConfirmed={projectionConfirmed}
         today={windhoekDate()}
       />
     </section>

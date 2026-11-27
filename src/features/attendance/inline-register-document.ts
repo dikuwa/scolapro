@@ -9,6 +9,7 @@ export type InlineRegisterDocumentSelection = {
   fromWeek: string | null;
   toWeek: string | null;
   closingDate?: string | null;
+  projectionConfirmed?: boolean;
 };
 
 export type InlineRegisterDocument = {
@@ -32,7 +33,7 @@ export function inlineRegisterDocumentKey(selection: InlineRegisterDocumentSelec
         ? `${selection.fromWeek ?? ""}:${selection.toWeek ?? ""}`
         : selection.fromWeek ?? "";
 
-  return [selection.schoolId, selection.classId, selection.termId, selection.date, selection.mode, period].join(":");
+  return [selection.schoolId, selection.classId, selection.termId, selection.date, selection.mode, period, selection.projectionConfirmed ? "projected" : "actual"].join(":");
 }
 
 function inlineRegisterDocumentUrl(selection: InlineRegisterDocumentSelection) {
@@ -47,6 +48,7 @@ function inlineRegisterDocumentUrl(selection: InlineRegisterDocumentSelection) {
   if ((selection.mode === "week" || selection.mode === "range") && selection.fromWeek) params.set("fromWeek", selection.fromWeek);
   if (selection.mode === "range" && selection.toWeek) params.set("toWeek", selection.toWeek);
   if (selection.mode === "full-term" && selection.closingDate) params.set("closingDate", selection.closingDate);
+  if (selection.mode === "full-term" && selection.projectionConfirmed) params.set("projectRemaining", "1");
   return `/api/attendance/register-teacher?${params.toString()}`;
 }
 
