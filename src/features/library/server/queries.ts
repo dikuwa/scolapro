@@ -53,6 +53,8 @@ export type LibraryLoan = {
   classId: string | null;
 };
 
+export type LibraryBooklistItem = { id: string; gradeId: string; titleId: string; copiesPerLearner: number; status: "active" | "inactive" };
+
 export type LibrarySubject = { id: string; code: string; name: string; status: string };
 export type LibraryGrade = { id: string; code: string; name: string; academicYear: number };
 export type LibraryClass = { id: string; gradeId: string; code: string; name: string; academicYear: number };
@@ -97,11 +99,17 @@ export async function getLibraryWorkspace(schoolId: string, today: string, view:
   const learnersRequest = needsCirculationData
     ? supabase.rpc("list_learning_resource_learner_borrowers", { p_school_id: schoolId })
     : Promise.resolve({ data: [] as LearnerRow[], error: null });
+  const booklistsRequest = view === "class"
+    ? supabase.from("learning_resource_booklist_items")
+        .select("id,grade_id,title_id,copies_per_learner,status")
+        .eq("school_id", schoolId)
+        .order("created_at")
+    : Promise.resolve({ data: [] as Array<{ id: string; grade_id: string; title_id: string; copies_per_learner: number; status: "active" | "inactive" }>, error: null });
   const staffRequest = needsCirculationData
     ? supabase.rpc("list_learning_resource_staff_borrowers", { p_school_id: schoolId })
     : Promise.resolve({ data: [] as StaffBorrowerRow[], error: null });
 
-  const [titlesResult, copiesResult, loansResult, learnersResult, staffResult, subjectsResult, gradesResult, classesResult] = await Promise.all([
+  const [titlesResult, copiesResult, loansResult, learnersResult, staffResult, subjectsResult, gradesResult, classesResult, booklistsResult] = await Promise.all([
     supabase
       .from("learning_resource_titles")
       .select("id,resource_type,title,author,publisher,isbn,subject_id,subject_code,grade_id,grade_code,edition,category,status")
@@ -132,6 +140,7 @@ export async function getLibraryWorkspace(schoolId: string, today: string, view:
       .eq("school_id", schoolId)
       .order("academic_year", { ascending: false })
       .order("display_name"),
+    booklistsRequest,
   ]);
 
   const error = titlesResult.error
@@ -141,7 +150,8 @@ export async function getLibraryWorkspace(schoolId: string, today: string, view:
     ?? staffResult.error
     ?? subjectsResult.error
     ?? gradesResult.error
-    ?? classesResult.error;
+    ?? classesResult.error
+    ?? booklistsResult.error;
   if (error) throw new Error("Unable to load Library / Textbooks.");
 
   const subjects: LibrarySubject[] = (subjectsResult.data ?? []).map((row) => ({
@@ -252,6 +262,10 @@ export async function getLibraryWorkspace(schoolId: string, today: string, view:
 
   return {
     schoolId,
+    booklists: (booklistsResult.data ?? []).map((row) => ({
+      id: row.id, gradeId: row.grade_id, titleId: row.title_id,
+      copiesPerLearner: row.copies_per_learner, status: row.status as "active" | "inactive",
+    })),
     titles,
     copies,
     loans,

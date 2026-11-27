@@ -310,3 +310,60 @@ export async function bulkReturnLibraryResources(_state: LibraryActionState, for
   revalidatePath("/library");
   return { success: true, message: `${parsed.data.items.length} ${parsed.data.items.length === 1 ? "resource" : "resources"} returned.`, count: parsed.data.items.length };
 }
+
+// Grade-year booklist management is intentionally separate from the physical-loan lifecycle.
+const booklistSaveSchema = z.object({
+  schoolId: z.string().uuid(), gradeId: z.string().uuid(), titleId: z.string().uuid(),
+  copiesPerLearner: z.coerce.number().int().min(1).max(10),
+});
+const booklistRemoveSchema = z.object({ schoolId: z.string().uuid(), booklistId: z.string().uuid() });
+
+export async function saveLibraryBooklistRequirement(_state: LibraryActionState, formData: FormData): Promise<LibraryActionState> {
+  const parsed = booklistSaveSchema.safeParse({
+    schoolId: value(formData, "schoolId"), gradeId: value(formData, "gradeId"),
+    titleId: value(formData, "titleId"), copiesPerLearner: value(formData, "copiesPerLearner"),
+  });
+  if (!parsed.success) return operationFailure("Choose a grade, textbook and a quantity from 1 to 10.");
+  const { schoolId, gradeId, titleId, copiesPerLearner } = parsed.data;
+  if (!(await hasLibraryAccess(schoolId))) return operationFailure("You do not have permission to configure this school's booklist.");
+  const context = await getUserContext();
+  if (!context.user) return operationFailure("Please sign in again.");
+  const supabase = await createSupabaseServerClient();
+  const [school, grade, title, previous] = await Promise.all([
+    supabase.from("schools").select("tenant_id").eq("id", schoolId).maybeSingle(),
+    supabase.from("grades").select("grade_code,academic_year").eq("school_id", schoolId).eq("id", gradeId).maybeSingle(),
+    supabase.from("learning_resource_titles").select("resource_type,grade_code,status").eq("school_id", schoolId).eq("id", titleId).maybeSingle(),
+    supabase.from("learning_resource_booklist_items").select("id").eq("school_id", schoolId).eq("grade_id", gradeId).eq("title_id", titleId).maybeSingle(),
+  ]);
+  if (school.error || grade.error || title.error || previous.error || !school.data || !grade.data || !title.data ||
+      title.data.resource_type !== "textbook" || title.data.status !== "active" ||
+      (title.data.grade_code && title.data.grade_code !== grade.data.grade_code)) {
+    return operationFailure("This textbook and grade are not eligible for the school booklist.");
+  }
+  const update = { copies_per_learner: copiesPerLearner, status: "active", updated_by_user_id: context.user.id };
+  const result = previous.data
+    ? await supabase.from("learning_resource_booklist_items").update(update).eq("id", previous.data.id).eq("school_id", schoolId).select("id").maybeSingle()
+    : await supabase.from("learning_resource_booklist_items").insert({
+        ...update, tenant_id: school.data.tenant_id, school_id: schoolId,
+        grade_id: gradeId, title_id: titleId, created_by_user_id: context.user.id,
+      }).select("id").maybeSingle();
+  if (result.error || !result.data) return operationFailure("Unable to save this booklist requirement. Refresh and try again.");
+  revalidatePath("/library");
+  return { success: true, message: "Textbook requirement saved." };
+}
+
+export async function removeLibraryBooklistRequirement(_state: LibraryActionState, formData: FormData): Promise<LibraryActionState> {
+  const parsed = booklistRemoveSchema.safeParse({
+    schoolId: value(formData, "schoolId"), booklistId: value(formData, "booklistId"),
+  });
+  if (!parsed.success) return operationFailure("Invalid booklist selection.");
+  if (!(await hasLibraryAccess(parsed.data.schoolId))) return operationFailure("You do not have permission to change this school's booklist.");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("learning_resource_booklist_items")
+    .update({ status: "inactive" })
+    .eq("school_id", parsed.data.schoolId).eq("id", parsed.data.booklistId)
+    .eq("status", "active").select("id").maybeSingle();
+  if (error || !data) return operationFailure("This booklist requirement could not be removed. Refresh and retry.");
+  revalidatePath("/library");
+  return { success: true, message: "Booklist requirement removed from the active list." };
+}

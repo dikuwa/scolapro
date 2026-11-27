@@ -5,16 +5,17 @@ import { BookCopy, RotateCcw, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
+import { BooklistRequirements } from "@/features/library/booklist-requirements";
 import { Picker } from "@/components/ui/picker";
 import { bulkIssueLibraryResources, bulkReturnLibraryResources, type LibraryActionState } from "@/features/library/server/actions";
-import type { LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibraryTitle } from "@/features/library/server/queries";
+import type { LibraryBooklistItem, LibraryClass, LibraryCopy, LibraryGrade, LibraryLearner, LibraryLoan, LibraryTitle } from "@/features/library/server/queries";
 
 const initialState: LibraryActionState = {};
 const returnConditions = ["new", "good", "fair", "poor", "damaged", "lost"].map((value) => ({ value, label: value[0].toUpperCase() + value.slice(1) }));
 function pretty(value: string) { return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function copyIdentity(copy: LibraryCopy) { return copy.barcode || copy.assetNumber || `Copy ${copy.id.slice(0, 8)}`; }
 
-export function ClassOperations({ schoolId, today, grades, classes, learners, titles, copies, loans }: { schoolId: string; today: string; grades: LibraryGrade[]; classes: LibraryClass[]; learners: LibraryLearner[]; titles: LibraryTitle[]; copies: LibraryCopy[]; loans: LibraryLoan[] }) {
+export function ClassOperations({ schoolId, today, grades, classes, learners, titles, booklists, copies, loans }: { schoolId: string; today: string; grades: LibraryGrade[]; classes: LibraryClass[]; learners: LibraryLearner[]; titles: LibraryTitle[]; booklists: LibraryBooklistItem[]; copies: LibraryCopy[]; loans: LibraryLoan[] }) {
   const [gradeId, setGradeId] = useState("");
   const [classId, setClassId] = useState("");
   const [titleId, setTitleId] = useState("");
@@ -36,7 +37,7 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
   const classLearners = useMemo(() => learners.filter((learner) => learner.classId === classId), [learners, classId]);
   const titleMap = useMemo(() => new Map(titles.map((title) => [title.id, title])), [titles]);
   const copyMap = useMemo(() => new Map(copies.map((copy) => [copy.id, copy])), [copies]);
-  const availableCopies = useMemo(() => copies.filter((copy) => copy.titleId === titleId && copy.availability === "available"), [copies, titleId]);
+  const availableCopies = useMemo(() => copies.filter((copy) => copy.titleId === titleId && copy.availability === "available" && !["damaged", "lost"].includes(copy.condition)), [copies, titleId]);
   const activeLoans = useMemo(() => loans.filter((loan) => ["open", "overdue"].includes(loan.status)), [loans]);
   const classActiveLoans = useMemo(() => activeLoans.filter((loan) => loan.classId === classId && (!titleId || copyMap.get(loan.copyId)?.titleId === titleId)), [activeLoans, classId, titleId, copyMap]);
   const historyByLearner = useMemo(() => {
@@ -50,7 +51,12 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
     return Object.fromEntries(eligible.map((learner, index) => [learner.id, availableCopies[index]?.id ?? ""]));
   }, [classLearners, classActiveLoans, availableCopies]);
 
-  const issuePairs = classLearners.map((learner) => ({ learner_id: learner.id, copy_id: pairing[learner.id] ?? autoPairing[learner.id] ?? "" })).filter((pair) => pair.copy_id);
+  const availableCopyIds = new Set(availableCopies.map((copy) => copy.id));
+  const selectedPairing = (learnerId: string) => {
+    const id = pairing[learnerId] ?? autoPairing[learnerId] ?? "";
+    return availableCopyIds.has(id) ? id : "";
+  };
+  const issuePairs = classLearners.map((learner) => ({ learner_id: learner.id, copy_id: selectedPairing(learner.id) })).filter((pair) => pair.copy_id);
   const selectedCopyIds = issuePairs.map((pair) => pair.copy_id);
   const duplicateCopies = new Set(selectedCopyIds).size !== selectedCopyIds.length;
   const alreadyHoldingIds = new Set(classActiveLoans.map((loan) => loan.borrowerId));
@@ -81,7 +87,7 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
       {gradeId ? <div className="mt-4 grid overflow-hidden rounded-[var(--radius-sm)] border border-border-subtle bg-surface sm:grid-cols-3 xl:grid-cols-6">
         {[{ label: "Learners", value: selectedGradeLearners.length }, { label: "Stock", value: gradeStock.length }, { label: "Issued", value: gradeActive.length }, { label: "Overdue", value: gradeOverdue.length }, { label: "Lost", value: gradeLost.length }, { label: "Damaged", value: gradeDamaged.length }].map((item, index) => <div key={item.label} className={`px-3 py-3 ${index ? "border-t border-border-subtle sm:border-l sm:border-t-0" : ""}`}><p className="text-[0.68rem] font-medium text-muted-foreground">{item.label}</p><p className="mt-1 text-lg font-semibold">{item.value}</p></div>)}
       </div> : null}
-      {gradeId ? <p className="mt-2 text-[0.68rem] text-muted-foreground">No configured allocation requirement/booklist exists in the current model, so “required copies” and shortage totals are not fabricated.</p> : null}
+
 
       {classId ? <div className="mt-4 overflow-x-auto rounded-[var(--radius-sm)] border border-border-subtle"><table className="min-w-full text-left text-xs"><thead className="bg-surface-muted text-muted-foreground"><tr><th className="px-3 py-2.5 font-semibold">Learner</th><th className="px-3 py-2.5 font-semibold">Current allocation</th><th className="px-3 py-2.5 font-semibold">Overdue</th><th className="px-3 py-2.5 font-semibold">Returned / lost / damaged history</th></tr></thead><tbody className="divide-y divide-border-subtle">{classLearners.map((learner) => {
         const current = activeLoans.filter((loan) => loan.borrowerId === learner.id && (!titleId || copyMap.get(loan.copyId)?.titleId === titleId));
@@ -90,12 +96,14 @@ export function ClassOperations({ schoolId, today, grades, classes, learners, ti
       })}</tbody></table></div> : <div className="mt-4 rounded-[var(--radius-sm)] border border-dashed border-border p-5 text-center text-sm text-muted-foreground">Choose a grade and class to review learner allocations.</div>}
     </section>
 
+    <BooklistRequirements key={`${schoolId}:${gradeId}`} schoolId={schoolId} gradeId={gradeId} grades={grades} titles={titles} booklists={booklists} learners={learners} copies={copies} loans={loans} />
+
     {classId && titleId ? <section className="grid gap-5 xl:grid-cols-2">
       <form action={issueAction} className="rounded-[var(--radius-md)] bg-surface p-4 shadow-[var(--shadow-xs)] sm:p-5">
         <input type="hidden" name="schoolId" value={schoolId} /><input type="hidden" name="pairsJson" value={JSON.stringify(issuePairs)} />
         <div><h2 className="scolapro-section-title">Bulk issue by class</h2><p className="scolapro-section-description">Automatic copy-to-learner pairing is previewed before the canonical issue lifecycle commits.</p></div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2"><DateField label="Due date" name="dueOn" value={dueOn} onChange={setDueOn} min={today} /><label className="block text-xs font-medium leading-4">Issue note<input name="notes" placeholder="Optional note for this class issue" className="mt-1.5 min-h-10 w-full rounded-[var(--radius-sm)] border border-border-subtle bg-surface-elevated px-3 text-sm outline-none transition focus:ring-4 focus:ring-[color:var(--brand-soft)]" /></label></div>
-        <div className="mt-4 space-y-2">{issueCandidates.map((learner) => <div key={learner.id} className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-center"><div><p className="text-xs font-semibold">{learner.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{learner.admissionNumber ?? "Learner"}</p></div><Picker label="Assigned copy" value={pairing[learner.id] ?? autoPairing[learner.id] ?? ""} onChange={(copyId) => setPairing((current) => ({ ...current, [learner.id]: copyId }))} options={[{ value: "", label: "Leave unallocated" }, ...availableCopies.map((copy) => ({ value: copy.id, label: copyIdentity(copy), helper: copy.locationLabel ?? pretty(copy.condition) }))]} placeholder="Leave unallocated" /></div>)}</div>
+        <div className="mt-4 space-y-2">{issueCandidates.map((learner) => <div key={learner.id} className="grid gap-2 rounded-[var(--radius-sm)] bg-surface-muted px-3 py-3 sm:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] sm:items-center"><div><p className="text-xs font-semibold">{learner.name}</p><p className="mt-0.5 text-[0.68rem] text-muted-foreground">{learner.admissionNumber ?? "Learner"}</p></div><Picker label="Assigned copy" value={selectedPairing(learner.id)} onChange={(copyId) => setPairing((current) => ({ ...current, [learner.id]: copyId }))} options={[{ value: "", label: "Leave unallocated" }, ...availableCopies.map((copy) => ({ value: copy.id, label: copyIdentity(copy), helper: copy.locationLabel ?? pretty(copy.condition) }))]} placeholder="Leave unallocated" /></div>)}</div>
         {shortage ? <p className="mt-3 rounded-[var(--radius-sm)] bg-warning-soft px-3 py-2 text-xs text-[color:var(--warning)]">Shortage: {shortage} learner{shortage === 1 ? "" : "s"} cannot be automatically paired because only {availableCopies.length} copies are currently available.</p> : null}
         {duplicateCopies ? <p className="mt-3 text-xs font-medium text-[color:var(--danger)]">The same physical copy is selected more than once. Correct the pairing before confirming.</p> : null}
         <div className="mt-4 flex justify-start sm:justify-end"><Button type="submit" loading={issuePending} disabled={issuePending || duplicateCopies || !issuePairs.length}><BookCopy className="size-4" aria-hidden="true" />Confirm {issuePairs.length} issue{issuePairs.length === 1 ? "" : "s"}</Button></div>

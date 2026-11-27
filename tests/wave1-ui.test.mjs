@@ -37,7 +37,12 @@ test('absence server-action module exports only functions; reason vocabulary is 
   const { ensureServerEntryExports } = nodeRequire('next/dist/build/webpack/loaders/next-flight-loader/action-validate');
   // This throws "found object" against the authoritative baseline.
   ensureServerEntryExports(Object.values(actions));
-  assert.deepEqual(Object.keys(actions).sort(), ['reviewAbsenceNotice', 'submitAbsenceNotice']);
+  assert.deepEqual(Object.keys(actions).sort(), [
+    'resubmitAbsenceNotice',
+    'reviewAbsenceNotice',
+    'submitAbsenceNotice',
+    'withdrawAbsenceNotice',
+  ]);
   assert.deepEqual(load('@/features/parents/absence-reasons').reasonLabels, labels);
 });
 
@@ -50,7 +55,7 @@ function absencePage(context, calls) {
     '@/components/shell/app-shell': { AppShell: ({ children }) => children },
     '@/lib/auth/get-user-context': { getUserContext: async () => context },
     '@/features/attendance/server/absence-review-workspace': { getAbsenceReviewWorkspace: async (...args) => { calls.push(args); return emptyWorkspace; } },
-    '@/features/parents/server/absence-queries': { getSchoolAbsenceNotices: async () => [] },
+    '@/features/parents/server/absence-queries': { getSchoolAbsenceNotices: async () => ({ notices: [], hasMore: false }) },
   })('@/app/school/absence-reviews/page').default;
 }
 test('authorized absence route renders its real workspace and review list in current-school scope', async () => {
@@ -522,12 +527,15 @@ test('navigation exposes School Directory to every authenticated role without ne
 });
 
 
-test('academic setup uses governed year while timetable retains Namibia-local fallback', () => {
+test('academic setup uses governed year with bounded requested-year override while timetable retains Namibia-local fallback', () => {
   const setupSource = fs.readFileSync(path.join(root, 'src/app/school/setup/page.tsx'), 'utf8');
   const timetableSource = fs.readFileSync(path.join(root, 'src/app/timetable/page.tsx'), 'utf8');
 
   assert.match(setupSource, /import \{ getGovernedAcademicYear \} from "@\/features\/calendar\/server\/calendar";/);
-  assert.match(setupSource, /const academicYear = await getGovernedAcademicYear\(membership\.schoolId\);/);
+  assert.match(setupSource, /const currentAcademicYear = await getGovernedAcademicYear\(membership\.schoolId\);/);
+  assert.match(setupSource, /const requestedYear = Number\(\(await searchParams\)\.year\);/);
+  assert.match(setupSource, /requestedYear >= currentAcademicYear && requestedYear <= currentAcademicYear \+ 1/);
+  assert.match(setupSource, /: currentAcademicYear;/);
   assert.doesNotMatch(setupSource, /new Date\(\)\.getFullYear\(\)/);
 
   assert.match(timetableSource, /import \{ getNamibiaCalendarYear \} from "@\/lib\/namibia-date";/);

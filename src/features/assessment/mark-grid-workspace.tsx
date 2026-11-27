@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Clock3, Filter, Save, ShieldCheck, UploadCloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -71,6 +72,7 @@ function countdownLabel(target:string|null,clock:number) {
 }
 
 export function MarkGridWorkspace({data}:{data:MarkGridData}) {
+  const router=useRouter();
   const [rows,setRows]=useState<RowDraft[]>(()=>data.rows.map((row)=>({
     ...row,
     draftMark:row.numericMark==null ? "" : String(row.numericMark),
@@ -178,6 +180,12 @@ export function MarkGridWorkspace({data}:{data:MarkGridData}) {
         return;
       }
       patchRow(row.enrolmentId,{version:body.version,numericMark,markStatus,draftMark:numericMark==null?"":String(numericMark),saveState:"saved",error:null});
+      // The canonical mark-insert trigger moves verified/locked assessments to
+      // 'returned' only after an authorized corrected mark is persisted.
+      // Refresh the server workflow before enabling teacher re-submission.
+      if (data.window.correctionPending && ["verified","locked"].includes(data.status)) {
+        router.refresh();
+      }
     } catch {
       await queueAssessmentMarkDraft(scope,payload);
       patchRow(row.enrolmentId,{saveState:"queued",error:null});
