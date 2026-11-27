@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { execFileSync } from "node:child_process";
 import { expect, test } from "@playwright/test";
 import { DEMO, SYNTHETIC_ACCOUNTS } from "./support/accounts.mjs";
 import { localSupabaseStatus } from "./support/local-supabase.mjs";
@@ -144,7 +145,7 @@ async function resetNotices(service: ReturnType<typeof serviceClient>) {
 }
 
 test("guardian submits evidence, reviewer returns it, guardian resubmits and reviewer accepts", async ({ page, browser }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const service = serviceClient();
   await resetNotices(service);
   const run = crypto.randomUUID().slice(0, 8);
@@ -254,6 +255,30 @@ test("guardian submits evidence, reviewer returns it, guardian resubmits and rev
     const deniedSign = await storage.createSignedUrl(attachment.storage_path, 90);
     expect(deniedSign.data).toBeNull();
     expect(deniedSign.error).toBeTruthy();
+  }
+  // Restart only the disposable hosted runner's Storage container. Do not
+  // interrupt a developer's local stack or a hosted staging environment.
+  if (process.env.GITHUB_ACTIONS === "true" && process.env.RUNNER_ENVIRONMENT === "github-hosted") {
+    const containers = execFileSync("docker", ["ps", "--filter", "name=^/supabase_storage_scolapro$", "--format", "{{.Names}}"], {
+      encoding: "utf8", timeout: 10_000,
+    }).trim().split("\n").filter(Boolean);
+    expect(containers).toEqual(["supabase_storage_scolapro"]);
+    execFileSync("docker", ["restart", "--time", "10", containers[0]], { timeout: 45_000, stdio: "pipe" });
+    // Successful fresh signing and download establish recovery of both
+    // authorization and persisted object content, not just container health.
+    await expect.poll(async () => {
+      const recovered = await reviewerStorage.download(attachment.storage_path);
+      return recovered.error || !recovered.data ? false :
+        Buffer.from(await recovered.data.arrayBuffer()).equals(expectedBytes);
+    }, { timeout: 45_000, intervals: [1000, 2000, 5000] }).toBe(true);
+    const recoveredSign = await reviewerStorage.createSignedUrl(attachment.storage_path, 90);
+    expect(recoveredSign.error).toBeNull();
+    if (!recoveredSign.data) throw new Error("Storage did not recover signed URL generation.");
+    expect(new URL(recoveredSign.data.signedUrl).origin).toBe(new URL(local.API_URL).origin);
+    const recoveredResponse = await fetch(recoveredSign.data.signedUrl, { redirect: "error", cache: "no-store" });
+    expect(recoveredResponse.status).toBe(200);
+    expect(Buffer.from(await recoveredResponse.arrayBuffer())).toEqual(expectedBytes);
+    console.log("Hosted disposable Storage restart recovery verified.");
   }
   const anonymous = createClient(local.API_URL, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
